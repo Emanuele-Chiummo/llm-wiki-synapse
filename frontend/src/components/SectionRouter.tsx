@@ -6,6 +6,7 @@
  *   graph    → <GraphPanel/>  full-bleed
  *   ingest   → <IngestView/>  (center) + <IngestRunDetail/> (right)
  *   settings → <SettingsPanel/> (single column)
+ *   chat     → <ChatSection/>  (ConversationList | MessageList + MessageInput — ADR-0019)
  *
  * INVARIANT I2: GraphPanel is reused verbatim — no layout/force code added here.
  * INVARIANT I3: reads only activeSection (scalar) — no unrelated store keys subscribed.
@@ -17,6 +18,7 @@ import { GraphPanel } from "./center/GraphPanel";
 import { IngestView } from "./ingest/IngestView";
 import { IngestRunDetail } from "./ingest/IngestRunDetail";
 import { SettingsPanel } from "./settings/SettingsPanel";
+import { ChatSection } from "./chat/ChatSection";
 
 export function SectionRouter() {
   const activeSection = useGraphStore(selectActiveSection);
@@ -71,6 +73,10 @@ export function SectionRouter() {
         <SettingsPanel />
       </div>
     );
+  }
+
+  if (activeSection === "chat") {
+    return <ChatSection />;
   }
 
   // Fallback — should never happen with exhaustive Section type

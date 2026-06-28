@@ -25,10 +25,10 @@ export type CenterTab = "graph" | "chat";
 
 /**
  * Top-level navigation section.
- * "chat" is reserved for Phase 3 (disabled in the NavRail).
- * ADR-0018 §2: scalar, Object.is comparison — no shallow needed.
+ * ADR-0018 §2 / ADR-0019 §3: "chat" enabled in Phase 3.
+ * Scalar, Object.is comparison — no shallow needed.
  */
-export type Section = "pages" | "graph" | "ingest" | "settings";
+export type Section = "pages" | "graph" | "ingest" | "settings" | "chat";
 
 /** UI state added in v0.4 Phase 1 shell (F1). */
 export interface UiState {
