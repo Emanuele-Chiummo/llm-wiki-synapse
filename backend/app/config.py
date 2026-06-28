@@ -63,6 +63,19 @@ class Settings(BaseSettings):
     The watcher watches <vault_path>/raw/sources/.
     """
 
+    # ── Frontend / CORS ─────────────────────────────────────────────────────────
+    cors_allow_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    """
+    Comma-separated list of browser origins allowed to call the API (CORS).
+    Default covers the Vite dev server; set CORS_ALLOW_ORIGINS in prod (PWA/Tauri origin).
+    Use "*" to allow any origin (dev only).
+    """
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """CORS allow-origins as a list (split + trimmed)."""
+        return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
     @property
     def vault_root(self) -> Path:
         """Resolved absolute Path to the vault root."""
