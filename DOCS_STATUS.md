@@ -2,6 +2,100 @@
 
 > Tech-writer sign-off. Phases appended chronologically; most recent phase at top.
 
+## D6 Delivery — USER.md + DEPLOY.md v0.4 draft — DOCS GATE: PASS
+
+> Gate run: 2026-06-28
+> Prerequisite: M4 PM sign-off (v0.4-pm-signoff.md) records D6 as the one genuine gap
+> blocking EC-M4-HCP-6. This section records the closure of that gap.
+
+### Per-artifact status
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D6a | `docs/USER.md` | UP-TO-DATE | Created this gate run. See §D6a below. |
+| D6b | `docs/DEPLOY.md` | UP-TO-DATE (v0.4 draft) | Promoted from v0.1 draft this gate run. See §D6b below. |
+
+### §D6a — docs/USER.md
+
+File created at `docs/USER.md`. Covers:
+- What Synapse is (self-organizing wiki, Karpathy pattern).
+- Core user journey (ingest → graph → inspect → chat → configure provider).
+- Each nav section with embedded screenshots: Pages (3-panel + selected-node), Graph
+  (sigma viewer, node sizing, hover, drag), Ingest (activity list, Run Ingest, status
+  badges, cost to 4dp), Chat (streaming, conversation list, Regenerate, GFM/LaTeX,
+  reasoning block), Settings (context window budget split, language toggle, provider
+  table, Reset).
+- Provider selector header (three types: Local/API/CLI; scope: Global/Vault).
+- How to ingest a first document and open the wiki in Obsidian.
+- Status bar description.
+- What is coming in M5 and M6 (citations, review queue, deep research, multi-format,
+  cascade delete, clipper, PWA/Tauri, lint, MkDocs) — clearly labeled as not present
+  in v0.4.
+- Screenshots referenced from `docs/screens/` (all 10 PNGs committed by QA in Phase 2
+  and Phase 3).
+- Features NOT documented as present: save-to-wiki (button disabled), [n] citations
+  (M5), CliAgentProvider.chat() (M5), F9 review queue (M5).
+
+AC-D6-1 MET. AC-D6-3 MET (no [TODO] placeholders). AC-D6-4 MET (tech-writer reviewed).
+
+### §D6b — docs/DEPLOY.md (v0.4 draft)
+
+File updated from v0.1-only content to v0.4 draft. Changes from the v0.1 draft:
+- Header promotes to "v0.4 draft" status.
+- Prerequisites table updated: SearXNG noted as optional (required for M5 Deep
+  Research, not M4).
+- Environment variable table: added `CORS_ALLOW_ORIGINS` (shipped in v0.4 — CORS
+  middleware wired in M4); `QDRANT_COLLECTION` clarified.
+- §4 (Configuring an inference provider) is new: covers inserting `provider_config`
+  rows via psql for Local Ollama (e.g. `qwen2.5:3b`), API (Anthropic), and
+  OpenAI-compatible endpoints; explains resolution precedence; documents the Alembic
+  data migration seed behavior.
+- §5 TrueNAS deployment: vault bind-mount path override documented.
+- Troubleshooting: added §9.4 (no provider_config hard error) and §9.5
+  (CliAgentProvider.chat NotImplementedError — switch to Local/API for chat).
+- Make targets: added `make screenshots`.
+- References: updated to include ADRs 0001–0019 and USER.md.
+
+AC-D6-2 MET. AC-D6-3 MET (no [TODO] placeholders). AC-D6-4 MET (tech-writer reviewed).
+
+### DOCS GATE VERDICT — D6 delivery
+
+| Artifact | Status | Detail |
+|----------|--------|--------|
+| D6a `docs/USER.md` | UP-TO-DATE | Created; covers all shipped M4 features; screenshots embedded; M5/M6 roadmap clearly labeled |
+| D6b `docs/DEPLOY.md` | UP-TO-DATE (v0.4 draft) | Promoted from v0.1; provider_config setup documented; CORS_ALLOW_ORIGINS added; troubleshooting extended |
+
+**DOCS GATE: PASS**
+
+EC-M4-HCP-6 condition ("docs/USER.md exists and covers the core user journey") is now
+MET. The PM may record D6 as closed in the M4 sign-off document and proceed to the
+human checkpoint.
+
+Overall M4 D-artifact verdict: ALL UP-TO-DATE
+
+| ID | Artifact | Status |
+|----|----------|--------|
+| D1 | `docs/architecture/component.mmd` | UP-TO-DATE (Phase 3 gate) |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (Phase 3 gate; migrations 0001–0007) |
+| D3 | `docs/sequences/` (ingest-loop, ingest-routing, graph-recompute) | UP-TO-DATE (M3 + M4 phase gates) |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (Phase 3 gate) |
+| D5 | `docs/screens/` (10 PNGs) | UP-TO-DATE (Phase 2 + Phase 3 QA captures) |
+| D6a | `docs/USER.md` | UP-TO-DATE (this gate run) |
+| D6b | `docs/DEPLOY.md` | UP-TO-DATE v0.4 draft (this gate run) |
+| D7 | `docs/adr/README.md` + ADR-0001..0019 | UP-TO-DATE (Phase 3 gate) |
+
+**OVERALL VERDICT: ALL UP-TO-DATE**
+
+Deferred (not gaps — PM-approved):
+- chat-think-block D5 screenshot: no `<think>`-capable model available during capture run;
+  will be captured when a reasoning model is configured. Tracked in M5.
+- NB-7 graph-recompute.mmd cosmetic: optional P3 polish, carried to M5.
+- NB-8 component.mmd store label: optional P3 polish, carried to M5.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-28 | M4 D6 delivery gate**
+
+---
+
 ## Phase 3 (Chat — F6/F7/F8 + G3) — DOCS GATE: PASS
 
 - **D1** `docs/architecture/component.mmd` — UPDATED: chat backend module (context/think/stream) + `/chat/stream` + `/conversations*` routes; frontend ChatSection/ConversationList/MessageList/StreamingMessage/MarkdownView/ThinkBlock/MessageInput + chatStore/chatClient/useChatStream/latexToUnicode (I3/I4/G3 annotated); OllamaProvider/ApiProvider `chat()` implemented; NavRail Chat enabled.

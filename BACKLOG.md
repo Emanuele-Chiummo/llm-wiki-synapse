@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-06-28 (Sprint 3 exit — M3 MET-PENDING-HUMAN-CHECKPOINT; PM sign-off EC-M3-16 issued)
+> Last updated: 2026-06-28 (Sprint 4 exit — M4 MET-WITH-DEFERRALS; PM sign-off docs/sprints/v0.4-pm-signoff.md; EC-M4-HCP PENDING)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -1026,16 +1026,24 @@ to show `GC->>Client: (from in-process snapshot)` on the HIT path.
 
 ## Sprint 4 — v0.4 — M4 "Usable & fluid"
 
-**Sprint status: IN PROGRESS**
+**Sprint status: DONE — M4 MET-WITH-DEFERRALS (D6 conditional); EC-M4-HCP PENDING**
 Scope locked: 2026-06-28 by product-manager. Scope log: docs/sprints/v0.4-pm-scope.md
+PM sign-off: docs/sprints/v0.4-pm-signoff.md | 2026-06-28
 Scope amended: 2026-06-28 — F1-NAV (Left Navigation Rail) and F1-INGEST-VIEW (Ingest
 Activity View) added to Phase 2 at stakeholder Emanuele's explicit request. Visual direction:
 nashsu/llm_wiki-inspired. BE-INGEST-RUNS backend endpoint added as explicit work item.
-Branch: sprint/v0.4 (to be cut after EC-M3-17 human checkpoint)
-Prerequisite: M3 MET-PENDING-HUMAN-CHECKPOINT — EC-M3-17 must be satisfied by Emanuele
-before Phase 1 code begins.
+Branch: sprint/v0.4
 Invariants with heightened priority: I3 (no per-token heavy work — headline for G3),
 I4 (CodeMirror 6, TanStack Virtual, no WYSIWYG). All 9 invariants apply.
+Velocity: ON SCOPE. All 25 locked work items delivered or formally deferred. G3 mandatory
+streaming perf gate GREEN (no live-run waiver needed). 4-phase delivery plan executed within
+2-week envelope. Two Phase 2 additions absorbed without phase slippage.
+Documentation gap: docs/USER.md absent (AC-D6-1 NOT MET); DEPLOY.md not promoted to v0.4
+draft (AC-D6-2 partial). D6 is a conditional requirement before EC-M4-HCP can be closed.
+Human checkpoint: EC-M4-HCP — Emanuele must confirm 6 browser conditions listed in
+docs/sprints/v0.4-pm-signoff.md §1 Gate 11. Sprint 5 BLOCKED until confirmed.
+Carried nits: NB-7, NB-8, NB-9 (CI branch filter), architect P1/P2/P3 nits, G4 live-run,
+G2 runtime live-run, chat-think-block D5 screenshot — all non-blocking, moved to M5.
 
 ---
 
@@ -1043,40 +1051,40 @@ I4 (CodeMirror 6, TanStack Virtual, no WYSIWYG). All 9 invariants apply.
 
 | Feature ID | Description | Status | Notes |
 |------------|-------------|--------|-------|
-| F1 | 3-panel shell (tree / chat / preview), resizable | backlog | I3, I4 must be honoured; Phase 1 |
-| F1-NAV | Left Navigation Rail: persistent app navigation with Pages / Graph / Ingest / Settings sections; Chat reserved for Phase 3 | backlog | Phase 2 addition — stakeholder request 2026-06-28; nashsu/llm_wiki-inspired visual style |
-| F1-INGEST-VIEW | Ingest Activity View: read-only list of recent ingest runs (status, pages_created, cost USD, timestamps, errors) + Run Ingest trigger button. NOT F9 (no approve/reject/skip). | backlog | Phase 2 addition — stakeholder request 2026-06-28; I7 cost visibility |
-| BE-INGEST-RUNS | Backend: GET /ingest/runs endpoint — paginated, vault_id filter, started_at DESC; D4 update required | backlog | Phase 2; prerequisite for F1-INGEST-VIEW |
-| F6 | Multi-conversation persistent chat, cited-refs, regenerate, save-to-wiki | backlog | Phase 3 |
-| F7 | Reasoning `<think>` display, streaming, collapsed by default | backlog | Phase 3 |
-| F8 | LaTeX to Unicode (parse at stream END only) | backlog | Phase 3; I3 |
-| F14 | Configurable context window 4K–1M; 60/20/5/15 budget | backlog | Phase 2 |
-| F17 (UI) | Provider Selector UI; wired to backend provider_config | backlog | Phase 2; I6 |
-| F16 (rest) | i18n IT/EN, settings persistence, .obsidian auto-gen, GFM, multi-provider chat timeout | backlog | Phase 2; I5; nav rail section labels added to locales |
-| G3 | Streaming perf gate — MANDATORY this sprint; no deferred-to-live without orchestrator waiver | backlog | Phase 3 |
-| D5 (update) | UI screenshots refreshed: 3-panel, nav rail, ingest view, provider selector, chat; graph PNGs updated (ADR-0016 rendering) | backlog | Threaded throughout; add shell-nav-rail.png and shell-ingest-view.png |
-| D6 | USER.md + DEPLOY.md drafts | backlog | Threaded throughout |
-| NB-6 | mmdc CI render check (devops-engineer) | backlog | Phase 2; must resolve before M4 sign-off |
-| NB-7 | graph-recompute.mmd hit-path cosmetic fix (tech-writer, optional P3) | backlog | Architect note D-1 |
-| NB-8 | component.mmd store filename label cosmetic fix (tech-writer, optional P3) | backlog | Architect note D-2 |
+| F1 | 3-panel shell (tree / chat / preview), resizable | done | AC-F1-1..7 GREEN; I3/I4 verified; Phase 1 delivered |
+| F1-NAV | Left Navigation Rail: persistent app navigation with Pages / Graph / Ingest / Settings sections; Chat active in Phase 3 | done | AC-F1-NAV-1..8 GREEN; nash-style icon rail; i18n labels |
+| F1-INGEST-VIEW | Ingest Activity View: read-only list of recent ingest runs (status, pages_created, cost USD 4dp, timestamps, errors) + Run Ingest trigger button. NOT F9. | done | AC-F1-IV-1..8 GREEN; migration 0006; polling while running |
+| BE-INGEST-RUNS | Backend: GET /ingest/runs endpoint — paginated, vault_id filter, started_at DESC; D4 updated | done | AC-BE-IR-1..5 GREEN; openapi.json regenerated |
+| F6 | Multi-conversation persistent chat, cited-refs stub, regenerate; save-to-wiki button disabled (M5) | done-with-deferral | AC-F6-1/2/4/6 GREEN; AC-F6-3 citations empty (F5 M5); AC-F6-5 save-to-wiki disabled M5 |
+| F7 | Reasoning `<think>` display, streaming, collapsed by default | done | AC-F7-1..4 GREEN; streaming-safe split; stored in full |
+| F8 | LaTeX to Unicode (parse at stream END only) | done | AC-F8-1..4 GREEN; I3 verified; fires once on done event |
+| F14 | Configurable context window 4K–1M; 60/20/5/15 budget | done | AC-F14-1..5 GREEN; persisted in provider_config |
+| F17 (UI) | Provider Selector UI; wired to backend provider_config | done | AC-F17-UI-1..6 GREEN; reads/writes /provider/config; I6 no hardcoded IDs |
+| F16 (rest) | i18n IT/EN, settings persistence, .obsidian auto-gen, GFM, multi-provider chat timeout | done | AC-F16 all GREEN; en/it parity; localStorage persist; obsidian vault_id change handled |
+| G3 | Streaming perf gate — MANDATORY — GREEN | done | T-E2E-G3-001 PASS; 0 long tasks; parse-once; selector discipline verified |
+| D5 (update) | UI screenshots refreshed: 10 PNGs committed | done | docs/screens/: graph-obsidian, shell-3panel, ingest-section, settings-section, provider-selector-open, navrail-graph-active, chat-streaming, chat-conversation + 2 node-selected variants |
+| D6 | USER.md + DEPLOY.md drafts | NOT MET — CONDITIONAL | docs/USER.md ABSENT (AC-D6-1 gap); DEPLOY.md not promoted to v0.4 draft (AC-D6-2 partial); must be delivered before EC-M4-HCP closes |
+| NB-6 | mmdc CI render check (devops-engineer) | done | ci.yml wired: mmdc installed + loop over all .mmd; T-DOCS-MANUAL-003 replaced |
+| NB-7 | graph-recompute.mmd hit-path cosmetic fix (tech-writer, optional P3) | backlog-M5 | Non-blocking; carried to M5 tech-writer polish |
+| NB-8 | component.mmd store filename label cosmetic fix (tech-writer, optional P3) | backlog-M5 | Non-blocking; carried to M5 tech-writer polish |
 
 ---
 
-### M4-GUX — GraphUX formalization (work done at v0.3→v0.4 transition; now gated)
+### M4-GUX — GraphUX formalization (work done at v0.3→v0.4 transition; gated and closed)
 
-Work executed pragmatically before formal sprint kickoff. All sub-items require QA gate,
-architect sign-off, and tech-writer sign-off before M4 exit. ADR: docs/adr/0016-obsidian-graph-rendering.md.
+Work executed pragmatically before formal sprint kickoff. All sub-items gated through
+Phase 0. ADR: docs/adr/0016-obsidian-graph-rendering.md — Accepted + Reviewed.
 
 | Sub-ID | Description | Status | Notes |
 |--------|-------------|--------|-------|
-| M4-GUX-1 | Engine structural-only edges: direct-link + shared-source as generators; AA and same-type demoted to weight modulators | backlog — Phase 0 gate | AC-GUX-1/2; TRACEABILITY P3–P5 fixture correction required |
-| M4-GUX-2 | Per-edge `kind` field ("link"/"source") in edges table + GraphEdgeResponse | backlog — Phase 0 gate | AC-GUX-3; backward-compatible additive field |
-| M4-GUX-3 | Node size = 1.0 + 1.0·sqrt(structural_degree); degree field redefined to structural_degree | backlog — Phase 0 gate | AC-GUX-1; ADR-0016 §2 |
-| M4-GUX-4 | Migrations 0004 (edges.kind) + 0005 (pages.pinned); D2 + D4 regenerated | backlog — Phase 0 gate | make er + make openapi zero drift |
-| M4-GUX-5 | Server-side near-circular layout envelope (_compress_to_disc, ~1.04 aspect ratio) | backlog — Phase 0 gate | I2 intact |
-| M4-GUX-6 | Single-node DRAG with persistence: PATCH /pages/{id}/position; pages.pinned; no relayout, no data_version bump | backlog — Phase 0 gate | AC-GUX-4/5; I2-compatible; T-NCL tests must still pass |
-| M4-GUX-7 | Frontend Obsidian-style viewer: CVD-safe palette, node size ∝ connections, hover-dim, accessible labels, LOD, prefers-reduced-motion, aria-live | backlog — Phase 0 gate | AC-GUX-6/7/8/9 |
-| M4-GUX-8 | seed_demo_vault.py: 140-node scale-free realistic demo dataset | backlog — Phase 0 gate | D5 baseline |
+| M4-GUX-1 | Engine structural-only edges: direct-link + shared-source as generators; AA and same-type demoted to weight modulators | done | AC-GUX-1/2 GREEN; TRACEABILITY P3–P5 corrected to "absent" |
+| M4-GUX-2 | Per-edge `kind` field ("link"/"source") in edges table + GraphEdgeResponse | done | AC-GUX-3 GREEN; migration 0004; backward-compatible |
+| M4-GUX-3 | Node size = 1.0 + 1.0·sqrt(structural_degree); degree redefined to structural_degree | done | AC-GUX-1 GREEN; ADR-0016 §2 |
+| M4-GUX-4 | Migrations 0004 (edges.kind) + 0005 (pages.pinned); D2 + D4 regenerated | done | make er + make openapi zero drift confirmed |
+| M4-GUX-5 | Server-side near-circular layout envelope (_compress_to_disc, ~1.04 aspect ratio) | done | I2 intact; server-side only |
+| M4-GUX-6 | Single-node DRAG with persistence: PATCH /pages/{id}/position; pages.pinned; no relayout, no data_version bump | done | AC-GUX-4/5 GREEN; I2-compatible; T-NCL-001..022 still pass |
+| M4-GUX-7 | Frontend Obsidian-style viewer: CVD-safe palette, node size ∝ connections, hover-dim, accessible labels, LOD, prefers-reduced-motion, aria-live | done | AC-GUX-6/7/8/9 GREEN; Playwright a11y no critical violations |
+| M4-GUX-8 | seed_demo_vault.py: 140-node scale-free realistic demo dataset | done | D5 baseline captured; graph PNGs committed |
 
 ---
 
@@ -1086,18 +1094,18 @@ architect sign-off, and tech-writer sign-off before M4 exit. ADR: docs/adr/0016-
 |-------|-------|
 | Feature ID | F1-NAV (sub-item of F1) |
 | Sprint | v0.4 |
-| Status | backlog |
-| Priority | P0 for Phase 2 — structural skeleton all other Phase 2/3 views plug into |
+| Status | done — AC-F1-NAV-1..8 GREEN |
+| Priority | P0 for Phase 2 |
 | Owner | frontend-engineer |
 | Source | Stakeholder request 2026-06-28 (Emanuele); visual direction: nashsu/llm_wiki |
 
 **Scope:**
 Restructure the shell's left region into a persistent vertical navigation rail. The rail
 has 4 active section items — Pages (file tree), Graph (sigma viewer), Ingest (ingest activity),
-Settings (provider/settings panel) — and 1 reserved item: Chat (disabled/placeholder, active
-in Phase 3). Clicking a section switches the main content area without a page reload. The
-activity panel (vault name, active provider, last ingest timestamp, data_version) remains
-visible at all times across all section views. Section labels are i18n translation keys.
+Settings (provider/settings panel) — and 1 reserved item: Chat (active in Phase 3). Clicking
+a section switches the main content area without a page reload. The activity panel (vault name,
+active provider, last ingest timestamp, data_version) remains visible at all times. Section
+labels are i18n translation keys.
 
 **Acceptance criteria:** docs/sprints/v0.4-pm-scope.md §2 AC-F1-NAV-1..8
 
@@ -1109,8 +1117,8 @@ visible at all times across all section views. Section labels are i18n translati
 |-------|-------|
 | Feature ID | F1-INGEST-VIEW (sub-item of F1) |
 | Sprint | v0.4 |
-| Status | backlog |
-| Priority | P0 for Phase 2 — blocked on BE-INGEST-RUNS |
+| Status | done — AC-F1-IV-1..8 GREEN |
+| Priority | P0 for Phase 2 |
 | Owner | frontend-engineer (view); backend-engineer (BE-INGEST-RUNS) |
 | Source | Stakeholder request 2026-06-28 (Emanuele); visual direction: nashsu/llm_wiki |
 
@@ -1120,8 +1128,7 @@ the Ingest section of the navigation rail. Each row shows: status badge (color-c
 provider type, pages created, total_cost_usd (4 decimal places, per I7), relative started_at
 timestamp, and truncated error message (if any). A "Run Ingest" button triggers POST
 /ingest/trigger and auto-refreshes the list. While any run is in "running" status the list
-polls (default every 5s). This view is EXPLICITLY NOT F9: no approve/reject/skip/deep-research
-actions are present or planned for this view. F9 is M5 scope.
+polls (default every 5s). NOT F9: no approve/reject/skip actions. F9 is M5.
 
 **Acceptance criteria:** docs/sprints/v0.4-pm-scope.md §2 AC-F1-IV-1..8
 
@@ -1133,8 +1140,8 @@ actions are present or planned for this view. F9 is M5 scope.
 |-------|-------|
 | Feature ID | BE-INGEST-RUNS (backend work item; prerequisite for F1-INGEST-VIEW) |
 | Sprint | v0.4 |
-| Status | backlog |
-| Priority | P0 for Phase 2 — blocks F1-INGEST-VIEW frontend |
+| Status | done — AC-BE-IR-1..5 GREEN |
+| Priority | P0 for Phase 2 |
 | Owner | backend-engineer |
 | Source | Derived from F1-INGEST-VIEW stakeholder request 2026-06-28 |
 
@@ -1145,8 +1152,7 @@ vault_id (uuid), status (enum: running/completed/failed/converged_false), provid
 (string), pages_created (int), iterations_used (int), total_cost_usd (decimal),
 started_at (timestamptz), completed_at (timestamptz nullable), error_message (text nullable).
 Query params: limit (int, default 20, max 100), offset (int, default 0), vault_id (uuid,
-optional). If ingest_runs is missing any of these columns, an Alembic migration is required.
-Regenerate openapi.json via `make openapi` after adding the endpoint (D4 zero-drift gate).
+optional). Migration 0006 applied. openapi.json regenerated (D4 zero-drift confirmed).
 
 **Acceptance criteria:** docs/sprints/v0.4-pm-scope.md §2 AC-BE-IR-1..5
 
@@ -1160,15 +1166,44 @@ Regenerate openapi.json via `make openapi` after adding the endpoint (D4 zero-dr
 
 ## Sprint 5 — v0.5 — M5 "Feature parity core" — BACKLOG (not yet started)
 
+Sprint 5 blocked until EC-M4-HCP human checkpoint is confirmed by Emanuele.
+
+### Core M5 features (from CLAUDE.md §8 roadmap)
+
 | Feature ID | Description | Notes |
 |------------|-------------|-------|
-| F5 | 4-phase retrieval, [n] citations | |
-| F9 | Async HITL review queue | K8 principle |
-| F10 | Deep Research loop (SearXNG) | I9: SearXNG only |
-| F12 | Multi-format ingest: PDF/DOCX/PPTX/XLSX/images/AV | |
-| F13 | Cascade deletion | |
-| D3 (update) | Sequence diagrams: deep-research, cascade-delete | |
+| F5 | 4-phase retrieval (tokenized → graph-expansion → budget → assembly), [n] citation markers | Required for AC-F6-3 citations |
+| F9 | Async HITL review queue (Create / Deep-Research / Skip actions, pre-generated queries) | K8 principle; NOT the ingest trigger (that is F1-INGEST-VIEW done in M4) |
+| F10 | Deep Research loop (SearXNG multi-query → fetch → assess → refine → synthesize → auto-ingest) | I9: SearXNG only; concurrency=3 |
+| F12 | Multi-format ingest: PDF/DOCX/PPTX/XLSX/images/AV | pypdf, unstructured, python-docx/pptx, openpyxl |
+| F13 | Cascade deletion (3-method matching, preserve shared entities, cleanup index.md + dead wikilinks) | |
+| D3 (update) | Sequence diagrams: deep-research, cascade-delete | Tied to F10/F13 |
 | D5 (update) | Screenshots refreshed | |
+
+### Carried from M4 (deferred items — PM-approved)
+
+| Item | Feature ID | Notes |
+|------|------------|-------|
+| [n] citations population | F6 (AC-F6-3) | Blocked on F5 retrieval pipeline |
+| save-to-wiki from chat | F6 (AC-F6-5) | Button disabled in M4 UI; wire to POST /ingest in M5 |
+| CliAgentProvider.chat() | F17 | Honest NotImplementedError in M4; implement in M5 |
+| Selected-page context injection into chat | F6/F5 | Requires F5 retrieval context assembly |
+| docs/USER.md | D6 (AC-D6-1) | MUST be delivered; conditional requirement for EC-M4-HCP close |
+| docs/DEPLOY.md v0.4 promotion | D6 (AC-D6-2) | MUST be delivered; conditional for EC-M4-HCP close |
+| chat-think-block D5 screenshot | D5 | Needs <think>-capable model (qwen2.5:3b emits none) |
+
+### Carried nits from M4 (non-blocking)
+
+| Item | Tracking ID | Notes |
+|------|-------------|-------|
+| graph-recompute.mmd hit-path cosmetic | NB-7 | Optional tech-writer polish |
+| component.mmd store label (store/graphStore.ts) | NB-8 | Optional tech-writer polish |
+| CI branch filter (add sprint/v0.3, sprint/v0.4) | NB-9 | Devops; non-blocking |
+| Architect P1 nit: capability heuristic | — | Backend hardening |
+| Architect P2 nit: optimistic think reconstruction | — | Frontend hardening |
+| Architect P3 nit: token_budget stream-stop test | — | QA test addition |
+| G4 fps Playwright test (live-run deferred) | — | T-E2E-G4-001/002; requires TrueNAS run |
+| G2 runtime Playwright test (live-run deferred) | — | T-E2E-G2-001/002 |
 
 ---
 
