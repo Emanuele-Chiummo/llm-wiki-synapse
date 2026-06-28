@@ -72,7 +72,10 @@ line-length = 100
 target-version = ["py311"]
 
 [tool.mypy]
-python_version = "3.11"
+# Target 3.13 to match the runtime venv (CLAUDE.md "3.11+"); 3.13 lets mypy parse
+# numpy 2.5's PEP 695 `type` statements in its bundled stubs, so `make typecheck`
+# passes on a clean install regardless of the interpreter version.
+python_version = "3.13"
 strict = true
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
