@@ -19,7 +19,7 @@ import type { CSSProperties } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import type { Layout } from "react-resizable-panels";
 import { NavTree } from "../nav/NavTree";
-import { MainTabs } from "../center/MainTabs";
+import { GraphPanel } from "../center/GraphPanel";
 import { PreviewPanel } from "../preview/PreviewPanel";
 import { ScenarioTemplates } from "../common/ScenarioTemplates";
 import { useGraphStore } from "../../store/graphStore";
@@ -127,7 +127,7 @@ export function PanelGroup() {
         style={SEPARATOR_STYLE}
       />
 
-      {/* Center panel — MainTabs */}
+      {/* Center panel — GraphPanel (ADR-0018 §1: one canonical graph location) */}
       <Panel
         id={PANEL_CENTER}
         defaultSize="56%"
@@ -140,7 +140,7 @@ export function PanelGroup() {
           minWidth: 0,
         }}
       >
-        <MainTabs />
+        <GraphPanel />
       </Panel>
 
       <Separator

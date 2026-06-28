@@ -18,19 +18,31 @@ import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { CacheStatus, GraphEdge, GraphNode } from "../api/types";
 
-// ─── UI slice types (ADR-0017 §4) ────────────────────────────────────────────
+// ─── UI slice types (ADR-0017 §4, ADR-0018 §2) ───────────────────────────────
 
 /** Which tab is active in the center panel. "chat" is a disabled stub in Phase 1. */
 export type CenterTab = "graph" | "chat";
+
+/**
+ * Top-level navigation section.
+ * "chat" is reserved for Phase 3 (disabled in the NavRail).
+ * ADR-0018 §2: scalar, Object.is comparison — no shallow needed.
+ */
+export type Section = "pages" | "graph" | "ingest" | "settings";
 
 /** UI state added in v0.4 Phase 1 shell (F1). */
 export interface UiState {
   /** Who most recently set the selection (graph click vs tree click). */
   selectedSource: "graph" | "tree" | null;
-  /** Active center tab. */
+  /** Active center tab (vestigial in Phase 2; retained for Phase 3 chat placement). */
   activeTab: CenterTab;
   /** Per-group-type collapsed state for the NavTree. */
   treeCollapsed: Record<string, boolean>;
+  /**
+   * Active top-level navigation section (ADR-0018 §2).
+   * Scalar: Object.is comparison — no useShallow needed.
+   */
+  activeSection: Section;
 }
 
 export interface UiActions {
@@ -42,6 +54,8 @@ export interface UiActions {
   selectPage: (id: string | null, source: "graph" | "tree") => void;
   setActiveTab: (tab: CenterTab) => void;
   toggleGroup: (type: string) => void;
+  /** Switch the top-level section (ADR-0018 §2). */
+  setActiveSection: (section: Section) => void;
 }
 
 // ─── State shape ──────────────────────────────────────────────────────────────
@@ -63,10 +77,11 @@ export interface GraphState {
   // Vault
   vaultId: string;
 
-  // ── UI slice (ADR-0017) ──────────────────────────────────────────────────
+  // ── UI slice (ADR-0017 + ADR-0018) ──────────────────────────────────────
   selectedSource: UiState["selectedSource"];
   activeTab: UiState["activeTab"];
   treeCollapsed: UiState["treeCollapsed"];
+  activeSection: UiState["activeSection"];
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -87,6 +102,7 @@ export interface GraphActions {
   selectPage: UiActions["selectPage"];
   setActiveTab: UiActions["setActiveTab"];
   toggleGroup: UiActions["toggleGroup"];
+  setActiveSection: UiActions["setActiveSection"];
 }
 
 export type GraphStore = GraphState & GraphActions;
@@ -106,6 +122,7 @@ const INITIAL_STATE: GraphState = {
   selectedSource: null,
   activeTab: "graph",
   treeCollapsed: {},
+  activeSection: "pages" as Section,
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -145,6 +162,9 @@ export const useGraphStore = create<GraphStore>((set) => ({
         [type]: !(s.treeCollapsed[type] ?? false),
       },
     })),
+
+  // ADR-0018 §2
+  setActiveSection: (activeSection) => set({ activeSection }),
 }));
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
@@ -258,4 +278,16 @@ export function selectSetActiveTab(s: GraphStore): GraphActions["setActiveTab"] 
 /** Select the toggleGroup action. */
 export function selectToggleGroup(s: GraphStore): GraphActions["toggleGroup"] {
   return s.toggleGroup;
+}
+
+// ─── ADR-0018 selectors ───────────────────────────────────────────────────────
+
+/** Select the active section scalar (Object.is comparison — no useShallow needed). */
+export function selectActiveSection(s: GraphStore): Section {
+  return s.activeSection;
+}
+
+/** Select the setActiveSection action. */
+export function selectSetActiveSection(s: GraphStore): GraphActions["setActiveSection"] {
+  return s.setActiveSection;
 }

@@ -1,25 +1,29 @@
 /**
- * AppShell.tsx — top-level layout combining Header, PanelGroup, and ActivityBar.
+ * AppShell.tsx — top-level layout (ADR-0018 §7 / Phase 2 rewire).
  *
- * Architecture (ADR-0017 §2):
+ * Layout:
+ *   ┌──────────────────────────────────────────────────────────────┐
+ *   │  Header (48px) — branding + ProviderSelector (F17)          │
+ *   ├──────┬───────────────────────────────────────────────────────┤
+ *   │ NavRail│  SectionRouter                                      │
+ *   │ 48px  │  pages → PanelGroup (NavTree│Center│PreviewPanel)    │
+ *   │       │  graph → GraphPanel full-bleed                       │
+ *   │       │  ingest → IngestView + IngestRunDetail               │
+ *   │       │  settings → SettingsPanel                            │
+ *   ├──────┴───────────────────────────────────────────────────────┤
+ *   │  ActivityBar (28px)                                          │
+ *   └──────────────────────────────────────────────────────────────┘
  *
- *   ┌──────────────────────────────────────────────────┐
- *   │  Header (48px)                                   │
- *   ├────────────┬───────────────────┬─────────────────┤
- *   │  NavTree   │   MainTabs        │  PreviewPanel   │
- *   │  (left)    │   (center)        │  (right)        │
- *   │            │   [Graph / Chat]  │                 │
- *   ├────────────┴───────────────────┴─────────────────┤
- *   │  ActivityBar (28px)                              │
- *   └──────────────────────────────────────────────────┘
- *
- * Uses CSS flex-column; PanelGroup uses react-resizable-panels with
- * `autoSaveId` for localStorage persistence.
+ * INVARIANT I2: NavRail never imports graph layout code.
+ * INVARIANT I3: NavRail reads only activeSection + runningCount (separate stores).
+ * ToastHost renders here once — showToast() calls from anywhere are captured.
  */
 
 import { Header } from "./Header";
-import { PanelGroup } from "./panels/PanelGroup";
+import { NavRail } from "./nav/NavRail";
+import { SectionRouter } from "./SectionRouter";
 import { ActivityBar } from "./activity/ActivityBar";
+import { ToastHost } from "./common/Toast";
 
 export function AppShell() {
   return (
@@ -38,15 +42,40 @@ export function AppShell() {
           "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
       }}
     >
+      {/* ── Row 1: Header ──────────────────────────────────────────────────── */}
       <Header />
-      {/* PanelGroup grows to fill remaining vertical space.
-          minHeight:0 is required so height:100% inside the Group resolves
-          correctly in a flex-column context (without it the flex child has
-          no definite height and Group collapses panels to content size). */}
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <PanelGroup />
+
+      {/* ── Row 2: NavRail + SectionRouter ─────────────────────────────────── */}
+      {/* minHeight:0 ensures height:100% inside children resolves in flex-column. */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "row",
+          overflow: "hidden",
+        }}
+      >
+        <NavRail />
+        {/* SectionRouter fills remaining horizontal space */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <SectionRouter />
+        </div>
       </div>
+
+      {/* ── Row 3: ActivityBar ─────────────────────────────────────────────── */}
       <ActivityBar />
+
+      {/* ── Toast notifications (singleton, outside all panels) ────────────── */}
+      <ToastHost />
     </div>
   );
 }

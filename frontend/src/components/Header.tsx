@@ -1,9 +1,10 @@
 /**
- * Header.tsx — top bar: branding + provider-selector slot.
+ * Header.tsx — top bar: branding + provider-selector (F17).
  *
- * Phase 1 (v0.4): Provider Selector slot is a styled placeholder.
- * Phase 2 will replace the placeholder with the real F17 dropdown.
+ * Phase 2 (v0.4): Provider Selector slot wired to real <ProviderSelector/>.
  */
+
+import { ProviderSelector } from "./provider/ProviderSelector";
 
 export function Header() {
   return (
@@ -56,28 +57,9 @@ export function Header() {
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Provider selector slot — F17 will replace this placeholder */}
-      <div
-        className="app-header__provider-slot"
-        role="group"
-        aria-label="Provider selector (coming in Phase 2)"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "4px 10px",
-          border: "1px solid #21262d",
-          borderRadius: 6,
-          color: "#484f58",
-          fontSize: 12,
-          cursor: "not-allowed",
-          opacity: 0.6,
-        }}
-        title="Provider Selector — coming in v0.4 Phase 2 (F17)"
-      >
-        <span aria-hidden="true" style={{ fontSize: 10 }}>&#11835;</span>
-        <span>Provider</span>
-        <span aria-hidden="true" style={{ fontSize: 10, opacity: 0.5 }}>&#9660;</span>
+      {/* Provider Selector (F17) */}
+      <div className="app-header__provider-slot">
+        <ProviderSelector />
       </div>
     </header>
   );

@@ -117,25 +117,23 @@ test.describe("CHECK-2 — 3-panel shell renders correctly (F1 / ADR-0017)", () 
     await expect(canvas).toBeVisible();
   });
 
-  test("center panel: Chat tab is visible but disabled", async ({ page }) => {
-    const chatTab = page.locator('[role="tab"][id="tab-chat"]');
-    await expect(chatTab).toBeVisible();
+  test("NavRail: Chat button is disabled (Phase 2 — MainTabs retired, ADR-0018 §1)", async ({ page }) => {
+    // MainTabs tab strip is retired. The Chat affordance moved to the NavRail as a disabled stub.
+    const chatBtn = page.locator("[data-section='chat']");
+    await expect(chatBtn).toBeVisible();
 
-    // WCAG 4.1.2: must have both aria-disabled and native disabled (D-M4-001 fix)
-    const ariaDisabled = await chatTab.getAttribute("aria-disabled");
-    expect(ariaDisabled, "Chat tab must have aria-disabled=true").toBe("true");
+    // WCAG 4.1.2: must have both aria-disabled and native disabled (D-M4-001 parity)
+    const ariaDisabled = await chatBtn.getAttribute("aria-disabled");
+    expect(ariaDisabled, "NavRail Chat button must have aria-disabled=true").toBe("true");
 
-    const nativeDisabled = await chatTab.evaluate((el) => (el as HTMLButtonElement).disabled);
-    expect(nativeDisabled, "Chat tab must have native disabled attribute (WCAG 4.1.2)").toBe(true);
+    const nativeDisabled = await chatBtn.evaluate((el) => (el as HTMLButtonElement).disabled);
+    expect(nativeDisabled, "NavRail Chat button must have native disabled attribute (WCAG 4.1.2)").toBe(true);
 
-    // Force-click via JS to verify state doesn't change despite the disabled button
-    // (native disabled prevents the default browser click; we use dispatchEvent to prove
-    //  the onClick guard still works even if forced via JS)
-    await chatTab.dispatchEvent("click");
-    const graphTab = page.locator('[role="tab"][id="tab-graph"]');
-    const graphSelected = await graphTab.getAttribute("aria-selected");
-    expect(graphSelected, "Graph tab must remain aria-selected after clicking disabled Chat").toBe("true");
-    console.log(`[CHECK-2] Chat tab correctly disabled (aria-disabled + native disabled); Graph tab remains selected`);
+    // Pages section should still be active (clicking disabled button has no effect)
+    const pagesBtn = page.locator("[data-section='pages']");
+    const pageCurrent = await pagesBtn.getAttribute("aria-current");
+    expect(pageCurrent, "Pages must remain aria-current=page after load").toBe("page");
+    console.log(`[CHECK-2] NavRail Chat button correctly disabled (aria-disabled + native disabled); Pages remains active`);
   });
 
   test("right panel: PreviewPanel shows empty state when nothing selected", async ({ page }) => {
@@ -246,33 +244,8 @@ test.describe("CHECK-3 — Accessibility: landmarks, tablist, keyboard (WCAG 2.1
     console.log(`[CHECK-3] Landmark roles: header, nav, footer all present and labelled`);
   });
 
-  test("tablist: role=tablist present with aria-label; tabs have role=tab", async ({ page }) => {
-    const tablist = page.locator('[role="tablist"]');
-    await expect(tablist).toBeVisible();
-    const tabbedLabel = await tablist.getAttribute("aria-label");
-    expect(tabbedLabel?.length, "tablist must have non-empty aria-label").toBeGreaterThan(0);
-
-    // Tabs
-    const tabs = page.locator('[role="tab"]');
-    const tabCount = await tabs.count();
-    expect(tabCount, "tablist must have at least 2 tabs (Graph + Chat)").toBeGreaterThanOrEqual(2);
-
-    // Tab panels
-    const tabpanels = page.locator('[role="tabpanel"]');
-    const panelCount = await tabpanels.count();
-    expect(panelCount, "Must have at least 1 tabpanel").toBeGreaterThanOrEqual(1);
-    console.log(`[CHECK-3] tablist OK: ${tabCount} tabs, ${panelCount} tabpanels`);
-  });
-
-  test("tablist: active tab has aria-selected=true; inactive has aria-selected=false", async ({
-    page,
-  }) => {
-    const graphTab = page.locator('[role="tab"]#tab-graph');
-    const chatTab  = page.locator('[role="tab"]#tab-chat');
-
-    expect(await graphTab.getAttribute("aria-selected")).toBe("true");
-    expect(await chatTab.getAttribute("aria-selected")).toBe("false");
-  });
+  // NOTE: tablist (MainTabs) tests removed in Phase 2 — MainTabs retired per ADR-0018 §1.
+  // Graph is now a NavRail section; no tab strip exists in the Pages center panel.
 
   test("NavTree group headers have aria-expanded attribute", async ({ page }) => {
     const groupHeaders = page.locator(".nav-tree__group-header");
@@ -325,12 +298,13 @@ test.describe("CHECK-3 — Accessibility: landmarks, tablist, keyboard (WCAG 2.1
     console.log(`[CHECK-3] PreviewPanel empty-state visible on initial load`);
   });
 
-  test("provider selector slot has aria-label (SLOT placeholder)", async ({ page }) => {
-    const providerSlot = page.locator(".app-header__provider-slot");
-    await expect(providerSlot).toBeVisible();
-    const label = await providerSlot.getAttribute("aria-label");
-    expect(label?.length, "provider slot must have aria-label").toBeGreaterThan(0);
-    console.log(`[CHECK-3] Provider slot aria-label: "${label}"`);
+  test("provider selector trigger has aria-label (F17 ProviderSelector)", async ({ page }) => {
+    // Phase 2: the provider slot renders a real <ProviderSelector> button
+    const trigger = page.getByTestId("provider-selector-trigger");
+    await expect(trigger).toBeVisible();
+    const label = await trigger.getAttribute("aria-label");
+    expect(label?.length, "provider selector trigger must have aria-label").toBeGreaterThan(0);
+    console.log(`[CHECK-3] Provider selector trigger aria-label: "${label}"`);
   });
 
   test("page rows have aria-label (screen reader accessible)", async ({ page }) => {
