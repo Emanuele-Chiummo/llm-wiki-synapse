@@ -9,8 +9,13 @@ Invariants:
     (supports_agentic_loop=True), never via isinstance/type.
   - I7: the SDK is given a token_budget (ADR-0009: 100k default for CLI); the provider aborts
     if the SDK reports the budget exceeded. The orchestrator records ONE ingest_runs row.
-  - ADR-0009: CLI cost is $0.00 by convention (build-time agent credits, not runtime billing).
-    Raw token counts from the SDK result are recorded when present; tokens=0 + WARNING if not.
+  - ADR-0009 (as amended by NB-4): record the REAL cost the SDK reports. claude-agent-sdk
+    surfaces a `total_cost_usd` on its terminal ResultMessage when the run was billed via an
+    API key. We use that value when it is present and > 0; we fall back to the historical
+    $0.00 convention (with a WARNING) ONLY when the SDK reports no cost — i.e. subscription /
+    OAuth auth, whose marginal cost genuinely is $0. Raw token counts are recorded when present;
+    tokens=0 + WARNING if not. The Usage normalization contract is unchanged (input/output
+    tokens + total_cost_usd); only total_cost_usd is now truthful.
   - ADR-0010: the agent uses MCP tools named search_wiki / write_page / get_page / list_pages.
 
 The claude-agent-sdk is imported LAZILY so the rest of the package (and the infra-free unit
@@ -161,6 +166,8 @@ class CliAgentProvider(InferenceProvider):
 
         pages_written = 0
         usage = Usage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
+        # Cost the SDK reports on its terminal ResultMessage (None until we see it).
+        sdk_cost_usd: float | None = None
         converged = False
 
         async with ClaudeSDKClient(options=options) as client:
@@ -171,15 +178,31 @@ class CliAgentProvider(InferenceProvider):
             async for message in client.receive_response():
                 pages_written += _count_write_page_calls(message)
                 usage = _merge_sdk_usage(usage, message)
+                msg_cost = _extract_sdk_cost(message)
+                if msg_cost is not None:
+                    sdk_cost_usd = msg_cost
         converged = pages_written > 0
 
-        # CLI cost convention: $0.00 (ADR-0009). Raw tokens recorded when the SDK exposes them.
+        # Raw tokens recorded when the SDK exposes them.
         if usage.input_tokens == 0 and usage.output_tokens == 0:
             logger.warning("CliAgentProvider: SDK exposed no token counts — recording tokens=0")
+
+        # NB-4: use the SDK-reported cost when present & > 0 (API-key billing); else fall back to
+        # the $0.00 convention (subscription/OAuth → marginal cost is genuinely $0).
+        if sdk_cost_usd is not None and sdk_cost_usd > 0.0:
+            total_cost_usd = sdk_cost_usd
+        else:
+            total_cost_usd = 0.0
+            logger.warning(
+                "CliAgentProvider: SDK reported no billable cost "
+                "(subscription/OAuth auth or unavailable) — recording total_cost_usd=$0.00 "
+                "by the build-time-credit convention (ADR-0009)"
+            )
+
         usage = Usage(
             input_tokens=usage.input_tokens,
             output_tokens=usage.output_tokens,
-            total_cost_usd=0.0,
+            total_cost_usd=total_cost_usd,
         )
         self._record_usage(usage)
         return DelegatedIngestResult(pages_written=pages_written, usage=usage, converged=converged)
@@ -202,17 +225,49 @@ def _count_write_page_calls(message: Any) -> int:
 
 
 def _merge_sdk_usage(acc: Usage, message: Any) -> Usage:
-    """Merge any token usage the SDK exposes on a message into *acc* (cost left at 0.0)."""
+    """
+    Merge any token usage the SDK exposes on a message into *acc*.
+
+    Cost is intentionally left at 0.0 here — the per-run cost is taken from the terminal
+    ResultMessage's `total_cost_usd` (see `_extract_sdk_cost`), not summed per message.
+    """
     raw = getattr(message, "usage", None)
     if raw is None:
         return acc
-    in_tok = int(getattr(raw, "input_tokens", 0) or 0)
-    out_tok = int(getattr(raw, "output_tokens", 0) or 0)
+    # The SDK may expose usage as an object (attrs) or a dict — read both shapes defensively.
+    if isinstance(raw, dict):
+        in_tok = int(raw.get("input_tokens", 0) or 0)
+        out_tok = int(raw.get("output_tokens", 0) or 0)
+    else:
+        in_tok = int(getattr(raw, "input_tokens", 0) or 0)
+        out_tok = int(getattr(raw, "output_tokens", 0) or 0)
     return Usage(
         input_tokens=acc.input_tokens + in_tok,
         output_tokens=acc.output_tokens + out_tok,
         total_cost_usd=0.0,
     )
+
+
+def _extract_sdk_cost(message: Any) -> float | None:
+    """
+    Return the SDK-reported run cost from a message, or None if this message carries none.
+
+    claude-agent-sdk emits a terminal `ResultMessage` (subtype `"result"`) that carries the
+    cumulative `total_cost_usd: float | None` for the whole run when it was billed via an API
+    key (it is None / 0 for subscription/OAuth auth, whose marginal cost is $0). Assistant /
+    tool messages carry no such field, so they return None and the caller keeps the last seen
+    value. Read defensively (getattr / dict) because the SDK message shape may evolve (R3);
+    the documented attribute is `total_cost_usd` on the ResultMessage.
+    """
+    raw = getattr(message, "total_cost_usd", None)
+    if raw is None and isinstance(message, dict):
+        raw = message.get("total_cost_usd")
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 __all__ = [
