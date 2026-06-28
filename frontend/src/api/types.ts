@@ -34,6 +34,13 @@ export interface GraphEdge {
   target: string;
   /** Additive weight (I2 formula: 3·direct + 4·source_overlap + 1.5·AA + 1·same_type) */
   weight: number;
+  /**
+   * Edge kind (v0.4 contract).
+   * "link"   = wikilink edge (direct structural reference)
+   * "source" = shared-source-document overlap edge
+   * Omitted / undefined = treat as "link" (back-compat with v0.3 server).
+   */
+  kind?: "link" | "source";
 }
 
 export interface GraphResponse {

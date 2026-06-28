@@ -28,31 +28,128 @@ export interface NodeAttributes {
   label: string;
   /** Page type for color-coding in the legend */
   type: string | null;
-  /** Node size proportional to degree */
+  /**
+   * Visual radius in pixels (normalized sqrt over degree range).
+   * MIN_R=4, MAX_R=22. t = (sqrt(d)-sqrt(dMin))/(sqrt(dMax)-sqrt(dMin));
+   * radius = MIN_R + t*(MAX_R-MIN_R). If dMax==dMin use (MIN_R+MAX_R)/2.
+   * Recomputed over the full node set — never per-frame.
+   */
   size: number;
+  /** Structural degree (for reducers & size) */
+  degree: number;
 }
 
 export interface EdgeAttributes {
-  /** Additive weight (3·direct + 4·source + 1.5·AA + 1·type) */
+  /** Additive weight (3·direct + 4·source + 1.5·AA + 1·type), raw from server */
   weight: number;
+  /** Normalized 0..1 weight (computed at build time over all edges) */
+  normalizedWeight: number;
+  /** Visual thickness: 0.25 + normalizedWeight * 1.0 (faint at rest; edgeReducer brightens on hover) */
+  size: number;
+  /** RGBA color encoding weight + kind */
+  color: string;
+  /** Edge kind from server (default "link") */
+  kind: "link" | "source";
 }
 
 export type SynapseGraph = Graph<NodeAttributes, EdgeAttributes>;
 
-// ─── Default sizes ────────────────────────────────────────────────────────────
+// ─── Size constants ───────────────────────────────────────────────────────────
 
-const DEFAULT_SIZE = 5;
-const SIZE_SCALE = 2;
+const MIN_R = 4;
+const MAX_R = 22;
+const MID_R = (MIN_R + MAX_R) / 2;
 
 /**
- * Compute a visual node size from degree.
- * Monotonically increasing with degree, minimum DEFAULT_SIZE.
+ * Compute per-node visual radii using normalized sqrt over the degree range.
+ * Processes the whole node set at once so dMin/dMax are computed once only.
+ * Returns a Map<nodeId, radius>.
+ *
+ * INVARIANT I2: does NOT read or modify x/y — pure sizing, no layout.
  */
-function nodeSize(degree: number | undefined, serverSize: number | undefined): number {
-  if (serverSize !== undefined && serverSize > 0) {
-    return serverSize * DEFAULT_SIZE;
+function computeNodeRadii(nodes: GraphNode[]): Map<string, number> {
+  const radii = new Map<string, number>();
+
+  if (nodes.length === 0) return radii;
+
+  // Use server-provided degree; fall back to 0
+  let dMin = Infinity;
+  let dMax = -Infinity;
+
+  for (const n of nodes) {
+    const d = n.degree ?? 0;
+    if (d < dMin) dMin = d;
+    if (d > dMax) dMax = d;
   }
-  return DEFAULT_SIZE + (degree ?? 0) * SIZE_SCALE;
+
+  const sqrtMin = Math.sqrt(dMin);
+  const sqrtMax = Math.sqrt(dMax);
+  const sqrtRange = sqrtMax - sqrtMin;
+
+  for (const n of nodes) {
+    const d = n.degree ?? 0;
+    let radius: number;
+    if (sqrtRange === 0) {
+      radius = MID_R;
+    } else {
+      const t = (Math.sqrt(d) - sqrtMin) / sqrtRange;
+      radius = MIN_R + t * (MAX_R - MIN_R);
+    }
+    radii.set(n.id, radius);
+  }
+
+  return radii;
+}
+
+/**
+ * Compute normalized weight [0..1] for each edge across the whole edge set.
+ * Returns a Map<edgeIndex, normalizedWeight> (indexed by position in array).
+ */
+function computeNormalizedWeights(edges: GraphEdge[]): Float64Array {
+  const result = new Float64Array(edges.length);
+  if (edges.length === 0) return result;
+
+  let wMin = Infinity;
+  let wMax = -Infinity;
+
+  for (const e of edges) {
+    if (e.weight < wMin) wMin = e.weight;
+    if (e.weight > wMax) wMax = e.weight;
+  }
+
+  const range = wMax - wMin;
+
+  for (let i = 0; i < edges.length; i++) {
+    const e = edges[i];
+    if (e === undefined) continue;
+    result[i] = range === 0 ? 0.5 : (e.weight - wMin) / range;
+  }
+
+  return result;
+}
+
+/**
+ * Build resting-state edge color from normalized weight and kind.
+ * Very faint at rest — edges light up only on hover (via edgeReducer override).
+ *
+ * IMPORTANT: sigma v3's default edge program renders the edge RGB at full opacity and
+ * effectively IGNORES the alpha channel — so an `rgba(...,0.1)` edge draws as a solid
+ * light-grey line (which read as bright white clutter). We therefore bake the faintness
+ * into the RGB itself: a near-background dark grey at low weight ramping to a muted
+ * medium grey at high weight, on the #0d1117 canvas. kind="source" gets a cooler blue tint.
+ */
+function edgeColor(normalizedWeight: number, kind: "link" | "source"): string {
+  const t = Math.max(0, Math.min(1, normalizedWeight));
+  if (kind === "source") {
+    const r = Math.round(34 + 28 * t);
+    const g = Math.round(42 + 38 * t);
+    const b = Math.round(54 + 52 * t);
+    return `rgb(${r},${g},${b})`;
+  }
+  const r = Math.round(38 + 40 * t);
+  const g = Math.round(44 + 44 * t);
+  const b = Math.round(52 + 48 * t);
+  return `rgb(${r},${g},${b})`;
 }
 
 // ─── Transform ───────────────────────────────────────────────────────────────
@@ -62,6 +159,9 @@ function nodeSize(degree: number | undefined, serverSize: number | undefined): n
  *
  * CRITICAL (I2): node x/y are taken verbatim from `nodes[i].x` / `nodes[i].y`.
  * No layout algorithm is called. No rAF loop is started. Positions are fixed.
+ *
+ * Node sizes: normalized-sqrt over degree range (MIN_R=4, MAX_R=22).
+ * Edge sizes/colors: normalized weight [0..1] applied at build time.
  *
  * @param nodes - Node array from GraphResponse (must include x, y)
  * @param edges - Edge array from GraphResponse
@@ -81,6 +181,12 @@ export function buildGraphologyGraph(nodes: GraphNode[], edges: GraphEdge[]): Sy
 
   const graph = new Graph<NodeAttributes, EdgeAttributes>({ multi: false, type: "undirected" });
 
+  // Compute per-node radii over the full set (done once, not per-frame — spec §NODE SIZE)
+  const radii = computeNodeRadii(nodes);
+
+  // Compute normalized weights over the full edge set (done once at build time)
+  const normalizedWeights = computeNormalizedWeights(edges);
+
   // Add all nodes with SERVER-PROVIDED coords — I2: do NOT call any layout here
   for (const node of nodes) {
     graph.addNode(node.id, {
@@ -88,18 +194,29 @@ export function buildGraphologyGraph(nodes: GraphNode[], edges: GraphEdge[]): Sy
       y: node.y, // precomputed by server FA2 — DO NOT RECOMPUTE
       label: node.title,
       type: node.type,
-      size: nodeSize(node.degree, node.size),
+      size: radii.get(node.id) ?? MID_R,
+      degree: node.degree ?? 0,
     });
   }
 
   // Add edges — skip if either endpoint is not in the graph (defensive)
-  for (const edge of edges) {
-    if (graph.hasNode(edge.source) && graph.hasNode(edge.target)) {
-      // graphology will throw on duplicate edges in non-multi mode; skip duplicates
-      if (!graph.hasEdge(edge.source, edge.target)) {
-        graph.addEdge(edge.source, edge.target, { weight: edge.weight });
-      }
-    }
+  for (let i = 0; i < edges.length; i++) {
+    const edge = edges[i];
+    if (edge === undefined) continue;
+    if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
+    // graphology will throw on duplicate edges in non-multi mode; skip duplicates
+    if (graph.hasEdge(edge.source, edge.target)) continue;
+
+    const nw = normalizedWeights[i] ?? 0.5;
+    const kind: "link" | "source" = edge.kind ?? "link";
+
+    graph.addEdge(edge.source, edge.target, {
+      weight: edge.weight,
+      normalizedWeight: nw,
+      size: 0.25 + nw * 1.0,
+      color: edgeColor(nw, kind),
+      kind,
+    });
   }
 
   return graph;
