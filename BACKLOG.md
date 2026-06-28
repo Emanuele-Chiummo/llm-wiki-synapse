@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-06-28 (Sprint 2 kick-off — M1 CLOSED, M2 scope locked)
+> Last updated: 2026-06-28 (Sprint 3 kick-off — M2 DONE-PENDING-HUMAN-CHECKPOINT, M3 scope locked)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -347,6 +347,8 @@ legitimate sprint decisions, not overrun. BUG-v0.2-1 found and fixed in-sprint. 
 check deferred (was "best-effort" per scope lock §11). v0.3 boundary (F4 graph) intact.
 Human checkpoint: 3 live-run conditions remain (listed in docs/sprints/v0.2-pm-signoff.md
 §6). Sprint 3 blocked until EC-M2-17 satisfied by Emanuele.
+NB follow-ups: NB-1, NB-2, NB-4 carried to v0.3 hardening; NB-5 is a sprint-3 pre-start
+blocker (OLLAMA_URL missing from docker-compose.yml). NB-3 was a pre-merge v0.2 action.
 
 ---
 
@@ -652,18 +654,313 @@ endpoints. Fix the 202 response schema carry-forward from v0.1. Add
 
 ---
 
-## Sprint 3 — v0.3 — M3 "Graph live, no main-thread freeze" — BACKLOG
+## Sprint 3 — v0.3 — M3 "Graph live, no main-thread freeze"
 
-| Feature ID | Description | Notes |
-|------------|-------------|-------|
-| F4 | Knowledge graph: 4-signal weighting, FA2 server-side layout, sigma.js viewer | I2 must be honoured |
-| F16 (partial) | dataVersion debounced recompute trigger for FA2 | Partial already started v0.1 |
-| D3 (update) | Sequence diagram: graph recompute flow | |
-| D5 | First UI screenshots via Playwright | |
+**Sprint status: IN-PROGRESS**
+Scope locked: 2026-06-28 by product-manager. Scope log: docs/sprints/v0.3-scope.md
+Branch: sprint/v0.3
+Prerequisite: EC-M2-17 (Emanuele live TrueNAS confirmation) MUST be satisfied before any
+feature code ships.
+Invariants with heightened priority: I2 (graph layout server-side + cached — headline
+invariant), I4 (WebGL rendering via sigma.js; virtualized lists if any list >50 items).
+All 9 invariants apply.
+Performance gates in force this sprint: G1 (incremental — already proven, maintained), G2
+(graph cached; no main-thread layout; mandatory Playwright test), G3 (N/A — chat is v0.4),
+G4 (≥60fps WebGL render for 200-node graph; bounded DOM; mandatory Playwright test).
+NB pre-start actions: NB-5 fix by devops-engineer before any backend work begins; NB-1,
+NB-2, NB-4 hardening tasks to be folded into the sprint (see tracked tech-debt below).
 
 ---
 
-## Sprint 4 — v0.4 — M4 "Usable & fluid" — BACKLOG
+### F4 — Knowledge graph: 4-signal weighting + FA2 server-side layout + sigma.js viewer
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F4 |
+| Sprint | v0.3 |
+| Status | in-progress |
+| Priority | P0 — defining feature of sprint; I2 is the headline invariant |
+| Owner | backend-engineer (engine + cache + API); frontend-engineer (sigma viewer) |
+
+**Scope:**
+`backend/app/graph/engine.py` — GraphEngine: reads pages + links tables from Postgres;
+builds igraph Graph object; computes 4-signal edge weights:
+  - direct-link: ×3 (a [[wikilink]] from page A to page B contributes weight 3)
+  - source-overlap: ×4 (pages sharing a source[] entry contribute weight 4)
+  - Adamic-Adar: ×1.5 (applied to the shared-neighbour similarity score)
+  - type-affinity: ×1 (same page type contributes weight 1)
+Runs FA2 layout via igraph (python-igraph, R9). Writes resulting x, y coordinates to
+Postgres pages table (columns: x float, y float). Writes edges with computed weights to
+a new `edges` Postgres table.
+
+`backend/app/graph/cache.py` — GraphCache: monitors vault_state.data_version; on
+version bump, enqueues a debounced FA2 recompute (debounce window: configurable, default
+5 seconds). At most 1 queued recompute job at a time. Subsequent bumps during an in-flight
+recompute collapse into 1 follow-up run. Logs recompute duration + node/edge count.
+
+`GET /graph` REST endpoint — returns JSON:
+  `{nodes: [{id, title, type, x, y}], edges: [{source, target, weight}], data_version: int, cached: bool}`
+  Sets `X-Graph-Cache: hit` header when serving from cache (no re-layout triggered).
+
+Frontend sigma viewer — React 19 + Vite + TypeScript single-page app. Fetches `GET /graph`
+on load. Calls `sigma.js graph.addNode(id, {x, y, label, type})` and
+`graph.addEdge(src, tgt, {weight})` with precomputed coords. NEVER calls any layout
+function. Node click: fetches `GET /pages/{id}` and displays title + type in a tooltip
+or side drawer (read-only). No chat, no editor, no 3-panel shell.
+
+**Acceptance criteria:**
+- AC-F4-1: All 4 edge-weight signals are computed and applied in engine.py. Unit test: fixture graph of 5 nodes with known links, source overlap, and types asserts expected weights on each edge type.
+- AC-F4-2: FA2 layout runs in engine.py via igraph (python-igraph). Output: each page has x, y float values written to Postgres. No layout code in any frontend file.
+- AC-F4-3: `GET /graph` returns nodes, edges, data_version, and cached fields. Typing verified by OpenAPI response schema (D4 updated). HTTP 200 on a seeded graph.
+- AC-F4-4: Second `GET /graph` call with same data_version returns `cached: true` and `X-Graph-Cache: hit`; no second FA2 invocation (verified via backend log assertion in test).
+- AC-F4-5: Sigma.js viewer renders the graph in a WebGL canvas. DOM node count in graph container <20 regardless of graph size (G4 assertion). No graphology/sigma layout function called in JS bundle (G2 static check).
+- AC-F4-6: Playwright G2 test passes: no JS long task >50ms on main thread during graph render.
+- AC-F4-7: Playwright G4 test passes: 200-node / 500-edge fixture graph renders at ≥60fps.
+- AC-F4-8: Node click in viewer shows page title (read-only). No edit UI, no chat, no provider selector.
+- AC-F4-9: G1 preserved: ingest one new file → only that file's node coords added/updated; no full pages table rewrite (test_incremental_graph_update).
+
+---
+
+### F16 (partial — debounce wiring) — dataVersion-triggered debounced FA2 recompute
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F16 (partial) |
+| Sprint | v0.3 |
+| Status | in-progress |
+| Priority | P0 — required to satisfy I2 cached-and-debounced invariant |
+| Owner | backend-engineer |
+
+**Scope:**
+The vault_state.data_version column (from v0.1) is already bumped on every successful
+ingest. In v0.3, GraphCache subscribes to (or polls) this value. When data_version
+changes, GraphCache schedules a debounced FA2 recompute. The debounce window collapses
+rapid bursts of ingests into a single recompute. This is the v0.3 activation of the
+F16 dataVersion mechanism introduced in v0.1. No other F16 sub-features (i18n, settings,
+GFM, multi-provider timeout) are in scope this sprint — all v0.4.
+
+**Acceptance criteria:**
+- AC-F16db-1: GraphCache detects data_version change (via polling or event) and triggers FA2 recompute after debounce window.
+- AC-F16db-2: Multiple rapid data_version bumps within the debounce window result in exactly 1 FA2 recompute run (not N runs). Verified by unit test with mocked clock.
+- AC-F16db-3: An in-progress FA2 run is NOT interrupted by a new data_version bump; the new bump is queued and runs after current completes.
+- AC-F16db-4: `GET /status` returns current data_version (existing AC from v0.1); no regression.
+
+---
+
+### Frontend thin viewer — sigma.js standalone page
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F4 (frontend component) |
+| Sprint | v0.3 |
+| Status | in-progress |
+| Priority | P1 — required to produce D5 (Playwright screenshots) and satisfy M3 milestone |
+| Owner | frontend-engineer |
+
+**Scope:**
+`frontend/` — React 19 + Vite + TypeScript project. Minimal scaffolding only:
+- Single route: `/graph` (or `/` for v0.3, no routing library required).
+- Zustand store with selectors + shallow equality for graph data state (I3 pre-compliance).
+- sigma.js (WebGL) installed; graphology as the underlying graph model.
+- NO: CodeMirror, 3-panel layout, chat components, provider selector, TanStack Virtual
+  (unless a node list >50 items is added, in which case it is mandatory).
+- `make dev` starts the Vite dev server. `make build` produces a static bundle served by
+  FastAPI's static file mount.
+- ESLint + prettier + TypeScript strict configured. vitest for unit tests.
+
+**Acceptance criteria:**
+- AC-FE-1: `make dev` starts the viewer; `GET /` or `GET /graph` loads the sigma canvas without console errors.
+- AC-FE-2: No client-side layout function imported or called. Bundle analysis (vitest or rollup-plugin-visualizer) confirms no graphology-layout-forceatlas2 or similar package in bundle.
+- AC-FE-3: Zustand store uses selectors + shallow equality for graph state (I3 pre-compliance). No whole-store subscription pattern.
+- AC-FE-4: TypeScript strict passes. ESLint + prettier clean.
+- AC-FE-5: vitest unit test coverage for the graph data transformation (API response → graphology graph object).
+
+---
+
+### D3 — Sequence diagram: graph recompute
+
+| Field | Value |
+|-------|-------|
+| Feature ID | D3 (docs artifact — update) |
+| Sprint | v0.3 |
+| Status | in-progress |
+| Priority | P1 — required by I8 for M3 sign-off |
+| Owner | tech-writer |
+
+**Scope:**
+`docs/sequences/graph-recompute.mmd` — new Mermaid sequenceDiagram. Must show:
+- Watcher ingest → data_version bump → debounce timer fires (or collapses burst)
+- GraphEngine.recompute() → igraph FA2 → Postgres coords written
+- `GET /graph` cache-miss path: FA2 triggered → coords fetched
+- `GET /graph` cache-hit path: coords returned directly, no FA2
+- Annotate: FA2 runs ONLY server-side; client receives precomputed coords only.
+Also resolve the mmdc CI render check deferred from v0.2 (best-effort carry-forward).
+
+**Acceptance criteria:**
+- AC-D3v3-1: `docs/sequences/graph-recompute.mmd` is a valid Mermaid sequenceDiagram; both cache-hit and cache-miss paths shown; debounce collapse annotated.
+- AC-D3v3-2: Diagram passes mmdc CI render check (resolving v0.2 carry-forward AC-D3-3).
+- AC-D3v3-3: Diagram reviewed and approved by architect and tech-writer; consistent with engine.py + cache.py implementation.
+
+---
+
+### D5 — UI screenshots via Playwright (first occurrence)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | D5 (docs artifact — first required sprint) |
+| Sprint | v0.3 |
+| Status | in-progress |
+| Priority | P1 — required by I8 / CLAUDE.md §9 from v0.3 onward |
+| Owner | qa-test-engineer |
+
+**Scope:**
+Playwright E2E test (`frontend/tests/`) captures PNG screenshots:
+1. `docs/screens/graph-viewer-initial.png` — sigma viewer on load (before graph renders or
+   at initial network request).
+2. `docs/screens/graph-viewer-rendered.png` — sigma canvas with nodes and edges visible.
+3. `docs/screens/graph-viewer-node-click.png` — after clicking a node; tooltip or drawer
+   visible with page title. (Optional if tooltip is not implemented in v0.3.)
+`make screenshots` target runs the Playwright capture.
+
+**Acceptance criteria:**
+- AC-D5-1: `docs/screens/graph-viewer-initial.png` captured by Playwright; non-empty file; committed.
+- AC-D5-2: `docs/screens/graph-viewer-rendered.png` shows sigma canvas with at least 1 visible node; non-empty file; committed.
+- AC-D5-3: Playwright screenshot test is part of `make test` or a separate `make screenshots` target; runs headless in CI.
+- AC-D5-4: G2 and G4 Playwright performance assertions run in the same E2E suite as the screenshot capture.
+
+---
+
+### D1/D2/D4 updates (continuous)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | D1, D2, D4 (docs artifacts — continuous) |
+| Sprint | v0.3 |
+| Status | in-progress |
+| Priority | P1 — required before M3 docs gate |
+| Owner | tech-writer (D1 narrative); backend-engineer (D2 via `make er`; D4 via `make openapi`) |
+
+**Scope:**
+D1: update `docs/architecture/component.mmd` — add GraphEngine (graph/engine.py),
+GraphCache (graph/cache.py), and the `GET /graph` endpoint to the component diagram.
+D2: regenerate `docs/er/schema.mmd` via `make er` after adding pages.x/y columns and
+the edges table to models.py. Must match live Postgres schema.
+D4: regenerate `docs/api/openapi.json` via `make openapi` after adding `GET /graph`.
+
+**Acceptance criteria:**
+- AC-D1v3-1: component.mmd updated to include GraphEngine, GraphCache, and sigma viewer as components. Reviewed by architect and tech-writer.
+- AC-D2v3-1: schema.mmd regenerated via `make er`; includes pages.x/y float columns and edges table with id, source_page_id, target_page_id, weight columns. Matches live Postgres schema.
+- AC-D4v3-1: openapi.json updated; `GET /graph` endpoint documented with typed response schema (nodes, edges, data_version, cached). No other endpoints added without PM approval.
+
+---
+
+## Tracked tech-debt — NB follow-ups from M2
+
+These items are tracked as formal backlog entries with feature ID references. They are
+hardening tasks carried from M2, not new features.
+
+### NB-1 — Widen fallback exception clause (httpx.HTTPStatusError)
+
+| Field | Value |
+|-------|-------|
+| Tracking ID | NB-1 |
+| Sprint | v0.3 (hardening) |
+| Status | in-progress |
+| Priority | P1 — prevents silent fallback bypass on HTTP 5xx from inference providers |
+| Owner | backend-engineer |
+| Source | v0.2-pm-signoff.md §5; v0.2-architect-review §2 |
+
+**Item:** In `backend/app/ingest/orchestrator.py`, the provider fallback `except` clause
+currently catches only `TimeoutError` and `ConnectionError`. An HTTP 503 (or other 5xx)
+from the Ollama/Anthropic endpoint arrives as `httpx.HTTPStatusError`, which currently
+bypasses the fallback and surfaces directly as `IngestError` without engaging the single
+fallback retry. Add `httpx.HTTPStatusError` to the except clause per ADR-0009 §4.
+
+**Acceptance criteria:**
+- AC-NB1-1: `httpx.HTTPStatusError` (HTTP 503) from the primary provider triggers the fallback exactly once; a second failure surfaces as IngestError (per I7 bounded-fallback rule).
+- AC-NB1-2: Unit test: mock primary provider raises `httpx.HTTPStatusError(503)` → fallback fires → fallback also raises → IngestError surfaced. No infinite retry.
+
+---
+
+### NB-2 — Scope T-CQ-009 I6 guard to import lines only
+
+| Field | Value |
+|-------|-------|
+| Tracking ID | NB-2 |
+| Sprint | v0.3 (hardening) |
+| Status | in-progress |
+| Priority | P2 — zero functional impact; prevents false negatives accumulating as codebase grows |
+| Owner | backend-engineer |
+| Source | v0.2-pm-signoff.md §5 |
+
+**Item:** T-CQ-009 (I6 static guard) currently does a whole-file substring search for
+"InferenceProvider". This forced avoidance of that word in a main.py docstring. Fix: scope
+the guard to import statement lines only — e.g., check that `^from` or `^import` lines in
+files outside `backend/app/ingest/provider/` do not import InferenceProvider or its
+subclasses. This is a test code change only; no production code changes required.
+
+**Acceptance criteria:**
+- AC-NB2-1: T-CQ-009 updated to check only `^from` / `^import` lines for forbidden imports outside provider/. The word "InferenceProvider" may appear in docstrings, comments, and log strings without triggering the guard.
+- AC-NB2-2: The updated test still catches a genuine forbidden import (added as a negative test case in a temp fixture).
+
+---
+
+### NB-4 — CLI cost logging: use SDK-reported total_cost_usd when API key is present
+
+| Field | Value |
+|-------|-------|
+| Tracking ID | NB-4 |
+| Sprint | v0.3 (hardening) |
+| Status | in-progress |
+| Priority | P2 — I7 cost accuracy for runtime API-key use of CliAgentProvider |
+| Owner | ai-agent-engineer |
+| Source | v0.2-pm-signoff.md §5 (NB-4 added by PM during Sprint 3 kickoff; not in original §5 list) |
+
+**Item:** CliAgentProvider currently records `total_cost_usd = 0.00` by convention (build-time
+agent credits, ADR-0009). When the provider is invoked at runtime with a real Anthropic API
+key (user's `provider_config` row has valid key), the claude-agent-sdk may return
+cost/usage metadata. If SDK metadata is available in the `ClaudeCodeOutput`, use the
+reported cost instead of the $0 convention. If metadata is absent (build-time / no key),
+emit the WARNING and keep $0. No change to ADR-0009's stated convention for build-time use.
+
+**Acceptance criteria:**
+- AC-NB4-1: When SDK output metadata includes a cost field with value > 0, that value is written to `ingest_runs.total_cost_usd`.
+- AC-NB4-2: When SDK output metadata is absent or cost = 0 (build-time path), `total_cost_usd = 0.00` is written and a WARNING is logged (existing behaviour preserved).
+- AC-NB4-3: Unit test: mock SDK output with cost metadata → assert ingest_runs row has correct non-zero cost.
+
+---
+
+### NB-5 — OLLAMA_URL missing from docker-compose.yml backend service
+
+| Field | Value |
+|-------|-------|
+| Tracking ID | NB-5 |
+| Sprint | v0.3 (pre-start blocker) |
+| Status | in-progress — MUST BE RESOLVED BEFORE FIRST SPRINT 3 FEATURE PR |
+| Priority | P0 — blocks live Local provider via `make up`; blocks v0.3 graph ingest testing |
+| Owner | devops-engineer |
+| Source | v0.2-pm-signoff.md §5 (NB-5 added by PM during Sprint 3 kickoff) |
+
+**Item:** `OLLAMA_URL` is not passed to the `synapse-backend` container in
+`docker-compose.yml` or `.env.example`. When a developer runs `make up`, the backend
+container cannot reach the Ollama service, making the Local provider (OllamaProvider)
+unusable in the Docker environment. This blocks live graph-ingest testing in v0.3 which
+depends on the Local provider to populate the links table with real wikilinks.
+
+Fix: add `OLLAMA_URL` to the `environment` section of the `synapse-backend` service in
+`docker-compose.yml` (reading from env var or .env), and add `OLLAMA_URL=` to
+`.env.example` with a comment noting the default (`http://localhost:11434`).
+
+**Acceptance criteria:**
+- AC-NB5-1: `docker-compose.yml` backend service environment block includes `OLLAMA_URL: ${OLLAMA_URL}`.
+- AC-NB5-2: `.env.example` contains `OLLAMA_URL=http://localhost:11434` with a comment.
+- AC-NB5-3: `make up` + ingest trigger with Local provider config successfully calls Ollama (integration test or manual smoke on dev machine).
+
+---
+
+---
+
+## Sprint 4 — v0.4 — M4 "Usable & fluid" — BACKLOG (not yet started)
 
 | Feature ID | Description | Notes |
 |------------|-------------|-------|
@@ -674,12 +971,13 @@ endpoints. Fix the 202 response schema carry-forward from v0.1. Add
 | F14 | Configurable context window | |
 | F17 (UI) | Provider Selector UI | |
 | F16 (rest) | i18n IT/EN, settings persistence, .obsidian auto-gen, GFM, timeout | |
-| D5 (update) | UI screenshots refreshed | |
+| G3 | Streaming perf gate — first mandatory sprint (I3: no per-token heavy parse; Zustand selector pattern pre-wired in v0.3 viewer store) | |
+| D5 (update) | UI screenshots refreshed after 3-panel shell added | |
 | D6 | User guide + Deploy guide (drafts) | |
 
 ---
 
-## Sprint 5 — v0.5 — M5 "Feature parity core" — BACKLOG
+## Sprint 5 — v0.5 — M5 "Feature parity core" — BACKLOG (not yet started)
 
 | Feature ID | Description | Notes |
 |------------|-------------|-------|
@@ -693,7 +991,7 @@ endpoints. Fix the 202 response schema carry-forward from v0.1. Add
 
 ---
 
-## Sprint 6 — v0.6 — M6 "Shippable" — BACKLOG
+## Sprint 6 — v0.6 — M6 "Shippable" — BACKLOG (not yet started)
 
 | Feature ID | Description | Notes |
 |------------|-------------|-------|
