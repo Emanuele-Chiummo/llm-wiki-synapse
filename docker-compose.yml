@@ -69,6 +69,10 @@ services:
       EMBEDDING_MODEL: bge-m3
       EMBEDDING_DIM: "1024"  # ADR-0004: verify against live service
 
+      # Generative Ollama base URL for the Local InferenceProvider (F17, I9 — NB-5).
+      # Same Ollama instance, used for analyze/generate (e.g. qwen2.5). External, not containerized.
+      OLLAMA_URL: http://host.docker.internal:11434
+
       # Vault identity and path
       VAULT_ID: default
       VAULT_PATH: /vault
