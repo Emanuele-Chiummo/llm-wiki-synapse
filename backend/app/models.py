@@ -6,9 +6,10 @@ Tables defined here:
   - vault_state     : one row per vault; holds the monotonic data_version (ADR-0005).
   - provider_config : F17 backend selection per scope (global|vault|operation) (ADR-0008).
   - ingest_runs     : per-run cost/convergence audit ledger (I7, ADR-0008 §4).
+  - links           : K5 wikilink edges; source_page_id → target_title (dangling until resolved).
 
-provider_config + ingest_runs are added in v0.2 (ADR-0008). The K5 `links` table and the
-single Alembic migration covering all new tables are owned by backend-engineer (NOT here).
+provider_config + ingest_runs added in v0.2 (ADR-0008). links added in v0.2 (ADR-0008 §5).
+All three new tables ship in a single Alembic migration 0002 (one schema-change event).
 
 Run `make er` to regenerate docs/er/schema.mmd from this file (I8).
 """
@@ -427,4 +428,76 @@ class IngestRun(Base):
         return (
             f"<IngestRun provider={self.provider_name!r} route={self.route!r} "
             f"converged={self.converged} cost=${self.total_cost_usd}>"
+        )
+
+
+class Link(Base):
+    """
+    K5 wikilink edge — one row per [[Target]] or [[Target|alias]] occurrence in a page.
+
+    Parsed by app.wiki.links.parse_wikilinks() and persisted by persist_links() after each
+    write_wiki_page() call (I1 — incremental, not a full-rescan). target_page_id is nullable
+    and resolved lazily: it is NULL while the target page does not yet exist (dangling=True),
+    and filled in once the target page is created (v0.3 graph resolution, ADR-0008 §5).
+
+    The dangling flag is a denormalised convenience so the v0.2 warn-not-error path (AQ-v0.2-7)
+    can be checked without a join. A dangling link does NOT invalidate a batch (K5 / ADR-0007 §5).
+    """
+
+    __tablename__ = "links"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Row identity",
+    )
+
+    source_page_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pages.id"),
+        nullable=False,
+        comment="FK → pages.id; the page that contains the wikilink (K5)",
+    )
+
+    target_title: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="The [[Target]] title string as written (K5)",
+    )
+
+    target_page_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pages.id"),
+        nullable=True,
+        comment="Resolved FK → pages.id; NULL while the target page does not exist (K5, v0.3)",
+    )
+
+    alias: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="The |alias part of [[Target|alias]], if present (K5)",
+    )
+
+    dangling: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_text("false"),
+        comment="True when target_page_id is unresolved (AC-K5-5); warn-not-error path",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time",
+    )
+
+    def __repr__(self) -> str:
+        alias_part = f"|{self.alias}" if self.alias else ""
+        return (
+            f"<Link [[{self.target_title}{alias_part}]] "
+            f"from={self.source_page_id} dangling={self.dangling}>"
         )
