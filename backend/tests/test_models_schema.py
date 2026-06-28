@@ -1,18 +1,21 @@
 """
-SQLAlchemy model and schema tests (AC-PG-1..4, AC-F16dv-1).
+SQLAlchemy model and schema tests (AC-PG-1..4, AC-F16dv-1, v0.2 tables).
 
 These tests are infra-free: they inspect the SQLAlchemy model metadata
 (no live Postgres connection needed). Live Postgres integration
 (information_schema queries) is deferred to live-demo.
 
 Coverage:
-  AC-PG-1    Alembic migrations (confirmed by schema presence in model metadata)
-  AC-PG-2    make er generates schema.mmd (file exists + contains erDiagram)
-  AC-PG-3    All required columns present on pages table with correct types
-  AC-PG-4    No raw SQL strings in backend/app/ (grep/static check)
-  AC-F16dv-1 vault_state table has correct columns
+  AC-PG-1      Alembic migrations (confirmed by schema presence in model metadata)
+  AC-PG-2      make er generates schema.mmd (file exists + contains erDiagram)
+  AC-PG-3      All required columns present on pages table with correct types
+  AC-PG-4      No raw SQL strings in backend/app/ (grep/static check)
+  AC-F16dv-1   vault_state table has correct columns
+  AC-PC-1      provider_config table exists with F17/I6 columns (v0.2)
+  AC-IR-1      ingest_runs table exists with I7 cost/loop audit columns (v0.2)
+  AC-LK-1      links table exists with K5 wikilink columns (v0.2)
 
-Test IDs: T-PG-001 .. T-PG-015
+Test IDs: T-PG-001 .. T-PG-030
 
 Note: AC-PG-1 (docker compose up + alembic upgrade head) requires Docker,
 which is NOT available in this sandbox. Recorded as DEFERRED-needs-live-infra.
@@ -367,3 +370,178 @@ class TestAlembicDeferred:
             f"At least one Alembic migration file must exist in "
             f"backend/alembic/versions/; found: {migration_files}"
         )
+
+    def test_v02_alembic_migration_file_exists(self) -> None:
+        """
+        T-PG-DEFERRED-002: v0.2 Alembic migration must add provider_config, ingest_runs, links.
+        Verify the file exists; content verified by model introspection tests below.
+        """
+        backend_dir = Path(__file__).resolve().parent.parent
+        alembic_versions = backend_dir / "alembic" / "versions"
+        migration_files = list(alembic_versions.glob("*.py"))
+        assert len(migration_files) >= 2, (
+            "At least 2 Alembic migration files expected (0001 initial + 0002 v0.2); "
+            f"found: {[f.name for f in migration_files]}"
+        )
+
+
+# ── v0.2 table model tests: provider_config, ingest_runs, links ──────────────
+
+
+class TestProviderConfigModel:
+    """T-PG-020..025 — AC-PC-1: provider_config table must exist with F17/I6 columns (v0.2)."""
+
+    def _get_table(self):  # type: ignore[no-untyped-def]
+        from app.models import Base
+
+        for table in Base.metadata.sorted_tables:
+            if table.name == "provider_config":
+                return table
+        return None
+
+    def _get_column(self, col_name: str):  # type: ignore[no-untyped-def]
+        table = self._get_table()
+        if table is None:
+            return None
+        for col in table.columns:
+            if col.name == col_name:
+                return col
+        return None
+
+    def test_provider_config_table_exists(self) -> None:
+        """T-PG-020: provider_config table must exist in SQLAlchemy metadata (AC-PC-1, I6)."""
+        from app.models import Base
+
+        table_names = {t.name for t in Base.metadata.sorted_tables}
+        assert (
+            "provider_config" in table_names
+        ), "provider_config table missing from SQLAlchemy models (AC-PC-1, I6, ADR-0008)"
+
+    def test_provider_config_has_id_pk(self) -> None:
+        """T-PG-021: provider_config.id must be a UUID primary key."""
+        col = self._get_column("id")
+        assert col is not None, "provider_config.id missing"
+        assert col.primary_key, "provider_config.id must be PK"
+
+    def test_provider_config_has_scope(self) -> None:
+        """T-PG-022: provider_config.scope must exist (global | vault | operation)."""
+        col = self._get_column("scope")
+        assert col is not None, "provider_config.scope missing (AC-PC-1, ADR-0008)"
+        assert not col.nullable, "provider_config.scope must be NOT NULL"
+
+    def test_provider_config_has_provider_type(self) -> None:
+        """T-PG-023: provider_config.provider_type must exist (local|api|cli — I6)."""
+        col = self._get_column("provider_type")
+        assert col is not None, "provider_config.provider_type missing (I6)"
+        assert not col.nullable, "provider_config.provider_type must be NOT NULL"
+
+    def test_provider_config_has_model_id(self) -> None:
+        """T-PG-024: provider_config.model_id must exist and be NOT NULL."""
+        col = self._get_column("model_id")
+        assert col is not None, "provider_config.model_id missing"
+        assert not col.nullable, "provider_config.model_id must be NOT NULL"
+
+    def test_provider_config_has_max_iter(self) -> None:
+        """T-PG-025: provider_config.max_iter must exist for loop bounding (I7, ADR-0009)."""
+        col = self._get_column("max_iter")
+        assert col is not None, "provider_config.max_iter missing (I7, ADR-0009)"
+
+    def test_provider_config_has_token_budget(self) -> None:
+        """T-PG-025b: provider_config.token_budget must exist (I7 cost-cap gate)."""
+        col = self._get_column("token_budget")
+        assert col is not None, "provider_config.token_budget missing (I7)"
+
+    def test_provider_config_no_api_key_column(self) -> None:
+        """
+        T-PG-025c: provider_config must NOT have an api_key column (security — I9/CLAUDE.md §12).
+        API keys are env-only (ANTHROPIC_API_KEY, OPENAI_API_KEY), never stored in DB.
+        """
+        table = self._get_table()
+        if table is None:
+            return  # caught by test_provider_config_table_exists
+        col_names = {col.name for col in table.columns}
+        forbidden = {"api_key", "secret", "token", "password"}
+        intersection = col_names & forbidden
+        assert not intersection, (
+            f"provider_config must NOT have secret columns {intersection}; "
+            "keys are env-only (CLAUDE.md §12 security invariant)"
+        )
+
+
+class TestIngestRunsModel:
+    """T-PG-026..029 — AC-IR-1: ingest_runs table must exist with I7 cost/audit columns (v0.2)."""
+
+    def _get_column(self, col_name: str):  # type: ignore[no-untyped-def]
+        from app.models import Base
+
+        for table in Base.metadata.sorted_tables:
+            if table.name == "ingest_runs":
+                for col in table.columns:
+                    if col.name == col_name:
+                        return col
+        return None
+
+    def test_ingest_runs_table_exists(self) -> None:
+        """T-PG-026: ingest_runs table must exist (AC-IR-1, I7, ADR-0009)."""
+        from app.models import Base
+
+        table_names = {t.name for t in Base.metadata.sorted_tables}
+        assert (
+            "ingest_runs" in table_names
+        ), "ingest_runs table missing from SQLAlchemy models (AC-IR-1, I7)"
+
+    def test_ingest_runs_has_total_cost_usd(self) -> None:
+        """T-PG-027: ingest_runs.total_cost_usd must be present (I7 cost logging)."""
+        col = self._get_column("total_cost_usd")
+        assert col is not None, "ingest_runs.total_cost_usd missing (I7, ADR-0009)"
+
+    def test_ingest_runs_has_converged(self) -> None:
+        """T-PG-028: ingest_runs.converged must exist (I7 loop audit)."""
+        col = self._get_column("converged")
+        assert col is not None, "ingest_runs.converged missing (I7)"
+
+    def test_ingest_runs_has_route(self) -> None:
+        """T-PG-029: ingest_runs.route must exist (orchestrated|delegated — I6)."""
+        col = self._get_column("route")
+        assert col is not None, "ingest_runs.route missing (I6)"
+
+    def test_ingest_runs_has_provider_type(self) -> None:
+        """T-PG-029b: ingest_runs.provider_type captures which backend was used."""
+        col = self._get_column("provider_type")
+        assert col is not None, "ingest_runs.provider_type missing (audit)"
+
+
+class TestLinksModel:
+    """T-PG-030 — AC-LK-1: links table must exist with K5 wikilink columns (v0.2)."""
+
+    def _get_column(self, col_name: str):  # type: ignore[no-untyped-def]
+        from app.models import Base
+
+        for table in Base.metadata.sorted_tables:
+            if table.name == "links":
+                for col in table.columns:
+                    if col.name == col_name:
+                        return col
+        return None
+
+    def test_links_table_exists(self) -> None:
+        """T-PG-030: links table must exist (AC-LK-1, K5 wikilink parsing)."""
+        from app.models import Base
+
+        table_names = {t.name for t in Base.metadata.sorted_tables}
+        assert "links" in table_names, "links table missing from SQLAlchemy models (AC-LK-1, K5)"
+
+    def test_links_has_source_page_id(self) -> None:
+        """T-PG-030b: links.source_page_id must exist (FK to pages)."""
+        col = self._get_column("source_page_id")
+        assert col is not None, "links.source_page_id missing (K5)"
+
+    def test_links_has_target_title(self) -> None:
+        """T-PG-030c: links.target_title must exist (K5 wikilink target)."""
+        col = self._get_column("target_title")
+        assert col is not None, "links.target_title missing (K5)"
+
+    def test_links_has_dangling_flag(self) -> None:
+        """T-PG-030d: links.dangling must exist (K5 unresolved wikilinks)."""
+        col = self._get_column("dangling")
+        assert col is not None, "links.dangling missing (K5)"
