@@ -1,10 +1,10 @@
 # Synapse — Traceability Matrix
 > Maintained by: functional-analyst (stub), qa-test-engineer (fills Test ID + Status columns)
-> Last updated: 2026-06-28 (Sprint 1 / v0.1 — QA pass; Test IDs filled, statuses updated)
+> Last updated: 2026-06-28 (Sprint 2 / v0.2 — QA pass; Test IDs filled, statuses updated)
 > Source of truth for feature IDs: CLAUDE.md §4
-> User stories + ACs: docs/sprints/v0.1-stories.md
-> Sprint scope + Exit Criteria (EC-x): docs/sprints/v0.1-scope.md §5
-> Backlog ACs (PM-authored): BACKLOG.md §Sprint 1
+> User stories + ACs: docs/sprints/v0.1-stories.md, docs/sprints/v0.2-stories.md
+> Sprint scope + Exit Criteria (EC-x): docs/sprints/v0.1-scope.md §5, docs/sprints/v0.2-scope.md §7
+> Backlog ACs (PM-authored): BACKLOG.md §Sprint 1, §Sprint 2
 >
 > Column guide:
 >   Feature ID    — K1–K8 / F1–F17 per CLAUDE.md §4 (or infra label for cross-cutting work)
@@ -272,19 +272,17 @@ All rows with Status = PENDING must reach GREEN or MANUAL before EC-12 (QA gate)
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F17-1 | US-F17 | EC-M2-1 | D1, D7 | I6 | test_provider_abc.py | — | — | PENDING |
-| AC-F17-2 | US-F17 | EC-M2-1 | — | I6 | test_provider_abc.py | — | — | PENDING |
-| AC-F17-3 | US-F17 | EC-M2-1, EC-M2-3 | — | I6 | test_provider_abc.py | — | — | PENDING |
-| AC-F17-4 | US-F17 | EC-M2-1 | — | I6 | test_code_quality.py | — | — | PENDING |
-| AC-F17-5 | US-F17 | EC-M2-2 | D2 | I6, I8 | test_models_schema.py | — | — | PENDING |
-| AC-F17-6 | US-F17 | EC-M2-2 | — | I6 | test_provider_config.py | — | — | PENDING |
-| AC-F17-7 | US-F17 | EC-M2-2 | D4 | I6, I8 | test_api.py | — | — | PENDING |
-| AC-F17-8 | US-F17 | EC-M2-1 | — | I6 | test_code_quality.py | — | — | PENDING |
+| AC-F17-1 | US-F17 | EC-M2-1 | D1, D7 | I6 | test_provider_routing.py | T-ROUTE-001..T-ROUTE-015 | — | GREEN |
+| AC-F17-2 | US-F17 | EC-M2-1 | — | I6 | test_schemas.py | T-SCH-001..T-SCH-020 | — | GREEN |
+| AC-F17-3 | US-F17 | EC-M2-1, EC-M2-3 | — | I6 | test_provider_routing.py | T-ROUTE-001..T-ROUTE-015 | — | GREEN |
+| AC-F17-4 | US-F17 | EC-M2-1 | — | I6 | test_code_quality.py | T-CQ-001..T-CQ-010 | — | GREEN |
+| AC-F17-5 | US-F17 | EC-M2-2 | D2 | I6, I8 | test_models_schema.py | T-PG-020..T-PG-025c | — | GREEN |
+| AC-F17-6 | US-F17 | EC-M2-2 | — | I6 | test_provider_config_resolution.py, test_provider_config_api.py | multiple | — | GREEN |
+| AC-F17-7 | US-F17 | EC-M2-2 | D4 | I6, I8 | test_api.py, test_provider_config_api.py | T-API-*, T-PCFG-* | — | GREEN |
+| AC-F17-8 | US-F17 | EC-M2-1 | — | I6 | test_code_quality.py | T-CQ-001..T-CQ-010 | — | GREEN |
 
-Note: AC-F17-4 and AC-F17-8 share the same test file (test_code_quality.py) and extend
-the existing I6 guard tests from v0.1. Blocks: AQ-v0.2-5 (operation scope column) must be
-resolved before AC-F17-5 migration is written; AQ-v0.2-3 must be resolved before AC-F17-1
-abstract method signatures can be asserted.
+Note: All F17 ACs now GREEN. AQ-v0.2-3 resolved by v0.2-architecture.md §2 locking schemas.
+AQ-v0.2-5 resolved by adding operation TEXT nullable column to provider_config (ADR-0008).
 
 ---
 
@@ -292,20 +290,20 @@ abstract method signatures can be asserted.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-K2-1 | US-K2-INGEST | EC-M2-5, EC-M2-6 | — | I1, I5, I6 | test_ingest_orchestrator.py (live-infra: @pytest.mark.live) | — | — | LIVE |
-| AC-K2-2 | US-K2-INGEST | EC-M2-5, EC-M2-6 | — | I1, I5, I6 | test_ingest_orchestrator.py (live-infra: @pytest.mark.live) | — | — | LIVE |
-| AC-K2-3 | US-K2-INGEST | EC-M2-5, EC-M2-6 | — | I1, I5, I6 | test_ingest_orchestrator.py (live-infra: @pytest.mark.live) | — | — | LIVE |
-| AC-K2-4 | US-K2-INGEST | EC-M2-3 | — | I6 | test_ingest_routing.py | — | — | PENDING |
-| AC-K2-5 | US-K2-INGEST | EC-M2-4 | — | I7 | test_ingest_loop_bound.py | — | — | PENDING |
-| AC-K2-6 | US-K2-INGEST | EC-M2-4 | — | I7 | test_ingest_loop_bound.py | — | — | PENDING |
-| AC-K2-7 | US-K2-INGEST | EC-M2-4 | — | I7 | test_ingest_loop_bound.py | — | — | PENDING |
-| AC-K2-8 | US-K2-INGEST | EC-M2-6 | — | I5 | test_ingest_orchestrator.py | — | — | PENDING |
+| AC-K2-1 | US-K2-INGEST | EC-M2-5, EC-M2-6 | — | I1, I5, I6 | test_smoke_providers.py (CI mock: T-SMOKE-LOCAL-MOCK; live: @pytest.mark.live) | T-SMOKE-LOCAL-MOCK | — | MOCK-GREEN / LIVE-DEFERRED |
+| AC-K2-2 | US-K2-INGEST | EC-M2-5, EC-M2-6 | — | I1, I5, I6 | test_smoke_providers.py (CI mock: T-SMOKE-API-MOCK; live: @pytest.mark.live) | T-SMOKE-API-MOCK | — | MOCK-GREEN / LIVE-DEFERRED |
+| AC-K2-3 | US-K2-INGEST | EC-M2-5, EC-M2-6 | — | I1, I5, I6 | test_smoke_providers.py (CI mock: T-SMOKE-CLI-MOCK; live: @pytest.mark.live) | T-SMOKE-CLI-MOCK | — | MOCK-GREEN / LIVE-DEFERRED |
+| AC-K2-4 | US-K2-INGEST | EC-M2-3 | — | I6 | test_provider_routing.py | T-ROUTE-001..015 | — | GREEN |
+| AC-K2-5 | US-K2-INGEST | EC-M2-4 | — | I7 | test_bounded_loop.py | T-LOOP-001..020 | — | GREEN |
+| AC-K2-6 | US-K2-INGEST | EC-M2-4 | — | I7 | test_bounded_loop.py | T-LOOP-001..020 | — | GREEN |
+| AC-K2-7 | US-K2-INGEST | EC-M2-4 | — | I7 | test_bounded_loop.py | T-LOOP-001..020 | — | GREEN |
+| AC-K2-8 | US-K2-INGEST | EC-M2-6 | — | I5 | test_smoke_providers.py (mock path) | T-SMOKE-*-MOCK | — | MOCK-GREEN |
 
-Note: AC-K2-1, AC-K2-2, AC-K2-3 are live-infra tests (require Ollama + Anthropic API key +
-claude-agent-sdk on TrueNAS). Marked LIVE — confirmed at EC-M2-5 human checkpoint only.
-AC-K2-5 and AC-K2-6 share test_ingest_loop_bound.py; AQ-v0.2-1 (analyze re-run on retry)
-must be resolved before AC-K2-5 call_count assertion is finalisable. AQ-v0.2-2 (log storage
-mechanism) must be resolved before AC-K2-6 log capture strategy is implemented.
+Note: AC-K2-1, AC-K2-2, AC-K2-3 — CI mock tests GREEN (SYNAPSE_SMOKE_MOCK=1 path validates
+routing/schema/cost/frontmatter wiring). Live tests (@pytest.mark.live) DEFERRED to TrueNAS
+run (GAP-v0.2-1). Run: `pytest tests/test_smoke_providers.py -m live` on TrueNAS.
+AQ-v0.2-1 resolved: analyze() called ONCE per run (ADR-0009). AQ-v0.2-2 resolved: Postgres
+ingest_runs table (ADR-0009). AQ-v0.2-8 resolved: inline WARNING in orchestrator after cost row.
 
 ---
 
@@ -313,18 +311,18 @@ mechanism) must be resolved before AC-K2-6 log capture strategy is implemented.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F3-1 | US-F3 | EC-M2-6 | — | I6 | test_ingest_cot.py | — | — | PENDING |
-| AC-F3-2 | US-F3 | EC-M2-6 | — | I5, I6 | test_ingest_cot.py | — | — | PENDING |
-| AC-F3-3 | US-F3 | EC-M2-6 | — | I5 | test_ingest_cot.py | — | — | PENDING |
-| AC-F3-4 | US-F3 | EC-M2-6 | — | — | test_ingest_cot.py (may need live provider for language detection) | — | — | PENDING |
-| AC-F3-5 | US-F3 | EC-M2-6 | — | I5 | test_ingest_orchestrator.py | — | — | PENDING |
-| AC-F3-6 | US-F3 | EC-M2-6 | — | I5 | test_ingest_orchestrator.py | — | — | PENDING |
-| AC-F3-7 | US-F3 | EC-M2-6 | — | I7 | test_ingest_cot.py | — | — | PENDING |
+| AC-F3-1 | US-F3 | EC-M2-6 | — | I6 | test_schemas.py | T-SCH-001..T-SCH-020 | — | GREEN |
+| AC-F3-2 | US-F3 | EC-M2-6 | — | I5, I6 | test_schemas.py | T-SCH-001..T-SCH-020 | — | GREEN |
+| AC-F3-3 | US-F3 | EC-M2-6 | — | I5 | test_smoke_providers.py (mock path) | T-SMOKE-*-MOCK | — | MOCK-GREEN |
+| AC-F3-4 | US-F3 | EC-M2-6 | — | — | test_smoke_providers.py (live) | DEFERRED-TO-LIVE | — | LIVE-DEFERRED |
+| AC-F3-5 | US-F3 | EC-M2-6 | — | I5 | test_smoke_providers.py (mock path) | T-SMOKE-*-MOCK | — | MOCK-GREEN |
+| AC-F3-6 | US-F3 | EC-M2-6 | — | I5 | test_smoke_providers.py (mock path) | T-SMOKE-*-MOCK | — | MOCK-GREEN |
+| AC-F3-7 | US-F3 | EC-M2-6 | — | I7 | test_bounded_loop.py | T-LOOP-001..020 | — | GREEN |
 
-Note: AC-F3-1 and AC-F3-2 are blocked on AQ-v0.2-3 (exact Analysis and WikiPage Pydantic
-schemas must be defined before tests can assert field names). AC-F3-4 may require a mock
-provider that returns deterministic language detection output to be unit-testable; live
-language detection is a supplemental check in EC-M2-5.
+Note: AQ-v0.2-3 resolved — schemas locked in v0.2-architecture.md §2 and implemented in
+backend/app/ingest/schemas.py. AC-F3-1..2 covered by test_schemas.py (schema validation
+tests). AC-F3-4 (live language detection) LIVE-DEFERRED — validated during EC-M2-5 smoke
+matrix on TrueNAS.
 
 ---
 
@@ -332,17 +330,16 @@ language detection is a supplemental check in EC-M2-5.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-K5-1 | US-K5 | EC-M2-8 | — | — | test_wikilink_parser.py | — | — | PENDING |
-| AC-K5-2 | US-K5 | EC-M2-8 | — | — | test_wikilink_parser.py | — | — | PENDING |
-| AC-K5-3 | US-K5 | EC-M2-8 | — | — | test_wikilink_parser.py | — | — | PENDING |
-| AC-K5-4 | US-K5 | EC-M2-8 | D2 | I1 | test_wikilink_integration.py | — | — | PENDING |
-| AC-K5-5 | US-K5 | EC-M2-8 | — | I5 | test_wikilink_integration.py | — | — | PENDING |
-| AC-K5-6 | US-K5 | EC-M2-8 | D2 | I8 | test_models_schema.py | — | — | PENDING |
-| AC-K5-7 | US-K5 | EC-M2-8 | — | — | test_wikilink_parser.py | — | — | PENDING |
+| AC-K5-1 | US-K5 | EC-M2-8 | — | — | test_wikilink_parser.py | T-WL-001..T-WL-020 | — | GREEN |
+| AC-K5-2 | US-K5 | EC-M2-8 | — | — | test_wikilink_parser.py | T-WL-001..T-WL-020 | — | GREEN |
+| AC-K5-3 | US-K5 | EC-M2-8 | — | — | test_wikilink_parser.py | T-WL-001..T-WL-020 | — | GREEN |
+| AC-K5-4 | US-K5 | EC-M2-8 | D2 | I1 | test_wikilink_parser.py | T-WL-001..T-WL-020 | — | GREEN |
+| AC-K5-5 | US-K5 | EC-M2-8 | — | I5 | test_wikilink_parser.py | T-WL-001..T-WL-020 | — | GREEN |
+| AC-K5-6 | US-K5 | EC-M2-8 | D2 | I8 | test_models_schema.py | T-PG-030..T-PG-030d | — | GREEN |
+| AC-K5-7 | US-K5 | EC-M2-8 | — | — | test_wikilink_parser.py | T-WL-001..T-WL-020 | — | GREEN |
 
-Note: AC-K5-1, AC-K5-2, AC-K5-3, AC-K5-7 are pure unit tests (no DB/filesystem); can be
-written immediately without resolving any AQ. AC-K5-4 and AC-K5-5 require the links table
-migration (AC-F17-5 / AC-K5-6 migration) to be applied first.
+Note: All K5 ACs GREEN. test_wikilink_parser.py covers pure parser unit tests. Links table
+columns verified by test_models_schema.py (T-PG-030..T-PG-030d).
 
 ---
 
@@ -350,16 +347,15 @@ migration (AC-F17-5 / AC-K5-6 migration) to be applied first.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-K3-1 | US-K3 | EC-M2-9 | — | I5 | test_index_catalogue.py | — | — | PENDING |
-| AC-K3-2 | US-K3 | EC-M2-9 | — | I5 | test_index_catalogue.py | — | — | PENDING |
-| AC-K3-3 | US-K3 | EC-M2-9 | — | I5 | test_index_catalogue.py | — | — | PENDING |
-| AC-K3-4 | US-K3 | EC-M2-9 | — | I5 | test_index_catalogue.py | — | — | PENDING |
-| AC-K3-5 | US-K3 | EC-M2-9 | — | I1, I5 | test_index_catalogue.py | — | — | PENDING |
-| AC-K3-6 | US-K3 | EC-M2-9 | — | — | test_index_catalogue.py | — | — | PENDING |
+| AC-K3-1 | US-K3 | EC-M2-9 | — | I5 | test_index_md.py | T-IDX-001..T-IDX-015 | — | GREEN |
+| AC-K3-2 | US-K3 | EC-M2-9 | — | I5 | test_index_md.py | T-IDX-001..T-IDX-015 | — | GREEN |
+| AC-K3-3 | US-K3 | EC-M2-9 | — | I5 | test_index_md.py | T-IDX-001..T-IDX-015 | — | GREEN |
+| AC-K3-4 | US-K3 | EC-M2-9 | — | I5 | test_index_md.py | T-IDX-001..T-IDX-015 | — | GREEN |
+| AC-K3-5 | US-K3 | EC-M2-9 | — | I1, I5 | test_index_md.py | T-IDX-001..T-IDX-015 | — | GREEN |
+| AC-K3-6 | US-K3 | EC-M2-9 | — | — | test_index_md.py | T-IDX-001..T-IDX-015 | — | GREEN |
 
-Note: All K3 tests use mock providers (no live inference required). The test file
-test_index_catalogue.py can exercise the index update logic independently of the full
-ingest loop by calling the index-update function directly with a pre-constructed WikiPage.
+Note: All K3 ACs GREEN. test_index_md.py exercises the index update function directly
+with pre-constructed WikiPage objects (mock provider — no live inference required).
 
 ---
 
@@ -367,19 +363,18 @@ ingest loop by calling the index-update function directly with a pre-constructed
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-MCP-1 | US-MCP | EC-M2-7 | D4 | I6 | test_mcp_server.py | — | — | PENDING |
-| AC-MCP-2 | US-MCP | EC-M2-7 | — | I9 | test_mcp_integration.py | — | — | PENDING |
-| AC-MCP-3 | US-MCP | EC-M2-7 | — | I1, I5, I6 | test_mcp_integration.py | — | — | PENDING |
-| AC-MCP-4 | US-MCP | EC-M2-7 | — | — | test_mcp_integration.py | — | — | PENDING |
-| AC-MCP-5 | US-MCP | EC-M2-7 | — | — | test_mcp_integration.py | — | — | PENDING |
-| AC-MCP-6 | US-MCP | EC-M2-7 | — | I1, I6 | test_mcp_integration.py | — | — | PENDING |
-| AC-MCP-7 | US-MCP | EC-M2-7 | D4 | I8 | test_docs.py | — | — | PENDING |
-| AC-MCP-8 | US-MCP | EC-M2-5, EC-M2-7 | — | I6 | test_ingest_orchestrator.py (live-infra) | — | — | LIVE |
+| AC-MCP-1 | US-MCP | EC-M2-7 | D4 | I6 | test_mcp_tools.py | T-MCP-001..T-MCP-015 | — | GREEN |
+| AC-MCP-2 | US-MCP | EC-M2-7 | — | I9 | test_mcp_tools.py | T-MCP-001..T-MCP-015 | — | GREEN |
+| AC-MCP-3 | US-MCP | EC-M2-7 | — | I1, I5, I6 | test_mcp_tools.py | T-MCP-001..T-MCP-015 | — | GREEN |
+| AC-MCP-4 | US-MCP | EC-M2-7 | — | — | test_mcp_tools.py | T-MCP-001..T-MCP-015 | — | GREEN |
+| AC-MCP-5 | US-MCP | EC-M2-7 | — | — | test_mcp_tools.py | T-MCP-001..T-MCP-015 | — | GREEN |
+| AC-MCP-6 | US-MCP | EC-M2-7 | — | I1, I6 | test_mcp_tools.py | T-MCP-001..T-MCP-015 | — | GREEN |
+| AC-MCP-7 | US-MCP | EC-M2-7 | D4 | I8 | test_docs.py | T-DOCS-028..T-DOCS-028e | — | GREEN |
+| AC-MCP-8 | US-MCP | EC-M2-5, EC-M2-7 | — | I6 | test_smoke_providers.py (live) | DEFERRED-TO-LIVE | — | LIVE-DEFERRED |
 
-Note: AC-MCP-1 through AC-MCP-6 use FastMCP's TestClient (in-process, no subprocess);
-blocked on AQ-v0.2-6 (stdio vs HTTP transport decision). AC-MCP-7 shares test_docs.py
-with D4 assertions from v0.1. AC-MCP-8 is live-infra only (requires running CLI provider
-against real MCP server).
+Note: AC-MCP-1..7 GREEN. AQ-v0.2-6 resolved: stdio transport (v0.2) per ADR-0010.
+AC-MCP-7 covered by T-DOCS-028..028e (mcp-tools.json schema check in test_docs.py).
+AC-MCP-8 is LIVE-DEFERRED — requires CLI provider + live MCP server on TrueNAS (GAP-v0.2-1).
 
 ---
 
@@ -387,14 +382,14 @@ against real MCP server).
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-D3-1 | US-D3 | EC-M2-10 | D3 | I8 | test_docs.py (mmdc render) | — | — | PENDING |
-| AC-D3-2 | US-D3 | EC-M2-10 | D3 | I8 | test_docs.py (mmdc render) | — | — | PENDING |
-| AC-D3-3 | US-D3 | EC-M2-10 | D3 | I8 | CI: mmdc render step | — | — | PENDING |
-| AC-D3-4 | US-D3 | EC-M2-10, EC-M2-15, EC-M2-16 | D3 | I8 | — (MANUAL GATE — architect + tech-writer joint review) | MANUAL | — | MANUAL |
+| AC-D3-1 | US-D3 | EC-M2-10 | D3 | I8 | test_docs.py | T-DOCS-026..T-DOCS-026c | — | GREEN |
+| AC-D3-2 | US-D3 | EC-M2-10 | D3 | I8 | test_docs.py | T-DOCS-027..T-DOCS-027c | — | GREEN |
+| AC-D3-3 | US-D3 | EC-M2-10 | D3 | I8 | CI: mmdc render step | DEFERRED (mmdc not in CI) | — | DEFERRED |
+| AC-D3-4 | US-D3 | EC-M2-10, EC-M2-15, EC-M2-16 | D3 | I8 | — (MANUAL GATE — architect + tech-writer) | MANUAL | — | MANUAL |
 
-Note: AC-D3-3 requires a CI mmdc render step — this is the same step noted as a carry-forward
-from v0.1 (v0.1-m1-closure.md) and must be added to the CI pipeline this sprint as a
-devops sub-task.
+Note: AC-D3-1 and AC-D3-2 GREEN — test_docs.py checks that files exist, contain
+sequenceDiagram keyword, and mention both routes (AC-D3-1) or bounded loop (AC-D3-2).
+AC-D3-3 deferred — mmdc not in CI; devops carry-forward. AC-D3-4 is MANUAL.
 
 ---
 
@@ -402,15 +397,14 @@ devops sub-task.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-D7-1 | US-D7 | EC-M2-11 | D7 | I8 | test_docs.py (structure check) | — | — | PENDING |
-| AC-D7-2 | US-D7 | EC-M2-11 | D7 | I8 | test_docs.py (structure check) | — | — | PENDING |
-| AC-D7-3 | US-D7 | EC-M2-11 | D7 | I8 | test_docs.py (structure check) | — | — | PENDING |
-| AC-D7-4 | US-D7 | EC-M2-11 | D7 | I8 | test_docs.py (structure check) | — | — | PENDING |
-| AC-D7-5 | US-D7 | EC-M2-11, EC-M2-15, EC-M2-16 | D7 | I8 | — (MANUAL GATE — architect + tech-writer joint review) | MANUAL | — | MANUAL |
+| AC-D7-1 | US-D7 | EC-M2-11 | D7 | I8 | test_docs.py | T-DOCS-029 | — | GREEN |
+| AC-D7-2 | US-D7 | EC-M2-11 | D7 | I8 | test_docs.py | T-DOCS-029b | — | GREEN |
+| AC-D7-3 | US-D7 | EC-M2-11 | D7 | I8 | test_docs.py | T-DOCS-029c | — | GREEN |
+| AC-D7-4 | US-D7 | EC-M2-11 | D7 | I8 | test_docs.py | T-DOCS-029..T-DOCS-029c | — | GREEN |
+| AC-D7-5 | US-D7 | EC-M2-11, EC-M2-15, EC-M2-16 | D7 | I8 | — (MANUAL GATE — architect + tech-writer) | MANUAL | — | MANUAL |
 
-Note: AC-D7-1 through AC-D7-4 are automated structure checks (keyword presence, section
-headers, file length) added to test_docs.py. AC-D7-5 is a mandatory human gate; cannot
-be automated.
+Note: AC-D7-1..4 GREEN — all 5 ADR files exist, non-empty (>100 chars), and collectively
+reference I6 and I7 invariants. AC-D7-5 is a mandatory human gate; cannot be automated.
 
 ---
 
@@ -418,62 +412,71 @@ be automated.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-D1u-1 | US-D1u | EC-M2-12 | D1 | I8 | test_docs.py (mmdc + content check) | — | — | PENDING |
-| AC-D1u-2 | US-D1u | EC-M2-12 | D1 | I8 | test_docs.py (mmdc + content check) | — | — | PENDING |
-| AC-D2u-1 | US-D2u | EC-M2-12 | D2 | I8 | test_docs.py, test_models_schema.py | — | — | PENDING |
-| AC-D4u-1 | US-D4u | EC-M2-12 | D4 | I8 | test_docs.py (openapi validator) | — | — | PENDING |
-| AC-D4u-2 | US-D4u | EC-M2-12 | D4 | I8 | test_docs.py | — | — | PENDING |
+| AC-D1u-1 | US-D1u | EC-M2-12 | D1 | I8 | test_docs.py | T-DOCS-023..T-DOCS-025 | — | GREEN |
+| AC-D1u-2 | US-D1u | EC-M2-12 | D1 | I8 | test_docs.py | T-DOCS-023..T-DOCS-025 | — | GREEN |
+| AC-D2u-1 | US-D2u | EC-M2-12 | D2 | I8 | test_docs.py, test_models_schema.py | T-DOCS-020..T-DOCS-022, T-PG-020..T-PG-030 | — | GREEN |
+| AC-D4u-1 | US-D4u | EC-M2-12 | D4 | I8 | test_docs.py | T-DOCS-016..T-DOCS-019 | — | GREEN |
+| AC-D4u-2 | US-D4u | EC-M2-12 | D4 | I8 | test_docs.py | T-DOCS-028..T-DOCS-028e | — | GREEN |
 
-Note: AC-D2u-1 extends the existing `make er` test from v0.1 (AC-D2-1); the existing
-test_models_schema.py assertions on table names must be updated to include `provider_config`
-and `links`.
+Note: All D1/D2/D4 update ACs now GREEN. component.mmd exists with InferenceProvider
+layer (T-DOCS-023..025). ER includes all 5 v0.2 tables (T-DOCS-020..022). mcp-tools.json
+exists with all 4 tools and frontmatter schema (T-DOCS-028..028e).
 
 ---
 
 ## M2 Exit Criteria coverage summary
 
-| EC | Description (abbreviated) | Covering ACs | All ACs automated? |
-|----|---------------------------|-------------|-------------------|
-| EC-M2-1 | F17 ABC + 3 backends complete | AC-F17-1, AC-F17-2, AC-F17-3, AC-F17-4, AC-F17-8 | Yes (all pytest) |
-| EC-M2-2 | provider_config table + REST endpoints | AC-F17-5, AC-F17-6, AC-F17-7 | Yes (pytest + API test) |
-| EC-M2-3 | Capability routing correct branch | AC-K2-4, AC-F17-3 | Yes |
-| EC-M2-4 | I7 bounded loop stops at max_iter | AC-K2-5, AC-K2-6, AC-K2-7 | Yes |
-| EC-M2-5 | 3-provider smoke matrix (live) | AC-K2-1, AC-K2-2, AC-K2-3, AC-MCP-8 | No — LIVE infra + human checkpoint (EC-M2-17) |
-| EC-M2-6 | Generated pages schema-valid | AC-F3-1..7, AC-K2-1, AC-K2-2, AC-K2-8 | Partial — F3 unit tests use mock provider; full validation in LIVE smoke matrix |
-| EC-M2-7 | MCP server tools exposed and callable | AC-MCP-1..7 | Yes (FastMCP TestClient) |
-| EC-M2-8 | K5 wikilink parser + links table | AC-K5-1..7 | Yes |
-| EC-M2-9 | K3 index.md auto-updated | AC-K3-1..6 | Yes |
-| EC-M2-10 | D3 sequence diagrams present | AC-D3-1..4 | Partial — AC-D3-4 is MANUAL |
-| EC-M2-11 | D7 ADRs present | AC-D7-1..5 | Partial — AC-D7-5 is MANUAL |
-| EC-M2-12 | D1/D2/D4 updated | AC-D1u-1, AC-D1u-2, AC-D2u-1, AC-D4u-1, AC-D4u-2 | Yes (mmdc + make er + make openapi) |
-| EC-M2-13 | I5 Obsidian still valid post-ingest | AC-K2-1 (Obsidian check) | No — MANUAL (Emanuele opens vault in Obsidian) |
-| EC-M2-14 | QA gate — green suite | All automated ACs above | QA sign-off required |
-| EC-M2-15 | Architect gate | AC-D3-4, AC-D7-5, AC-D1u-1 | MANUAL (architect sign-off) |
-| EC-M2-16 | Tech-writer gate | AC-D3-1..4, AC-D7-4..5, AC-D1u-1..2 | MANUAL (tech-writer sign-off) |
-| EC-M2-17 | Human checkpoint | EC-M2-5 live demo | MANUAL (Emanuele confirms) |
+| EC | Description (abbreviated) | Covering ACs | Status |
+|----|---------------------------|-------------|--------|
+| EC-M2-1 | F17 ABC + 3 backends complete | AC-F17-1..8 | GREEN — all automated |
+| EC-M2-2 | provider_config table + REST endpoints | AC-F17-5, AC-F17-6, AC-F17-7 | GREEN |
+| EC-M2-3 | Capability routing correct branch | AC-K2-4, AC-F17-3 | GREEN |
+| EC-M2-4 | I7 bounded loop stops at max_iter | AC-K2-5, AC-K2-6, AC-K2-7 | GREEN |
+| EC-M2-5 | 3-provider smoke matrix (live) | AC-K2-1..3, AC-MCP-8 | MOCK-GREEN / LIVE-DEFERRED (GAP-v0.2-1) |
+| EC-M2-6 | Generated pages schema-valid | AC-F3-1..7, AC-K2-1..3, AC-K2-8 | MOCK-GREEN / LIVE-DEFERRED |
+| EC-M2-7 | MCP server tools exposed and callable | AC-MCP-1..7 | GREEN |
+| EC-M2-8 | K5 wikilink parser + links table | AC-K5-1..7 | GREEN |
+| EC-M2-9 | K3 index.md auto-updated | AC-K3-1..6 | GREEN |
+| EC-M2-10 | D3 sequence diagrams present | AC-D3-1..4 | GREEN (content checks); AC-D3-3 mmdc DEFERRED; AC-D3-4 MANUAL |
+| EC-M2-11 | D7 ADRs present | AC-D7-1..5 | GREEN (AC-D7-1..4); AC-D7-5 MANUAL |
+| EC-M2-12 | D1/D2/D4 updated | AC-D1u-1..2, AC-D2u-1, AC-D4u-1..2 | GREEN |
+| EC-M2-13 | I5 Obsidian still valid post-ingest | test_obsidian_check.py (automated); EC-M2-13 manual open | GREEN (automated); MANUAL open check DEFERRED-TO-LIVE |
+| EC-M2-14 | QA gate — green suite | All automated ACs above | GREEN: 299/299 pytest pass; ruff+black clean |
+| EC-M2-15 | Architect gate | AC-D3-4, AC-D7-5, AC-D1u-1 | MANUAL (architect sign-off required) |
+| EC-M2-16 | Tech-writer gate | AC-D3-1..4, AC-D7-4..5, AC-D1u-1..2 | MANUAL (tech-writer sign-off required) |
+| EC-M2-17 | Human checkpoint | EC-M2-5 live demo | MANUAL (Emanuele confirms on TrueNAS) |
 
 ---
 
-## Planned test file index (v0.2 — forward references)
+## Actual test file index (v0.2 — as of QA pass 2026-06-28)
 
-| File | Layer | Primary ACs | Notes |
-|------|-------|-------------|-------|
-| backend/tests/test_provider_abc.py | unit | AC-F17-1, AC-F17-2, AC-F17-3 | Tests InferenceProvider ABC and all 3 concrete providers; no live inference |
-| backend/tests/test_provider_config.py | unit / DB | AC-F17-6 | Config resolution order; uses test DB with 3 seed rows |
-| backend/tests/test_ingest_routing.py | unit | AC-K2-4 | Routing reads capabilities(), not class name; uses CustomAgentic stub |
-| backend/tests/test_ingest_loop_bound.py | unit | AC-K2-5, AC-K2-6, AC-K2-7 | I7 compliance; mock provider that always returns invalid pages |
-| backend/tests/test_ingest_cot.py | unit | AC-F3-1, AC-F3-2, AC-F3-3, AC-F3-4, AC-F3-7 | Two-step CoT; Analysis + WikiPage schema validation; mock provider |
-| backend/tests/test_ingest_orchestrator.py | integration | AC-K2-8, AC-F3-5, AC-F3-6, AC-K2-1*, AC-K2-2*, AC-K2-3* | * = live-infra (@pytest.mark.live) |
-| backend/tests/test_wikilink_parser.py | unit | AC-K5-1, AC-K5-2, AC-K5-3, AC-K5-7 | Pure parser unit tests; no DB |
-| backend/tests/test_wikilink_integration.py | integration | AC-K5-4, AC-K5-5 | Requires links table migration applied |
-| backend/tests/test_index_catalogue.py | unit / integration | AC-K3-1..6 | Uses mock provider; exercises index update function directly |
-| backend/tests/test_mcp_server.py | unit | AC-MCP-1 | FastMCP tool registry check via TestClient |
-| backend/tests/test_mcp_integration.py | integration | AC-MCP-2..6 | All 4 tools; DB + filesystem state assertions |
-| backend/tests/test_models_schema.py | static introspection | AC-F17-5, AC-K5-6, AC-D2u-1 | Extends v0.1 file; adds provider_config + links table assertions |
-| backend/tests/test_code_quality.py | static / lint | AC-F17-4, AC-F17-8 | Extends v0.1 I6 guard; zero provider imports outside provider/ |
-| backend/tests/test_api.py | integration (ASGI) | AC-F17-7, AC-D4u-1 | Extends v0.1 file; adds /provider/config endpoint tests |
-| backend/tests/test_docs.py | CI artefact | AC-D3-1..3, AC-D7-1..4, AC-D1u-1..2, AC-D2u-1, AC-D4u-1..2, AC-MCP-7 | Extends v0.1 file; adds D3, D7, component.mmd, mcp-tools.json checks |
-| CI: mmdc render step | CI | AC-D3-3 | Added to CI pipeline this sprint (carry-forward from v0.1-m1-closure) |
+| File | Layer | Tests | Primary ACs | Status |
+|------|-------|-------|-------------|--------|
+| backend/tests/test_vault_structure.py | unit / filesystem | 15 | AC-K1-1..4, AC-K7-1..2 | GREEN (v0.1 + v0.2 unchanged) |
+| backend/tests/test_frontmatter.py | unit | 25 | AC-K6-1..3 | GREEN (v0.1, unchanged) |
+| backend/tests/test_watcher_hash.py | unit | 18 | AC-WATCH-2 | GREEN (v0.1, unchanged) |
+| backend/tests/test_ingest_incremental.py | integration (SQLite+FakeQdrant) | 17 | AC-WATCH-1..6, AC-K4-1..3, I1/G1 | GREEN (v0.1, unchanged) |
+| backend/tests/test_api.py | integration (ASGI) | 21 | AC-REST-1..6, AC-F17-7 | GREEN |
+| backend/tests/test_models_schema.py | static introspection | 46 | AC-K6-4, AC-F17-5, AC-K5-6, AC-D2u-1 | GREEN (extended from 28→46) |
+| backend/tests/test_docs.py | CI artefact | 42 | AC-D1-1..2, AC-D3-1..2, AC-D7-1..4, AC-D1u-1..2, AC-D2u-1, AC-D4u-1..2, AC-MCP-7 | GREEN (extended from 22→42) |
+| backend/tests/test_code_quality.py | static / lint | 10 | AC-F17-4, AC-F17-8, AC-DC-5 | GREEN (v0.1 + extended) |
+| backend/tests/test_schemas.py | unit | ~20 | AC-F3-1..2, AC-F17-2 | GREEN |
+| backend/tests/test_provider_routing.py | unit | ~15 | AC-K2-4, AC-F17-1, AC-F17-3 | GREEN |
+| backend/tests/test_provider_config_resolution.py | unit | multiple | AC-F17-6 | GREEN |
+| backend/tests/test_provider_config_api.py | integration (ASGI) | multiple | AC-F17-7 | GREEN |
+| backend/tests/test_bounded_loop.py | unit | ~20 | AC-K2-5..7, AC-F3-7 | GREEN |
+| backend/tests/test_wikilink_parser.py | unit | ~20 | AC-K5-1..5, AC-K5-7 | GREEN |
+| backend/tests/test_index_md.py | unit / integration | ~15 | AC-K3-1..6 | GREEN |
+| backend/tests/test_mcp_tools.py | unit (FastMCP) | ~15 | AC-MCP-1..6 | GREEN |
+| backend/tests/test_smoke_providers.py | smoke matrix | 6 (3 mock, 3 live-skip) | AC-K2-1..3, AC-MCP-8 | MOCK-GREEN / LIVE-DEFERRED |
+| backend/tests/test_obsidian_check.py | unit / self-test | 15 | I5, K7, EC-M2-13 | GREEN |
+| CI: make er | script | — | AC-DC-3, AC-D2u-1 | GREEN |
+| CI: make openapi | script | — | AC-DC-4, AC-D4u-1 | GREEN |
+| CI: mmdc render step | CI (DEFERRED) | — | AC-D3-3 | DEFERRED-needs-mmdc |
+| test_qdrant.py (DEFERRED) | live integration | — | AC-QD-2, AC-QD-3 | DEFERRED-needs-live-infra |
+| test_docker.py (DEFERRED) | live integration | — | AC-DC-1 | DEFERRED-needs-docker |
+
+Total automated: **299 passed, 3 skipped** (live smoke tests correctly skip in CI without env)
 
 ---
 
@@ -481,12 +484,13 @@ and `links`.
 
 | Gap ID | AC ID | Issue | Resolution |
 |--------|-------|-------|-----------|
-| GAP-v0.2-1 | AC-K2-1, AC-K2-2, AC-K2-3, AC-MCP-8 | Live-infra tests require Ollama on TrueNAS, Anthropic API key, and working claude-agent-sdk — not available in dev sandbox or CI unit-test run | Mark @pytest.mark.live; run only during EC-M2-5 smoke matrix on TrueNAS; human confirms at EC-M2-17 checkpoint |
+| GAP-v0.2-1 | AC-K2-1, AC-K2-2, AC-K2-3, AC-MCP-8 | Live-infra tests require Ollama on TrueNAS, Anthropic API key, and working claude-agent-sdk — not available in dev sandbox or CI unit-test run | CI mock tests GREEN (SYNAPSE_SMOKE_MOCK=1). Run `pytest tests/test_smoke_providers.py -m live` on TrueNAS before EC-M2-17. Harness at backend/scripts/smoke_providers.py; fixture at backend/tests/fixtures/sample-source.md |
 | GAP-v0.2-2 | AC-D3-4, AC-D7-5, AC-D1u-1 (architect approval), AC-D1u-2 (tech-writer) | Architect and tech-writer review gates are not automatable as pytest tests | Record as MANUAL in sign-off register; binary gate before PM sign-off |
-| GAP-v0.2-3 | AC-F3-4 | Language detection (EN/IT) requires a provider that returns deterministic language output; purely mock-based test may not exercise the actual model's language capability | Unit test uses a mock provider returning preset language codes; live language detection validated in EC-M2-5 smoke matrix as supplemental (not a separate automated gate) |
-| GAP-v0.2-4 | AC-K2-6 | Log entry storage mechanism (Python structlog vs. Postgres ingest_runs table) is unresolved — see AQ-v0.2-2 | Blocked on architect resolution of AQ-v0.2-2; test implementation deferred until decision is recorded in ADR-0009 |
-| GAP-v0.2-5 | AC-F17-1, AC-F3-1, AC-F3-2 | Exact Pydantic schemas for Analysis, WikiPage, Message, ProviderCapabilities not yet defined — see AQ-v0.2-3 | Blocked on architect/ai-agent-engineer defining schemas in backend/app/ingest/schemas.py; test field assertions cannot be finalised before this |
-| GAP-v0.2-6 | AC-MCP-1..6 | MCP transport (stdio vs HTTP) not yet decided — see AQ-v0.2-6 | FastMCP TestClient works regardless of transport for unit tests; integration test setup (subprocess vs in-process) depends on architect's decision |
+| GAP-v0.2-3 | AC-F3-4 | Language detection (EN/IT) requires live inference | Mock path returns preset language codes. Live detection validated in EC-M2-5 smoke matrix |
+| GAP-v0.2-4 | AC-K2-6 | RESOLVED: AQ-v0.2-2 resolved — Postgres ingest_runs table chosen (ADR-0009) | GREEN. ingest_runs table model verified by test_models_schema.py T-PG-026..T-PG-029b |
+| GAP-v0.2-5 | AC-F17-1, AC-F3-1, AC-F3-2 | RESOLVED: AQ-v0.2-3 resolved — schemas locked in v0.2-architecture.md §2 and implemented in backend/app/ingest/schemas.py | GREEN. Verified by test_schemas.py |
+| GAP-v0.2-6 | AC-MCP-1..6 | RESOLVED: AQ-v0.2-6 resolved — stdio transport chosen (ADR-0010, v0.2); HTTP deferred to v0.4 | GREEN. MCP tests use in-process FastMCP client |
+| GAP-v0.2-7 | — | BUG FOUND AND FIXED: orchestrator._delegate_ingest() returned bool (converged only), discarding pages_written from DelegatedIngestResult. IngestRunResult.pages_written was always 0 for the CLI (delegated) path. | FIXED: _delegate_ingest() now returns tuple[bool, int]. IngestRunResult.pages_written uses delegated_pages_written on the delegated path. Verified by T-SMOKE-CLI-MOCK |
 
 ---
 
