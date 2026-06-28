@@ -72,14 +72,17 @@ class TestSearchWiki:
         fake_emb = FakeEmbeddingClient(dim=4)
         set_embedding_client(fake_emb)
 
-        # Build fake Qdrant search result
+        # Build fake Qdrant query_points result (Qdrant client ≥ 1.10 uses query_points).
         fake_hit = MagicMock()
         fake_hit.id = str(uuid.uuid4())
         fake_hit.score = 0.8  # raw cosine score
         fake_hit.payload = {"title": "Qdrant", "type": "concept"}
 
+        fake_response = MagicMock()
+        fake_response.points = [fake_hit]
+
         fake_qdrant = MagicMock()
-        fake_qdrant.search = AsyncMock(return_value=[fake_hit])
+        fake_qdrant.query_points = AsyncMock(return_value=fake_response)
 
         with patch("app.mcp.server.get_qdrant_client", return_value=fake_qdrant):
             results = await search_wiki("qdrant vector database", k=5)
@@ -101,7 +104,7 @@ class TestSearchWiki:
         set_embedding_client(fake_emb)
 
         fake_qdrant = MagicMock()
-        fake_qdrant.search = AsyncMock(side_effect=ConnectionError("qdrant down"))
+        fake_qdrant.query_points = AsyncMock(side_effect=ConnectionError("qdrant down"))
 
         with patch("app.mcp.server.get_qdrant_client", return_value=fake_qdrant):
             results = await search_wiki("anything")
@@ -117,14 +120,17 @@ class TestSearchWiki:
         fake_emb = FakeEmbeddingClient(dim=4)
         set_embedding_client(fake_emb)
 
+        fake_response = MagicMock()
+        fake_response.points = []
+
         fake_qdrant = MagicMock()
-        fake_qdrant.search = AsyncMock(return_value=[])
+        fake_qdrant.query_points = AsyncMock(return_value=fake_response)
 
         with patch("app.mcp.server.get_qdrant_client", return_value=fake_qdrant):
             await search_wiki("query", k=1000)
 
         # The limit passed to Qdrant must be ≤ 50
-        call_kwargs = fake_qdrant.search.call_args
+        call_kwargs = fake_qdrant.query_points.call_args
         assert call_kwargs.kwargs["limit"] <= 50
 
 

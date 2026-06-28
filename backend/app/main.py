@@ -28,11 +28,12 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
+from sqlalchemy.engine import CursorResult
 
 from app.config import settings
 from app.db import dispose_engine, get_session
@@ -527,7 +528,7 @@ async def delete_provider_config(config_id: uuid.UUID) -> None:
         result = await session.execute(
             sa_delete(ProviderConfig).where(ProviderConfig.id == config_id)
         )
-        deleted = result.rowcount  # type: ignore[union-attr]
+        deleted = cast("CursorResult[Any]", result).rowcount
 
     if deleted == 0:
         raise HTTPException(
