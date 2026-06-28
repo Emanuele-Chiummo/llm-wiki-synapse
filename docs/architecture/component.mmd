@@ -1,9 +1,13 @@
 C4Component
-    %% <!-- Generated: v0.2 sprint 2 | 2026-06-28 -->
-    title Component Diagram — Synapse v0.2 (M2 "Agentic loop closed, 3 providers")
+    %% <!-- Generated: v0.3 sprint 3 | 2026-06-28 -->
+    %% v0.3 adds the F4 graph engine + I2 cache + GET /graph + thin sigma viewer.
+    %% I2: FA2 runs ONLY server-side (GraphEngine via igraph); coords persisted in pages.x/y;
+    %% recompute debounced on vault_state.data_version (GraphCache); client renders precomputed
+    %% coords in ONE WebGL canvas — NEVER a force layout on the UI main thread (ADR-0013/14/15).
+    title Component Diagram — Synapse v0.3 (M3 "Graph live, no main-thread freeze")
 
     Container_Boundary(api, "FastAPI service") {
-        Component(rest, "REST + provider endpoints", "FastAPI routers", "GET/POST /provider/config, POST /ingest/trigger (202). Auto OpenAPI → D4.")
+        Component(rest, "REST + provider + graph endpoints", "FastAPI routers", "GET/POST /provider/config, POST /ingest/trigger (202), GET /graph (200, X-Graph-Cache: hit|miss, ADR-0014). Auto OpenAPI → D4.")
         Component(watcher, "Watcher", "watchdog", "raw/sources/ events; mtime-then-hash gate (I1). Calls the seam only.")
         Component(orch, "IngestOrchestrator", "ingest/orchestrator.py", "Resolves provider from provider_config; reads capabilities(); ROUTES on supports_agentic_loop (I6 — never isinstance/class). Runs the orchestrated loop (analyze→generate→validate→retry, max_iter+token_budget, I7) OR delegates to CLI. Owns the Usage accumulator + cost-anomaly check.")
         Component(resolver, "ConfigResolver", "provider_config_service.py", "operation+vault > vault > global precedence over provider_config.")
@@ -15,7 +19,15 @@ C4Component
         Component(apip, "ApiProvider", "provider/api.py", "Anthropic / OpenAI-compatible (base_url). Key from env only (§12). supports_agentic_loop=False.")
         Component(clip, "CliAgentProvider", "provider/cli.py", "claude-agent-sdk, acceptEdits. supports_agentic_loop=True → delegated ingest.")
         Component(mcp, "MCP server (FastMCP)", "mcp/server.py", "stdio. Tools: search_wiki, write_page, get_page, list_pages. write_page reuses persist/embed/index primitives (I1,I5).")
-        ComponentDb(pg, "Postgres 16", "SQLAlchemy 2 + Alembic", "pages, vault_state, provider_config, ingest_runs (I7), links (K5). D2 source of truth.")
+        Component(gengine, "GraphEngine", "graph/engine.py", "F4. Reads pages+links from Postgres (never walks vault, I1). Builds 4-signal weighted edge list (direct x3, source-overlap x4, Adamic-Adar x1.5, type-affinity x1; ADR-0012). Runs SEEDED FA2 via python-igraph OFFLINE (seed=42, ADR-0013, I9). Single bounded pass (I7); logs node/edge count + duration.")
+        Component(gcache, "GraphCache", "graph/cache.py", "I2. Debounces recompute on vault_state.data_version bump (default 5s, injectable clock; ADR-0014). Max one in-flight + one pending (I7). Tracks marker data_version → cache hit/miss. NEVER recomputes on a plain GET hit.")
+        Component(gpersist, "Coord/edge persistence", "in engine.py", "One txn: UPDATE pages.x/y per node (column upsert, I1) + replace edges rows with weights. No vault/.md writes (I5).")
+        ComponentDb(pg, "Postgres 16", "SQLAlchemy 2 + Alembic", "pages (+x,y v0.3), vault_state (data_version → graph trigger), provider_config, ingest_runs (I7), links (K5), edges (v0.3: weighted graph, ADR-0012). D2 source of truth.")
+    }
+
+    Container_Boundary(fe, "Frontend (thin sigma viewer — v0.3)") {
+        Component(viewer, "Graph viewer", "React 19 + Vite + sigma.js", "I2/I4. Single read-only route. fetch GET /graph → graph.addNode({x,y}) with PRECOMPUTED coords → ONE WebGL canvas. NEVER imports/runs forceatlas2/d3-force/any client layout (ADR-0015, P0 block). Node click → GET /pages/{id} tooltip.")
+        Component(gstore, "Graph Zustand store", "store/graph.ts", "I3. Selectors + shallow equality; pure API→graphology transform. No whole-store subscription.")
     }
 
     System_Ext(ollamasvc, "Ollama", "RTX 3060, running (I9)")
@@ -43,5 +55,14 @@ C4Component
     Rel(mcp, qdrant, "search_wiki embed+query (I9)")
     Rel(orch, vaultfs, "write wiki/ pages")
     Rel(mcp, vaultfs, "write wiki/ pages")
+
+    %% v0.3 F4 graph relations
+    Rel(orch, gcache, "notify_bump() after data_version +1 (in-process trigger, ADR-0014)")
+    Rel(gcache, gengine, "recompute() once per debounce window (max 1 in-flight + 1 pending, I7)")
+    Rel(gengine, pg, "read pages+links; write pages.x/y + edges in one txn (I1, never walks vault)")
+    Rel(rest, gcache, "GET /graph: hit→read coords; miss→inline recompute (sync 200, ADR-0014)")
+    Rel(rest, pg, "GET /graph reads pages.x/y + edges (precomputed)")
+    Rel(viewer, rest, "GET /graph (precomputed coords) + GET /pages/{id} on node click")
+    Rel(viewer, gstore, "selectors + shallow equality (I3)")
 
     UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

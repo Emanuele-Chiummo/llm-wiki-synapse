@@ -1,0 +1,50 @@
+sequenceDiagram
+    %% <!-- Generated: v0.3 sprint 3 | 2026-06-28 — DRAFT for tech-writer (D3, EC-M3-10) -->
+    %% I2: FA2 runs ONLY server-side (GraphEngine via igraph). Coords persisted in pages.x/y.
+    %% Recompute is DEBOUNCED on vault_state.data_version — NOT on every GET /graph (ADR-0013/0014).
+    title Graph recompute — debounced FA2 on dataVersion + GET /graph cache hit/miss (I2)
+    autonumber
+
+    participant W as Watcher / Ingest
+    participant DV as vault_state.data_version
+    participant GC as GraphCache (graph/cache.py)
+    participant GE as GraphEngine (graph/engine.py)
+    participant PG as Postgres (pages.x/y + edges)
+    participant CL as Client (sigma viewer)
+
+    Note over GE: FA2 runs ONLY server-side (igraph, seed=42). NEVER in the browser (I2).
+
+    rect rgb(235,245,255)
+    Note over W,DV: Ingest bumps data_version, then notifies the cache (in-process trigger, ADR-0014)
+    W->>DV: +1 on successful upsert ingest (ADR-0005)
+    W->>GC: notify_bump()
+    end
+
+    rect rgb(240,255,240)
+    Note over GC: DEBOUNCE — a new bump within the window resets the timer (burst collapse)
+    loop N bumps within GRAPH_DEBOUNCE_SECONDS (default 5s)
+        W->>GC: notify_bump()  %% resets fire_at = clock.now()+window
+    end
+    Note over GC: clock.now() >= fire_at AND no run in-flight → fire ONCE (5 bumps → 1 recompute)
+    GC->>GE: recompute()  %% single bounded pass (I7); max 1 in-flight + 1 pending
+    GE->>PG: SELECT live pages + resolved links (no vault walk, I1)
+    Note over GE: build 4-signal weights (direct x3 + source x4 + AdamicAdar x1.5 + type x1, ADR-0012); run SEEDED FA2
+    GE->>PG: ONE txn — UPDATE pages.x/y per node (column upsert, I1) + replace edges rows
+    Note over GC: stamp marker = data_version of this run; if a bump arrived in-flight → exactly ONE follow-up (I7)
+    end
+
+    rect rgb(255,250,235)
+    Note over CL,PG: GET /graph is SYNCHRONOUS 200 — never recomputes on a plain hit
+    CL->>GC: GET /graph
+    alt cache-miss (no coords yet / data_version advanced past marker)
+        Note over GC: first ever call or stale → run ONE inline recompute (cold-start safety net)
+        GC->>GE: recompute()  %% same in-flight guard; no concurrent FA2
+        GE->>PG: write pages.x/y + edges
+        GC-->>CL: 200 {nodes,edges,data_version,cached:false}  ·  header X-Graph-Cache: miss
+    else cache-hit (data_version == marker, coords present)
+        Note over GC: NO FA2 — pure read of precomputed coords
+        GC->>PG: SELECT pages.x/y + edges
+        GC-->>CL: 200 {nodes,edges,data_version,cached:true}  ·  header X-Graph-Cache: hit
+    end
+    CL->>CL: graph.addNode(id,{x,y,...}) into ONE WebGL canvas — NO client layout (ADR-0015)
+    end

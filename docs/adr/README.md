@@ -1,6 +1,6 @@
 # Architecture Decision Records — Index
 
-> Last updated: 2026-06-28 · Sprint v0.2
+> Last updated: 2026-06-28 · Sprint v0.3
 > All ADRs authored by solution-architect; formatted by tech-writer.
 > Status values: Accepted | Superseded | Deprecated
 
@@ -8,8 +8,11 @@ ADRs 0001–0006 were authored in sprint v0.1 to lock the walking-skeleton desig
 engineers began coding. ADRs 0007–0011 were authored in sprint v0.2 to lock the F17
 InferenceProvider abstraction, capability-aware routing, the bounded ingest loop, the
 provider_config/ingest_runs/links schema, the MCP transport, and the ingest contract
-schemas before engineers began coding. They are referenced throughout the codebase as
-`ADR-XXXX`.
+schemas before engineers began coding. ADRs 0012–0015 were authored in sprint v0.3 to
+lock the F4 knowledge-graph engine (4-signal edge weighting), server-side FA2 layout +
+coordinate persistence (I2), the dataVersion-debounced GraphCache + GET /graph contract,
+and the no-client-layout sigma.js viewer contract before engineers began coding. They are
+referenced throughout the codebase as `ADR-XXXX`.
 
 | ADR | Title | Status | Date | Sprint | Summary |
 |-----|-------|--------|------|--------|---------|
@@ -24,3 +27,7 @@ schemas before engineers began coding. They are referenced throughout the codeba
 | [0009](0009-bounded-loop-defaults.md) | Bounded ingest loop: defaults, cost accounting, token normalization (I7) | Accepted | 2026-06-28 | v0.2 | max_iter=3, token_budget 60k/100k, fallback=1; uniform `Usage` normalization per backend (AQ-4); CLI/local cost=$0.00; inline $1 anomaly WARNING (AQ-8). |
 | [0010](0010-mcp-transport-and-write-path.md) | MCP server: stdio transport; write_page reuses ingest primitives | Accepted | 2026-06-28 | v0.2 | stdio for v0.2, HTTP deferred to v0.4 (AQ-6); write_page reuses persist/embed/index primitives (I1,I5); search_wiki reuses Qdrant/bge-m3 (I9). |
 | [0011](0011-ingest-contract-schemas.md) | Ingest contract: Analysis/WikiPage/Message/ProviderCapabilities schemas | Accepted | 2026-06-28 | v0.2 | Locks the Pydantic/dataclass contract in `ingest/schemas.py` (AQ-3); typed WikiFrontmatter enforces I5; backend-neutral Message keeps I6. |
+| [0012](0012-graph-edge-weight-formula.md) | 4-signal graph edge-weight formula (F4) | Accepted | 2026-06-28 | v0.3 | ADDITIVE weight = 3·direct + 4·source-overlap + 1.5·Adamic-Adar + 1·type-affinity over undirected page pairs; each term defined exactly; persist iff weight>0; edges table persisted (AQ-v0.3-1/5). |
+| [0013](0013-server-side-fa2-coord-persistence.md) | Server-side FA2 layout, coord persistence, determinism seed (I2) | Accepted | 2026-06-28 | v0.3 | FA2 only in graph/engine.py via python-igraph; fixed seed=42; coords in pages.x/y columns; incremental = row-level (coords may move on global relayout); single bounded pass (AQ-v0.3-2/4/6). |
+| [0014](0014-graph-cache-debounce-and-graph-endpoint.md) | GraphCache debounce, dataVersion trigger, GET /graph contract (I2) | Accepted | 2026-06-28 | v0.3 | In-process debounce on data_version bump (5s, injectable clock); max 1 in-flight + 1 pending (I7); GET /graph synchronous 200 with cached + X-Graph-Cache: hit|miss (AQ-v0.3-3/7). |
+| [0015](0015-no-client-side-layout-sigma-contract.md) | No client-side layout: sigma.js viewer contract (I2/I4/I3) | Accepted | 2026-06-28 | v0.3 | Thin read-only sigma viewer renders precomputed coords in ONE WebGL canvas; zero client-layout code (P0 block, static bundle grep + architect review); Zustand selectors + shallow equality; G2/G4 met by construction. |
