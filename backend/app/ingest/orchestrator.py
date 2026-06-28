@@ -256,16 +256,34 @@ class IngestRunResult:
 
 async def _resolve_ingest_provider_config() -> object | None:
     """
-    Seam for the ConfigResolver (operation>vault>global, ADR-0008) owned by backend-engineer.
+    Resolve the provider_config row for operation='ingest' via the ConfigResolver
+    (operation>vault>global, ADR-0008 §2). Returns None when no row is configured so that
+    the v0.1 mechanical path runs — never silently defaulting a backend (I6).
 
-    Returns the resolved provider_config row for operation='ingest', or None if no row is
-    configured (the v0.1 mechanical path then runs — I6: never silently default a backend).
-
-    v0.2 ai-agent-engineer scope leaves this returning None until backend-engineer wires the
-    real resolver; tests inject a config row by monkeypatching this function. This is the ONLY
-    place the orchestrator obtains a provider config — keeping resolution centralized.
+    This is the ONLY place the orchestrator obtains a provider config (centralized resolution).
+    Tests inject a config row by monkeypatching this function.
     """
-    return None
+    from sqlalchemy.exc import SQLAlchemyError
+
+    from app.provider_config_service import ConfigNotFoundError, resolve_provider_config
+
+    try:
+        return await resolve_provider_config("ingest")
+    except ConfigNotFoundError:
+        # No provider configured for this vault → v0.1 mechanical path (source-only indexing).
+        logger.debug(
+            "_resolve_ingest_provider_config: no provider_config row found — "
+            "falling through to mechanical ingest (I6: no silent backend default)"
+        )
+        return None
+    except (SQLAlchemyError, OSError):
+        # DB unreachable or table missing (e.g. test env without migration, no live Postgres).
+        # Fall through to the v0.1 mechanical path — the migration gates provider use.
+        logger.debug(
+            "_resolve_ingest_provider_config: DB unavailable / table missing — "
+            "falling through to mechanical ingest"
+        )
+        return None
 
 
 async def run_ingest_pipeline(
@@ -445,18 +463,30 @@ async def _delegate_ingest(
             "agentic provider exposes no delegate_ingest() — cannot delegate (ADR-0007 §3)"
         )
     system_prompt = _load_vault_context()
+    # ── MCP wiring seam (ADR-0010 §2) ──────────────────────────────────────────
+    # Import lazily to avoid a circular import; app.mcp.server imports from orchestrator.
+    try:
+        from app.mcp.server import mcp as _mcp_server
+    except Exception:  # noqa: BLE001
+        _mcp_server = None
     result = await delegate(
         source_text=source_text,
         system_prompt=system_prompt,
         vault_dir=str(settings.vault_root),
-        mcp_server=None,  # backend-engineer wires the FastMCP server (ADR-0010); seam in cli.py
+        mcp_server=_mcp_server,  # FastMCP server (ADR-0010); cli.py seam
     )
     return bool(getattr(result, "converged", False))
 
 
 async def _resolve_fallback_provider_config() -> object | None:
-    """Seam for the fallback row (is_fallback=True for the scope, ADR-0008). None until wired."""
-    return None
+    """
+    Return the fallback ProviderConfig row (is_fallback=True) at the narrowest matching scope,
+    or None if no fallback is configured (ADR-0009 §fallback). Bounded to exactly one attempt
+    by the caller (_run_orchestrated — I7).
+    """
+    from app.provider_config_service import resolve_fallback_provider_config
+
+    return await resolve_fallback_provider_config()
 
 
 # ── Wiki page writer (reused by the MCP write_page tool — ADR-0010 §2) ─────────
@@ -522,6 +552,20 @@ async def write_wiki_page(
     )
     await append_log(rel_path)
     await bump_version()
+
+    # ── K5: parse + persist wikilinks (incremental, I1) ──────────────────────
+    from app.wiki.links import parse_wikilinks, persist_links
+
+    parsed = parse_wikilinks(page.content)
+    async with get_session() as wl_sess:
+        await persist_links(wl_sess, page_id, parsed)
+
+    # ── K3: regenerate index.md catalogue (idempotent, I1) ───────────────────
+    from app.wiki.index import update_index
+
+    async with get_session() as idx_sess:
+        await update_index(idx_sess, settings.vault_root)
+
     logger.info("write_wiki_page: wrote %s page_id=%s", rel_path, page_id)
 
     async with get_session() as sess:
