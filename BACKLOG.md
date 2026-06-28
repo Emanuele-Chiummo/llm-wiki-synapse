@@ -334,13 +334,19 @@ MCP tool schemas deferred to v0.2 (FastMCP server is not in scope for v0.1).
 
 ## Sprint 2 — v0.2 — M2 "Agentic loop closed, 3 providers"
 
-**Sprint status: IN-PROGRESS**
+**Sprint status: DONE-PENDING-HUMAN-CHECKPOINT**
 Scope locked: 2026-06-28 by product-manager. Scope log: docs/sprints/v0.2-scope.md
+PM sign-off: docs/sprints/v0.2-pm-signoff.md | 2026-06-28
 Prerequisite: M1 CLOSED — docs/sprints/v0.1-m1-closure.md confirmed.
 Branch: sprint/v0.2
 Invariants in force with heightened priority: I6 (pluggable inference — defining invariant
 this sprint), I7 (bounded loops — first real loops introduced). All 9 invariants apply.
-Velocity note: Highest-complexity sprint in roadmap. Estimated 10–14 solo evening sessions.
+Velocity: ON SCOPE. All 11 in-scope feature IDs delivered. 1 harmless early extra
+(DELETE /provider/config/{id}). 2 additional ADRs (0010/0011) beyond required 3 —
+legitimate sprint decisions, not overrun. BUG-v0.2-1 found and fixed in-sprint. mmdc CI
+check deferred (was "best-effort" per scope lock §11). v0.3 boundary (F4 graph) intact.
+Human checkpoint: 3 live-run conditions remain (listed in docs/sprints/v0.2-pm-signoff.md
+§6). Sprint 3 blocked until EC-M2-17 satisfied by Emanuele.
 
 ---
 
@@ -350,7 +356,7 @@ Velocity note: Highest-complexity sprint in roadmap. Estimated 10–14 solo even
 |-------|-------|
 | Feature ID | F17 |
 | Sprint | v0.2 |
-| Status | in-progress |
+| Status | done — AC-F17-1..8 all GREEN; I6 APPROVED by architect; chat() stub confirmed; no hardcoded provider/model ID |
 | Priority | P0 — defining feature of sprint; all other items depend on it |
 | Owner | ai-agent-engineer (leads); backend-engineer (support) |
 
@@ -394,7 +400,7 @@ REST endpoints: `GET /provider/config`, `POST /provider/config`.
 |-------|-------|
 | Feature ID | K2 (ingest operation — full implementation) |
 | Sprint | v0.2 |
-| Status | in-progress |
+| Status | done-pending-live-smoke — AC-K2-1..3 MOCK-GREEN (live run required for EC-M2-5/17); AC-K2-4..8 GREEN |
 | Priority | P0 — spine of M2; wires F17 + F3 |
 | Owner | backend-engineer; ai-agent-engineer for routing branch |
 
@@ -436,7 +442,7 @@ routing loop:
 |-------|-------|
 | Feature ID | F3 |
 | Sprint | v0.2 |
-| Status | in-progress |
+| Status | done-pending-live-smoke — AC-F3-1..3 + F3-5..7 GREEN; AC-F3-4 (live language detection) LIVE-DEFERRED to EC-M2-5 TrueNAS run |
 | Priority | P0 — what the loop produces |
 | Owner | ai-agent-engineer (prompt engineering); backend-engineer (integration) |
 
@@ -473,7 +479,7 @@ The two-step CoT ingest:
 |-------|-------|
 | Feature ID | K5 |
 | Sprint | v0.2 |
-| Status | in-progress |
+| Status | done — AC-K5-1..7 all GREEN; links table 5-column schema verified; dangling warn-not-error confirmed |
 | Priority | P1 — required before graph (F4, v0.3) can compute edges |
 | Owner | backend-engineer |
 
@@ -506,7 +512,7 @@ dangling=True and logged as warnings. They are NOT errors.
 |-------|-------|
 | Feature ID | K3 |
 | Sprint | v0.2 |
-| Status | in-progress |
+| Status | done — AC-K3-1..6 all GREEN; idempotent; I1-safe (DB query, not filesystem rescan); I5-compliant frontmatter |
 | Priority | P1 — required output of ingest loop; LLM navigation entry-point |
 | Owner | backend-engineer |
 
@@ -532,7 +538,7 @@ sections table organized by page type. If index.md is missing, it is recreated.
 |-------|-------|
 | Feature ID | MCP server (backbone for CliAgentProvider; required M2 deliverable per CLAUDE.md §8) |
 | Sprint | v0.2 |
-| Status | in-progress |
+| Status | done-pending-live-smoke — AC-MCP-1..7 GREEN; AC-MCP-8 (live CLI↔MCP wiring) LIVE-DEFERRED to EC-M2-5 TrueNAS run |
 | Priority | P0 — CliAgentProvider cannot delegate without it |
 | Owner | ai-agent-engineer (FastMCP integration); backend-engineer (tool implementations) |
 
@@ -565,7 +571,7 @@ Tool schemas exported to `docs/api/mcp-tools.json`.
 |-------|-------|
 | Feature ID | D3 (docs artifact — first sprint it is required) |
 | Sprint | v0.2 |
-| Status | in-progress |
+| Status | done — AC-D3-1..2 GREEN; AC-D3-4 MANUAL (architect + tech-writer approved); AC-D3-3 (mmdc CI) deferred to v0.3 devops as "best-effort" per scope lock §11 |
 | Priority | P1 — required by I8 docs-as-DoD for M2 |
 | Owner | tech-writer |
 
@@ -594,7 +600,7 @@ Both diagrams: CI mmdc render check must pass.
 |-------|-------|
 | Feature ID | D7 (docs artifact — required from v0.2 per CLAUDE.md §9) |
 | Sprint | v0.2 |
-| Status | in-progress |
+| Status | done — ADR-0007..0011 all present and Accepted; AC-D7-1..4 GREEN; AC-D7-5 MANUAL (architect + tech-writer approved); ADR README indexes all 11 |
 | Priority | P1 — required by I8 docs-as-DoD for M2 |
 | Owner | solution-architect (authors); tech-writer (consistency review) |
 
@@ -621,7 +627,7 @@ Additional ADRs as needed for: FastMCP choice over raw MCP SDK, links table sche
 |-------|-------|
 | Feature ID | D1, D2, D4 (docs artifacts — continuous) |
 | Sprint | v0.2 |
-| Status | in-progress |
+| Status | done — AC-D1u-1..2, AC-D2u-1, AC-D4u-1..2 all GREEN; zero drift on ER and OpenAPI; v0.1 carry-forward (202 schema) resolved; component.mmd new; mcp-tools.json new; NB-3 (openapi info.version string) is pre-merge fix |
 | Priority | P1 — required before M2 docs gate |
 | Owner | tech-writer (D1 narrative); backend-engineer (D2 via `make er`); backend-engineer (D4 via `make openapi`) |
 
