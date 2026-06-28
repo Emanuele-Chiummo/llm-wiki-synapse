@@ -27,7 +27,7 @@ C4Component
 
     Container_Boundary(fe, "Frontend (thin sigma viewer — v0.3)") {
         Component(viewer, "Graph viewer", "React 19 + Vite + sigma.js", "I2/I4. Single read-only route. fetch GET /graph → graph.addNode({x,y}) with PRECOMPUTED coords → ONE WebGL canvas. NEVER imports/runs forceatlas2/d3-force/any client layout (ADR-0015, P0 block). Node click → GET /pages/{id} tooltip.")
-        Component(gstore, "Graph Zustand store", "store/graph.ts", "I3. Selectors + shallow equality; pure API→graphology transform. No whole-store subscription.")
+        Component(gstore, "Graph Zustand store", "store/graphStore.ts", "I3. Selectors + shallow equality; pure API→graphology transform. No whole-store subscription.")
     }
 
     System_Ext(ollamasvc, "Ollama", "RTX 3060, running (I9)")
