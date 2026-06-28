@@ -36,7 +36,9 @@ depends_on: Union[str, Sequence[str], None] = None
 # Default global model IDs read from the environment at migration time (AC-F17-8).
 # These are NEVER literals in application code — the app always reads from provider_config.
 _DEFAULT_MODEL_ID = os.environ.get("DEFAULT_MODEL_ID", "claude-sonnet-4-6")
-_DEFAULT_FALLBACK_MODEL_ID = os.environ.get("DEFAULT_FALLBACK_MODEL_ID", "claude-haiku-4-5-20251001")
+_DEFAULT_FALLBACK_MODEL_ID = os.environ.get(
+    "DEFAULT_FALLBACK_MODEL_ID", "claude-haiku-4-5-20251001"
+)
 
 
 def upgrade() -> None:
