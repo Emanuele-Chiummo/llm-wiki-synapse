@@ -8,7 +8,7 @@
  * No provider/model literals hardcoded (I6).
  */
 
-import type { IngestRunListResponse } from "./types";
+import type { IngestRunListResponse, UploadResponse } from "./types";
 import { ApiError } from "./graphClient";
 
 const API_BASE: string =
@@ -60,4 +60,31 @@ export async function triggerIngest(
     ...(signal !== undefined ? { signal } : {}),
   });
   await checkResponse(res);
+}
+
+/**
+ * Upload a document file to the vault.
+ * POST /ingest/upload (multipart/form-data, field "file")
+ * Returns 202 Accepted { file_path, status:'queued', overwritten } — ingest runs async via the watcher.
+ * Errors: 415 (unsupported type), 413 (too large), 422 (unsafe filename).
+ *
+ * IMPORTANT: do NOT set Content-Type manually — the browser sets the
+ * multipart boundary automatically when using FormData.
+ *
+ * ADR-0020 §3 / Feature U.
+ */
+export async function uploadDocument(
+  file: File,
+  signal?: AbortSignal,
+): Promise<UploadResponse> {
+  const url = `${API_BASE}/ingest/upload`;
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(url, {
+    method: "POST",
+    body: form,
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as UploadResponse;
 }

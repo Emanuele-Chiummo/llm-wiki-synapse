@@ -101,11 +101,10 @@ test.describe("NavRail", () => {
     await expect(page.getByTestId("settings-panel")).toBeVisible();
   });
 
-  test("CHECK-NAVRAIL-6: Chat is disabled (native + aria-disabled)", async ({ page }) => {
+  test("CHECK-NAVRAIL-6: Chat is enabled (Phase 3 shipped — ADR-0019)", async ({ page }) => {
     await gotoApp(page);
     const chatBtn = page.locator("[data-section='chat']");
-    await expect(chatBtn).toBeDisabled();
-    await expect(chatBtn).toHaveAttribute("aria-disabled", "true");
+    await expect(chatBtn).toBeEnabled();
   });
 
   test("CHECK-NAVRAIL-BACK: clicking Pages goes back to 3-panel view", async ({ page }) => {

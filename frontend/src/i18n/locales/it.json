@@ -35,7 +35,17 @@
     "toastStarted": "Importazione avviata: {{file}}",
     "toastError": "Importazione fallita: {{detail}}",
     "costAnomaly": "Anomalia costo (> $1.00)",
-    "noRunSelected": "Seleziona un'esecuzione per vedere i dettagli."
+    "noRunSelected": "Seleziona un'esecuzione per vedere i dettagli.",
+    "upload": {
+      "label": "Carica documento",
+      "drop": "Trascina un file qui, o clicca per scegliere",
+      "hint": "Solo Markdown / testo semplice (.md, .txt, .markdown)",
+      "m5Note": "PDF, DOCX e altri formati — disponibili in M5",
+      "toastStarted": "Caricamento in coda: {{file}}",
+      "toastError": "Caricamento fallito: {{detail}}",
+      "tooLarge": "File troppo grande (max 25 MB).",
+      "badType": "Tipo di file non supportato. Accettati solo .md, .txt, .markdown."
+    }
   },
   "provider": {
     "label": "Provider",
@@ -72,7 +82,32 @@
     "languageIt": "Italiano",
     "providerSection": "Configurazione provider",
     "reset": "Ripristina impostazioni",
-    "resetConfirm": "Ripristinare tutte le impostazioni predefinite?"
+    "resetConfirm": "Ripristinare tutte le impostazioni predefinite?",
+    "import": {
+      "title": "Importazione cartella programmata",
+      "enabled": "Abilitata",
+      "sourceDir": "Cartella sorgente",
+      "dirHint": "Usa il percorso visibile al container (es. /data/sources)",
+      "frequency": "Frequenza",
+      "freq15m": "Ogni 15 minuti",
+      "freq1h": "Ogni ora",
+      "freq6h": "Ogni 6 ore",
+      "freqDaily": "Giornaliero",
+      "lastRun": "Ultima esecuzione",
+      "imported": "importate",
+      "runNow": "Esegui ora",
+      "save": "Salva",
+      "statusOk": "OK",
+      "statusError": "Errore",
+      "statusRunning": "In esecuzione",
+      "statusDirMissing": "Cartella mancante",
+      "statusDisabled": "Disabilitata",
+      "dirWarning": "Cartella non trovata: {{dir}}",
+      "runNowToast": "Importazione programmata avviata.",
+      "runNowError": "Impossibile avviare l'importazione: {{detail}}",
+      "never": "Mai eseguita",
+      "saveError": "Salvataggio fallito: {{detail}}"
+    }
   },
   "chat": {
     "title": "Chat",

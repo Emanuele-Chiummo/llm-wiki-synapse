@@ -12,6 +12,7 @@
  */
 
 import { useEffect, type ReactNode } from "react";
+import { ImportScheduleCard } from "./ImportScheduleCard";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -209,7 +210,12 @@ export function SettingsPanel() {
         ))}
       </Section>
 
-      {/* ── Section 4: Reset ──────────────────────────────────────────────── */}
+      {/* ── Section 4: Scheduled folder import (ADR-0020 Feature S) ──────── */}
+      <Section title={t("settings.import.title")}>
+        <ImportScheduleCard />
+      </Section>
+
+      {/* ── Section 5: Reset ──────────────────────────────────────────────── */}
       <div style={{ marginTop: 32 }}>
         <button
           onClick={handleReset}

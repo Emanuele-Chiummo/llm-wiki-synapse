@@ -27,6 +27,7 @@ import {
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
 import { triggerIngest } from "../../api/ingestClient";
 import { IngestRunList } from "./IngestRunList";
+import { UploadZone } from "./UploadZone";
 import { showToast } from "../common/Toast";
 
 export function IngestView() {
@@ -188,6 +189,11 @@ export function IngestView() {
         >
           {formOpen ? t("ingest.cancel") : t("ingest.runIngest")}
         </button>
+      </div>
+
+      {/* ── Upload zone (ADR-0020 Feature U) ──────────────────────────────── */}
+      <div style={{ paddingTop: 12, paddingBottom: 4 }}>
+        <UploadZone />
       </div>
 
       {/* ── Inline run form ─────────────────────────────────────────────────── */}
