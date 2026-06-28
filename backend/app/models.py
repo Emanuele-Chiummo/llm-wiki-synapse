@@ -16,6 +16,10 @@ All three new tables ship in a single Alembic migration 0002 (one schema-change 
 v0.3: edges table + pages.x/y columns ship in Alembic migration 0003 (one schema-change
 event, ADR-0012 / ADR-0013).
 
+v0.4: ingest_runs.status / pages_created / error_message added in Alembic migration 0006
+(ADR-0018 §7); max_iter_used and finished_at are aliased in the API response layer as
+iterations_used and completed_at respectively.
+
 Run `make er` to regenerate docs/er/schema.mmd from this file (I8).
 """
 
@@ -456,10 +460,43 @@ class IngestRun(Base):
         comment="Run finish time",
     )
 
+    # ── v0.4 view fields (ADR-0018 §7, migration 0006) ────────────────────────
+
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="completed",
+        server_default=sa_text("'completed'"),
+        comment=(
+            "Run lifecycle state: running | completed | failed | converged_false. "
+            "Backfilled from converged for historical rows (ADR-0018 §7)."
+        ),
+    )
+
+    pages_created: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment=(
+            "Number of wiki pages persisted during this run. "
+            "0 for historical rows; set by orchestrator on new runs (ADR-0018 §7)."
+        ),
+    )
+
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Human-readable error description for failed runs; "
+            "NULL for completed/running/converged_false rows (ADR-0018 §7)."
+        ),
+    )
+
     def __repr__(self) -> str:
         return (
             f"<IngestRun provider={self.provider_name!r} route={self.route!r} "
-            f"converged={self.converged} cost=${self.total_cost_usd}>"
+            f"converged={self.converged} status={self.status!r} cost=${self.total_cost_usd}>"
         )
 
 
