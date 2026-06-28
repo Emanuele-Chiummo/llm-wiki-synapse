@@ -218,7 +218,7 @@ async def _seed(args: argparse.Namespace) -> None:
                     " source_mtime_ns, qdrant_point_id, x, y, deleted_at, created_at, updated_at) "
                     "VALUES (CAST(:id AS uuid), :vault_id, :file_path, :title, :type, :sources, "
                     " :content_hash, :source_mtime_ns, CAST(:qdrant_point_id AS uuid), :x, :y, "
-                    " :deleted_at, :created_at, :updated_at) "
+                    " :deleted_at, CAST(:created_at AS timestamptz), CAST(:updated_at AS timestamptz)) "
                     "ON CONFLICT (id) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y, "
                     "updated_at = EXCLUDED.updated_at"
                 ),
@@ -232,7 +232,8 @@ async def _seed(args: argparse.Namespace) -> None:
                     "INSERT INTO edges "
                     "(id, vault_id, source_page_id, target_page_id, weight, signals, created_at) "
                     "VALUES (CAST(:id AS uuid), :vault_id, CAST(:source_page_id AS uuid), "
-                    " CAST(:target_page_id AS uuid), :weight, CAST(:signals AS jsonb), :created_at) "
+                    " CAST(:target_page_id AS uuid), :weight, CAST(:signals AS jsonb), "
+                    " CAST(:created_at AS timestamptz)) "
                     "ON CONFLICT (vault_id, source_page_id, target_page_id) "
                     "DO UPDATE SET weight = EXCLUDED.weight, signals = EXCLUDED.signals"
                 ),
@@ -258,7 +259,7 @@ async def _seed(args: argparse.Namespace) -> None:
             await conn.execute(
                 text(
                     "INSERT INTO vault_state (id, vault_id, data_version, updated_at) "
-                    "VALUES (CAST(:id AS uuid), :vid, 1, :now)"
+                    "VALUES (CAST(:id AS uuid), :vid, 1, CAST(:now AS timestamptz))"
                 ),
                 {"id": str(uuid.uuid4()), "vid": args.vault_id, "now": now},
             )
