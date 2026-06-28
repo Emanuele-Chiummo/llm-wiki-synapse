@@ -1028,6 +1028,9 @@ to show `GC->>Client: (from in-process snapshot)` on the HIT path.
 
 **Sprint status: IN PROGRESS**
 Scope locked: 2026-06-28 by product-manager. Scope log: docs/sprints/v0.4-pm-scope.md
+Scope amended: 2026-06-28 — F1-NAV (Left Navigation Rail) and F1-INGEST-VIEW (Ingest
+Activity View) added to Phase 2 at stakeholder Emanuele's explicit request. Visual direction:
+nashsu/llm_wiki-inspired. BE-INGEST-RUNS backend endpoint added as explicit work item.
 Branch: sprint/v0.4 (to be cut after EC-M3-17 human checkpoint)
 Prerequisite: M3 MET-PENDING-HUMAN-CHECKPOINT — EC-M3-17 must be satisfied by Emanuele
 before Phase 1 code begins.
@@ -1041,14 +1044,17 @@ I4 (CodeMirror 6, TanStack Virtual, no WYSIWYG). All 9 invariants apply.
 | Feature ID | Description | Status | Notes |
 |------------|-------------|--------|-------|
 | F1 | 3-panel shell (tree / chat / preview), resizable | backlog | I3, I4 must be honoured; Phase 1 |
+| F1-NAV | Left Navigation Rail: persistent app navigation with Pages / Graph / Ingest / Settings sections; Chat reserved for Phase 3 | backlog | Phase 2 addition — stakeholder request 2026-06-28; nashsu/llm_wiki-inspired visual style |
+| F1-INGEST-VIEW | Ingest Activity View: read-only list of recent ingest runs (status, pages_created, cost USD, timestamps, errors) + Run Ingest trigger button. NOT F9 (no approve/reject/skip). | backlog | Phase 2 addition — stakeholder request 2026-06-28; I7 cost visibility |
+| BE-INGEST-RUNS | Backend: GET /ingest/runs endpoint — paginated, vault_id filter, started_at DESC; D4 update required | backlog | Phase 2; prerequisite for F1-INGEST-VIEW |
 | F6 | Multi-conversation persistent chat, cited-refs, regenerate, save-to-wiki | backlog | Phase 3 |
 | F7 | Reasoning `<think>` display, streaming, collapsed by default | backlog | Phase 3 |
 | F8 | LaTeX to Unicode (parse at stream END only) | backlog | Phase 3; I3 |
 | F14 | Configurable context window 4K–1M; 60/20/5/15 budget | backlog | Phase 2 |
 | F17 (UI) | Provider Selector UI; wired to backend provider_config | backlog | Phase 2; I6 |
-| F16 (rest) | i18n IT/EN, settings persistence, .obsidian auto-gen, GFM, multi-provider chat timeout | backlog | Phase 2; I5 |
+| F16 (rest) | i18n IT/EN, settings persistence, .obsidian auto-gen, GFM, multi-provider chat timeout | backlog | Phase 2; I5; nav rail section labels added to locales |
 | G3 | Streaming perf gate — MANDATORY this sprint; no deferred-to-live without orchestrator waiver | backlog | Phase 3 |
-| D5 (update) | UI screenshots refreshed: 3-panel, provider selector, chat; graph PNGs updated (ADR-0016 rendering) | backlog | Threaded throughout |
+| D5 (update) | UI screenshots refreshed: 3-panel, nav rail, ingest view, provider selector, chat; graph PNGs updated (ADR-0016 rendering) | backlog | Threaded throughout; add shell-nav-rail.png and shell-ingest-view.png |
 | D6 | USER.md + DEPLOY.md drafts | backlog | Threaded throughout |
 | NB-6 | mmdc CI render check (devops-engineer) | backlog | Phase 2; must resolve before M4 sign-off |
 | NB-7 | graph-recompute.mmd hit-path cosmetic fix (tech-writer, optional P3) | backlog | Architect note D-1 |
@@ -1071,6 +1077,80 @@ architect sign-off, and tech-writer sign-off before M4 exit. ADR: docs/adr/0016-
 | M4-GUX-6 | Single-node DRAG with persistence: PATCH /pages/{id}/position; pages.pinned; no relayout, no data_version bump | backlog — Phase 0 gate | AC-GUX-4/5; I2-compatible; T-NCL tests must still pass |
 | M4-GUX-7 | Frontend Obsidian-style viewer: CVD-safe palette, node size ∝ connections, hover-dim, accessible labels, LOD, prefers-reduced-motion, aria-live | backlog — Phase 0 gate | AC-GUX-6/7/8/9 |
 | M4-GUX-8 | seed_demo_vault.py: 140-node scale-free realistic demo dataset | backlog — Phase 0 gate | D5 baseline |
+
+---
+
+### F1-NAV — Left Navigation Rail
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1-NAV (sub-item of F1) |
+| Sprint | v0.4 |
+| Status | backlog |
+| Priority | P0 for Phase 2 — structural skeleton all other Phase 2/3 views plug into |
+| Owner | frontend-engineer |
+| Source | Stakeholder request 2026-06-28 (Emanuele); visual direction: nashsu/llm_wiki |
+
+**Scope:**
+Restructure the shell's left region into a persistent vertical navigation rail. The rail
+has 4 active section items — Pages (file tree), Graph (sigma viewer), Ingest (ingest activity),
+Settings (provider/settings panel) — and 1 reserved item: Chat (disabled/placeholder, active
+in Phase 3). Clicking a section switches the main content area without a page reload. The
+activity panel (vault name, active provider, last ingest timestamp, data_version) remains
+visible at all times across all section views. Section labels are i18n translation keys.
+
+**Acceptance criteria:** docs/sprints/v0.4-pm-scope.md §2 AC-F1-NAV-1..8
+
+---
+
+### F1-INGEST-VIEW — Ingest Activity View
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1-INGEST-VIEW (sub-item of F1) |
+| Sprint | v0.4 |
+| Status | backlog |
+| Priority | P0 for Phase 2 — blocked on BE-INGEST-RUNS |
+| Owner | frontend-engineer (view); backend-engineer (BE-INGEST-RUNS) |
+| Source | Stakeholder request 2026-06-28 (Emanuele); visual direction: nashsu/llm_wiki |
+
+**Scope:**
+A read-only view showing recent ingest runs from the `ingest_runs` table, accessible via
+the Ingest section of the navigation rail. Each row shows: status badge (color-coded),
+provider type, pages created, total_cost_usd (4 decimal places, per I7), relative started_at
+timestamp, and truncated error message (if any). A "Run Ingest" button triggers POST
+/ingest/trigger and auto-refreshes the list. While any run is in "running" status the list
+polls (default every 5s). This view is EXPLICITLY NOT F9: no approve/reject/skip/deep-research
+actions are present or planned for this view. F9 is M5 scope.
+
+**Acceptance criteria:** docs/sprints/v0.4-pm-scope.md §2 AC-F1-IV-1..8
+
+---
+
+### BE-INGEST-RUNS — GET /ingest/runs backend endpoint
+
+| Field | Value |
+|-------|-------|
+| Feature ID | BE-INGEST-RUNS (backend work item; prerequisite for F1-INGEST-VIEW) |
+| Sprint | v0.4 |
+| Status | backlog |
+| Priority | P0 for Phase 2 — blocks F1-INGEST-VIEW frontend |
+| Owner | backend-engineer |
+| Source | Derived from F1-INGEST-VIEW stakeholder request 2026-06-28 |
+
+**Scope:**
+New FastAPI endpoint: GET /ingest/runs. Returns a paginated list of rows from the
+`ingest_runs` table ordered by started_at DESC. Response fields per item: id (uuid),
+vault_id (uuid), status (enum: running/completed/failed/converged_false), provider_type
+(string), pages_created (int), iterations_used (int), total_cost_usd (decimal),
+started_at (timestamptz), completed_at (timestamptz nullable), error_message (text nullable).
+Query params: limit (int, default 20, max 100), offset (int, default 0), vault_id (uuid,
+optional). If ingest_runs is missing any of these columns, an Alembic migration is required.
+Regenerate openapi.json via `make openapi` after adding the endpoint (D4 zero-drift gate).
+
+**Acceptance criteria:** docs/sprints/v0.4-pm-scope.md §2 AC-BE-IR-1..5
+
+---
 
 **Acceptance criteria for all M4 items:** docs/sprints/v0.4-pm-scope.md §2
 **Phase plan:** docs/sprints/v0.4-pm-scope.md §4

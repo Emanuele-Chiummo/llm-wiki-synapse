@@ -1,14 +1,209 @@
-# DOCS_STATUS — Sprint v0.4 / M4 Phase 1 Documentation Gate
+# DOCS_STATUS — Sprint v0.4 / M4 Documentation Gate
 
-> Tech-writer sign-off for M4 Phase 1 docs gate.
+> Tech-writer sign-off. Phases appended chronologically; most recent phase at top.
 > Generated: 2026-06-28
 > Author: tech-writer (claude-sonnet-4-6)
-> Supersedes: DOCS_STATUS.md (v0.4 / M4-GUX Phase 0 gate — 2026-06-28)
-> Sprint branch: sprint/v0.3 (v0.4 Phase 1 work in progress)
-> Phase scope: F1 three-panel shell — ADR-0017 (AppShell, NavTree, MainTabs/GraphPanel,
->   PreviewPanel, ActivityBar, ScenarioTemplates, graphStore UI slice, pagesClient)
+> Sprint branch: sprint/v0.3 (v0.4 Phase 1 + Phase 2 work)
 > I8 gate: CLAUDE.md §3 invariant I8 (docs-as-DoD; ER matches live schema; OpenAPI matches
 >   live FastAPI)
+
+---
+
+## Phase 2 section — M4 (NavRail + Ingest + Provider + Settings + i18n, ADR-0018)
+
+> Gate run: 2026-06-28
+> Phase scope: F1-NAV (NavRail/SectionRouter), F1-INGEST-VIEW (IngestView/IngestRunList/IngestRunDetail),
+>   F17-UI (ProviderSelector), F14+F16 (SettingsPanel, i18n/react-i18next),
+>   providerStore + settingsStore + ingestStore, Toast;
+>   backend: migration 0006 (ingest_runs.status/pages_created/error_message), GET /ingest/runs.
+>   ADR-0018 Accepted.
+
+### Per-artifact status
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/component.mmd` | UP-TO-DATE | Updated this gate run. See §Phase-2-D1. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (verified) | Migration 0006 columns confirmed present; zero drift. See §Phase-2-D2. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (verified) | GET /ingest/runs + IngestRunResponse/IngestRunListResponse confirmed; live diff = empty. See §Phase-2-D4. |
+| D5 | `docs/screens/ingest-section.png` | UP-TO-DATE | Committed by QA (2026-06-28 21:12). See §Phase-2-D5. |
+| D5 | `docs/screens/navrail-graph-active.png` | UP-TO-DATE | Committed by QA (2026-06-28 21:13). See §Phase-2-D5. |
+| D5 | `docs/screens/provider-selector-open.png` | UP-TO-DATE | Committed by QA (2026-06-28 21:12). See §Phase-2-D5. |
+| D5 | `docs/screens/settings-section.png` | UP-TO-DATE | Committed by QA (2026-06-28 21:12). See §Phase-2-D5. |
+| D7 | `docs/adr/README.md` (ADR-0018 row) | UP-TO-DATE | ADR-0018 row present (architect added it). See §Phase-2-D7. |
+
+### §Phase-2-D1 — D1 component diagram updated
+
+File: `docs/architecture/component.mmd`
+
+**Drift before this run:** the Phase 1 diagram did not include NavRail, SectionRouter,
+IngestView, IngestRunList, IngestRunDetail, ProviderSelector, SettingsPanel, Toast,
+the i18n module, providerStore, settingsStore, ingestStore, ingestClient, or
+providerClient. The REST component description did not mention `GET /ingest/runs`. The
+Postgres component description did not mention migration 0006. The ActivityBar description
+still showed the Phase-1 placeholder '—' for the provider label.
+
+**Fix applied:** complete Phase 2 update to `component.mmd`. Specific changes:
+
+- Header comment version note appended: "v0.4 Phase 2 (ADR-0018): NavRail / SectionRouter / IngestView + IngestRunList + IngestRunDetail / ProviderSelector / SettingsPanel / Toast / i18n module / providerStore + settingsStore + ingestStore — migration 0006."
+- Title updated: "Synapse v0.4 Phase 2 (M4 — F1 shell + F17-UI + F14/F16)".
+- Frontend boundary label updated to include ADR-0017 and ADR-0018.
+- REST component description: added `GET /ingest/runs (ADR-0018 §7)`.
+- IngestOrchestrator: added "Sets status/pages_created/error_message on ingest_runs rows (migration 0006)."
+- Postgres: added `+status/pages_created/error_message migration 0006` to ingest_runs note.
+- AppShell: updated to describe Phase 2 layout (NavRail + SectionRouter row; ToastHost).
+- Header: updated to show ProviderSelector wired in Phase 2.
+- ActivityBar: updated to show reads selectActiveProvider from providerStore (Phase 2 filled).
+
+New components added (all under `frontend/src/`):
+
+| Component ID | File | Key invariant |
+|---|---|---|
+| `navrail` | nav/NavRail.tsx | ~48px icon rail; activeSection from graphStore; badge from ingestStore (I3) |
+| `sectionrouter` | SectionRouter.tsx | Reads activeSection (scalar); keyed switch to 4 section layouts (I3) |
+| `ingestview` | ingest/IngestView.tsx | Center of Ingest section; POST /ingest/trigger; polling (I4/I7) |
+| `ingestrunlist` | ingest/IngestRunList.tsx | TanStack Virtual ≤40 DOM rows; cost at 4dp (I4/I7) |
+| `ingestrundetail` | ingest/IngestRunDetail.tsx | Right pane; full run manifest incl. cost_anomaly (I7) |
+| `providerselector` | provider/ProviderSelector.tsx | Header slot; GET+POST /provider/config; zero hardcoded IDs (I6) |
+| `settingspanel` | settings/SettingsPanel.tsx | Context window (F14) + IT/EN (F16); reset |
+| `toast` | common/Toast.tsx | Singleton; mounted once in AppShell; showToast() from anywhere |
+| `i18nmod` | i18n/index.ts + locales/*.json | react-i18next; key parity test enforced |
+| `providerstore` | store/providerStore.ts | SEPARATE from graphStore (I3) |
+| `settingsstore` | store/settingsStore.ts | SEPARATE from graphStore (I3); localStorage |
+| `ingeststore` | store/ingestStore.ts | SEPARATE from graphStore (I3); 5s polling chain |
+| `ingestclient` | api/ingestClient.ts | GET /ingest/runs + POST /ingest/trigger |
+| `providerclient` | api/providerClient.ts | GET + POST /provider/config |
+
+New relations added: 22 `Rel()` entries for Phase 2 wiring including:
+- NavRail → graphStore (activeSection/setActiveSection) and → ingestStore (badge)
+- Header → ProviderSelector (F17 slot wired)
+- SectionRouter → all 4 section views keyed by activeSection
+- IngestView → ingestStore → ingestClient → REST (GET /ingest/runs migration 0006)
+- SettingsPanel → settingsStore + providerStore
+- ActivityBar → providerStore (selectActiveProvider, Phase 2 filled)
+- i18nmod → NavRail, IngestView, ProviderSelector, SettingsPanel
+
+**I3 separation confirmed in diagram:** providerStore, settingsStore, and ingestStore are
+explicitly described as "SEPARATE from graphStore" in their component descriptions, ensuring
+the diagram documents that provider/settings/ingest changes cannot cause the graph to re-render.
+
+**I6 confirmed in diagram:** ProviderSelector description states "INVARIANT I6: zero hardcoded
+provider_type/model_id literals; all values from GET /provider/config." i18nmod description
+notes t() for capability labels with "no hardcoded provider names — I6."
+
+**GraphPanel unchanged:** the `graphpanel` component description retains T-NCL-001..022 intact
+notation. The `viewer` component is unchanged from v0.3 per I2.
+
+### §Phase-2-D2 — ER diagram zero-drift verification
+
+File: `docs/er/schema.mmd`
+
+**Pre-verification state:** the ER diagram header already reads
+`<!-- Generated: v0.4 M4 Phase 2 | 2026-06-28 — ADR-0018 §7: ingest_runs view fields (status/pages_created/error_message) -->`,
+indicating the backend engineer regenerated it when committing migration 0006 and models.py changes.
+
+**Verification method:** cross-checked every column in `docs/er/schema.mmd` INGEST_RUNS
+against `backend/app/models.py` `IngestRun` class and `backend/alembic/versions/0006_ingest_runs_view_fields.py`.
+
+| Column | Present in ER | Type in ER | models.py type | migration 0006 adds it | Accurate |
+|--------|---------------|-----------|----------------|------------------------|---------|
+| `status` | YES | `string` | `Text` NOT NULL default 'completed' | YES | YES |
+| `pages_created` | YES | `int` | `Integer` NOT NULL default 0 | YES | YES |
+| `error_message` | YES | `string` | `Text` nullable | YES | YES |
+| `max_iter_used` | YES (aliased) | `int` | `Integer` | pre-existing | YES — alias comment present |
+| `finished_at` | YES (aliased) | `timestamptz` | `TIMESTAMP(timezone=True)` | pre-existing | YES — alias comment present |
+
+Migration 0006 file (`0006_ingest_runs_view_fields.py`) confirmed: adds `status`, `pages_created`,
+`error_message` with correct types/defaults and a backfill UPDATE for historical rows.
+
+**Result: zero drift. D2 is current with models.py and migration 0006. No regen required.**
+
+### §Phase-2-D4 — OpenAPI zero-drift verification
+
+File: `docs/api/openapi.json`
+
+**Verification method:** ran `curl http://localhost:8000/openapi.json` and diffed the
+JSON-normalised output against the committed file (sort_keys=True). The diff was empty.
+
+**Key fields confirmed present in committed openapi.json:**
+
+| Check | Present | Detail |
+|-------|---------|--------|
+| `GET /ingest/runs` path | YES | operationId: `list_ingest_runs_ingest_runs_get` |
+| `GET /ingest/runs` description | YES | References I7 cost ledger, AC-BE-IR-1..5, ADR-0018 §7; documents limit/offset/vault_id params; column aliases |
+| `IngestRunListResponse` schema | YES | `items: [IngestRunResponse]`, `total: int`, description references ADR-0018 §7 |
+| `IngestRunResponse` schema | YES | Fields: `id, vault_id, status, pages_created, error_message, iterations_used (alias), completed_at (alias), started_at, total_cost_usd, provider_type` |
+| `status` field in IngestRunResponse | YES | |
+| `pages_created` field in IngestRunResponse | YES | |
+| `error_message` field in IngestRunResponse | YES | |
+| `iterations_used` field (alias for max_iter_used) | YES | |
+| `completed_at` field (alias for finished_at) | YES | |
+| Committed == live API (full diff) | ZERO DIFF | Exact match on all paths + schemas |
+
+**Result: zero drift. D4 is current with the live FastAPI app. No regen required.**
+
+### §Phase-2-D5 — Screenshots verification
+
+`docs/screens/` current contents (as of 2026-06-28 21:12–21:13):
+
+| File | Committed | Captures |
+|------|-----------|---------|
+| `ingest-section.png` | YES (21:12) | Ingest section: IngestView + IngestRunDetail pane |
+| `navrail-graph-active.png` | YES (21:13) | NavRail visible + Graph section active (full-bleed GraphPanel) |
+| `provider-selector-open.png` | YES (21:12) | ProviderSelector dropdown expanded in Header |
+| `settings-section.png` | YES (21:12) | Settings section: SettingsPanel (context window + language + providers) |
+| `shell-3panel.png` | YES (21:12) | 3-panel layout — Pages section active (carried from Phase 1) |
+| `shell-3panel-selected.png` | YES (21:12) | 3-panel with node selected (carried from Phase 1) |
+| `graph-obsidian.png` | YES (19:03) | Graph view (carried from Phase 0) |
+| `graph-obsidian-node-selected.png` | YES (19:03) | Graph with node selected (carried from Phase 0) |
+
+Note on filenames: the QA engineer used `ingest-section.png` and `settings-section.png`
+(rather than `shell-navrail-ingest.png` / `shell-settings.png`). The filenames are
+descriptive and unambiguous; no rename needed.
+
+All 4 Phase 2 views are captured. All 4 Phase 1 views are captured. All Phase 0 views remain valid.
+
+**D5 is fully current for Phase 2.**
+
+### §Phase-2-D7 — ADR index verification
+
+File: `docs/adr/README.md`
+
+ADR-0018 row is present (added by solution-architect before Phase 2 coding began).
+
+| Field | Value | Correct |
+|-------|-------|---------|
+| ADR number | 0018 | YES |
+| Title | "NavRail IA, Ingest Activity View, Provider Selector, Settings, i18n (M4 Phase 2)" | YES |
+| Status | Accepted | YES |
+| Date | 2026-06-28 | YES |
+| Sprint | v0.4 | YES |
+| Link | `0018-navrail-ingest-provider.md` | YES — file exists at `docs/adr/0018-navrail-ingest-provider.md` |
+
+Index header reads: `Last updated: 2026-06-28 · Sprint v0.4 (M4 Phase 2)` — correct.
+Total ADRs in index: 18 (0001–0018). All Accepted. Zero gaps.
+
+### DOCS GATE VERDICT — M4 Phase 2
+
+| Artifact | Status | Drift found | Detail |
+|----------|--------|-------------|--------|
+| D1 `docs/architecture/component.mmd` | UP-TO-DATE | YES — fixed this run | All Phase 2 components (NavRail, SectionRouter, IngestView/List/Detail, ProviderSelector, SettingsPanel, Toast, i18n, providerStore, settingsStore, ingestStore, ingestClient, providerClient) and 22 new relations added; migration 0006 noted; I3/I6 separation explicit |
+| D2 `docs/er/schema.mmd` | UP-TO-DATE | NONE | Backend engineer regenerated; status/pages_created/error_message confirmed present; cross-checked vs models.py and migration 0006; zero drift |
+| D4 `docs/api/openapi.json` | UP-TO-DATE | NONE | GET /ingest/runs confirmed; IngestRunResponse/ListResponse confirmed; live diff = empty; backend regenerated on Phase 2 completion |
+| D5 `docs/screens/` (Phase 2 captures) | UP-TO-DATE | NONE | 4 new screenshots committed by QA: ingest-section.png, navrail-graph-active.png, provider-selector-open.png, settings-section.png |
+| D7 ADR-0018 row in `docs/adr/README.md` | UP-TO-DATE | NONE | Row present; 18 ADRs listed; header timestamps correct |
+
+**DOCS GATE: PASS**
+
+All required Phase 2 D-artifacts are UP-TO-DATE. The only drift found was in D1 (component
+diagram had not yet been updated for Phase 2 components); this was fixed in this gate run.
+D2, D4, D5, and D7 required no changes.
+
+Drift found and fixed in this run:
+- D1: `component.mmd` was at Phase 1 level; updated to reflect all Phase 2 components and relations (ADR-0018).
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-28 | M4 Phase 2**
+
+---
 
 ---
 

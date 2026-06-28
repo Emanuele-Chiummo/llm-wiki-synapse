@@ -1,6 +1,6 @@
 # Architecture Decision Records — Index
 
-> Last updated: 2026-06-28 · Sprint v0.4 (M4 Phase 1)
+> Last updated: 2026-06-28 · Sprint v0.4 (M4 Phase 2)
 > All ADRs authored by solution-architect; formatted by tech-writer.
 > Status values: Accepted | Superseded | Deprecated
 
@@ -19,6 +19,14 @@ was authored in sprint v0.4 (M4 Phase 1) to lock the F1 3-panel shell: left navi
 center tabbed main (graph now, chat-stub later) / right metadata+relationship preview,
 react-resizable-panels for keyboard-resizable panels, a shared single selection key in the
 graphStore UI slice, and TanStack Virtual tree virtualization — before engineers began coding.
+ADR-0018 was authored in sprint v0.4 (M4 Phase 2) to lock the navigation-rail information
+architecture (a persistent ~48px left icon rail switching Pages/Graph/Ingest/Settings sections,
+Chat reserved for Phase 3), the read-only Ingest Activity View (virtualized run cards from
+GET /ingest/runs with 4dp cost per I7 — explicitly NOT the F9 review queue), the Header Provider
+Selector (F17-UI, capability-aware, no hardcoded provider per I6), the Settings section
+(context-window F14 + IT/EN i18n + localStorage persistence), react-i18next setup, and the
+required ingest_runs migration (status/pages_created/error_message) — visually inspired by
+nashsu/llm_wiki but on Synapse's existing dark GitHub palette — before engineers began coding.
 They are referenced throughout the codebase as `ADR-XXXX`.
 
 | ADR | Title | Status | Date | Sprint | Summary |
@@ -40,3 +48,4 @@ They are referenced throughout the codebase as `ADR-XXXX`.
 | [0015](0015-no-client-side-layout-sigma-contract.md) | No client-side layout: sigma.js viewer contract (I2/I4/I3) | Accepted | 2026-06-28 | v0.3 | Thin read-only sigma viewer renders precomputed coords in ONE WebGL canvas; zero client-layout code (P0 block, static bundle grep + architect review); Zustand selectors + shallow equality; G2/G4 met by construction. |
 | [0016](0016-obsidian-graph-rendering.md) | Obsidian-style graph: structural edges, real-connection sizing, type-as-modulator (F4) | Accepted | 2026-06-28 | v0.3→v0.4 | Edges are STRUCTURAL only (direct link OR shared source); AA + same-type become weight MODULATORS, never edge generators (kills the 4-clique hairball). Node size = BASE + GROWTH·sqrt(structural_degree) = real connections. FA2 fed the modulated structural edge set (stays server-side, I2). Adds per-edge `kind` (link\|source). Supersedes ADR-0012 §3 inclusion rule; retains ADR-0012 weight formula. |
 | [0017](0017-three-panel-shell.md) | Three-panel shell: layout, resizing, shared selection model (F1) | Accepted | 2026-06-28 | v0.4 | Left=virtualized navigation tree (`GET /pages` grouped by type, TanStack Virtual); center=tabbed main hosting the **unchanged** GraphViewer (chat is a disabled Phase-3 stub); right=read-only metadata+relationship inspector (no content API exists → option (a); `GET /pages/{id}/content` reserved for fast-follow). Resizing via `react-resizable-panels` (keyboard-accessible, no per-frame JS layout). Shared selection is ONE key (`selectedNodeId`) in an additive graphStore UI slice; node↔tree↔preview sync via typed selectors + shallow equality. I2/I3/I4/I5 preserved; GraphViewer wrapped not modified (T-NCL-001..022 intact). |
+| [0018](0018-navrail-ingest-provider.md) | NavRail IA, Ingest Activity View, Provider Selector, Settings, i18n (M4 Phase 2) | Accepted | 2026-06-28 | v0.4 | Persistent ~48px left **icon rail** (lucide-style, dark GitHub palette) is the top-level mode switcher: Pages/Graph/Ingest/Settings sections (Chat disabled, Phase 3). A `SectionRouter` keyed off a new scalar `activeSection` in the graphStore UI slice swaps the whole panel region (Pages reuses ADR-0017 `<PanelGroup/>` verbatim — zero regression). **Ingest Activity View** = TanStack-Virtual list of run cards from new **GET /ingest/runs** (status badge, provider, pages_created, `total_cost_usd` at **4dp** per I7, relative time, error) + a per-file Run-Ingest trigger (POST /ingest/trigger) with toast + running-only 5s polling — **read-only history, explicitly NOT the F9 review queue (no Create/Skip/Deep-Research; M5)**. **Provider Selector** fills the Header slot: capability-aware dropdown driven ONLY by GET /provider/config, writes via POST /provider/config (Vault\|Global scope) — no provider/model hardcoded (I6). **Settings** section = context-window (4K–1M, 60/20/5/15 display, F14) + IT/EN i18n + localStorage persistence + reset. react-i18next (`locales/en.json`+`it.json`, key parity). Provider/settings/ingest live in SEPARATE Zustand stores so the graph never re-renders on their change (I3). **Requires Alembic 0006**: ingest_runs gains `status`/`pages_created`/`error_message` (additive; `max_iter_used→iterations_used`, `finished_at→completed_at` aliased in response, not renamed). No Milkdown/ProseMirror/CodeMirror (I4). |
