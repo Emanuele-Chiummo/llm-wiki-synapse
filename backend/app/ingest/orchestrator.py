@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 import frontmatter  # python-frontmatter
+import httpx
 
 from app.config import settings
 from app.db import get_session
@@ -420,6 +421,36 @@ async def run_ingest_pipeline(
     )
 
 
+# Connection/timeout errors that engage the single bounded fallback (ADR-0009 §4).
+# httpx connect/timeout failures are subclasses of these in httpx, but we list the httpx
+# transport bases explicitly so a literal transport error (not just a stdlib TimeoutError)
+# also triggers the fallback. HTTPStatusError is handled separately (5xx only, see below).
+_FALLBACK_TRANSPORT_ERRORS: tuple[type[Exception], ...] = (
+    TimeoutError,
+    ConnectionError,
+    httpx.TimeoutException,
+    httpx.ConnectError,
+    httpx.NetworkError,
+)
+
+
+def _is_fallback_eligible(exc: BaseException) -> bool:
+    """
+    True if *exc* should engage the single bounded provider fallback (ADR-0009 §4).
+
+    Eligible: timeouts / connection failures, AND an HTTP 5xx from the provider endpoint
+    (e.g. a literal 503 from Ollama/Anthropic — a server-side / transient failure).
+    NOT eligible: HTTP 4xx (client errors / bad request) — those are real defects that must
+    surface, not be masked by a fallback (NB-1). Anything else also surfaces unchanged.
+    """
+    if isinstance(exc, _FALLBACK_TRANSPORT_ERRORS):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        # 5xx → engage fallback; 4xx → surface (do NOT broaden to client errors).
+        return 500 <= exc.response.status_code < 600
+    return False
+
+
 async def _run_orchestrated(
     *,
     provider: InferenceProvider,
@@ -445,8 +476,11 @@ async def _run_orchestrated(
             max_iter=max_iter,
             token_budget=token_budget,
         )
-    except (TimeoutError, ConnectionError) as exc:
-        # Provider fallback — bounded to EXACTLY ONCE (I7, ADR-0009 §4).
+    except Exception as exc:
+        # Provider fallback — bounded to EXACTLY ONCE (I7, ADR-0009 §4). Only timeouts,
+        # connection errors, and HTTP 5xx are eligible (NB-1); 4xx and anything else re-raise.
+        if not _is_fallback_eligible(exc):
+            raise
         logger.warning("primary provider failed (%s) — attempting single fallback", exc)
         fallback_row = await _resolve_fallback_provider_config()
         if fallback_row is None:
@@ -464,7 +498,9 @@ async def _run_orchestrated(
                 max_iter=int(getattr(fallback_row, "max_iter", None) or 3),
                 token_budget=int(getattr(fallback_row, "token_budget", None) or 60_000),
             )
-        except (TimeoutError, ConnectionError) as exc2:  # no chains (AC-K2-7)
+        except Exception as exc2:  # no chains (AC-K2-7) — one attempt only
+            if not _is_fallback_eligible(exc2):
+                raise
             raise IngestError("primary and fallback providers both failed") from exc2
 
 
