@@ -1,0 +1,24 @@
+<!-- Generated: v0.1 sprint 1 | 2026-06-28 -->
+erDiagram
+
+    PAGES {
+        uuid id PK "Page identity; also the Qdrant point id (ADR-0002)"
+        string vault_id "Logical vault identifier — from VAULT_ID env var"
+        string file_path "Relative path under vault/raw/sources/; join key to filesystem"
+        string title "YAML frontmatter 'title'; NULL if absent (K6, AC-K6-2/3)"
+        string type "YAML frontmatter 'type'; NULL if absent (K6)"
+        jsonb sources "YAML frontmatter 'sources[]' as JSONB array; NULL if absent (K6)"
+        string content_hash "sha256 hex of raw file bytes — authoritative change signal (ADR-0001)"
+        int source_mtime_ns "st_mtime_ns at last confirmed index — cheap fast-path gate (ADR-0001)"
+        uuid qdrant_point_id "Qdrant point id == pages.id; explicit to allow deliberate divergence later"
+        timestamptz deleted_at "NULL = live; set = soft-deleted (ADR-0005); Qdrant point hard-deleted"
+        timestamptz created_at "Row creation time"
+        timestamptz updated_at "Updated on every upsert (AC-WATCH-3)"
+    }
+
+    VAULT_STATE {
+        uuid id PK "Row identity"
+        string vault_id "One row per vault; from VAULT_ID env var"
+        int data_version "Monotonic; +1 per successful upsert ingest (AC-F16dv-2/4); FA2 debounce signal"
+        timestamptz updated_at "Last bump time"
+    }
