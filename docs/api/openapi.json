@@ -127,7 +127,7 @@
     "/ingest/trigger": {
       "post": {
         "summary": "Manually trigger ingest of a single file",
-        "description": "Synchronously ingests the file at file_path through the seam. Returns HTTP 202 with {task_id: null, status, page_id} (ADR-0006, AC-REST-4). status is 'completed' or 'skipped' (I1 fast-path).",
+        "description": "Synchronously ingests the file at file_path through the seam. Returns HTTP 202 with typed {task_id, status, page_id} (ADR-0006, AC-REST-4, AC-D4u). status is 'completed' or 'skipped' (I1 fast-path).",
         "operationId": "trigger_ingest_ingest_trigger_post",
         "requestBody": {
           "content": {
@@ -145,17 +145,147 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "title": "Response Trigger Ingest Ingest Trigger Post"
-                },
-                "example": {
-                  "status": "completed",
-                  "page_id": "00000000-0000-0000-0000-000000000001"
+                  "$ref": "#/components/schemas/IngestTriggerResponse"
                 }
               }
             }
           },
           "422": {
-            "description": "Validation error (missing file_path or bad format)"
+            "description": "Validation error (missing file_path, bad format, or file not found)"
+          }
+        }
+      }
+    },
+    "/provider/config": {
+      "get": {
+        "summary": "List provider_config rows",
+        "description": "Returns all raw provider_config rows. No API key field is stored or returned (\u00a712). (F17, AC-F17-6)",
+        "operationId": "list_provider_configs_provider_config_get",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by scope (global|vault|operation)",
+              "title": "Scope"
+            },
+            "description": "Filter by scope (global|vault|operation)"
+          },
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by vault_id",
+              "title": "Vault Id"
+            },
+            "description": "Filter by vault_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create or update a provider_config row",
+        "description": "Create a new provider_config row. provider_type must be one of: local | api | cli. NO api_key field is accepted or stored \u2014 keys are env-only (\u00a712). (F17, ADR-0008)",
+        "operationId": "create_provider_config_provider_config_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderConfigCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Row created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (invalid provider_type, scope, or operation)"
+          }
+        }
+      }
+    },
+    "/provider/config/{config_id}": {
+      "delete": {
+        "summary": "Delete a provider_config row by UUID",
+        "description": "Hard-delete the provider_config row with the given id. (F17)",
+        "operationId": "delete_provider_config_provider_config__config_id__delete",
+        "parameters": [
+          {
+            "name": "config_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Config Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Row deleted"
+          },
+          "404": {
+            "description": "Row not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -189,6 +319,45 @@
           "file_path"
         ],
         "title": "IngestTriggerRequest"
+      },
+      "IngestTriggerResponse": {
+        "properties": {
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id",
+            "description": "Async task UUID (None in v0.2 synchronous mode; filled in v0.3+)"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "\"completed\" or \"skipped\" (I1 mtime/hash fast-path)"
+          },
+          "page_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Page Id",
+            "description": "UUID of the ingested page row"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "page_id"
+        ],
+        "title": "IngestTriggerResponse",
+        "description": "Typed 202 body for POST /ingest/trigger (AC-D4u \u2014 task_id appears in OpenAPI schema).\n\ntask_id is None in v0.2 (synchronous path); v0.3 fills it with a real async task UUID.\nstatus: \"completed\" | \"skipped\" (I1 fast-path) | \"queued\"/\"running\" (async, v0.3+).",
+        "example": {
+          "page_id": "00000000-0000-0000-0000-000000000001",
+          "status": "completed"
+        }
       },
       "PageListResponse": {
         "properties": {
@@ -325,6 +494,201 @@
           "updated_at"
         ],
         "title": "PageResponse"
+      },
+      "ProviderConfigCreate": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "description": "global | vault | operation"
+          },
+          "operation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation",
+            "description": "ingest | chat | lint; required when scope='operation'"
+          },
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id",
+            "description": "Required when scope='vault' or 'operation'"
+          },
+          "provider_type": {
+            "type": "string",
+            "title": "Provider Type",
+            "description": "local | api | cli"
+          },
+          "model_id": {
+            "type": "string",
+            "title": "Model Id",
+            "description": "Model name (e.g. claude-sonnet-4-6); lives only in DB rows (AC-F17-8)"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url",
+            "description": "OpenAI-compatible endpoint; NULL for Anthropic/local default"
+          },
+          "max_iter": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Iter",
+            "description": "Orchestrated-loop cap (I7)",
+            "default": 3
+          },
+          "token_budget": {
+            "type": "integer",
+            "maximum": 1000000.0,
+            "minimum": 1000.0,
+            "title": "Token Budget",
+            "description": "Loop token budget (I7)",
+            "default": 60000
+          },
+          "is_fallback": {
+            "type": "boolean",
+            "title": "Is Fallback",
+            "description": "Marks the single fallback row",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "scope",
+          "provider_type",
+          "model_id"
+        ],
+        "title": "ProviderConfigCreate",
+        "description": "Request body for POST /provider/config (F17).\n\nStores NO API key (\u00a712 / ADR-0008 \u00a73). Keys are env-only inside provider/.\nmodel_id must be provided explicitly \u2014 no hardcoded defaults in app code (AC-F17-8)."
+      },
+      "ProviderConfigListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderConfigResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "ProviderConfigListResponse"
+      },
+      "ProviderConfigResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope"
+          },
+          "operation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation"
+          },
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id"
+          },
+          "provider_type": {
+            "type": "string",
+            "title": "Provider Type"
+          },
+          "model_id": {
+            "type": "string",
+            "title": "Model Id"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "max_iter": {
+            "type": "integer",
+            "title": "Max Iter"
+          },
+          "token_budget": {
+            "type": "integer",
+            "title": "Token Budget"
+          },
+          "is_fallback": {
+            "type": "boolean",
+            "title": "Is Fallback"
+          },
+          "created_at": {
+            "title": "Created At"
+          },
+          "updated_at": {
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "scope",
+          "operation",
+          "vault_id",
+          "provider_type",
+          "model_id",
+          "base_url",
+          "max_iter",
+          "token_budget",
+          "is_fallback",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProviderConfigResponse",
+        "description": "API response shape for a provider_config row (\u00a712: no api_key field)."
       },
       "StatusResponse": {
         "properties": {
