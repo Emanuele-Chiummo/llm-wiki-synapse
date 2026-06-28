@@ -35,7 +35,17 @@
     "toastStarted": "Ingest started: {{file}}",
     "toastError": "Ingest failed: {{detail}}",
     "costAnomaly": "Cost anomaly (> $1.00)",
-    "noRunSelected": "Select a run to see details."
+    "noRunSelected": "Select a run to see details.",
+    "upload": {
+      "label": "Upload document",
+      "drop": "Drop a file here, or click to browse",
+      "hint": "Markdown / plain text only (.md, .txt, .markdown)",
+      "m5Note": "PDF, DOCX and other formats — coming in M5",
+      "toastStarted": "Upload queued: {{file}}",
+      "toastError": "Upload failed: {{detail}}",
+      "tooLarge": "File too large (max 25 MB).",
+      "badType": "Unsupported file type. Only .md, .txt, .markdown accepted."
+    }
   },
   "provider": {
     "label": "Provider",
@@ -72,7 +82,32 @@
     "languageIt": "Italian",
     "providerSection": "Provider configuration",
     "reset": "Reset settings",
-    "resetConfirm": "Reset all settings to defaults?"
+    "resetConfirm": "Reset all settings to defaults?",
+    "import": {
+      "title": "Scheduled folder import",
+      "enabled": "Enabled",
+      "sourceDir": "Source directory",
+      "dirHint": "Use the container-visible path (e.g. /data/sources)",
+      "frequency": "Frequency",
+      "freq15m": "Every 15 minutes",
+      "freq1h": "Every hour",
+      "freq6h": "Every 6 hours",
+      "freqDaily": "Daily",
+      "lastRun": "Last run",
+      "imported": "imported",
+      "runNow": "Run now",
+      "save": "Save",
+      "statusOk": "OK",
+      "statusError": "Error",
+      "statusRunning": "Running",
+      "statusDirMissing": "Directory missing",
+      "statusDisabled": "Disabled",
+      "dirWarning": "Directory not found: {{dir}}",
+      "runNowToast": "Scheduled import triggered.",
+      "runNowError": "Could not trigger import: {{detail}}",
+      "never": "Never run",
+      "saveError": "Failed to save: {{detail}}"
+    }
   },
   "chat": {
     "title": "Chat",

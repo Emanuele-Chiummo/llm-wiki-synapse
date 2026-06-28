@@ -2,7 +2,7 @@
  * NavRail.tsx — persistent ~48px left icon rail (ADR-0018 §1 / F1-NAV).
  *
  * Always visible; outside and to the left of the section content area.
- * Items: Pages / Graph / Ingest(+badge) / [Chat disabled] + Settings (pinned bottom).
+ * Items: Pages / Graph / Ingest(+badge) / Chat (disabled, Phase 3) + Settings (pinned bottom).
  * Active item = soft tint highlight (#1f2937).
  * INVARIANT I3: reads activeSection (scalar) + setActiveSection only from graphStore;
  *               ingest badge reads from useIngestRunningCount() (separate hook, not graphStore).

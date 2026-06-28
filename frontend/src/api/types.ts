@@ -161,3 +161,44 @@ export interface CreateProviderConfigBody {
   token_budget?: number | null;
   is_fallback?: boolean;
 }
+
+// ─── POST /ingest/upload (ADR-0020 §2) ───────────────────────────────────────
+
+export interface UploadResponse {
+  file_path: string;    // relative to vault_root, e.g. "raw/sources/notes.md"
+  status: string;       // "queued" — ingest runs async via the watcher (ADR-0020 §2)
+  overwritten: boolean; // true if same-name file was replaced
+}
+
+// ─── GET/PUT /import-schedule (ADR-0020 §4.6) ────────────────────────────────
+
+export type ImportFrequency = "15m" | "1h" | "6h" | "daily";
+
+export type ImportLastStatus =
+  | "ok"
+  | "error"
+  | "running"
+  | "skipped_disabled"
+  | "dir_missing"
+  | null;
+
+export interface ImportSchedule {
+  enabled: boolean;
+  source_dir: string | null;
+  frequency: ImportFrequency;
+  last_run_at: string | null;          // ISO-8601
+  last_status: ImportLastStatus;
+  last_imported_count: number;
+  last_error: string | null;
+}
+
+export interface ImportSchedulePutBody {
+  enabled?: boolean;
+  source_dir?: string | null;
+  frequency?: ImportFrequency;
+}
+
+export interface ImportSchedulePutResponse extends ImportSchedule {
+  dir_ok: boolean;
+  dir_message: string | null;
+}

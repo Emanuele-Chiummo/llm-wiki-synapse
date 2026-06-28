@@ -117,23 +117,19 @@ test.describe("CHECK-2 — 3-panel shell renders correctly (F1 / ADR-0017)", () 
     await expect(canvas).toBeVisible();
   });
 
-  test("NavRail: Chat button is disabled (Phase 2 — MainTabs retired, ADR-0018 §1)", async ({ page }) => {
-    // MainTabs tab strip is retired. The Chat affordance moved to the NavRail as a disabled stub.
+  test("NavRail: Chat button is ENABLED (Phase 3 — chat shipped, ADR-0019)", async ({ page }) => {
+    // Phase 3 enabled the Chat section. The NavRail Chat item is now a live, clickable section.
     const chatBtn = page.locator("[data-section='chat']");
     await expect(chatBtn).toBeVisible();
-
-    // WCAG 4.1.2: must have both aria-disabled and native disabled (D-M4-001 parity)
+    await expect(chatBtn).toBeEnabled();
     const ariaDisabled = await chatBtn.getAttribute("aria-disabled");
-    expect(ariaDisabled, "NavRail Chat button must have aria-disabled=true").toBe("true");
+    expect(ariaDisabled === null || ariaDisabled === "false", "NavRail Chat must not be aria-disabled").toBe(true);
 
-    const nativeDisabled = await chatBtn.evaluate((el) => (el as HTMLButtonElement).disabled);
-    expect(nativeDisabled, "NavRail Chat button must have native disabled attribute (WCAG 4.1.2)").toBe(true);
-
-    // Pages section should still be active (clicking disabled button has no effect)
+    // Pages section is active on load
     const pagesBtn = page.locator("[data-section='pages']");
     const pageCurrent = await pagesBtn.getAttribute("aria-current");
-    expect(pageCurrent, "Pages must remain aria-current=page after load").toBe("page");
-    console.log(`[CHECK-2] NavRail Chat button correctly disabled (aria-disabled + native disabled); Pages remains active`);
+    expect(pageCurrent, "Pages must be aria-current=page after load").toBe("page");
+    console.log(`[CHECK-2] NavRail Chat button enabled (Phase 3); Pages active on load`);
   });
 
   test("right panel: PreviewPanel shows empty state when nothing selected", async ({ page }) => {
