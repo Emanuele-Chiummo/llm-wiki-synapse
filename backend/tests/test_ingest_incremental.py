@@ -187,6 +187,7 @@ async def ingest_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
     # actually the simplest approach for SQLite compat is to define the schema imperatively.
     from sqlalchemy import (
         BigInteger,
+        Float,
         MetaData,
         Table,
         Text,
@@ -206,6 +207,8 @@ async def ingest_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
         Column("content_hash", String(64), nullable=False),
         Column("source_mtime_ns", BigInteger, nullable=True),
         Column("qdrant_point_id", String(36), nullable=True),
+        Column("x", Float, nullable=True),  # v0.3: FA2 coords (ADR-0013)
+        Column("y", Float, nullable=True),  # v0.3: FA2 coords (ADR-0013)
         Column("deleted_at", Text, nullable=True),
         Column("created_at", Text, nullable=False),
         Column("updated_at", Text, nullable=False),

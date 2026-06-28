@@ -66,7 +66,7 @@ def _nullable_marker(col: object) -> str:  # type: ignore[type-arg]
 def generate_mermaid_er() -> str:
     from datetime import date
 
-    header = f"<!-- Generated: v0.2 sprint 2 | {date.today().isoformat()} -->"
+    header = f"<!-- Generated: v0.3 sprint 3 | {date.today().isoformat()} -->"
     lines = [header, "erDiagram", ""]
 
     for table in Base.metadata.sorted_tables:
@@ -98,8 +98,10 @@ def main() -> None:
     assert "PROVIDER_CONFIG" in mermaid
     assert "INGEST_RUNS" in mermaid
     assert "LINKS" in mermaid
+    assert "EDGES" in mermaid
     print(
-        "Sanity check passed: all 5 tables present (PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS)"
+        "Sanity check passed: all 6 tables present "
+        "(PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES)"
     )
 
 

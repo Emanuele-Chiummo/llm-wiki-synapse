@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Synapse",
-    "description": "Self-organising wiki backend \u2014 M2 (agentic loop closed, 3 providers). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). Karpathy LLM Wiki pattern [K1\u2013K8].",
-    "version": "0.2.0"
+    "description": "Self-organising wiki backend \u2014 M3 (graph live, no main-thread freeze). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). Karpathy LLM Wiki pattern [K1\u2013K8].",
+    "version": "0.3.0"
   },
   "paths": {
     "/status": {
@@ -289,10 +289,187 @@
           }
         }
       }
+    },
+    "/graph": {
+      "get": {
+        "summary": "Precomputed knowledge graph (nodes + edges with FA2 coordinates)",
+        "description": "Returns the precomputed graph with FA2 layout coordinates (I2, F4, ADR-0014). HIT (X-Graph-Cache: hit): pure read from persisted coords + edges \u2014 no FA2. MISS (X-Graph-Cache: miss): one inline synchronous recompute, then return. Synchronous 200 \u2014 never 202 (AQ-v0.3-3). A second request at the same data_version is always a HIT (G2).",
+        "operationId": "get_graph_graph_get",
+        "responses": {
+          "200": {
+            "description": "Graph payload with precomputed coords",
+            "headers": {
+              "X-Graph-Cache": {
+                "description": "hit|miss \u2014 mirrors the cached field (ADR-0014 \u00a75)",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "GraphEdgeResponse": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "target",
+          "weight"
+        ],
+        "title": "GraphEdgeResponse",
+        "description": "One graph edge in the GET /graph response (ADR-0014 \u00a76, AC-F4-3).\n\nsource/target are page-id strings (UUID). Undirected \u2014 emitted once per pair."
+      },
+      "GraphNodeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "x": {
+            "type": "number",
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "title": "Y"
+          },
+          "size": {
+            "type": "number",
+            "title": "Size",
+            "description": "Rendering hint: monotonic in degree",
+            "default": 1.0
+          },
+          "degree": {
+            "type": "integer",
+            "title": "Degree",
+            "description": "Incident-edge count (derived, not persisted)",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "type",
+          "x",
+          "y"
+        ],
+        "title": "GraphNodeResponse",
+        "description": "One graph node in the GET /graph response (ADR-0014 \u00a76, AC-F4-3).\n\nRequired: id, title, type, x, y.\nOptional rendering hints (derived server-side): size, degree.",
+        "example": {
+          "degree": 3,
+          "id": "00000000-0000-0000-0000-000000000001",
+          "size": 2.1,
+          "title": "Alpha",
+          "type": "entity",
+          "x": 1.23,
+          "y": -0.45
+        }
+      },
+      "GraphResponse": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/GraphNodeResponse"
+            },
+            "type": "array",
+            "title": "Nodes"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/GraphEdgeResponse"
+            },
+            "type": "array",
+            "title": "Edges"
+          },
+          "data_version": {
+            "type": "integer",
+            "title": "Data Version"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nodes",
+          "edges",
+          "data_version",
+          "cached"
+        ],
+        "title": "GraphResponse",
+        "description": "GET /graph response payload (ADR-0014 \u00a76, AC-F4-3, AC-D4v3-1).\n\ncached: true on a HIT (no FA2 this request), false on a MISS (FA2 ran inline).\nHeader X-Graph-Cache: hit|miss mirrors cached (ADR-0014 \u00a75).",
+        "example": {
+          "cached": true,
+          "data_version": 7,
+          "edges": [
+            {
+              "source": "00000000-0000-0000-0000-000000000001",
+              "target": "00000000-0000-0000-0000-000000000002",
+              "weight": 11.0
+            }
+          ],
+          "nodes": [
+            {
+              "degree": 3,
+              "id": "00000000-0000-0000-0000-000000000001",
+              "size": 2.1,
+              "title": "Alpha",
+              "type": "entity",
+              "x": 1.23,
+              "y": -0.45
+            }
+          ]
+        }
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
