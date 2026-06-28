@@ -91,15 +91,17 @@ async def search_wiki(query: str, k: int = 5) -> list[dict[str, Any]]:
         return []
 
     # Search Qdrant (I9 — reuse synapse_pages collection, ADR-0002).
+    # The Qdrant Python client ≥ 1.10 removed .search() in favour of .query_points()
+    # which returns a QueryResponse with a .points list of ScoredPoint objects.
     qdrant = get_qdrant_client()
     try:
-
-        hits = await qdrant.search(
+        query_response = await qdrant.query_points(
             collection_name=settings.qdrant_collection,
-            query_vector=vector,
+            query=vector,
             limit=k,
             with_payload=True,
         )
+        hits = query_response.points
     except Exception as exc:  # noqa: BLE001
         logger.error("search_wiki: Qdrant search failed: %s", exc)
         return []

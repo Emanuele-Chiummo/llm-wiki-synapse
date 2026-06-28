@@ -47,7 +47,10 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 import frontmatter  # python-frontmatter
 
@@ -466,10 +469,11 @@ async def _delegate_ingest(
     system_prompt = _load_vault_context()
     # ── MCP wiring seam (ADR-0010 §2) ──────────────────────────────────────────
     # Import lazily to avoid a circular import; app.mcp.server imports from orchestrator.
+    _mcp_server: FastMCP[Any] | None = None
     try:
         from app.mcp.server import mcp as _mcp_server
-    except Exception:  # noqa: BLE001
-        _mcp_server = None
+    except Exception as _mcp_exc:  # noqa: BLE001
+        logger.warning("MCP server unavailable; delegate_ingest will run without it: %s", _mcp_exc)
     result = await delegate(
         source_text=source_text,
         system_prompt=system_prompt,

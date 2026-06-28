@@ -28,6 +28,7 @@ from typing import Literal
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.config import settings
 from app.db import get_session
@@ -181,7 +182,7 @@ async def resolve_fallback_provider_config(
 
 async def _query_one(
     session: AsyncSession,
-    where_clause: object,
+    where_clause: ColumnElement[bool],
 ) -> ProviderConfig | None:
     """Execute a SELECT with *where_clause* and return the first matching row or None."""
     stmt = select(ProviderConfig).where(where_clause).limit(1)
