@@ -88,10 +88,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
 
 app = FastAPI(
     title="Synapse",
-    version="0.1.0",
+    version="0.2.0",
     description=(
-        "Self-organising wiki backend — walking skeleton (M1). "
-        "Karpathy LLM Wiki pattern with pluggable inference (F17)."
+        "Self-organising wiki backend — M2 (agentic loop closed, 3 providers). "
+        "Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, "
+        "CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). "
+        "Karpathy LLM Wiki pattern [K1–K8]."
     ),
     openapi_url="/openapi.json",
     lifespan=lifespan,
