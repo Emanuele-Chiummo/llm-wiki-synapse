@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Synapse",
-    "description": "Self-organising wiki backend \u2014 walking skeleton (M1). Karpathy LLM Wiki pattern with pluggable inference (F17).",
-    "version": "0.1.0"
+    "description": "Self-organising wiki backend \u2014 M2 (agentic loop closed, 3 providers). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). Karpathy LLM Wiki pattern [K1\u2013K8].",
+    "version": "0.2.0"
   },
   "paths": {
     "/status": {
