@@ -202,6 +202,27 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
     # ── Bump vault_state.data_version ─────────────────────────────────────────
     await bump_version()
 
+    # ── Notify GraphCache of the version bump (I2, ADR-0014 §2) ──────────────
+    # Minimal hook: call notify_bump() on the module-level cache singleton if it
+    # has been initialised (lifespan). No-op in test envs without the lifespan.
+    # DO NOT alter provider/loop logic here (NB-1/NB-4 guard).
+    try:
+        from app.main import _graph_cache
+
+        if _graph_cache is not None:
+            async with get_session() as _vs_sess:
+                from sqlalchemy import select
+
+                _vs_row = await _vs_sess.execute(
+                    select(VaultState).where(VaultState.vault_id == settings.vault_id)
+                )
+                _vs = _vs_row.scalar_one_or_none()
+                _new_version = _vs.data_version if _vs is not None else 0
+            _graph_cache.notify_bump(_new_version)
+    except Exception:  # noqa: BLE001
+        # Non-fatal: the graph cache will self-heal via the polling fallback
+        logger.debug("ingest_file: graph cache notify_bump skipped (cache not ready)")
+
     logger.info("ingest_file: completed %s page_id=%s", rel, page_id)
     return IngestResult(page_id=page_id, status="completed")
 
