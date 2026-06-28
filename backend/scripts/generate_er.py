@@ -64,7 +64,10 @@ def _nullable_marker(col: object) -> str:  # type: ignore[type-arg]
 
 
 def generate_mermaid_er() -> str:
-    lines = ["erDiagram", ""]
+    from datetime import date
+
+    header = f"<!-- Generated: v0.1 sprint 1 | {date.today().isoformat()} -->"
+    lines = [header, "erDiagram", ""]
 
     for table in Base.metadata.sorted_tables:
         lines.append(f"    {table.name.upper()} {{")
