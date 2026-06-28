@@ -15,6 +15,7 @@ import logging
 from collections.abc import AsyncIterator
 
 import app.ingest.orchestrator as orch
+import httpx
 import pytest
 from app.ingest.loop import run_orchestrated_loop
 from app.ingest.provider.base import InferenceProvider, UsageAccumulator
@@ -257,3 +258,134 @@ def _async_return(value: object):  # type: ignore[no-untyped-def]
         return value
 
     return _inner
+
+
+# ── Fallback engages on HTTP 5xx, not on 4xx (NB-1, ADR-0009 §4) ────────────────
+
+
+def _http_status_error(status_code: int) -> httpx.HTTPStatusError:
+    """Build a real httpx.HTTPStatusError carrying *status_code* (e.g. a literal 503)."""
+    request = httpx.Request("POST", "http://provider.local/api/chat")
+    response = httpx.Response(status_code, request=request)
+    return httpx.HTTPStatusError(
+        f"server returned {status_code}", request=request, response=response
+    )
+
+
+class _HttpStatusFailing(InferenceProvider):
+    """analyze() raises httpx.HTTPStatusError with a configurable status code."""
+
+    def __init__(self, name: str, status_code: int) -> None:
+        self._name = name
+        self._status_code = status_code
+        self.analyze_calls = 0
+
+    def capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities("api", True, False, 200_000, self._name)
+
+    async def analyze(self, source_text: str, vault_context: str) -> Analysis:
+        self.analyze_calls += 1
+        raise _http_status_error(self._status_code)
+
+    async def generate(  # pragma: no cover
+        self, analysis: Analysis, retrieval_context: str
+    ) -> list[WikiPage]:
+        raise NotImplementedError
+
+    async def chat(
+        self, messages: list[Message], retrieval_context: str
+    ) -> AsyncIterator[str]:  # pragma: no cover
+        raise NotImplementedError
+
+
+class _Converging(InferenceProvider):
+    """analyze + generate succeed with a valid batch (used as a healthy fallback)."""
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self.analyze_calls = 0
+        self.generate_calls = 0
+
+    def capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities("api", True, False, 200_000, self._name)
+
+    async def analyze(self, source_text: str, vault_context: str) -> Analysis:
+        self.analyze_calls += 1
+        self._record_usage(Usage(input_tokens=5, output_tokens=5, total_cost_usd=0.0))
+        return _analysis()
+
+    async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+        self.generate_calls += 1
+        self._record_usage(Usage(input_tokens=10, output_tokens=10, total_cost_usd=0.0))
+        return [
+            WikiPage(
+                title="P",
+                type=PageType.CONCEPT,
+                content="body",
+                frontmatter=WikiFrontmatter(
+                    type=PageType.CONCEPT, title="P", sources=[ORIGIN], lang="en"
+                ),
+            )
+        ]
+
+    async def chat(
+        self, messages: list[Message], retrieval_context: str
+    ) -> AsyncIterator[str]:  # pragma: no cover
+        raise NotImplementedError
+
+
+@pytest.mark.asyncio
+async def test_http_503_engages_fallback_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A primary raising httpx.HTTPStatusError(503) engages the single bounded fallback once."""
+    primary = _HttpStatusFailing("Primary", status_code=503)
+    fallback = _Converging("Fallback")
+    fallback_row = _Row()
+
+    monkeypatch.setattr(orch, "_resolve_fallback_provider_config", _async_return(fallback_row))
+    monkeypatch.setattr(
+        orch, "resolve_provider", lambda row: fallback if row is fallback_row else primary
+    )
+
+    acc = UsageAccumulator()
+    primary.bind_accumulator(acc)
+
+    result = await orch._run_orchestrated(
+        provider=primary,
+        accumulator=acc,
+        source_text="s",
+        origin_source=ORIGIN,
+        config_row=_Row(),
+    )
+
+    # 5xx → fallback engaged exactly once and the healthy fallback converged.
+    assert primary.analyze_calls == 1
+    assert fallback.analyze_calls == 1  # exactly one fallback attempt — no chains
+    assert result.converged is True
+
+
+@pytest.mark.asyncio
+async def test_http_400_surfaces_no_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 4xx (client error / bad request) must surface, NOT engage the fallback (NB-1)."""
+    primary = _HttpStatusFailing("Primary", status_code=400)
+    fallback = _Converging("Fallback")
+    fallback_row = _Row()
+
+    monkeypatch.setattr(orch, "_resolve_fallback_provider_config", _async_return(fallback_row))
+    monkeypatch.setattr(
+        orch, "resolve_provider", lambda row: fallback if row is fallback_row else primary
+    )
+
+    acc = UsageAccumulator()
+    primary.bind_accumulator(acc)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await orch._run_orchestrated(
+            provider=primary,
+            accumulator=acc,
+            source_text="s",
+            origin_source=ORIGIN,
+            config_row=_Row(),
+        )
+
+    assert primary.analyze_calls == 1
+    assert fallback.analyze_calls == 0  # 4xx never engages the fallback
