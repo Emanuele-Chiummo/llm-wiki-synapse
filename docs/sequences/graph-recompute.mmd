@@ -45,8 +45,7 @@ sequenceDiagram
         GE->>PG: write pages.x/y + edges
         GC-->>CL: 200 {nodes,edges,data_version,cached:false}  ·  header X-Graph-Cache: miss
     else cache-hit (data_version == marker, coords present)
-        Note over GC: NO FA2 — pure read of precomputed coords
-        GC->>PG: SELECT pages.x/y + edges
+        Note over GC: NO FA2, NO DB — pure read of the in-process snapshot
         GC-->>CL: 200 {nodes,edges,data_version,cached:true}  ·  header X-Graph-Cache: hit
     end
     CL->>CL: graph.addNode(id,{x,y,...}) into ONE WebGL canvas — NO client layout (ADR-0015)
