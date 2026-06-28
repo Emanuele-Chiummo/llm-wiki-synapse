@@ -109,3 +109,35 @@ export async function fetchPageDetail(
   await checkResponse(res);
   return (await res.json()) as PageDetail;
 }
+
+/**
+ * Persist a node's new position after user drag.
+ * PATCH /pages/{pageId}/position  { x, y }
+ *
+ * Fire-and-forget from the caller's perspective — errors are logged but not
+ * surfaced to the user (the local sigma graph already holds the new position).
+ *
+ * INVARIANT I2: this writes the user-chosen position back to the server so it
+ * survives the next GET /graph refresh. The client does NOT compute layout —
+ * it only persists what the user explicitly dragged.
+ *
+ * @param pageId - Node UUID to update.
+ * @param x      - New graph-space x coordinate.
+ * @param y      - New graph-space y coordinate.
+ * @param signal - Optional AbortSignal for cancellation.
+ */
+export async function patchNodePosition(
+  pageId: string,
+  x: number,
+  y: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  const url = `${API_BASE}/pages/${encodeURIComponent(pageId)}/position`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ x, y }),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+}
