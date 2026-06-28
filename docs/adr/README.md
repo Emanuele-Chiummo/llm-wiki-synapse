@@ -1,6 +1,6 @@
 # Architecture Decision Records — Index
 
-> Last updated: 2026-06-28 · Sprint v0.3→v0.4 (M4-GUX Phase 0)
+> Last updated: 2026-06-28 · Sprint v0.4 (M4 Phase 1)
 > All ADRs authored by solution-architect; formatted by tech-writer.
 > Status values: Accepted | Superseded | Deprecated
 
@@ -14,7 +14,11 @@ coordinate persistence (I2), the dataVersion-debounced GraphCache + GET /graph c
 and the no-client-layout sigma.js viewer contract before engineers began coding. ADR-0016
 was authored at the v0.3→v0.4 transition (M4-GUX Phase 0) to fix the same-type clique
 hairball defect: structural edges only (direct link OR shared source), AA/same-type as
-weight modulators, sqrt(structural_degree) node sizing, and per-edge `kind` field.
+weight modulators, sqrt(structural_degree) node sizing, and per-edge `kind` field. ADR-0017
+was authored in sprint v0.4 (M4 Phase 1) to lock the F1 3-panel shell: left navigation tree /
+center tabbed main (graph now, chat-stub later) / right metadata+relationship preview,
+react-resizable-panels for keyboard-resizable panels, a shared single selection key in the
+graphStore UI slice, and TanStack Virtual tree virtualization — before engineers began coding.
 They are referenced throughout the codebase as `ADR-XXXX`.
 
 | ADR | Title | Status | Date | Sprint | Summary |
@@ -35,3 +39,4 @@ They are referenced throughout the codebase as `ADR-XXXX`.
 | [0014](0014-graph-cache-debounce-and-graph-endpoint.md) | GraphCache debounce, dataVersion trigger, GET /graph contract (I2) | Accepted | 2026-06-28 | v0.3 | In-process debounce on data_version bump (5s, injectable clock); max 1 in-flight + 1 pending (I7); GET /graph synchronous 200 with cached + X-Graph-Cache: hit|miss (AQ-v0.3-3/7). |
 | [0015](0015-no-client-side-layout-sigma-contract.md) | No client-side layout: sigma.js viewer contract (I2/I4/I3) | Accepted | 2026-06-28 | v0.3 | Thin read-only sigma viewer renders precomputed coords in ONE WebGL canvas; zero client-layout code (P0 block, static bundle grep + architect review); Zustand selectors + shallow equality; G2/G4 met by construction. |
 | [0016](0016-obsidian-graph-rendering.md) | Obsidian-style graph: structural edges, real-connection sizing, type-as-modulator (F4) | Accepted | 2026-06-28 | v0.3→v0.4 | Edges are STRUCTURAL only (direct link OR shared source); AA + same-type become weight MODULATORS, never edge generators (kills the 4-clique hairball). Node size = BASE + GROWTH·sqrt(structural_degree) = real connections. FA2 fed the modulated structural edge set (stays server-side, I2). Adds per-edge `kind` (link\|source). Supersedes ADR-0012 §3 inclusion rule; retains ADR-0012 weight formula. |
+| [0017](0017-three-panel-shell.md) | Three-panel shell: layout, resizing, shared selection model (F1) | Accepted | 2026-06-28 | v0.4 | Left=virtualized navigation tree (`GET /pages` grouped by type, TanStack Virtual); center=tabbed main hosting the **unchanged** GraphViewer (chat is a disabled Phase-3 stub); right=read-only metadata+relationship inspector (no content API exists → option (a); `GET /pages/{id}/content` reserved for fast-follow). Resizing via `react-resizable-panels` (keyboard-accessible, no per-frame JS layout). Shared selection is ONE key (`selectedNodeId`) in an additive graphStore UI slice; node↔tree↔preview sync via typed selectors + shallow equality. I2/I3/I4/I5 preserved; GraphViewer wrapped not modified (T-NCL-001..022 intact). |

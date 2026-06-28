@@ -1,10 +1,11 @@
 C4Component
-    %% <!-- Generated: v0.3 sprint 3 | 2026-06-28 -->
-    %% v0.3 adds the F4 graph engine + I2 cache + GET /graph + thin sigma viewer.
-    %% I2: FA2 runs ONLY server-side (GraphEngine via igraph); coords persisted in pages.x/y;
-    %% recompute debounced on vault_state.data_version (GraphCache); client renders precomputed
-    %% coords in ONE WebGL canvas — NEVER a force layout on the UI main thread (ADR-0013/14/15).
-    title Component Diagram — Synapse v0.3 (M3 "Graph live, no main-thread freeze")
+    %% <!-- Generated: v0.4 sprint 4 | 2026-06-28 -->
+    %% v0.3: F4 graph engine + I2 cache + GET /graph + thin sigma viewer (ADR-0013/14/15/16).
+    %% v0.4 Phase 1: F1 three-panel shell (ADR-0017). AppShell wraps all panels; GraphPanel
+    %% wraps the UNCHANGED GraphViewer (T-NCL-001..022 intact, I2); NavTree + PreviewPanel
+    %% share the single selectedNodeId key via graphStore UI slice (I3); all long lists
+    %% virtualized (TanStack Virtual, I4); no client-side layout code added (I2).
+    title Component Diagram — Synapse v0.4 Phase 1 (M4 "Usable & fluid" — F1 shell)
 
     Container_Boundary(api, "FastAPI service") {
         Component(rest, "REST + provider + graph endpoints", "FastAPI routers", "GET/POST /provider/config, POST /ingest/trigger (202), GET /graph (200, X-Graph-Cache: hit|miss, ADR-0014). Auto OpenAPI → D4.")
@@ -25,9 +26,19 @@ C4Component
         ComponentDb(pg, "Postgres 16", "SQLAlchemy 2 + Alembic", "pages (+x,y v0.3), vault_state (data_version → graph trigger), provider_config, ingest_runs (I7), links (K5), edges (v0.3: weighted graph, ADR-0012). D2 source of truth.")
     }
 
-    Container_Boundary(fe, "Frontend (thin sigma viewer — v0.3)") {
-        Component(viewer, "Graph viewer", "React 19 + Vite + sigma.js", "I2/I4. Single read-only route. fetch GET /graph → graph.addNode({x,y}) with PRECOMPUTED coords → ONE WebGL canvas. NEVER imports/runs forceatlas2/d3-force/any client layout (ADR-0015, P0 block). Node click → GET /pages/{id} tooltip.")
-        Component(gstore, "Graph Zustand store", "store/graphStore.ts", "I3. Selectors + shallow equality; pure API→graphology transform. No whole-store subscription.")
+    Container_Boundary(fe, "Frontend — 3-panel shell (v0.4 Phase 1, F1, ADR-0017)") {
+        Component(appshell, "AppShell", "AppShell.tsx", "Top-level layout: <Header> + <PanelGroup> (left/center/right) + <ActivityBar>. Replaces the body of App.tsx. Single entry point for all panel composition.")
+        Component(header, "Header", "Header.tsx", "Branding + providerSelectorSlot placeholder div (Phase 2 fills it) + vault label. No provider logic in Phase 1.")
+        Component(panelgroup, "PanelGroup", "panels/PanelGroup.tsx", "Horizontal 3-panel group via react-resizable-panels. PanelResizeHandle: role=separator, aria-orientation=vertical, arrow-key resize. No rAF/JS layout loop (AC-F1-7). min sizes ~[15%,40%,20%]; onLayout hook for Phase-2 persistence.")
+        Component(navtree, "NavTree", "nav/NavTree.tsx + nav/useNavTreeData.ts", "Left panel (role=navigation). Fetches GET /pages; groups by type (concept/entity/source/synthesis/comparison/other); flattens to TreeRow[]; virtualizes via useVirtualizer (TanStack Virtual, I4, AC-F1-2, ≤50 DOM rows). Row click → selectPage(id,'tree') on shared selectedNodeId. role=tree/treeitem/group.")
+        Component(maintabs, "MainTabs", "center/MainTabs.tsx", "Center (role=main). Tab strip: [Graph] active, [Chat aria-disabled] Phase-3 stub hosting ScenarioTemplates. Reads/sets activeTab from graphStore UI slice. role=tablist/tab/tabpanel; roving tabindex.")
+        Component(graphpanel, "GraphPanel", "center/GraphPanel.tsx", "Thin wrapper: mounts the EXISTING <GraphViewer/> unchanged (height:100%; min-height:0 for sigma ResizeObserver). No layout code added. T-NCL-001..022 intact. GraphViewer's internal DOM stays <20 nodes (I2/I4).")
+        Component(viewer, "GraphViewer", "React 19 + Vite + sigma.js", "I2/I4. UNCHANGED from v0.3. Renders precomputed coords in ONE WebGL canvas. NEVER imports/runs forceatlas2/d3-force/any client layout (ADR-0015, P0 block). Node click → setSelectedNodeId (shared key). No T-NCL assertions changed.")
+        Component(previewpanel, "PreviewPanel", "preview/PreviewPanel.tsx", "Right panel (role=complementary). Subscribes to selectedNodeId via selectSelectedNodeId. Phase 1: read-only metadata+relationship inspector (title/type/sources/neighbors/degree) from GET /pages/{id} + in-memory nodes/edges. 'No document body — demo node' empty state. NOT an editor (I4, AC-F1-3). GET /pages/{id}/content reserved for Phase 3.")
+        Component(activitybar, "ActivityBar", "activity/ActivityBar.tsx", "Bottom bar (role=status). vault name, active provider placeholder (Phase 1: '—'), last-ingest timestamp, data_version from GET /status + graph store. AC-F1-5.")
+        Component(scenariotemplates, "ScenarioTemplates", "common/ScenarioTemplates.tsx", "≥2 scenario template buttons (AC-F1-6). Phase 1: rendered in the Chat-stub tab region; pre-fill a disabled chat-input placeholder. Wired to chat store in Phase 3.")
+        Component(gstore, "graphStore + UI slice", "store/graphStore.ts", "I3. Selectors + shallow equality; no whole-store subscription. UI slice adds: selectedSource, activeTab, treeCollapsed; actions selectPage/setActiveTab/toggleGroup; selectors selectActiveTab/selectTreeCollapsed/selectSelectPage. selectedNodeId UNCHANGED — single shared selection key for NavTree↔GraphViewer↔PreviewPanel sync.")
+        Component(pagesclient, "pagesClient", "api/pagesClient.ts", "fetchPages(vaultId, {limit, offset}) → PageListResponse. Typed. Separate from graph client; focused on tree data (metadata only, no body).")
     }
 
     System_Ext(ollamasvc, "Ollama", "RTX 3060, running (I9)")
@@ -63,6 +74,25 @@ C4Component
     Rel(rest, gcache, "GET /graph: hit→read coords; miss→inline recompute (sync 200, ADR-0014)")
     Rel(rest, pg, "GET /graph reads pages.x/y + edges (precomputed)")
     Rel(viewer, rest, "GET /graph (precomputed coords) + GET /pages/{id} on node click")
-    Rel(viewer, gstore, "selectors + shallow equality (I3)")
+    Rel(viewer, gstore, "setSelectedNodeId on node click; reads precomputed nodes/edges (I3)")
+
+    %% v0.4 Phase 1 — F1 shell relations (ADR-0017)
+    Rel(appshell, header, "renders slot")
+    Rel(appshell, panelgroup, "renders 3-panel group")
+    Rel(appshell, activitybar, "renders bottom bar")
+    Rel(panelgroup, navtree, "left panel")
+    Rel(panelgroup, maintabs, "center panel")
+    Rel(panelgroup, previewpanel, "right panel")
+    Rel(maintabs, graphpanel, "Graph tab (active)")
+    Rel(maintabs, scenariotemplates, "Chat stub tab (aria-disabled, Phase-3 seam)")
+    Rel(graphpanel, viewer, "wraps unchanged GraphViewer (I2, no layout code)")
+    Rel(navtree, pagesclient, "fetchPages → TreeRow[] grouped by type")
+    Rel(pagesclient, rest, "GET /pages (metadata only, no body)")
+    Rel(navtree, gstore, "selectPage(id,'tree') → sets selectedNodeId (I3)")
+    Rel(previewpanel, gstore, "selectSelectedNodeId + selectNodes/selectEdges for neighbor derive (I3)")
+    Rel(previewpanel, rest, "GET /pages/{id} for title/type/sources/file_path")
+    Rel(activitybar, rest, "GET /status for vault + data_version")
+    Rel(activitybar, gstore, "reads data_version from store (I3)")
+    Rel(maintabs, gstore, "selectActiveTab / setActiveTab (I3)")
 
     UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
