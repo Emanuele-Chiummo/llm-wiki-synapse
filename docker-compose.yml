@@ -1,0 +1,104 @@
+# Synapse Docker Compose — Sprint v0.1 walking skeleton
+#
+# SERVICES DEFINED HERE:
+#   - synapse-backend: FastAPI app (builds from backend/)
+#   - postgres: PostgreSQL 16 (single vault data)
+#
+# EXTERNAL SERVICES (already running on TrueNAS — I9):
+#   - Ollama (RTX 3060): http://host.docker.internal:11434
+#   - bge-m3 embeddings (via Ollama): http://host.docker.internal:11434/api/embeddings
+#   - Qdrant: http://host.docker.internal:6333
+#   - SearXNG: http://host.docker.internal:8888
+#
+# These external services are referenced via environment variables; they are NOT
+# defined as compose services. This honours invariant I9 (reuse existing infra).
+#
+# Volumes:
+#   - postgres data: named volume postgres_data (for easy backup via docker compose exec)
+#   - vault: bind-mounted at $(VAULT_PATH) (default ../vault, see .env)
+#
+# Startup:
+#   docker compose up
+#   (Postgres waits for PG to be healthy, backend waits for Postgres, then runs migrations.)
+#
+# Stop:
+#   docker compose down
+
+version: "3.8"
+
+services:
+  # ─────────────────────────────────────────────────────────────────────────
+  # PostgreSQL 16 — single source of truth for metadata, links, config, coords
+  # ─────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: synapse
+      POSTGRES_PASSWORD: synapse
+      POSTGRES_DB: synapse
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Synapse FastAPI backend — watcher + ingest + REST API
+  # ─────────────────────────────────────────────────────────────────────────
+  synapse-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      # Database (postgres service above)
+      DATABASE_URL: postgresql+asyncpg://synapse:synapse@postgres:5432/synapse
+
+      # Qdrant (external TrueNAS service — I9, not containerized)
+      # Reference via docker host gateway or Tailscale IP
+      QDRANT_URL: http://host.docker.internal:6333
+      QDRANT_COLLECTION: synapse_pages
+
+      # Embedding service: bge-m3 via Ollama on TrueNAS (I9, not containerized)
+      # This service runs on the RTX 3060 GPU on TrueNAS.
+      EMBEDDING_URL: http://host.docker.internal:11434/api/embeddings
+      EMBEDDING_MODEL: bge-m3
+      EMBEDDING_DIM: "1024"  # ADR-0004: verify against live service
+
+      # Vault identity and path
+      VAULT_ID: default
+      VAULT_PATH: /vault
+
+    # Mount vault (contains raw/sources/ for watcher, wiki/ for output)
+    volumes:
+      - ./vault:/vault
+
+    ports:
+      - "8000:8000"
+
+    # Wait for Postgres to be ready
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    # Pre-start: run Alembic migrations (I8 — ensures schema is current)
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/status')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local

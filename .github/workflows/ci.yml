@@ -1,0 +1,175 @@
+name: CI — Lint, Unit Tests, Docs Gate
+
+on:
+  push:
+    branches:
+      - sprint/v0.1
+      - main
+  pull_request:
+    branches:
+      - sprint/v0.1
+      - main
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────
+  # Stage 1: Lint & Format checks (ruff, black, eslint)
+  # Runs service-free. Failure blocks merge.
+  # ──────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint (ruff + black)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          pip install -e .
+          pip install -e ".[dev]"
+
+      - name: Ruff check
+        working-directory: backend
+        run: ruff check app tests
+
+      - name: Black format check
+        working-directory: backend
+        run: black --check app tests
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Stage 2: Type checking (mypy)
+  # Runs service-free. Failure blocks merge.
+  # ──────────────────────────────────────────────────────────────────────
+  typecheck:
+    name: Type Check (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          pip install -e .
+          pip install -e ".[dev]"
+
+      - name: mypy strict mode
+        working-directory: backend
+        run: mypy app
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Stage 3: Unit tests (pytest — infra-free subset)
+  # Runs service-free. Failure blocks merge.
+  # Tests use FakeEmbeddingClient and dummy env (conftest setup).
+  # ──────────────────────────────────────────────────────────────────────
+  unit:
+    name: Unit Tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          pip install -e .
+          pip install -e ".[dev]"
+
+      - name: pytest (infra-free tests)
+        working-directory: backend
+        run: python -m pytest -v --tb=short
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Stage 4: Docs gate (I8 — ER diagram, OpenAPI auto-gen)
+  # Validates that docs/er/schema.mmd and docs/api/openapi.json are
+  # up to date with the source (models.py + main.py). Runs mermaid-cli
+  # to validate diagram syntax.
+  # Failure blocks merge (I8 — docs-as-DoD).
+  # ──────────────────────────────────────────────────────────────────────
+  docs:
+    name: Docs Gate (ER + OpenAPI + Mermaid)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          pip install -e .
+          pip install -e ".[dev]"
+
+      - name: Generate ER diagram (make er)
+        working-directory: backend
+        run: python scripts/generate_er.py
+        env:
+          # Dummy env vars so Settings() doesn't fail
+          DATABASE_URL: postgresql+asyncpg://dummy:dummy@localhost/dummy
+          QDRANT_URL: http://localhost:6333
+          EMBEDDING_URL: http://localhost:11434/api/embeddings
+          EMBEDDING_DIM: "1024"
+
+      - name: Generate OpenAPI spec (make openapi)
+        working-directory: backend
+        run: python scripts/generate_openapi.py
+        env:
+          DATABASE_URL: postgresql+asyncpg://dummy:dummy@localhost/dummy
+          QDRANT_URL: http://localhost:6333
+          EMBEDDING_URL: http://localhost:11434/api/embeddings
+          EMBEDDING_DIM: "1024"
+
+      - name: Check for docs drift
+        run: |
+          git diff --exit-code docs/er/schema.mmd || \
+            { echo "ER diagram out of date (docs/er/schema.mmd). Run 'make er' and commit."; exit 1; }
+          git diff --exit-code docs/api/openapi.json || \
+            { echo "OpenAPI spec out of date (docs/api/openapi.json). Run 'make openapi' and commit."; exit 1; }
+
+      - name: Install mermaid-cli for diagram validation
+        run: npm install -g @mermaid-js/mermaid-cli
+
+      - name: Validate Mermaid diagrams
+        run: |
+          for f in docs/architecture/*.mmd docs/er/*.mmd docs/sequences/*.mmd 2>/dev/null; do
+            if [ -f "$f" ]; then
+              echo "Validating $f..."
+              mmdc -i "$f" -o /dev/null || { echo "Mermaid syntax error in $f"; exit 1; }
+            fi
+          done
+          echo "All Mermaid diagrams are valid."
+
+  # ──────────────────────────────────────────────────────────────────────
+  # (Future) Stage 5: Integration tests (optional, manual trigger)
+  # Requires live Qdrant, Ollama, PostgreSQL on TrueNAS.
+  # Gated behind a condition (allow-failure in v0.1).
+  # ──────────────────────────────────────────────────────────────────────
+  # integration:
+  #   name: Integration Tests (docker compose)
+  #   runs-on: ubuntu-latest
+  #   if: github.event.inputs.run_integration == 'true'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Start services (docker compose)
+  #       run: docker compose up -d
+  #     - name: Run integration tests
+  #       run: cd backend && python -m pytest tests/test_integration.py -v
