@@ -1,6 +1,6 @@
 # Synapse User Guide
 
-<!-- Generated: v0.4 sprint 4 | 2026-06-28 -->
+<!-- Generated: v0.4 M4-EXT | 2026-06-28 -->
 
 > Version: v0.4 (M4 — "Usable & fluid")
 > Language toggle: English / Italian available in Settings.
@@ -105,11 +105,31 @@ force-directed layout, so the UI stays responsive regardless of graph size.
 
 ### Ingest section
 
-The Ingest section shows the history of all ingest runs for the current vault.
+The Ingest section shows the history of all ingest runs for the current vault and
+provides two ways to add documents directly from the browser.
 
 ![Ingest activity view](screens/ingest-section.png)
 
-Each row displays:
+#### Uploading a document
+
+The top of the Ingest section contains a drag-and-drop upload zone.
+
+- **Drag** a Markdown or plain-text file (`.md`, `.txt`, `.markdown`) onto the zone, or
+  click **Browse** to open a file picker.
+- Synapse saves the file to `vault/raw/sources/` and the watcher ingests it
+  asynchronously. A new run row appears in the list within about 15–30 seconds.
+- **Accepted formats in v0.4:** Markdown and plain text only. Uploading a PDF, DOCX, or
+  other binary format returns a clear error explaining that multi-format ingest (F12) is
+  coming in M5.
+- **Size limit:** 25 MB per file (configurable by the operator via `MAX_UPLOAD_BYTES`).
+  Larger files are rejected with a message before any data is saved.
+- If you upload a file whose name already exists in `vault/raw/sources/`, the existing
+  file is replaced and re-ingested (correct incremental behaviour — only the changed
+  content is re-processed).
+
+#### Run history
+
+Each row in the list below the upload zone displays:
 
 - **Status badge** — Running (pulsing), Completed, Failed, or Did not converge.
 - **Provider** — which inference backend handled the run (Local Ollama, API, or CLI).
@@ -186,6 +206,45 @@ table (see the Deploy guide).
 **Reset settings.** Clears all locally stored preferences and returns the UI to its
 defaults.
 
+#### Automatic import (scheduled folder import)
+
+The **Automatic import** card in Settings lets Synapse periodically scan a folder
+inside the backend container and import any new or changed documents automatically —
+no manual drag-and-drop required.
+
+**How to set it up:**
+
+1. The backend can only see folders that have been mounted into its container. Add a
+   bind-mount to `docker-compose.yml` (see [DEPLOY.md §8](DEPLOY.md)) and restart the
+   stack. Example: `./import:/import:ro` makes the host folder `./import` visible inside
+   the container as `/import`.
+2. In the **Automatic import** card in Settings, enable the toggle.
+3. Enter the **container path** (e.g. `/import`). This is the path inside the container,
+   not your host machine's path. If the path is not accessible inside the container, a
+   warning appears — add the mount and it resolves on the next scan.
+4. Choose a **frequency**: every 15 minutes, every hour, every 6 hours, or daily.
+5. Click **Save** (or the card auto-saves on change). The scheduler picks up the new
+   settings on its next tick without a restart.
+
+The **Run now** button triggers an immediate scan outside the normal schedule. Use it
+to test your setup or import a batch without waiting for the next scheduled tick.
+
+After each scan the card shows "Last scan: N minutes ago — M imported". The number is
+how many files were copied into `vault/raw/sources/` (new or changed content only —
+identical files are skipped). Actual ingest runs for those files appear in the Ingest
+section with their normal status and cost.
+
+**Important constraints:**
+- Only Markdown and plain-text files (`.md`, `.txt`, `.markdown`) are imported in v0.4.
+  Other file types in the scanned folder are silently skipped; they will be supported
+  when multi-format ingest (F12) ships in M5.
+- The scan is non-recursive: only files directly inside the configured folder are
+  imported, not files in sub-folders.
+- Each scan copies at most 200 files and runs for at most 60 seconds (both limits are
+  configurable by the operator). Remaining files are picked up on the next tick.
+- A scan that is already in progress will not overlap with a new tick or a "Run now"
+  request.
+
 ---
 
 ### Provider selector
@@ -211,13 +270,26 @@ for the next chat message or ingest run; no page reload needed.
 
 ## Ingesting your first document
 
-1. Copy or move a file into `vault/raw/sources/`. Supported formats in v0.4: plain text
-   and Markdown. (PDF, DOCX, images, and audio/video are coming in M5/F12.)
-2. The file watcher detects the new file and queues an ingest run automatically. You
-   can also trigger one manually from the Ingest section.
-3. The Ingest section shows a new Running row. When it completes, the row changes to
-   Completed and shows how many wiki pages were created.
-4. Switch to the Graph section to see the new nodes appear.
+There are three ways to get a document into Synapse:
+
+**Option 1 — Drag and drop in the browser.** Open the Ingest section and drop a
+`.md` or `.txt` file onto the upload zone (or click Browse). The watcher ingests it
+asynchronously; a new run row appears within about 15–30 seconds.
+
+**Option 2 — Place the file directly.** Copy or move a file into `vault/raw/sources/`
+on the host. The file watcher detects it and ingests it automatically. You can also
+trigger a run manually with the **Run Ingest** button.
+
+**Option 3 — Scheduled folder import.** Configure the Automatic import card in
+Settings to scan a mounted folder on a regular schedule. Any new or changed documents
+are imported automatically without manual action (see the Settings section above).
+
+Supported formats in v0.4: plain text and Markdown only. PDF, DOCX, images, and
+audio/video are coming in M5 (F12).
+
+After ingest, the Ingest section shows a Running row that changes to Completed once
+the AI has finished generating wiki pages. Switch to the Graph section to see the new
+nodes appear.
 
 ---
 
