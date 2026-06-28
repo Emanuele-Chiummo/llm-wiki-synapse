@@ -1,11 +1,14 @@
 """
-Synapse FastAPI service — v0.1 walking skeleton (M1).
+Synapse FastAPI service — v0.2 (M2).
 
 Endpoints:
-  GET  /status           — vault_id, data_version, started_at, uptime (AC-REST-1, AC-F16dv-3)
-  GET  /pages            — paginated list of live pages (AC-REST-2)
-  GET  /pages/{id}       — single page; 404 if missing/deleted, 422 on bad UUID (AC-REST-3)
-  POST /ingest/trigger   — sync ingest; HTTP 202 body per ADR-0006 (AC-REST-4)
+  GET  /status                — vault_id, data_version, started_at, uptime
+  GET  /pages                 — paginated list of live pages
+  GET  /pages/{id}            — single page by UUID
+  POST /ingest/trigger        — sync ingest; HTTP 202 (typed IngestTriggerResponse, AC-D4u)
+  GET  /provider/config       — list effective + raw provider_config rows (F17)
+  POST /provider/config       — create/update a provider_config row (F17, §12 — no api key)
+  DELETE /provider/config/{id} — delete a provider_config row by UUID
 
 Startup sequence (ordered, per v0.1-architecture §2.5):
   1. Vault skeleton bootstrap (vault.py) — AC-K7-1, I5
@@ -28,15 +31,14 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 
 from app.config import settings
 from app.db import dispose_engine, get_session
 from app.embeddings import EmbeddingError, get_embedding_client
 from app.ingest.orchestrator import IngestResult, ingest_file
-from app.models import Page, VaultState
+from app.models import Page, ProviderConfig, VaultState
 from app.qdrant_client import ensure_collection
 from app.vault import bootstrap_vault
 from app.watcher import start_watcher, stop_watcher
@@ -144,9 +146,22 @@ class IngestTriggerRequest(BaseModel):
 
 
 class IngestTriggerResponse(BaseModel):
-    task_id: None = None  # v0.2 fills with real async id (ADR-0006)
-    status: str  # "completed" | "skipped" (v0.2 adds "queued"/"running")
-    page_id: uuid.UUID
+    """
+    Typed 202 body for POST /ingest/trigger (AC-D4u — task_id appears in OpenAPI schema).
+
+    task_id is None in v0.2 (synchronous path); v0.3 fills it with a real async task UUID.
+    status: "completed" | "skipped" (I1 fast-path) | "queued"/"running" (async, v0.3+).
+    """
+
+    task_id: uuid.UUID | None = Field(
+        default=None,
+        description="Async task UUID (None in v0.2 synchronous mode; filled in v0.3+)",
+    )
+    status: str = Field(
+        ...,
+        description='"completed" or "skipped" (I1 mtime/hash fast-path)',
+    )
+    page_id: uuid.UUID = Field(..., description="UUID of the ingested page row")
 
     model_config = {
         "json_schema_extra": {
@@ -157,6 +172,98 @@ class IngestTriggerResponse(BaseModel):
             }
         }
     }
+
+
+# ── Provider config Pydantic models (F17 CRUD — §12: NO api_key field) ────────
+
+_VALID_PROVIDER_TYPES = {"local", "api", "cli"}
+_VALID_SCOPES = {"global", "vault", "operation"}
+_VALID_OPERATIONS = {"ingest", "chat", "lint"}
+
+
+class ProviderConfigCreate(BaseModel):
+    """
+    Request body for POST /provider/config (F17).
+
+    Stores NO API key (§12 / ADR-0008 §3). Keys are env-only inside provider/.
+    model_id must be provided explicitly — no hardcoded defaults in app code (AC-F17-8).
+    """
+
+    scope: str = Field(..., description="global | vault | operation")
+    operation: str | None = Field(
+        default=None,
+        description="ingest | chat | lint; required when scope='operation'",
+    )
+    vault_id: str | None = Field(
+        default=None,
+        description="Required when scope='vault' or 'operation'",
+    )
+    provider_type: str = Field(..., description="local | api | cli")
+    model_id: str = Field(
+        ...,
+        description="Model name (e.g. claude-sonnet-4-6); lives only in DB rows (AC-F17-8)",
+    )
+    base_url: str | None = Field(
+        default=None,
+        description="OpenAI-compatible endpoint; NULL for Anthropic/local default",
+    )
+    max_iter: int = Field(default=3, ge=1, le=20, description="Orchestrated-loop cap (I7)")
+    token_budget: int = Field(
+        default=60000,
+        ge=1000,
+        le=1_000_000,
+        description="Loop token budget (I7)",
+    )
+    is_fallback: bool = Field(default=False, description="Marks the single fallback row")
+
+    @field_validator("provider_type")
+    @classmethod
+    def _valid_provider_type(cls, v: str) -> str:
+        if v not in _VALID_PROVIDER_TYPES:
+            raise ValueError(
+                f"provider_type must be one of {sorted(_VALID_PROVIDER_TYPES)}, got {v!r}"
+            )
+        return v
+
+    @field_validator("scope")
+    @classmethod
+    def _valid_scope(cls, v: str) -> str:
+        if v not in _VALID_SCOPES:
+            raise ValueError(f"scope must be one of {sorted(_VALID_SCOPES)}, got {v!r}")
+        return v
+
+    @field_validator("operation")
+    @classmethod
+    def _valid_operation(cls, v: str | None) -> str | None:
+        if v is not None and v not in _VALID_OPERATIONS:
+            raise ValueError(
+                f"operation must be one of {sorted(_VALID_OPERATIONS)} or null, got {v!r}"
+            )
+        return v
+
+
+class ProviderConfigResponse(BaseModel):
+    """API response shape for a provider_config row (§12: no api_key field)."""
+
+    id: uuid.UUID
+    scope: str
+    operation: str | None
+    vault_id: str | None
+    provider_type: str
+    model_id: str
+    base_url: str | None
+    max_iter: int
+    token_budget: int
+    is_fallback: bool
+    created_at: Any
+    updated_at: Any
+
+    model_config = {"from_attributes": True}
+
+
+class ProviderConfigListResponse(BaseModel):
+    items: list[ProviderConfigResponse]
+    total: int
 
 
 # ── GET /status ────────────────────────────────────────────────────────────────
@@ -269,37 +376,26 @@ async def get_page(page_id: uuid.UUID) -> PageResponse:
 
 @app.post(
     "/ingest/trigger",
-    response_class=JSONResponse,
+    response_model=IngestTriggerResponse,
     status_code=202,
     summary="Manually trigger ingest of a single file",
     description=(
         "Synchronously ingests the file at file_path through the seam. "
-        "Returns HTTP 202 with {task_id: null, status, page_id} (ADR-0006, AC-REST-4). "
+        "Returns HTTP 202 with typed {task_id, status, page_id} (ADR-0006, AC-REST-4, AC-D4u). "
         "status is 'completed' or 'skipped' (I1 fast-path)."
     ),
     responses={
-        202: {
-            "description": "Ingest accepted and completed",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "task_id": None,
-                        "status": "completed",
-                        "page_id": "00000000-0000-0000-0000-000000000001",
-                    }
-                }
-            },
-        },
-        422: {"description": "Validation error (missing file_path or bad format)"},
+        202: {"description": "Ingest accepted and completed"},
+        422: {"description": "Validation error (missing file_path, bad format, or file not found)"},
     },
 )
-async def trigger_ingest(body: IngestTriggerRequest) -> Any:
+async def trigger_ingest(body: IngestTriggerRequest) -> IngestTriggerResponse:
     """
-    Trigger incremental ingest of a single file (K2 partial, ADR-0006).
+    Trigger incremental ingest of a single file (K2 partial, ADR-0006, AC-D4u).
 
     Resolves the file path under vault_root if relative.
     Runs ingest_file through the seam (ADR-0003); never touches DB/Qdrant directly.
-    Returns 202 per ADR-0006 contract (v0.2 will extend with async task_id).
+    Returns 202 per ADR-0006 contract with a typed schema so task_id appears in OpenAPI (AC-D4u).
     """
     from pathlib import Path
 
@@ -316,14 +412,128 @@ async def trigger_ingest(body: IngestTriggerRequest) -> Any:
 
     result: IngestResult = await ingest_file(path)
 
-    return JSONResponse(
-        status_code=202,
-        content={
-            "task_id": None,
-            "status": result.status,
-            "page_id": str(result.page_id),
-        },
+    return IngestTriggerResponse(
+        task_id=None,
+        status=result.status,
+        page_id=result.page_id,
     )
+
+
+# ── GET /provider/config ───────────────────────────────────────────────────────
+
+
+@app.get(
+    "/provider/config",
+    response_model=ProviderConfigListResponse,
+    summary="List provider_config rows",
+    description=(
+        "Returns all raw provider_config rows. "
+        "No API key field is stored or returned (§12). (F17, AC-F17-6)"
+    ),
+)
+async def list_provider_configs(
+    scope: str | None = Query(default=None, description="Filter by scope (global|vault|operation)"),
+    vault_id: str | None = Query(default=None, description="Filter by vault_id"),
+) -> ProviderConfigListResponse:
+    async with get_session() as session:
+        stmt = select(ProviderConfig)
+        if scope is not None:
+            stmt = stmt.where(ProviderConfig.scope == scope)
+        if vault_id is not None:
+            stmt = stmt.where(ProviderConfig.vault_id == vault_id)
+        stmt = stmt.order_by(ProviderConfig.created_at.asc())
+        rows = await session.execute(stmt)
+        configs = list(rows.scalars().all())
+        total = len(configs)
+        items = [ProviderConfigResponse.model_validate(c) for c in configs]
+
+    return ProviderConfigListResponse(items=items, total=total)
+
+
+# ── POST /provider/config ──────────────────────────────────────────────────────
+
+
+@app.post(
+    "/provider/config",
+    response_model=ProviderConfigResponse,
+    status_code=201,
+    summary="Create or update a provider_config row",
+    description=(
+        "Create a new provider_config row. "
+        "provider_type must be one of: local | api | cli. "
+        "NO api_key field is accepted or stored — keys are env-only (§12). (F17, ADR-0008)"
+    ),
+    responses={
+        201: {"description": "Row created"},
+        422: {"description": "Validation error (invalid provider_type, scope, or operation)"},
+    },
+)
+async def create_provider_config(body: ProviderConfigCreate) -> ProviderConfigResponse:
+    """
+    Create a new provider_config row for F17 provider selection (ADR-0008).
+
+    Scope validation: if scope='operation', operation must be non-null.
+    No API key field: keys live in environment only (§12, ADR-0008 §3).
+    """
+    if body.scope == "operation" and body.operation is None:
+        raise HTTPException(
+            status_code=422,
+            detail="operation must be provided when scope='operation'",
+        )
+    if body.scope in {"vault", "operation"} and not body.vault_id:
+        raise HTTPException(
+            status_code=422,
+            detail=f"vault_id must be provided when scope={body.scope!r}",
+        )
+
+    async with get_session() as session:
+        row = ProviderConfig(
+            id=uuid.uuid4(),
+            scope=body.scope,
+            operation=body.operation,
+            vault_id=body.vault_id,
+            provider_type=body.provider_type,
+            model_id=body.model_id,
+            base_url=body.base_url,
+            max_iter=body.max_iter,
+            token_budget=body.token_budget,
+            is_fallback=body.is_fallback,
+        )
+        session.add(row)
+        await session.flush()
+        response = ProviderConfigResponse.model_validate(row)
+
+    return response
+
+
+# ── DELETE /provider/config/{id} ───────────────────────────────────────────────
+
+
+@app.delete(
+    "/provider/config/{config_id}",
+    status_code=204,
+    summary="Delete a provider_config row by UUID",
+    description="Hard-delete the provider_config row with the given id. (F17)",
+    responses={
+        204: {"description": "Row deleted"},
+        404: {"description": "Row not found"},
+    },
+)
+async def delete_provider_config(config_id: uuid.UUID) -> None:
+    """Delete a provider_config row (F17). 404 if not found."""
+    from sqlalchemy import delete as sa_delete
+
+    async with get_session() as session:
+        result = await session.execute(
+            sa_delete(ProviderConfig).where(ProviderConfig.id == config_id)
+        )
+        deleted = result.rowcount  # type: ignore[union-attr]
+
+    if deleted == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"provider_config {config_id} not found",
+        )
 
 
 # ── Startup helpers ────────────────────────────────────────────────────────────
