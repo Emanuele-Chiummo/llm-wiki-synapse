@@ -410,7 +410,7 @@ class GraphEngine:
                 " weight, signals, created_at) "
                 "VALUES "
                 "(CAST(:id AS uuid), :vault_id, CAST(:source_page_id AS uuid),"
-                " CAST(:target_page_id AS uuid), :weight, :signals::jsonb, now())"
+                " CAST(:target_page_id AS uuid), :weight, CAST(:signals AS jsonb), now())"
             )
             for row in edge_rows:
                 await sess.execute(
