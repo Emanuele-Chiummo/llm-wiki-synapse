@@ -10,6 +10,7 @@ Endpoints:
   POST /provider/config       — create/update a provider_config row (F17, §12 — no api key)
   DELETE /provider/config/{id} — delete a provider_config row by UUID
   GET  /graph                 — precomputed graph coords + edges (F4, I2, ADR-0014)
+  PATCH /pages/{id}/position — persist manual node drag position; pin the node (Feature A)
 
 Startup sequence (ordered, per v0.1-architecture §2.5):
   1. Vault skeleton bootstrap (vault.py) — AC-K7-1, I5
@@ -408,6 +409,93 @@ async def get_page(page_id: uuid.UUID) -> PageResponse:
     return _page_to_response(page)
 
 
+# ── PATCH /pages/{id}/position ────────────────────────────────────────────────
+
+
+class PatchPositionRequest(BaseModel):
+    """Body for PATCH /pages/{page_id}/position (Feature A)."""
+
+    x: float = Field(..., description="New x coordinate (FR space)")
+    y: float = Field(..., description="New y coordinate (FR space)")
+
+
+class PatchPositionResponse(BaseModel):
+    """Response for PATCH /pages/{page_id}/position (Feature A)."""
+
+    id: str
+    x: float
+    y: float
+    pinned: bool
+
+
+@app.patch(
+    "/pages/{page_id}/position",
+    response_model=PatchPositionResponse,
+    summary="Persist a manual node drag position and pin the node",
+    description=(
+        "Updates pages.x/y and sets pages.pinned=true so the node stays at the dropped "
+        "position across FR recomputes.  Also patches the live GraphCache snapshot in place "
+        "so the next GET /graph HIT reflects the new position immediately. "
+        "Does NOT trigger FR, does NOT bump data_version — O(1). (Feature A, I2)"
+    ),
+    responses={
+        200: {"description": "Position updated and node pinned"},
+        404: {"description": "Page not found"},
+    },
+)
+async def patch_node_position(
+    page_id: uuid.UUID,
+    body: PatchPositionRequest,
+) -> PatchPositionResponse:
+    """
+    PATCH /pages/{page_id}/position — persist a manual drag position (Feature A).
+
+    1. UPDATE pages SET x=:x, y=:y, pinned=true WHERE id=:id and vault_id=:vid.
+    2. Patch the live GraphCache snapshot in-memory so HIT path returns new coords.
+    3. Return 200 {id, x, y, pinned: true}.
+
+    Does NOT bump data_version; does NOT trigger FR recompute (I2).
+    404 if the page is missing or soft-deleted.
+    """
+    from sqlalchemy import text as sa_text
+
+    async with get_session() as session:
+        result = await session.execute(
+            sa_text(
+                "UPDATE pages "
+                "SET x = :x, y = :y, pinned = true "
+                "WHERE id = CAST(:page_id AS uuid) "
+                "  AND vault_id = :vault_id "
+                "  AND deleted_at IS NULL "
+                "RETURNING id"
+            ).bindparams(
+                x=body.x,
+                y=body.y,
+                page_id=str(page_id),
+                vault_id=settings.vault_id,
+            )
+        )
+        row = result.fetchone()
+
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Page {page_id} not found or deleted",
+        )
+
+    # Patch the live snapshot so the next HIT already has the new coords (Feature A).
+    node_id_str = str(page_id)
+    if _graph_cache is not None:
+        found = _graph_cache.patch_node_position(node_id_str, body.x, body.y)
+        logger.debug(
+            "patch_node_position: cache patch %s for node_id=%s",
+            "succeeded" if found else "no-op (no snapshot yet)",
+            node_id_str,
+        )
+
+    return PatchPositionResponse(id=node_id_str, x=body.x, y=body.y, pinned=True)
+
+
 # ── POST /ingest/trigger ───────────────────────────────────────────────────────
 
 
@@ -578,7 +666,7 @@ async def delete_provider_config(config_id: uuid.UUID) -> None:
 
 class GraphNodeResponse(BaseModel):
     """
-    One graph node in the GET /graph response (ADR-0014 §6, AC-F4-3).
+    One graph node in the GET /graph response (ADR-0014 §6, AC-F4-3, ADR-0016 §4).
 
     Required: id, title, type, x, y.
     Optional rendering hints (derived server-side): size, degree.
@@ -589,8 +677,17 @@ class GraphNodeResponse(BaseModel):
     type: str | None
     x: float
     y: float
-    size: float = Field(default=1.0, description="Rendering hint: monotonic in degree")
-    degree: int = Field(default=0, description="Incident-edge count (derived, not persisted)")
+    size: float = Field(
+        default=1.0,
+        description="BASE + GROWTH·sqrt(structural_degree); BASE=1.0, GROWTH=2.5 (ADR-0016 §2)",
+    )
+    degree: int = Field(
+        default=0,
+        description=(
+            "Structural degree: count of distinct incident structural edges "
+            "(direct-link or shared-source); drives size (ADR-0016 §2/§4)"
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -609,14 +706,20 @@ class GraphNodeResponse(BaseModel):
 
 class GraphEdgeResponse(BaseModel):
     """
-    One graph edge in the GET /graph response (ADR-0014 §6, AC-F4-3).
+    One graph edge in the GET /graph response (ADR-0014 §6, AC-F4-3, ADR-0016 §4).
 
     source/target are page-id strings (UUID). Undirected — emitted once per pair.
+    kind: structural edge discriminator — "link" (wikilink exists) or "source"
+          (shared-source provenance only). ADR-0016 §4.
     """
 
     source: str
     target: str
     weight: float
+    kind: str = Field(
+        default="link",
+        description='Structural edge kind: "link" (direct wikilink) | "source" (shared provenance). ADR-0016 §4',
+    )
 
 
 class GraphResponse(BaseModel):
@@ -651,6 +754,7 @@ class GraphResponse(BaseModel):
                         "source": "00000000-0000-0000-0000-000000000001",
                         "target": "00000000-0000-0000-0000-000000000002",
                         "weight": 11.0,
+                        "kind": "link",
                     }
                 ],
                 "data_version": 7,
@@ -726,7 +830,8 @@ async def get_graph() -> Response:
         for n in snapshot.nodes
     ]
     edges: list[GraphEdgeResponse] = [
-        GraphEdgeResponse(source=e.source, target=e.target, weight=e.weight) for e in snapshot.edges
+        GraphEdgeResponse(source=e.source, target=e.target, weight=e.weight, kind=e.kind)
+        for e in snapshot.edges
     ]
     payload = GraphResponse(
         nodes=nodes,

@@ -52,8 +52,9 @@ def _build_meta() -> MetaData:
         Column("content_hash", String(64), nullable=False),
         Column("source_mtime_ns", BigInteger, nullable=True),
         Column("qdrant_point_id", String(36), nullable=True),
-        Column("x", Float, nullable=True),  # v0.3 FA2 coord
-        Column("y", Float, nullable=True),  # v0.3 FA2 coord
+        Column("x", Float, nullable=True),  # v0.3 FR coord
+        Column("y", Float, nullable=True),  # v0.3 FR coord
+        Column("pinned", Integer, nullable=False, server_default="0"),  # Feature A
         Column("deleted_at", Text, nullable=True),
         Column("created_at", Text, nullable=False),
         Column("updated_at", Text, nullable=False),

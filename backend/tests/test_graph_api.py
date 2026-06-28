@@ -108,6 +108,7 @@ async def graph_app(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClie
                 deleted_at TEXT,
                 x REAL,
                 y REAL,
+                pinned INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )

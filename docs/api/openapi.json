@@ -124,6 +124,60 @@
         }
       }
     },
+    "/pages/{page_id}/position": {
+      "patch": {
+        "summary": "Persist a manual node drag position and pin the node",
+        "description": "Updates pages.x/y and sets pages.pinned=true so the node stays at the dropped position across FR recomputes.  Also patches the live GraphCache snapshot in place so the next GET /graph HIT reflects the new position immediately. Does NOT trigger FR, does NOT bump data_version \u2014 O(1). (Feature A, I2)",
+        "operationId": "patch_node_position_pages__page_id__position_patch",
+        "parameters": [
+          {
+            "name": "page_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Page Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchPositionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Position updated and node pinned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatchPositionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Page not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ingest/trigger": {
       "post": {
         "summary": "Manually trigger ingest of a single file",
@@ -333,6 +387,12 @@
           "weight": {
             "type": "number",
             "title": "Weight"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Structural edge kind: \"link\" (direct wikilink) | \"source\" (shared provenance). ADR-0016 \u00a74",
+            "default": "link"
           }
         },
         "type": "object",
@@ -342,7 +402,7 @@
           "weight"
         ],
         "title": "GraphEdgeResponse",
-        "description": "One graph edge in the GET /graph response (ADR-0014 \u00a76, AC-F4-3).\n\nsource/target are page-id strings (UUID). Undirected \u2014 emitted once per pair."
+        "description": "One graph edge in the GET /graph response (ADR-0014 \u00a76, AC-F4-3, ADR-0016 \u00a74).\n\nsource/target are page-id strings (UUID). Undirected \u2014 emitted once per pair.\nkind: structural edge discriminator \u2014 \"link\" (wikilink exists) or \"source\"\n      (shared-source provenance only). ADR-0016 \u00a74."
       },
       "GraphNodeResponse": {
         "properties": {
@@ -383,13 +443,13 @@
           "size": {
             "type": "number",
             "title": "Size",
-            "description": "Rendering hint: monotonic in degree",
+            "description": "BASE + GROWTH\u00b7sqrt(structural_degree); BASE=1.0, GROWTH=2.5 (ADR-0016 \u00a72)",
             "default": 1.0
           },
           "degree": {
             "type": "integer",
             "title": "Degree",
-            "description": "Incident-edge count (derived, not persisted)",
+            "description": "Structural degree: count of distinct incident structural edges (direct-link or shared-source); drives size (ADR-0016 \u00a72/\u00a74)",
             "default": 0
           }
         },
@@ -402,7 +462,7 @@
           "y"
         ],
         "title": "GraphNodeResponse",
-        "description": "One graph node in the GET /graph response (ADR-0014 \u00a76, AC-F4-3).\n\nRequired: id, title, type, x, y.\nOptional rendering hints (derived server-side): size, degree.",
+        "description": "One graph node in the GET /graph response (ADR-0014 \u00a76, AC-F4-3, ADR-0016 \u00a74).\n\nRequired: id, title, type, x, y.\nOptional rendering hints (derived server-side): size, degree.",
         "example": {
           "degree": 3,
           "id": "00000000-0000-0000-0000-000000000001",
@@ -452,6 +512,7 @@
           "data_version": 7,
           "edges": [
             {
+              "kind": "link",
               "source": "00000000-0000-0000-0000-000000000001",
               "target": "00000000-0000-0000-0000-000000000002",
               "weight": 11.0
@@ -671,6 +732,56 @@
           "updated_at"
         ],
         "title": "PageResponse"
+      },
+      "PatchPositionRequest": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "title": "X",
+            "description": "New x coordinate (FR space)"
+          },
+          "y": {
+            "type": "number",
+            "title": "Y",
+            "description": "New y coordinate (FR space)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "PatchPositionRequest",
+        "description": "Body for PATCH /pages/{page_id}/position (Feature A)."
+      },
+      "PatchPositionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "x": {
+            "type": "number",
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "title": "Y"
+          },
+          "pinned": {
+            "type": "boolean",
+            "title": "Pinned"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "x",
+          "y",
+          "pinned"
+        ],
+        "title": "PatchPositionResponse",
+        "description": "Response for PATCH /pages/{page_id}/position (Feature A)."
       },
       "ProviderConfigCreate": {
         "properties": {
