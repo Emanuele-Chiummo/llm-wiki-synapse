@@ -1,0 +1,240 @@
+# Synapse — Traceability Matrix
+> Maintained by: functional-analyst (stub), qa-test-engineer (fills Test ID + Status columns)
+> Last updated: 2026-06-28 (Sprint 1 / v0.1 initial population)
+> Source of truth for feature IDs: CLAUDE.md §4
+> User stories + ACs: docs/sprints/v0.1-stories.md
+> Sprint scope + Exit Criteria (EC-x): docs/sprints/v0.1-scope.md §5
+> Backlog ACs (PM-authored): BACKLOG.md §Sprint 1
+>
+> Column guide:
+>   Feature ID    — K1–K8 / F1–F17 per CLAUDE.md §4 (or infra label for cross-cutting work)
+>   User Story ID — US-<label> in docs/sprints/v0.1-stories.md
+>   AC ID         — AC-<LABEL>-<N> as defined in BACKLOG.md and refined in v0.1-stories.md
+>   EC            — M1 Exit Criterion from v0.1-scope.md §5 (EC-1 … EC-15)
+>   D-artifacts   — D1–D7 as defined in CLAUDE.md §9
+>   Invariants    — I1–I9 directly exercised by this AC
+>   Planned test file — path relative to backend/tests/ or frontend/tests/ (forward reference)
+>   Test ID       — filled by qa-test-engineer after tests are written
+>   PR            — PR number that introduced the implementation (filled by engineer)
+>   Status        — PENDING / GREEN / MANUAL / GAP (filled by QA)
+
+---
+
+## Sprint 1 — v0.1 Coverage
+
+### K1 — 3-layer vault skeleton
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-K1-1 | US-K1 | EC-1 | — | I5, I8 | test_vault_structure.py | — | — | PENDING |
+| AC-K1-2 | US-K1 | EC-1 | — | I5 | test_vault_structure.py | — | — | PENDING |
+| AC-K1-3 | US-K1 | EC-1 | — | — | test_vault_structure.py | — | — | PENDING |
+| AC-K1-4 | US-K1 | EC-1 | — | — | test_vault_structure.py | — | — | PENDING |
+| AC-K1-5 | US-K1 | EC-2 | — | I1 | test_watcher.py | — | — | PENDING |
+
+---
+
+### K4 — log.md append-only history
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-K4-1 | US-K4 | EC-3 | — | I1 | test_watcher.py | — | — | PENDING |
+| AC-K4-2 | US-K4 | EC-3 | — | I1 | test_watcher.py | — | — | PENDING |
+| AC-K4-3 | US-K4 | EC-2, EC-3 | — | I1 | test_watcher.py | — | — | PENDING |
+
+---
+
+### K6 — YAML frontmatter schema
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-K6-1 | US-K6 | EC-4 | D2 | I1 | test_frontmatter.py | — | — | PENDING |
+| AC-K6-2 | US-K6 | EC-4 | D2 | I1 | test_frontmatter.py | — | — | PENDING |
+| AC-K6-3 | US-K6 | EC-4 | D2 | I1 | test_frontmatter.py | — | — | PENDING |
+| AC-K6-4 | US-K6 | EC-4 | D2 | I8 | test_models.py | — | — | PENDING |
+
+---
+
+### K7 — Obsidian compatibility baseline
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-K7-1 | US-K7 | EC-1 | — | I5 | test_vault_structure.py | — | — | PENDING |
+| AC-K7-2 | US-K7 | EC-1 | — | I5 | test_vault_structure.py | — | — | PENDING |
+| AC-K7-3 | US-K7 | EC-1 | — | I5 | — (MANUAL GATE — not automatable) | MANUAL | — | MANUAL |
+
+Note: AC-K7-3 is a mandatory human verification step (Emanuele opens vault/wiki/ in Obsidian). No pytest test ID exists. QA must record this as MANUAL and confirm it in the sign-off register before M1 sign-off.
+
+---
+
+### F16 (partial) — dataVersion
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F16dv-1 | US-F16dv | EC-7 | D2 | I2 | test_models.py | — | — | PENDING |
+| AC-F16dv-2 | US-F16dv | EC-7 | — | I2 | test_watcher.py | — | — | PENDING |
+| AC-F16dv-3 | US-F16dv | EC-6, EC-7 | D4 | I2 | test_api.py | — | — | PENDING |
+| AC-F16dv-4 | US-F16dv | EC-7 | — | I2 | test_watcher.py | — | — | PENDING |
+
+---
+
+### Watcher — watchdog incremental file detection
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-WATCH-1 | US-WATCH | EC-2 | — | I1 | test_watcher.py | — | — | PENDING |
+| AC-WATCH-2 | US-WATCH | EC-2 | — | I1 | test_watcher.py | — | — | PENDING |
+| AC-WATCH-3 | US-WATCH | EC-2 | — | I1 | test_watcher.py | — | — | PENDING |
+| AC-WATCH-4 | US-WATCH | EC-2 | — | I1 | test_watcher.py | — | — | PENDING |
+| AC-WATCH-5 | US-WATCH | EC-2 | — | I1 | test_watcher.py | — | — | PENDING |
+| AC-WATCH-6 | US-WATCH | EC-5 | — | I9 | test_watcher.py | — | — | PENDING |
+
+---
+
+### Postgres + SQLAlchemy models
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-PG-1 | US-PG | EC-8 | D2 | I8 | test_models.py | — | — | PENDING |
+| AC-PG-2 | US-PG | EC-8, EC-10 | D2 | I8 | test_models.py | — | — | PENDING |
+| AC-PG-3 | US-PG | EC-4 | D2 | I8 | test_models.py | — | — | PENDING |
+| AC-PG-4 | US-PG | EC-8 | — | — | test_code_quality.py | — | — | PENDING |
+
+---
+
+### K2 (partial) — REST read endpoints
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-REST-1 | US-REST | EC-6 | D4 | I8 | test_api.py | — | — | PENDING |
+| AC-REST-2 | US-REST | EC-6 | D4 | — | test_api.py | — | — | PENDING |
+| AC-REST-3 | US-REST | EC-6 | D4 | — | test_api.py | — | — | PENDING |
+| AC-REST-4 | US-REST | EC-6 | D4 | — | test_api.py | — | — | PENDING |
+| AC-REST-5 | US-REST | EC-11 | D4 | I8 | test_api.py | — | — | PENDING |
+| AC-REST-6 | US-REST | EC-6 | — | — | test_api.py | — | — | PENDING |
+
+---
+
+### Qdrant integration
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-QD-1 | US-QD | EC-5 | — | I9 | test_qdrant.py | — | — | PENDING |
+| AC-QD-2 | US-QD | EC-5 | — | I9 | test_qdrant.py | — | — | PENDING |
+| AC-QD-3 | US-QD | EC-5 | — | I9 | test_qdrant.py | — | — | PENDING |
+| AC-QD-4 | US-QD | EC-5 | — | I9 | test_qdrant.py | — | — | PENDING |
+
+---
+
+### Docker Compose + dev tooling
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-DC-1 | US-DC | EC-8 | — | I8, I9 | test_docker.py (or CI script) | — | — | PENDING |
+| AC-DC-2 | US-DC | EC-8, EC-12 | — | I8 | CI: make test | — | — | PENDING |
+| AC-DC-3 | US-DC | EC-8, EC-10 | D2 | I8 | CI: make er | — | — | PENDING |
+| AC-DC-4 | US-DC | EC-8, EC-11 | D4 | I8 | CI: make openapi | — | — | PENDING |
+| AC-DC-5 | US-DC | EC-8 | — | — | test_code_quality.py | — | — | PENDING |
+
+---
+
+### D1 — C4 Architecture Diagrams
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-D1-1 | US-D1 | EC-9 | D1 | I8 | test_docs.py (mmdc render check) | — | — | PENDING |
+| AC-D1-2 | US-D1 | EC-9 | D1 | I8 | test_docs.py | — | — | PENDING |
+| AC-D1-3 | US-D1 | EC-9, EC-13 | D1 | I8 | — (MANUAL GATE — architect sign-off) | MANUAL | — | MANUAL |
+
+---
+
+### D2 — ER Diagram
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-D2-1 | US-D2 | EC-10 | D2 | I8 | test_docs.py | — | — | PENDING |
+| AC-D2-2 | US-D2 | EC-10 | D2 | I8 | test_docs.py | — | — | PENDING |
+| AC-D2-3 | US-D2 | EC-10, EC-13 | D2 | I8 | — (MANUAL GATE — architect sign-off) | MANUAL | — | MANUAL |
+
+---
+
+### D4 — OpenAPI Reference
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-D4-1 | US-D4 | EC-11 | D4 | I8 | test_docs.py | — | — | PENDING |
+| AC-D4-2 | US-D4 | EC-11 | D4 | I8 | test_docs.py | — | — | PENDING |
+| AC-D4-3 | US-D4 | EC-11 | D4 | I8 | test_docs.py | — | — | PENDING |
+
+---
+
+## M1 Exit Criteria coverage summary
+
+| EC | Description (abbreviated) | Covering ACs | All ACs automated? |
+|----|---------------------------|-------------|-------------------|
+| EC-1 | Vault structure valid | AC-K1-1, AC-K1-2, AC-K1-3, AC-K1-4, AC-K7-1, AC-K7-2, AC-K7-3 | No — AC-K7-3 is MANUAL |
+| EC-2 | Incremental ingest fires correctly | AC-WATCH-1 through AC-WATCH-5, AC-K1-5, AC-K4-3 | Yes |
+| EC-3 | log.md append-only | AC-K4-1, AC-K4-2, AC-K4-3 | Yes |
+| EC-4 | Frontmatter stored correctly | AC-K6-1, AC-K6-2, AC-K6-3, AC-K6-4 | Yes |
+| EC-5 | Vectors from existing bge-m3 service | AC-QD-1, AC-QD-2, AC-QD-3, AC-QD-4, AC-WATCH-6 | Yes |
+| EC-6 | All 4 REST endpoints operational | AC-REST-1 through AC-REST-6 | Yes |
+| EC-7 | dataVersion increments | AC-F16dv-1, AC-F16dv-2, AC-F16dv-3, AC-F16dv-4 | Yes |
+| EC-8 | Docker Compose + devtools work | AC-DC-1 through AC-DC-5, AC-PG-1 | Yes (CI) |
+| EC-9 | D1 docs gate | AC-D1-1, AC-D1-2, AC-D1-3 | No — AC-D1-3 is MANUAL (architect) |
+| EC-10 | D2 docs gate | AC-D2-1, AC-D2-2, AC-D2-3 | No — AC-D2-3 is MANUAL (architect) |
+| EC-11 | D4 docs gate | AC-D4-1, AC-D4-2, AC-D4-3, AC-REST-5 | No — requires tech-writer sign-off (human gate) |
+| EC-12 | QA gate — green suite | All automated ACs above | PENDING (QA sign-off) |
+| EC-13 | Architect gate — models.py / watcher.py / main.py | AC-D1-3, AC-D2-3 | MANUAL (architect) |
+| EC-14 | Tech-writer gate — D1, D2, D4 consistent | D1 + D2 + D4 ACs | MANUAL (tech-writer) |
+| EC-15 | Human checkpoint — demo approved | EC-2 live run | MANUAL (Emanuele) |
+
+---
+
+## Planned test file index
+
+| File | Layer | ACs covered |
+|------|-------|-------------|
+| backend/tests/test_vault_structure.py | unit / filesystem | AC-K1-1, AC-K1-2, AC-K1-3, AC-K1-4, AC-K7-1, AC-K7-2 |
+| backend/tests/test_frontmatter.py | unit | AC-K6-1, AC-K6-2, AC-K6-3 |
+| backend/tests/test_models.py | integration | AC-K6-4, AC-F16dv-1, AC-PG-1, AC-PG-2, AC-PG-3 |
+| backend/tests/test_watcher.py | integration | AC-K1-5, AC-K4-1, AC-K4-2, AC-K4-3, AC-WATCH-1 through AC-WATCH-6, AC-F16dv-2, AC-F16dv-4 |
+| backend/tests/test_api.py | integration | AC-REST-1 through AC-REST-6, AC-F16dv-3 |
+| backend/tests/test_qdrant.py | integration | AC-QD-1 through AC-QD-4 |
+| backend/tests/test_code_quality.py | static / lint | AC-PG-4, AC-DC-5 |
+| backend/tests/test_docs.py | CI artefact | AC-D1-1, AC-D1-2, AC-D2-1, AC-D2-2, AC-D4-1, AC-D4-2, AC-D4-3 |
+| CI: make test target | CI script | AC-DC-1, AC-DC-2, AC-DC-3, AC-DC-4 |
+
+---
+
+## Gap register
+
+| Gap ID | AC ID | Issue | Resolution |
+|--------|-------|-------|-----------|
+| GAP-1 | AC-K7-3 | Not automatable — requires human to open vault in Obsidian | Record as MANUAL in sign-off register; human must confirm before EC-1 is marked green |
+| GAP-2 | AC-D1-3 | Architect sign-off is a manual human gate, not a pytest test | Record as MANUAL; architect must confirm in sign-off register |
+| GAP-3 | AC-D2-3 | Architect sign-off is a manual human gate | Record as MANUAL; architect must confirm in sign-off register |
+| GAP-4 | AC-DC-1 | Full docker compose integration test requires external services (Qdrant, bge-m3) to be reachable | Recommend: test_docker.py uses mocked external URLs by default; a separate CI integration stage with real services is labelled "integration" and skipped in unit-only runs |
+
+---
+
+## Ambiguities requiring architect resolution (before engineering begins)
+
+| AQ ID | Blocks ACs | Question | Recommended resolution |
+|-------|-----------|----------|----------------------|
+| AQ-1 | AC-QD-1 | bge-m3 embedding dimension: 1024 or 768? BACKLOG says "verify against running instance." | Query running bge-m3; store dimension in EMBEDDING_DIM env var; do not hardcode |
+| AQ-2 | AC-WATCH-2, AC-K4-3 | "Unchanged file" detection: mtime-only, hash-only, or mtime-then-hash? | Recommend mtime-then-hash; architect to confirm and document in watcher.py docstring |
+| AQ-3 | AC-WATCH-5 | On startup with pre-existing files: silent ignore or log warning? | Architect to confirm; test must assert the chosen behaviour |
+| AQ-4 | AC-F16dv-1, AC-F16dv-4 | vault_state row seeding: created on startup or on first ingest? One row or one per vault? | Confirm: seed on startup with data_version=0; one row, vault_id from env var VAULT_ID |
+| AQ-5 | AC-K7-3 | Not an architectural ambiguity — recorded as GAP-1 (not automatable) | See GAP-1 |
+| AQ-6 | AC-REST-4 | POST /ingest/trigger v0.1 response schema: what fields to return so v0.2 async extension is non-breaking? | Recommend: {"task_id": null, "status": "completed", "page_id": "<uuid>"}; architect to confirm |
+| AQ-7 | AC-PG-4 | Alembic migration files necessarily contain SQL; grep test must exclude alembic/ directory | Confirm: alembic directory lives at backend/alembic/ (not inside backend/app/); test scope is backend/app/ only |
+
+---
+
+## Forward-reference columns (to be filled by QA and engineers)
+
+- **Test ID**: assigned by qa-test-engineer after tests are written (format: T-<file_abbrev>-<NNN>, e.g. T-WATCH-001)
+- **PR**: pull request number where the implementation landed (filled by backend-engineer)
+- **Status**: updated by qa-test-engineer after each test run (GREEN / PENDING / FAIL / MANUAL)
+
+All rows with Status = PENDING must reach GREEN or MANUAL before EC-12 (QA gate) can be signed off.
