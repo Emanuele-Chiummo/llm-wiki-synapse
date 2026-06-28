@@ -117,7 +117,139 @@ class ApiProvider(InferenceProvider):
         return parse_pages(raw)
 
     async def chat(self, messages: list[Message], retrieval_context: str) -> AsyncIterator[str]:
-        raise NotImplementedError("ApiProvider.chat() is implemented in v0.4 (F6)")
+        """
+        Stream a chat turn (F6, ADR-0019). Anthropic Messages SSE OR OpenAI-compatible SSE,
+        chosen by base_url (I6 — a backend is config). `retrieval_context` is the light system
+        context (purpose.md + overview.md, §2.3), injected as the system prompt. Yields raw text
+        deltas verbatim (NO server-side parse — I3); usage recorded out of band at stream end.
+
+        NB: not runnable in dev (no ANTHROPIC_API_KEY) — Local/Ollama is the working dev path
+        (ADR-0019 §1). Built per ADR build-order step 3 so the API path is parity-complete.
+        """
+        if self._openai_compatible:
+            return self._chat_stream_openai(messages, retrieval_context)
+        return self._chat_stream_anthropic(messages, retrieval_context)
+
+    async def _chat_stream_anthropic(
+        self, messages: list[Message], retrieval_context: str
+    ) -> AsyncIterator[str]:
+        api_key = os.environ.get(_ANTHROPIC_KEY_ENV)
+        if not api_key:
+            raise ValueError(f"{_ANTHROPIC_KEY_ENV} not set in environment (§12, ADR-0008)")
+        # Anthropic takes system as a top-level field; user/assistant turns in messages[].
+        anthropic_messages = [
+            {"role": m.role, "content": m.content} for m in messages if m.role != "system"
+        ]
+        body: dict[str, object] = {
+            "model": self._model,  # from provider_config (I6)
+            "max_tokens": _DEFAULT_MAX_TOKENS,
+            "stream": True,
+            "messages": anthropic_messages,
+        }
+        if retrieval_context.strip():
+            body["system"] = retrieval_context
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": _ANTHROPIC_VERSION,
+            "content-type": "application/json",
+        }
+
+        in_tok = 0
+        out_tok = 0
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                async with client.stream(
+                    "POST", f"{self._base_url}/v1/messages", json=body, headers=headers
+                ) as resp:
+                    resp.raise_for_status()
+                    async for sse_line in resp.aiter_lines():
+                        if not sse_line.startswith("data:"):
+                            continue
+                        data = sse_line[len("data:") :].strip()
+                        if not data or data == "[DONE]":
+                            continue
+                        try:
+                            evt = json.loads(data)
+                        except json.JSONDecodeError:
+                            continue
+                        etype = evt.get("type")
+                        if etype == "message_start":
+                            usage = evt.get("message", {}).get("usage", {})
+                            in_tok = int(usage.get("input_tokens", 0) or 0)
+                        elif etype == "content_block_delta":
+                            delta = evt.get("delta", {})
+                            if delta.get("type") == "text_delta":
+                                text = delta.get("text", "")
+                                if text:
+                                    yield text
+                        elif etype == "message_delta":
+                            usage = evt.get("usage", {})
+                            out_tok = int(usage.get("output_tokens", out_tok) or out_tok)
+        finally:
+            self._record_usage(
+                Usage(
+                    input_tokens=in_tok,
+                    output_tokens=out_tok,
+                    total_cost_usd=self._cost(in_tok, out_tok),
+                )
+            )
+
+    async def _chat_stream_openai(
+        self, messages: list[Message], retrieval_context: str
+    ) -> AsyncIterator[str]:
+        api_key = os.environ.get(_OPENAI_KEY_ENV)
+        if not api_key:
+            raise ValueError(f"{_OPENAI_KEY_ENV} not set in environment (§12, ADR-0008)")
+        openai_messages: list[dict[str, str]] = []
+        if retrieval_context.strip():
+            openai_messages.append({"role": "system", "content": retrieval_context})
+        openai_messages.extend({"role": m.role, "content": m.content} for m in messages)
+        body = {
+            "model": self._model,  # from provider_config (I6)
+            "messages": openai_messages,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        headers = {
+            "authorization": f"Bearer {api_key}",
+            "content-type": "application/json",
+        }
+
+        in_tok = 0
+        out_tok = 0
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                async with client.stream(
+                    "POST", f"{self._base_url}/chat/completions", json=body, headers=headers
+                ) as resp:
+                    resp.raise_for_status()
+                    async for sse_line in resp.aiter_lines():
+                        if not sse_line.startswith("data:"):
+                            continue
+                        data = sse_line[len("data:") :].strip()
+                        if not data or data == "[DONE]":
+                            continue
+                        try:
+                            evt = json.loads(data)
+                        except json.JSONDecodeError:
+                            continue
+                        choices = evt.get("choices", [])
+                        if choices:
+                            text = choices[0].get("delta", {}).get("content", "")
+                            if text:
+                                yield text
+                        usage = evt.get("usage")
+                        if isinstance(usage, dict):
+                            in_tok = int(usage.get("prompt_tokens", in_tok) or in_tok)
+                            out_tok = int(usage.get("completion_tokens", out_tok) or out_tok)
+        finally:
+            self._record_usage(
+                Usage(
+                    input_tokens=in_tok,
+                    output_tokens=out_tok,
+                    total_cost_usd=self._cost(in_tok, out_tok),
+                )
+            )
 
     # ── Cost ─────────────────────────────────────────────────────────────────────
 

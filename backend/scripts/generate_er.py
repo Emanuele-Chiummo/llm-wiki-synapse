@@ -99,9 +99,12 @@ def main() -> None:
     assert "INGEST_RUNS" in mermaid
     assert "LINKS" in mermaid
     assert "EDGES" in mermaid
+    assert "CONVERSATIONS" in mermaid
+    assert "MESSAGES" in mermaid
     print(
-        "Sanity check passed: all 6 tables present "
-        "(PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES)"
+        "Sanity check passed: all 8 tables present "
+        "(PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES, "
+        "CONVERSATIONS, MESSAGES)"
     )
 
 

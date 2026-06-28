@@ -12,6 +12,11 @@ Endpoints:
   DELETE /provider/config/{id} — delete a provider_config row by UUID
   GET  /graph                 — precomputed graph coords + edges (F4, I2, ADR-0014)
   PATCH /pages/{id}/position — persist manual node drag position; pin the node (Feature A)
+  GET  /conversations         — list chat conversations (F6, ADR-0019)
+  POST /conversations         — create an empty conversation (F6)
+  GET  /conversations/{id}/messages — ordered message history (F6)
+  DELETE /conversations/{id}  — soft-delete a conversation (F6)
+  POST /chat/stream           — bounded NDJSON streaming chat turn (F6/F7, I6/I7, ADR-0019)
 
 Startup sequence (ordered, per v0.1-architecture §2.5):
   1. Vault skeleton bootstrap (vault.py) — AC-K7-1, I5
@@ -32,22 +37,31 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.engine import CursorResult
 
+from app.chat.stream import ChatStreamError, run_chat_stream
 from app.config import settings
 from app.db import dispose_engine, get_session
 from app.embeddings import EmbeddingError, get_embedding_client
 from app.graph.cache import GraphCache
 from app.graph.engine import GraphEngine
 from app.ingest.orchestrator import IngestResult, ingest_file
-from app.models import IngestRun, Page, ProviderConfig, VaultState
+from app.ingest.schemas import Message
+from app.models import (
+    ChatMessage,
+    Conversation,
+    IngestRun,
+    Page,
+    ProviderConfig,
+    VaultState,
+)
 from app.qdrant_client import ensure_collection
 from app.vault import bootstrap_vault
 from app.watcher import start_watcher, stop_watcher
@@ -369,6 +383,109 @@ class IngestRunListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# ── Chat Pydantic models (F6/F7, ADR-0019 §2.2/§2.5) ──────────────────────────
+
+_VALID_CHAT_ROLES = {"user", "assistant", "system"}
+
+
+class ConversationResponse(BaseModel):
+    """API shape for one conversations row (ADR-0019 §2.5)."""
+
+    id: uuid.UUID
+    vault_id: str
+    title: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ConversationListResponse(BaseModel):
+    items: list[ConversationResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class ConversationCreate(BaseModel):
+    """Request body for POST /conversations (ADR-0019 §2.5). vault_id defaults to settings."""
+
+    vault_id: str | None = Field(default=None, description="Defaults to settings.vault_id")
+    title: str | None = Field(default=None, description="Optional initial title")
+
+
+class ChatMessageResponse(BaseModel):
+    """
+    API shape for one messages row (ADR-0019 §2.5). `content` is RAW incl. literal
+    <think>… (AC-F7-2); the client re-derives think-vs-content with the same split.
+    """
+
+    id: uuid.UUID
+    conversation_id: uuid.UUID
+    role: str
+    content: str
+    citations: list[Any] | None = Field(default=None, description="[] in M4 (M5 reserved)")
+    provider_type: str | None
+    model_id: str | None
+    input_tokens: int
+    output_tokens: int
+    total_cost_usd: float = Field(description="0.0 for local/cli (I7); serialised as number")
+    created_at: datetime
+
+    @field_validator("total_cost_usd", mode="before")
+    @classmethod
+    def _decimal_to_float(cls, v: Any) -> float:
+        return float(v) if v is not None else 0.0
+
+    model_config = {"from_attributes": True}
+
+
+class ChatMessageListResponse(BaseModel):
+    items: list[ChatMessageResponse]
+    total: int
+
+
+class ChatMessageIn(BaseModel):
+    """One turn in a ChatRequest. Mirrors the backend-neutral Message shape (I6)."""
+
+    role: str = Field(..., description="user | assistant | system")
+    content: str = Field(..., min_length=1)
+
+    @field_validator("role")
+    @classmethod
+    def _valid_role(cls, v: str) -> str:
+        if v not in _VALID_CHAT_ROLES:
+            raise ValueError(f"role must be one of {sorted(_VALID_CHAT_ROLES)}, got {v!r}")
+        return v
+
+
+class ChatRequest(BaseModel):
+    """
+    Request body for POST /chat/stream (ADR-0019 §2.2).
+
+    The server NEVER accepts provider_type / model_id (I6 / Do-NOT #4): the backend resolves
+    `resolve_provider_config("chat", vault_id)`. `operation` is fixed to "chat" so the same
+    abstraction can route ingest-vs-chat differently.
+    """
+
+    conversation_id: uuid.UUID | None = Field(
+        default=None, description="null = start a new conversation (id returned in done event)"
+    )
+    messages: list[ChatMessageIn] = Field(..., min_length=1)
+    vault_id: str | None = Field(default=None, description="Defaults to settings.vault_id")
+    context_window: int | None = Field(
+        default=None,
+        ge=4096,
+        le=1_000_000,
+        description="F14 window override (4096..1_000_000); null → provider/32K default",
+    )
+    operation: Literal["chat"] = Field(default="chat", description="Fixed to 'chat'")
+    regenerate: bool = Field(
+        default=False,
+        description="AC-F6-4: delete the last assistant message before re-streaming",
+    )
 
 
 # ── GET /status ────────────────────────────────────────────────────────────────
@@ -819,6 +936,177 @@ async def delete_provider_config(config_id: uuid.UUID) -> None:
             status_code=404,
             detail=f"provider_config {config_id} not found",
         )
+
+
+# ── Chat: conversations CRUD + streaming turn (F6/F7, ADR-0019) ───────────────
+
+
+@app.get(
+    "/conversations",
+    response_model=ConversationListResponse,
+    summary="List chat conversations for a vault",
+    description=(
+        "Returns live (non-soft-deleted) conversations for a vault, ordered updated_at DESC "
+        "(drives last-active restore, AC-F6-1). Paginated (limit 1..100, offset >=0). F6."
+    ),
+)
+async def list_conversations(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    vault_id: str | None = Query(default=None, description="Defaults to settings.vault_id"),
+) -> ConversationListResponse:
+    effective_vault_id = vault_id or settings.vault_id
+    async with get_session() as session:
+        base = select(Conversation).where(
+            Conversation.vault_id == effective_vault_id,
+            Conversation.deleted_at.is_(None),
+        )
+        total_row = await session.execute(
+            select(func.count()).select_from(base.subquery())
+        )
+        total: int = total_row.scalar_one()
+        rows = await session.execute(
+            base.order_by(Conversation.updated_at.desc()).offset(offset).limit(limit)
+        )
+        convs = list(rows.scalars().all())
+    return ConversationListResponse(
+        items=[ConversationResponse.model_validate(c) for c in convs],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@app.post(
+    "/conversations",
+    response_model=ConversationResponse,
+    status_code=201,
+    summary="Create an empty chat conversation",
+    description="Create a conversation {vault_id?, title?}. Also implicitly created by "
+    "/chat/stream when conversation_id is null. F6 (ADR-0019 §2.5).",
+)
+async def create_conversation(body: ConversationCreate) -> ConversationResponse:
+    effective_vault_id = body.vault_id or settings.vault_id
+    async with get_session() as session:
+        conv = Conversation(vault_id=effective_vault_id, title=body.title)
+        session.add(conv)
+        await session.flush()
+        await session.refresh(conv)
+        result = ConversationResponse.model_validate(conv)
+    return result
+
+
+@app.get(
+    "/conversations/{conversation_id}/messages",
+    response_model=ChatMessageListResponse,
+    summary="Get ordered message history for a conversation",
+    description="Messages ordered created_at ASC. content is RAW incl. literal <think>… "
+    "(AC-F7-2). 404 if the conversation is unknown/soft-deleted. F6.",
+    responses={404: {"description": "Conversation not found"}},
+)
+async def get_conversation_messages(conversation_id: uuid.UUID) -> ChatMessageListResponse:
+    async with get_session() as session:
+        conv_row = await session.execute(
+            select(Conversation.id).where(
+                Conversation.id == conversation_id,
+                Conversation.deleted_at.is_(None),
+            )
+        )
+        if conv_row.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="conversation not found")
+        rows = await session.execute(
+            select(ChatMessage)
+            .where(ChatMessage.conversation_id == conversation_id)
+            .order_by(ChatMessage.created_at.asc())
+        )
+        msgs = list(rows.scalars().all())
+    items = [ChatMessageResponse.model_validate(m) for m in msgs]
+    return ChatMessageListResponse(items=items, total=len(items))
+
+
+@app.delete(
+    "/conversations/{conversation_id}",
+    status_code=204,
+    summary="Soft-delete a conversation",
+    description="Sets deleted_at (ADR-0005 pattern). 404 if unknown/already deleted. F6.",
+    responses={204: {"description": "Soft-deleted"}, 404: {"description": "Not found"}},
+)
+async def delete_conversation(conversation_id: uuid.UUID) -> None:
+    from sqlalchemy import update as sa_update
+
+    async with get_session() as session:
+        result = await session.execute(
+            sa_update(Conversation)
+            .where(
+                Conversation.id == conversation_id,
+                Conversation.deleted_at.is_(None),
+            )
+            .values(deleted_at=datetime.now(UTC))
+        )
+        affected = cast("CursorResult[Any]", result).rowcount
+    if affected == 0:
+        raise HTTPException(status_code=404, detail="conversation not found")
+
+
+@app.post(
+    "/chat/stream",
+    summary="Stream a chat turn (NDJSON)",
+    description=(
+        "Bounded chat turn (F6/F7, I6/I7, ADR-0019 §2.2). Returns 200 with "
+        "application/x-ndjson: one JSON event per line (token | think | done | error). "
+        "Routes via resolve_provider_config('chat', vault_id) — never a hardcoded provider "
+        "(I6). Bounded by token_budget + timeout (I7); total_cost_usd in the done event. "
+        "404 if conversation_id is unknown; 503 if no chat provider resolves."
+    ),
+    responses={
+        200: {"content": {"application/x-ndjson": {}}, "description": "NDJSON event stream"},
+        404: {"description": "conversation_id provided but unknown"},
+        422: {"description": "Body validation failure"},
+        503: {"description": "No chat provider_config resolves (I6)"},
+    },
+)
+async def chat_stream(body: ChatRequest) -> StreamingResponse:
+    """
+    POST /chat/stream — the NDJSON streaming chat turn (ADR-0019 §2.2).
+
+    Setup failures that must map to an HTTP status (unknown conversation → 404, no provider →
+    503) are raised by run_chat_stream BEFORE the first yield; we surface them here. Once the
+    stream starts (HTTP 200), all later failures are terminal `error` NDJSON events.
+    """
+    domain_messages = [Message(role=m.role, content=m.content) for m in body.messages]
+
+    agen = run_chat_stream(
+        conversation_id=body.conversation_id,
+        messages=domain_messages,
+        vault_id=body.vault_id,
+        context_window=body.context_window,
+        regenerate=body.regenerate,
+    )
+
+    # Pull the first line eagerly so pre-stream setup errors (404/503) become real HTTP codes
+    # rather than a 200 stream that immediately errors.
+    try:
+        first_line = await agen.__anext__()
+    except ChatStreamError as exc:
+        if exc.code == "not_found":
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if exc.code == "no_provider":
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except StopAsyncIteration:  # pragma: no cover - generator always yields
+        first_line = ""
+
+    async def _body() -> AsyncGenerator[str, None]:
+        if first_line:
+            yield first_line
+        async for line in agen:
+            yield line
+
+    return StreamingResponse(
+        _body(),
+        media_type="application/x-ndjson",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
 
 
 # ── GET /graph ─────────────────────────────────────────────────────────────────
