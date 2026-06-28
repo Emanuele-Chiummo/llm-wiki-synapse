@@ -2,10 +2,13 @@
 SQLAlchemy 2 ORM models — single source of truth for D2 ER diagram (I8 / AC-PG-3).
 
 Tables defined here:
-  - pages        : one row per source file; soft-deletable (ADR-0005).
-  - vault_state  : one row per vault; holds the monotonic data_version (ADR-0005).
+  - pages           : one row per source file; soft-deletable (ADR-0005).
+  - vault_state     : one row per vault; holds the monotonic data_version (ADR-0005).
+  - provider_config : F17 backend selection per scope (global|vault|operation) (ADR-0008).
+  - ingest_runs     : per-run cost/convergence audit ledger (I7, ADR-0008 §4).
 
-provider_config is OUT of v0.1 (ADR-0003 / v0.1-architecture §2.1).
+provider_config + ingest_runs are added in v0.2 (ADR-0008). The K5 `links` table and the
+single Alembic migration covering all new tables are owned by backend-engineer (NOT here).
 
 Run `make er` to regenerate docs/er/schema.mmd from this file (I8).
 """
@@ -17,8 +20,11 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
+    ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -202,3 +208,223 @@ class VaultState(Base):
 
     def __repr__(self) -> str:
         return f"<VaultState vault_id={self.vault_id!r} data_version={self.data_version}>"
+
+
+class ProviderConfig(Base):
+    """
+    F17 inference-provider selection per scope (ADR-0008 §2). Resolution precedence (most
+    specific wins, done by the ConfigResolver — backend-engineer): operation+vault > vault >
+    global. A missing global row is a HARD configuration error, never a silent default
+    backend (I6 — "never hardcode a provider").
+
+    Holds NO API key column — secrets are environment-only (§12, ADR-0008 §3). `model_id`
+    values live ONLY in DB rows (seeded by the Alembic data migration), never as literals in
+    app code (AC-F17-8). `provider_name`/`model_id` are config, not routing inputs (I6 routing
+    is by capabilities().supports_agentic_loop).
+    """
+
+    __tablename__ = "provider_config"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Row identity",
+    )
+
+    scope: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="global | vault | operation (ADR-0008 §2)",
+    )
+
+    operation: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="ingest | chat | lint; NULL unless scope='operation' (AQ-v0.2-5)",
+    )
+
+    vault_id: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        comment="NULL at global scope; required at vault/operation scope",
+    )
+
+    provider_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="local | api | cli — selects the InferenceProvider backend (I6)",
+    )
+
+    model_id: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Model name (e.g. claude-sonnet-4-6); value lives ONLY in DB rows (AC-F17-8)",
+    )
+
+    base_url: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="OpenAI-compatible endpoint for ApiProvider; NULL for Anthropic/local default",
+    )
+
+    max_iter: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=3,
+        server_default=sa_text("3"),
+        comment="Orchestrated-loop iteration cap (I7, ADR-0009)",
+    )
+
+    token_budget: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=60000,
+        server_default=sa_text("60000"),
+        comment="Loop token budget (I7); 60000 orchestrated / 100000 cli (ADR-0009)",
+    )
+
+    is_fallback: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_text("false"),
+        comment="Marks the single fallback row for a scope (ADR-0009 §fallback)",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time",
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="Updated on every change",
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ProviderConfig scope={self.scope!r} op={self.operation!r} "
+            f"type={self.provider_type!r} model={self.model_id!r}>"
+        )
+
+
+class IngestRun(Base):
+    """
+    Per-run cost/convergence audit ledger (I7, ADR-0008 §4). System of record for cost
+    auditing ("flag anomalies", "log total_cost_usd for every run"). `provider_name`/`model_id`
+    are AUDIT METADATA ONLY — never read back into a routing decision (I6).
+    """
+
+    __tablename__ = "ingest_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Row identity",
+    )
+
+    vault_id: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment="Vault this run belongs to",
+    )
+
+    page_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pages.id"),
+        nullable=True,
+        comment="Originating source page; NULL on a pre-write failure",
+    )
+
+    provider_name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Provider class name (e.g. OllamaProvider) — AUDIT ONLY, never routed on (I6)",
+    )
+
+    provider_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="local | api | cli (audit)",
+    )
+
+    model_id: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Resolved model used (audit)",
+    )
+
+    route: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="orchestrated | delegated (capability-aware routing outcome)",
+    )
+
+    max_iter_used: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="Iterations actually consumed (1..max_iter); 0 for delegated",
+    )
+
+    total_tokens: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="input+output tokens across all iterations (I7)",
+    )
+
+    total_cost_usd: Mapped[float] = mapped_column(
+        Numeric(10, 4),
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="0.0000 for local/cli (ADR-0009); logged per run (I7)",
+    )
+
+    converged: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_text("false"),
+        comment="True if a valid batch was produced within max_iter",
+    )
+
+    cost_anomaly: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_text("false"),
+        comment="True if total_cost_usd > 1.00 (ADR-0009 §3)",
+    )
+
+    started_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Run start time",
+    )
+
+    finished_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Run finish time",
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<IngestRun provider={self.provider_name!r} route={self.route!r} "
+            f"converged={self.converged} cost=${self.total_cost_usd}>"
+        )
