@@ -413,6 +413,233 @@
         }
       }
     },
+    "/conversations": {
+      "get": {
+        "summary": "List chat conversations for a vault",
+        "description": "Returns live (non-soft-deleted) conversations for a vault, ordered updated_at DESC (drives last-active restore, AC-F6-1). Paginated (limit 1..100, offset >=0). F6.",
+        "operationId": "list_conversations_conversations_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Defaults to settings.vault_id",
+              "title": "Vault Id"
+            },
+            "description": "Defaults to settings.vault_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create an empty chat conversation",
+        "description": "Create a conversation {vault_id?, title?}. Also implicitly created by /chat/stream when conversation_id is null. F6 (ADR-0019 \u00a72.5).",
+        "operationId": "create_conversation_conversations_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{conversation_id}/messages": {
+      "get": {
+        "summary": "Get ordered message history for a conversation",
+        "description": "Messages ordered created_at ASC. content is RAW incl. literal <think>\u2026 (AC-F7-2). 404 if the conversation is unknown/soft-deleted. F6.",
+        "operationId": "get_conversation_messages_conversations__conversation_id__messages_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Conversation not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{conversation_id}": {
+      "delete": {
+        "summary": "Soft-delete a conversation",
+        "description": "Sets deleted_at (ADR-0005 pattern). 404 if unknown/already deleted. F6.",
+        "operationId": "delete_conversation_conversations__conversation_id__delete",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Soft-deleted"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/stream": {
+      "post": {
+        "summary": "Stream a chat turn (NDJSON)",
+        "description": "Bounded chat turn (F6/F7, I6/I7, ADR-0019 \u00a72.2). Returns 200 with application/x-ndjson: one JSON event per line (token | think | done | error). Routes via resolve_provider_config('chat', vault_id) \u2014 never a hardcoded provider (I6). Bounded by token_budget + timeout (I7); total_cost_usd in the done event. 404 if conversation_id is unknown; 503 if no chat provider resolves.",
+        "operationId": "chat_stream_chat_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "NDJSON event stream",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/x-ndjson": {}
+            }
+          },
+          "404": {
+            "description": "conversation_id provided but unknown"
+          },
+          "422": {
+            "description": "Body validation failure"
+          },
+          "503": {
+            "description": "No chat provider_config resolves (I6)"
+          }
+        }
+      }
+    },
     "/graph": {
       "get": {
         "summary": "Precomputed knowledge graph (nodes + edges with FA2 coordinates)",
@@ -443,6 +670,314 @@
   },
   "components": {
     "schemas": {
+      "ChatMessageIn": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "description": "user | assistant | system"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "ChatMessageIn",
+        "description": "One turn in a ChatRequest. Mirrors the backend-neutral Message shape (I6)."
+      },
+      "ChatMessageListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "ChatMessageListResponse"
+      },
+      "ChatMessageResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "conversation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Conversation Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "citations": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citations",
+            "description": "[] in M4 (M5 reserved)"
+          },
+          "provider_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Type"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          },
+          "total_cost_usd": {
+            "type": "number",
+            "title": "Total Cost Usd",
+            "description": "0.0 for local/cli (I7); serialised as number"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "conversation_id",
+          "role",
+          "content",
+          "provider_type",
+          "model_id",
+          "input_tokens",
+          "output_tokens",
+          "total_cost_usd",
+          "created_at"
+        ],
+        "title": "ChatMessageResponse",
+        "description": "API shape for one messages row (ADR-0019 \u00a72.5). `content` is RAW incl. literal\n<think>\u2026 (AC-F7-2); the client re-derives think-vs-content with the same split."
+      },
+      "ChatRequest": {
+        "properties": {
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id",
+            "description": "null = start a new conversation (id returned in done event)"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageIn"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Messages"
+          },
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id",
+            "description": "Defaults to settings.vault_id"
+          },
+          "context_window": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000000.0,
+                "minimum": 4096.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Window",
+            "description": "F14 window override (4096..1_000_000); null \u2192 provider/32K default"
+          },
+          "operation": {
+            "type": "string",
+            "const": "chat",
+            "title": "Operation",
+            "description": "Fixed to 'chat'",
+            "default": "chat"
+          },
+          "regenerate": {
+            "type": "boolean",
+            "title": "Regenerate",
+            "description": "AC-F6-4: delete the last assistant message before re-streaming",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "messages"
+        ],
+        "title": "ChatRequest",
+        "description": "Request body for POST /chat/stream (ADR-0019 \u00a72.2).\n\nThe server NEVER accepts provider_type / model_id (I6 / Do-NOT #4): the backend resolves\n`resolve_provider_config(\"chat\", vault_id)`. `operation` is fixed to \"chat\" so the same\nabstraction can route ingest-vs-chat differently."
+      },
+      "ConversationCreate": {
+        "properties": {
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id",
+            "description": "Defaults to settings.vault_id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Optional initial title"
+          }
+        },
+        "type": "object",
+        "title": "ConversationCreate",
+        "description": "Request body for POST /conversations (ADR-0019 \u00a72.5). vault_id defaults to settings."
+      },
+      "ConversationListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "ConversationListResponse"
+      },
+      "ConversationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "vault_id": {
+            "type": "string",
+            "title": "Vault Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "vault_id",
+          "title",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ConversationResponse",
+        "description": "API shape for one conversations row (ADR-0019 \u00a72.5)."
+      },
       "GraphEdgeResponse": {
         "properties": {
           "source": {

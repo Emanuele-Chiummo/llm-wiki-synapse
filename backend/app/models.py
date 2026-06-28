@@ -9,6 +9,8 @@ Tables defined here:
   - ingest_runs     : per-run cost/convergence audit ledger (I7, ADR-0008 §4).
   - links           : K5 wikilink edges; source_page_id → target_title (dangling until resolved).
   - edges           : v0.3 graph edges; 4-signal weighted pairs (ADR-0012 / AQ-5).
+  - conversations   : v0.4 F6 chat threads; soft-deletable (ADR-0019 §2.5).
+  - messages        : v0.4 F6 chat messages; per-message token/cost columns (I7, ADR-0019).
 
 provider_config + ingest_runs added in v0.2 (ADR-0008). links added in v0.2 (ADR-0008 §5).
 All three new tables ship in a single Alembic migration 0002 (one schema-change event).
@@ -30,6 +32,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     Double,
@@ -497,6 +500,182 @@ class IngestRun(Base):
         return (
             f"<IngestRun provider={self.provider_name!r} route={self.route!r} "
             f"converged={self.converged} status={self.status!r} cost=${self.total_cost_usd}>"
+        )
+
+
+class Conversation(Base):
+    """
+    F6 chat conversation — one row per persistent multi-turn chat thread (ADR-0019 §2.5).
+
+    Persisted in Postgres (system of record, ADR-0002) so AC-F6-1 ("a page refresh restores
+    the last active conversation") holds across devices/LiveSync. Soft-deletable (ADR-0005
+    pattern): deleted_at IS NULL means live. Ordered for the conversation list by
+    updated_at DESC (bumped on each turn — drives the "last active" restore).
+
+    Cost (I7) is NOT held here: per-message token/cost columns on `messages` are the durable
+    chat-cost record. There is intentionally NO chat_runs table (ADR-0019 §2.2 / Do-NOT #9).
+    """
+
+    __tablename__ = "conversations"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Conversation identity",
+    )
+
+    vault_id: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment="Logical vault scope (matches pages/edges pattern); from VAULT_ID env var",
+    )
+
+    title: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="User-set or first-prompt-derived title; NULL until set (ADR-0019 §2.5)",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time",
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="Bumped on each chat turn; drives last-active-conversation restore (AC-F6-1)",
+    )
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        comment="NULL = live; set = soft-deleted (ADR-0005 / ADR-0019 §2.5)",
+    )
+
+    __table_args__ = (
+        # List query: live conversations for a vault, newest activity first (ADR-0019 §2.5).
+        Index(
+            "ix_conversations_vault_updated_live",
+            "vault_id",
+            "updated_at",
+            postgresql_where=sa_text("deleted_at IS NULL"),
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Conversation id={self.id} vault={self.vault_id!r} "
+            f"title={self.title!r} deleted={self.deleted_at is not None}>"
+        )
+
+
+class ChatMessage(Base):
+    """
+    F6 chat message — one row per user/assistant/system message (ADR-0019 §2.5).
+
+    `content` is stored RAW and UN-MUTATED, including any literal <think>…</think> span
+    (AC-F7-2 / Do-NOT #7) — the streaming token/think split is a transport convenience only,
+    re-derivable from this string at render time. `citations` is reserved for M5 (always []
+    in M4). The per-message token/cost columns are the durable I7 chat-cost record (ADR-0019
+    §2.2): 0.0000 for local/cli (ADR-0009).
+    """
+
+    __tablename__ = "messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Message identity",
+    )
+
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id"),
+        nullable=False,
+        comment="FK → conversations.id (ADR-0019 §2.5)",
+    )
+
+    role: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="'user' | 'assistant' | 'system' (ADR-0019 §2.5)",
+    )
+
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="RAW message content, incl. literal <think>…</think> un-mutated (AC-F7-2)",
+    )
+
+    citations: Mapped[list[Any] | None] = mapped_column(
+        # JSONB on Postgres; plain JSON on SQLite (test in-memory engine) — same column on
+        # Postgres, just renders portably for the unit-test SQLite path.
+        JSONB().with_variant(JSON(), "sqlite"),
+        nullable=True,
+        comment="RESERVED for M5 [n] citations; always [] in M4 (ADR-0019 §2.3)",
+    )
+
+    provider_type: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Backend that produced an assistant msg (audit); NULL for user/system",
+    )
+
+    model_id: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Resolved model that produced an assistant msg (audit); NULL otherwise",
+    )
+
+    input_tokens: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="Prompt tokens for an assistant turn (I7 persistent cost record)",
+    )
+
+    output_tokens: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="Completion tokens for an assistant turn (I7)",
+    )
+
+    total_cost_usd: Mapped[float] = mapped_column(
+        Numeric(10, 4),
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="0.0000 for local/cli (ADR-0009); logged + returned in done event (I7)",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time; messages ordered created_at ASC (ADR-0019 §2.5)",
+    )
+
+    __table_args__ = (
+        # History read: ordered messages for one conversation (ADR-0019 §2.5).
+        Index("ix_messages_conversation_created", "conversation_id", "created_at"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ChatMessage id={self.id} conv={self.conversation_id} "
+            f"role={self.role!r} tokens={self.input_tokens}/{self.output_tokens}>"
         )
 
 

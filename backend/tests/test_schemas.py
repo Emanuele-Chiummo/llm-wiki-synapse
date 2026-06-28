@@ -135,7 +135,7 @@ def test_capabilities_is_frozen_dataclass() -> None:
         c.supports_agentic_loop = True  # type: ignore[misc]
 
 
-# ── chat() stubbed on all three providers (AC-F17-2) ────────────────────────────
+# ── chat() — real bodies in v0.4 (F6, ADR-0019 supersedes the ADR-0007 §6 stub) ──
 
 
 def _all_three_providers(monkeypatch: pytest.MonkeyPatch) -> list[object]:
@@ -148,13 +148,36 @@ def _all_three_providers(monkeypatch: pytest.MonkeyPatch) -> list[object]:
 
 
 @pytest.mark.asyncio
-async def test_chat_raises_not_implemented_on_all_providers(
+async def test_chat_returns_async_iterator_for_local_and_api(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    for provider in _all_three_providers(monkeypatch):
-        with pytest.raises(NotImplementedError):
-            # chat() must raise immediately with no network call (ADR-0007 §6).
-            await provider.chat([Message(role="user", content="hi")], "")  # type: ignore[attr-defined]
+    """
+    ADR-0019 (M4 Phase 3) fills the ollama/api chat() bodies (non-breaking ABC change,
+    ADR-0007 §6). chat() now returns an async iterator and performs NO network I/O until it is
+    iterated — so simply CALLING it (without iterating) must not raise and must not connect.
+    """
+    import inspect
+
+    monkeypatch.setenv("OLLAMA_URL", "http://localhost:11434")
+    ollama = OllamaProvider(ProviderSettings(provider_type="local", model_id="dummy-model"))
+    api = ApiProvider(ProviderSettings(provider_type="api", model_id="dummy-model"))
+    for provider in (ollama, api):
+        result = provider.chat([Message(role="user", content="hi")], "")  # type: ignore[attr-defined]
+        agen = await result if inspect.isawaitable(result) else result
+        assert hasattr(agen, "__anext__"), "chat() must yield an async iterator (F6)"
+        aclose = getattr(agen, "aclose", None)
+        if aclose is not None:
+            await aclose()  # close without iterating → no network call
+
+
+@pytest.mark.asyncio
+async def test_chat_cli_remains_not_implemented_in_m4(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CLI delegated streaming chat is out of M4 scope (ADR-0019 §8) — documented, not faked."""
+    cli = CliAgentProvider(ProviderSettings(provider_type="cli", model_id="dummy-model"))
+    with pytest.raises(NotImplementedError):
+        await cli.chat([Message(role="user", content="hi")], "")  # type: ignore[attr-defined]
 
 
 def test_capabilities_routing_signal_per_backend(monkeypatch: pytest.MonkeyPatch) -> None:

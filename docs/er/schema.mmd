@@ -1,5 +1,14 @@
-<!-- Generated: v0.4 M4 Phase 2 | 2026-06-28 — ADR-0018 §7: ingest_runs view fields (status/pages_created/error_message) -->
+<!-- Generated: v0.3→v0.4 transition | 2026-06-28 — ADR-0016: edges.kind; Feature A: pages.pinned -->
 erDiagram
+
+    CONVERSATIONS {
+        uuid id PK "Conversation identity"
+        string vault_id "Logical vault scope (matches pages/edges pattern); from VAULT_ID env var"
+        string title "User-set or first-prompt-derived title; NULL until set (ADR-0019 §2.5)"
+        timestamptz created_at "Row creation time"
+        timestamptz updated_at "Bumped on each chat turn; drives last-active-conversation restore (AC-F6-1)"
+        timestamptz deleted_at "NULL = live; set = soft-deleted (ADR-0005 / ADR-0019 §2.5)"
+    }
 
     PAGES {
         uuid id PK "Page identity; also the Qdrant point id (ADR-0002)"
@@ -60,16 +69,16 @@ erDiagram
         string provider_type "local | api | cli (audit)"
         string model_id "Resolved model used (audit)"
         string route "orchestrated | delegated (capability-aware routing outcome)"
-        int max_iter_used "Iterations actually consumed (1..max_iter); 0 for delegated — aliased as iterations_used in API"
+        int max_iter_used "Iterations actually consumed (1..max_iter); 0 for delegated"
         int total_tokens "input+output tokens across all iterations (I7)"
         decimal total_cost_usd "0.0000 for local/cli (ADR-0009); logged per run (I7)"
         boolean converged "True if a valid batch was produced within max_iter"
         boolean cost_anomaly "True if total_cost_usd > 1.00 (ADR-0009 §3)"
         timestamptz started_at "Run start time"
-        timestamptz finished_at "Run finish time — aliased as completed_at in API; NULL returned when status=running"
-        string status "running | completed | failed | converged_false (ADR-0018 §7, migration 0006)"
-        int pages_created "Number of wiki pages persisted in this run (ADR-0018 §7, migration 0006)"
-        string error_message "Error detail for failed runs; NULL otherwise (ADR-0018 §7, migration 0006)"
+        timestamptz finished_at "Run finish time"
+        string status "Run lifecycle state: running | completed | failed | converged_false. Backfilled from converged for historical rows (ADR-0018 §7)."
+        int pages_created "Number of wiki pages persisted during this run. 0 for historical rows; set by orchestrator on new runs (ADR-0018 §7)."
+        string error_message "Human-readable error description for failed runs; NULL for completed/running/converged_false rows (ADR-0018 §7)."
     }
 
     LINKS {
@@ -80,4 +89,18 @@ erDiagram
         string alias "The |alias part of [[Target|alias]], if present (K5)"
         boolean dangling "True when target_page_id is unresolved (AC-K5-5); warn-not-error path"
         timestamptz created_at "Row creation time"
+    }
+
+    MESSAGES {
+        uuid id PK "Message identity"
+        uuid conversation_id FK "FK → conversations.id (ADR-0019 §2.5)"
+        string role "'user' | 'assistant' | 'system' (ADR-0019 §2.5)"
+        string content "RAW message content, incl. literal <think>…</think> un-mutated (AC-F7-2)"
+        jsonb citations "RESERVED for M5 [n] citations; always [] in M4 (ADR-0019 §2.3)"
+        string provider_type "Backend that produced an assistant msg (audit); NULL for user/system"
+        string model_id "Resolved model that produced an assistant msg (audit); NULL otherwise"
+        int input_tokens "Prompt tokens for an assistant turn (I7 persistent cost record)"
+        int output_tokens "Completion tokens for an assistant turn (I7)"
+        decimal total_cost_usd "0.0000 for local/cli (ADR-0009); logged + returned in done event (I7)"
+        timestamptz created_at "Row creation time; messages ordered created_at ASC (ADR-0019 §2.5)"
     }

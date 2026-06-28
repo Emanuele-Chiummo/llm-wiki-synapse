@@ -100,7 +100,14 @@ class CliAgentProvider(InferenceProvider):
         )
 
     async def chat(self, messages: list[Message], retrieval_context: str) -> AsyncIterator[str]:
-        raise NotImplementedError("CliAgentProvider.chat() is implemented in v0.4 (F6)")
+        # Intentionally NOT implemented in M4 (ADR-0019 §build-order step 3 / §8): delegated
+        # streaming chat via claude-agent-sdk is out of dev scope (no key, no SDK runtime here).
+        # Documented, not faked. To enable CLI chat, point the `chat` provider_config row at a
+        # `local`/`api` backend, or implement a ClaudeSDKClient streaming session here later.
+        raise NotImplementedError(
+            "CliAgentProvider.chat() is not implemented in M4 (ADR-0019 §8); "
+            "use a local/api provider_config row for the 'chat' operation."
+        )
 
     # ── Delegated ingest (the agentic route) ────────────────────────────────────
 

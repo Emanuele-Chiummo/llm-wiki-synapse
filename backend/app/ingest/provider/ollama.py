@@ -13,6 +13,7 @@ Invariants:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from collections.abc import AsyncIterator
@@ -86,8 +87,59 @@ class OllamaProvider(InferenceProvider):
         return parse_pages(raw)
 
     async def chat(self, messages: list[Message], retrieval_context: str) -> AsyncIterator[str]:
-        # Stubbed in v0.2 (ADR-0007 §6); real streaming lands in v0.4 (F6).
-        raise NotImplementedError("OllamaProvider.chat() is implemented in v0.4 (F6)")
+        """
+        Stream a chat turn via Ollama /api/chat with stream=true (F6, ADR-0019 §2.4 transport).
+
+        `retrieval_context` is the light system context (purpose.md + overview.md) built by the
+        chat service (ADR-0019 §2.3); it is injected as a leading system message. Yields raw
+        content deltas verbatim (NO server-side parse — I3); the chat service runs the <think>
+        scanner over them. Usage (prompt_eval_count / eval_count) is recorded out of band when
+        Ollama emits the terminal done object (total_cost_usd = 0.0, local, ADR-0009).
+        """
+        return self._chat_stream(messages, retrieval_context)
+
+    async def _chat_stream(
+        self, messages: list[Message], retrieval_context: str
+    ) -> AsyncIterator[str]:
+        ollama_messages: list[dict[str, str]] = []
+        if retrieval_context.strip():
+            ollama_messages.append({"role": "system", "content": retrieval_context})
+        ollama_messages.extend({"role": m.role, "content": m.content} for m in messages)
+
+        body = {
+            "model": self._model,  # from provider_config — never hardcoded (I6)
+            "stream": True,
+            "messages": ollama_messages,
+        }
+
+        in_tok = 0
+        out_tok = 0
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                async with client.stream(
+                    "POST", f"{self._base_url}/api/chat", json=body
+                ) as resp:
+                    resp.raise_for_status()
+                    async for raw_line in resp.aiter_lines():
+                        if not raw_line.strip():
+                            continue
+                        try:
+                            obj = json.loads(raw_line)
+                        except json.JSONDecodeError:
+                            logger.warning("Ollama chat: skipping non-JSON stream line")
+                            continue
+                        delta = obj.get("message", {}).get("content", "")
+                        if delta:
+                            yield delta
+                        if obj.get("done"):
+                            in_tok = int(obj.get("prompt_eval_count", 0) or 0)
+                            out_tok = int(obj.get("eval_count", 0) or 0)
+        finally:
+            # Record whatever usage we observed, even on early aclose() (token_budget cap) or
+            # mid-stream error — keeps the I7 cost ledger truthful (cost 0.0, local).
+            self._record_usage(
+                Usage(input_tokens=in_tok, output_tokens=out_tok, total_cost_usd=0.0)
+            )
 
     # ── Internal: /api/chat with format=json + Usage accounting ─────────────────
 
