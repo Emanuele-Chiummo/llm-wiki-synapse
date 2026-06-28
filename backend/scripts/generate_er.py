@@ -101,10 +101,11 @@ def main() -> None:
     assert "EDGES" in mermaid
     assert "CONVERSATIONS" in mermaid
     assert "MESSAGES" in mermaid
+    assert "IMPORT_SCHEDULES" in mermaid
     print(
-        "Sanity check passed: all 8 tables present "
+        "Sanity check passed: all 9 tables present "
         "(PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES, "
-        "CONVERSATIONS, MESSAGES)"
+        "CONVERSATIONS, MESSAGES, IMPORT_SCHEDULES)"
     )
 
 

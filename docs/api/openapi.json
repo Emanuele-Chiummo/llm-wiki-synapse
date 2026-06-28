@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Synapse",
-    "description": "Self-organising wiki backend \u2014 M3 (graph live, no main-thread freeze). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). Karpathy LLM Wiki pattern [K1\u2013K8].",
-    "version": "0.3.0"
+    "description": "Self-organising wiki backend \u2014 M4 + M4-EXT (upload + scheduled import). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8].",
+    "version": "0.4.0"
   },
   "paths": {
     "/status": {
@@ -210,6 +210,44 @@
         }
       }
     },
+    "/ingest/upload": {
+      "post": {
+        "summary": "Upload a document for async watcher-driven ingest",
+        "description": "Feature U (ADR-0020 \u00a72, M4-EXT non-blocking). Accepts a single text/markdown file (.md/.txt/.markdown) via multipart/form-data. Writes to vault/raw/sources/<name> (I5) and returns 202 immediately. The watcher observes the write and ingests asynchronously (~15-30s). Strict basename-only path sanitization (ADR-0020 \u00a72.2). 413 on oversize (MAX_UPLOAD_BYTES). 415 for non-text (names F12/M5). 422 for unsafe filename. 202 {file_path, status:'queued', overwritten}.",
+        "operationId": "upload_ingest_ingest_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_ingest_ingest_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "File saved; watcher will ingest asynchronously",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File exceeds MAX_UPLOAD_BYTES"
+          },
+          "415": {
+            "description": "Only .md/.txt/.markdown accepted in v0.4; multi-format (F12) is planned for M5"
+          },
+          "422": {
+            "description": "Filename is empty or unsafe after sanitization"
+          }
+        }
+      }
+    },
     "/ingest/runs": {
       "get": {
         "summary": "List ingest run history",
@@ -409,6 +447,80 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/import-schedule": {
+      "get": {
+        "summary": "Get scheduled folder import config + last-run status",
+        "description": "Returns the current import schedule configuration and last-run status for the vault. Returns sane defaults (enabled=false, frequency='1h') if no row has been configured yet. Feature S (ADR-0020 \u00a74.6).",
+        "operationId": "get_import_schedule_import_schedule_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportScheduleResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Upsert import schedule configuration",
+        "description": "Create or update the import schedule for the vault. Validates source_dir: if the directory does not exist inside the container, the row is still saved but dir_ok=false + dir_message is returned (save-then-warn). frequency must be one of '15m' | '1h' | '6h' | 'daily'. Config changes take effect on the next scheduler tick without a restart. Feature S (ADR-0020 \u00a74.6).",
+        "operationId": "put_import_schedule_import_schedule_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSchedulePutBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Config saved (dir_ok may be false if mount is missing)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSchedulePutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid frequency value"
+          }
+        }
+      }
+    },
+    "/import-schedule/run-now": {
+      "post": {
+        "summary": "Trigger one bounded import scan immediately",
+        "description": "Trigger one bounded scan of source_dir immediately (same bounds as the scheduler: IMPORT_SCAN_MAX_FILES + IMPORT_SCAN_MAX_SECONDS, I7). The scan runs in the background; poll GET /import-schedule for the result. 409 if a scan is already in-flight. 400 if disabled or source_dir unset/missing. Feature S (ADR-0020 \u00a74.6).",
+        "operationId": "run_import_now_import_schedule_run_now_post",
+        "responses": {
+          "202": {
+            "description": "Scan started in the background",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunNowResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Schedule is disabled, source_dir not set, or directory missing"
+          },
+          "409": {
+            "description": "A scan is already in-flight (I7 \u2014 no overlap)"
           }
         }
       }
@@ -670,6 +782,21 @@
   },
   "components": {
     "schemas": {
+      "Body_upload_ingest_ingest_upload_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "The document to upload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_ingest_ingest_upload_post"
+      },
       "ChatMessageIn": {
         "properties": {
           "role": {
@@ -1147,6 +1274,215 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ImportSchedulePutBody": {
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled",
+            "description": "Enable or disable the scheduler"
+          },
+          "source_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Dir",
+            "description": "Container-visible path (e.g. /import); null to clear"
+          },
+          "frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frequency",
+            "description": "'15m' | '1h' | '6h' | 'daily'"
+          }
+        },
+        "type": "object",
+        "title": "ImportSchedulePutBody",
+        "description": "Request body for PUT /import-schedule (ADR-0020 \u00a74.6)."
+      },
+      "ImportSchedulePutResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Scheduler is enabled",
+            "default": false
+          },
+          "source_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Dir",
+            "description": "Container-visible absolute path to scan (e.g. /import)"
+          },
+          "frequency": {
+            "type": "string",
+            "title": "Frequency",
+            "description": "'15m' | '1h' | '6h' | 'daily'",
+            "default": "1h"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At",
+            "description": "Timestamp of the last completed scan; null if never run"
+          },
+          "last_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Status",
+            "description": "ok | error | running | skipped_disabled | dir_missing | null"
+          },
+          "last_imported_count": {
+            "type": "integer",
+            "title": "Last Imported Count",
+            "description": "Files copied (new/changed) during the last scan",
+            "default": 0
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error",
+            "description": "Error detail from the last failed scan; null on success"
+          },
+          "dir_ok": {
+            "type": "boolean",
+            "title": "Dir Ok",
+            "description": "False if source_dir does not exist/is not readable inside the container",
+            "default": true
+          },
+          "dir_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dir Message",
+            "description": "Warning message when dir_ok is False; null when ok"
+          }
+        },
+        "type": "object",
+        "title": "ImportSchedulePutResponse",
+        "description": "PUT /import-schedule response body (ADR-0020 \u00a74.6).\n\nExtends ImportScheduleResponse with dir validation fields (save-then-warn)."
+      },
+      "ImportScheduleResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Scheduler is enabled",
+            "default": false
+          },
+          "source_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Dir",
+            "description": "Container-visible absolute path to scan (e.g. /import)"
+          },
+          "frequency": {
+            "type": "string",
+            "title": "Frequency",
+            "description": "'15m' | '1h' | '6h' | 'daily'",
+            "default": "1h"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At",
+            "description": "Timestamp of the last completed scan; null if never run"
+          },
+          "last_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Status",
+            "description": "ok | error | running | skipped_disabled | dir_missing | null"
+          },
+          "last_imported_count": {
+            "type": "integer",
+            "title": "Last Imported Count",
+            "description": "Files copied (new/changed) during the last scan",
+            "default": 0
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error",
+            "description": "Error detail from the last failed scan; null on success"
+          }
+        },
+        "type": "object",
+        "title": "ImportScheduleResponse",
+        "description": "GET /import-schedule response body (ADR-0020 \u00a74.6).\n\nReturns the current config + last-run status for the vault's import schedule.\nReturns sane defaults (enabled=false, frequency=\"1h\") if no row exists yet."
       },
       "IngestRunListResponse": {
         "properties": {
@@ -1708,6 +2044,19 @@
         "title": "ProviderConfigResponse",
         "description": "API response shape for a provider_config row (\u00a712: no api_key field)."
       },
+      "RunNowResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "'started' \u2014 scan running in background",
+            "default": "started"
+          }
+        },
+        "type": "object",
+        "title": "RunNowResponse",
+        "description": "202 response body for POST /import-schedule/run-now (ADR-0020 \u00a74.6)."
+      },
       "StatusResponse": {
         "properties": {
           "vault_id": {
@@ -1741,6 +2090,38 @@
           "started_at": "2026-06-28T10:00:00Z",
           "uptime_seconds": 42.7,
           "vault_id": "default"
+        }
+      },
+      "UploadResponse": {
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "title": "File Path",
+            "description": "Saved path relative to vault_root, e.g. \"raw/sources/notes.md\""
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "\"queued\" \u2014 file saved to raw/sources/; watcher ingests asynchronously."
+          },
+          "overwritten": {
+            "type": "boolean",
+            "title": "Overwritten",
+            "description": "True if a same-name file already existed and was replaced on disk"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_path",
+          "status",
+          "overwritten"
+        ],
+        "title": "UploadResponse",
+        "description": "202 response body for POST /ingest/upload (ADR-0020 \u00a72.1, M4-EXT non-blocking).\n\nfile_path:  saved path relative to vault_root (e.g. \"raw/sources/notes.md\")\nstatus:     always \"queued\" \u2014 the watcher picks up the file asynchronously.\noverwritten: true if a same-name file already existed and was replaced on disk.\n\npage_id is not returned because ingest is async (watcher-driven); poll GET /ingest/runs\nor GET /pages to confirm the page exists after ingest completes (~15-30s).",
+        "example": {
+          "file_path": "raw/sources/notes.md",
+          "overwritten": false,
+          "status": "queued"
         }
       },
       "ValidationError": {

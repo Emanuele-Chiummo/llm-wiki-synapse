@@ -77,9 +77,21 @@ services:
       VAULT_ID: default
       VAULT_PATH: /vault
 
+      # ── Feature U / S bounds (ADR-0020 §2.4 / §4.4) — all I7 caps, env-configurable ──
+      MAX_UPLOAD_BYTES: "26214400"     # 25 MB upload cap (Feature U)
+      IMPORT_SCAN_MAX_FILES: "200"     # per-scan file cap (Feature S, I7)
+      IMPORT_SCAN_MAX_SECONDS: "60"    # per-scan wall-clock cap (Feature S, I7)
+
     # Mount vault (contains raw/sources/ for watcher, wiki/ for output)
+    # ── Feature S (ADR-0020): scheduled folder import ─────────────────────────
+    # Mount any host folder you want Synapse to auto-import into the container,
+    # then set the schedule's source_dir to the CONTAINER path (e.g. /import).
+    # The backend can ONLY see mounted paths — there is no host filesystem browse.
+    # Example (uncomment + adjust the host side to your folder):
+    # - ./import:/import:ro          # read-only is recommended: Synapse copies OUT of it
     volumes:
       - ./vault:/vault
+      - ./import:/import:ro
 
     ports:
       - "8000:8000"

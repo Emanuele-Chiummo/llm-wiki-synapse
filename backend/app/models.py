@@ -2,15 +2,16 @@
 SQLAlchemy 2 ORM models — single source of truth for D2 ER diagram (I8 / AC-PG-3).
 
 Tables defined here:
-  - pages           : one row per source file; soft-deletable (ADR-0005).
-                      v0.3: adds pages.x / pages.y (FA2 layout coords, ADR-0013 / AQ-6).
-  - vault_state     : one row per vault; holds the monotonic data_version (ADR-0005).
-  - provider_config : F17 backend selection per scope (global|vault|operation) (ADR-0008).
-  - ingest_runs     : per-run cost/convergence audit ledger (I7, ADR-0008 §4).
-  - links           : K5 wikilink edges; source_page_id → target_title (dangling until resolved).
-  - edges           : v0.3 graph edges; 4-signal weighted pairs (ADR-0012 / AQ-5).
-  - conversations   : v0.4 F6 chat threads; soft-deletable (ADR-0019 §2.5).
-  - messages        : v0.4 F6 chat messages; per-message token/cost columns (I7, ADR-0019).
+  - pages             : one row per source file; soft-deletable (ADR-0005).
+                        v0.3: adds pages.x / pages.y (FA2 layout coords, ADR-0013 / AQ-6).
+  - vault_state       : one row per vault; holds the monotonic data_version (ADR-0005).
+  - provider_config   : F17 backend selection per scope (global|vault|operation) (ADR-0008).
+  - ingest_runs       : per-run cost/convergence audit ledger (I7, ADR-0008 §4).
+  - links             : K5 wikilink edges; source_page_id → target_title (dangling until resolved).
+  - edges             : v0.3 graph edges; 4-signal weighted pairs (ADR-0012 / AQ-5).
+  - conversations     : v0.4 F6 chat threads; soft-deletable (ADR-0019 §2.5).
+  - messages          : v0.4 F6 chat messages; per-message token/cost columns (I7, ADR-0019).
+  - import_schedules  : M4-EXT scheduled folder import config + last-run status (ADR-0020 §4.1).
 
 provider_config + ingest_runs added in v0.2 (ADR-0008). links added in v0.2 (ADR-0008 §5).
 All three new tables ship in a single Alembic migration 0002 (one schema-change event).
@@ -21,6 +22,8 @@ event, ADR-0012 / ADR-0013).
 v0.4: ingest_runs.status / pages_created / error_message added in Alembic migration 0006
 (ADR-0018 §7); max_iter_used and finished_at are aliased in the API response layer as
 iterations_used and completed_at respectively.
+
+M4-EXT: import_schedules table added in Alembic migration 0008 (ADR-0020 §4.1).
 
 Run `make er` to regenerate docs/er/schema.mmd from this file (I8).
 """
@@ -856,4 +859,116 @@ class Edge(Base):
         return (
             f"<Edge {self.source_page_id}↔{self.target_page_id} "
             f"w={self.weight:.3f} vault={self.vault_id!r}>"
+        )
+
+
+class ImportSchedule(Base):
+    """
+    M4-EXT scheduled folder import — one row per vault (ADR-0020 §4.1).
+
+    Holds the configuration (enabled, source_dir, frequency) and the last-run status
+    (last_run_at, last_status, last_imported_count, last_error) so the UI shows
+    "last scan: 5 min ago, 3 imported" across restarts.
+
+    `source_dir` is a **container-visible** absolute path (e.g. /import); the backend
+    validates it with an os.path.isdir check. The scheduler re-reads this row each tick
+    so a PUT /import-schedule change takes effect on the next tick without a restart.
+
+    frequency enum values map to seconds server-side (I7 — no runaway interval):
+      15m → 900 | 1h → 3600 | 6h → 21600 | daily → 86400
+    """
+
+    __tablename__ = "import_schedules"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Row identity",
+    )
+
+    vault_id: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment="Logical vault identifier — one schedule row per vault (UNIQUE)",
+    )
+
+    enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_text("false"),
+        comment="Scheduler is a no-op while false (ADR-0020 §4.1)",
+    )
+
+    source_dir: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Container-visible absolute path to scan (e.g. /import). "
+            "NULL until set by the user. Must be mounted into the container (ADR-0020 §7)."
+        ),
+    )
+
+    frequency: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="1h",
+        server_default=sa_text("'1h'"),
+        comment="Scan interval enum: '15m' | '1h' | '6h' | 'daily' (I7 — bounded, ADR-0020 §4.1)",
+    )
+
+    last_run_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        comment="Timestamp of the last completed scan; NULL if never run",
+    )
+
+    last_status: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Outcome of the last scan: 'ok' | 'error' | 'running' | "
+            "'skipped_disabled' | 'dir_missing' | NULL (never run)"
+        ),
+    )
+
+    last_imported_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="Number of files copied (new/changed) during the last scan (ADR-0020 §4.3)",
+    )
+
+    last_error: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Human-readable error from the last failed scan; NULL on success",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time",
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="Updated on every PUT or scan completion",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("vault_id", name="uq_import_schedules_vault_id"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ImportSchedule vault={self.vault_id!r} enabled={self.enabled} "
+            f"freq={self.frequency!r} status={self.last_status!r}>"
         )

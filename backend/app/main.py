@@ -1,11 +1,12 @@
 """
-Synapse FastAPI service — v0.4 (M4 Phase 2).
+Synapse FastAPI service — v0.4 (M4 Phase 2 + M4-EXT).
 
 Endpoints:
   GET  /status                — vault_id, data_version, started_at, uptime
   GET  /pages                 — paginated list of live pages
   GET  /pages/{id}            — single page by UUID
   POST /ingest/trigger        — sync ingest; HTTP 202 (typed IngestTriggerResponse, AC-D4u)
+  POST /ingest/upload         — multipart file upload → ingest; 201 {file_path, page_id, status, overwritten} (ADR-0020 Feature U)
   GET  /ingest/runs           — paginated ingest run history (ADR-0018 §7, AC-BE-IR-1..5)
   GET  /provider/config       — list effective + raw provider_config rows (F17)
   POST /provider/config       — create/update a provider_config row (F17, §12 — no api key)
@@ -17,6 +18,9 @@ Endpoints:
   GET  /conversations/{id}/messages — ordered message history (F6)
   DELETE /conversations/{id}  — soft-delete a conversation (F6)
   POST /chat/stream           — bounded NDJSON streaming chat turn (F6/F7, I6/I7, ADR-0019)
+  GET  /import-schedule       — scheduled folder import config + last-run status (ADR-0020 Feature S)
+  PUT  /import-schedule       — upsert import schedule config (Feature S)
+  POST /import-schedule/run-now — trigger one bounded scan immediately (Feature S)
 
 Startup sequence (ordered, per v0.1-architecture §2.5):
   1. Vault skeleton bootstrap (vault.py) — AC-K7-1, I5
@@ -24,7 +28,8 @@ Startup sequence (ordered, per v0.1-architecture §2.5):
   3. Validate EMBEDDING_DIM vs live bge-m3 + ensure synapse_pages collection — ADR-0004
   4. Start watchdog observer — watcher.py
   5. Start GraphCache background debounce loop — ADR-0014
-  6. Emit AQ-3 INFO line if raw/sources/ is non-empty — ADR-0006
+  6. Start ImportScheduler asyncio background task — ADR-0020 §4.5
+  7. Emit AQ-3 INFO line if raw/sources/ is non-empty — ADR-0006
 
 OpenAPI: auto-served at /openapi.json; `make openapi` snapshots to docs/api/openapi.json (D4).
 """
@@ -37,9 +42,10 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Literal, cast
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
@@ -52,22 +58,26 @@ from app.db import dispose_engine, get_session
 from app.embeddings import EmbeddingError, get_embedding_client
 from app.graph.cache import GraphCache
 from app.graph.engine import GraphEngine
+from app.import_scheduler import ImportScheduler, load_schedule, upsert_schedule
 from app.ingest.orchestrator import IngestResult, ingest_file
 from app.ingest.schemas import Message
 from app.models import (
     ChatMessage,
     Conversation,
+    ImportSchedule,
     IngestRun,
     Page,
     ProviderConfig,
     VaultState,
 )
 from app.qdrant_client import ensure_collection
+from app.upload import resolve_under_sources, safe_source_name
 from app.vault import bootstrap_vault
 from app.watcher import start_watcher, stop_watcher
 
-# ── Module-level GraphCache singleton (initialised in lifespan) ───────────────
+# ── Module-level singletons (initialised in lifespan) ─────────────────────────
 _graph_cache: GraphCache | None = None
+_import_scheduler: ImportScheduler | None = None
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -84,9 +94,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     """
     FastAPI lifespan: startup → yield → shutdown.
 
-    Ordered startup sequence per v0.1-architecture §2.5 + v0.3 graph cache.
+    Ordered startup sequence per v0.1-architecture §2.5 + v0.3 graph cache + M4-EXT scheduler.
     """
-    global _started_at, _graph_cache
+    global _started_at, _graph_cache, _import_scheduler
     _started_at = datetime.now(UTC)
 
     # 1. Vault skeleton (K1, I5, AC-K7-1)
@@ -110,9 +120,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     _graph_cache.start_background_loop()
     logger.info("GraphCache initialised and background loop started")
 
+    # 6. Start ImportScheduler asyncio task (ADR-0020 §4.5; after watcher so copies are seen)
+    _import_scheduler = ImportScheduler()
+    _import_scheduler.start()
+    logger.info("ImportScheduler started")
+
     yield
 
     # ── Shutdown ───────────────────────────────────────────────────────────────
+    if _import_scheduler is not None:
+        _import_scheduler.stop()
     if _graph_cache is not None:
         _graph_cache.stop_background_loop()
     stop_watcher()
@@ -123,14 +140,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
 
 app = FastAPI(
     title="Synapse",
-    version="0.3.0",
+    version="0.4.0",
     description=(
-        "Self-organising wiki backend — M3 (graph live, no main-thread freeze). "
+        "Self-organising wiki backend — M4 + M4-EXT (upload + scheduled import). "
         "4-signal knowledge graph (F4): direct×3 + source-overlap×4 + Adamic-Adar×1.5 + type×1. "
         "FA2 server-side via igraph (I2); coords persisted in Postgres; "
         "dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). "
         "Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, "
         "CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). "
+        "POST /ingest/upload: multipart upload → ingest (ADR-0020 Feature U). "
+        "GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import "
+        "(ADR-0020 Feature S). "
         "Karpathy LLM Wiki pattern [K1–K8]."
     ),
     openapi_url="/openapi.json",
@@ -383,6 +403,133 @@ class IngestRunListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# ── Upload Pydantic models (Feature U, ADR-0020 §2.1) ─────────────────────────
+
+
+class UploadResponse(BaseModel):
+    """
+    202 response body for POST /ingest/upload (ADR-0020 §2.1, M4-EXT non-blocking).
+
+    file_path:  saved path relative to vault_root (e.g. "raw/sources/notes.md")
+    status:     always "queued" — the watcher picks up the file asynchronously.
+    overwritten: true if a same-name file already existed and was replaced on disk.
+
+    page_id is not returned because ingest is async (watcher-driven); poll GET /ingest/runs
+    or GET /pages to confirm the page exists after ingest completes (~15-30s).
+    """
+
+    file_path: str = Field(
+        ...,
+        description='Saved path relative to vault_root, e.g. "raw/sources/notes.md"',
+    )
+    status: str = Field(
+        ...,
+        description='"queued" — file saved to raw/sources/; watcher ingests asynchronously.',
+    )
+    overwritten: bool = Field(
+        ...,
+        description="True if a same-name file already existed and was replaced on disk",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "file_path": "raw/sources/notes.md",
+                "status": "queued",
+                "overwritten": False,
+            }
+        }
+    }
+
+
+# ── Import-schedule Pydantic models (Feature S, ADR-0020 §4.6) ────────────────
+
+_VALID_FREQUENCIES = {"15m", "1h", "6h", "daily"}
+
+
+class ImportScheduleResponse(BaseModel):
+    """
+    GET /import-schedule response body (ADR-0020 §4.6).
+
+    Returns the current config + last-run status for the vault's import schedule.
+    Returns sane defaults (enabled=false, frequency="1h") if no row exists yet.
+    """
+
+    enabled: bool = Field(default=False, description="Scheduler is enabled")
+    source_dir: str | None = Field(
+        default=None,
+        description="Container-visible absolute path to scan (e.g. /import)",
+    )
+    frequency: str = Field(
+        default="1h",
+        description="'15m' | '1h' | '6h' | 'daily'",
+    )
+    last_run_at: datetime | None = Field(
+        default=None,
+        description="Timestamp of the last completed scan; null if never run",
+    )
+    last_status: str | None = Field(
+        default=None,
+        description="ok | error | running | skipped_disabled | dir_missing | null",
+    )
+    last_imported_count: int = Field(
+        default=0,
+        description="Files copied (new/changed) during the last scan",
+    )
+    last_error: str | None = Field(
+        default=None,
+        description="Error detail from the last failed scan; null on success",
+    )
+
+    model_config = {"from_attributes": True}
+
+
+class ImportSchedulePutBody(BaseModel):
+    """Request body for PUT /import-schedule (ADR-0020 §4.6)."""
+
+    enabled: bool | None = Field(default=None, description="Enable or disable the scheduler")
+    source_dir: str | None = Field(
+        default=None,
+        description="Container-visible path (e.g. /import); null to clear",
+    )
+    frequency: str | None = Field(
+        default=None,
+        description="'15m' | '1h' | '6h' | 'daily'",
+    )
+
+    @field_validator("frequency")
+    @classmethod
+    def _valid_frequency(cls, v: str | None) -> str | None:
+        if v is not None and v not in _VALID_FREQUENCIES:
+            raise ValueError(
+                f"frequency must be one of {sorted(_VALID_FREQUENCIES)}, got {v!r}"
+            )
+        return v
+
+
+class ImportSchedulePutResponse(ImportScheduleResponse):
+    """
+    PUT /import-schedule response body (ADR-0020 §4.6).
+
+    Extends ImportScheduleResponse with dir validation fields (save-then-warn).
+    """
+
+    dir_ok: bool = Field(
+        default=True,
+        description="False if source_dir does not exist/is not readable inside the container",
+    )
+    dir_message: str | None = Field(
+        default=None,
+        description="Warning message when dir_ok is False; null when ok",
+    )
+
+
+class RunNowResponse(BaseModel):
+    """202 response body for POST /import-schedule/run-now (ADR-0020 §4.6)."""
+
+    status: str = Field(default="started", description="'started' — scan running in background")
 
 
 # ── Chat Pydantic models (F6/F7, ADR-0019 §2.2/§2.5) ──────────────────────────
@@ -728,6 +875,123 @@ async def trigger_ingest(body: IngestTriggerRequest) -> IngestTriggerResponse:
     )
 
 
+# ── POST /ingest/upload ────────────────────────────────────────────────────────
+
+
+@app.post(
+    "/ingest/upload",
+    response_model=UploadResponse,
+    status_code=202,
+    summary="Upload a document for async watcher-driven ingest",
+    description=(
+        "Feature U (ADR-0020 §2, M4-EXT non-blocking). "
+        "Accepts a single text/markdown file (.md/.txt/.markdown) via multipart/form-data. "
+        "Writes to vault/raw/sources/<name> (I5) and returns 202 immediately. "
+        "The watcher observes the write and ingests asynchronously (~15-30s). "
+        "Strict basename-only path sanitization (ADR-0020 §2.2). "
+        "413 on oversize (MAX_UPLOAD_BYTES). 415 for non-text (names F12/M5). "
+        "422 for unsafe filename. 202 {file_path, status:'queued', overwritten}."
+    ),
+    responses={
+        202: {"description": "File saved; watcher will ingest asynchronously"},
+        413: {"description": "File exceeds MAX_UPLOAD_BYTES"},
+        415: {
+            "description": (
+                "Only .md/.txt/.markdown accepted in v0.4; "
+                "multi-format (F12) is planned for M5"
+            )
+        },
+        422: {"description": "Filename is empty or unsafe after sanitization"},
+    },
+)
+async def upload_ingest(
+    file: UploadFile = File(..., description="The document to upload"),
+) -> UploadResponse:
+    """
+    POST /ingest/upload — non-blocking multipart upload (ADR-0020 Feature U, §2).
+
+    1. Validate extension (hard) + Content-Type (soft advisory) → 415 on non-text.
+    2. Stream body to a temp file, abort at MAX_UPLOAD_BYTES              → 413.
+    3. safe_source_name(filename)                                          → 422 on unsafe.
+    4. resolve_under_sources(name) containment check                       → 422 on escape.
+    5. overwritten = dst.exists()
+    6. Atomically move temp file to dst (same-fs rename inside /vault).
+    7. Return 202 {file_path, status:"queued", overwritten} immediately.
+
+    The WATCHER observes the vault/raw/sources/ write and ingests asynchronously.
+    This is the same path Feature S (scheduled copy) uses — no double-ingest (I9).
+    Poll GET /ingest/runs or GET /pages to confirm ingest completion (~15-30s).
+
+    Security: basename-only; no caller-controlled path segments; containment-checked.
+    I1: watcher's mtime/hash gate deduplicates re-uploads of unchanged content.
+    I5: writes ONLY to vault/raw/sources/ — never to wiki/ or .obsidian/.
+    """
+    import tempfile
+
+    max_bytes: int = settings.max_upload_bytes
+
+    # ── Extension check (authoritative; MIME is advisory) ────────────────────
+    # Do this BEFORE reading bytes (fail fast)
+    raw_name: str = file.filename or ""
+    # safe_source_name raises 415 for non-text extensions, 422 for unsafe
+    name = safe_source_name(raw_name)
+
+    # ── Stream body with byte cap (I7) ───────────────────────────────────────
+    raw_sources = settings.raw_sources_dir
+    raw_sources.mkdir(parents=True, exist_ok=True)
+
+    tmp_fd, tmp_name = tempfile.mkstemp(dir=str(raw_sources), suffix=".upload_tmp")
+    bytes_read = 0
+    try:
+        with open(tmp_fd, "wb") as tmp_file:
+            chunk_size = 65_536  # 64 KB chunks
+            while True:
+                chunk = await file.read(chunk_size)
+                if not chunk:
+                    break
+                bytes_read += len(chunk)
+                if bytes_read > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=(
+                            f"File exceeds the {max_bytes // (1024 * 1024)} MB upload limit."
+                        ),
+                    )
+                tmp_file.write(chunk)
+    except HTTPException:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise
+    except Exception as exc:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=f"Upload read error: {exc}") from exc
+    finally:
+        await file.close()
+
+    # ── Containment check ────────────────────────────────────────────────────
+    try:
+        dst = resolve_under_sources(name)
+    except HTTPException:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise
+
+    # ── Atomic move (same-fs: rename within /vault/raw/sources/) ────────────
+    overwritten: bool = dst.exists()
+    try:
+        Path(tmp_name).replace(dst)
+    except OSError as exc:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=f"Failed to write file: {exc}") from exc
+
+    # ── Return 202 immediately — watcher ingests asynchronously ──────────────
+    rel_path = str(dst.relative_to(settings.vault_root))
+    logger.info("upload_ingest: saved %s (%d bytes) — watcher will ingest", name, bytes_read)
+    return UploadResponse(
+        file_path=rel_path,
+        status="queued",
+        overwritten=overwritten,
+    )
+
+
 # ── GET /ingest/runs ───────────────────────────────────────────────────────────
 
 
@@ -936,6 +1200,187 @@ async def delete_provider_config(config_id: uuid.UUID) -> None:
             status_code=404,
             detail=f"provider_config {config_id} not found",
         )
+
+
+# ── Import schedule REST (Feature S, ADR-0020 §4.6) ───────────────────────────
+
+
+def _schedule_to_response(schedule: ImportSchedule | None) -> ImportScheduleResponse:
+    """Convert an ImportSchedule ORM row to the API response shape (or return defaults)."""
+    if schedule is None:
+        return ImportScheduleResponse()
+    return ImportScheduleResponse(
+        enabled=schedule.enabled,
+        source_dir=schedule.source_dir,
+        frequency=schedule.frequency,
+        last_run_at=schedule.last_run_at,
+        last_status=schedule.last_status,
+        last_imported_count=schedule.last_imported_count,
+        last_error=schedule.last_error,
+    )
+
+
+@app.get(
+    "/import-schedule",
+    response_model=ImportScheduleResponse,
+    summary="Get scheduled folder import config + last-run status",
+    description=(
+        "Returns the current import schedule configuration and last-run status for the vault. "
+        "Returns sane defaults (enabled=false, frequency='1h') if no row has been configured yet. "
+        "Feature S (ADR-0020 §4.6)."
+    ),
+)
+async def get_import_schedule() -> ImportScheduleResponse:
+    """GET /import-schedule — current config + last-run status (ADR-0020 §4.6)."""
+    schedule = await load_schedule(settings.vault_id)
+    return _schedule_to_response(schedule)  # type: ignore[arg-type]
+
+
+@app.put(
+    "/import-schedule",
+    response_model=ImportSchedulePutResponse,
+    summary="Upsert import schedule configuration",
+    description=(
+        "Create or update the import schedule for the vault. "
+        "Validates source_dir: if the directory does not exist inside the container, "
+        "the row is still saved but dir_ok=false + dir_message is returned (save-then-warn). "
+        "frequency must be one of '15m' | '1h' | '6h' | 'daily'. "
+        "Config changes take effect on the next scheduler tick without a restart. "
+        "Feature S (ADR-0020 §4.6)."
+    ),
+    responses={
+        200: {"description": "Config saved (dir_ok may be false if mount is missing)"},
+        422: {"description": "Invalid frequency value"},
+    },
+)
+async def put_import_schedule(body: ImportSchedulePutBody) -> ImportSchedulePutResponse:
+    """
+    PUT /import-schedule — upsert schedule config with save-then-warn dir validation.
+
+    If body.source_dir is provided, validate it exists & is readable inside the container.
+    Persist regardless of dir_ok (operator may add the mount later; next tick picks it up).
+    """
+    # Build update kwargs
+    update_kwargs: dict[str, object] = {}
+    if body.enabled is not None:
+        update_kwargs["enabled"] = body.enabled
+    if body.source_dir is not None:
+        update_kwargs["source_dir"] = body.source_dir
+    if body.frequency is not None:
+        update_kwargs["frequency"] = body.frequency
+    update_kwargs["updated_at"] = datetime.now(UTC)
+
+    await upsert_schedule(settings.vault_id, **update_kwargs)
+
+    # Reload the freshly persisted row
+    schedule = await load_schedule(settings.vault_id)
+
+    # Dir validation (save-then-warn — ADR-0020 §4.6)
+    dir_ok = True
+    dir_message: str | None = None
+    source_dir_val: str | None = getattr(schedule, "source_dir", None) if schedule else None
+    if source_dir_val is not None:
+        import os as _os
+
+        if not _os.path.isdir(source_dir_val):
+            dir_ok = False
+            dir_message = (
+                f"Directory '{source_dir_val}' is not visible inside the backend container. "
+                "Add a mount (e.g. - ./import:/import:ro in docker-compose.yml) and set "
+                "source_dir to the CONTAINER path — see DEPLOY.md."
+            )
+
+    base = _schedule_to_response(schedule)  # type: ignore[arg-type]
+    return ImportSchedulePutResponse(
+        enabled=base.enabled,
+        source_dir=base.source_dir,
+        frequency=base.frequency,
+        last_run_at=base.last_run_at,
+        last_status=base.last_status,
+        last_imported_count=base.last_imported_count,
+        last_error=base.last_error,
+        dir_ok=dir_ok,
+        dir_message=dir_message,
+    )
+
+
+@app.post(
+    "/import-schedule/run-now",
+    response_model=RunNowResponse,
+    status_code=202,
+    summary="Trigger one bounded import scan immediately",
+    description=(
+        "Trigger one bounded scan of source_dir immediately (same bounds as the scheduler: "
+        "IMPORT_SCAN_MAX_FILES + IMPORT_SCAN_MAX_SECONDS, I7). "
+        "The scan runs in the background; poll GET /import-schedule for the result. "
+        "409 if a scan is already in-flight. 400 if disabled or source_dir unset/missing. "
+        "Feature S (ADR-0020 §4.6)."
+    ),
+    responses={
+        202: {"description": "Scan started in the background"},
+        400: {"description": "Schedule is disabled, source_dir not set, or directory missing"},
+        409: {"description": "A scan is already in-flight (I7 — no overlap)"},
+    },
+)
+async def run_import_now() -> RunNowResponse:
+    """
+    POST /import-schedule/run-now — trigger one bounded scan immediately (ADR-0020 §4.6).
+
+    Uses the module-level ImportScheduler singleton started in the lifespan.
+    Falls back to creating a temporary scheduler if the lifespan singleton is absent
+    (e.g. test environments that bypass lifespan).
+    """
+    global _import_scheduler
+
+    scheduler = _import_scheduler
+    if scheduler is None:
+        # Graceful degradation: create an ephemeral scheduler (test / direct-startup scenario)
+        scheduler = ImportScheduler()
+
+    if scheduler.scan_in_flight:
+        raise HTTPException(
+            status_code=409,
+            detail="A scan is already in-flight. Wait for it to finish or poll GET /import-schedule.",
+        )
+
+    # Kick off the scan as a background task
+    async def _run() -> None:
+        try:
+            await scheduler.run_now()
+        except (ValueError, RuntimeError) as exc:
+            logger.warning("run_import_now: scan failed: %s", exc)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("run_import_now: unhandled error in background scan: %s", exc)
+
+    try:
+        # Validate preconditions before starting the background task (so we get 400 synchronously)
+        cfg = await load_schedule(settings.vault_id)
+        if cfg is None or not getattr(cfg, "enabled", False):
+            raise HTTPException(
+                status_code=400,
+                detail="Schedule is disabled or not configured. Enable it and set source_dir first.",
+            )
+        source_dir = getattr(cfg, "source_dir", None)
+        if not source_dir:
+            raise HTTPException(
+                status_code=400,
+                detail="source_dir is not set. Configure a container-visible path first.",
+            )
+        import os as _os
+
+        if not _os.path.isdir(str(source_dir)):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Directory '{source_dir}' is not accessible inside the container. "
+                    "Add a mount (e.g. - ./import:/import:ro) and set source_dir to the container path."
+                ),
+            )
+    except HTTPException:
+        raise
+
+    asyncio.create_task(_run())
+    return RunNowResponse(status="started")
 
 
 # ── Chat: conversations CRUD + streaming turn (F6/F7, ADR-0019) ───────────────
