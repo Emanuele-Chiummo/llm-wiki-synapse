@@ -1024,23 +1024,57 @@ to show `GC->>Client: (from in-process snapshot)` on the HIT path.
 
 ---
 
-## Sprint 4 — v0.4 — M4 "Usable & fluid" — BACKLOG (not yet started)
+## Sprint 4 — v0.4 — M4 "Usable & fluid"
 
-| Feature ID | Description | Notes |
-|------------|-------------|-------|
-| F1 | 3-panel shell (tree / chat / preview), resizable | I3, I4 must be honoured |
-| F6 | Multi-conversation persistent chat, cited-refs | |
-| F7 | Reasoning think display | |
-| F8 | LaTeX to Unicode | |
-| F14 | Configurable context window | |
-| F17 (UI) | Provider Selector UI | |
-| F16 (rest) | i18n IT/EN, settings persistence, .obsidian auto-gen, GFM, timeout | |
-| G3 | Streaming perf gate — first mandatory sprint (I3: no per-token heavy parse; Zustand selector pattern pre-wired in v0.3 viewer store) | |
-| D5 (update) | UI screenshots refreshed after 3-panel shell added | |
-| D6 | User guide + Deploy guide (drafts) | |
-| NB-6 | mmdc CI render check (devops-engineer) | Carried from v0.2/v0.3; must be resolved before M4 sign-off |
-| NB-7 | graph-recompute.mmd hit-path cosmetic fix (tech-writer, optional) | Architect note D-1 |
-| NB-8 | component.mmd store filename label cosmetic fix (tech-writer, optional) | Architect note D-2 |
+**Sprint status: IN PROGRESS**
+Scope locked: 2026-06-28 by product-manager. Scope log: docs/sprints/v0.4-pm-scope.md
+Branch: sprint/v0.4 (to be cut after EC-M3-17 human checkpoint)
+Prerequisite: M3 MET-PENDING-HUMAN-CHECKPOINT — EC-M3-17 must be satisfied by Emanuele
+before Phase 1 code begins.
+Invariants with heightened priority: I3 (no per-token heavy work — headline for G3),
+I4 (CodeMirror 6, TanStack Virtual, no WYSIWYG). All 9 invariants apply.
+
+---
+
+### Baseline M4 features
+
+| Feature ID | Description | Status | Notes |
+|------------|-------------|--------|-------|
+| F1 | 3-panel shell (tree / chat / preview), resizable | backlog | I3, I4 must be honoured; Phase 1 |
+| F6 | Multi-conversation persistent chat, cited-refs, regenerate, save-to-wiki | backlog | Phase 3 |
+| F7 | Reasoning `<think>` display, streaming, collapsed by default | backlog | Phase 3 |
+| F8 | LaTeX to Unicode (parse at stream END only) | backlog | Phase 3; I3 |
+| F14 | Configurable context window 4K–1M; 60/20/5/15 budget | backlog | Phase 2 |
+| F17 (UI) | Provider Selector UI; wired to backend provider_config | backlog | Phase 2; I6 |
+| F16 (rest) | i18n IT/EN, settings persistence, .obsidian auto-gen, GFM, multi-provider chat timeout | backlog | Phase 2; I5 |
+| G3 | Streaming perf gate — MANDATORY this sprint; no deferred-to-live without orchestrator waiver | backlog | Phase 3 |
+| D5 (update) | UI screenshots refreshed: 3-panel, provider selector, chat; graph PNGs updated (ADR-0016 rendering) | backlog | Threaded throughout |
+| D6 | USER.md + DEPLOY.md drafts | backlog | Threaded throughout |
+| NB-6 | mmdc CI render check (devops-engineer) | backlog | Phase 2; must resolve before M4 sign-off |
+| NB-7 | graph-recompute.mmd hit-path cosmetic fix (tech-writer, optional P3) | backlog | Architect note D-1 |
+| NB-8 | component.mmd store filename label cosmetic fix (tech-writer, optional P3) | backlog | Architect note D-2 |
+
+---
+
+### M4-GUX — GraphUX formalization (work done at v0.3→v0.4 transition; now gated)
+
+Work executed pragmatically before formal sprint kickoff. All sub-items require QA gate,
+architect sign-off, and tech-writer sign-off before M4 exit. ADR: docs/adr/0016-obsidian-graph-rendering.md.
+
+| Sub-ID | Description | Status | Notes |
+|--------|-------------|--------|-------|
+| M4-GUX-1 | Engine structural-only edges: direct-link + shared-source as generators; AA and same-type demoted to weight modulators | backlog — Phase 0 gate | AC-GUX-1/2; TRACEABILITY P3–P5 fixture correction required |
+| M4-GUX-2 | Per-edge `kind` field ("link"/"source") in edges table + GraphEdgeResponse | backlog — Phase 0 gate | AC-GUX-3; backward-compatible additive field |
+| M4-GUX-3 | Node size = 1.0 + 1.0·sqrt(structural_degree); degree field redefined to structural_degree | backlog — Phase 0 gate | AC-GUX-1; ADR-0016 §2 |
+| M4-GUX-4 | Migrations 0004 (edges.kind) + 0005 (pages.pinned); D2 + D4 regenerated | backlog — Phase 0 gate | make er + make openapi zero drift |
+| M4-GUX-5 | Server-side near-circular layout envelope (_compress_to_disc, ~1.04 aspect ratio) | backlog — Phase 0 gate | I2 intact |
+| M4-GUX-6 | Single-node DRAG with persistence: PATCH /pages/{id}/position; pages.pinned; no relayout, no data_version bump | backlog — Phase 0 gate | AC-GUX-4/5; I2-compatible; T-NCL tests must still pass |
+| M4-GUX-7 | Frontend Obsidian-style viewer: CVD-safe palette, node size ∝ connections, hover-dim, accessible labels, LOD, prefers-reduced-motion, aria-live | backlog — Phase 0 gate | AC-GUX-6/7/8/9 |
+| M4-GUX-8 | seed_demo_vault.py: 140-node scale-free realistic demo dataset | backlog — Phase 0 gate | D5 baseline |
+
+**Acceptance criteria for all M4 items:** docs/sprints/v0.4-pm-scope.md §2
+**Phase plan:** docs/sprints/v0.4-pm-scope.md §4
+**DoD gate checklist:** docs/sprints/v0.4-pm-scope.md §5
 
 ---
 

@@ -586,9 +586,17 @@ Note: NB-4 is a P2 hardening task. Targeted change to cli.py only. Owner: ai-age
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
 | AC-F4-1 | US-F4-ENGINE | EC-M3-1 | D2, D3 | I1, I9 | backend/tests/test_graph_engine.py | T-GENG-001..012 | — | GREEN |
 
-Note: AC-F4-1 is BLOCKED pending AQ-v0.3-1 resolution (edge-weight combining formula).
-QA cannot finalize fixture expected values until the formula is locked by the architect.
-Owner: backend-engineer (engine.py); qa-test-engineer (fixture design).
+Note: AC-F4-1 formula resolved (ADR-0012 published; GREEN). **ADR-0016 correction (Sprint 4,
+Phase 0):** the ADR-0012 §5 worked-fixture expectation for the P3–P5 pair has been updated.
+BEFORE (ADR-0012 §3 rule "persist iff weight > 0"): P3–P5 (same-type only, no link, no shared
+source) → weight == 1.0, edge PRESENT and stored.
+AFTER (ADR-0016 §1 structural gate, supersedes ADR-0012 §3): P3–P5 → NO edge (absent).
+type-only affinity no longer materializes an edge; it only modulates weight on edges that already
+exist via a structural tie. The T-GENG fixture expectations for this pair must assert `edge absent`
+(not weight 1.0). Lower-bound assertions for P1–P2 (≥11), P1–P4 (≥8), P2–P4 (≥5) are UNCHANGED
+(those pairs are structural via direct link or shared source and keep identical stored weights).
+This correction prevents the type-clique hairball from being silently re-introduced on any future
+engine.py edit that reverts to the old gate. Owner: qa-test-engineer (update T-GENG fixture).
 
 ---
 
@@ -773,7 +781,7 @@ backend-engineer (D2 via make er and models.py, D4 via make openapi).
 
 | Gap ID | AC ID | Issue | Resolution |
 |--------|-------|-------|-----------|
-| GAP-v0.3-1 | AC-F4-1 | Fixture expected weight values cannot be finalized until edge-weight combining formula is confirmed (AQ-v0.3-1) | RESOLVED — ADR-0012 published; formula additive: w = 3·direct + 4·source + 1.5·AA + 1·same_type. 12 engine tests pass with exact weights. |
+| GAP-v0.3-1 | AC-F4-1 | Fixture expected weight values cannot be finalized until edge-weight combining formula is confirmed (AQ-v0.3-1) | RESOLVED — ADR-0012 published; formula additive: w = 3·direct + 4·source + 1.5·AA + 1·same_type. 12 engine tests pass with exact weights. **SUPERSEDED (Sprint 4):** ADR-0016 §1 changes the edge *inclusion* gate — same_type alone no longer materialises an edge. T-GENG P3–P5 fixture expectation corrected from "weight 1.0, present" to "absent". See AC-F4-GUX-1. |
 | GAP-v0.3-2 | AC-F16db-1, AC-F16db-2 | Test mock strategy (polling interval mock vs. asyncio task vs. event subscription) depends on GraphCache detection mechanism (AQ-v0.3-7) | RESOLVED — polling (tick() every 0.5s) chosen; FakeClock injectable; 13 cache tests pass. |
 | GAP-v0.3-3 | AC-F4-3, AC-F4-4 | GET /graph response mode (synchronous 200 vs. async 202 + job_id) affects test design (AQ-v0.3-3) | RESOLVED — synchronous 200 chosen (ADR-0014); 13 API tests pass with HTTP 200 + X-Graph-Cache header. |
 | GAP-v0.3-4 | AC-D3v3-3, AC-D1v3-1 | Architect and tech-writer review gates are not automatable | OPEN — record as MANUAL in sign-off register; binary gate before PM sign-off |
@@ -798,3 +806,334 @@ backend-engineer (D2 via make er and models.py, D4 via make openapi).
 | AQ-v0.3-5 | AC-F4-3, AC-D2v3-1 | Edges table: persistent Postgres table (written after FA2) or in-memory? | Confirm: persistent edges table per BACKLOG spec. Lock schema. | P0 — blocks D2 ER update |
 | AQ-v0.3-6 | AC-F4-2, AC-D2v3-1 | x/y coords: columns on pages table or separate graph_coords table? | BACKLOG already specifies pages.x / pages.y; confirm no change. | P1 — likely already resolved by BACKLOG |
 | AQ-v0.3-7 | AC-F16db-1, AC-F16db-2 | GraphCache detection mechanism: polling, LISTEN/NOTIFY, or in-process event? | Recommend polling (default 5s interval) for v0.3 simplicity. | P1 — blocks cache test mock strategy |
+
+---
+
+## Sprint 4 — v0.4 / M4-GUX Coverage
+
+> Scope: GraphUX formalization bucket (M4-GUX-1..8 per docs/sprints/v0.4-pm-scope.md §1b).
+> These items were implemented at the v0.3 → v0.4 boundary before the formal sprint kickoff;
+> this section formalizes them into the traceability record so they are tested, gated, and
+> auditable. All other M4 features (F1, F6, F7, F8, F14, F17-UI, F16-rest, G3, D5-update, D6,
+> NB-6..8) are tracked in a subsequent section added per phase.
+>
+> ADR reference: docs/adr/0016-obsidian-graph-rendering.md (ADR-0016)
+> Exit criteria: EC-M4-Phase0 — T-GENG suite green (ADR-0016 changes), ADR-0016 signed off by
+> architect + tech-writer, D2 + D4 zero drift, at least 1 committed graph PNG.
+>
+> Column guide (same as Sprint 1/2/3):
+>   Feature ID  — F4 (graph engine / viewer) or accessibility sub-feature
+>   User Story  — US-<label> (M4-GUX stories; no separate stories file; full story text below)
+>   AC ID       — AC-F4-GUX-<N> (sequential within this GraphUX bucket)
+>   EC          — M4 Phase 0 exit condition or M4 DoD gate number
+>   D-artifacts — D1–D7 touched
+>   Invariants  — I1–I9 exercised
+>   Planned test file — path relative to backend/tests/ or frontend/src/tests/
+>   Test ID     — filled by qa-test-engineer after tests are written
+>   PR          — filled by engineer
+>   Status      — PENDING / GREEN / MANUAL / DEFERRED-TO-LIVE
+
+---
+
+### M4-GUX-1 / M4-GUX-2 — Structural-only edges + per-edge kind field (F4)
+
+**User story (US-F4-GUX-STRUCTURAL):** As a vault owner, I want the knowledge graph to show
+only edges that represent real document connections (wikilinks and shared sources), so that the
+graph reflects genuine knowledge structure instead of a hairball of same-type nodes.
+
+**Invariants:** I2 (server-side layout stays cached; only the edge input set changes), I1
+(engine reads Postgres only; no vault rescan), I7 (single bounded FA2 pass, strengthened by
+smaller edge count), I8 (D2/D4 must reflect the kind column).
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F4-GUX-1 | US-F4-GUX-STRUCTURAL | M4-DoD-gate-8 | D2, D3 | I1, I2, I7 | backend/tests/test_graph_engine.py | T-GENG-001..012 (fixture corrected) | — | PENDING |
+| AC-F4-GUX-2 | US-F4-GUX-STRUCTURAL | M4-DoD-gate-8 | D2, D3 | I1, I7 | backend/tests/test_graph_engine.py | T-GENG-013+ | — | PENDING |
+| AC-F4-GUX-3 | US-F4-GUX-STRUCTURAL | M4-DoD-gate-8 | D4 | I2, I8 | backend/tests/test_graph_api.py | T-GRAPI-014+ | — | PENDING |
+
+**Acceptance criteria:**
+
+1. AC-F4-GUX-1 (P3-P5 correction — CRITICAL): `pytest` on `test_graph_engine.py` with the
+   updated fixture asserts that a page-pair whose only non-zero signal is `same_type` (direct=0,
+   source=0) produces ZERO edges in the output — `assert (P3_id, P5_id) not in edge_set and
+   (P5_id, P3_id) not in edge_set`. PASS = absent; FAIL = any row with only same_type present.
+   This directly replaces the old ADR-0012 §5 expectation "P3–P5 → weight 1.0, present".
+   Lower-bound weight assertions P1–P2 (≥11), P1–P4 (≥8), P2–P4 (≥5) remain unchanged and
+   must continue to pass in the same test run.
+
+2. AC-F4-GUX-2: The 200-node scale-free demo dataset (seed_demo_vault.py, `type = i % 4`) produces
+   strictly fewer than 4900 edges under the structural gate. `pytest` assertion:
+   `assert len(edges) < 4900`. The test must also assert `len(edges) >= 1` (at least one link
+   exists in the scale-free graph). Rationale: old behavior = exactly 4900 (complete 4-cliques);
+   new behavior = only real structural edges.
+
+3. AC-F4-GUX-3: `GET /graph` response schema includes `kind` on every edge object. Pydantic
+   validation passes with `kind: Literal["link", "source"]`. No edge object in the response
+   may have `kind` absent or set to any other value. `pytest` assertion via `GraphEdgeResponse`
+   schema validation on the full response payload. Backward-compatibility: existing fields
+   (`weight`, `source`, `target`) are present and unchanged.
+
+Note: AC-F4-GUX-1 is the direct operationalization of the ADR-0016 §6 handoff. The corrected
+fixture must be committed before Phase 0 is signed off. The type-clique defect cannot silently
+return as long as this test remains in the suite. Owner: qa-test-engineer (fixture update),
+backend-engineer (engine.py structural gate).
+
+---
+
+### M4-GUX-3 — Node size proportional to structural degree (F4)
+
+**User story (US-F4-GUX-SIZE):** As a vault reader viewing the graph, I want nodes with more
+real connections to appear visibly larger, so that I can identify hub notes at a glance without
+counting edges manually.
+
+**Invariants:** I2 (size computation is server-side; client uses the returned `size` value
+verbatim without recalculating), I4 (no size computation on the UI main thread).
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F4-GUX-4 | US-F4-GUX-SIZE | M4-DoD-gate-8 | D3 | I2, I4 | backend/tests/test_graph_engine.py | T-GENG-014+ | — | PENDING |
+| AC-F4-GUX-5 | US-F4-GUX-SIZE | M4-DoD-gate-8 | — | I2, I4 | frontend/src/tests/graph-transform.test.ts | T-GTRANS-020+ | — | PENDING |
+
+**Acceptance criteria:**
+
+4. AC-F4-GUX-4: `pytest` asserts the server-side size formula `size = 1.0 + 1.0 * sqrt(degree)`
+   for integer structural degrees 0, 1, 2, 4, 9: expected values are 1.0, 2.0, ≈2.414, 3.0, 4.0
+   respectively (float tolerance ±0.001). A node with 0 structural edges has `size == 1.0`
+   (isolated node, still clickable). A node with 9 structural edges has `size == 4.0`. Both
+   assertions must pass in the same test.
+
+5. AC-F4-GUX-5: vitest on `graph-transform.test.ts` asserts that `graphTransform` (the frontend
+   transformer) reads `node.size` from the server response verbatim and does NOT apply any
+   independent degree-based size calculation. If `node.size` is not present in the response, the
+   fallback must be a fixed constant (not `1 + ln(1 + node.degree)`). PASS = no `Math.log` or
+   `Math.sqrt(degree)` call in the size path when `node.size` is provided.
+
+Note: The client ×5 display scale (graphTransform.ts) is a pure multiplier and is not tested
+here — it is a presentation constant, not a business rule. Owner: backend-engineer (formula in
+engine.py), frontend-engineer (remove stale client-side curve if present), qa-test-engineer.
+
+---
+
+### M4-GUX-4 — Database migrations (edges.kind, pages.pinned) + ER/OpenAPI update (F4)
+
+**User story (US-F4-GUX-MIGRATIONS):** As a backend-engineer deploying ADR-0016, I want the
+database schema to include the `edges.kind` column and `pages.pinned` boolean so that the
+graph API can persist and return structural edge kind and user-pinned node positions without
+additional queries.
+
+**Invariants:** I8 (D2 ER diagram and D4 OpenAPI must reflect schema; make er and make openapi
+must exit 0 with zero drift).
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F4-GUX-6 | US-F4-GUX-MIGRATIONS | M4-DoD-gate-8 | D2 | I8 | backend/tests/test_models_schema.py | T-PG-031+ | — | PENDING |
+| AC-F4-GUX-7 | US-F4-GUX-MIGRATIONS | M4-DoD-gate-8 | D4 | I8 | backend/tests/test_docs.py | T-DOCS-048+ | — | PENDING |
+
+**Acceptance criteria:**
+
+6. AC-F4-GUX-6: `pytest` on `test_models_schema.py` statically introspects the SQLAlchemy
+   `Edge` model and asserts: (a) `Edge.kind` column exists with type `TEXT`, nullable=True;
+   (b) `Page.pinned` column exists with type `BOOLEAN`, nullable=False, default=False.
+   Both assertions must pass. `make er` must exit 0 with the updated `docs/er/schema.mmd`
+   reflecting both columns (CI gate: T-DOCS-038..041 range extended or new test added).
+
+7. AC-F4-GUX-7: `pytest` on `test_docs.py` asserts that `docs/api/openapi.json` contains the
+   string `"kind"` in the `GraphEdgeResponse` schema definition (field present in the schema
+   object). `make openapi` must exit 0 and produce a non-empty openapi.json. Both conditions
+   must pass in the same test.
+
+Note: Alembic migrations 0004 (edges.kind) and 0005 (pages.pinned) must be present in
+`backend/alembic/versions/`. The migration files are excluded from the I6 hardcode guard
+(as per AQ-7 resolution in Sprint 1). Owner: backend-engineer (Alembic migrations, models.py).
+
+---
+
+### M4-GUX-5 — Near-circular server-side layout envelope (F4/I2)
+
+**User story (US-F4-GUX-LAYOUT):** As a graph viewer user, I want nodes to be distributed in a
+roughly circular layout so that the graph fits naturally in a square viewport without long
+thin clusters extending off-screen.
+
+**Invariants:** I2 (layout is computed server-side; _compress_to_disc runs in engine.py, not
+in the browser; the no-client-layout bundle assertion T-NCL-001..022 must still pass).
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F4-GUX-8 | US-F4-GUX-LAYOUT | M4-DoD-gate-8 | D3 | I1, I2 | backend/tests/test_graph_engine.py | T-GENG-015+ | — | PENDING |
+| AC-F4-GUX-9 | US-F4-GUX-LAYOUT | M4-DoD-gate-8 | — | I2 | frontend/src/tests/no-client-layout.test.ts | T-NCL-001..022 | — | PENDING |
+
+**Acceptance criteria:**
+
+8. AC-F4-GUX-8: `pytest` on a fixture graph with ≥10 nodes asserts that after engine layout,
+   all node coordinates satisfy `x**2 + y**2 <= r**2 * 1.1` where `r` is the radius of the
+   bounding disc (computed as `max(abs(x), abs(y))` across all nodes). The 1.1 tolerance allows
+   for floating-point rounding in `_compress_to_disc`. PASS = all nodes inside disc envelope;
+   FAIL = any node outside. Aspect ratio assertion: `assert 0.9 <= (x_range / y_range) <= 1.2`
+   for the full node set.
+
+9. AC-F4-GUX-9: vitest bundle assertion (`no-client-layout.test.ts` T-NCL-001..022) still passes
+   unchanged after all M4-GUX frontend changes. This test scans the compiled bundle and asserts
+   zero import of force-layout libraries. PASS = T-NCL suite exits 0 with all 22 assertions
+   green. Any regression here is a P0 blocker (I2 violation).
+
+Note: _compress_to_disc is a server-side utility in engine.py. It must not be imported or
+replicated in any frontend file. Owner: backend-engineer (engine.py), qa-test-engineer
+(T-NCL regression confirmation).
+
+---
+
+### M4-GUX-6 — Single-node drag with position persistence (F4/I2)
+
+**User story (US-F4-GUX-DRAG):** As a graph viewer user, I want to drag individual nodes to a
+custom position and have that position persist across page reloads and graph recomputes, so that
+I can manually organize nodes that the automatic layout places inconveniently.
+
+**Invariants:** I2 (drag is single-node direct manipulation; it does NOT run a force layout;
+PATCH /pages/{id}/position must not trigger FA2 or bump data_version), I1 (position written to
+Postgres pages table rows only; no vault filesystem write).
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F4-GUX-10 | US-F4-GUX-DRAG | M4-DoD-gate-8 | D4 | I1, I2 | backend/tests/test_graph_api.py | T-GRAPI-015+ | — | PENDING |
+| AC-F4-GUX-11 | US-F4-GUX-DRAG | M4-DoD-gate-8 | D2 | I1, I2 | backend/tests/test_graph_engine.py | T-GENG-016+ | — | PENDING |
+| AC-F4-GUX-12 | US-F4-GUX-DRAG | M4-DoD-gate-8 | — | I2 | frontend/src/tests/no-client-layout.test.ts | T-NCL-001..022 | — | PENDING |
+
+**Acceptance criteria:**
+
+10. AC-F4-GUX-10: `pytest` on `test_graph_api.py` sends `PATCH /pages/{id}/position` with body
+    `{"x": 1.5, "y": -2.3}` and asserts: (a) HTTP 200 returned; (b) `pages.x == 1.5` and
+    `pages.y == -2.3` in Postgres after the call; (c) `pages.pinned == True` in Postgres after
+    the call; (d) `data_version` in `vault_state` is UNCHANGED (same integer before and after
+    the PATCH). All four assertions must pass in the same test. FAIL on any one = FAIL overall.
+
+11. AC-F4-GUX-11: `pytest` on `test_graph_engine.py` calls the engine recompute with at least
+    one node having `pinned=True`. After recompute, asserts that the pinned node's `x` and `y`
+    values in the output snapshot equal the pre-recompute values (±0.001 tolerance). Non-pinned
+    nodes may have any coordinates. PASS = pinned coords preserved; FAIL = pinned coords changed.
+
+12. AC-F4-GUX-12: vitest `no-client-layout.test.ts` T-NCL-001..022 all pass after the drag
+    feature is introduced. The drag handler (sigma.js `dragNode` event) must call
+    `PATCH /pages/{id}/position` via the store's `patchPosition` action; it must NOT import or
+    call any force-layout function. Bundle scan must detect zero layout-library imports.
+    PASS = T-NCL exits 0; FAIL = any layout import found.
+
+Note: The distinction between single-node drag (I2-compatible) and a force layout (I2-violating)
+is binary and must be enforced by the T-NCL bundle scan. If the drag implementation accidentally
+pulls in a layout library the scan will catch it. Owner: frontend-engineer (sigma drag handler +
+store patchPosition action), backend-engineer (PATCH /pages/{id}/position endpoint), qa-test-engineer.
+
+---
+
+### M4-GUX-7 — Obsidian-style viewer: color, hover-dim, accessible labels, LOD (F4, Accessibility)
+
+**User story (US-F4-GUX-VIEWER):** As a vault reader, I want the graph viewer to use color
+coding by note type, dim non-related nodes on hover, show readable labels at appropriate zoom
+levels, and announce the selected node to screen readers, so that the graph is both visually
+clear and accessible.
+
+**Invariants:** I4 (sigma.js WebGL rendering; no DOM node per graph node; no main-thread
+force layout), I2 (viewer reads pre-computed coords from server; no layout on client).
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F4-GUX-13 | US-F4-GUX-VIEWER | M4-DoD-gate-8 | D5 | I2, I4 | frontend/src/tests/graphViewer.test.ts (vitest-jsdom) | T-GVIEW-001+ | — | PENDING |
+| AC-F4-GUX-14 | US-F4-GUX-VIEWER | M4-DoD-gate-8 | D5 | I4 | frontend/src/tests/graphViewer.test.ts | T-GVIEW-002+ | — | PENDING |
+| AC-F4-GUX-15 | US-F4-GUX-VIEWER | M4-DoD-gate-8 | D5 | — | frontend/src/tests/graphViewer.test.ts | T-GVIEW-003+ | — | PENDING |
+| AC-F4-GUX-16 | US-F4-GUX-VIEWER | M4-DoD-gate-8 | D5 | — | frontend/e2e/graph-accessibility.spec.ts (Playwright) | T-E2E-A11Y-001+ | — | DEFERRED-TO-LIVE |
+
+**Acceptance criteria:**
+
+13. AC-F4-GUX-13: vitest on `graphViewer.test.ts`: simulate a hover event on node N. Assert
+    that all non-neighbor nodes receive an opacity class or sigma attribute that resolves to a
+    rendered opacity ≤ 0.2 (faded). Neighbor nodes and node N itself must have opacity ≥ 0.9
+    (highlighted). PASS = opacity split is binary (faded vs. highlighted); FAIL = any non-neighbor
+    with opacity > 0.2 or any neighbor with opacity < 0.9. Assert via vitest-jsdom attribute
+    inspection or sigma `getNodeAttributes` call mock.
+
+14. AC-F4-GUX-14: vitest on `graphViewer.test.ts`: assert the graph container element has an
+    `aria-live` attribute (value "polite" or "assertive"). When a node is selected (click event
+    simulated), assert the aria-live region's text content equals the selected node's `title`
+    field from the server response. PASS = aria-live present and text updated; FAIL = attribute
+    absent or text not updated.
+
+15. AC-F4-GUX-15: vitest on `graphViewer.test.ts` using `window.matchMedia` mock: set
+    `(prefers-reduced-motion: reduce)` to active. Assert that the hover-dim transition-duration
+    applied to nodes/edges is `0ms` (or the transition property is `none`). When
+    `(prefers-reduced-motion: reduce)` is NOT active, assert transition-duration is > 0ms.
+    PASS = transition-duration == 0ms when reduced motion is active; FAIL = any non-zero
+    duration when reduced motion active.
+
+16. AC-F4-GUX-16 (DEFERRED-TO-LIVE): Playwright accessibility check on the live graph viewer
+    page: run `axe-core` or `@axe-core/playwright` and assert zero critical accessibility
+    violations. The aria-live region (AC-F4-GUX-14), color contrast of halo labels (~16:1 AAA
+    target), and label-on-demand LOD must all pass. PASS = zero critical axe violations; FAIL =
+    any critical violation. Owner: qa-test-engineer (Playwright spec), frontend-engineer
+    (CVD-safe palette, accessible label contrast).
+
+Note: CVD-safe color palette is a design constraint verified by AC-F4-GUX-16 (contrast check)
+and visually confirmed in the D5 screenshot gate (M4-DoD-gate-5). The palette itself is not
+tested numerically in unit tests — the contrast check in Playwright is the automation gate.
+Owner: frontend-engineer (sigma renderer hooks), qa-test-engineer (vitest mocks + Playwright).
+
+---
+
+### M4-GUX-8 — Demo dataset 140-node scale-free (F4)
+
+**User story (US-F4-GUX-DEMO):** As a developer verifying the graph viewer, I want a realistic
+demo dataset with 140 nodes and a scale-free degree distribution, so that node-size variation
+is visually apparent in screenshots and the viewer can be demonstrated without real vault content.
+
+**Invariants:** I1 (seed script writes to Postgres only; does not modify vault/raw/ or vault/wiki/),
+I8 (D5 screenshots from this dataset must be committed).
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F4-GUX-17 | US-F4-GUX-DEMO | M4-DoD-gate-8 | D5 | I1 | backend/tests/test_seed_demo.py | T-SEED-001+ | — | PENDING |
+| AC-F4-GUX-18 | US-F4-GUX-DEMO | M4-DoD-gate-5 | D5 | I8 | frontend/e2e/graph-perf.spec.ts (D5 capture) | T-E2E-D5-002 | — | DEFERRED-TO-LIVE |
+
+**Acceptance criteria:**
+
+17. AC-F4-GUX-17: `pytest` on `test_seed_demo.py` runs `seed_demo_vault.py` against an in-memory
+    SQLite or test Postgres instance and asserts: (a) exactly 140 page rows inserted; (b) at least
+    one node has `degree >= 10` (hub node exists — scale-free property); (c) at least 30 nodes have
+    `degree == 1` (leaf nodes exist — scale-free property); (d) the seed script writes ONLY to
+    Postgres tables (`pages`, `edges`) and does not create any file under `vault/`. All four
+    assertions must pass. PASS = all four conditions true; FAIL = any condition false.
+
+18. AC-F4-GUX-18 (DEFERRED-TO-LIVE): Playwright captures `docs/screens/graph-viewer-structural.png`
+    after running `seed_demo_vault.py` on the live stack. The screenshot must show: visible node-size
+    variation (at least 2 visibly different node sizes present — verified by human review at M4
+    checkpoint), structural-only edges (no dense clique visible — verified by human review). This
+    screenshot satisfies the outstanding v0.3 GAP-v0.3-8 DEFERRED-TO-LIVE condition AND provides
+    the M4-GUX D5 evidence. Owner: qa-test-engineer (Playwright capture), Emanuele (human review
+    at EC-M4-HCP).
+
+Note: The demo dataset replaces the ad-hoc 200-node fixture from v0.3 (backend/scripts/
+seed_graph_fixture.py). The 140-node count is chosen so that at the default `BASE=1.0, GROWTH=1.0`
+scale a hub node (degree ~15–20 in a Barabási-Albert graph) reaches size ≈4.9–5.5, while a leaf
+node (degree 1) stays at size 2.0 — giving a 2.5× visual range that is clearly perceptible.
+Owner: backend-engineer (seed_demo_vault.py).
+
+---
+
+## M4-GUX Exit Criteria coverage (Phase 0)
+
+| EC | Description | Covering ACs | Status |
+|----|-------------|-------------|--------|
+| M4-Phase0-1 | T-GENG fixture corrected: P3–P5 type-only pair asserts absent | AC-F4-GUX-1 | PENDING |
+| M4-Phase0-2 | Structural gate eliminates type-clique; 200-node fixture <<4900 edges | AC-F4-GUX-2 | PENDING |
+| M4-Phase0-3 | GET /graph returns kind on every edge; schema valid | AC-F4-GUX-3 | PENDING |
+| M4-Phase0-4 | Node size formula sqrt; isolated node size == 1.0; hub size correct | AC-F4-GUX-4, AC-F4-GUX-5 | PENDING |
+| M4-Phase0-5 | edges.kind + pages.pinned columns in SQLAlchemy models; ER + OpenAPI zero drift | AC-F4-GUX-6, AC-F4-GUX-7 | PENDING |
+| M4-Phase0-6 | Server-side disc envelope; all nodes inside; aspect ratio ≈1 | AC-F4-GUX-8 | PENDING |
+| M4-Phase0-7 | T-NCL-001..022 still green after all GUX changes | AC-F4-GUX-9, AC-F4-GUX-12 | PENDING |
+| M4-Phase0-8 | PATCH /pages/{id}/position: HTTP 200, pinned=True, data_version unchanged | AC-F4-GUX-10 | PENDING |
+| M4-Phase0-9 | Pinned coords preserved across FA2 recompute | AC-F4-GUX-11 | PENDING |
+| M4-Phase0-10 | Hover-dim: non-neighbors opacity ≤ 0.2 | AC-F4-GUX-13 | PENDING |
+| M4-Phase0-11 | aria-live present; selected node title announced | AC-F4-GUX-14 | PENDING |
+| M4-Phase0-12 | prefers-reduced-motion: transition-duration == 0ms | AC-F4-GUX-15 | PENDING |
+| M4-Phase0-13 | axe-core zero critical violations (live Playwright) | AC-F4-GUX-16 | DEFERRED-TO-LIVE |
+| M4-Phase0-14 | 140-node scale-free seed: 140 rows, hub degree ≥10, 30 leaves, no vault writes | AC-F4-GUX-17 | PENDING |
+| M4-Phase0-15 | D5 graph screenshot committed (structural-only, size variation visible) | AC-F4-GUX-18 | DEFERRED-TO-LIVE |
+| M4-Phase0-16 | ADR-0016 signed off by architect + tech-writer | — | MANUAL |
+| M4-Phase0-17 | TRACEABILITY.md M4-GUX section present; P3–P5 correction on record | (this section) | DONE |
