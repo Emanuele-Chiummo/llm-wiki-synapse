@@ -1,230 +1,240 @@
-# DOCS_STATUS — Sprint 3 / v0.3 / M3 Documentation Gate
+# DOCS_STATUS — Sprint v0.4 / M4-GUX Phase 0 Documentation Gate
 
-> Tech-writer sign-off for EC-M3-15 (v0.3-scope §6 / §8 sign-off register).
+> Tech-writer sign-off for M4-GUX Phase 0 docs gate.
 > Generated: 2026-06-28
 > Author: tech-writer (claude-sonnet-4-6)
-> Supersedes: DOCS_STATUS.md (v0.2 gate)
-> Sprint branch: sprint/v0.3
-> Scope reference: docs/sprints/v0.3-scope.md §8
-> I8 gate: CLAUDE.md §3 invariant I8 (docs-as-DoD; ER matches live schema)
-
-This file is the artifact the milestone gate reads. ALL UP-TO-DATE (with DEFERRED-TO-LIVE for
-D5 capture explicitly tracked) means the docs gate passes. NOT UP-TO-DATE with untracked gaps
-blocks the gate.
+> Supersedes: DOCS_STATUS.md (v0.3 / M3 gate — 2026-06-28)
+> Sprint branch: sprint/v0.3 (transitioning to v0.4)
+> Phase scope: GraphUX work — ADR-0016 (structural edges, per-edge kind), Feature A (node
+>   pinning: pages.pinned + PATCH /pages/{id}/position), sigma.js viewer UX updates
+> I8 gate: CLAUDE.md §3 invariant I8 (docs-as-DoD; ER matches live schema; OpenAPI matches
+>   live FastAPI)
 
 ---
 
 ## 1. Per-artifact status table
 
-| ID | Artifact | Required v0.3? | Status | Drift result | Notes |
-|----|----------|----------------|--------|--------------|-------|
-| D1 | `docs/architecture/component.mmd` | YES (updated) | UP-TO-DATE | ZERO DRIFT | GraphEngine (graph/engine.py), GraphCache (graph/cache.py), sigma viewer, coord/edge persistence all present. I2 annotation in header `%%` comments. Line 1 = `C4Component` (no leading HTML comment). No v0.4 features depicted. Module labels match real files. Git working tree clean. |
-| D2 | `docs/er/schema.mmd` | YES (updated) | UP-TO-DATE | ZERO DRIFT | `make er` re-run via backend/.venv python3.13. Regenerated output byte-identical to committed file (git diff empty; working tree clean per `git status`). 6 tables confirmed: PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES. `pages.x` / `pages.y` (DOUBLE PRECISION, nullable, ADR-0013) present. EDGES table with source_page_id, target_page_id, weight, signals confirmed (ADR-0012). |
-| D3 | `docs/sequences/graph-recompute.mmd` | YES (new) | UP-TO-DATE | ZERO DRIFT | Line 1 = `sequenceDiagram`. Heading comment in `%%` (line 2). Debounce loop, cache-miss path (inline recompute, `X-Graph-Cache: miss`) and cache-hit path (pure Postgres read, `X-Graph-Cache: hit`) all present. FA2 server-side via igraph explicit. Client addNode with server coords and no client layout noted (ADR-0015). Wording polished. mmdc render deferred (no mmdc in sandbox — T-DOCS-MANUAL-003 sentinel). |
-| D4 | `docs/api/openapi.json` | YES (updated) | UP-TO-DATE | ZERO DRIFT | `make openapi` re-run via backend/.venv python3.13. Regenerated output byte-identical to committed file (git diff empty; working tree clean). `GET /graph` present. GraphResponse schema complete: nodes (id/title/type/x/y), edges (source/target/weight), data_version (int), cached (bool). `X-Graph-Cache: hit\|miss` documented in 200 response headers with ADR-0014 reference. info.version = "0.3.0". |
-| D5 | `docs/screens/` (Playwright PNGs) | YES — capture DEFERRED-TO-LIVE | DEFERRED-TO-LIVE | N/A — no fabrication | Harness exists (see §2). 0 PNGs committed. Acceptable: requires live browser + running stack. Run command documented in §2. EC-M3-11 remains open until Playwright runs against live stack as part of EC-M3-17 (Emanuele live confirmation). |
-| D6a | `docs/USER.md` | NO (v0.4) | N/A | N/A | Not required at M3. Deferred to v0.4 per v0.3-scope §3 and §9. |
-| D6b | `docs/DEPLOY.md` | NO (v0.4) | N/A | N/A | Not required at M3. Deferred to v0.4. DEPLOY.md remains DRAFT-tagged from prior sprint. |
-| D7 | `docs/adr/` (ADRs 0012–0015 + README) | YES (new) | UP-TO-DATE | ZERO DRIFT | ADR-0012 (4-signal formula), ADR-0013 (FA2 + coord persistence, I2), ADR-0014 (GraphCache + GET /graph), ADR-0015 (no client-side layout sigma contract) all present, non-empty, reference I2/FA2/igraph. ADR README index updated: all 15 ADRs listed (0001–0015), correct sprint/status/date/summary. Consistent format throughout. |
+| ID | Artifact | Required M4-GUX P0? | Status | Drift found | Action taken | Notes |
+|----|----------|---------------------|--------|-------------|--------------|-------|
+| D2 | `docs/er/schema.mmd` | YES | UP-TO-DATE | DRIFT FOUND — FIXED | Regenerated via `make er` | See §3 for detail. |
+| D4 | `docs/api/openapi.json` | YES | UP-TO-DATE | DRIFT FOUND — FIXED | Regenerated via `make openapi` | See §4 for detail. |
+| D7 | `docs/adr/README.md` (ADR-0016 index row) | YES | UP-TO-DATE | ZERO DRIFT (row already present) | Header timestamp updated | See §5 for detail. |
+| D5 | `docs/screens/graph-obsidian.png` | REFERENCE ONLY | PENDING QA | N/A | Not captured by tech-writer | QA agent captures separately; see §2. |
+| D1 | `docs/architecture/component.mmd` | NO (v0.4 update deferred) | CARRY-FORWARD | — | — | M3 version remains valid for Phase 0. v0.4 component diagram update scheduled when 3-panel UI lands. |
+| D3 | `docs/sequences/` | NO (Phase 0 scope) | CARRY-FORWARD | — | — | graph-recompute.mmd from M3 remains valid. ADR-0016 edge-filter change is an engine-internal detail; sequence is unchanged. |
+| D6a | `docs/USER.md` | NO (v0.4) | N/A | — | — | Not in Phase 0 scope. |
+| D6b | `docs/DEPLOY.md` | NO (v0.4) | N/A | — | — | Not in Phase 0 scope. |
 
 ---
 
-## 2. D5 deferred-capture status (DEFERRED-TO-LIVE)
+## 2. D5 screenshot reference — QA agent responsibility
 
-The Playwright harness is written, verified present, and does not need to be re-run in this
-sandbox. Files confirmed:
+The `docs/screens/graph-obsidian.png` screenshot is captured by the QA/test-engineer agent
+running Playwright against the live stack. Tech-writer does NOT capture D5. This is the
+established precedent (v0.3 DOCS_STATUS §2: "D5 capture DEFERRED-TO-LIVE").
 
-- `frontend/e2e/graph-perf.spec.ts` — E2E spec capturing G2/G4 metrics and D5 PNGs
-- `frontend/playwright.config.ts` — Config: testDir `./e2e`; baseURL `SYNAPSE_FRONTEND_URL`
-  (default `http://localhost:5173`); headless Chromium; trace on first retry
+Expected capture: `docs/screens/graph-obsidian.png` — graph viewer after ADR-0016 structural
+edge filter, showing Obsidian-style topology (no hairball, nodes sized by structural degree,
+edges styled by kind).
 
-The spec writes two screenshots to `docs/screens/`:
-- `docs/screens/graph-viewer-initial.png` — graph rendered, no node selected
-- `docs/screens/graph-viewer-node-selected.png` — after node click, tooltip/drawer visible
-
-To populate D5 (satisfies EC-M3-11, T-E2E-D5-001..003, G2 runtime T-E2E-G2-001/002,
-G4 T-E2E-G4-001/002):
-
-```bash
-# 1. Seed 200-node/500-edge fixture
-cd backend && python scripts/seed_graph_fixture.py --nodes 200 --edges 500 --db-url $DATABASE_URL
-
-# 2. Start backend
-uvicorn app.main:app --port 8000
-
-# 3. Start frontend
-cd frontend && npm run dev
-
-# 4. Run Playwright (captures PNGs into docs/screens/ and asserts G2/G4)
-cd frontend && npx playwright test e2e/graph-perf.spec.ts --config playwright.config.ts
-```
-
-After the run, commit the two PNGs in `docs/screens/`. This closes EC-M3-11.
+Status at time of this gate: `docs/screens/` directory exists and is empty (0 PNGs committed).
+Gate verdict accounts for this: D5 is referenced but does not block Phase 0. It will be
+confirmed committed in the sprint v0.4 D5 check (alongside the full 3-panel UI screenshots).
 
 ---
 
-## 3. make er / make openapi drift check (I8 gate)
+## 3. D2 ER diagram — drift found and fixed
 
-| Script | Python used | Exit code | Drift vs committed file | Sanity output |
-|--------|------------|-----------|------------------------|---------------|
-| `make er` (`backend/scripts/generate_er.py`) | `backend/.venv/bin/python3` (3.13) | 0 | **ZERO** — `git status` clean | "all 6 tables present (PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES)" |
-| `make openapi` (`backend/scripts/generate_openapi.py`) | `backend/.venv/bin/python3` (3.13) | 0 | **ZERO** — `git status` clean | "all 5 required endpoints present (including GET /graph)" |
+### Drift description (pre-fix)
 
-Runtime note: the system Python at `/usr/bin/python3` is 3.9 and is incompatible with the
-codebase (requires Python 3.11+ per CLAUDE.md §12; `X | Y` union type syntax and
-`datetime.UTC` require 3.10+/3.11+). Both scripts must be run via `backend/.venv/bin/python3`
-(3.13). This is a devops note, not a drift issue — both scripts succeeded with the venv and
-produced zero drift.
+The committed `docs/er/schema.mmd` was generated at v0.3 / M3 and was missing two columns
+added in migrations 0004 and 0005:
+
+| Column | Table | Migration | Status before fix |
+|--------|-------|-----------|-------------------|
+| `edges.kind` | EDGES | 0004 (2026-06-28) | ABSENT from ER |
+| `pages.pinned` | PAGES | 0005 (2026-06-28) | ABSENT from ER |
+
+Additionally, the header comment read `<!-- Generated: v0.3 sprint 3 | 2026-06-28 -->`,
+not reflecting the M4-GUX transition.
+
+### Fix applied
+
+Ran `/Users/emanuelechiummo/Desktop/LLM Wiki Project/.venv/bin/python backend/scripts/generate_er.py`
+which introspects live SQLAlchemy models (`backend/app/models.py`) and regenerates
+`docs/er/schema.mmd` from the authoritative source. Output confirmed by generator sanity check:
+"all 6 tables present (PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES)".
+
+Header comment in generated file updated to:
+`<!-- Generated: v0.3→v0.4 transition | 2026-06-28 — ADR-0016: edges.kind; Feature A: pages.pinned -->`
+
+`backend/scripts/generate_er.py` line 69 updated to emit this header on future runs.
+
+### Post-fix verification
+
+| Table | Column | Present | Type | Comment accurate |
+|-------|--------|---------|------|-----------------|
+| PAGES | `pinned` | YES | boolean | "True when user manually positioned this node via PATCH /pages/{id}/position; preserved across FR recomputes (Feature A)." |
+| EDGES | `kind` | YES | string | "Structural discriminator: link (wikilink) or source (provenance). ADR-0016 §4. NULL = link for pre-0004 rows." |
+
+All 6 tables present. pages.x/y retained. Relationships (EDGES FK → PAGES) consistent with
+models.py. **Zero drift vs models.py after fix.**
 
 ---
 
-## 4. D2 ER — 6-table confirmation (I8 gate)
+## 4. D4 OpenAPI — drift found and fixed
 
-| Table | ER name | Present | Key v0.3 columns confirmed |
-|-------|---------|---------|---------------------------|
-| `pages` | PAGES | YES | x (double, nullable, ADR-0013), y (double, nullable, ADR-0013). All prior columns retained. |
-| `vault_state` | VAULT_STATE | YES | data_version (int, monotonic); updated_at. |
-| `provider_config` | PROVIDER_CONFIG | YES | Unchanged from v0.2. No api_key column. |
-| `ingest_runs` | INGEST_RUNS | YES | Unchanged from v0.2. total_cost_usd, converged, cost_anomaly present. |
-| `links` | LINKS | YES | Unchanged from v0.2. source_page_id, target_title, target_page_id (nullable FK), dangling. |
-| `edges` | EDGES | YES | id (PK), vault_id, source_page_id (FK), target_page_id (FK), weight (double), signals (jsonb), created_at. |
+### Drift description (pre-fix)
 
-**I8 verdict: ER matches live SQLAlchemy schema. Zero drift. 6 tables confirmed.**
+The committed `docs/api/openapi.json` was generated at v0.3 / M3 and was missing the
+M4-GUX additions:
 
----
+| Missing element | Type | ADR/Feature reference |
+|-----------------|------|----------------------|
+| `PATCH /pages/{page_id}/position` path | New endpoint | Feature A — node pin/drag |
+| `PatchPositionRequest` schema | New schema | Feature A |
+| `PatchPositionResponse` schema (id, x, y, pinned) | New schema | Feature A |
+| `GraphEdgeResponse.kind` field | New field | ADR-0016 §4 |
+| `GraphEdgeResponse` description update | Doc update | ADR-0016 §4 |
+| `GraphNodeResponse.size` description | Doc update | ADR-0016 §2 (sqrt formula) |
+| `GraphNodeResponse.degree` description | Doc update | ADR-0016 §2/§4 (structural degree) |
+| `GraphResponse` example `edges[0].kind` | Example update | ADR-0016 §4 |
 
-## 5. D4 OpenAPI — GET /graph confirmation
+### Fix applied
+
+Ran `/Users/emanuelechiummo/Desktop/LLM Wiki Project/.venv/bin/python backend/scripts/generate_openapi.py`
+which imports `backend/app/main.py` (FastAPI app) and regenerates `docs/api/openapi.json`.
+Output confirmed by generator sanity check:
+"all 5 required endpoints present (including GET /graph)".
+
+Post-generation comparison against live API (`curl http://localhost:8000/openapi.json`) showed
+exact schema match: identical paths, identical component schemas, identical `kind` field
+definition in `GraphEdgeResponse`.
+
+### Post-fix verification
 
 | Check | Result |
 |-------|--------|
-| `GET /graph` path present | YES (path `/graph`, method `get`) |
-| `GraphResponse` `$ref` on 200 response | YES |
-| `nodes` array of `GraphNodeResponse` | YES — required fields: id, title, type, x, y |
-| `edges` array of `GraphEdgeResponse` | YES — required fields: source, target, weight |
-| `data_version` (integer, required) | YES |
-| `cached` (boolean, required) | YES |
-| `X-Graph-Cache: hit\|miss` in response headers | YES — documented in 200 headers object with description "hit\|miss — mirrors the cached field (ADR-0014 §5)" |
-| Synchronous 200 only (no 202) for `/graph` | YES — no 202 response defined for this path (AQ-v0.3-3) |
-| info.version | "0.3.0" (updated from v0.2 "0.1.0" — resolved) |
-| info.description | References F4, I2, FA2, igraph, ADR-0014. Accurate. |
+| `PATCH /pages/{page_id}/position` path present | YES |
+| `PatchPositionRequest` schema: required x, y | YES |
+| `PatchPositionResponse` schema: id, x, y, pinned (all required) | YES |
+| `GraphEdgeResponse.kind` field present | YES — type: string, default: "link", description references ADR-0016 §4 |
+| `GraphEdgeResponse` description references ADR-0016 §4 | YES |
+| `GraphNodeResponse.size` description: "BASE + GROWTH·sqrt(structural_degree)" | YES |
+| `GraphNodeResponse.degree` description: "Structural degree…drives size (ADR-0016 §2/§4)" | YES |
+| `GraphResponse` example edges include `"kind": "link"` | YES |
+| Committed file == live API (`/openapi.json`): path set identical | YES — 8 paths, zero diff |
+| Committed file == live API: schema set identical | YES — 15 schemas, zero diff |
+| `info.version` | "0.3.0" (not yet bumped to 0.4.0; backend-engineer owns version bump) |
+
+**Zero drift vs live FastAPI app after fix.**
 
 ---
 
-## 6. D1 component diagram — detailed validity check
+## 5. D7 ADR index — ADR-0016 verification
 
-File: `docs/architecture/component.mmd`
+File: `docs/adr/README.md`
+
+### Pre-fix state
+
+ADR-0016 row was already present in the index (authored by solution-architect). The header
+line read `Last updated: 2026-06-28 · Sprint v0.3`, which did not reflect the M4-GUX transition.
+
+### Fix applied
+
+Updated header to: `Last updated: 2026-06-28 · Sprint v0.3→v0.4 (M4-GUX Phase 0)`
+
+Updated narrative paragraph to include ADR-0016 description.
+
+### ADR-0016 index row verification
+
+| Field | Value | Correct |
+|-------|-------|---------|
+| ADR number | 0016 | YES |
+| Title | "Obsidian-style graph: structural edges, real-connection sizing, type-as-modulator (F4)" | YES |
+| Status | Accepted | YES |
+| Date | 2026-06-28 | YES |
+| Sprint | v0.3→v0.4 | YES |
+| Link | `0016-obsidian-graph-rendering.md` | YES — file exists at `docs/adr/0016-obsidian-graph-rendering.md` |
+| Summary | Structural-only edges, ADR-0012 superseded §3, sqrt sizing, per-edge kind | YES — accurate |
+
+### ADR-0016 content verification (spot-check)
+
+| Section | Present | Content accurate |
+|---------|---------|-----------------|
+| Context | YES | Describes hairball defect; same-type clique math; user goal |
+| Decision §1 | YES | Structural edges = direct link OR shared source; AA/same-type = modulators |
+| Decision §2 | YES | size = BASE + GROWTH·sqrt(structural_degree); BASE=1.0, GROWTH=1.0 |
+| Decision §3 | YES | FR layout fed structural edge set with modulated weights |
+| Decision §4 | YES | Per-edge `kind` ("link"|"source"); `degree` = structural_degree |
+| Decision §5 | YES | Exact change list for backend-engineer (engine.py + main.py) |
+| Decision §6 | YES | ADR-0012 reconciliation: §3 superseded, §1/§2 weight formula retained |
+| Consequences | YES | Lists +/- outcomes including D5 screenshot regeneration note |
+
+ADR-0016 file is consistent with models.py (edges.kind column added in migration 0004),
+with openapi.json (GraphEdgeResponse.kind field), and with the ER diagram (edges.kind row).
+
+**Total ADRs in index: 16 (0001–0016). All Accepted. Zero gaps.**
+
+---
+
+## 6. Cross-consistency sweep (M4-GUX Phase 0)
 
 | Check | Result |
 |-------|--------|
-| Line 1 = `C4Component` (no leading HTML comment) | PASS |
-| Heading comment in `%%` on line 2 | PASS — `%% <!-- Generated: v0.3 sprint 3 \| 2026-06-28 -->` |
-| `GraphEngine` component, labelled `graph/engine.py` | PASS |
-| `GraphCache` component, labelled `graph/cache.py` | PASS |
-| `Coord/edge persistence` component, labelled `in engine.py` | PASS |
-| `Graph viewer` (sigma viewer) in Frontend boundary | PASS — `React 19 + Vite + sigma.js`, reads precomputed coords |
-| `Graph Zustand store` in Frontend boundary | PASS — selectors + shallow equality (I3) |
-| Postgres component: `pages (+x,y v0.3)` and `edges (v0.3)` noted | PASS |
-| I2 annotation in header comments | PASS |
-| ADR references (0012/0013/0014/0015) in component descriptions | PASS |
-| notify_bump() rel from orch to gcache | PASS |
-| recompute() rel from gcache to gengine (debounced, I7) | PASS |
-| GET /graph rel from rest to gcache (hit/miss) | PASS |
-| viewer fetches GET /graph rel | PASS |
-| No v0.4 features shown (no 3-panel, no chat, no provider selector UI, no CodeMirror) | PASS |
-| Module labels match real backend file paths | PASS |
+| `pages.pinned` in ER matches `models.py` `Page.pinned` (Boolean, NOT NULL, server_default false, migration 0005) | PASS |
+| `edges.kind` in ER matches `models.py` `Edge.kind` (String, nullable, migration 0004) | PASS |
+| `PATCH /pages/{page_id}/position` in openapi.json matches live backend (curl confirms 200 schema) | PASS |
+| `GraphEdgeResponse.kind` in openapi.json matches ADR-0016 §4 ("link"\|"source" discriminator) | PASS |
+| `GraphNodeResponse.size` description (sqrt curve) matches ADR-0016 §2 formula | PASS |
+| `GraphNodeResponse.degree` description (structural degree) matches ADR-0016 §2/§4 | PASS |
+| ADR-0016 edge inclusion rule (structural gate) consistent with ADR-0012 reconciliation note in ADR-0016 §6 | PASS |
+| ADR-0012 §3 superseded status documented in ADR-0016 §6 and README summary | PASS |
+| `docs/adr/0016-obsidian-graph-rendering.md` exists and is non-empty | PASS |
+| ER header comment updated to reflect M4-GUX transition | PASS — "v0.3→v0.4 transition | 2026-06-28 — ADR-0016: edges.kind; Feature A: pages.pinned" |
+| generate_er.py header string updated to match | PASS |
+| D5 screen reference (graph-obsidian.png): QA agent responsibility, not tech-writer | PASS — noted in §2, not blocking gate |
+| I2 invariant: no client-side layout in any diagram or doc | PASS — unchanged; ADR-0015 untouched |
+| I8: ER matches live SQLAlchemy models after regeneration | PASS — zero drift |
+| I8: openapi.json matches live FastAPI app after regeneration | PASS — zero drift |
 
-Style note: the heading comment on line 2 embeds `<!-- -->` inside `%%` (i.e., `%% <!-- ... -->`). The outer `%%` makes it a Mermaid comment so the renderer never sees the HTML. Safe for GitHub and Obsidian. Not a blocking issue.
-
----
-
-## 7. D3 sequence diagram — detailed validity check
-
-File: `docs/sequences/graph-recompute.mmd`
-
-| Check | Result |
-|-------|--------|
-| Line 1 = `sequenceDiagram` | PASS |
-| Heading comment in `%%` (line 2) | PASS |
-| `title` line present | PASS |
-| `autonumber` enabled | PASS |
-| Participants: Watcher/Ingest, vault_state.data_version, GraphCache, GraphEngine, Postgres, Client | PASS |
-| Ingest bump: W→DV (+1 on successful upsert, ADR-0005) | PASS |
-| Ingest notify: W→GC (notify_bump(), in-process trigger) | PASS |
-| Debounce loop: N bumps within window reset fire_at (burst collapse) | PASS |
-| Recompute fires ONCE after debounce window (max 1 in-flight + 1 pending, I7) | PASS |
-| GE reads pages + links from Postgres (no vault walk, I1) | PASS |
-| 4-signal weight note (direct×3 + source×4 + AdamicAdar×1.5 + type×1, ADR-0012) | PASS |
-| Seeded FA2 via igraph noted | PASS |
-| GE→PG: ONE txn — UPDATE pages.x/y per node (column upsert, I1) + replace edges rows | PASS |
-| Cache marker stamp after recompute; one-follow-up rule (I7) | PASS |
-| GET /graph cache-miss path: inline recompute → `cached:false` + `X-Graph-Cache: miss` | PASS |
-| GET /graph cache-hit path: pure Postgres read → `cached:true` + `X-Graph-Cache: hit` | PASS |
-| Client addNode with server coords, NO client layout (ADR-0015) | PASS |
-| I2 invariant annotation at Note over GE | PASS |
-| mmdc render check | DEFERRED (no mmdc in sandbox; T-DOCS-MANUAL-003 sentinel in QA report) |
+**No contradictions found across ER / OpenAPI / ADR-0016 / models.py / migrations 0004–0005.**
 
 ---
 
-## 8. D7 ADR completeness detail
+## 7. Files modified by this gate run
 
-| ADR | Sprint | Status | Key decisions locked |
-|-----|--------|--------|---------------------|
-| 0012 | v0.3 | Accepted 2026-06-28 | 4-signal additive weight formula; EDGES table persistence; edge inclusion rule (weight > 0); worked fixture |
-| 0013 | v0.3 | Accepted 2026-06-28 | FA2 only in engine.py via python-igraph; fixed seed=42; pages.x/y columns; incremental semantics (row-level, not coord-stable); single bounded pass (I7) |
-| 0014 | v0.3 | Accepted 2026-06-28 | In-process debounce on data_version bump (5s, injectable clock); bounded queue (1 in-flight + 1 pending, I7); synchronous GET /graph 200; X-Graph-Cache header; GET /graph response contract |
-| 0015 | v0.3 | Accepted 2026-06-28 | Zero client-side layout (P0 block; static bundle grep + architect review); sigma renders precomputed coords in ONE WebGL canvas; Zustand selectors + shallow equality (I3 pre-compliance); G2/G4 by construction |
-
-ADR README index: all 15 ADRs (0001–0015) listed with correct title, status, date, sprint, summary. No gaps in the index.
-
----
-
-## 9. Cross-consistency sweep
-
-| Check | Result |
-|-------|--------|
-| No doc claims client-side FA2 or layout anywhere | PASS — ADR-0015, component.mmd, graph-recompute.mmd, openapi.json description all state FA2 is server-side only (I2). No contradiction. |
-| GET /graph contract consistent across openapi.json / ADR-0014 §6 / architecture doc §6 / sequence diagram | PASS — nodes/edges/data_version/cached schema identical; X-Graph-Cache header identical. |
-| pages.x/y in ER matches models.py `Page.x`, `Page.y` (Double, nullable) and ADR-0013 §3 | PASS |
-| EDGES table in ER matches models.py `Edge` class (source_page_id, target_page_id, weight, signals, vault_id, created_at) and ADR-0012 | PASS |
-| 4-signal formula consistent across ADR-0012 / architecture doc §2 / component.mmd GraphEngine description / sequence diagram Note | PASS — direct×3 + source×4 + AA×1.5 + type×1 everywhere |
-| 6 tables in ER consistent with models.py (Page, VaultState, ProviderConfig, IngestRun, Link, Edge) | PASS |
-| Debounce default 5s in sequence diagram matches ADR-0014 §2 and architecture doc §5 | PASS |
-| Synchronous 200 for /graph (no 202) in sequence diagram matches openapi.json and ADR-0014 §5 / AQ-v0.3-3 | PASS |
-| component.mmd Postgres description mentions `pages (+x,y v0.3)` and `edges (v0.3)` consistent with ER 6-table count | PASS |
-| ADR README index: 15 ADRs listed; 0012–0015 all Accepted, Sprint v0.3, date 2026-06-28 | PASS |
-| CLAUDE.md §4 F4 multipliers (direct×3, source-overlap×4, Adamic-Adar×1.5, type-affinity×1) match ADR-0012 formula | PASS |
-| I9 compliance: python-igraph (R9) in ADR-0013 and component.mmd; sigma.js (R10) in ADR-0015 and component.mmd; Playwright (R16) in D5 harness; no vis.js/cytoscape/d3-force/networkx referenced anywhere | PASS |
-| I2 is consistently enforced: no doc, no ADR, no diagram ever implies or permits a client-side layout | PASS |
-| Playwright harness + playwright.config.ts exist at expected paths | PASS (verified by file system check) |
-| docs/screens/ directory exists | PASS (T-DOCS-046 sentinel green per QA report) |
-
-**No contradictions found.** All D-artifacts are mutually consistent and consistent with CLAUDE.md.
+| File | Action | Reason |
+|------|--------|--------|
+| `docs/er/schema.mmd` | Regenerated via `make er` + header updated | DRIFT: missing pages.pinned (migration 0005) and edges.kind (migration 0004) |
+| `docs/api/openapi.json` | Regenerated via `make openapi` | DRIFT: missing PATCH /pages/{id}/position, PatchPositionRequest/Response schemas, GraphEdgeResponse.kind |
+| `backend/scripts/generate_er.py` | Header string updated (line 69) | Header was "v0.3 sprint 3"; updated to "v0.3→v0.4 transition …" |
+| `docs/adr/README.md` | Header timestamp + narrative paragraph updated | Header said "Sprint v0.3"; ADR-0016 row was present; narrative lacked ADR-0016 description |
+| `DOCS_STATUS.md` | Full rewrite (this file) | Supersedes M3 gate; Phase 0 verdict |
 
 ---
 
-## 10. DOCS GATE VERDICT
+## 8. DOCS GATE VERDICT — M4-GUX Phase 0
 
-| Item | Verdict |
-|------|---------|
-| D1 component.mmd (v0.3 update) | UP-TO-DATE |
-| D2 schema.mmd (v0.3 update — 6 tables, pages.x/y + EDGES) | UP-TO-DATE — ZERO DRIFT |
-| D3 graph-recompute.mmd (new) | UP-TO-DATE |
-| D4 openapi.json (v0.3 update — GET /graph + X-Graph-Cache) | UP-TO-DATE — ZERO DRIFT |
-| D5 screenshots | DEFERRED-TO-LIVE (harness present and verified; 0 PNGs; run command in §2) |
-| D6a/D6b USER.md / DEPLOY.md | N/A (v0.4) |
-| D7 ADRs 0012–0015 + README | UP-TO-DATE |
-| Cross-consistency sweep | PASS — no contradictions |
-| ER drift (I8 gate) | ZERO |
-| OpenAPI drift | ZERO |
+| Artifact | Status | Detail |
+|----------|--------|--------|
+| D2 `docs/er/schema.mmd` | UP-TO-DATE (drift fixed) | pages.pinned + edges.kind now present; header updated; zero drift vs models.py |
+| D4 `docs/api/openapi.json` | UP-TO-DATE (drift fixed) | PATCH /pages/{id}/position + PatchPositionRequest/Response + GraphEdgeResponse.kind all present; zero drift vs live API |
+| D7 ADR-0016 row in `docs/adr/README.md` | UP-TO-DATE | Row was present; index header updated to M4-GUX; 16 ADRs listed, zero gaps |
+| D5 `docs/screens/graph-obsidian.png` | PENDING QA | QA agent captures separately; not blocking Phase 0 gate |
 
-**DOCS GATE: UP-TO-DATE**
+**DOCS GATE: PASS**
 
-D5 screenshot capture is DEFERRED-TO-LIVE. This is explicitly tracked in §2, matches the QA
-report deferral (T-E2E-D5-001..003 DEFERRED-TO-LIVE in v0.3-qa-report.md §5), and is the
-established precedent for live-infra tests in this project. It does NOT block the docs gate;
-it holds only EC-M3-11 (D5 screenshots committed) which will close when Emanuele runs the
-Playwright suite against the live stack as part of EC-M3-17 (human checkpoint).
+All required M4-GUX Phase 0 D-artifacts are UP-TO-DATE after drift correction. D5 is
+a QA-agent responsibility (Playwright capture against live stack) and is explicitly tracked
+as pending — it does not block this gate.
 
-All other required v0.3 D-artifacts are UP-TO-DATE with zero drift.
+Drift found and fixed in this run:
+- D2: `pages.pinned` and `edges.kind` were absent from the committed ER diagram.
+- D4: `PATCH /pages/{page_id}/position` endpoint, `PatchPositionRequest/Response` schemas,
+  and `GraphEdgeResponse.kind` field were absent from the committed openapi.json.
 
-**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-28 | EC-M3-15**
+Both artifacts now match the live schema (models.py / migrations 0004–0005) and the live
+FastAPI app respectively.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-28 | M4-GUX Phase 0**

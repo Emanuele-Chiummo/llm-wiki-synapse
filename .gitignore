@@ -41,8 +41,13 @@ vault/wiki/.obsidian/
 
 # Generated docs artefacts — D2 (ER) and D4 (OpenAPI) ARE committed so they are
 # reviewable in-repo and the CI drift check (`make er`/`make openapi` + git diff) is meaningful (I8).
-# Only large/binary screenshot output stays out of git until D5 (v0.3).
-docs/screens/
+# D5 (v0.4): committed Playwright PNG screenshots ARE tracked; transient capture junk is not.
+docs/screens/*
+!docs/screens/*.png
+
+# Playwright test output (transient — never committed)
+/frontend/playwright-report/
+/frontend/test-results/
 
 # OS
 .DS_Store
