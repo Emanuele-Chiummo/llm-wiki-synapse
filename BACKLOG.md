@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-06-28 (Sprint 1 PM sign-off — M1 MET-PENDING-HUMAN-CHECKPOINT)
+> Last updated: 2026-06-28 (Sprint 2 kick-off — M1 CLOSED, M2 scope locked)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -24,7 +24,9 @@ Goal: walking skeleton — file dropped into vault/raw/sources/ triggers increme
 index → Postgres metadata row + Qdrant vector created → REST API returns the page.
 No AI inference, no graph layout, no UI.
 
-**Sprint status: DONE-PENDING-HUMAN-CHECKPOINT**
+**Sprint status: DONE — M1 CLOSED**
+Closed by: docs/sprints/v0.1-m1-closure.md (live demo on MacBook Air M2 with real Postgres
+16 + Qdrant + bge-m3 via Ollama — all EC items confirmed including EC-15 human checkpoint).
 Velocity: ON SCOPE. All in-scope feature IDs delivered. No underrun. No overrun.
 One permitted early extra: docs/DEPLOY.md (D6b draft, DRAFT-tagged, harmless).
 PM sign-off: docs/sprints/v0.1-pm-signoff.md | 2026-06-28
@@ -330,24 +332,317 @@ MCP tool schemas deferred to v0.2 (FastMCP server is not in scope for v0.1).
 
 ---
 
-## Sprint 2 — v0.2 — M2 "Agentic loop closed, 3 providers" — BACKLOG
+## Sprint 2 — v0.2 — M2 "Agentic loop closed, 3 providers"
 
-**Boundary confirmed:** No v0.2 code or schema has been introduced in sprint/v0.1.
-`provider_config` table absent from ER, C4, OpenAPI. F17 exists only as a comment
-(extension point) in orchestrator.py. Sprint 2 may begin after EC-15 (human checkpoint).
+**Sprint status: IN-PROGRESS**
+Scope locked: 2026-06-28 by product-manager. Scope log: docs/sprints/v0.2-scope.md
+Prerequisite: M1 CLOSED — docs/sprints/v0.1-m1-closure.md confirmed.
+Branch: sprint/v0.2
+Invariants in force with heightened priority: I6 (pluggable inference — defining invariant
+this sprint), I7 (bounded loops — first real loops introduced). All 9 invariants apply.
+Velocity note: Highest-complexity sprint in roadmap. Estimated 10–14 solo evening sessions.
 
-Items to be fully scoped at Sprint 2 kick-off. IDs assigned per CLAUDE.md §8.
+---
 
-| Feature ID | Description | Notes |
-|------------|-------------|-------|
-| F17 | InferenceProvider ABC + OllamaProvider + ApiProvider + CliAgentProvider | Defining feature; ai-agent-engineer leads |
-| K2 (ingest op) | Full ingest orchestrator (analyze → generate → validate → retry, bounded by I7) | Requires F17 first |
-| F3 | Two-step CoT ingest, source traceability, auto overview.md | Depends on F17 |
-| K3 | index.md catalogue auto-maintained by ingest | Depends on ingest loop |
-| K5 | [[wikilink]] parser | Needed before graph (F4) |
-| D3 | Sequence diagrams: ingest loop + routing | Required for v0.2 docs gate |
-| D7 | First ADR: InferenceProvider design decision | Required from v0.2 per CLAUDE.md §9 |
-| MCP server | FastMCP standalone server (backend/app/mcp/server.py) | Required M2 |
+### F17 — InferenceProvider ABC + 3 backends + capability routing
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F17 |
+| Sprint | v0.2 |
+| Status | in-progress |
+| Priority | P0 — defining feature of sprint; all other items depend on it |
+| Owner | ai-agent-engineer (leads); backend-engineer (support) |
+
+**Scope:**
+`backend/app/ingest/provider/base.py` — `InferenceProvider` ABC with methods:
+`analyze(source_text, vault_context) → Analysis`, `generate(analysis, retrieval_context)
+→ list[WikiPage]`, `chat(messages, retrieval_context) → stream` (STUBBED, see §5 of scope
+lock), `capabilities() → {mode, supports_tools, supports_agentic_loop, max_context, name}`.
+
+`ollama.py` — OllamaProvider: Ollama /api/chat with format=json; tool-calling only if
+model supports it; `supports_agentic_loop=False`.
+
+`api.py` — ApiProvider: Anthropic Messages API (tool-use + JSON Schema) + OpenAI-compatible
+endpoint (configurable base_url from provider_config); `supports_agentic_loop=False`.
+
+`cli.py` — CliAgentProvider: claude-agent-sdk; filesystem tools scoped to vault;
+in-process MCP tools (search, write_page); permission_mode='acceptEdits';
+`supports_agentic_loop=True`.
+
+`provider_config` Postgres table: id, scope (global/vault/operation), vault_id (nullable),
+provider_type (local/api/cli), model_id, base_url (nullable), max_iter, token_budget,
+created_at, updated_at. Resolution order: operation > vault > global.
+
+REST endpoints: `GET /provider/config`, `POST /provider/config`.
+
+**Acceptance criteria:**
+- AC-F17-1: InferenceProvider ABC defines all 4 methods with correct signatures; mypy strict passes.
+- AC-F17-2: All 3 concrete providers implement the ABC; chat() raises NotImplementedError; unit test confirms each provider's chat() raises NotImplementedError.
+- AC-F17-3: `capabilities()` returns correct dict for each provider; `OllamaProvider.supports_agentic_loop == False`; `CliAgentProvider.supports_agentic_loop == True`.
+- AC-F17-4: Static analysis test asserts zero direct Ollama/Anthropic/SDK imports outside `backend/app/ingest/provider/`; no model IDs, API keys, or endpoint URLs hardcoded anywhere outside provider modules.
+- AC-F17-5: `provider_config` table exists after Alembic migration; all columns present with correct types.
+- AC-F17-6: Config resolution order (operation > vault > global) verified by unit test with 3 conflicting rows.
+- AC-F17-7: `GET /provider/config` returns HTTP 200 with current config; `POST /provider/config` accepts and persists new config; both endpoints in OpenAPI.
+- AC-F17-8: No model ID is hardcoded in any file — always read from `provider_config`. Current model IDs from CLAUDE.md §12 are seeded as defaults.
+
+---
+
+### K2 (ingest op) — Orchestrated ingest loop with capability routing
+
+| Field | Value |
+|-------|-------|
+| Feature ID | K2 (ingest operation — full implementation) |
+| Sprint | v0.2 |
+| Status | in-progress |
+| Priority | P0 — spine of M2; wires F17 + F3 |
+| Owner | backend-engineer; ai-agent-engineer for routing branch |
+
+**Scope:**
+`backend/app/ingest/orchestrator.py` — expand the v0.1 seam (ADR-0003) into the full
+routing loop:
+1. Resolve provider from `provider_config` (operation > vault > global scope).
+2. Call `capabilities()`.
+3. If `supports_agentic_loop == True` (CliAgentProvider): delegate full ingest to the CLI
+   provider. Provider links pages using MCP tools in its own agent loop.
+4. Otherwise (Local / API): run orchestrated ingest loop:
+   a. `analyze(source_text, vault_context)` — two-step CoT, step 1.
+   b. `generate(analysis, retrieval_context)` — step 2; returns list[WikiPage].
+   c. Validate: check each WikiPage has required frontmatter (type, title, sources[]).
+   d. If invalid: augment prompt with validation errors; retry. Max iterations: `max_iter`
+      (default 3). If still invalid after max_iter: log converged=False, surface error.
+   e. Write valid pages to vault/wiki/ (reuse persist_metadata + upsert_vector primitives).
+   f. Parse wikilinks (K5), update links table.
+   g. Update index.md (K3).
+   h. Log: provider_name, iterations_used, total_tokens, total_cost_usd, converged.
+5. Provider fallback: if primary provider fails/times out → try fallback once → surface error.
+   Bounded to 1 retry (I7).
+
+**Acceptance criteria:**
+- AC-K2-1: Ingest of a fixture .md file with OllamaProvider results in at least 1 page written to vault/wiki/ with valid YAML frontmatter (type, title, sources[] all present and non-empty).
+- AC-K2-2: Ingest with ApiProvider (Anthropic) produces same result; sources[] populated from original file's frontmatter + LLM-identified sources.
+- AC-K2-3: Ingest with CliAgentProvider executes delegated path; orchestrated loop body does NOT execute; pages written to vault/wiki/ via MCP write_page tool.
+- AC-K2-4: The routing branch reads `capabilities().supports_agentic_loop` — does NOT inspect provider class name or type string (confirmed by code review + test that swaps a custom provider with supports_agentic_loop=True into the config).
+- AC-K2-5 (I7): Loop stops at max_iter=3 on a mock provider that always returns invalid pages; log entry has converged=False; no extra provider calls beyond cap.
+- AC-K2-6 (I7): Every ingest run produces a log entry with keys: provider_name, max_iter_used, total_tokens, total_cost_usd, converged.
+- AC-K2-7: Provider fallback (primary timeout → fallback once) tested; second failure surfaces as HTTP 500 with error body; no infinite retry.
+- AC-K2-8: vault/wiki/overview.md is created (or updated) after first ingest into a new vault.
+
+---
+
+### F3 — Two-step CoT ingest, source traceability, auto overview.md, language-aware
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F3 |
+| Sprint | v0.2 |
+| Status | in-progress |
+| Priority | P0 — what the loop produces |
+| Owner | ai-agent-engineer (prompt engineering); backend-engineer (integration) |
+
+**Scope:**
+The two-step CoT ingest:
+- Step 1: `analyze(source_text, vault_context)` — identify: topics, entities, concepts,
+  relationships, language of source, suggested wiki page types, cross-references to existing
+  pages. Returns structured `Analysis` object.
+- Step 2: `generate(analysis, retrieval_context)` — produce `list[WikiPage]` where each
+  WikiPage has: title, type (entity/concept/source/synthesis/comparison), content (Markdown
+  with [[wikilinks]]), YAML frontmatter with sources[] tracing back to the source file.
+- Source traceability: `sources[]` in each generated page frontmatter MUST include the
+  originating source file path. LLM may add additional cited sources from the retrieval
+  context.
+- Auto overview.md: after first ingest, generate vault/wiki/overview.md summarizing the
+  vault's content in 1–3 paragraphs. Updated (not replaced) on subsequent ingests.
+- Language-aware: detect source language in `analyze()`; generate wiki pages in same language.
+  Language stored in page frontmatter as `lang: <ISO-639-1>`.
+
+**Acceptance criteria:**
+- AC-F3-1: analyze() returns a structured Analysis object (Pydantic model) with: topics (list[str]), entities (list[str]), language (ISO-639-1 code), suggested_pages (list[dict] with title + type).
+- AC-F3-2: generate() returns list[WikiPage] where each page has title, type, content, and frontmatter with type + title + sources[] + lang fields.
+- AC-F3-3: sources[] in each generated page's frontmatter contains the originating source file path (relative to vault/raw/).
+- AC-F3-4: Language detection works for at least EN and IT (the two vault languages per CLAUDE.md §1); generated pages are in the detected language.
+- AC-F3-5: vault/wiki/overview.md is created after first ingest; it is a valid Obsidian-compatible Markdown file with YAML frontmatter.
+- AC-F3-6: Overview.md is updated (appended/regenerated) on each subsequent ingest; it does NOT grow unboundedly (bounded to a max token length in the generation prompt).
+- AC-F3-7: All generated pages pass the validation step in the orchestrated loop without requiring retry on a well-formed source document (happy path converges in 1 iteration).
+
+---
+
+### K5 — [[wikilink]] parser + links table
+
+| Field | Value |
+|-------|-------|
+| Feature ID | K5 |
+| Sprint | v0.2 |
+| Status | in-progress |
+| Priority | P1 — required before graph (F4, v0.3) can compute edges |
+| Owner | backend-engineer |
+
+**Scope:**
+`backend/app/ingest/parser/wikilinks.py` — dedicated parser for [[Target]] and
+[[Target|alias]] syntax. Extracts (target_title, alias_or_None) tuples from Markdown content.
+
+Postgres `links` table (Alembic migration): id (uuid), source_page_id (uuid FK → pages.id),
+target_title (text), alias (text nullable), dangling (bool — True if target page does not
+exist in pages table at parse time), created_at.
+
+After each page write, the wikilink parser runs on the page content and all extracted links
+are upserted into the links table. Dangling links (no matching pages row) are stored with
+dangling=True and logged as warnings. They are NOT errors.
+
+**Acceptance criteria:**
+- AC-K5-1: Parser correctly extracts [[Target Page]] → (target_title="Target Page", alias=None).
+- AC-K5-2: Parser correctly extracts [[Target Page|display text]] → (target_title="Target Page", alias="display text").
+- AC-K5-3: Parser handles multiple wikilinks per page, zero wikilinks, and nested brackets gracefully (no exception on any input).
+- AC-K5-4: After ingest, all wikilinks in generated pages have corresponding rows in the links table.
+- AC-K5-5: Dangling wikilinks (target does not exist in pages table) are stored with dangling=True; a WARNING is logged; no exception raised.
+- AC-K5-6: `links` table schema matches ER diagram (D2); Alembic migration runs cleanly.
+- AC-K5-7: Unit tests: valid link, aliased link, multiple links, zero links, invalid bracket syntax (no crash).
+
+---
+
+### K3 — index.md catalogue auto-maintained
+
+| Field | Value |
+|-------|-------|
+| Feature ID | K3 |
+| Sprint | v0.2 |
+| Status | in-progress |
+| Priority | P1 — required output of ingest loop; LLM navigation entry-point |
+| Owner | backend-engineer |
+
+**Scope:**
+After every successful wiki page write, `vault/wiki/index.md` is updated: a new entry is
+added (or existing entry updated) with the page's title as a [[wikilink]] and its type.
+index.md structure: YAML frontmatter (type: index, title: "Wiki Index") + a Markdown
+sections table organized by page type. If index.md is missing, it is recreated.
+
+**Acceptance criteria:**
+- AC-K3-1: After ingest of a fixture document, vault/wiki/index.md contains a [[wikilink]] entry for each generated wiki page.
+- AC-K3-2: index.md retains valid YAML frontmatter (type: index, title: "Wiki Index") at all times (I5).
+- AC-K3-3: Entries in index.md are organized by page type (entity, concept, source, synthesis, comparison).
+- AC-K3-4: If index.md is absent when the loop runs, it is recreated without error.
+- AC-K3-5: index.md is never truncated — only appended to or regenerated in full if structure drift is detected (regeneration preferred over concatenation).
+- AC-K3-6: Unit test: ingest fixture → assert index.md contains wikilink [[<title>]] for the new page.
+
+---
+
+### MCP server — FastMCP standalone server
+
+| Field | Value |
+|-------|-------|
+| Feature ID | MCP server (backbone for CliAgentProvider; required M2 deliverable per CLAUDE.md §8) |
+| Sprint | v0.2 |
+| Status | in-progress |
+| Priority | P0 — CliAgentProvider cannot delegate without it |
+| Owner | ai-agent-engineer (FastMCP integration); backend-engineer (tool implementations) |
+
+**Scope:**
+`backend/app/mcp/server.py` — FastMCP standalone server. Tools:
+- `search_wiki(query: str) → list[PageRef]` — vector search (Qdrant bge-m3) + keyword filter over vault/wiki/ pages.
+- `write_page(title: str, content: str, frontmatter: dict) → PageRef` — writes a page to vault/wiki/, validates frontmatter (K6 schema), upserts Postgres + Qdrant, updates index.md (K3), parses wikilinks (K5).
+- `get_page(title: str) → Page` — returns full page content + frontmatter from vault/wiki/.
+- `list_pages(type: str | None = None) → list[PageRef]` — lists all pages (optionally filtered by type) from Postgres.
+
+Server starts in stdio mode (for CliAgentProvider subprocess) and HTTP mode (for external clients). `make mcp` target starts it.
+
+Tool schemas exported to `docs/api/mcp-tools.json`.
+
+**Acceptance criteria:**
+- AC-MCP-1: FastMCP server starts without error via `make mcp`; exposes all 4 tools in its tool registry.
+- AC-MCP-2: `search_wiki("test query")` returns a list of PageRef objects with id, title, type, relevance_score.
+- AC-MCP-3: `write_page(...)` writes a valid Markdown file to vault/wiki/, creates a Postgres row, creates a Qdrant vector, updates index.md. Fails with descriptive error if required frontmatter fields are missing.
+- AC-MCP-4: `get_page("Title")` returns the page content and frontmatter; returns a not-found error for unknown titles.
+- AC-MCP-5: `list_pages()` returns all non-deleted pages; `list_pages(type="entity")` filters correctly.
+- AC-MCP-6: Integration test calls each tool via FastMCP test client; all assertions on DB + filesystem state pass.
+- AC-MCP-7: `docs/api/mcp-tools.json` is present and documents all 4 tools with input/output schemas.
+- AC-MCP-8: CliAgentProvider subprocess communicates with MCP server via stdio successfully during the smoke matrix (EC-M2-5).
+
+---
+
+### D3 — Sequence diagrams (ingest routing + ingest loop)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | D3 (docs artifact — first sprint it is required) |
+| Sprint | v0.2 |
+| Status | in-progress |
+| Priority | P1 — required by I8 docs-as-DoD for M2 |
+| Owner | tech-writer |
+
+**Scope:**
+`docs/sequences/ingest-routing.mmd` — Mermaid sequenceDiagram showing the full routing flow
+from watcher event through orchestrator to both branches (orchestrated loop path and CLI
+delegation path) through to pages written and index.md updated.
+
+`docs/sequences/ingest-loop.mmd` — Mermaid sequenceDiagram showing the detailed orchestrated
+loop: analyze → generate → validate → [converged? yes: write pages; no: augment context +
+retry, with max_iter annotated] → log total_cost_usd.
+
+Both diagrams: CI mmdc render check must pass.
+
+**Acceptance criteria:**
+- AC-D3-1: `docs/sequences/ingest-routing.mmd` is a valid Mermaid sequenceDiagram; shows both routing branches; reviewed and approved by tech-writer.
+- AC-D3-2: `docs/sequences/ingest-loop.mmd` is a valid Mermaid sequenceDiagram; shows all loop steps including the max_iter bound annotation and cost log; reviewed and approved by tech-writer.
+- AC-D3-3: Both diagrams pass the CI mmdc render check (no parse errors).
+- AC-D3-4: Diagrams are consistent with the actual implementation (reviewed by architect and tech-writer jointly).
+
+---
+
+### D7 — Architecture Decision Records (first formally required sprint)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | D7 (docs artifact — required from v0.2 per CLAUDE.md §9) |
+| Sprint | v0.2 |
+| Status | in-progress |
+| Priority | P1 — required by I8 docs-as-DoD for M2 |
+| Owner | solution-architect (authors); tech-writer (consistency review) |
+
+**Scope:**
+Minimum required ADRs:
+- `docs/adr/ADR-0007-inference-provider-abc.md`: InferenceProvider ABC design — why ABC (not duck typing), why 3 backends, capability-aware routing approach, why chat() is stubbed not deferred.
+- `docs/adr/ADR-0008-provider-config-schema.md`: provider_config table scope model — why Postgres not a config file, why global/vault/operation hierarchy, resolution order.
+- `docs/adr/ADR-0009-bounded-loop-defaults.md`: max_iter=3 and token_budget defaults — rationale, how total_cost_usd is computed per provider type, anomaly threshold ($1.00/run), CLI cost = $0.00 convention.
+
+Additional ADRs as needed for: FastMCP choice over raw MCP SDK, links table schema (K5), wikilink parser approach.
+
+**Acceptance criteria:**
+- AC-D7-1: ADR-0007 present, covers InferenceProvider design decisions, reviewed and approved by solution-architect.
+- AC-D7-2: ADR-0008 present, covers provider_config schema, reviewed and approved by solution-architect.
+- AC-D7-3: ADR-0009 present, covers bounded-loop defaults and cost logging, reviewed and approved by solution-architect.
+- AC-D7-4: All ADRs follow the established format (Status, Date, Sprint, Decider, Invariants, Context, Decision, Consequences).
+- AC-D7-5: ADRs are internally consistent with the D3 sequence diagrams and the actual code implementation.
+
+---
+
+### D1/D2/D4 updates (continuous per I8)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | D1, D2, D4 (docs artifacts — continuous) |
+| Sprint | v0.2 |
+| Status | in-progress |
+| Priority | P1 — required before M2 docs gate |
+| Owner | tech-writer (D1 narrative); backend-engineer (D2 via `make er`); backend-engineer (D4 via `make openapi`) |
+
+**Scope:**
+D1: Add `docs/architecture/component.mmd` — Mermaid C4Component diagram showing the
+InferenceProvider layer (3 backends), orchestrator routing, MCP server, provider_config,
+links table. Update context.mmd and container.mmd to reflect new architectural elements.
+
+D2: Regenerate `docs/er/schema.mmd` via `make er` after adding provider_config and links
+tables to models.py. Must match live Postgres schema.
+
+D4: Regenerate `docs/api/openapi.json` via `make openapi` after adding provider config
+endpoints. Fix the 202 response schema carry-forward from v0.1. Add
+`docs/api/mcp-tools.json` via FastMCP schema export.
+
+**Acceptance criteria:**
+- AC-D1u-1: docs/architecture/component.mmd is a valid Mermaid C4Component diagram; reviewed by architect and tech-writer.
+- AC-D1u-2: context.mmd and container.mmd updated to include InferenceProvider and MCP server; no stale elements.
+- AC-D2u-1: docs/er/schema.mmd regenerated by `make er`; includes provider_config and links tables with all columns; matches live Postgres schema.
+- AC-D4u-1: docs/api/openapi.json updated; POST /ingest/trigger has correct 202 schema; GET/POST /provider/config documented.
+- AC-D4u-2: docs/api/mcp-tools.json present; all 4 MCP tools documented with input/output schemas.
 
 ---
 
