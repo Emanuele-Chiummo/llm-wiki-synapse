@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-06-28 (Sprint 3 kick-off — M2 DONE-PENDING-HUMAN-CHECKPOINT, M3 scope locked)
+> Last updated: 2026-06-28 (Sprint 3 exit — M3 MET-PENDING-HUMAN-CHECKPOINT; PM sign-off EC-M3-16 issued)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -656,19 +656,21 @@ endpoints. Fix the 202 response schema carry-forward from v0.1. Add
 
 ## Sprint 3 — v0.3 — M3 "Graph live, no main-thread freeze"
 
-**Sprint status: IN-PROGRESS**
+**Sprint status: DONE-PENDING-HUMAN-CHECKPOINT**
 Scope locked: 2026-06-28 by product-manager. Scope log: docs/sprints/v0.3-scope.md
+PM sign-off: docs/sprints/v0.3-pm-signoff.md | 2026-06-28
 Branch: sprint/v0.3
-Prerequisite: EC-M2-17 (Emanuele live TrueNAS confirmation) MUST be satisfied before any
-feature code ships.
-Invariants with heightened priority: I2 (graph layout server-side + cached — headline
-invariant), I4 (WebGL rendering via sigma.js; virtualized lists if any list >50 items).
+Invariants with heightened priority: I2 (headline — APPROVED by architect, no client layout,
+two-layer enforcement), I4 (WebGL sigma.js canvas — APPROVED, ~6 DOM elements).
 All 9 invariants apply.
-Performance gates in force this sprint: G1 (incremental — already proven, maintained), G2
-(graph cached; no main-thread layout; mandatory Playwright test), G3 (N/A — chat is v0.4),
-G4 (≥60fps WebGL render for 200-node graph; bounded DOM; mandatory Playwright test).
-NB pre-start actions: NB-5 fix by devops-engineer before any backend work begins; NB-1,
-NB-2, NB-4 hardening tasks to be folded into the sprint (see tracked tech-debt below).
+Velocity: ON SCOPE. All in-scope feature IDs delivered. Zero out-of-scope items built.
+Zero regressions. 25 new backend tests (366 total), 71 frontend vitest. ADR-0012..0015 added.
+Performance gates: G1 PROVEN-NOW (T-INC-GRAPH-001..004). G2 static PROVEN-NOW (T-NCL-001..022);
+G2 runtime DEFERRED-TO-LIVE. G3 N/A (v0.4). G4 DEFERRED-TO-LIVE (harness + seeder written).
+Human checkpoint: 5 conditions in docs/sprints/v0.3-pm-signoff.md §6. Sprint 4 blocked until
+EC-M3-17 satisfied by Emanuele (Playwright run + sigma viewer confirmed in browser).
+NB follow-ups: NB-1/2/4/5 all DONE (see below). NB-6 (mmdc CI) carried to v0.4. NB-7/8
+are cosmetic diagram notes, optional tech-writer polish for v0.4.
 
 ---
 
@@ -678,7 +680,7 @@ NB-2, NB-4 hardening tasks to be folded into the sprint (see tracked tech-debt b
 |-------|-------|
 | Feature ID | F4 |
 | Sprint | v0.3 |
-| Status | in-progress |
+| Status | done-pending-live-perf — AC-F4-1..5/8/9 GREEN; AC-F4-6 (G2 Playwright longtask) and AC-F4-7 (G4 fps/DOM Playwright) DEFERRED-TO-LIVE; EC-M3-1/2/3/4/8 MET; EC-M3-5/6/7 MET-PENDING-LIVE |
 | Priority | P0 — defining feature of sprint; I2 is the headline invariant |
 | Owner | backend-engineer (engine + cache + API); frontend-engineer (sigma viewer) |
 
@@ -727,7 +729,7 @@ or side drawer (read-only). No chat, no editor, no 3-panel shell.
 |-------|-------|
 | Feature ID | F16 (partial) |
 | Sprint | v0.3 |
-| Status | in-progress |
+| Status | done — AC-F16db-1..4 all GREEN; T-GCACHE-001..013 (13 tests); debounce collapse, in-flight guard, marker stamp all verified; EC-M3-3 MET |
 | Priority | P0 — required to satisfy I2 cached-and-debounced invariant |
 | Owner | backend-engineer |
 
@@ -753,7 +755,7 @@ GFM, multi-provider timeout) are in scope this sprint — all v0.4.
 |-------|-------|
 | Feature ID | F4 (frontend component) |
 | Sprint | v0.3 |
-| Status | in-progress |
+| Status | done-pending-live-perf — AC-FE-1 (viewer load) DEFERRED-TO-LIVE; AC-FE-2/3/4/5 GREEN (T-NCL-001..022, T-GSTORE-001..016, T-GTRANS-001..019); no client layout confirmed; I3 pre-compliance confirmed |
 | Priority | P1 — required to produce D5 (Playwright screenshots) and satisfy M3 milestone |
 | Owner | frontend-engineer |
 
@@ -783,7 +785,7 @@ GFM, multi-provider timeout) are in scope this sprint — all v0.4.
 |-------|-------|
 | Feature ID | D3 (docs artifact — update) |
 | Sprint | v0.3 |
-| Status | in-progress |
+| Status | done — AC-D3v3-1 GREEN (T-DOCS-030..034); AC-D3v3-3 MANUAL (architect + tech-writer approved); AC-D3v3-2 (mmdc CI) DEFERRED — GAP-v0.3-6 carried to NB-6 for v0.4 devops |
 | Priority | P1 — required by I8 for M3 sign-off |
 | Owner | tech-writer |
 
@@ -809,7 +811,7 @@ Also resolve the mmdc CI render check deferred from v0.2 (best-effort carry-forw
 |-------|-------|
 | Feature ID | D5 (docs artifact — first required sprint) |
 | Sprint | v0.3 |
-| Status | in-progress |
+| Status | done-pending-live-perf — AC-D5-4 GREEN (docs/screens/ dir exists); AC-D5-1/2/3 DEFERRED-TO-LIVE (harness at frontend/e2e/graph-perf.spec.ts; 0 PNGs committed; run command in docs/sprints/v0.3-pm-signoff.md §6) |
 | Priority | P1 — required by I8 / CLAUDE.md §9 from v0.3 onward |
 | Owner | qa-test-engineer |
 
@@ -836,7 +838,7 @@ Playwright E2E test (`frontend/tests/`) captures PNG screenshots:
 |-------|-------|
 | Feature ID | D1, D2, D4 (docs artifacts — continuous) |
 | Sprint | v0.3 |
-| Status | in-progress |
+| Status | done — AC-D1v3-1 GREEN (T-DOCS-035..037) + MANUAL (architect + tech-writer approved); AC-D2v3-1 GREEN (T-DOCS-038..041, make er zero drift, 6 tables); AC-D4v3-1 GREEN (T-DOCS-042..045, make openapi zero drift, GET /graph typed) |
 | Priority | P1 — required before M3 docs gate |
 | Owner | tech-writer (D1 narrative); backend-engineer (D2 via `make er`; D4 via `make openapi`) |
 
@@ -865,7 +867,7 @@ hardening tasks carried from M2, not new features.
 |-------|-------|
 | Tracking ID | NB-1 |
 | Sprint | v0.3 (hardening) |
-| Status | in-progress |
+| Status | done — AC-NB1-1..2 GREEN (T-BL-*); orchestrator.py updated; I7 bounded-fallback preserved |
 | Priority | P1 — prevents silent fallback bypass on HTTP 5xx from inference providers |
 | Owner | backend-engineer |
 | Source | v0.2-pm-signoff.md §5; v0.2-architect-review §2 |
@@ -888,7 +890,7 @@ fallback retry. Add `httpx.HTTPStatusError` to the except clause per ADR-0009 §
 |-------|-------|
 | Tracking ID | NB-2 |
 | Sprint | v0.3 (hardening) |
-| Status | in-progress |
+| Status | done — AC-NB2-1..2 GREEN (T-CQ-009); guard now scopes to import lines only; negative test case added |
 | Priority | P2 — zero functional impact; prevents false negatives accumulating as codebase grows |
 | Owner | backend-engineer |
 | Source | v0.2-pm-signoff.md §5 |
@@ -911,7 +913,7 @@ subclasses. This is a test code change only; no production code changes required
 |-------|-------|
 | Tracking ID | NB-4 |
 | Sprint | v0.3 (hardening) |
-| Status | in-progress |
+| Status | done — AC-NB4-1..3 GREEN (T-CLICOST-001..003); SDK cost used when available; $0 convention preserved for build-time path |
 | Priority | P2 — I7 cost accuracy for runtime API-key use of CliAgentProvider |
 | Owner | ai-agent-engineer |
 | Source | v0.2-pm-signoff.md §5 (NB-4 added by PM during Sprint 3 kickoff; not in original §5 list) |
@@ -936,7 +938,7 @@ emit the WARNING and keep $0. No change to ADR-0009's stated convention for buil
 |-------|-------|
 | Tracking ID | NB-5 |
 | Sprint | v0.3 (pre-start blocker) |
-| Status | in-progress — MUST BE RESOLVED BEFORE FIRST SPRINT 3 FEATURE PR |
+| Status | done — AC-NB5-1..2 GREEN (static CI checks); AC-NB5-3 LIVE (correct; live infra test deferred to TrueNAS run). OLLAMA_URL in docker-compose.yml and .env.example. |
 | Priority | P0 — blocks live Local provider via `make up`; blocks v0.3 graph ingest testing |
 | Owner | devops-engineer |
 | Source | v0.2-pm-signoff.md §5 (NB-5 added by PM during Sprint 3 kickoff) |
@@ -958,6 +960,68 @@ Fix: add `OLLAMA_URL` to the `environment` section of the `synapse-backend` serv
 
 ---
 
+### NB-6 — mmdc CI render check (carried from v0.2 + v0.3)
+
+| Field | Value |
+|-------|-------|
+| Tracking ID | NB-6 |
+| Sprint | v0.4 (devops-engineer) |
+| Status | backlog |
+| Priority | P2 — T-DOCS-MANUAL-003 sentinel passes unconditionally; Mermaid files content-validated but not render-validated in CI |
+| Owner | devops-engineer |
+| Source | GAP-v0.2-3 / GAP-v0.3-6; carried from v0.2 (AC-D3-3 deferred) through v0.3 |
+
+**Item:** Install mmdc (Mermaid CLI) in the CI environment and add a render step that validates
+`docs/sequences/ingest-routing.mmd`, `docs/sequences/ingest-loop.mmd`, and
+`docs/sequences/graph-recompute.mmd` render without parse errors. Currently T-DOCS-MANUAL-003
+passes unconditionally as a sentinel. devops-engineer must wire mmdc into CI before M4 sign-off.
+
+**Acceptance criteria:**
+- AC-NB6-1: mmdc is installed in CI (package.json devDependency or CI action step).
+- AC-NB6-2: CI step runs `mmdc -i docs/sequences/*.mmd -o /tmp/mmd-render/` and exits 0.
+- AC-NB6-3: T-DOCS-MANUAL-003 is replaced with a real mmdc assertion (or the sentinel is updated to assert mmdc exit code = 0).
+
+---
+
+### NB-7 — Cosmetic: graph-recompute.mmd hit-path read source (optional polish)
+
+| Field | Value |
+|-------|-------|
+| Tracking ID | NB-7 |
+| Sprint | v0.4 (tech-writer, optional) |
+| Status | backlog |
+| Priority | P3 — cosmetic; non-blocking per architect review §7 note D-1 |
+| Owner | tech-writer |
+| Source | v0.3-architect-review.md §7 note D-1 |
+
+**Item:** Line 49 of `docs/sequences/graph-recompute.mmd` shows the cache-hit path as
+`GC->>PG: SELECT pages.x/y + edges`. The actual implementation serves a cache HIT from the
+in-process `_snapshot` (not a Postgres re-query). The load-bearing I2 claim is correct; the
+source of the read (in-memory vs. PG) is a simplification. Optional one-line diagram update
+to show `GC->>Client: (from in-process snapshot)` on the HIT path.
+
+**Acceptance criteria:**
+- AC-NB7-1: graph-recompute.mmd updated to show HIT path served from in-process snapshot; reviewed by architect.
+
+---
+
+### NB-8 — Cosmetic: component.mmd store filename label (optional polish)
+
+| Field | Value |
+|-------|-------|
+| Tracking ID | NB-8 |
+| Sprint | v0.4 (tech-writer, optional) |
+| Status | backlog |
+| Priority | P3 — cosmetic; non-blocking per architect review §7 note D-2 |
+| Owner | tech-writer |
+| Source | v0.3-architect-review.md §7 note D-2 |
+
+**Item:** `docs/architecture/component.mmd` labels the graph Zustand store component as
+`store/graph.ts`. The real file is `store/graphStore.ts`. One-word label drift.
+
+**Acceptance criteria:**
+- AC-NB8-1: component.mmd updated to label store component `store/graphStore.ts`; reviewed by tech-writer.
+
 ---
 
 ## Sprint 4 — v0.4 — M4 "Usable & fluid" — BACKLOG (not yet started)
@@ -974,6 +1038,9 @@ Fix: add `OLLAMA_URL` to the `environment` section of the `synapse-backend` serv
 | G3 | Streaming perf gate — first mandatory sprint (I3: no per-token heavy parse; Zustand selector pattern pre-wired in v0.3 viewer store) | |
 | D5 (update) | UI screenshots refreshed after 3-panel shell added | |
 | D6 | User guide + Deploy guide (drafts) | |
+| NB-6 | mmdc CI render check (devops-engineer) | Carried from v0.2/v0.3; must be resolved before M4 sign-off |
+| NB-7 | graph-recompute.mmd hit-path cosmetic fix (tech-writer, optional) | Architect note D-1 |
+| NB-8 | component.mmd store filename label cosmetic fix (tech-writer, optional) | Architect note D-2 |
 
 ---
 
