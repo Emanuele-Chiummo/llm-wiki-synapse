@@ -3,13 +3,18 @@ SQLAlchemy 2 ORM models — single source of truth for D2 ER diagram (I8 / AC-PG
 
 Tables defined here:
   - pages           : one row per source file; soft-deletable (ADR-0005).
+                      v0.3: adds pages.x / pages.y (FA2 layout coords, ADR-0013 / AQ-6).
   - vault_state     : one row per vault; holds the monotonic data_version (ADR-0005).
   - provider_config : F17 backend selection per scope (global|vault|operation) (ADR-0008).
   - ingest_runs     : per-run cost/convergence audit ledger (I7, ADR-0008 §4).
   - links           : K5 wikilink edges; source_page_id → target_title (dangling until resolved).
+  - edges           : v0.3 graph edges; 4-signal weighted pairs (ADR-0012 / AQ-5).
 
 provider_config + ingest_runs added in v0.2 (ADR-0008). links added in v0.2 (ADR-0008 §5).
 All three new tables ship in a single Alembic migration 0002 (one schema-change event).
+
+v0.3: edges table + pages.x/y columns ship in Alembic migration 0003 (one schema-change
+event, ADR-0012 / ADR-0013).
 
 Run `make er` to regenerate docs/er/schema.mmd from this file (I8).
 """
@@ -18,10 +23,12 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Double,
     ForeignKey,
     Index,
     Integer,
@@ -34,7 +41,7 @@ from sqlalchemy import (
     text as sa_text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 
@@ -122,6 +129,19 @@ class Page(Base):
         UUID(as_uuid=True),
         nullable=True,
         comment="Qdrant point id == pages.id; explicit to allow deliberate divergence later",
+    )
+
+    # ── FA2 layout coordinates (v0.3, ADR-0013 / AQ-6) ──────────────────────
+    x: Mapped[float | None] = mapped_column(
+        Double,
+        nullable=True,
+        comment="FA2 x-coordinate (DOUBLE PRECISION); NULL until first layout (ADR-0013)",
+    )
+
+    y: Mapped[float | None] = mapped_column(
+        Double,
+        nullable=True,
+        comment="FA2 y-coordinate (DOUBLE PRECISION); NULL until first layout (ADR-0013)",
     )
 
     # ── Soft delete ───────────────────────────────────────────────────────────
@@ -500,4 +520,102 @@ class Link(Base):
         return (
             f"<Link [[{self.target_title}{alias_part}]] "
             f"from={self.source_page_id} dangling={self.dangling}>"
+        )
+
+
+class Edge(Base):
+    """
+    v0.3 graph edge — one row per weighted undirected page pair (ADR-0012, AQ-5).
+
+    Computed by GraphEngine.recompute() from the 4-signal additive formula:
+      weight = 3·direct_link_count + 4·shared_source_count + 1.5·adamic_adar + 1·same_type
+    (ADR-0012 / v0.3-architecture §2).
+
+    Persisted iff weight > 0 (sparse table). Replaced as a whole on each recompute via
+    delete-then-insert inside a single transaction (AQ-5, ADR-0013 §algorithm step 6).
+
+    The pair is stored **canonically** (smaller UUID first by string comparison) so the
+    unique constraint on (vault_id, source_page_id, target_page_id) is always effective.
+
+    signals JSONB holds the per-signal breakdown {direct, source, aa, type} for audit /
+    independent-signal QA assertions (AC-F4-1(e)).
+    """
+
+    __tablename__ = "edges"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Row identity",
+    )
+
+    vault_id: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment="Scope edges per vault (matches pages/vault_state pattern)",
+    )
+
+    source_page_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pages.id"),
+        nullable=False,
+        comment=(
+            "Unordered pair stored canonically (smaller UUID first by string sort). "
+            "FK → pages.id (ADR-0012 / AQ-5)"
+        ),
+    )
+
+    target_page_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pages.id"),
+        nullable=False,
+        comment="FK → pages.id; target of the undirected pair (ADR-0012)",
+    )
+
+    weight: Mapped[float] = mapped_column(
+        Double,
+        nullable=False,
+        comment=(
+            "Additive 4-signal weight > 0 (ADR-0012): "
+            "3·direct + 4·source_overlap + 1.5·adamic_adar + 1·same_type"
+        ),
+    )
+
+    signals: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment='Per-signal breakdown {"direct","source","aa","type"} for audit (AC-F4-1(e))',
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time (set on each recompute batch)",
+    )
+
+    # Relationships (for ORM convenience; not required by the graph engine)
+    source_page: Mapped[Page] = relationship("Page", foreign_keys=[source_page_id], lazy="raise")
+    target_page: Mapped[Page] = relationship("Page", foreign_keys=[target_page_id], lazy="raise")
+
+    # Constraints & indexes
+    __table_args__ = (
+        # Unique on the canonicalised undirected pair within a vault
+        UniqueConstraint(
+            "vault_id",
+            "source_page_id",
+            "target_page_id",
+            name="uq_edges_vault_pair",
+        ),
+        # Indexes both endpoints for GET /graph reads and cascade cleanup (F13, v0.5)
+        Index("ix_edges_source_page_id", "source_page_id"),
+        Index("ix_edges_target_page_id", "target_page_id"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Edge {self.source_page_id}↔{self.target_page_id} "
+            f"w={self.weight:.3f} vault={self.vault_id!r}>"
         )
