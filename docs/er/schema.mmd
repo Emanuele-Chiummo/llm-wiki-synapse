@@ -1,4 +1,4 @@
-<!-- Generated: v0.2 sprint 2 | 2026-06-28 -->
+<!-- Generated: v0.3 sprint 3 | 2026-06-28 -->
 erDiagram
 
     PAGES {
@@ -11,6 +11,8 @@ erDiagram
         string content_hash "sha256 hex of raw file bytes — authoritative change signal (ADR-0001)"
         int source_mtime_ns "st_mtime_ns at last confirmed index — cheap fast-path gate (ADR-0001)"
         uuid qdrant_point_id "Qdrant point id == pages.id; explicit to allow deliberate divergence later"
+        double x "FA2 x-coordinate (DOUBLE PRECISION); NULL until first layout (ADR-0013)"
+        double y "FA2 y-coordinate (DOUBLE PRECISION); NULL until first layout (ADR-0013)"
         timestamptz deleted_at "NULL = live; set = soft-deleted (ADR-0005); Qdrant point hard-deleted"
         timestamptz created_at "Row creation time"
         timestamptz updated_at "Updated on every upsert (AC-WATCH-3)"
@@ -36,6 +38,16 @@ erDiagram
         string vault_id "One row per vault; from VAULT_ID env var"
         int data_version "Monotonic; +1 per successful upsert ingest (AC-F16dv-2/4); FA2 debounce signal"
         timestamptz updated_at "Last bump time"
+    }
+
+    EDGES {
+        uuid id PK "Row identity"
+        string vault_id "Scope edges per vault (matches pages/vault_state pattern)"
+        uuid source_page_id FK "Unordered pair stored canonically (smaller UUID first by string sort). FK → pages.id (ADR-0012 / AQ-5)"
+        uuid target_page_id FK "FK → pages.id; target of the undirected pair (ADR-0012)"
+        double weight "Additive 4-signal weight > 0 (ADR-0012): 3·direct + 4·source_overlap + 1.5·adamic_adar + 1·same_type"
+        jsonb signals "Per-signal breakdown {"direct","source","aa","type"} for audit (AC-F4-1(e))"
+        timestamptz created_at "Row creation time (set on each recompute batch)"
     }
 
     INGEST_RUNS {
