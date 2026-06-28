@@ -1,6 +1,17 @@
 # DOCS_STATUS — Sprint v0.4 / M4 Documentation Gate
 
 > Tech-writer sign-off. Phases appended chronologically; most recent phase at top.
+
+## Phase 3 (Chat — F6/F7/F8 + G3) — DOCS GATE: PASS
+
+- **D1** `docs/architecture/component.mmd` — UPDATED: chat backend module (context/think/stream) + `/chat/stream` + `/conversations*` routes; frontend ChatSection/ConversationList/MessageList/StreamingMessage/MarkdownView/ThinkBlock/MessageInput + chatStore/chatClient/useChatStream/latexToUnicode (I3/I4/G3 annotated); OllamaProvider/ApiProvider `chat()` implemented; NavRail Chat enabled.
+- **D2** `docs/er/schema.mmd` — zero drift: migration 0007 `conversations` + `messages` (per-message input/output tokens + total_cost_usd, I7) match models.py.
+- **D4** `docs/api/openapi.json` — zero drift: `/chat/stream`, `/conversations`, `/conversations/{id}`, `/conversations/{id}/messages` present.
+- **D5** `docs/screens/` — chat-streaming.png + chat-conversation.png committed (chat-think-block.png deferred — qwen2.5:3b emits no `<think>`).
+- **ADR-0019** indexed in `docs/adr/README.md` (Accepted).
+- **Deferred to M5**: F5 4-phase retrieval + `[n]` citations, save-to-wiki (button disabled "coming in M5"), CliAgentProvider.chat().
+
+
 > Generated: 2026-06-28
 > Author: tech-writer (claude-sonnet-4-6)
 > Sprint branch: sprint/v0.3 (v0.4 Phase 1 + Phase 2 work)
