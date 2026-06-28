@@ -1,0 +1,259 @@
+"""
+Bounded-loop tests (I7, ADR-0009). Infra-free — fake providers only.
+
+Coverage:
+  - non-converging provider stops at EXACTLY max_iter=3 (no overrun); analyze called ONCE;
+    generate called max_iter times; Usage accumulated; converged=False.
+  - token_budget stops the loop before a call it cannot afford.
+  - cost-anomaly ($1) inline WARNING is emitted and cost_anomaly=True is recorded.
+  - provider fallback is bounded to exactly ONE attempt.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import AsyncIterator
+
+import app.ingest.orchestrator as orch
+import pytest
+from app.ingest.loop import run_orchestrated_loop
+from app.ingest.provider.base import InferenceProvider, UsageAccumulator
+from app.ingest.schemas import (
+    Analysis,
+    Message,
+    PageType,
+    ProviderCapabilities,
+    SuggestedPage,
+    Usage,
+    WikiFrontmatter,
+    WikiPage,
+)
+
+ORIGIN = "raw/sources/x.md"
+
+
+def _analysis() -> Analysis:
+    return Analysis(
+        topics=["t"],
+        entities=[],
+        language="en",
+        suggested_pages=[SuggestedPage(title="P", type=PageType.CONCEPT)],
+    )
+
+
+class _NonConverging(InferenceProvider):
+    """Always returns an INVALID batch (empty sources[]) → never converges."""
+
+    def __init__(self) -> None:
+        self.analyze_calls = 0
+        self.generate_calls = 0
+
+    def capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities("local", False, False, 8192, "NonConverging")
+
+    async def analyze(self, source_text: str, vault_context: str) -> Analysis:
+        self.analyze_calls += 1
+        self._record_usage(Usage(input_tokens=5, output_tokens=5, total_cost_usd=0.0))
+        return _analysis()
+
+    async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+        self.generate_calls += 1
+        self._record_usage(Usage(input_tokens=10, output_tokens=10, total_cost_usd=0.0))
+        # Bypass WikiFrontmatter's own non-empty check to produce a page that FAILS the
+        # validator's origin-path rule (sources present but missing the origin path).
+        return [
+            WikiPage(
+                title="P",
+                type=PageType.CONCEPT,
+                content="body",
+                frontmatter=WikiFrontmatter(
+                    type=PageType.CONCEPT, title="P", sources=["unrelated.md"], lang="en"
+                ),
+            )
+        ]
+
+    async def chat(
+        self, messages: list[Message], retrieval_context: str
+    ) -> AsyncIterator[str]:  # pragma: no cover
+        raise NotImplementedError
+
+
+@pytest.mark.asyncio
+async def test_non_converging_stops_at_max_iter_no_overrun() -> None:
+    provider = _NonConverging()
+    acc = UsageAccumulator()
+    result = await run_orchestrated_loop(
+        provider=provider,
+        accumulator=acc,
+        source_text="s",
+        vault_context="",
+        retrieval_context="",
+        origin_source=ORIGIN,
+        max_iter=3,
+        token_budget=1_000_000,  # high so max_iter is the binding bound
+    )
+    assert result.converged is False
+    assert result.stop_reason == "max_iter"
+    assert result.iterations == 3  # EXACTLY max_iter — no overrun (AC-K2-5)
+    assert provider.analyze_calls == 1  # analyze ONCE (AQ-v0.2-1)
+    assert provider.generate_calls == 3  # generate == max_iter
+    # Usage accumulated across analyze + 3 generates.
+    assert acc.calls == 4
+    assert acc.total_tokens == (5 + 5) + 3 * (10 + 10)
+
+
+@pytest.mark.asyncio
+async def test_token_budget_stops_loop_before_unaffordable_call() -> None:
+    provider = _NonConverging()
+    acc = UsageAccumulator()
+    # analyze spends 10 tokens; budget 15 → after iter 1 (spends 20) total=30 >= 15 → stop.
+    result = await run_orchestrated_loop(
+        provider=provider,
+        accumulator=acc,
+        source_text="s",
+        vault_context="",
+        retrieval_context="",
+        origin_source=ORIGIN,
+        max_iter=10,
+        token_budget=15,
+    )
+    assert result.converged is False
+    assert result.stop_reason == "token_budget"
+    # generate ran at most a couple of times, NOT all 10 (budget is the binding bound).
+    assert provider.generate_calls < 10
+
+
+class _ConvergingCostly(InferenceProvider):
+    """Converges in one pass but reports a cost > $1 to trip the anomaly check."""
+
+    def capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities("api", True, False, 200_000, "CostlyApi")
+
+    async def analyze(self, source_text: str, vault_context: str) -> Analysis:
+        self._record_usage(Usage(input_tokens=100, output_tokens=50, total_cost_usd=0.60))
+        return _analysis()
+
+    async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+        self._record_usage(Usage(input_tokens=200, output_tokens=100, total_cost_usd=0.50))
+        return [
+            WikiPage(
+                title="P",
+                type=PageType.CONCEPT,
+                content="body",
+                frontmatter=WikiFrontmatter(
+                    type=PageType.CONCEPT, title="P", sources=[ORIGIN], lang="en"
+                ),
+            )
+        ]
+
+    async def chat(
+        self, messages: list[Message], retrieval_context: str
+    ) -> AsyncIterator[str]:  # pragma: no cover
+        raise NotImplementedError
+
+
+class _Row:
+    def __init__(self) -> None:
+        self.provider_type = "api"
+        self.model_id = "dummy-model"
+        self.base_url = None
+        self.max_iter = 3
+        self.token_budget = 60_000
+        self.is_fallback = False
+
+
+@pytest.mark.asyncio
+async def test_cost_anomaly_warning_and_flag(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    provider = _ConvergingCostly()
+    runs: list = []
+
+    async def fake_write_wiki_page(session, page, origin):  # type: ignore[no-untyped-def]
+        return page
+
+    async def fake_update_overview(analysis, origin):  # type: ignore[no-untyped-def]
+        return None
+
+    async def fake_write_ingest_run(**kwargs):  # type: ignore[no-untyped-def]
+        runs.append(kwargs)
+
+    monkeypatch.setattr(orch, "resolve_provider", lambda row: provider)
+    monkeypatch.setattr(orch, "write_wiki_page", fake_write_wiki_page)
+    monkeypatch.setattr(orch, "_update_overview", fake_update_overview)
+    monkeypatch.setattr(orch, "_write_ingest_run", fake_write_ingest_run)
+    monkeypatch.setattr(orch, "_load_vault_context", lambda: "")
+
+    with caplog.at_level(logging.WARNING):
+        result = await orch.run_ingest_pipeline(
+            provider_config_row=_Row(),
+            source_text="s",
+            origin_source=ORIGIN,
+        )
+
+    assert result.total_cost_usd > 1.00
+    assert result.cost_anomaly is True
+    # The ingest_runs row carries cost_anomaly=True (written BEFORE the warning, ADR-0009 §3).
+    assert runs[0]["cost_anomaly"] is True
+    assert any("COST ANOMALY" in r.message for r in caplog.records)
+
+
+# ── Fallback bounded to exactly once (I7, ADR-0009 §4) ──────────────────────────
+
+
+class _FailingProvider(InferenceProvider):
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self.analyze_calls = 0
+
+    def capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities("api", True, False, 200_000, self._name)
+
+    async def analyze(self, source_text: str, vault_context: str) -> Analysis:
+        self.analyze_calls += 1
+        raise TimeoutError("simulated provider timeout")
+
+    async def generate(  # pragma: no cover
+        self, analysis: Analysis, retrieval_context: str
+    ) -> list[WikiPage]:
+        raise NotImplementedError
+
+    async def chat(
+        self, messages: list[Message], retrieval_context: str
+    ) -> AsyncIterator[str]:  # pragma: no cover
+        raise NotImplementedError
+
+
+@pytest.mark.asyncio
+async def test_fallback_bounded_to_one_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
+    primary = _FailingProvider("Primary")
+    fallback = _FailingProvider("Fallback")
+    fallback_row = _Row()
+
+    # primary fails; fallback resolves once and also fails → IngestError, no chains.
+    monkeypatch.setattr(orch, "_resolve_fallback_provider_config", _async_return(fallback_row))
+    monkeypatch.setattr(
+        orch, "resolve_provider", lambda row: fallback if row is fallback_row else primary
+    )
+
+    acc = UsageAccumulator()
+    primary.bind_accumulator(acc)
+
+    with pytest.raises(orch.IngestError):
+        await orch._run_orchestrated(
+            provider=primary,
+            accumulator=acc,
+            source_text="s",
+            origin_source=ORIGIN,
+            config_row=_Row(),
+        )
+
+    assert primary.analyze_calls == 1
+    assert fallback.analyze_calls == 1  # exactly one fallback attempt — no chains
+
+
+def _async_return(value: object):  # type: ignore[no-untyped-def]
+    async def _inner() -> object:
+        return value
+
+    return _inner
