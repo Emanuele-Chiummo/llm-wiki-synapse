@@ -42,7 +42,9 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -52,10 +54,21 @@ import frontmatter  # python-frontmatter
 from app.config import settings
 from app.db import get_session
 from app.embeddings import get_embedding_client
-from app.models import Page, VaultState
+from app.ingest.loop import LoopResult, run_orchestrated_loop
+from app.ingest.provider import resolve_provider
+from app.ingest.provider.base import InferenceProvider, UsageAccumulator
+from app.ingest.schemas import (
+    Analysis,
+    WikiPage,
+    type_subdir,
+)
+from app.models import IngestRun, Page, VaultState
 from app.qdrant_client import delete_point, upsert_point
 
 logger = logging.getLogger(__name__)
+
+# Cost-anomaly threshold (AQ-v0.2-8 / ADR-0009 §3) — inline WARNING site, not a hook.
+COST_ANOMALY_THRESHOLD_USD = 1.00
 
 
 # ── Result type ────────────────────────────────────────────────────────────────
@@ -134,10 +147,20 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
     meta = _parse_frontmatter(raw_bytes, rel)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # F17 EXTENSION POINT (v0.2): resolve InferenceProvider here and run
-    # analyze → generate → validate loop BEFORE persist_metadata (ADR-0003).
-    # v0.1 leaves this branch empty — no provider, no LLM call.
+    # F17 EXTENSION POINT (v0.2): if a provider is configured for this vault, run the
+    # capability-aware pipeline (analyze → generate → validate loop OR CLI delegation)
+    # to produce wiki pages from the source, BEFORE the source row is persisted
+    # (ADR-0003). When no provider_config row resolves, fall through to the v0.1
+    # mechanical path (source-only indexing) — never silently pick a backend (I6).
     # ─────────────────────────────────────────────────────────────────────────
+    provider_cfg = await _resolve_ingest_provider_config()
+    if provider_cfg is not None:
+        source_text = raw_bytes.decode("utf-8", errors="replace")
+        await run_ingest_pipeline(
+            provider_config_row=provider_cfg,
+            source_text=source_text,
+            origin_source=rel,
+        )
 
     # ── Persist metadata to Postgres (step 3) ─────────────────────────────────
     page_id = existing.id if existing is not None else uuid.uuid4()
@@ -214,6 +237,407 @@ async def delete_file(file_path: str | Path) -> None:
     # Hard-delete Qdrant point (ADR-0002 asymmetric soft/hard)
     await delete_point(page_id)
     logger.info("delete_file: soft-deleted %s page_id=%s", rel, page_id)
+
+
+# ── F17 capability-aware pipeline (v0.2) ──────────────────────────────────────
+
+
+@dataclass
+class IngestRunResult:
+    """Summary of one F17 ingest run (returned by run_ingest_pipeline)."""
+
+    route: Literal["orchestrated", "delegated"]
+    pages_written: int
+    total_tokens: int
+    total_cost_usd: float
+    converged: bool
+    cost_anomaly: bool
+
+
+async def _resolve_ingest_provider_config() -> object | None:
+    """
+    Seam for the ConfigResolver (operation>vault>global, ADR-0008) owned by backend-engineer.
+
+    Returns the resolved provider_config row for operation='ingest', or None if no row is
+    configured (the v0.1 mechanical path then runs — I6: never silently default a backend).
+
+    v0.2 ai-agent-engineer scope leaves this returning None until backend-engineer wires the
+    real resolver; tests inject a config row by monkeypatching this function. This is the ONLY
+    place the orchestrator obtains a provider config — keeping resolution centralized.
+    """
+    return None
+
+
+async def run_ingest_pipeline(
+    *,
+    provider_config_row: object,
+    source_text: str,
+    origin_source: str,
+) -> IngestRunResult:
+    """
+    Capability-aware ingest (F17 / I6). Resolves the provider from config, reads
+    capabilities(), and ROUTES:
+
+      capabilities().supports_agentic_loop is True  → delegate the whole ingest (CLI)
+      otherwise                                     → run the orchestrated bounded loop
+
+    Routing reads ONLY `supports_agentic_loop` — NEVER isinstance / type / class-name /
+    provider_type (the I6 hard rule, ADR-0007 §3). Writes each produced WikiPage via the
+    shared `write_wiki_page` primitive (I1/I5), updates overview.md (F3), writes one
+    `ingest_runs` row (I7), and runs the inline $1 cost-anomaly check (AQ-v0.2-8).
+    """
+    provider = resolve_provider(provider_config_row)
+    accumulator = UsageAccumulator()
+    provider.bind_accumulator(accumulator)
+    caps = provider.capabilities()
+
+    started_at = datetime.now(UTC)
+    pages: list[WikiPage] = []
+    analysis: Analysis | None = None
+    iterations = 0
+
+    # ── ROUTE: the single capability check (I6) ──────────────────────────────
+    if caps.supports_agentic_loop:
+        route: Literal["orchestrated", "delegated"] = "delegated"
+        converged = await _delegate_ingest(
+            provider=provider,
+            source_text=source_text,
+            origin_source=origin_source,
+        )
+    else:
+        route = "orchestrated"
+        loop_result = await _run_orchestrated(
+            provider=provider,
+            accumulator=accumulator,
+            source_text=source_text,
+            origin_source=origin_source,
+            config_row=provider_config_row,
+        )
+        pages = loop_result.pages
+        analysis = loop_result.analysis
+        iterations = loop_result.iterations
+        converged = loop_result.converged
+        # Guarantee a source-summary page (F3) even if the provider omitted it.
+        pages = _ensure_source_summary(pages, analysis, origin_source)
+        for page in pages:
+            await write_wiki_page(None, page, origin_source)
+        await _update_overview(analysis, origin_source)
+
+    finished_at = datetime.now(UTC)
+
+    # ── Finalize accumulator → ingest_runs row (I7, ADR-0008 §4) ──────────────
+    total_tokens = accumulator.total_tokens
+    total_cost_usd = round(accumulator.total_cost_usd, 4)
+    cost_anomaly = total_cost_usd > COST_ANOMALY_THRESHOLD_USD
+
+    await _write_ingest_run(
+        page_id=None,
+        provider_name=caps.name,
+        provider_type=caps.mode,
+        model_id=str(getattr(provider_config_row, "model_id", "")),
+        route=route,
+        max_iter_used=iterations,
+        total_tokens=total_tokens,
+        total_cost_usd=total_cost_usd,
+        converged=converged,
+        cost_anomaly=cost_anomaly,
+        started_at=started_at,
+        finished_at=finished_at,
+    )
+
+    # Structured log line for live tail (ADR-0008 §4).
+    logger.info(
+        "ingest_run provider=%s route=%s converged=%s tokens=%d cost_usd=%.4f origin=%s",
+        caps.name,
+        route,
+        converged,
+        total_tokens,
+        total_cost_usd,
+        origin_source,
+    )
+
+    # ── Inline $1 cost-anomaly WARNING (AQ-v0.2-8), AFTER the run row is written ──
+    if cost_anomaly:
+        logger.warning(
+            "COST ANOMALY: ingest run total_cost_usd=%.4f exceeds $%.2f "
+            "(provider=%s origin=%s) — investigate runaway/misconfiguration",
+            total_cost_usd,
+            COST_ANOMALY_THRESHOLD_USD,
+            caps.name,
+            origin_source,
+        )
+
+    return IngestRunResult(
+        route=route,
+        pages_written=len(pages),
+        total_tokens=total_tokens,
+        total_cost_usd=total_cost_usd,
+        converged=converged,
+        cost_anomaly=cost_anomaly,
+    )
+
+
+async def _run_orchestrated(
+    *,
+    provider: InferenceProvider,
+    accumulator: UsageAccumulator,
+    source_text: str,
+    origin_source: str,
+    config_row: object,
+) -> LoopResult:
+    """Run the bounded loop with optional single fallback (I7, ADR-0009 §4)."""
+    max_iter = int(getattr(config_row, "max_iter", None) or 3)
+    token_budget = int(getattr(config_row, "token_budget", None) or 60_000)
+    vault_context = _load_vault_context()
+    retrieval_context = ""  # F5 4-phase retrieval lands in v0.5; empty context for v0.2.
+
+    try:
+        return await run_orchestrated_loop(
+            provider=provider,
+            accumulator=accumulator,
+            source_text=source_text,
+            vault_context=vault_context,
+            retrieval_context=retrieval_context,
+            origin_source=origin_source,
+            max_iter=max_iter,
+            token_budget=token_budget,
+        )
+    except (TimeoutError, ConnectionError) as exc:
+        # Provider fallback — bounded to EXACTLY ONCE (I7, ADR-0009 §4).
+        logger.warning("primary provider failed (%s) — attempting single fallback", exc)
+        fallback_row = await _resolve_fallback_provider_config()
+        if fallback_row is None:
+            raise IngestError("primary provider failed and no fallback configured") from exc
+        fallback = resolve_provider(fallback_row)
+        fallback.bind_accumulator(accumulator)
+        try:
+            return await run_orchestrated_loop(
+                provider=fallback,
+                accumulator=accumulator,
+                source_text=source_text,
+                vault_context=vault_context,
+                retrieval_context=retrieval_context,
+                origin_source=origin_source,
+                max_iter=int(getattr(fallback_row, "max_iter", None) or 3),
+                token_budget=int(getattr(fallback_row, "token_budget", None) or 60_000),
+            )
+        except (TimeoutError, ConnectionError) as exc2:  # no chains (AC-K2-7)
+            raise IngestError("primary and fallback providers both failed") from exc2
+
+
+async def _delegate_ingest(
+    *,
+    provider: InferenceProvider,
+    source_text: str,
+    origin_source: str,
+) -> bool:
+    """
+    Delegate the whole ingest to an agentic provider (CLI). The provider runs its own bounded
+    agent loop and writes pages through the MCP write_page tool (which reuses write_wiki_page,
+    ADR-0010 §2), so I1/I5 hold without the orchestrator touching the pages here.
+
+    Returns converged. The MCP server object + system prompt assembly are the
+    backend-engineer/SDK wiring seam; v0.2 surfaces a clear error if invoked without it.
+    """
+    delegate = getattr(provider, "delegate_ingest", None)
+    if delegate is None:
+        raise IngestError(
+            "agentic provider exposes no delegate_ingest() — cannot delegate (ADR-0007 §3)"
+        )
+    system_prompt = _load_vault_context()
+    result = await delegate(
+        source_text=source_text,
+        system_prompt=system_prompt,
+        vault_dir=str(settings.vault_root),
+        mcp_server=None,  # backend-engineer wires the FastMCP server (ADR-0010); seam in cli.py
+    )
+    return bool(getattr(result, "converged", False))
+
+
+async def _resolve_fallback_provider_config() -> object | None:
+    """Seam for the fallback row (is_fallback=True for the scope, ADR-0008). None until wired."""
+    return None
+
+
+# ── Wiki page writer (reused by the MCP write_page tool — ADR-0010 §2) ─────────
+
+
+async def write_wiki_page(
+    session: object | None,
+    page: WikiPage,
+    origin_source: str,
+) -> Page:
+    """
+    Serialize *page* to vault/wiki/<type-plural>/<slug>.md with valid frontmatter (I5) and
+    persist it incrementally via the v0.1 primitives (I1): persist_metadata → upsert_vector →
+    append_log → bump_version. Returns the persisted `Page` ORM row.
+
+    This is the SINGLE write path shared by the orchestrated loop and (via the MCP server's
+    write_page tool, ADR-0010 §2) the CLI delegated path — import-clean so the MCP server
+    reuses it directly. The frontmatter block is rebuilt from the typed WikiFrontmatter so the
+    body and metadata are serialized exactly once (ADR-0011 — content excludes frontmatter).
+
+    `session` is accepted for the MCP-tool call convention (the tool may hold a session); the
+    underlying primitives manage their own sessions, so it may be None. The returned Page is
+    re-loaded post-commit so the caller gets the live row.
+    """
+    from sqlalchemy import select
+
+    page_type = page.type.value
+    subdir = type_subdir(page.type)
+    slug = _slugify(page.title)
+    rel_path = f"wiki/{subdir}/{slug}.md"
+    abs_path = settings.vault_root / subdir_path(subdir) / f"{slug}.md"
+
+    sources = list(page.frontmatter.sources)
+    if origin_source and origin_source not in sources:
+        sources.append(origin_source)
+
+    # Build the .md file: frontmatter block + body (ADR-0011).
+    fm_dump = page.frontmatter.model_dump()
+    fm_dump["sources"] = sources
+    fm_dump["type"] = page_type  # serialize enum as its string value for Obsidian (I5)
+    post = frontmatter.Post(page.content, **fm_dump)
+    serialized = frontmatter.dumps(post)
+    abs_path.parent.mkdir(parents=True, exist_ok=True)
+    abs_path.write_text(serialized + "\n", encoding="utf-8")
+
+    page_id = uuid.uuid4()
+    await persist_metadata(
+        page_id=page_id,
+        vault_id=settings.vault_id,
+        file_path=rel_path,
+        title=page.title,
+        page_type=page_type,
+        sources=sources,
+        content_hash=_sha256(serialized.encode("utf-8")),
+        source_mtime_ns=0,
+    )
+    await upsert_vector(
+        page_id=page_id,
+        text=page.content,
+        file_path=rel_path,
+        title=page.title,
+        page_type=page_type,
+    )
+    await append_log(rel_path)
+    await bump_version()
+    logger.info("write_wiki_page: wrote %s page_id=%s", rel_path, page_id)
+
+    async with get_session() as sess:
+        row = await sess.execute(select(Page).where(Page.id == page_id))
+        result = row.scalar_one()
+        sess.expunge(result)
+        return result
+
+
+def subdir_path(subdir: str) -> Path:
+    """vault/wiki/<subdir> relative segment for the writer."""
+    return Path("wiki") / subdir
+
+
+def _ensure_source_summary(
+    pages: list[WikiPage], analysis: Analysis | None, origin_source: str
+) -> list[WikiPage]:
+    """
+    Guarantee at least one page traceable to the source (F3). If the provider produced no
+    pages (e.g. non-convergence), synthesize a minimal source-summary page from the analysis
+    so the source is never silently dropped.
+    """
+    if pages:
+        return pages
+    from app.ingest.schemas import PageType, WikiFrontmatter
+
+    lang = analysis.language if analysis is not None else "en"
+    title = f"Source summary: {Path(origin_source).stem}"
+    summary = (analysis.summary if analysis and analysis.summary else None) or (
+        "Auto-generated source summary (provider produced no pages)."
+    )
+    fm = WikiFrontmatter(type=PageType.SOURCE, title=title, sources=[origin_source], lang=lang)
+    return [WikiPage(title=title, type=PageType.SOURCE, content=summary, frontmatter=fm)]
+
+
+async def _update_overview(analysis: Analysis | None, origin_source: str) -> None:
+    """
+    Append a one-line entry for this source to vault/wiki/overview.md (F3 auto-overview).
+
+    Keeps overview.md a valid Obsidian page (I5). Append-only-ish: a marker line is added per
+    ingested source; full regeneration is a v0.3+ concern.
+    """
+    overview_path = settings.wiki_dir / "overview.md"
+    if not overview_path.exists():
+        overview_path.parent.mkdir(parents=True, exist_ok=True)
+        overview_path.write_text(
+            "---\ntype: overview\ntitle: Synapse Overview\n---\n\n", encoding="utf-8"
+        )
+    summary = analysis.summary if analysis and analysis.summary else origin_source
+    line = f"- [[{Path(origin_source).stem}]] — {summary}\n"
+    with overview_path.open("a", encoding="utf-8") as f:
+        f.write(line)
+
+
+async def _write_ingest_run(
+    *,
+    page_id: uuid.UUID | None,
+    provider_name: str,
+    provider_type: str,
+    model_id: str,
+    route: str,
+    max_iter_used: int,
+    total_tokens: int,
+    total_cost_usd: float,
+    converged: bool,
+    cost_anomaly: bool,
+    started_at: datetime,
+    finished_at: datetime,
+) -> None:
+    """Persist one ingest_runs row — the cost-audit system of record (I7, ADR-0008 §4)."""
+    async with get_session() as session:
+        session.add(
+            IngestRun(
+                id=uuid.uuid4(),
+                vault_id=settings.vault_id,
+                page_id=page_id,
+                provider_name=provider_name,
+                provider_type=provider_type,
+                model_id=model_id,
+                route=route,
+                max_iter_used=max_iter_used,
+                total_tokens=total_tokens,
+                total_cost_usd=total_cost_usd,
+                converged=converged,
+                cost_anomaly=cost_anomaly,
+                started_at=started_at,
+                finished_at=finished_at,
+            )
+        )
+
+
+def _load_vault_context() -> str:
+    """
+    Assemble the provider vault context (F2/F3): purpose.md + schema.md content. Used as the
+    orchestrated analyze() context and as the CLI delegated system prompt. Missing files →
+    empty section (tolerant).
+    """
+    parts: list[str] = []
+    for name in ("purpose.md", "schema.md"):
+        path = settings.vault_root / name
+        if path.exists():
+            parts.append(f"# {name}\n{path.read_text(encoding='utf-8')}")
+    return "\n\n".join(parts)
+
+
+_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _slugify(title: str) -> str:
+    """Filesystem-safe, unicode-tolerant slug for a page filename (I5-friendly)."""
+    slug = _SLUG_RE.sub("-", title.strip().lower()).strip("-")
+    return slug or "untitled"
+
+
+class IngestError(RuntimeError):
+    """Raised when an ingest run cannot complete (surfaced as HTTP 500 by the REST path)."""
 
 
 # ── Factored helpers (reused by v0.2 orchestrated loop) ───────────────────────
