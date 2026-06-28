@@ -1,18 +1,48 @@
 /**
- * graphStore.ts — Zustand store for Synapse graph state.
+ * graphStore.ts — Zustand store for Synapse graph state + UI slice (F1 / ADR-0017).
  *
- * INVARIANT I3 compliance (pre-compliance for v0.4 chat):
+ * INVARIANT I3 compliance:
  *   - All components subscribe via SELECTOR FUNCTIONS, never the whole store.
- *   - The useGraphStore hook is exported with a required selector parameter.
  *   - Collections use shallow equality to prevent re-renders on unrelated changes.
  *   - Typed selectors are exported below — components import those, not raw state.
  *
- * See ADR-0015 §3 and docs/sprints/v0.3-architecture.md §7.
+ * v0.4 extension: a UI slice (selectedSource, activeTab, treeCollapsed) is added
+ * as clearly delimited fields on the SAME store. Rationale: selectedNodeId already
+ * lives here and is the single shared selection key for graph ↔ tree ↔ preview sync.
+ * Splitting into a second store would require cross-store sync for that one key.
+ *
+ * See ADR-0015 §3, ADR-0017 §4.
  */
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { CacheStatus, GraphEdge, GraphNode } from "../api/types";
+
+// ─── UI slice types (ADR-0017 §4) ────────────────────────────────────────────
+
+/** Which tab is active in the center panel. "chat" is a disabled stub in Phase 1. */
+export type CenterTab = "graph" | "chat";
+
+/** UI state added in v0.4 Phase 1 shell (F1). */
+export interface UiState {
+  /** Who most recently set the selection (graph click vs tree click). */
+  selectedSource: "graph" | "tree" | null;
+  /** Active center tab. */
+  activeTab: CenterTab;
+  /** Per-group-type collapsed state for the NavTree. */
+  treeCollapsed: Record<string, boolean>;
+}
+
+export interface UiActions {
+  /**
+   * Set selectedNodeId AND record which panel drove the selection.
+   * Both tree rows and graph clicks converge on this action so selection
+   * stays in a single key and all panels update atomically.
+   */
+  selectPage: (id: string | null, source: "graph" | "tree") => void;
+  setActiveTab: (tab: CenterTab) => void;
+  toggleGroup: (type: string) => void;
+}
 
 // ─── State shape ──────────────────────────────────────────────────────────────
 
@@ -27,11 +57,16 @@ export interface GraphState {
   loading: boolean;
   error: string | null;
 
-  // Interaction
+  // Selection (single shared key — I3 §4)
   selectedNodeId: string | null;
 
   // Vault
   vaultId: string;
+
+  // ── UI slice (ADR-0017) ──────────────────────────────────────────────────
+  selectedSource: UiState["selectedSource"];
+  activeTab: UiState["activeTab"];
+  treeCollapsed: UiState["treeCollapsed"];
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -48,6 +83,10 @@ export interface GraphActions {
   setSelectedNodeId: (id: string | null) => void;
   setVaultId: (vaultId: string) => void;
   reset: () => void;
+  // UI slice actions
+  selectPage: UiActions["selectPage"];
+  setActiveTab: UiActions["setActiveTab"];
+  toggleGroup: UiActions["toggleGroup"];
 }
 
 export type GraphStore = GraphState & GraphActions;
@@ -63,6 +102,10 @@ const INITIAL_STATE: GraphState = {
   error: null,
   selectedNodeId: null,
   vaultId: (import.meta.env["VITE_DEFAULT_VAULT_ID"] as string | undefined) ?? "default",
+  // UI slice defaults
+  selectedSource: null,
+  activeTab: "graph",
+  treeCollapsed: {},
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -88,21 +131,30 @@ export const useGraphStore = create<GraphStore>((set) => ({
   setVaultId: (vaultId) => set({ vaultId }),
 
   reset: () => set(INITIAL_STATE),
+
+  // ── UI slice actions (ADR-0017 §4) ────────────────────────────────────────
+
+  selectPage: (id, source) => set({ selectedNodeId: id, selectedSource: source }),
+
+  setActiveTab: (activeTab) => set({ activeTab }),
+
+  toggleGroup: (type) =>
+    set((s) => ({
+      treeCollapsed: {
+        ...s.treeCollapsed,
+        [type]: !(s.treeCollapsed[type] ?? false),
+      },
+    })),
 }));
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
 //
 // Components import these selector functions and pass them to useGraphStore().
-// This ensures shallow equality is applied at the right granularity:
+// Shallow equality is applied at the right granularity:
 //   - scalar selectors use Object.is (Zustand default)
-//   - collection selectors use shallow() explicitly
-//
-// Usage example:
-//   const nodes = useGraphStore(selectNodes);           // re-renders only when nodes array ref changes
-//   const { loading, error } = useGraphStore(selectStatus); // re-renders only when loading or error change
+//   - collection/object selectors must use useShallow in the calling hook
 
-/** Select the nodes array. Use with useGraphStore — reference is stable across re-renders
- *  unless setGraph is called. */
+/** Select the nodes array. */
 export function selectNodes(s: GraphStore): GraphNode[] {
   return s.nodes;
 }
@@ -124,7 +176,7 @@ export function selectMeta(
   return { dataVersion: s.dataVersion, cacheStatus: s.cacheStatus };
 }
 
-/** Select the currently selected node id (scalar — Object.is equality). */
+/** Select the currently selected node id (scalar). */
 export function selectSelectedNodeId(s: GraphStore): string | null {
   return s.selectedNodeId;
 }
@@ -134,12 +186,26 @@ export function selectVaultId(s: GraphStore): string {
   return s.vaultId;
 }
 
-// ─── Shallow-equality hooks (I3) ─────────────────────────────────────────────
-//
-// These hooks wrap useGraphStore with the shallow comparator pre-applied.
-// Use them for any selector that returns an object with multiple properties.
+// ── UI slice selectors (ADR-0017 §4) ─────────────────────────────────────────
 
-/** Hook: { loading, error } — shallow equality (I3: no re-render on unrelated state). */
+/** Select the active center tab (scalar). */
+export function selectActiveTab(s: GraphStore): CenterTab {
+  return s.activeTab;
+}
+
+/** Select the tree-group collapse map (use with useShallow). */
+export function selectTreeCollapsed(s: GraphStore): Record<string, boolean> {
+  return s.treeCollapsed;
+}
+
+/** Select selectedSource (scalar). */
+export function selectSelectedSource(s: GraphStore): UiState["selectedSource"] {
+  return s.selectedSource;
+}
+
+// ─── Shallow-equality hooks (I3) ─────────────────────────────────────────────
+
+/** Hook: { loading, error } — shallow equality (I3). */
 export function useGraphStatus(): { loading: boolean; error: string | null } {
   return useGraphStore(useShallow(selectStatus));
 }
@@ -147,6 +213,11 @@ export function useGraphStatus(): { loading: boolean; error: string | null } {
 /** Hook: { dataVersion, cacheStatus } — shallow equality (I3). */
 export function useGraphMeta(): { dataVersion: number | null; cacheStatus: CacheStatus } {
   return useGraphStore(useShallow(selectMeta));
+}
+
+/** Hook: treeCollapsed map — shallow equality (I3). */
+export function useTreeCollapsed(): Record<string, boolean> {
+  return useGraphStore(useShallow(selectTreeCollapsed));
 }
 
 // ─── Action selectors ─────────────────────────────────────────────────────────
@@ -172,4 +243,19 @@ export function selectVaultIdAndActions(s: GraphStore): {
   setVaultId: GraphActions["setVaultId"];
 } {
   return { vaultId: s.vaultId, setVaultId: s.setVaultId };
+}
+
+/** Select the selectPage action (ADR-0017 §4). */
+export function selectSelectPage(s: GraphStore): GraphActions["selectPage"] {
+  return s.selectPage;
+}
+
+/** Select the setActiveTab action. */
+export function selectSetActiveTab(s: GraphStore): GraphActions["setActiveTab"] {
+  return s.setActiveTab;
+}
+
+/** Select the toggleGroup action. */
+export function selectToggleGroup(s: GraphStore): GraphActions["toggleGroup"] {
+  return s.toggleGroup;
 }

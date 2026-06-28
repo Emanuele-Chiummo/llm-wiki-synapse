@@ -62,4 +62,44 @@ export interface PageDetail {
   title: string;
   type: string | null;
   vault_id: string;
+  /** Vault-relative file path, e.g. "demo/temperature_scaling.md" */
+  file_path?: string;
+  /** Source document IDs referenced by this page */
+  sources?: string[];
+  /** ISO-8601 creation timestamp */
+  created_at?: string;
+  /** ISO-8601 last-update timestamp */
+  updated_at?: string;
+}
+
+// ─── GET /pages ──────────────────────────────────────────────────────────────
+
+/** Canonical page types matching the knowledge graph legend */
+export type PageType = "concept" | "entity" | "source" | "synthesis" | "comparison";
+
+/** Single item in the GET /pages list response */
+export interface PageListItem {
+  id: string;
+  vault_id: string;
+  file_path: string;
+  title: string;
+  type: string | null;
+  sources: string[];
+  content_hash: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Paginated response from GET /pages */
+export interface PageListResponse {
+  items: PageListItem[];
+}
+
+// ─── GET /status ─────────────────────────────────────────────────────────────
+
+export interface StatusResponse {
+  vault_id: string;
+  data_version: number;
+  started_at: string;
+  uptime_seconds: number;
 }
