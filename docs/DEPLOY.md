@@ -1,6 +1,6 @@
 # Synapse Deployment Guide
 
-<!-- Generated: v0.4 sprint 4 | 2026-06-28 -->
+<!-- Generated: v0.4 M4-EXT | 2026-06-28 -->
 
 > Target: TrueNAS SCALE 25.10 "Goldeye" + Docker Compose
 > Version: v0.4 draft — covers the shipped M4 feature set (3-panel UI, chat, provider
@@ -89,6 +89,9 @@ cp .env.example .env
 | `VAULT_PATH` | `/vault` | Yes | Container path. Bind-mounted from host in docker-compose.yml. Local dev: `../vault` or an absolute path. |
 | `CORS_ALLOW_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Yes | Comma-separated list of browser origins allowed to call the API. Set to your PWA/Tauri origin in production. The Vite dev server default (`localhost:5173`) is fine for local development. |
 | `DEFAULT_MODEL_ID` | `claude-sonnet-4-6` | No | Used only by the Alembic data migration (0002) to seed the initial `provider_config` row. Not read by the application at runtime. |
+| `MAX_UPLOAD_BYTES` | `26214400` | No | Maximum file size (bytes) for `POST /ingest/upload`. Default 25 MB. Files over this limit receive 413. (ADR-0020 §2.4, I7) |
+| `IMPORT_SCAN_MAX_FILES` | `200` | No | Maximum number of files copied per scheduled scan tick. Remaining files are picked up on the next tick. (ADR-0020 §4.4, I7) |
+| `IMPORT_SCAN_MAX_SECONDS` | `60` | No | Wall-clock cap (seconds) per scheduled scan tick. Scan stops early if exceeded; continues next tick. (ADR-0020 §4.4, I7) |
 
 ### 2.2 Example .env for TrueNAS Docker deployment
 
@@ -162,9 +165,13 @@ On the first startup the backend runs:
 alembic upgrade head
 ```
 
-before launching uvicorn. This creates all tables (migrations 0001–0007), seeds the
+before launching uvicorn. This creates all tables (migrations 0001–0008), seeds the
 `vault_state` row, and inserts the initial `provider_config` rows using the
 `DEFAULT_MODEL_ID` env var. You do not need to run migrations manually.
+
+Migration 0008 creates the `import_schedules` table used by Feature S (scheduled folder
+import, ADR-0020 §4.1). The table is empty on first run; configure it via the Settings
+UI or `PUT /import-schedule`.
 
 ### 3.3 Verify the backend is up
 
@@ -259,9 +266,93 @@ VALUES ('global', NULL, NULL, 'api', 'gpt-4o', 'https://api.openai.com/v1', 3, 6
 
 ---
 
-## 5. TrueNAS SCALE deployment
+## 5. Scheduled folder import (Feature S)
 
-### 5.1 Deploy via SSH
+Synapse can periodically scan a folder and import any new or changed documents
+automatically. This is configured via the **Automatic import** card in the Settings
+section of the UI (or directly via `PUT /import-schedule`).
+
+### 5.1 The mounted-path constraint
+
+The backend container can ONLY see paths that have been explicitly mounted into it via
+Docker volumes. There is no host filesystem browse from inside a container. Therefore:
+
+- `source_dir` in the import schedule MUST be a **container-visible** absolute path
+  (e.g. `/import`).
+- To make a host folder importable, you mount it into the container and enter the
+  **container** path in the UI.
+
+This distinction is intentional and is enforced by the backend (a `dir_readable` check
+before each scan). If you enter a path that is not visible inside the container, the
+scheduler records `last_status="dir_missing"` and the Settings card shows a warning.
+
+### 5.2 Adding the import volume mount
+
+Edit `docker-compose.yml` and uncomment (or add) the example mount in the
+`synapse-backend` volumes block:
+
+```yaml
+  synapse-backend:
+    volumes:
+      - ./vault:/vault
+      # ── Feature S (ADR-0020): scheduled folder import ────────────────────────
+      # Mount any host folder you want Synapse to auto-import into the container,
+      # then set the schedule's source_dir to the CONTAINER path (e.g. /import).
+      # The backend can ONLY see mounted paths — there is no host filesystem browse.
+      - ./import:/import:ro   # read-only is recommended; Synapse copies OUT of it
+    environment:
+      MAX_UPLOAD_BYTES: "26214400"      # 25 MB upload cap (Feature U, I7)
+      IMPORT_SCAN_MAX_FILES: "200"      # per-scan file cap (Feature S, I7)
+      IMPORT_SCAN_MAX_SECONDS: "60"     # per-scan wall-clock cap (Feature S, I7)
+```
+
+The `:ro` (read-only) flag is recommended: Synapse only reads the source folder and
+copies files out of it into `vault/raw/sources/`. It never writes back to `source_dir`.
+
+Create the host folder before the first run:
+
+```bash
+mkdir -p /mnt/pool/synapse/import
+```
+
+Restart the stack after changing `docker-compose.yml`:
+
+```bash
+docker compose down && docker compose up -d
+```
+
+### 5.3 Configure the schedule
+
+Once the mount is in place, open **Settings → Automatic import** in the UI:
+
+1. Enable the toggle.
+2. Enter the container path: `/import`.
+3. Choose a frequency (15 min / 1 h / 6 h / daily).
+4. Click **Run now** to trigger an immediate test scan.
+
+The card shows "Last scan: N minutes ago — M imported" after each successful scan.
+The `ingest_runs` ledger in the Ingest section shows the per-file ingest outcomes.
+
+### 5.4 Scan limits
+
+Each scheduled scan is bounded by two independent caps (both env-configurable, I7):
+
+| Cap | Default | Env var | Notes |
+|-----|---------|---------|-------|
+| File cap | 200 files/tick | `IMPORT_SCAN_MAX_FILES` | Remaining files wait for next tick |
+| Wall-clock cap | 60 seconds/tick | `IMPORT_SCAN_MAX_SECONDS` | Scan stops early; partial count reported |
+
+The scan is **non-recursive**: only files directly inside `source_dir` are imported;
+subdirectories are not traversed. Recursive scanning is a planned future opt-in.
+
+Only `.md`, `.txt`, and `.markdown` files are imported in v0.4. Other file types are
+silently skipped; multi-format support (F12) ships in M5.
+
+---
+
+## 6. TrueNAS SCALE deployment
+
+### 6.1 Deploy via SSH
 
 ```bash
 ssh admin@truenas.local
@@ -277,7 +368,7 @@ docker compose up -d
 docker compose logs -f synapse-backend
 ```
 
-### 5.2 Vault bind mount
+### 6.2 Vault bind mount
 
 The `vault/` directory in the repo root is bind-mounted at `/vault` inside the
 `synapse-backend` container (see `docker-compose.yml`). On TrueNAS you may want to
@@ -290,7 +381,7 @@ volumes:
   - /mnt/pool/synapse/vault:/vault
 ```
 
-### 5.3 Networking
+### 6.3 Networking
 
 **Tailscale (internal):** all TrueNAS services are on the same Tailscale mesh. Access
 the backend API at `http://truenas-node-ip:8000` or `http://truenas.local:8000`.
@@ -303,7 +394,7 @@ the backend API at `http://truenas-node-ip:8000` or `http://truenas.local:8000`.
 
 ---
 
-## 6. Useful make targets
+## 7. Useful make targets
 
 ```bash
 make er         # Regenerate docs/er/schema.mmd from SQLAlchemy models
@@ -319,9 +410,9 @@ The docs gate CI job will fail on drift.
 
 ---
 
-## 7. Backup strategy
+## 8. Backup strategy
 
-### 7.1 Postgres
+### 8.1 Postgres
 
 ```bash
 # Dump from inside the container
@@ -332,7 +423,7 @@ docker compose exec -T postgres pg_dump \
 
 Automate with a TrueNAS periodic task or cron job.
 
-### 7.2 Vault filesystem
+### 8.2 Vault filesystem
 
 The `vault/` directory contains the raw documents and AI-generated wiki pages. Back
 it up with a ZFS snapshot:
@@ -343,9 +434,9 @@ zfs snapshot pool/synapse@backup-$(date +%Y%m%d)
 
 ---
 
-## 8. CI/CD
+## 9. CI/CD
 
-### 8.1 CI stages
+### 9.1 CI stages
 
 | Stage | Trigger | Required | Purpose |
 |-------|---------|----------|---------|
@@ -355,7 +446,7 @@ zfs snapshot pool/synapse@backup-$(date +%Y%m%d)
 | `docs` | push / PR | Yes | ER + OpenAPI drift check; mmdc Mermaid render |
 | `integration` | manual | Optional | docker-compose E2E (requires live TrueNAS services) |
 
-### 8.2 Docs gate
+### 9.2 Docs gate
 
 The `docs` stage runs `make er` and `make openapi`, then diffs the output against the
 committed files. A mismatch fails the PR. Fix it with:
@@ -369,9 +460,9 @@ git commit -m "docs: refresh ER and OpenAPI [I8]"
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
-### 9.1 "connection refused" on EMBEDDING_URL or QDRANT_URL
+### 10.1 "connection refused" on EMBEDDING_URL or QDRANT_URL
 
 Cause: the external service is not running or the Docker container cannot reach the
 host network.
@@ -385,7 +476,7 @@ curl -s http://100.x.x.x:6333/health
 docker run --rm alpine ping -c 1 host.docker.internal
 ```
 
-### 9.2 EMBEDDING_DIM mismatch
+### 10.2 EMBEDDING_DIM mismatch
 
 Cause: the `EMBEDDING_DIM` env var does not match the actual output of the bge-m3
 model running in Ollama.
@@ -398,7 +489,7 @@ curl -s -X POST http://100.x.x.x:11434/api/embeddings \
 docker compose restart synapse-backend
 ```
 
-### 9.3 Pre-existing files are not ingested on startup
+### 10.3 Pre-existing files are not ingested on startup
 
 By design (incremental index — the watcher picks up new and modified files only).
 To ingest files that existed before Synapse started, trigger a run manually:
@@ -409,22 +500,50 @@ curl -X POST http://localhost:8000/ingest/trigger
 
 Or use the **Run Ingest** button in the Ingest section of the web UI.
 
-### 9.4 No provider_config row — hard error on ingest or chat
+### 10.4 No provider_config row — hard error on ingest or chat
 
 If the application logs "no provider_config found for scope=global", insert at least
 one global row (see §4). A missing global row is never silently ignored.
 
-### 9.5 Chat provider returns NotImplementedError (CLI backend)
+### 10.5 Chat provider returns NotImplementedError (CLI backend)
 
 `CliAgentProvider.chat()` is not yet implemented (M5 work item). Switch to the Local
 or API provider for chat. Ingest with CLI works normally.
 
+### 10.6 Scheduled import: last_status="dir_missing"
+
+The import schedule is enabled and a `source_dir` is configured, but scans report
+`dir_missing`.
+
+Cause: the path is not visible inside the container. The backend can only see mounted
+paths.
+
+Fix:
+1. Verify the volume mount is in `docker-compose.yml` (see §5.2).
+2. Restart the stack: `docker compose down && docker compose up -d`.
+3. Verify the path exists inside the container:
+
+```bash
+docker compose exec synapse-backend ls /import
+```
+
+4. In Settings → Automatic import, confirm the `source_dir` field shows the container
+   path (e.g. `/import`), not a host path.
+
+### 10.7 Uploaded file is rejected with 415
+
+Cause: the file extension is not `.md`, `.txt`, or `.markdown`.
+
+In v0.4 only plain text and Markdown are accepted. Multi-format ingest (PDF, DOCX,
+PPTX, XLSX, images, audio/video) is Feature F12, planned for M5. The 415 response
+message names this explicitly.
+
 ---
 
-## 10. References
+## 11. References
 
 - `CLAUDE.md` — project context, invariants (I1–I9), and feature inventory
 - `docs/er/schema.mmd` — ER diagram (auto-generated by `make er`)
 - `docs/api/openapi.json` — API reference (auto-generated by `make openapi`)
-- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0019)
+- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0020)
 - `docs/USER.md` — end-user guide

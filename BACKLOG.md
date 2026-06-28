@@ -1027,21 +1027,28 @@ to show `GC->>Client: (from in-process snapshot)` on the HIT path.
 ## Sprint 4 — v0.4 — M4 "Usable & fluid"
 
 **Sprint status: DONE — M4 MET-WITH-DEFERRALS (D6 conditional); EC-M4-HCP PENDING**
+**M4-EXT IN PROGRESS — Feature U (F1-UPLOAD) and Feature S (F1-SCHED) added 2026-06-28**
 Scope locked: 2026-06-28 by product-manager. Scope log: docs/sprints/v0.4-pm-scope.md
 PM sign-off: docs/sprints/v0.4-pm-signoff.md | 2026-06-28
 Scope amended: 2026-06-28 — F1-NAV (Left Navigation Rail) and F1-INGEST-VIEW (Ingest
 Activity View) added to Phase 2 at stakeholder Emanuele's explicit request. Visual direction:
 nashsu/llm_wiki-inspired. BE-INGEST-RUNS backend endpoint added as explicit work item.
+M4-EXT scope added: 2026-06-28 — F1-UPLOAD (document upload from UI) and F1-SCHED
+(scheduled folder import in Settings) added at stakeholder Emanuele's explicit request;
+both added before EC-M4-HCP closes. AC details: docs/sprints/v0.4-pm-scope.md §8.
 Branch: sprint/v0.4
 Invariants with heightened priority: I3 (no per-token heavy work — headline for G3),
 I4 (CodeMirror 6, TanStack Virtual, no WYSIWYG). All 9 invariants apply.
-Velocity: ON SCOPE. All 25 locked work items delivered or formally deferred. G3 mandatory
-streaming perf gate GREEN (no live-run waiver needed). 4-phase delivery plan executed within
-2-week envelope. Two Phase 2 additions absorbed without phase slippage.
+Velocity: ON SCOPE. All 25 original locked work items delivered or formally deferred. G3
+mandatory streaming perf gate GREEN (no live-run waiver needed). 4-phase delivery plan
+executed within 2-week envelope. M4-EXT adds 2 items; sprint remains within M4 envelope
+as EC-M4-HCP has not yet closed.
 Documentation gap: docs/USER.md absent (AC-D6-1 NOT MET); DEPLOY.md not promoted to v0.4
 draft (AC-D6-2 partial). D6 is a conditional requirement before EC-M4-HCP can be closed.
-Human checkpoint: EC-M4-HCP — Emanuele must confirm 6 browser conditions listed in
-docs/sprints/v0.4-pm-signoff.md §1 Gate 11. Sprint 5 BLOCKED until confirmed.
+docs/DEPLOY.md must additionally document Docker volume mounts for F1-SCHED (AC-S-2/S-3).
+Human checkpoint: EC-M4-HCP — Emanuele must confirm 8 browser conditions (6 original +
+EC-M4-HCP-U + EC-M4-HCP-S). See docs/sprints/v0.4-pm-scope.md §8. Sprint 5 BLOCKED
+until all 8 conditions confirmed.
 Carried nits: NB-7, NB-8, NB-9 (CI branch filter), architect P1/P2/P3 nits, G4 live-run,
 G2 runtime live-run, chat-think-block D5 screenshot — all non-blocking, moved to M5.
 
@@ -1158,9 +1165,95 @@ optional). Migration 0006 applied. openapi.json regenerated (D4 zero-drift confi
 
 ---
 
+---
+
+### M4-EXT items
+
+| Feature ID | Description | Status | Notes |
+|------------|-------------|--------|-------|
+| F1-UPLOAD | Document upload from UI: drag-and-drop / file-picker in Ingest section; POST /ingest/upload (multipart); saves to vault/raw/sources/<sanitized-name>; triggers ingest; .txt/.md only | in-progress | AC-U-1..11 defined in docs/sprints/v0.4-pm-scope.md §8; F12 boundary explicit: no PDF/DOCX/etc in v0.4 |
+| F1-SCHED | Scheduled folder import in Settings: enabled toggle, source folder (mounted container path only), frequency; bounded scanner (I7); GET/PUT /import-schedule + POST /import-schedule/run-now; last-run status display | in-progress | AC-S-1..12 defined in docs/sprints/v0.4-pm-scope.md §8; I1/I5/I7 invariants in force; container path constraint explicit |
+
+---
+
+### F1-UPLOAD — Document upload from the UI
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1-UPLOAD (M4-EXT sub-item of F1) |
+| Sprint | v0.4 (M4-EXT extension — before EC-M4-HCP closes) |
+| Status | in-progress |
+| Priority | P1 — requested by stakeholder; extends Ingest section |
+| Owner | frontend-engineer (upload UI); backend-engineer (POST /ingest/upload) |
+| Source | Stakeholder request 2026-06-28 (Emanuele); M4-EXT |
+
+**Scope:**
+A drag-and-drop zone and/or file-picker in the Ingest section. Accepted file types:
+`.txt` and `.md` ONLY. The frontend calls POST /ingest/upload (multipart/form-data).
+The backend sanitizes the filename (path-traversal safe), writes the file to
+vault/raw/sources/, and triggers ingest via the existing pipeline. The ingest run
+appears in the runs list (F1-INGEST-VIEW). The endpoint enforces file-type (HTTP 415
+for anything other than text/plain or text/markdown) and size limits (HTTP 413 over
+configurable threshold, default 10 MB).
+
+**F12 boundary — explicit:** Only .txt and .md files are accepted in v0.4.
+Multi-format (PDF, DOCX, PPTX, XLSX, images, AV) is F12/M5 and must NOT be added here.
+No pypdf, unstructured, python-docx, python-pptx, openpyxl, or AV library dependency
+may be introduced as part of this feature.
+
+**Key invariants:** I1 (incremental — duplicate file upload does not create duplicate
+records); I5 (vault integrity — file written to vault/raw/sources/ only, not wiki/).
+
+**Acceptance criteria:** docs/sprints/v0.4-pm-scope.md §8 AC-U-1..11
+
+---
+
+### F1-SCHED — Scheduled folder import (in Settings)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1-SCHED (M4-EXT sub-item of F16-rest/Settings) |
+| Sprint | v0.4 (M4-EXT extension — before EC-M4-HCP closes) |
+| Status | in-progress |
+| Priority | P1 — requested by stakeholder; extends Settings section |
+| Owner | frontend-engineer (Settings sub-section); backend-engineer (endpoints + scheduler + migration) |
+| Source | Stakeholder request 2026-06-28 (Emanuele); M4-EXT |
+
+**Scope:**
+An "Automatic import" sub-section in the Settings panel. The user configures: enabled
+toggle, source folder path, frequency (Hourly / Daily / Weekly / Manual). The backend
+persists this in a new `import_schedules` Postgres table (Alembic migration required).
+The scheduler periodically scans source_dir and copies new files to vault/raw/sources/,
+then the watcher indexes them (I1). A "Run now" button triggers POST /import-schedule/run-now
+(HTTP 202 or 409 if already running). The Settings UI shows last_run_at and last_status.
+
+**Critical container path constraint:** The source folder must be a Docker-volume-mounted
+path visible from inside the container. The backend validates this at save time (PUT
+/import-schedule checks path exists + is readable). The UI shows a permanent helper note
+explaining this. docs/DEPLOY.md must document how to configure the volume mount. This
+constraint is an infrastructure reality, not a deferral.
+
+**Key invariants:**
+- I7 (bounded scheduler): max_files_per_run (default 50) + scan_timeout_seconds (default
+  300 s) caps per scan run; no overlapping scans; existing ingest pipeline logs cost per run.
+- I1 (incremental): only new files (not already indexed) are imported per scan.
+- I5 (vault integrity): files copied to vault/raw/sources/ only; wiki/ written by ingest pipeline only.
+
+**Backend endpoints:**
+- GET /import-schedule — returns current schedule for active vault
+- PUT /import-schedule — creates or replaces schedule; validates container path
+- POST /import-schedule/run-now — triggers immediate scan (HTTP 202 or 409 if busy)
+
+All 3 endpoints in openapi.json (D4 zero-drift gate). New table in schema.mmd (D2 zero-drift gate).
+
+**Acceptance criteria:** docs/sprints/v0.4-pm-scope.md §8 AC-S-1..12
+
+---
+
 **Acceptance criteria for all M4 items:** docs/sprints/v0.4-pm-scope.md §2
+**M4-EXT acceptance criteria:** docs/sprints/v0.4-pm-scope.md §8
 **Phase plan:** docs/sprints/v0.4-pm-scope.md §4
-**DoD gate checklist:** docs/sprints/v0.4-pm-scope.md §5
+**DoD gate checklist (original 11 gates + 2 M4-EXT EC-M4-HCP conditions):** docs/sprints/v0.4-pm-scope.md §5 + §8
 
 ---
 

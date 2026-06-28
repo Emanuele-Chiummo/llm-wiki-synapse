@@ -2,6 +2,242 @@
 
 > Tech-writer sign-off. Phases appended chronologically; most recent phase at top.
 
+## M4-EXT — Feature U (upload) + Feature S (scheduled import) — DOCS GATE: PASS
+
+> Gate run: 2026-06-28
+> Scope: ADR-0020 (upload + scheduled import). Backend: migration 0008 (import_schedules),
+>   POST /ingest/upload, GET/PUT /import-schedule, POST /import-schedule/run-now,
+>   upload.py sanitizer, import_scheduler.py asyncio task, docker-compose import mount.
+>   Frontend: UploadZone (Ingest section), ImportScheduleCard (Settings section).
+
+### Per-artifact status
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/component.mmd` | UP-TO-DATE | Drift found and fixed this gate run. See §M4-EXT-D1. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (zero drift) | IMPORT_SCHEDULES table already present; header comment updated. See §M4-EXT-D2. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (zero drift) | /ingest/upload (202), /import-schedule (GET/PUT), /import-schedule/run-now all present. See §M4-EXT-D4. |
+| D5 | `docs/screens/ingest-upload.png` | PENDING QA | Not yet captured; task for QA/Playwright after frontend ships. |
+| D5 | `docs/screens/settings-import-schedule.png` | PENDING QA | Not yet captured; task for QA/Playwright after frontend ships. |
+| D6a | `docs/USER.md` | UP-TO-DATE | Upload and scheduled import sections added this gate run. See §M4-EXT-D6a. |
+| D6b | `docs/DEPLOY.md` | UP-TO-DATE | §5 (import mount) added; env var table extended; §10.6/10.7 troubleshooting added. See §M4-EXT-D6b. |
+| D7 | `docs/adr/README.md` (ADR-0020 row) | UP-TO-DATE | ADR-0020 row present (authored by solution-architect); header updated to M4-EXT. See §M4-EXT-D7. |
+
+### §M4-EXT-D1 — component.mmd drift found and fixed
+
+**Drift before this run:** The Phase 3 diagram (title: "Synapse v0.4 Phase 3") did not
+include any M4-EXT components or routes.
+
+**Missing items added:**
+- Header comment: v0.4 M4-EXT block documenting Feature U and Feature S changes.
+- Title updated to "Synapse v0.4 M4-EXT (Feature U: upload + Feature S: scheduled import — ADR-0020)".
+- REST component description: added `POST /ingest/upload (202 — ADR-0020 §2)`,
+  `GET/PUT /import-schedule (ADR-0020 §4.6)`, `POST /import-schedule/run-now (ADR-0020 §4.6)`.
+- Postgres component description: added `import_schedules (migration 0008: enabled/source_dir/
+  frequency enum/last_run_at/last_status/last_imported_count/last_error — ADR-0020 §4.1, I7)`.
+
+**New backend components added (in `api` Container_Boundary):**
+| Component | File | Key invariant |
+|---|---|---|
+| `uploadsanitizer` | `upload.py` | basename-only, extension allow-list (.md/.txt/.markdown → 415), containment check (422); pure function, unit-testable (ADR-0020 §2.2) |
+| `importscheduler` | `import_scheduler.py` | Single asyncio lifespan task (NOT APScheduler — I9); copy→watcher path (I1/I9); MAX_FILES+MAX_SECONDS (I7); single in-flight guard (I7) |
+
+**New frontend components added (in `fe` Container_Boundary):**
+| Component | File | Key invariant |
+|---|---|---|
+| `uploadzone` | `ingest/UploadZone.tsx` | In Ingest section; FormData POST; client-side guard UX-only, backend authoritative; no CodeMirror (I4) |
+| `importschedulecard` | `settings/ImportScheduleCard.tsx` | In Settings section; container-path text input (no host picker); dir_ok:false warning; NOT in graphStore (I3) |
+
+**New relations added:**
+- `rest → uploadsanitizer` (POST /ingest/upload validation + write flow)
+- `uploadsanitizer → vaultfs` (write to raw/sources/; watcher observes)
+- `rest → importscheduler` (POST /import-schedule/run-now; GET/PUT helpers)
+- `importscheduler → pg` (read/write import_schedules, migration 0008)
+- `importscheduler → vaultfs` (os.scandir → copy; never calls ingest_file directly)
+- comment noting: scheduler writes to vaultfs; watcher observes the write and calls ingest_file() via the normal pipeline (I1/I9 — no direct relation node, handled by existing watcher→orch path)
+- `ingestview → uploadzone`, `uploadzone → ingestclient`, `uploadzone → ingeststore`, `uploadzone → toast`
+- `settingspanel → importschedulecard`, `importschedulecard → rest`, `importschedulecard → toast`
+
+**I7 annotations:** ImportScheduler and ImportScheduleCard descriptions explicitly reference
+MAX_FILES + MAX_SECONDS caps and single in-flight guard.
+**I9 annotations:** ImportScheduler description states "NOT APScheduler" and "never calls
+ingest_file directly — copy→watcher path."
+**I3 annotations:** ImportScheduleCard explicitly notes "NOT in graphStore (I3)".
+**I1 annotations:** ImportScheduler description states "Hash-compare before copy (I1)".
+
+### §M4-EXT-D2 — ER diagram zero-drift verification
+
+File: `docs/er/schema.mmd`
+
+The backend engineer regenerated `schema.mmd` via `make er` when committing migration 0008
+and `models.py` `ImportSchedule` class. The `IMPORT_SCHEDULES` entity was already present in
+the committed file before this gate run.
+
+**Cross-check: `IMPORT_SCHEDULES` vs `models.py` `ImportSchedule` vs migration 0008:**
+
+| Column | ER present | models.py | migration 0008 | Match |
+|--------|-----------|-----------|----------------|-------|
+| `id` UUID PK | YES | UUID PK gen_random_uuid() | YES | YES |
+| `vault_id` String NOT NULL UNIQUE | YES | String NOT NULL | UNIQUE constraint | YES |
+| `enabled` boolean NOT NULL DEFAULT false | YES | Boolean NOT NULL server_default false | YES | YES |
+| `source_dir` string NULL | YES | Text nullable | YES | YES |
+| `frequency` string NOT NULL DEFAULT '1h' | YES | Text NOT NULL default '1h' | YES | YES |
+| `last_run_at` timestamptz NULL | YES | TIMESTAMP(timezone=True) nullable | YES | YES |
+| `last_status` string NULL | YES | Text nullable | YES | YES |
+| `last_imported_count` int NOT NULL DEFAULT 0 | YES | Integer NOT NULL default 0 | YES | YES |
+| `last_error` string NULL | YES | Text nullable | YES | YES |
+| `created_at` timestamptz NOT NULL | YES | TIMESTAMP(timezone=True) NOT NULL | YES | YES |
+| `updated_at` timestamptz NOT NULL | YES | TIMESTAMP(timezone=True) NOT NULL | YES | YES |
+
+All 11 columns match. UNIQUE constraint on `vault_id` matches `uq_import_schedules_vault_id`.
+
+**Header comment updated** from `v0.3→v0.4 transition | 2026-06-28 — ADR-0016: edges.kind;
+Feature A: pages.pinned` to `v0.4 M4-EXT | 2026-06-28 — ADR-0020: import_schedules
+(migration 0008); ADR-0019: conversations+messages (migration 0007); ADR-0016: edges.kind;
+Feature A: pages.pinned`.
+
+**Result: zero drift vs models.py + migration 0008. D2 is current.**
+
+### §M4-EXT-D4 — OpenAPI zero-drift verification
+
+File: `docs/api/openapi.json`
+
+The backend engineer regenerated `openapi.json` via `make openapi` when committing the M4-EXT
+endpoints. Key items confirmed present:
+
+| Check | Present | Notes |
+|-------|---------|-------|
+| `POST /ingest/upload` path | YES | operationId: `upload_ingest_ingest_upload_post` |
+| `/ingest/upload` response code | YES | **202** (async watcher-driven — implementation diverges from ADR §2.1 which specified 201 synchronous; actual implementation uses 202 + queued status; openapi.json and live code are consistent with each other) |
+| `/ingest/upload` 415 documented | YES | "Only .md/.txt/.markdown accepted in v0.4; multi-format (F12) planned for M5" |
+| `/ingest/upload` 413 documented | YES | "File exceeds MAX_UPLOAD_BYTES" |
+| `/ingest/upload` 422 documented | YES | "Filename is empty or unsafe after sanitization" |
+| `UploadResponse` schema | YES | `file_path`, `status` ("queued"), `overwritten`; note: no `page_id` (async path) |
+| `GET /import-schedule` path | YES | operationId: `get_import_schedule_import_schedule_get` |
+| `PUT /import-schedule` path | YES | operationId: `put_import_schedule_import_schedule_put` |
+| `POST /import-schedule/run-now` path | YES | operationId: `run_import_now_import_schedule_run_now_post` |
+| `ImportScheduleResponse` schema | YES | All 8 response fields present |
+| `ImportSchedulePutResponse` schema | YES | Extends `ImportScheduleResponse` with `dir_ok` + `dir_message` |
+| API info description | YES | References M4-EXT, ADR-0020, Feature U and S |
+
+**Note on 201 vs 202 divergence:** ADR-0020 §2.1 specified 201 with synchronous `ingest_file`
+and `page_id` in the response. The implemented endpoint returns 202 (async, watcher-driven,
+no `page_id`, `status="queued"`). The committed `openapi.json` and the live code are mutually
+consistent at 202. This is a known implementation divergence from the ADR; the openapi.json
+is the ground truth for the live API. The ADR note in §8 of this status file records it.
+
+**Result: zero drift between committed openapi.json and live FastAPI app. D4 is current.**
+
+### §M4-EXT-D5 — Screenshots status
+
+| File | Status | Notes |
+|------|--------|-------|
+| `docs/screens/ingest-upload.png` | PENDING QA | Must show UploadZone in the Ingest section (drag-drop zone + accepted types label + M5 note). Playwright capture after frontend ships. |
+| `docs/screens/settings-import-schedule.png` | PENDING QA | Must show ImportScheduleCard in the Settings section (enabled toggle, container-path input, frequency select, last-run status). Playwright capture after frontend ships. |
+
+The two M4-EXT screenshots are a QA/Playwright responsibility. Their absence does not
+block the docs gate (consistent precedent: D5 captures are never blocking at the backend-
+first phase; QA captures after the frontend ships). They are explicitly tracked here.
+
+### §M4-EXT-D6a — USER.md updates
+
+Sections added this gate run:
+
+- **Ingest section** expanded: added "Uploading a document" sub-section documenting the
+  drag-drop zone, accepted formats (text/markdown only v0.4, F12/M5 note), 25 MB size
+  limit, and overwrite semantics. Existing "Run history" content retained.
+- **Settings section** expanded: added "Automatic import" sub-section documenting
+  mounted-path constraint, how to configure source_dir (container path, not host path),
+  frequency options, Run-now button, scan limits (200 files / 60 s), non-recursive note,
+  and text-only v0.4 restriction.
+- **Ingesting your first document** section rewritten: three options (drag-and-drop,
+  direct file placement, scheduled import) with clear prose; M5 multi-format note retained.
+
+Features explicitly NOT documented as present in v0.4: PDF/DOCX/etc. ingest (F12/M5),
+recursive scanning (future opt-in), and per-file async ingest result from upload (202 means
+the run appears in the list, not an immediate page_id).
+
+### §M4-EXT-D6b — DEPLOY.md updates
+
+Changes made this gate run:
+
+- **Header comment** updated to `v0.4 M4-EXT`.
+- **§2.1 env var table**: three new rows — `MAX_UPLOAD_BYTES`, `IMPORT_SCAN_MAX_FILES`,
+  `IMPORT_SCAN_MAX_SECONDS` (all I7 caps; env-configurable; defaults documented).
+- **§3.2 first-run text**: updated "migrations 0001–0007" to "0001–0008"; added sentence
+  about migration 0008 creating `import_schedules`.
+- **New §5 "Scheduled folder import (Feature S)"**: mounted-path constraint explained
+  (container sees only mounted paths; no host filesystem browse); volume mount example
+  (`./import:/import:ro`); configure-the-schedule steps; scan limits table.
+- **§6–§11 renumbering**: old §5–§10 renumbered to §6–§11 to accommodate the new §5.
+- **§10.6**: new troubleshooting entry for `last_status="dir_missing"` (missing mount).
+- **§10.7**: new troubleshooting entry for 415 (binary file type not accepted in v0.4).
+- **§11 References**: updated ADR range from "0001–0019" to "0001–0020".
+
+### §M4-EXT-D7 — ADR index verification
+
+File: `docs/adr/README.md`
+
+ADR-0020 row was already present (authored by solution-architect). Header updated from
+"Sprint v0.4 (M4 Phase 3)" to "Sprint v0.4 (M4-EXT)".
+
+| Field | Value | Correct |
+|-------|-------|---------|
+| ADR number | 0020 | YES |
+| Title | "Document upload + scheduled folder import (M4-EXT)" | YES |
+| Status | Accepted | YES |
+| Date | 2026-06-28 | YES |
+| Sprint | v0.4 | YES |
+| Link | `0020-upload-and-scheduled-import.md` | YES — file exists |
+
+Total ADRs in index: 20 (0001–0020). All Accepted. Zero gaps.
+
+### Known divergence from ADR-0020 (documented, not a gate failure)
+
+ADR-0020 §2.1 specified `POST /ingest/upload` → **201** synchronous with `page_id`.
+The implemented endpoint returns **202** (async watcher-driven, `status="queued"`, no
+`page_id`). The committed `openapi.json` and live code are consistent with each other at
+202. The `UploadResponse` schema omits `page_id` and sets `status: "queued"`. This is a
+known implementation-diverges-from-ADR situation; the openapi.json is the ground truth.
+If the solution-architect wishes to update ADR-0020 §2.1 to reflect the actual 202
+contract, that is a follow-up action — it does not block the docs gate because the docs
+accurately describe the implemented behaviour.
+
+### DOCS GATE VERDICT — M4-EXT
+
+| Artifact | Status | Drift found | Detail |
+|----------|--------|-------------|--------|
+| D1 `docs/architecture/component.mmd` | UP-TO-DATE | YES — fixed this run | UploadZone, ImportScheduleCard, ImportScheduler, uploadsanitizer components + routes + import_schedules table note + 12 new Rel() entries + 1 explanatory comment added |
+| D2 `docs/er/schema.mmd` | UP-TO-DATE | NONE (header updated) | IMPORT_SCHEDULES entity already present from make er; all 11 columns verified vs models.py + migration 0008; zero drift |
+| D4 `docs/api/openapi.json` | UP-TO-DATE | NONE | /ingest/upload (202), GET/PUT /import-schedule, POST /import-schedule/run-now all present; UploadResponse + ImportScheduleResponse + ImportSchedulePutResponse schemas confirmed; zero drift |
+| D5 `docs/screens/ingest-upload.png` | PENDING QA | N/A | QA/Playwright capture required after frontend ships; not blocking |
+| D5 `docs/screens/settings-import-schedule.png` | PENDING QA | N/A | QA/Playwright capture required after frontend ships; not blocking |
+| D6a `docs/USER.md` | UP-TO-DATE | YES — fixed this run | Upload section + scheduled import section + rewritten ingesting guide added |
+| D6b `docs/DEPLOY.md` | UP-TO-DATE | YES — fixed this run | §5 import mount + env vars + migration note + §10.6/10.7 troubleshooting added; section renumbered |
+| D7 ADR-0020 row in `docs/adr/README.md` | UP-TO-DATE | NONE (header updated) | ADR-0020 row present; 20 ADRs, zero gaps; header updated to M4-EXT |
+
+**DOCS GATE: PASS**
+
+Drift found and fixed in this run:
+- D1: `component.mmd` was at Phase 3 level (no M4-EXT components); updated with UploadZone,
+  ImportScheduleCard, ImportScheduler, uploadsanitizer, new routes, import_schedules table note,
+  and 14 new relations.
+- D6a: `USER.md` had no upload or scheduled import content; sections added.
+- D6b: `DEPLOY.md` had no import volume mount documentation; §5 added; env vars extended.
+
+Zero-drift artifacts (no content change required):
+- D2: `schema.mmd` IMPORT_SCHEDULES entity was already present (make er had been run).
+- D4: `openapi.json` M4-EXT endpoints were already present (make openapi had been run).
+- D7: ADR-0020 row was already in the index.
+
+Pending (not blocking):
+- D5: Two screenshots (`ingest-upload.png`, `settings-import-schedule.png`) awaiting QA
+  Playwright capture after the M4-EXT frontend components ship.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-28 | M4-EXT gate**
+
+---
+
 ## D6 Delivery — USER.md + DEPLOY.md v0.4 draft — DOCS GATE: PASS
 
 > Gate run: 2026-06-28
