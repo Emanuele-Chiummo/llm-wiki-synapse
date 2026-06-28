@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - sprint/v0.1
+      - sprint/v0.2
       - main
   pull_request:
     branches:
       - sprint/v0.1
+      - sprint/v0.2
       - main
 
 jobs:
@@ -42,7 +44,41 @@ jobs:
         run: black --check app tests
 
   # ──────────────────────────────────────────────────────────────────────
-  # Stage 2: Type checking (mypy)
+  # Stage 2: Docker build validation
+  # Validates that the Dockerfile builds without errors. Catches issues like:
+  # - Missing files (alembic.ini, app/, etc.)
+  # - Bad COPY/ADD statements
+  # - Broken dependencies
+  # No live services required. Builds the image and discards it.
+  # Runs service-free. Failure blocks merge.
+  # ──────────────────────────────────────────────────────────────────────
+  build:
+    name: Docker Build (backend image)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          tags: synapse-backend:ci
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Validate docker-compose.yml syntax
+        run: docker compose config > /dev/null
+        env:
+          # Suppress warnings about missing .env file; compose config only validates syntax
+          COMPOSE_IGNORE_ORPHANS: "true"
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Stage 3: Type checking (mypy)
   # Runs service-free. Failure blocks merge.
   # ──────────────────────────────────────────────────────────────────────
   typecheck:
@@ -68,7 +104,7 @@ jobs:
         run: mypy app
 
   # ──────────────────────────────────────────────────────────────────────
-  # Stage 3: Unit tests (pytest — infra-free subset)
+  # Stage 4: Unit tests (pytest — infra-free subset)
   # Runs service-free. Failure blocks merge.
   # Tests use FakeEmbeddingClient and dummy env (conftest setup).
   # ──────────────────────────────────────────────────────────────────────
@@ -95,10 +131,10 @@ jobs:
         run: python -m pytest -v --tb=short
 
   # ──────────────────────────────────────────────────────────────────────
-  # Stage 4: Docs gate (I8 — ER diagram, OpenAPI auto-gen)
+  # Stage 5: Docs gate (I8 — ER diagram, OpenAPI auto-gen, Mermaid validation)
   # Validates that docs/er/schema.mmd and docs/api/openapi.json are
   # up to date with the source (models.py + main.py). Runs mermaid-cli
-  # to validate diagram syntax.
+  # to render-check all architecture, sequences, and ER diagrams.
   # Failure blocks merge (I8 — docs-as-DoD).
   # ──────────────────────────────────────────────────────────────────────
   docs:
@@ -159,7 +195,7 @@ jobs:
           echo "All Mermaid diagrams are valid."
 
   # ──────────────────────────────────────────────────────────────────────
-  # (Future) Stage 5: Integration tests (optional, manual trigger)
+  # (Future) Stage 6: Integration tests (optional, manual trigger)
   # Requires live Qdrant, Ollama, PostgreSQL on TrueNAS.
   # Gated behind a condition (allow-failure in v0.1).
   # ──────────────────────────────────────────────────────────────────────
