@@ -1,19 +1,23 @@
 C4Context
-    title System Context — Synapse v0.1 (M1 "Data flows end-to-end")
+    title System Context — Synapse v0.2 (M2 "Agentic loop closed, 3 providers")
 
-    Person(emanuele, "Emanuele", "Vault owner. Drops .md files into the vault and reads indexed state via the REST API. No UI in v0.1.")
+    Person(emanuele, "Emanuele", "Vault owner. Drops .md files, selects the inference provider per vault/operation, reads generated wiki pages. No web UI yet (v0.4).")
 
-    System(synapse, "Synapse", "Self-hosted FastAPI service. Watches the vault, incrementally indexes Markdown into Postgres + Qdrant, and exposes a read/trigger REST API. NO LLM inference in v0.1.")
+    System(synapse, "Synapse", "Self-hosted FastAPI service + FastMCP server. Watches the vault, runs the capability-aware ingest loop (analyze→generate→validate, bounded I7), generates wiki pages via a user-selectable InferenceProvider (I6), and indexes into Postgres + Qdrant.")
 
+    System_Ext(ollamasvc, "Ollama", "Local inference (RTX 3060, already running, I9). Local provider backend — zero marginal cost.")
+    System_Ext(anthropic, "Anthropic API / OpenAI-compatible endpoint", "Cloud inference for the API provider and the CLI provider (claude-agent-sdk). API key supplied via environment only (§12).")
     System_Ext(qdrant, "Qdrant", "Vector database (already running on TrueNAS). Stores bge-m3 embeddings in the synapse_pages collection.")
-    System_Ext(bgem3, "bge-m3 embedding service", "Embedding endpoint (already running on TrueNAS, reached via EMBEDDING_URL). Produces dense vectors. No local model is loaded by Synapse (I9).")
+    System_Ext(bgem3, "bge-m3 embedding service", "Embedding endpoint (already running on TrueNAS, reached via EMBEDDING_URL). No local model loaded by Synapse (I9).")
     System_Ext(vaultfs, "Vault filesystem", "raw/ (immutable sources, read-only to Synapse), wiki/ (service-written, valid Obsidian vault), schema.md, purpose.md. On TrueNAS via Obsidian LiveSync.")
 
-    Rel(emanuele, synapse, "Drops .md files; reads indexed state", "filesystem / REST + JSON")
+    Rel(emanuele, synapse, "Drops sources; selects provider; reads generated wiki", "filesystem / REST + JSON")
     Rel(emanuele, vaultfs, "Edits sources, opens wiki/ in Obsidian", "filesystem / Obsidian")
 
-    Rel(synapse, vaultfs, "Reads raw/sources/ (events); writes wiki/log.md, .obsidian/", "watchdog / file I/O")
-    Rel(synapse, bgem3, "Requests embeddings per indexed page", "HTTP / JSON")
-    Rel(synapse, qdrant, "Upserts / deletes page vectors", "HTTP / gRPC")
+    Rel(synapse, ollamasvc, "Local analyze/generate (Local provider)", "HTTP /api/chat")
+    Rel(synapse, anthropic, "API analyze/generate; CLI delegated agent loop", "HTTPS")
+    Rel(synapse, vaultfs, "Reads raw/sources/; writes wiki/ pages, index.md, overview.md, log.md", "watchdog / file I/O")
+    Rel(synapse, bgem3, "Requests embeddings per generated page", "HTTP / JSON")
+    Rel(synapse, qdrant, "Upserts / deletes / searches page vectors", "HTTP / gRPC")
 
     UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

@@ -1,0 +1,37 @@
+sequenceDiagram
+    title Orchestrated ingest loop — analyze once, retry generate, bounded (I7)
+    autonumber
+
+    participant O as Orchestrator
+    participant P as InferenceProvider (Local/API)
+    participant V as WikiPage validator
+    participant U as Usage accumulator
+    participant FS as Wiki FS
+    participant PG as Postgres
+
+    Note over O: max_iter=3, token_budget=60000 (from provider_config, ADR-0009)
+    O->>P: analyze(source_text, vault_context)  %% ONCE per run (AQ-v0.2-1)
+    P-->>O: Analysis{topics, entities, language, suggested_pages}
+    P->>U: add Usage(input, output, cost)
+
+    loop iteration = 1..max_iter  (stop when converged OR iteration==max_iter OR tokens>=budget)
+        Note over O: check token_budget BEFORE the call — if accumulated >= budget, stop converged=False
+        O->>P: generate(analysis, retrieval_context + augmentation)
+        P-->>O: list[WikiPage]
+        P->>U: add Usage(input, output, cost)
+        O->>V: validate(pages)  %% type∈enum, title, non-empty sources[], lang, content (ADR-0007 §5)
+        alt all pages valid
+            V-->>O: OK (converged=True)
+            O->>FS: write each WikiPage to wiki/ (I1 upsert, I5 frontmatter)
+            O->>PG: persist_metadata + parse links (K5) + upsert vector
+            Note over O: break out of loop
+        else invalid (whole batch retried)
+            V-->>O: errors[]
+            Note over O: augment retrieval_context with validation errors; iteration += 1
+        end
+    end
+
+    Note over O: if loop ended without converging → converged=False (AC-K2-5)
+    O->>U: finalize → total_tokens, total_cost_usd
+    O->>PG: INSERT ingest_runs{max_iter_used, total_tokens, total_cost_usd, converged} (I7)
+    Note over O: log total_cost_usd; if > $1.00 → WARNING + cost_anomaly=True (ADR-0009)
