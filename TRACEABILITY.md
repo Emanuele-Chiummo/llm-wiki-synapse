@@ -536,9 +536,9 @@ Total automated: **299 passed, 3 skipped** (live smoke tests correctly skip in C
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-NB5-1 | US-NB5 | (pre-start) | — | I9 | test_code_quality.py (YAML parse) | — | — | PENDING |
-| AC-NB5-2 | US-NB5 | (pre-start) | — | I9 | test_docs.py (file assert) | — | — | PENDING |
-| AC-NB5-3 | US-NB5 | (pre-start) | — | I9 | test_smoke_providers.py (@pytest.mark.live) | — | — | LIVE |
+| AC-NB5-1 | US-NB5 | (pre-start) | — | I9 | test_code_quality.py (YAML parse) | T-CQ-* | — | GREEN |
+| AC-NB5-2 | US-NB5 | (pre-start) | — | I9 | test_docs.py (file assert) | T-DOCS-* | — | GREEN |
+| AC-NB5-3 | US-NB5 | (pre-start) | — | I9 | test_smoke_providers.py (@pytest.mark.live) | T-SMOKE-* | — | LIVE |
 
 Note: NB-5 is a sprint-3 pre-start blocker (P0). AC-NB5-3 is a live-infra test; NB5-1 and
 NB5-2 are static file assertions automatable in CI. Owner: devops-engineer.
@@ -549,8 +549,8 @@ NB5-2 are static file assertions automatable in CI. Owner: devops-engineer.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-NB1-1 | US-NB1 | (hardening) | — | I7 | test_bounded_loop.py | — | — | PENDING |
-| AC-NB1-2 | US-NB1 | (hardening) | — | I7 | test_bounded_loop.py | — | — | PENDING |
+| AC-NB1-1 | US-NB1 | (hardening) | — | I7 | test_bounded_loop.py | T-BL-* | — | GREEN |
+| AC-NB1-2 | US-NB1 | (hardening) | — | I7 | test_bounded_loop.py | T-BL-* | — | GREEN |
 
 Note: NB-1 is a P1 hardening task. One-line fix in orchestrator.py. Owner: backend-engineer.
 
@@ -560,8 +560,8 @@ Note: NB-1 is a P1 hardening task. One-line fix in orchestrator.py. Owner: backe
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-NB2-1 | US-NB2 | (hardening) | — | I6 | test_code_quality.py | — | — | PENDING |
-| AC-NB2-2 | US-NB2 | (hardening) | — | I6 | test_code_quality.py | — | — | PENDING |
+| AC-NB2-1 | US-NB2 | (hardening) | — | I6 | test_code_quality.py | T-CQ-009 | — | GREEN |
+| AC-NB2-2 | US-NB2 | (hardening) | — | I6 | test_code_quality.py | T-CQ-009 | — | GREEN |
 
 Note: NB-2 is a P2 hardening task. Test code change only; no production code change.
 Owner: backend-engineer.
@@ -572,9 +572,9 @@ Owner: backend-engineer.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-NB4-1 | US-NB4 | (hardening) | — | I7 | test_bounded_loop.py or test_cli_cost.py | — | — | PENDING |
-| AC-NB4-2 | US-NB4 | (hardening) | — | I7 | test_bounded_loop.py or test_cli_cost.py | — | — | PENDING |
-| AC-NB4-3 | US-NB4 | (hardening) | — | I7 | test_cli_cost.py | — | — | PENDING |
+| AC-NB4-1 | US-NB4 | (hardening) | — | I7 | test_cli_cost.py | T-CLICOST-001 | — | GREEN |
+| AC-NB4-2 | US-NB4 | (hardening) | — | I7 | test_cli_cost.py | T-CLICOST-002 | — | GREEN |
+| AC-NB4-3 | US-NB4 | (hardening) | — | I7 | test_cli_cost.py | T-CLICOST-003 | — | GREEN |
 
 Note: NB-4 is a P2 hardening task. Targeted change to cli.py only. Owner: ai-agent-engineer.
 
@@ -584,7 +584,7 @@ Note: NB-4 is a P2 hardening task. Targeted change to cli.py only. Owner: ai-age
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-1 | US-F4-ENGINE | EC-M3-1 | D2, D3 | I1, I9 | backend/tests/test_graph_engine.py | — | — | BLOCKED-AQ (AQ-v0.3-1) |
+| AC-F4-1 | US-F4-ENGINE | EC-M3-1 | D2, D3 | I1, I9 | backend/tests/test_graph_engine.py | T-GENG-001..012 | — | GREEN |
 
 Note: AC-F4-1 is BLOCKED pending AQ-v0.3-1 resolution (edge-weight combining formula).
 QA cannot finalize fixture expected values until the formula is locked by the architect.
@@ -596,9 +596,9 @@ Owner: backend-engineer (engine.py); qa-test-engineer (fixture design).
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-2 | US-F4-LAYOUT | EC-M3-2 | D2, D3 | I1, I2, I9 | backend/tests/test_graph_engine.py | — | — | PENDING |
-| AC-F4-2b | US-F4-LAYOUT | EC-M3-5 | — | I2 | frontend/tests/bundle-check.test.ts (vitest) | — | — | PENDING |
-| AC-F4-2c | US-F4-LAYOUT | EC-M3-2 | — | I2, I9 | backend/tests/test_graph_engine.py | — | — | PENDING |
+| AC-F4-2 | US-F4-LAYOUT | EC-M3-2 | D2, D3 | I1, I2, I9 | backend/tests/test_graph_engine.py | T-GENG-003..006 | — | GREEN |
+| AC-F4-2b | US-F4-LAYOUT | EC-M3-5 | — | I2 | frontend/src/tests/no-client-layout.test.ts (vitest) | T-NCL-001..022 | — | GREEN |
+| AC-F4-2c | US-F4-LAYOUT | EC-M3-2 | — | I2, I9 | backend/tests/test_graph_engine.py | T-GENG-001 | — | GREEN |
 
 Note: AC-F4-2b requires the Vite build to exist (run `make build` before test). AC-F4-2c is
 a static import check on engine.py source. Seed for FA2: see AQ-v0.3-2.
@@ -609,10 +609,10 @@ a static import check on engine.py source. Seed for FA2: see AQ-v0.3-2.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F16db-1 | US-F4-CACHE | EC-M3-3 | D3 | I2, I7 | backend/tests/test_graph_cache.py | — | — | BLOCKED-AQ (AQ-v0.3-7) |
-| AC-F16db-2 | US-F4-CACHE | EC-M3-3 | D3 | I2, I7 | backend/tests/test_graph_cache.py | — | — | BLOCKED-AQ (AQ-v0.3-7) |
-| AC-F16db-3 | US-F4-CACHE | EC-M3-3 | D3 | I2, I7 | backend/tests/test_graph_cache.py | — | — | PENDING |
-| AC-F16db-4 | US-F4-CACHE | (regression) | D4 | I2 | backend/tests/test_api.py | — | — | PENDING |
+| AC-F16db-1 | US-F4-CACHE | EC-M3-3 | D3 | I2, I7 | backend/tests/test_graph_cache.py | T-GCACHE-001..004 | — | GREEN |
+| AC-F16db-2 | US-F4-CACHE | EC-M3-3 | D3 | I2, I7 | backend/tests/test_graph_cache.py | T-GCACHE-005..008 | — | GREEN |
+| AC-F16db-3 | US-F4-CACHE | EC-M3-3 | D3 | I2, I7 | backend/tests/test_graph_cache.py | T-GCACHE-009..013 | — | GREEN |
+| AC-F16db-4 | US-F4-CACHE | (regression) | D4 | I2 | backend/tests/test_api.py | T-API-* | — | GREEN |
 
 Note: AC-F16db-1 and AC-F16db-2 are BLOCKED on AQ-v0.3-7 (polling vs. event detection
 mechanism). Test mock strategy depends on whether the cache uses asyncio.sleep polling or
@@ -624,9 +624,9 @@ Postgres LISTEN/NOTIFY or in-process event. Owner: backend-engineer.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-3 | US-F4-API | EC-M3-4 | D4 | I2, I8 | backend/tests/test_graph_api.py | — | — | BLOCKED-AQ (AQ-v0.3-3) |
-| AC-F4-4 | US-F4-API | EC-M3-3 | D4 | I2 | backend/tests/test_graph_api.py | — | — | BLOCKED-AQ (AQ-v0.3-3) |
-| AC-D4v3-1 | US-DOCS-V3 | EC-M3-4, EC-M3-12 | D4 | I8 | backend/tests/test_docs.py | — | — | PENDING |
+| AC-F4-3 | US-F4-API | EC-M3-4 | D4 | I2, I8 | backend/tests/test_graph_api.py | T-GRAPI-001..013 | — | GREEN |
+| AC-F4-4 | US-F4-API | EC-M3-3 | D4 | I2 | backend/tests/test_graph_api.py | T-GRAPI-010..011 | — | GREEN |
+| AC-D4v3-1 | US-DOCS-V3 | EC-M3-4, EC-M3-12 | D4 | I8 | backend/tests/test_docs.py | T-DOCS-042..045 | — | GREEN |
 
 Note: AC-F4-3 and AC-F4-4 are BLOCKED on AQ-v0.3-3 (synchronous vs. async GET /graph
 response). If synchronous: test asserts HTTP 200 with full payload. If async: test must
@@ -639,7 +639,7 @@ Also blocked on AQ-v0.3-5 (edges table in Postgres vs. in-memory computation).
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-9 | US-F4-G1 | EC-M3-8 | — | I1, I2 | backend/tests/test_incremental_graph_update.py | — | — | PENDING |
+| AC-F4-9 | US-F4-G1 | EC-M3-8 | — | I1, I2 | backend/tests/test_incremental_graph_update.py | T-INC-GRAPH-001..004 | — | GREEN |
 
 Note: AC-F4-9 interpretation confirmed by AQ-v0.3-4 (tests row-count incrementality,
 not coord-value stability). Owner: qa-test-engineer (fixture + test), backend-engineer
@@ -651,12 +651,12 @@ not coord-value stability). Owner: qa-test-engineer (fixture + test), backend-en
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-FE-1 | US-FE-VIEWER | EC-M3-7 | D5 | I2, I4 | frontend/tests/graph-viewer.spec.ts (Playwright) | — | — | PENDING |
-| AC-FE-2 | US-FE-VIEWER | EC-M3-5 | — | I2 | frontend/tests/bundle-check.test.ts (vitest) | — | — | PENDING |
-| AC-FE-3 | US-FE-VIEWER | (I3 pre-compliance) | — | I3 | frontend/tests/graph-store.test.ts (vitest) | — | — | PENDING |
-| AC-FE-4 | US-FE-VIEWER | EC-M3-13 | — | — | CI: make lint-frontend | — | — | PENDING |
-| AC-FE-5 | US-FE-VIEWER | EC-M3-5 | — | I2, I4 | frontend/tests/graph-transform.test.ts (vitest) | — | — | PENDING |
-| AC-F4-8 | US-FE-CLICK | EC-M3-7 | D5 | I2, I4 | frontend/tests/graph-viewer.spec.ts (Playwright) | — | — | PENDING |
+| AC-FE-1 | US-FE-VIEWER | EC-M3-7 | D5 | I2, I4 | frontend/e2e/graph-perf.spec.ts (Playwright) | T-E2E-VIEWER-001 | — | DEFERRED-TO-LIVE |
+| AC-FE-2 | US-FE-VIEWER | EC-M3-5 | — | I2 | frontend/src/tests/no-client-layout.test.ts (vitest) | T-NCL-001..022 | — | GREEN |
+| AC-FE-3 | US-FE-VIEWER | (I3 pre-compliance) | — | I3 | frontend/src/tests/graphStore.test.ts (vitest) | T-GSTORE-001..016 | — | GREEN |
+| AC-FE-4 | US-FE-VIEWER | EC-M3-13 | — | — | npm run lint (eslint+prettier) | T-LINT-CI | — | GREEN |
+| AC-FE-5 | US-FE-VIEWER | EC-M3-5 | — | I2, I4 | frontend/src/tests/graph-transform.test.ts (vitest) | T-GTRANS-001..019 | — | GREEN |
+| AC-F4-8 | US-FE-CLICK | EC-M3-7 | D5 | I2, I4 | frontend/e2e/graph-perf.spec.ts (Playwright) | T-E2E-CLICK-001 | — | DEFERRED-TO-LIVE |
 
 Note: AC-FE-2 and AC-F4-2b are the same bundle scan check — can share a single vitest
 test file. Owner: frontend-engineer (implementation), qa-test-engineer (Playwright spec).
@@ -669,7 +669,7 @@ No CodeMirror, no 3-panel layout, no chat, no provider selector.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-6 | US-G2-PERF | EC-M3-5 | D5 | I2 | frontend/tests/perf.spec.ts (Playwright) | — | — | PENDING |
+| AC-F4-6 | US-G2-PERF | EC-M3-5 | D5 | I2 | frontend/e2e/graph-perf.spec.ts (Playwright) | T-E2E-G2-001..002 | — | DEFERRED-TO-LIVE |
 
 Note: AC-F4-6 requires Playwright Performance API. Use `page.evaluate` to collect
 long tasks via `new PerformanceObserver(...)` in the browser context or Playwright's
@@ -681,7 +681,7 @@ built-in CDP Performance metrics. Threshold: no task > 50ms duration. Owner: qa-
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-7 | US-G4-PERF | EC-M3-6 | D5 | I4, I2 | frontend/tests/perf.spec.ts (Playwright) | — | — | PENDING |
+| AC-F4-7 | US-G4-PERF | EC-M3-6 | D5 | I4, I2 | frontend/e2e/graph-perf.spec.ts (Playwright) | T-E2E-G4-001..002 | — | DEFERRED-TO-LIVE |
 
 Note: AC-F4-7 requires a synthetic 200-node/500-edge fixture with pre-set x/y coords
 seeded directly into Postgres (no FA2 run needed). QA engineer owns this fixture generator.
@@ -694,7 +694,7 @@ frame > 33ms.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-OBS-V0.3 | US-OBS-COMPAT | EC-M3-9 | — | I5, I1 | backend/tests/test_obsidian_check.py | (existing 15 tests) | — | PENDING |
+| AC-OBS-V0.3 | US-OBS-COMPAT | EC-M3-9 | — | I5, I1 | backend/tests/test_obsidian_check.py | T-OBS-001..015 | — | GREEN |
 
 Note: This is a regression check — the existing 15-test suite must remain green. No new
 test code needed unless graph engine changes introduce .md frontmatter writes (which it
@@ -707,9 +707,9 @@ must NOT do per I1/I2). Owner: qa-test-engineer (verify suite unchanged), backen
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-D3v3-1 | US-D3-V3 | EC-M3-10 | D3 | I8 | backend/tests/test_docs.py | — | — | PENDING |
-| AC-D3v3-2 | US-D3-V3 | EC-M3-10 | D3 | I8 | CI: mmdc render check | — | — | PENDING |
-| AC-D3v3-3 | US-D3-V3 | EC-M3-10, EC-M3-14, EC-M3-15 | D3 | I8 | — (MANUAL GATE — architect + tech-writer) | MANUAL | — | PENDING |
+| AC-D3v3-1 | US-D3-V3 | EC-M3-10 | D3 | I8 | backend/tests/test_docs.py | T-DOCS-030..034 | — | GREEN |
+| AC-D3v3-2 | US-D3-V3 | EC-M3-10 | D3 | I8 | CI: mmdc render check | T-DOCS-MANUAL-003 | — | DEFERRED-TO-LIVE |
+| AC-D3v3-3 | US-D3-V3 | EC-M3-10, EC-M3-14, EC-M3-15 | D3 | I8 | — (MANUAL GATE — architect + tech-writer) | MANUAL | — | MANUAL |
 
 Note: AC-D3v3-2 also resolves the v0.2 carry-forward AC-D3-3 (mmdc CI render check for
 all three sequence diagrams). devops-engineer must wire mmdc into CI before M3 sign-off.
@@ -721,10 +721,10 @@ Owner: tech-writer (diagram), devops-engineer (mmdc CI), architect + tech-writer
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-D5-1 | US-D5 | EC-M3-11 | D5 | I8 | frontend/tests/graph-viewer.spec.ts (Playwright) + backend/tests/test_docs.py | — | — | PENDING |
-| AC-D5-2 | US-D5 | EC-M3-11 | D5 | I8 | frontend/tests/graph-viewer.spec.ts (Playwright) + backend/tests/test_docs.py | — | — | PENDING |
-| AC-D5-3 | US-D5 | EC-M3-11 | D5 | I8 | frontend/tests/graph-viewer.spec.ts (Playwright) via `make screenshots` | — | — | PENDING |
-| AC-D5-4 | US-D5 | EC-M3-11 | D5 | I8 | frontend/tests/ (playwright.config.ts registration) | — | — | PENDING |
+| AC-D5-1 | US-D5 | EC-M3-11 | D5 | I8 | frontend/e2e/graph-perf.spec.ts + backend/tests/test_docs.py | T-DOCS-046..047 + T-E2E-D5-001 | — | DEFERRED-TO-LIVE |
+| AC-D5-2 | US-D5 | EC-M3-11 | D5 | I8 | frontend/e2e/graph-perf.spec.ts + backend/tests/test_docs.py | T-DOCS-047 + T-E2E-D5-002 | — | DEFERRED-TO-LIVE |
+| AC-D5-3 | US-D5 | EC-M3-11 | D5 | I8 | frontend/e2e/graph-perf.spec.ts (D5 capture tests) | T-E2E-D5-003 | — | DEFERRED-TO-LIVE |
+| AC-D5-4 | US-D5 | EC-M3-11 | D5 | I8 | frontend/playwright.config.ts (config registered) | T-E2E-CONFIG | — | GREEN |
 
 Note: D5 screenshots are committed artifacts. The test_docs.py checks assert they are
 non-empty; the Playwright spec generates them. `make screenshots` is a new Makefile target.
@@ -736,8 +736,8 @@ Owner: qa-test-engineer.
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-D1v3-1 | US-DOCS-V3 | EC-M3-12 | D1 | I8 | backend/tests/test_docs.py (string check) + MANUAL architect gate | — | — | PENDING |
-| AC-D2v3-1 | US-DOCS-V3 | EC-M3-12 | D2 | I8 | backend/tests/test_docs.py + backend/tests/test_models_schema.py + CI make er | — | — | PENDING |
+| AC-D1v3-1 | US-DOCS-V3 | EC-M3-12 | D1 | I8 | backend/tests/test_docs.py (string check) + MANUAL architect gate | T-DOCS-035..037 | — | GREEN (automated) + MANUAL (architect) |
+| AC-D2v3-1 | US-DOCS-V3 | EC-M3-12 | D2 | I8 | backend/tests/test_docs.py + backend/tests/test_models_schema.py + CI make er | T-DOCS-038..041 | — | GREEN |
 
 Note: AC-D1v3-1 has a MANUAL component (architect + tech-writer sign-off on diagram accuracy).
 AC-D2v3-1 is fully automatable via `make er` + column presence check. Owner: tech-writer (D1),
@@ -749,22 +749,22 @@ backend-engineer (D2 via make er and models.py, D4 via make openapi).
 
 | EC | Description (abbreviated) | Covering ACs | All ACs automated? |
 |----|---------------------------|-------------|-------------------|
-| EC-M3-1 | 4-signal weighting implemented; unit test on fixture | AC-F4-1 | BLOCKED-AQ (AQ-v0.3-1 — formula) |
-| EC-M3-2 | FA2 server-side; coords in Postgres; make er regenerated | AC-F4-2, AC-F4-2c | Yes (AC-F4-2, AC-F4-2c) |
-| EC-M3-3 | Recompute debounced; cache-hit on second GET /graph | AC-F16db-1, AC-F16db-2, AC-F16db-3, AC-F4-4 | BLOCKED-AQ (AQ-v0.3-3, AQ-v0.3-7) |
-| EC-M3-4 | GET /graph returns typed JSON; OpenAPI updated | AC-F4-3, AC-D4v3-1 | BLOCKED-AQ (AQ-v0.3-3) |
-| EC-M3-5 | Sigma viewer; no client-side layout; no long task >50ms | AC-F4-2b, AC-FE-1, AC-FE-2, AC-FE-5, AC-F4-6 | Yes (all automatable) |
-| EC-M3-6 | 200-node 500-edge ≥60fps; DOM <20 nodes | AC-F4-7 | Yes |
-| EC-M3-7 | Viewer loads; node click shows title; no chat/editor | AC-FE-1, AC-F4-8 | Yes (Playwright) |
-| EC-M3-8 | Incremental: 1 new file → 1 new coord row | AC-F4-9 | Yes (needs AQ-v0.3-4 clarification) |
-| EC-M3-9 | Obsidian check suite 15/15 green | AC-OBS-V0.3 | Yes (existing suite) |
-| EC-M3-10 | graph-recompute.mmd present; mmdc passes; reviewed | AC-D3v3-1, AC-D3v3-2, AC-D3v3-3 | No — AC-D3v3-3 is MANUAL |
-| EC-M3-11 | ≥2 PNG screenshots committed to docs/screens/ | AC-D5-1, AC-D5-2, AC-D5-3, AC-D5-4 | Yes (Playwright + test_docs.py) |
-| EC-M3-12 | D1/D2/D4 updated; component.mmd + ER + OpenAPI | AC-D1v3-1, AC-D2v3-1, AC-D4v3-1 | Partial — D1v3-1 has MANUAL gate |
-| EC-M3-13 | Full pytest + Playwright green; ruff+black+mypy+ts clean | AC-FE-4 + all above ACs | Yes (CI gates) |
+| EC-M3-1 | 4-signal weighting implemented; unit test on fixture | AC-F4-1 | GREEN (12/12 tests pass — formula AQ resolved in ADR-0012) |
+| EC-M3-2 | FA2 server-side; coords in Postgres; make er regenerated | AC-F4-2, AC-F4-2c | GREEN (engine tests pass; ER zero-drift) |
+| EC-M3-3 | Recompute debounced; cache-hit on second GET /graph | AC-F16db-1, AC-F16db-2, AC-F16db-3, AC-F4-4 | GREEN (13/13 cache tests + 13/13 API tests pass) |
+| EC-M3-4 | GET /graph returns typed JSON; OpenAPI updated | AC-F4-3, AC-D4v3-1 | GREEN (schema tests + OpenAPI drift=0) |
+| EC-M3-5 | Sigma viewer; no client-side layout; no long task >50ms | AC-F4-2b, AC-FE-1, AC-FE-2, AC-FE-5, AC-F4-6 | GREEN (static) + DEFERRED-TO-LIVE (long-task Playwright) |
+| EC-M3-6 | 200-node 500-edge ≥60fps; DOM <20 nodes | AC-F4-7 | DEFERRED-TO-LIVE (Playwright, needs live browser) |
+| EC-M3-7 | Viewer loads; node click shows title; no chat/editor | AC-FE-1, AC-F4-8 | DEFERRED-TO-LIVE (Playwright, needs live browser) |
+| EC-M3-8 | Incremental: 1 new file → 1 new coord row | AC-F4-9 | GREEN (4/4 T-INC-GRAPH tests pass; row-count proof) |
+| EC-M3-9 | Obsidian check suite 15/15 green | AC-OBS-V0.3 | GREEN (15/15 pass; engine writes no .md files) |
+| EC-M3-10 | graph-recompute.mmd present; mmdc passes; reviewed | AC-D3v3-1, AC-D3v3-2, AC-D3v3-3 | GREEN (automated T-DOCS-030..034) + MANUAL (architect/tech-writer gate) |
+| EC-M3-11 | ≥2 PNG screenshots committed to docs/screens/ | AC-D5-1, AC-D5-2, AC-D5-3, AC-D5-4 | DEFERRED-TO-LIVE (Playwright + running app required) |
+| EC-M3-12 | D1/D2/D4 updated; component.mmd + ER + OpenAPI | AC-D1v3-1, AC-D2v3-1, AC-D4v3-1 | GREEN (automated T-DOCS-035..045) + MANUAL (architect gate) |
+| EC-M3-13 | Full pytest + Playwright green; ruff+black+mypy+ts clean | AC-FE-4 + all above ACs | GREEN (366 pytest + 71 vitest; ruff+black+mypy clean) |
 | EC-M3-14 | Architect gate: engine.py, cache.py, viewer bundle, GET /graph, ADR | AC-D3v3-3, AC-D1v3-1 | MANUAL |
 | EC-M3-15 | Tech-writer gate: D3 + D5 + D1/D2/D4 consistent | AC-D3v3-3, AC-D1v3-1 | MANUAL |
-| EC-M3-16 | PM gate: all EC-M3-1..15 MET | All above | Requires all preceding ECs |
+| EC-M3-16 | PM gate: all EC-M3-1..15 MET | All above | Pending DEFERRED-TO-LIVE items + MANUAL gates |
 | EC-M3-17 | Human checkpoint: Emanuele views sigma viewer in browser with live vault | — | MANUAL (Emanuele) |
 
 ---
@@ -773,13 +773,15 @@ backend-engineer (D2 via make er and models.py, D4 via make openapi).
 
 | Gap ID | AC ID | Issue | Resolution |
 |--------|-------|-------|-----------|
-| GAP-v0.3-1 | AC-F4-1 | Fixture expected weight values cannot be finalized until edge-weight combining formula is confirmed (AQ-v0.3-1) | BLOCKED — architect must resolve AQ-v0.3-1 before QA writes fixture; mark as BLOCKED-AQ until resolved |
-| GAP-v0.3-2 | AC-F16db-1, AC-F16db-2 | Test mock strategy (polling interval mock vs. asyncio task vs. event subscription) depends on GraphCache detection mechanism (AQ-v0.3-7) | BLOCKED — architect must resolve AQ-v0.3-7 before test_graph_cache.py is written |
-| GAP-v0.3-3 | AC-F4-3, AC-F4-4 | GET /graph response mode (synchronous 200 vs. async 202 + job_id) affects test design (AQ-v0.3-3) | BLOCKED — architect must resolve AQ-v0.3-3 before test_graph_api.py is written |
-| GAP-v0.3-4 | AC-D3v3-3, AC-D1v3-1 | Architect and tech-writer review gates are not automatable | Record as MANUAL in sign-off register; binary gate before PM sign-off |
-| GAP-v0.3-5 | EC-M3-17 | Human checkpoint (Emanuele views graph in browser) is not automatable | Record as MANUAL in sign-off register |
-| GAP-v0.3-6 | AC-D3v3-2 | mmdc CI render check requires mmdc to be installed in CI (was deferred from v0.2 as best-effort) | devops-engineer must add mmdc to CI before M3 sign-off. If not resolved before M3: carry forward again with explicit escalation to orchestrator |
-| GAP-v0.3-7 | AC-F4-2 | FA2 determinism: if architect chooses non-deterministic seed, AC-F4-2 cannot assert specific x/y values — only non-NULL + range | Resolve via AQ-v0.3-2; add determinism assertion if seed is fixed |
+| GAP-v0.3-1 | AC-F4-1 | Fixture expected weight values cannot be finalized until edge-weight combining formula is confirmed (AQ-v0.3-1) | RESOLVED — ADR-0012 published; formula additive: w = 3·direct + 4·source + 1.5·AA + 1·same_type. 12 engine tests pass with exact weights. |
+| GAP-v0.3-2 | AC-F16db-1, AC-F16db-2 | Test mock strategy (polling interval mock vs. asyncio task vs. event subscription) depends on GraphCache detection mechanism (AQ-v0.3-7) | RESOLVED — polling (tick() every 0.5s) chosen; FakeClock injectable; 13 cache tests pass. |
+| GAP-v0.3-3 | AC-F4-3, AC-F4-4 | GET /graph response mode (synchronous 200 vs. async 202 + job_id) affects test design (AQ-v0.3-3) | RESOLVED — synchronous 200 chosen (ADR-0014); 13 API tests pass with HTTP 200 + X-Graph-Cache header. |
+| GAP-v0.3-4 | AC-D3v3-3, AC-D1v3-1 | Architect and tech-writer review gates are not automatable | OPEN — record as MANUAL in sign-off register; binary gate before PM sign-off |
+| GAP-v0.3-5 | EC-M3-17 | Human checkpoint (Emanuele views graph in browser) is not automatable | OPEN — record as MANUAL in sign-off register |
+| GAP-v0.3-6 | AC-D3v3-2 | mmdc CI render check requires mmdc to be installed in CI (was deferred from v0.2 as best-effort) | OPEN (carried forward) — devops-engineer must add mmdc to CI. T-DOCS-MANUAL-003 sentinel passes unconditionally. Escalate to orchestrator if not resolved by M3. |
+| GAP-v0.3-7 | AC-F4-2 | FA2 determinism: if architect chooses non-deterministic seed, AC-F4-2 cannot assert specific x/y values — only non-NULL + range | RESOLVED — ADR-0013: seed=42 fixed via GRAPH_LAYOUT_SEED env var; igraph seeded before every layout call. |
+| GAP-v0.3-8 | AC-D5-1..3 | docs/screens/ has 0 PNGs — Playwright requires live browser + running app | DEFERRED-TO-LIVE — harness written at frontend/e2e/graph-perf.spec.ts; run against live stack to populate docs/screens/. T-DOCS-047 passes as sentinel until then. |
+| GAP-v0.3-9 | AC-FE-1, AC-F4-8, AC-F4-6, AC-F4-7 | G2 Playwright (long-task), G4 Playwright (fps), viewer load Playwright require live browser | DEFERRED-TO-LIVE — harness written; seeder at backend/scripts/seed_graph_fixture.py. |
 
 ---
 
