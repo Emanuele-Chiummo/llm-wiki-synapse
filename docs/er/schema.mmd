@@ -1,4 +1,4 @@
-<!-- Generated: v0.1 sprint 1 | 2026-06-28 -->
+<!-- Generated: v0.2 sprint 2 | 2026-06-28 -->
 erDiagram
 
     PAGES {
@@ -16,9 +16,51 @@ erDiagram
         timestamptz updated_at "Updated on every upsert (AC-WATCH-3)"
     }
 
+    PROVIDER_CONFIG {
+        uuid id PK "Row identity"
+        string scope "global | vault | operation (ADR-0008 §2)"
+        string operation "ingest | chat | lint; NULL unless scope='operation' (AQ-v0.2-5)"
+        string vault_id "NULL at global scope; required at vault/operation scope"
+        string provider_type "local | api | cli — selects the InferenceProvider backend (I6)"
+        string model_id "Model name (e.g. claude-sonnet-4-6); value lives ONLY in DB rows (AC-F17-8)"
+        string base_url "OpenAI-compatible endpoint for ApiProvider; NULL for Anthropic/local default"
+        int max_iter "Orchestrated-loop iteration cap (I7, ADR-0009)"
+        int token_budget "Loop token budget (I7); 60000 orchestrated / 100000 cli (ADR-0009)"
+        boolean is_fallback "Marks the single fallback row for a scope (ADR-0009 §fallback)"
+        timestamptz created_at "Row creation time"
+        timestamptz updated_at "Updated on every change"
+    }
+
     VAULT_STATE {
         uuid id PK "Row identity"
         string vault_id "One row per vault; from VAULT_ID env var"
         int data_version "Monotonic; +1 per successful upsert ingest (AC-F16dv-2/4); FA2 debounce signal"
         timestamptz updated_at "Last bump time"
+    }
+
+    INGEST_RUNS {
+        uuid id PK "Row identity"
+        string vault_id "Vault this run belongs to"
+        uuid page_id FK "Originating source page; NULL on a pre-write failure"
+        string provider_name "Provider class name (e.g. OllamaProvider) — AUDIT ONLY, never routed on (I6)"
+        string provider_type "local | api | cli (audit)"
+        string model_id "Resolved model used (audit)"
+        string route "orchestrated | delegated (capability-aware routing outcome)"
+        int max_iter_used "Iterations actually consumed (1..max_iter); 0 for delegated"
+        int total_tokens "input+output tokens across all iterations (I7)"
+        decimal total_cost_usd "0.0000 for local/cli (ADR-0009); logged per run (I7)"
+        boolean converged "True if a valid batch was produced within max_iter"
+        boolean cost_anomaly "True if total_cost_usd > 1.00 (ADR-0009 §3)"
+        timestamptz started_at "Run start time"
+        timestamptz finished_at "Run finish time"
+    }
+
+    LINKS {
+        uuid id PK "Row identity"
+        uuid source_page_id FK "FK → pages.id; the page that contains the wikilink (K5)"
+        string target_title "The [[Target]] title string as written (K5)"
+        uuid target_page_id FK "Resolved FK → pages.id; NULL while the target page does not exist (K5, v0.3)"
+        string alias "The |alias part of [[Target|alias]], if present (K5)"
+        boolean dangling "True when target_page_id is unresolved (AC-K5-5); warn-not-error path"
+        timestamptz created_at "Row creation time"
     }

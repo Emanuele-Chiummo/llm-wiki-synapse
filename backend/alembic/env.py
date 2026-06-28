@@ -39,8 +39,7 @@ def _get_url() -> str:
     url = os.environ.get("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
     if not url:
         raise RuntimeError(
-            "DATABASE_URL is not set. "
-            "Pass it via environment or alembic.ini sqlalchemy.url."
+            "DATABASE_URL is not set. " "Pass it via environment or alembic.ini sqlalchemy.url."
         )
     # Ensure the URL uses asyncpg driver
     if url.startswith("postgresql://"):
