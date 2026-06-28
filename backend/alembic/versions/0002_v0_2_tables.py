@@ -20,7 +20,6 @@ provider_config holds NO API key column (§12 — keys are env-only).
 from __future__ import annotations
 
 import os
-import uuid
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -289,16 +288,17 @@ def upgrade() -> None:
     # ── Data migration: seed one global provider_config row (AC-F17-8) ──────────
     # Model IDs come from environment vars at migration time — NEVER literals in app code.
     # A missing global row is a hard config error at runtime (I6, ADR-0008 §2).
+    # `id` is omitted so the column's server_default gen_random_uuid() generates a real
+    # uuid — passing a bound string yields VARCHAR which Postgres won't cast to uuid.
     op.execute(
         sa.text(
             "INSERT INTO provider_config "
-            "(id, scope, operation, vault_id, provider_type, model_id, base_url, "
+            "(scope, operation, vault_id, provider_type, model_id, base_url, "
             " max_iter, token_budget, is_fallback, created_at, updated_at) "
             "VALUES "
-            "(:id, 'global', NULL, NULL, 'api', :model_id, NULL, "
+            "('global', NULL, NULL, 'api', :model_id, NULL, "
             " 3, 60000, false, now(), now())"
         ).bindparams(
-            id=str(uuid.uuid4()),
             model_id=_DEFAULT_MODEL_ID,
         )
     )
@@ -306,13 +306,12 @@ def upgrade() -> None:
     op.execute(
         sa.text(
             "INSERT INTO provider_config "
-            "(id, scope, operation, vault_id, provider_type, model_id, base_url, "
+            "(scope, operation, vault_id, provider_type, model_id, base_url, "
             " max_iter, token_budget, is_fallback, created_at, updated_at) "
             "VALUES "
-            "(:id, 'global', NULL, NULL, 'api', :model_id, NULL, "
+            "('global', NULL, NULL, 'api', :model_id, NULL, "
             " 3, 60000, true, now(), now())"
         ).bindparams(
-            id=str(uuid.uuid4()),
             model_id=_DEFAULT_FALLBACK_MODEL_ID,
         )
     )
