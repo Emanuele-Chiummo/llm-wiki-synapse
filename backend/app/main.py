@@ -1,5 +1,5 @@
 """
-Synapse FastAPI service — v0.2 (M2).
+Synapse FastAPI service — v0.3 (M3).
 
 Endpoints:
   GET  /status                — vault_id, data_version, started_at, uptime
@@ -9,13 +9,15 @@ Endpoints:
   GET  /provider/config       — list effective + raw provider_config rows (F17)
   POST /provider/config       — create/update a provider_config row (F17, §12 — no api key)
   DELETE /provider/config/{id} — delete a provider_config row by UUID
+  GET  /graph                 — precomputed graph coords + edges (F4, I2, ADR-0014)
 
 Startup sequence (ordered, per v0.1-architecture §2.5):
   1. Vault skeleton bootstrap (vault.py) — AC-K7-1, I5
   2. Seed vault_state (idempotent) — ADR-0005, AC-F16dv-1
   3. Validate EMBEDDING_DIM vs live bge-m3 + ensure synapse_pages collection — ADR-0004
   4. Start watchdog observer — watcher.py
-  5. Emit AQ-3 INFO line if raw/sources/ is non-empty — ADR-0006
+  5. Start GraphCache background debounce loop — ADR-0014
+  6. Emit AQ-3 INFO line if raw/sources/ is non-empty — ADR-0006
 
 OpenAPI: auto-served at /openapi.json; `make openapi` snapshots to docs/api/openapi.json (D4).
 """
@@ -31,6 +33,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.engine import CursorResult
@@ -38,11 +41,16 @@ from sqlalchemy.engine import CursorResult
 from app.config import settings
 from app.db import dispose_engine, get_session
 from app.embeddings import EmbeddingError, get_embedding_client
+from app.graph.cache import GraphCache
+from app.graph.engine import GraphEngine
 from app.ingest.orchestrator import IngestResult, ingest_file
 from app.models import Page, ProviderConfig, VaultState
 from app.qdrant_client import ensure_collection
 from app.vault import bootstrap_vault
 from app.watcher import start_watcher, stop_watcher
+
+# ── Module-level GraphCache singleton (initialised in lifespan) ───────────────
+_graph_cache: GraphCache | None = None
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -59,9 +67,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     """
     FastAPI lifespan: startup → yield → shutdown.
 
-    Ordered startup sequence per v0.1-architecture §2.5.
+    Ordered startup sequence per v0.1-architecture §2.5 + v0.3 graph cache.
     """
-    global _started_at
+    global _started_at, _graph_cache
     _started_at = datetime.now(UTC)
 
     # 1. Vault skeleton (K1, I5, AC-K7-1)
@@ -77,9 +85,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     loop = asyncio.get_running_loop()
     start_watcher(loop)
 
+    # 5. Initialise GraphCache + background debounce loop (I2, ADR-0014)
+    _graph_cache = GraphCache(
+        engine=GraphEngine(),
+        vault_id=settings.vault_id,
+    )
+    _graph_cache.start_background_loop()
+    logger.info("GraphCache initialised and background loop started")
+
     yield
 
     # ── Shutdown ───────────────────────────────────────────────────────────────
+    if _graph_cache is not None:
+        _graph_cache.stop_background_loop()
     stop_watcher()
     await dispose_engine()
 
@@ -88,9 +106,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
 
 app = FastAPI(
     title="Synapse",
-    version="0.2.0",
+    version="0.3.0",
     description=(
-        "Self-organising wiki backend — M2 (agentic loop closed, 3 providers). "
+        "Self-organising wiki backend — M3 (graph live, no main-thread freeze). "
+        "4-signal knowledge graph (F4): direct×3 + source-overlap×4 + Adamic-Adar×1.5 + type×1. "
+        "FA2 server-side via igraph (I2); coords persisted in Postgres; "
+        "dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). "
         "Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, "
         "CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). "
         "Karpathy LLM Wiki pattern [K1–K8]."
@@ -537,6 +558,176 @@ async def delete_provider_config(config_id: uuid.UUID) -> None:
             status_code=404,
             detail=f"provider_config {config_id} not found",
         )
+
+
+# ── GET /graph ─────────────────────────────────────────────────────────────────
+
+
+class GraphNodeResponse(BaseModel):
+    """
+    One graph node in the GET /graph response (ADR-0014 §6, AC-F4-3).
+
+    Required: id, title, type, x, y.
+    Optional rendering hints (derived server-side): size, degree.
+    """
+
+    id: str
+    title: str | None
+    type: str | None
+    x: float
+    y: float
+    size: float = Field(default=1.0, description="Rendering hint: monotonic in degree")
+    degree: int = Field(default=0, description="Incident-edge count (derived, not persisted)")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "id": "00000000-0000-0000-0000-000000000001",
+                "title": "Alpha",
+                "type": "entity",
+                "x": 1.23,
+                "y": -0.45,
+                "size": 2.1,
+                "degree": 3,
+            }
+        }
+    }
+
+
+class GraphEdgeResponse(BaseModel):
+    """
+    One graph edge in the GET /graph response (ADR-0014 §6, AC-F4-3).
+
+    source/target are page-id strings (UUID). Undirected — emitted once per pair.
+    """
+
+    source: str
+    target: str
+    weight: float
+
+
+class GraphResponse(BaseModel):
+    """
+    GET /graph response payload (ADR-0014 §6, AC-F4-3, AC-D4v3-1).
+
+    cached: true on a HIT (no FA2 this request), false on a MISS (FA2 ran inline).
+    Header X-Graph-Cache: hit|miss mirrors cached (ADR-0014 §5).
+    """
+
+    nodes: list[GraphNodeResponse]
+    edges: list[GraphEdgeResponse]
+    data_version: int
+    cached: bool
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "nodes": [
+                    {
+                        "id": "00000000-0000-0000-0000-000000000001",
+                        "title": "Alpha",
+                        "type": "entity",
+                        "x": 1.23,
+                        "y": -0.45,
+                        "size": 2.1,
+                        "degree": 3,
+                    }
+                ],
+                "edges": [
+                    {
+                        "source": "00000000-0000-0000-0000-000000000001",
+                        "target": "00000000-0000-0000-0000-000000000002",
+                        "weight": 11.0,
+                    }
+                ],
+                "data_version": 7,
+                "cached": True,
+            }
+        }
+    }
+
+
+@app.get(
+    "/graph",
+    response_model=GraphResponse,
+    summary="Precomputed knowledge graph (nodes + edges with FA2 coordinates)",
+    description=(
+        "Returns the precomputed graph with FA2 layout coordinates (I2, F4, ADR-0014). "
+        "HIT (X-Graph-Cache: hit): pure read from persisted coords + edges — no FA2. "
+        "MISS (X-Graph-Cache: miss): one inline synchronous recompute, then return. "
+        "Synchronous 200 — never 202 (AQ-v0.3-3). "
+        "A second request at the same data_version is always a HIT (G2)."
+    ),
+    responses={
+        200: {
+            "description": "Graph payload with precomputed coords",
+            "headers": {
+                "X-Graph-Cache": {
+                    "description": "hit|miss — mirrors the cached field (ADR-0014 §5)",
+                    "schema": {"type": "string"},
+                }
+            },
+        }
+    },
+)
+async def get_graph() -> Response:
+    """
+    GET /graph — precomputed knowledge graph with FA2 layout coords (F4, I2, ADR-0014).
+
+    I2 compliance:
+      - HIT path: pure read, no FA2 (X-Graph-Cache: hit).
+      - MISS path: one inline synchronous recompute (X-Graph-Cache: miss).
+      - The background debounce (GraphCache) keeps the common case a HIT.
+      - Coords are precomputed server-side via igraph (R9, I9) — never on the client.
+    """
+    global _graph_cache
+
+    # Read the current data_version (lightweight SELECT)
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        current_version: int = state.data_version if state is not None else 0
+
+    # Initialise cache lazily (e.g. in test environments that bypass lifespan)
+    if _graph_cache is None:
+        _graph_cache = GraphCache(
+            engine=GraphEngine(),
+            vault_id=settings.vault_id,
+        )
+
+    snapshot, cached = await _graph_cache.get_graph(current_version)
+
+    # Build response payload (ADR-0014 §6)
+    nodes: list[GraphNodeResponse] = [
+        GraphNodeResponse(
+            id=n.id,
+            title=n.title,
+            type=n.page_type,
+            x=n.x,
+            y=n.y,
+            size=n.size,
+            degree=n.degree,
+        )
+        for n in snapshot.nodes
+    ]
+    edges: list[GraphEdgeResponse] = [
+        GraphEdgeResponse(source=e.source, target=e.target, weight=e.weight) for e in snapshot.edges
+    ]
+    payload = GraphResponse(
+        nodes=nodes,
+        edges=edges,
+        data_version=current_version,
+        cached=cached,
+    )
+
+    cache_header = "hit" if cached else "miss"
+    return Response(
+        content=payload.model_dump_json(),
+        media_type="application/json",
+        headers={"X-Graph-Cache": cache_header},
+    )
 
 
 # ── Startup helpers ────────────────────────────────────────────────────────────
