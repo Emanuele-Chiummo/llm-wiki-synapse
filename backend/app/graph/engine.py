@@ -395,9 +395,9 @@ class GraphEngine:
             # Update coords for each node
             for row in coord_rows:
                 await sess.execute(
-                    sa_text("UPDATE pages SET x = :x, y = :y WHERE id = :id").bindparams(
-                        id=str(row["id"]), x=row["x"], y=row["y"]
-                    )
+                    sa_text(
+                        "UPDATE pages SET x = :x, y = :y WHERE id = CAST(:id AS uuid)"
+                    ).bindparams(id=str(row["id"]), x=row["x"], y=row["y"])
                 )
 
             # Replace edges for this vault (delete-then-insert)
@@ -409,8 +409,8 @@ class GraphEngine:
                 "(id, vault_id, source_page_id, target_page_id,"
                 " weight, signals, created_at) "
                 "VALUES "
-                "(:id, :vault_id, :source_page_id, :target_page_id,"
-                " :weight, :signals::jsonb, now())"
+                "(CAST(:id AS uuid), :vault_id, CAST(:source_page_id AS uuid),"
+                " CAST(:target_page_id AS uuid), :weight, :signals::jsonb, now())"
             )
             for row in edge_rows:
                 await sess.execute(
