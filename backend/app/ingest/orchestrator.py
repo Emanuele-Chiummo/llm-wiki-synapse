@@ -313,11 +313,12 @@ async def run_ingest_pipeline(
     pages: list[WikiPage] = []
     analysis: Analysis | None = None
     iterations = 0
+    delegated_pages_written = 0
 
     # ── ROUTE: the single capability check (I6) ──────────────────────────────
     if caps.supports_agentic_loop:
         route: Literal["orchestrated", "delegated"] = "delegated"
-        converged = await _delegate_ingest(
+        converged, delegated_pages_written = await _delegate_ingest(
             provider=provider,
             source_text=source_text,
             origin_source=origin_source,
@@ -387,7 +388,7 @@ async def run_ingest_pipeline(
 
     return IngestRunResult(
         route=route,
-        pages_written=len(pages),
+        pages_written=delegated_pages_written if caps.supports_agentic_loop else len(pages),
         total_tokens=total_tokens,
         total_cost_usd=total_cost_usd,
         converged=converged,
@@ -448,13 +449,13 @@ async def _delegate_ingest(
     provider: InferenceProvider,
     source_text: str,
     origin_source: str,
-) -> bool:
+) -> tuple[bool, int]:
     """
     Delegate the whole ingest to an agentic provider (CLI). The provider runs its own bounded
     agent loop and writes pages through the MCP write_page tool (which reuses write_wiki_page,
     ADR-0010 §2), so I1/I5 hold without the orchestrator touching the pages here.
 
-    Returns converged. The MCP server object + system prompt assembly are the
+    Returns (converged, pages_written). The MCP server object + system prompt assembly are the
     backend-engineer/SDK wiring seam; v0.2 surfaces a clear error if invoked without it.
     """
     delegate = getattr(provider, "delegate_ingest", None)
@@ -475,7 +476,9 @@ async def _delegate_ingest(
         vault_dir=str(settings.vault_root),
         mcp_server=_mcp_server,  # FastMCP server (ADR-0010); cli.py seam
     )
-    return bool(getattr(result, "converged", False))
+    converged = bool(getattr(result, "converged", False))
+    pages_written = int(getattr(result, "pages_written", 0))
+    return converged, pages_written
 
 
 async def _resolve_fallback_provider_config() -> object | None:
