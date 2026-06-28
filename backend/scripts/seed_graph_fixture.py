@@ -87,7 +87,7 @@ def _parse_args() -> argparse.Namespace:
 def _make_nodes(n: int, vault_id: str, rng: random.Random) -> list[dict[str, object]]:
     """Generate N synthetic page rows with random x/y in [-500, 500]."""
     page_types = ["entity", "concept", "synthesis", "comparison"]
-    now = datetime.now(tz=UTC).isoformat()
+    now = datetime.now(tz=UTC)  # datetime object — asyncpg requires this for timestamptz, not a str
     rows = []
     for i in range(n):
         page_id = str(uuid.uuid4())
@@ -122,7 +122,7 @@ def _make_edges(
     page_ids: list[str], m: int, vault_id: str, rng: random.Random
 ) -> list[dict[str, object]]:
     """Generate M unique edge rows between random pairs of page_ids."""
-    now = datetime.now(tz=UTC).isoformat()
+    now = datetime.now(tz=UTC)  # datetime object — asyncpg requires this for timestamptz, not a str
     seen: set[tuple[str, str]] = set()
     rows = []
     max_attempts = m * 10
@@ -255,7 +255,7 @@ async def _seed(args: argparse.Namespace) -> None:
                 {"vid": args.vault_id},
             )
         else:
-            now = datetime.now(tz=UTC).isoformat()
+            now = datetime.now(tz=UTC)  # datetime object — asyncpg requires this for timestamptz, not a str
             await conn.execute(
                 text(
                     "INSERT INTO vault_state (id, vault_id, data_version, updated_at) "
