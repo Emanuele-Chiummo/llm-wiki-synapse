@@ -16,9 +16,12 @@
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.4",
+    "@types/dompurify": "^3.0.5",
+    "dompurify": "^3.4.11",
     "graphology": "^0.25.4",
     "i18next": "^26.3.3",
     "i18next-browser-languagedetector": "^8.2.1",
+    "marked": "^18.0.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-i18next": "^17.0.8",

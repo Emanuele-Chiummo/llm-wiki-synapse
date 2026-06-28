@@ -69,7 +69,7 @@ function IconSettings() {
 // ─── Rail item types ──────────────────────────────────────────────────────────
 
 interface RailItem {
-  id: Section | "chat";
+  id: Section;
   icon: ReactNode;
   labelKey: string;
   disabled?: boolean;
@@ -80,7 +80,7 @@ const TOP_ITEMS: RailItem[] = [
   { id: "pages",   icon: <IconFiles />,         labelKey: "nav.pages" },
   { id: "graph",   icon: <IconShare />,         labelKey: "nav.graph" },
   { id: "ingest",  icon: <IconDownload />,      labelKey: "nav.ingest" },
-  { id: "chat",    icon: <IconMessageSquare />, labelKey: "nav.chat",     disabled: true, disabledLabel: "nav.chatComingSoon" },
+  { id: "chat",    icon: <IconMessageSquare />, labelKey: "nav.chat" },
 ];
 
 const BOTTOM_ITEMS: RailItem[] = [
@@ -97,8 +97,8 @@ export function NavRail() {
 
   const handleItemClick = useCallback(
     (item: RailItem) => {
-      if (item.disabled || item.id === "chat") return;
-      setActiveSection(item.id as Section);
+      if (item.disabled) return;
+      setActiveSection(item.id);
     },
     [setActiveSection],
   );
@@ -111,11 +111,11 @@ export function NavRail() {
       if (e.key === "ArrowDown" || e.key === "ArrowRight") {
         e.preventDefault();
         const next = allItems[(currentIdx + 1) % allItems.length];
-        if (next) setActiveSection(next.id as Section);
+        if (next) setActiveSection(next.id);
       } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
         e.preventDefault();
         const prev = allItems[(currentIdx - 1 + allItems.length) % allItems.length];
-        if (prev) setActiveSection(prev.id as Section);
+        if (prev) setActiveSection(prev.id);
       }
     },
     [activeSection, setActiveSection],
