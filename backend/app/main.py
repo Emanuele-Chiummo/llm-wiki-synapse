@@ -1,11 +1,12 @@
 """
-Synapse FastAPI service — v0.3 (M3).
+Synapse FastAPI service — v0.4 (M4 Phase 2).
 
 Endpoints:
   GET  /status                — vault_id, data_version, started_at, uptime
   GET  /pages                 — paginated list of live pages
   GET  /pages/{id}            — single page by UUID
   POST /ingest/trigger        — sync ingest; HTTP 202 (typed IngestTriggerResponse, AC-D4u)
+  GET  /ingest/runs           — paginated ingest run history (ADR-0018 §7, AC-BE-IR-1..5)
   GET  /provider/config       — list effective + raw provider_config rows (F17)
   POST /provider/config       — create/update a provider_config row (F17, §12 — no api key)
   DELETE /provider/config/{id} — delete a provider_config row by UUID
@@ -46,7 +47,7 @@ from app.embeddings import EmbeddingError, get_embedding_client
 from app.graph.cache import GraphCache
 from app.graph.engine import GraphEngine
 from app.ingest.orchestrator import IngestResult, ingest_file
-from app.models import Page, ProviderConfig, VaultState
+from app.models import IngestRun, Page, ProviderConfig, VaultState
 from app.qdrant_client import ensure_collection
 from app.vault import bootstrap_vault
 from app.watcher import start_watcher, stop_watcher
@@ -304,6 +305,72 @@ class ProviderConfigListResponse(BaseModel):
     total: int
 
 
+# ── Ingest run Pydantic models (ADR-0018 §7, AC-BE-IR-1) ──────────────────────
+
+
+class IngestRunResponse(BaseModel):
+    """
+    API response shape for one ingest_runs row (ADR-0018 §7, AC-BE-IR-1).
+
+    Column aliases (no DB rename — ADR-0018 §7 decision):
+      max_iter_used  → iterations_used
+      finished_at    → completed_at
+    total_cost_usd serialised as a float; frontend formats to exactly 4dp (I7).
+    """
+
+    id: uuid.UUID
+    vault_id: str
+    status: str = Field(
+        description="running | completed | failed | converged_false (ADR-0018 §7)"
+    )
+    provider_type: str = Field(description="local | api | cli")
+    pages_created: int = Field(description="Wiki pages persisted during this run")
+    iterations_used: int = Field(
+        description="Iterations consumed (aliases max_iter_used; 0 for delegated)"
+    )
+    total_cost_usd: float = Field(
+        description="Total cost in USD; 0.0 for local/cli; serialised as number (I7)"
+    )
+    started_at: datetime
+    completed_at: datetime | None = Field(
+        description="Run finish time (aliases finished_at); null for running rows"
+    )
+    error_message: str | None = Field(
+        description="Error detail for failed runs; null otherwise"
+    )
+
+    model_config = {
+        "from_attributes": True,
+        "populate_by_name": True,
+        "json_schema_extra": {
+            "example": {
+                "id": "00000000-0000-0000-0000-000000000001",
+                "vault_id": "default",
+                "status": "completed",
+                "provider_type": "api",
+                "pages_created": 3,
+                "iterations_used": 2,
+                "total_cost_usd": 0.0042,
+                "started_at": "2026-06-28T10:00:00Z",
+                "completed_at": "2026-06-28T10:00:05Z",
+                "error_message": None,
+            }
+        },
+    }
+
+
+class IngestRunListResponse(BaseModel):
+    """
+    Paginated list response for GET /ingest/runs (ADR-0018 §7, AC-BE-IR-1).
+    Ordered started_at DESC (AC-BE-IR-3).
+    """
+
+    items: list[IngestRunResponse]
+    total: int
+    limit: int
+    offset: int
+
+
 # ── GET /status ────────────────────────────────────────────────────────────────
 
 
@@ -541,6 +608,99 @@ async def trigger_ingest(body: IngestTriggerRequest) -> IngestTriggerResponse:
         task_id=None,
         status=result.status,
         page_id=result.page_id,
+    )
+
+
+# ── GET /ingest/runs ───────────────────────────────────────────────────────────
+
+
+@app.get(
+    "/ingest/runs",
+    response_model=IngestRunListResponse,
+    summary="List ingest run history",
+    description=(
+        "Returns a paginated, started_at DESC list of ingest_runs rows. "
+        "Exposes the I7 cost ledger to the user (AC-BE-IR-1..5, ADR-0018 §7). "
+        "limit: 1..100 default 20; offset: >=0 default 0; vault_id: optional UUID filter. "
+        "Column aliases: max_iter_used→iterations_used, finished_at→completed_at. "
+        "total_cost_usd serialised as a number; frontend formats to exactly 4dp (I7)."
+    ),
+    responses={
+        200: {"description": "Paginated ingest run list"},
+        422: {"description": "Validation error (limit out of 1..100 or offset < 0)"},
+    },
+)
+async def list_ingest_runs(
+    limit: int = Query(
+        default=20,
+        ge=1,
+        le=100,
+        description="Max rows to return (1..100); 422 on out-of-range (AC-BE-IR-2)",
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+        description="Row offset for pagination (>=0); 422 on negative (AC-BE-IR-2)",
+    ),
+    vault_id: str | None = Query(
+        default=None,
+        description="Optional vault_id filter; omit to list all vaults (AC-BE-IR-2)",
+    ),
+) -> IngestRunListResponse:
+    """
+    GET /ingest/runs — paginated ingest run history (ADR-0018 §7, AC-BE-IR-1..5).
+
+    Plain read query — no heavy computation (pure SELECT, ORDER BY, LIMIT/OFFSET).
+    Filters by vault_id when provided.
+    Orders by started_at DESC (AC-BE-IR-3).
+    422 enforced by Query(ge=1, le=100) / Query(ge=0) validators (AC-BE-IR-5).
+    """
+    async with get_session() as session:
+        # COUNT query (filtered)
+        count_stmt = select(func.count()).select_from(IngestRun)
+        if vault_id is not None:
+            count_stmt = count_stmt.where(IngestRun.vault_id == vault_id)
+        total_row = await session.execute(count_stmt)
+        total: int = total_row.scalar_one()
+
+        # Data query (filtered, ordered, paginated)
+        data_stmt = select(IngestRun)
+        if vault_id is not None:
+            data_stmt = data_stmt.where(IngestRun.vault_id == vault_id)
+        data_stmt = (
+            data_stmt.order_by(IngestRun.started_at.desc()).offset(offset).limit(limit)
+        )
+        rows = await session.execute(data_stmt)
+        runs = list(rows.scalars().all())
+
+    items = [_ingest_run_to_response(r) for r in runs]
+    return IngestRunListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+def _ingest_run_to_response(run: IngestRun) -> IngestRunResponse:
+    """
+    Map IngestRun ORM row → IngestRunResponse.
+
+    Applies the two ADR-0018 §7 aliases:
+      max_iter_used  → iterations_used
+      finished_at    → completed_at
+    total_cost_usd converted from Decimal (Numeric column) to float for JSON serialisation.
+    completed_at is None when status == 'running' (run still in progress).
+    """
+    completed_at: datetime | None = (
+        None if run.status == "running" else run.finished_at
+    )
+    return IngestRunResponse(
+        id=run.id,
+        vault_id=run.vault_id,
+        status=run.status,
+        provider_type=run.provider_type,
+        pages_created=run.pages_created,
+        iterations_used=run.max_iter_used,
+        total_cost_usd=float(run.total_cost_usd),
+        started_at=run.started_at,
+        completed_at=completed_at,
+        error_message=run.error_message,
     )
 
 

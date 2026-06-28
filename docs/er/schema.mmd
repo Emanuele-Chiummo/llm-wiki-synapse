@@ -1,4 +1,4 @@
-<!-- Generated: v0.3→v0.4 transition | 2026-06-28 — ADR-0016: edges.kind; Feature A: pages.pinned -->
+<!-- Generated: v0.4 M4 Phase 2 | 2026-06-28 — ADR-0018 §7: ingest_runs view fields (status/pages_created/error_message) -->
 erDiagram
 
     PAGES {
@@ -60,13 +60,16 @@ erDiagram
         string provider_type "local | api | cli (audit)"
         string model_id "Resolved model used (audit)"
         string route "orchestrated | delegated (capability-aware routing outcome)"
-        int max_iter_used "Iterations actually consumed (1..max_iter); 0 for delegated"
+        int max_iter_used "Iterations actually consumed (1..max_iter); 0 for delegated — aliased as iterations_used in API"
         int total_tokens "input+output tokens across all iterations (I7)"
         decimal total_cost_usd "0.0000 for local/cli (ADR-0009); logged per run (I7)"
         boolean converged "True if a valid batch was produced within max_iter"
         boolean cost_anomaly "True if total_cost_usd > 1.00 (ADR-0009 §3)"
         timestamptz started_at "Run start time"
-        timestamptz finished_at "Run finish time"
+        timestamptz finished_at "Run finish time — aliased as completed_at in API; NULL returned when status=running"
+        string status "running | completed | failed | converged_false (ADR-0018 §7, migration 0006)"
+        int pages_created "Number of wiki pages persisted in this run (ADR-0018 §7, migration 0006)"
+        string error_message "Error detail for failed runs; NULL otherwise (ADR-0018 §7, migration 0006)"
     }
 
     LINKS {

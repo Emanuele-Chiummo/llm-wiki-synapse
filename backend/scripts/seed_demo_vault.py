@@ -11,6 +11,10 @@ IMPORTANT: inserts into the `links` table (NOT `edges`).  The GraphEngine reads
 structural edges from `links` (direct) and `pages.sources` (shared source) — it
 NEVER reads pre-inserted `edges` rows.  edges are populated by engine.recompute().
 
+Also seeds ~10 synthetic ingest_runs rows (ADR-0018 §7) so the Ingest Activity View
+is non-empty on first launch.  Rows use varied status/provider/cost/pages_created data
+to exercise all badge states in the UI.
+
 Usage:
     DATABASE_URL=postgresql+asyncpg://synapse:synapse@localhost:5432/synapse \\
         .venv/bin/python backend/scripts/seed_demo_vault.py --clear --nodes 140
@@ -35,8 +39,9 @@ Notes:
 References:
     ADR-0016 §2 — structural_degree drives node size
     ADR-0016 §1 — links table → direct structural edges
+    ADR-0018 §7 — ingest_runs view fields; seed rows for Ingest Activity View
     I1 — incremental; we write to links, not edges
-    I7 — bounded; fixed --nodes cap
+    I7 — bounded; fixed --nodes cap; total_cost_usd tracked
     G4 — seed_graph_fixture.py is separate and UNTOUCHED
 """
 
@@ -247,6 +252,91 @@ def _make_links(
     return rows
 
 
+# ── Synthetic ingest_runs rows (ADR-0018 §7) ──────────────────────────────────
+
+
+def _make_ingest_runs(
+    vault_id: str,
+    page_ids: list[str],
+    rng: random.Random,
+) -> list[dict[str, Any]]:
+    """
+    Generate ~10 synthetic ingest_runs rows for the Ingest Activity View demo.
+
+    Covers all status values (completed, failed, running, converged_false) and
+    all provider_type values (ollama/local, anthropic/api, cli) with realistic costs.
+    asyncpg-safe: all timestamps are datetime objects, not ISO strings.
+    Idempotent under --clear (caller deletes demo ingest_runs first).
+
+    References:
+        ADR-0018 §7 — status / pages_created / error_message contract
+        I7 — total_cost_usd tracked (0.0 for local/cli)
+    """
+    now = datetime.now(tz=UTC)
+    from datetime import timedelta
+
+    # Each tuple: (provider_type, model_id, status, pages_created, iterations_used,
+    #               cost_usd, error_message, minutes_ago_start, duration_seconds)
+    run_specs = [
+        # Older completed runs (spread over the past few days)
+        ("api",   "claude-sonnet-4-6",          "completed",       4, 2, 0.0147,  None,          4320,  8),
+        ("api",   "claude-sonnet-4-6",          "completed",       6, 3, 0.1823,  None,          2880, 12),
+        ("local", "llama3.2:latest",            "completed",       2, 1, 0.0,     None,          2160,  5),
+        ("api",   "claude-haiku-4-5-20251001",  "completed",       3, 2, 0.0031,  None,          1440, 11),
+        ("cli",   "claude-opus-4-8",            "completed",       5, 0, 0.0,     None,          1080, 15),
+        # converged_false (ran out of iterations, no hard error)
+        ("api",   "claude-sonnet-4-6",          "converged_false", 1, 3, 0.0612,  None,           720, 18),
+        # failed run with an error message
+        ("api",   "claude-haiku-4-5-20251001",  "failed",          0, 1, 0.0008,
+         "InferenceProvider returned empty pages batch after max_iter=1 (I7)",               360, 3),
+        # recent completed runs
+        ("local", "llama3.2:latest",            "completed",       1, 1, 0.0,     None,           120, 4),
+        ("api",   "claude-sonnet-4-6",          "completed",       3, 2, 0.0512,  None,            45, 9),
+        # one 'running' run (no completed_at; cost 0 as it's still in progress)
+        ("cli",   "claude-opus-4-8",            "running",         0, 0, 0.0,     None,             2, 0),
+    ]
+
+    rows: list[dict[str, Any]] = []
+    for spec in run_specs:
+        (
+            provider_type, model_id, status,
+            pages_created, iter_used, cost_usd,
+            error_msg, mins_ago_start, dur_sec,
+        ) = spec
+
+        started = now - timedelta(minutes=mins_ago_start)
+        finished = started + timedelta(seconds=dur_sec) if status != "running" else started
+
+        # Pick a random page_id from the demo pages as the originating page
+        page_id = rng.choice(page_ids) if pages_created > 0 else None
+
+        # provider_name is the class name (audit column)
+        provider_name_map = {"local": "OllamaProvider", "api": "ApiProvider", "cli": "CliAgentProvider"}
+        route = "delegated" if provider_type == "cli" else "orchestrated"
+
+        rows.append({
+            "id":            str(uuid.uuid4()),
+            "vault_id":      vault_id,
+            "page_id":       page_id,
+            "provider_name": provider_name_map[provider_type],
+            "provider_type": provider_type,
+            "model_id":      model_id,
+            "route":         route,
+            "max_iter_used": iter_used,
+            "total_tokens":  rng.randint(200, 4000) if cost_usd > 0 else 0,
+            "total_cost_usd": str(round(cost_usd, 4)),
+            "converged":     status in ("completed", "running"),
+            "cost_anomaly":  cost_usd > 1.0,
+            "started_at":    started,
+            "finished_at":   finished,
+            "status":        status,
+            "pages_created": pages_created,
+            "error_message": error_msg,
+        })
+
+    return rows
+
+
 # ── DB operations ─────────────────────────────────────────────────────────────
 
 
@@ -302,6 +392,16 @@ async def _seed(args: argparse.Namespace) -> None:
     async with engine.begin() as conn:
         if args.clear:
             print(f"[seed-demo] Clearing existing demo/ rows for vault '{args.vault_id}'...")
+            # Remove demo ingest_runs first (references pages via page_id FK)
+            await conn.execute(
+                text(
+                    "DELETE FROM ingest_runs WHERE vault_id = :vid "
+                    "AND provider_name IN ('OllamaProvider','ApiProvider','CliAgentProvider') "
+                    "AND model_id IN ('llama3.2:latest','claude-sonnet-4-6',"
+                    "'claude-haiku-4-5-20251001','claude-opus-4-8')"
+                ),
+                {"vid": args.vault_id},
+            )
             # Remove edges referencing demo pages first
             await conn.execute(
                 text(
@@ -367,6 +467,30 @@ async def _seed(args: argparse.Namespace) -> None:
                 link,
             )
 
+        # Seed synthetic ingest_runs rows (ADR-0018 §7 — Ingest Activity View)
+        ingest_runs = _make_ingest_runs(args.vault_id, page_ids, rng)
+        print(f"[seed-demo] Inserting {len(ingest_runs)} ingest_runs rows...")
+        for run in ingest_runs:
+            await conn.execute(
+                text(
+                    "INSERT INTO ingest_runs "
+                    "(id, vault_id, page_id, provider_name, provider_type, model_id, "
+                    " route, max_iter_used, total_tokens, total_cost_usd, converged, "
+                    " cost_anomaly, started_at, finished_at, status, pages_created, "
+                    " error_message) "
+                    "VALUES "
+                    "(CAST(:id AS uuid), :vault_id, CAST(:page_id AS uuid), "
+                    " :provider_name, :provider_type, :model_id, "
+                    " :route, :max_iter_used, :total_tokens, "
+                    " CAST(:total_cost_usd AS numeric), :converged, "
+                    " :cost_anomaly, CAST(:started_at AS timestamptz), "
+                    " CAST(:finished_at AS timestamptz), :status, :pages_created, "
+                    " :error_message) "
+                    "ON CONFLICT (id) DO NOTHING"
+                ),
+                run,
+            )
+
         # Bump data_version so GraphCache triggers a recompute
         result = await conn.execute(
             text("SELECT id FROM vault_state WHERE vault_id = :vid LIMIT 1"),
@@ -397,15 +521,17 @@ async def _seed(args: argparse.Namespace) -> None:
 
     print(
         f"\n[seed-demo] Done.\n"
-        f"  Pages:   {len(pages)}\n"
-        f"  Links:   {len(links)} (directed wikilinks → resolved target_page_id)\n"
-        f"  Vault:   {args.vault_id}\n"
-        f"  Seed:    {args.seed}\n"
+        f"  Pages:        {len(pages)}\n"
+        f"  Links:        {len(links)} (directed wikilinks → resolved target_page_id)\n"
+        f"  IngestRuns:   {len(ingest_runs)} (mixed status/provider for Ingest Activity View)\n"
+        f"  Vault:        {args.vault_id}\n"
+        f"  Seed:         {args.seed}\n"
         f"\n"
         f"Next steps:\n"
         f"  1. Restart backend: docker compose restart synapse-backend\n"
         f"  2. curl http://localhost:8000/graph  -- triggers FA2 recompute on first MISS\n"
-        f"  3. Expect: wide degree distribution, edge kind='link', few hundred edges total.\n"
+        f"  3. curl 'http://localhost:8000/ingest/runs?limit=20' -- verify seeded run history\n"
+        f"  4. Expect: wide degree distribution, edge kind='link', few hundred edges total.\n"
     )
 
 

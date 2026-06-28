@@ -210,6 +210,75 @@
         }
       }
     },
+    "/ingest/runs": {
+      "get": {
+        "summary": "List ingest run history",
+        "description": "Returns a paginated, started_at DESC list of ingest_runs rows. Exposes the I7 cost ledger to the user (AC-BE-IR-1..5, ADR-0018 \u00a77). limit: 1..100 default 20; offset: >=0 default 0; vault_id: optional UUID filter. Column aliases: max_iter_used\u2192iterations_used, finished_at\u2192completed_at. total_cost_usd serialised as a number; frontend formats to exactly 4dp (I7).",
+        "operationId": "list_ingest_runs_ingest_runs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Max rows to return (1..100); 422 on out-of-range (AC-BE-IR-2)",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Max rows to return (1..100); 422 on out-of-range (AC-BE-IR-2)"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Row offset for pagination (>=0); 422 on negative (AC-BE-IR-2)",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Row offset for pagination (>=0); 422 on negative (AC-BE-IR-2)"
+          },
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional vault_id filter; omit to list all vaults (AC-BE-IR-2)",
+              "title": "Vault Id"
+            },
+            "description": "Optional vault_id filter; omit to list all vaults (AC-BE-IR-2)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated ingest run list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestRunListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (limit out of 1..100 or offset < 0)"
+          }
+        }
+      }
+    },
     "/provider/config": {
       "get": {
         "summary": "List provider_config rows",
@@ -543,6 +612,132 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "IngestRunListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IngestRunResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "IngestRunListResponse",
+        "description": "Paginated list response for GET /ingest/runs (ADR-0018 \u00a77, AC-BE-IR-1).\nOrdered started_at DESC (AC-BE-IR-3)."
+      },
+      "IngestRunResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "vault_id": {
+            "type": "string",
+            "title": "Vault Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "running | completed | failed | converged_false (ADR-0018 \u00a77)"
+          },
+          "provider_type": {
+            "type": "string",
+            "title": "Provider Type",
+            "description": "local | api | cli"
+          },
+          "pages_created": {
+            "type": "integer",
+            "title": "Pages Created",
+            "description": "Wiki pages persisted during this run"
+          },
+          "iterations_used": {
+            "type": "integer",
+            "title": "Iterations Used",
+            "description": "Iterations consumed (aliases max_iter_used; 0 for delegated)"
+          },
+          "total_cost_usd": {
+            "type": "number",
+            "title": "Total Cost Usd",
+            "description": "Total cost in USD; 0.0 for local/cli; serialised as number (I7)"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At",
+            "description": "Run finish time (aliases finished_at); null for running rows"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message",
+            "description": "Error detail for failed runs; null otherwise"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "vault_id",
+          "status",
+          "provider_type",
+          "pages_created",
+          "iterations_used",
+          "total_cost_usd",
+          "started_at",
+          "completed_at",
+          "error_message"
+        ],
+        "title": "IngestRunResponse",
+        "description": "API response shape for one ingest_runs row (ADR-0018 \u00a77, AC-BE-IR-1).\n\nColumn aliases (no DB rename \u2014 ADR-0018 \u00a77 decision):\n  max_iter_used  \u2192 iterations_used\n  finished_at    \u2192 completed_at\ntotal_cost_usd serialised as a float; frontend formats to exactly 4dp (I7).",
+        "example": {
+          "completed_at": "2026-06-28T10:00:05Z",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "iterations_used": 2,
+          "pages_created": 3,
+          "provider_type": "api",
+          "started_at": "2026-06-28T10:00:00Z",
+          "status": "completed",
+          "total_cost_usd": 0.0042,
+          "vault_id": "default"
+        }
       },
       "IngestTriggerRequest": {
         "properties": {
