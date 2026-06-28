@@ -1,0 +1,83 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "synapse-backend"
+version = "0.1.0"
+description = "Synapse — self-organising wiki backend (FastAPI + walking skeleton)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    "qdrant-client>=1.9.0",
+    "watchdog>=4.0.0",
+    "pydantic-settings>=2.2.0",
+    "pyyaml>=6.0.0",
+    "httpx>=0.27.0",
+    "python-frontmatter>=1.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-httpx>=0.30.0",
+    "ruff>=0.4.0",
+    "black>=24.0.0",
+    "mypy>=1.10.0",
+    "types-pyyaml>=6.0.0",
+    "httpx>=0.27.0",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "ANN", # flake8-annotations (partial)
+    "S",   # flake8-bandit (security)
+    "TCH", # flake8-type-checking
+]
+ignore = [
+    "S101",    # assert in tests is fine
+    "ANN401",  # Any return type allowed in FastAPI route
+    "ANN201",  # lifespan generator return type
+    "TC003",   # stdlib TYPE_CHECKING moves are optional
+    "TC002",   # third-party TYPE_CHECKING moves are optional
+    "TC001",   # first-party TYPE_CHECKING moves are optional
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN", "S"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
