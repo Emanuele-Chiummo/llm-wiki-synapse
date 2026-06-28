@@ -1,6 +1,6 @@
 # Architecture Decision Records — Index
 
-> Last updated: 2026-06-28 · Sprint v0.3
+> Last updated: 2026-06-28 · Sprint v0.3→v0.4 (M4-GUX Phase 0)
 > All ADRs authored by solution-architect; formatted by tech-writer.
 > Status values: Accepted | Superseded | Deprecated
 
@@ -11,8 +11,11 @@ provider_config/ingest_runs/links schema, the MCP transport, and the ingest cont
 schemas before engineers began coding. ADRs 0012–0015 were authored in sprint v0.3 to
 lock the F4 knowledge-graph engine (4-signal edge weighting), server-side FA2 layout +
 coordinate persistence (I2), the dataVersion-debounced GraphCache + GET /graph contract,
-and the no-client-layout sigma.js viewer contract before engineers began coding. They are
-referenced throughout the codebase as `ADR-XXXX`.
+and the no-client-layout sigma.js viewer contract before engineers began coding. ADR-0016
+was authored at the v0.3→v0.4 transition (M4-GUX Phase 0) to fix the same-type clique
+hairball defect: structural edges only (direct link OR shared source), AA/same-type as
+weight modulators, sqrt(structural_degree) node sizing, and per-edge `kind` field.
+They are referenced throughout the codebase as `ADR-XXXX`.
 
 | ADR | Title | Status | Date | Sprint | Summary |
 |-----|-------|--------|------|--------|---------|
@@ -31,3 +34,4 @@ referenced throughout the codebase as `ADR-XXXX`.
 | [0013](0013-server-side-fa2-coord-persistence.md) | Server-side FA2 layout, coord persistence, determinism seed (I2) | Accepted | 2026-06-28 | v0.3 | FA2 only in graph/engine.py via python-igraph; fixed seed=42; coords in pages.x/y columns; incremental = row-level (coords may move on global relayout); single bounded pass (AQ-v0.3-2/4/6). |
 | [0014](0014-graph-cache-debounce-and-graph-endpoint.md) | GraphCache debounce, dataVersion trigger, GET /graph contract (I2) | Accepted | 2026-06-28 | v0.3 | In-process debounce on data_version bump (5s, injectable clock); max 1 in-flight + 1 pending (I7); GET /graph synchronous 200 with cached + X-Graph-Cache: hit|miss (AQ-v0.3-3/7). |
 | [0015](0015-no-client-side-layout-sigma-contract.md) | No client-side layout: sigma.js viewer contract (I2/I4/I3) | Accepted | 2026-06-28 | v0.3 | Thin read-only sigma viewer renders precomputed coords in ONE WebGL canvas; zero client-layout code (P0 block, static bundle grep + architect review); Zustand selectors + shallow equality; G2/G4 met by construction. |
+| [0016](0016-obsidian-graph-rendering.md) | Obsidian-style graph: structural edges, real-connection sizing, type-as-modulator (F4) | Accepted | 2026-06-28 | v0.3→v0.4 | Edges are STRUCTURAL only (direct link OR shared source); AA + same-type become weight MODULATORS, never edge generators (kills the 4-clique hairball). Node size = BASE + GROWTH·sqrt(structural_degree) = real connections. FA2 fed the modulated structural edge set (stays server-side, I2). Adds per-edge `kind` (link\|source). Supersedes ADR-0012 §3 inclusion rule; retains ADR-0012 weight formula. |

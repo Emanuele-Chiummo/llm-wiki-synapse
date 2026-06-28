@@ -135,13 +135,25 @@ class Page(Base):
     x: Mapped[float | None] = mapped_column(
         Double,
         nullable=True,
-        comment="FA2 x-coordinate (DOUBLE PRECISION); NULL until first layout (ADR-0013)",
+        comment="FR x-coordinate (DOUBLE PRECISION); NULL until first layout (ADR-0013)",
     )
 
     y: Mapped[float | None] = mapped_column(
         Double,
         nullable=True,
-        comment="FA2 y-coordinate (DOUBLE PRECISION); NULL until first layout (ADR-0013)",
+        comment="FR y-coordinate (DOUBLE PRECISION); NULL until first layout (ADR-0013)",
+    )
+
+    # ── Manual position pin (Feature A) ──────────────────────────────────────
+    pinned: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        server_default=sa_text("false"),
+        default=False,
+        comment=(
+            "True when the user manually positioned this node via PATCH /pages/{id}/position. "
+            "Engine preserves pinned coords across FR recomputes (Feature A)."
+        ),
     )
 
     # ── Soft delete ───────────────────────────────────────────────────────────
@@ -587,6 +599,16 @@ class Edge(Base):
         JSONB,
         nullable=True,
         comment='Per-signal breakdown {"direct","source","aa","type"} for audit (AC-F4-1(e))',
+    )
+
+    kind: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        comment=(
+            'Structural edge discriminator: "link" (direct wikilink present) | '
+            '"source" (shared provenance only). ADR-0016 §4. '
+            "NULL for rows written before migration 0004 (treated as link)."
+        ),
     )
 
     created_at: Mapped[datetime] = mapped_column(

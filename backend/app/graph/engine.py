@@ -1,27 +1,50 @@
 """
-GraphEngine — 4-signal edge-weight computation + seeded FA2 layout (F4, I2).
+GraphEngine — 4-signal edge-weight computation + seeded FR layout (F4, I2).
 
 Public API:
   GraphEngine.recompute(vault_id, session?) → GraphSnapshot
 
 Invariant compliance:
-  I2 — FA2 runs ONLY here, server-side, via python-igraph (R9, I9).
+  I2 — FR layout runs ONLY here, server-side, via python-igraph (R9, I9).
        Coordinates are persisted in pages.x/y (ADR-0013, AQ-6).
        Never called from any frontend path.
   I1 — Reads only pages + links tables; never walks vault/ filesystem.
   I7 — Single bounded pass; logs node/edge count + wall-clock duration.
   I9 — python-igraph for both Adamic-Adar and force-directed layout (R9).
 
-Edge-weight formula (ADR-0012, LOCKED):
+Edge INCLUSION rule (ADR-0016 — supersedes ADR-0012 §3):
+  An edge (A,B) EXISTS iff:
+    direct_link_count(A,B) > 0  OR  shared_source_count(A,B) > 0
+  AA and same-type are MODULATORS only — they adjust the weight of already-structural
+  edges but NEVER create an edge on their own.  This prevents type-cliques (hairball).
+
+Edge-weight formula (ADR-0012 §1/§2, UNCHANGED — applied only to structural pairs):
   w(A,B) = 3.0·direct_link_count(A,B)
           + 4.0·shared_source_count(A,B)
           + 1.5·adamic_adar(A,B)
           + 1.0·same_type(A,B)
-  Persisted iff w > 0.
 
-FA2 determinism (ADR-0013):
+Per-edge kind (ADR-0016 §4):
+  "link"   — direct_link_count > 0  (wikilink; may also have source/AA/type weight)
+  "source" — direct_link_count == 0 AND shared_source_count > 0 (provenance-only)
+
+Node size (ADR-0016 §2):
+  size = BASE + GROWTH·sqrt(structural_degree)   BASE=1.0, GROWTH=2.5
+  structural_degree = count of distinct incident structural edges.
+
+FR determinism (ADR-0013):
   Fixed seed = 42 (GRAPH_LAYOUT_SEED env override).
   Identical topology+weights → identical coordinates.
+
+Layout post-processing (Feature B — circular envelope):
+  After FR: center → polar → compress radii against p95 with exponent 0.7 → cartesian.
+  Applied BEFORE pinned-node restoration so pinned coords are untouched.
+  Deterministic (uses only the FR output, no extra RNG).
+
+Node pinning (Feature A):
+  pages.pinned=true → engine reads stored (x,y) from DB and overwrites FR coords.
+  Applied AFTER Feature B post-processing; PATCH /pages/{id}/position sets the flag.
+  Pinned nodes stay put across every subsequent recompute.
 """
 
 from __future__ import annotations
@@ -64,11 +87,12 @@ class NodeSnapshot:
 
 @dataclass
 class EdgeSnapshot:
-    """One graph edge as returned by GET /graph (ADR-0014 §6)."""
+    """One graph edge as returned by GET /graph (ADR-0014 §6, ADR-0016 §4)."""
 
     source: str
     target: str
     weight: float
+    kind: str = "link"  # "link" | "source" (ADR-0016 §4)
 
 
 @dataclass
@@ -128,12 +152,16 @@ class GraphEngine:
             return GraphSnapshot()
 
         # Build node index: str(uuid) → dict of page attributes
+        # pinned/stored_x/stored_y carried for Feature A (pinned-node preservation).
         node_index: dict[str, dict[str, Any]] = {
             str(row["id"]): {
                 "id": str(row["id"]),
                 "title": row.get("title"),
                 "page_type": row.get("page_type"),
                 "sources": set(row.get("sources") or []),
+                "pinned": bool(row.get("pinned", False)),
+                "stored_x": row.get("stored_x"),
+                "stored_y": row.get("stored_y"),
             }
             for row in nodes_data
         }
@@ -171,25 +199,28 @@ class GraphEngine:
 
         g_unweighted = igraph.Graph(n=n, edges=unweighted_edges_idx, directed=False)
 
-        # ── 3. Compute 4-signal weight per candidate pair (ADR-0012) ──────────
-        # Candidate pairs: any pair sharing (a) a direct link, (b) a source, (c) a
-        # resolved-link neighbour (AA > 0), or (d) the same non-NULL type.
-        # We enumerate all candidate pairs efficiently, then compute weights.
+        # ── 3. Compute 4-signal weight per structural candidate pair (ADR-0016) ──
+        # STRUCTURAL candidate set = (a) direct-link pairs UNION (b) shared-source pairs.
+        # ADR-0016 §1: AA and same-type are WEIGHT MODULATORS only — they never create
+        # a standalone edge.  Blocks (c) AA-pair enumeration and (d) same-type enumeration
+        # are REMOVED from candidate_pairs (they were the source of the type-clique hairball).
+        # AA and type terms still contribute to the weight for pairs already in the
+        # structural set (the additive formula of ADR-0012 §1/§2 is UNCHANGED).
 
-        # Neighbour sets for Adamic-Adar (per vertex)
+        # Neighbour sets for Adamic-Adar weight modulation (per vertex)
         neighbours: list[set[int]] = [set(g_unweighted.neighbors(i)) for i in range(n)]
 
         # Degree array for AA denominator: ln(degree); skip degree-0 nodes
         degrees: list[int] = g_unweighted.degree()
 
-        # Pre-compute candidate pairs
+        # STRUCTURAL candidate pairs: only (a) + (b) — ADR-0016 §1
         candidate_pairs: set[tuple[int, int]] = set()
 
-        # (a) direct-link pairs
+        # (a) direct-link pairs — always structural
         for a, b in seen_undirected:
             candidate_pairs.add((a, b))
 
-        # (b) shared-source pairs
+        # (b) shared-source pairs — structural (provenance fact, ADR-0016 §1)
         # Group pages by each source to find overlap efficiently
         source_to_pages: dict[str, list[int]] = {}
         for i, nid in enumerate(node_ids):
@@ -201,25 +232,9 @@ class GraphEngine:
                     a, b = page_list[i_pos], page_list[j_pos]
                     candidate_pairs.add((min(a, b), max(a, b)))
 
-        # (c) AA-contributing pairs: two pages sharing a resolved-link neighbour
-        for c in range(n):
-            nb = list(neighbours[c])
-            for i_pos in range(len(nb)):
-                for j_pos in range(i_pos + 1, len(nb)):
-                    a, b = nb[i_pos], nb[j_pos]
-                    candidate_pairs.add((min(a, b), max(a, b)))
-
-        # (d) same-type pairs — enumerate per type group
-        type_to_pages: dict[str, list[int]] = {}
-        for i, nid in enumerate(node_ids):
-            ptype = node_index[nid]["page_type"]
-            if ptype is not None:
-                type_to_pages.setdefault(ptype, []).append(i)
-        for _ptype, page_list in type_to_pages.items():
-            for i_pos in range(len(page_list)):
-                for j_pos in range(i_pos + 1, len(page_list)):
-                    a, b = page_list[i_pos], page_list[j_pos]
-                    candidate_pairs.add((min(a, b), max(a, b)))
+        # (c) AA-pair enumeration REMOVED — AA is a weight modulator, not an edge generator.
+        # (d) same-type enumeration REMOVED — type is a weight modulator, not an edge generator.
+        # Both terms still contribute weight for pairs already in candidate_pairs above.
 
         # Compute Adamic-Adar for all candidate pairs manually
         # AA(A,B) = Σ_{c ∈ N(A)∩N(B)} 1/ln(deg(c))
@@ -235,9 +250,9 @@ class GraphEngine:
                     total += 1.0 / math.log(deg_c)
             return total
 
-        # Build weighted edge list
-        weighted_edges: list[tuple[int, int, float, dict[str, float]]] = []
-        # (a_idx, b_idx, weight, signals)
+        # Build weighted edge list — structural pairs only (ADR-0016 §1)
+        # (a_idx, b_idx, weight, signals, kind)
+        weighted_edges: list[tuple[int, int, float, dict[str, float], str]] = []
 
         for a, b in candidate_pairs:
             nid_a = node_ids[a]
@@ -246,6 +261,12 @@ class GraphEngine:
 
             direct = float(pair_direct.get(key, 0))
             shared = float(len(node_index[nid_a]["sources"] & node_index[nid_b]["sources"]))
+
+            # Structural gate (ADR-0016 §1): pair must have a real link or shared source.
+            # By construction all pairs in candidate_pairs satisfy this, but make it explicit.
+            if not (direct > 0 or shared > 0):
+                continue  # safety guard — should not be reached after removing (c)/(d)
+
             aa = _aa(a, b)
             type_a = node_index[nid_a]["page_type"]
             type_b = node_index[nid_b]["page_type"]
@@ -253,19 +274,21 @@ class GraphEngine:
                 1.0 if (type_a is not None and type_b is not None and type_a == type_b) else 0.0
             )
 
+            # Weight formula (ADR-0012 §1/§2, UNCHANGED arithmetic)
             w = 3.0 * direct + 4.0 * shared + 1.5 * aa + 1.0 * same_type
-            if w > 0:
-                signals = {
-                    "direct": 3.0 * direct,
-                    "source": 4.0 * shared,
-                    "aa": 1.5 * aa,
-                    "type": same_type,
-                }
-                weighted_edges.append((a, b, w, signals))
+            signals = {
+                "direct": 3.0 * direct,
+                "source": 4.0 * shared,
+                "aa": 1.5 * aa,
+                "type": same_type,
+            }
+            # Per-edge kind (ADR-0016 §4): "link" wins when both structural signals present
+            kind = "link" if direct > 0 else "source"
+            weighted_edges.append((a, b, w, signals, kind))
 
-        # ── 4. Build weighted igraph + seeded FA2 → coords (I2, ADR-0013) ─────
-        weighted_edges_idx = [(a, b) for a, b, _w, _s in weighted_edges]
-        edge_weights = [w for _a, _b, w, _s in weighted_edges]
+        # ── 4. Build weighted igraph + seeded FR → coords (I2, ADR-0013) ──────
+        weighted_edges_idx = [(a, b) for a, b, _w, _s, _k in weighted_edges]
+        edge_weights = [w for _a, _b, w, _s, _k in weighted_edges]
 
         g_weighted = igraph.Graph(
             n=n,
@@ -286,17 +309,46 @@ class GraphEngine:
             "niter": 500,
         }
         layout = g_weighted.layout_fruchterman_reingold(**layout_kwargs)
-        coords: list[tuple[float, float]] = [(pos[0], pos[1]) for pos in layout]
+        raw_coords: list[tuple[float, float]] = [(pos[0], pos[1]) for pos in layout]
+
+        # ── 4b. Feature B — polar-compression envelope (circular disc) ────────
+        # Center coords at centroid; convert to polar; compress the radius
+        # distribution so outliers come inward and the boundary is rounder.
+        # Formula: r' = R_TARGET * min(1, (r / p95)) ** 0.7
+        # R_TARGET=10.0 — canonical radius; client scales via sigma.js camera.
+        # Exponent 0.7 is <1 → outliers pulled in (concave mapping); structure
+        # and angular positions are preserved exactly.  Deterministic (no RNG).
+        # Applied BEFORE pinned-node restoration (Feature A) so pinned nodes
+        # keep their manually-set coords untouched.
+        coords = _compress_to_disc(raw_coords, r_target=10.0, p_high=95, exponent=0.7)
+
+        # ── 4c. Feature A — preserve pinned nodes ─────────────────────────────
+        # For any node with pinned=true and valid stored (x,y), overwrite the
+        # FR+post-processed coord with the user-set one so drag-and-drop
+        # positions survive every subsequent recompute.
+        coords = list(coords)  # make mutable
+        for i, nid in enumerate(node_ids):
+            nd = node_index[nid]
+            if nd["pinned"] and nd["stored_x"] is not None and nd["stored_y"] is not None:
+                coords[i] = (float(nd["stored_x"]), float(nd["stored_y"]))
 
         # ── 5. Assemble result lists ───────────────────────────────────────────
-        # Degree from weighted graph
-        w_degrees = g_weighted.degree()
+        # structural_degree = count of distinct incident structural edges (ADR-0016 §2).
+        # After removing (c)/(d) from candidate_pairs, g_weighted IS the structural graph,
+        # so g_weighted.degree() already yields structural_degree.
+        structural_degrees = g_weighted.degree()
+
+        # Size formula: BASE + GROWTH·sqrt(structural_degree) (ADR-0016 §2)
+        # BASE=1.0 → isolated nodes render at 1.0 (clearly clickable).
+        # GROWTH=2.5 → degree-30 hub ≈ 14.7, degree-1 leaf ≈ 3.5, degree-3 ≈ 5.3.
+        _BASE = 1.0
+        _GROWTH = 2.5
 
         node_snapshots: list[NodeSnapshot] = []
         for i, nid in enumerate(node_ids):
             nd = node_index[nid]
-            deg = w_degrees[i]
-            size = max(1.0, 1.0 + math.log1p(deg))
+            deg = structural_degrees[i]
+            size = max(1.0, _BASE + _GROWTH * math.sqrt(deg))
             node_snapshots.append(
                 NodeSnapshot(
                     id=nid,
@@ -311,11 +363,11 @@ class GraphEngine:
 
         edge_snapshots: list[EdgeSnapshot] = []
         edge_db_rows: list[dict[str, Any]] = []
-        for a, b, w, sig in weighted_edges:
+        for a, b, w, sig, kind in weighted_edges:
             nid_a = node_ids[a]
             nid_b = node_ids[b]
             src_id, tgt_id = _canonical_key_ids(nid_a, nid_b)
-            edge_snapshots.append(EdgeSnapshot(source=nid_a, target=nid_b, weight=w))
+            edge_snapshots.append(EdgeSnapshot(source=nid_a, target=nid_b, weight=w, kind=kind))
             edge_db_rows.append(
                 {
                     "vault_id": vault_id,
@@ -323,6 +375,7 @@ class GraphEngine:
                     "target_page_id": tgt_id,
                     "weight": w,
                     "signals": sig,
+                    "kind": kind,
                 }
             )
 
@@ -353,10 +406,12 @@ class GraphEngine:
         """Load live pages and resolved links from Postgres (I1 — no vault walk)."""
 
         async def _run(sess: AsyncSession) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-            # Pages: id, page_type (mapped column 'type'), title, sources
+            # Pages: id, page_type (mapped column 'type'), title, sources, pinned, x, y
+            # pinned + x/y are used to preserve manually-positioned nodes (Feature A).
             pages_result = await sess.execute(
                 sa_text(
-                    "SELECT id, type AS page_type, title, sources "
+                    "SELECT id, type AS page_type, title, sources, "
+                    "       pinned, x AS stored_x, y AS stored_y "
                     "FROM pages "
                     "WHERE vault_id = :vid AND deleted_at IS NULL"
                 ).bindparams(vid=vault_id)
@@ -407,10 +462,10 @@ class GraphEngine:
             _INSERT_EDGE = (
                 "INSERT INTO edges "
                 "(id, vault_id, source_page_id, target_page_id,"
-                " weight, signals, created_at) "
+                " weight, signals, kind, created_at) "
                 "VALUES "
                 "(CAST(:id AS uuid), :vault_id, CAST(:source_page_id AS uuid),"
-                " CAST(:target_page_id AS uuid), :weight, CAST(:signals AS jsonb), now())"
+                " CAST(:target_page_id AS uuid), :weight, CAST(:signals AS jsonb), :kind, now())"
             )
             for row in edge_rows:
                 await sess.execute(
@@ -421,6 +476,7 @@ class GraphEngine:
                         target_page_id=str(row["target_page_id"]),
                         weight=row["weight"],
                         signals=_json_dumps(row["signals"]),
+                        kind=row.get("kind", "link"),
                     )
                 )
 
@@ -432,6 +488,64 @@ class GraphEngine:
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+
+def _compress_to_disc(
+    coords: list[tuple[float, float]],
+    *,
+    r_target: float = 10.0,
+    p_high: int = 95,
+    exponent: float = 0.7,
+) -> list[tuple[float, float]]:
+    """
+    Post-process FR coordinates into a rounder disc envelope (Feature B).
+
+    Algorithm (deterministic, bounded, O(n)):
+      1. Center at centroid.
+      2. Convert to polar (r, theta) per node.
+      3. Normalize r against the p_high percentile and apply a concave exponent:
+           r' = r_target * min(1, (r / r_p_high)) ** exponent
+         exponent < 1 → outliers pulled inward, common nodes spread out;
+         min(1, ...) caps the output at r_target (nothing outside the disc).
+      4. Convert back to Cartesian.
+
+    Angular positions are preserved exactly — this is purely a radial rescaling.
+    Single-node graphs or degenerate (all-zero) layouts are returned unchanged.
+    """
+    if len(coords) <= 1:
+        return coords
+
+    # 1. Centroid
+    cx = sum(x for x, _ in coords) / len(coords)
+    cy = sum(y for _, y in coords) / len(coords)
+    centered = [(x - cx, y - cy) for x, y in coords]
+
+    # 2. Radii
+    radii = [math.sqrt(x * x + y * y) for x, y in centered]
+    r_max = max(radii)
+    if r_max < 1e-9:
+        # All nodes at the same point — return as-is (degenerate layout)
+        return coords
+
+    # 3. High-percentile radius for normalization
+    sorted_r = sorted(radii)
+    idx = int(math.ceil(p_high / 100.0 * len(sorted_r))) - 1
+    idx = max(0, min(idx, len(sorted_r) - 1))
+    r_ref = sorted_r[idx]
+    if r_ref < 1e-9:
+        r_ref = r_max  # fallback: avoid division by zero
+
+    # 4. Compress and convert back
+    result: list[tuple[float, float]] = []
+    for (dx, dy), r in zip(centered, radii):
+        if r < 1e-9:
+            result.append((cx, cy))
+            continue
+        theta = math.atan2(dy, dx)
+        r_prime = r_target * min(1.0, (r / r_ref) ** exponent)
+        result.append((r_prime * math.cos(theta), r_prime * math.sin(theta)))
+
+    return result
 
 
 def _canonical_key(a: str, b: str) -> tuple[str, str]:

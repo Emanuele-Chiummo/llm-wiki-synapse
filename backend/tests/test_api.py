@@ -149,8 +149,9 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
         Column("content_hash", String(64), nullable=False),
         Column("source_mtime_ns", BigInteger, nullable=True),
         Column("qdrant_point_id", String(36), nullable=True),
-        Column("x", Float, nullable=True),  # v0.3: FA2 coords (ADR-0013)
-        Column("y", Float, nullable=True),  # v0.3: FA2 coords (ADR-0013)
+        Column("x", Float, nullable=True),  # v0.3: FR coords (ADR-0013)
+        Column("y", Float, nullable=True),  # v0.3: FR coords (ADR-0013)
+        Column("pinned", Integer, nullable=False, server_default=sa_text("0")),  # Feature A
         Column("deleted_at", Text, nullable=True),
         Column("created_at", Text, nullable=False, server_default=sa_text("datetime('now')")),
         Column("updated_at", Text, nullable=False, server_default=sa_text("datetime('now')")),

@@ -215,6 +215,32 @@ class GraphCache:
         assert self._snapshot is not None  # mypy
         return self._snapshot, False
 
+    def patch_node_position(self, node_id: str, x: float, y: float) -> bool:
+        """
+        Mutate the in-memory snapshot's NodeSnapshot for node_id in place (Feature A).
+
+        Called by PATCH /pages/{id}/position AFTER the DB update so the next
+        GET /graph HIT reflects the new position without a recompute or data_version bump.
+
+        Returns True if a matching node was found and updated, False otherwise.
+        No-op if no snapshot exists yet (first GET /graph will load from DB naturally).
+        Does NOT trigger FR or change _marker / data_version.  O(n) scan; n is small.
+        """
+        if self._snapshot is None:
+            return False
+        for node in self._snapshot.nodes:
+            if node.id == node_id:
+                node.x = x
+                node.y = y
+                logger.debug(
+                    "GraphCache.patch_node_position: updated node_id=%s x=%.4f y=%.4f",
+                    node_id,
+                    x,
+                    y,
+                )
+                return True
+        return False
+
     def start_background_loop(self) -> None:
         """Launch the asyncio background tick task (called from FastAPI lifespan)."""
         if self._bg_task is None or self._bg_task.done():
