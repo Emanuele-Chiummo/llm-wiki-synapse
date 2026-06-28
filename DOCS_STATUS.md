@@ -1,14 +1,162 @@
-# DOCS_STATUS — Sprint v0.4 / M4-GUX Phase 0 Documentation Gate
+# DOCS_STATUS — Sprint v0.4 / M4 Phase 1 Documentation Gate
 
-> Tech-writer sign-off for M4-GUX Phase 0 docs gate.
+> Tech-writer sign-off for M4 Phase 1 docs gate.
 > Generated: 2026-06-28
 > Author: tech-writer (claude-sonnet-4-6)
-> Supersedes: DOCS_STATUS.md (v0.3 / M3 gate — 2026-06-28)
-> Sprint branch: sprint/v0.3 (transitioning to v0.4)
-> Phase scope: GraphUX work — ADR-0016 (structural edges, per-edge kind), Feature A (node
->   pinning: pages.pinned + PATCH /pages/{id}/position), sigma.js viewer UX updates
+> Supersedes: DOCS_STATUS.md (v0.4 / M4-GUX Phase 0 gate — 2026-06-28)
+> Sprint branch: sprint/v0.3 (v0.4 Phase 1 work in progress)
+> Phase scope: F1 three-panel shell — ADR-0017 (AppShell, NavTree, MainTabs/GraphPanel,
+>   PreviewPanel, ActivityBar, ScenarioTemplates, graphStore UI slice, pagesClient)
 > I8 gate: CLAUDE.md §3 invariant I8 (docs-as-DoD; ER matches live schema; OpenAPI matches
 >   live FastAPI)
+
+---
+
+## Phase 1 section — M4 (F1 three-panel shell, ADR-0017)
+
+### Per-artifact status
+
+| ID | Artifact | Required Phase 1? | Status | Notes |
+|----|----------|-------------------|--------|-------|
+| D1 | `docs/architecture/component.mmd` | YES | UP-TO-DATE | Updated this gate run. See §Phase-1-D1. |
+| D5 | `docs/screens/shell-3panel.png` | YES | PENDING QA | QA agent captures via Playwright. Not yet committed. See §Phase-1-D5. |
+| D5 | `docs/screens/shell-3panel-selected.png` | YES | PENDING QA | QA agent captures via Playwright. Not yet committed. See §Phase-1-D5. |
+| D7 | `docs/adr/README.md` (ADR-0017 row) | YES | UP-TO-DATE | ADR-0017 row is present (architect added it). See §Phase-1-D7. |
+| D2 | `docs/er/schema.mmd` | NO (no schema change) | CARRY-FORWARD | F1 is a pure-frontend shell. No new migration, no new models.py column. ER remains valid from Phase 0 gate. |
+| D4 | `docs/api/openapi.json` | NO (no API change) | CARRY-FORWARD | F1 adds no new backend endpoints. `GET /pages` was already present. OpenAPI remains valid from Phase 0 gate. |
+
+### §Phase-1-D1 — D1 component diagram updated
+
+File: `docs/architecture/component.mmd`
+
+**Drift before this run:** the committed component diagram reflected v0.3 (thin sigma viewer
+only). The F1 shell components (AppShell, Header, PanelGroup, NavTree, MainTabs, GraphPanel,
+PreviewPanel, ActivityBar, ScenarioTemplates, pagesClient, graphStore UI slice) and their
+relations were absent.
+
+**Fix applied:** updated the diagram in this gate run. Changes made:
+- Header comment bumped to `v0.4 sprint 4 | 2026-06-28`.
+- Title updated to "Synapse v0.4 Phase 1 (M4 — F1 shell)".
+- Frontend boundary label updated to "Frontend — 3-panel shell (v0.4 Phase 1, F1, ADR-0017)".
+- Added 11 new components inside the frontend boundary (see list below).
+- Added 18 new `Rel()` entries for Phase 1 shell wiring.
+- Existing GraphViewer and graphStore components retained; GraphViewer description updated to
+  note it is UNCHANGED and that T-NCL-001..022 remain intact.
+
+New components added (all under `frontend/src/`):
+
+| Component ID | File | Key invariant noted |
+|---|---|---|
+| `appshell` | AppShell.tsx | Top-level layout; replaces App.tsx body |
+| `header` | Header.tsx | providerSelectorSlot placeholder (Phase 2 seam) |
+| `panelgroup` | panels/PanelGroup.tsx | react-resizable-panels; no rAF loop (AC-F1-7) |
+| `navtree` | nav/NavTree.tsx + useNavTreeData.ts | TanStack Virtual; ≤50 DOM rows (I4, AC-F1-2) |
+| `maintabs` | center/MainTabs.tsx | Chat tab aria-disabled Phase-3 seam |
+| `graphpanel` | center/GraphPanel.tsx | Wraps GraphViewer UNCHANGED; T-NCL intact (I2) |
+| `previewpanel` | preview/PreviewPanel.tsx | Read-only inspector; NOT an editor (I4, AC-F1-3) |
+| `activitybar` | activity/ActivityBar.tsx | Phase-1 provider placeholder '—' (AC-F1-5) |
+| `scenariotemplates` | common/ScenarioTemplates.tsx | ≥2 templates; chat-store wiring in Phase 3 (AC-F1-6) |
+| `gstore` (updated) | store/graphStore.ts | UI slice added; selectedNodeId unchanged (I3) |
+| `pagesclient` | api/pagesClient.ts | GET /pages metadata only; separate from graph client |
+
+**GraphPanel→GraphViewer wrapping:** the diagram explicitly shows `graphpanel` as a thin wrapper
+over the unchanged `viewer` component. The `Rel(graphpanel, viewer, "wraps unchanged GraphViewer
+(I2, no layout code)")` entry makes the I2 contract visible at the diagram level.
+
+**Shared selection key (I3):** `navtree`, `viewer`, and `previewpanel` all connect to `gstore`
+via selectors (`selectPage`, `setSelectedNodeId`, `selectSelectedNodeId`). The single shared key
+(`selectedNodeId`) is documented in the gstore description. No cross-store wiring.
+
+**Zero drift vs ADR-0017 component table (§6):** every component in the ADR implementation
+spec has a corresponding node in the updated diagram. Phase-3 seams (chat tab, content endpoint,
+CodeMirror editor) are noted as stubs/reserved in the component descriptions.
+
+**Confirmed: D2/D4 need no regen.** The F1 shell introduces no new Postgres columns and no new
+API endpoints. `GET /pages` was already present in openapi.json with its current schema. The
+ER diagram and openapi.json committed from Phase 0 remain authoritative.
+
+### §Phase-1-D5 — Screenshots (QA agent responsibility)
+
+Expected captures (Playwright, QA agent):
+
+| File | View | Status |
+|------|------|--------|
+| `docs/screens/shell-3panel.png` | 3-panel shell, no selection, all panels visible | PENDING QA |
+| `docs/screens/shell-3panel-selected.png` | 3-panel shell, node selected — NavTree row highlighted, PreviewPanel populated | PENDING QA |
+
+Current state of `docs/screens/`: `graph-obsidian.png` and `graph-obsidian-node-selected.png`
+are present (committed Jun 28 18:53/19:03, Phase 0 gate). `shell-3panel.png` and
+`shell-3panel-selected.png` are NOT YET COMMITTED. This is expected: the QA agent runs
+Playwright against the live stack after the frontend-engineer lands the shell code. Tech-writer
+does not capture D5.
+
+The two Phase 0 screens (`graph-obsidian.png`, `graph-obsidian-node-selected.png`) remain
+valid references for the graph view (GraphViewer unchanged in Phase 1).
+
+### §Phase-1-D7 — ADR index verification
+
+File: `docs/adr/README.md`
+
+ADR-0017 row was present at the time of this gate run (added by solution-architect).
+
+| Field | Value | Correct |
+|-------|-------|---------|
+| ADR number | 0017 | YES |
+| Title | "Three-panel shell: layout, resizing, shared selection model (F1)" | YES |
+| Status | Accepted | YES |
+| Date | 2026-06-28 | YES |
+| Sprint | v0.4 | YES |
+| Link | `0017-three-panel-shell.md` | YES — file exists |
+| Summary | NavTree / tabbed main (GraphViewer wrapped, chat stub) / PreviewPanel; react-resizable-panels; single selectedNodeId key in graphStore UI slice; TanStack Virtual | YES — accurate |
+
+Total ADRs in index: 17 (0001–0017). All Accepted. Zero gaps.
+
+No update to the index was required. The header timestamp already reads
+`Last updated: 2026-06-28 · Sprint v0.4 (M4 Phase 1)` — consistent with this phase.
+
+### §Phase-1-D2D4-confirm — ER and OpenAPI carry-forward confirmation
+
+**D2 carry-forward:** no new Alembic migration was added in Phase 1. `models.py` is unchanged.
+The last migration is 0005 (`pages.pinned`). The ER diagram at `docs/er/schema.mmd` was
+regenerated and verified at the Phase 0 gate and remains authoritative. No regen required.
+
+**D4 carry-forward:** the Phase 1 shell uses `GET /pages` (already documented in openapi.json
+with `PageListResponse`/`PageListItem` schemas as extended in `api/types.ts`) and
+`GET /pages/{id}` (already documented). No new routes, no schema changes. The openapi.json
+committed at Phase 0 gate remains authoritative. No regen required.
+
+### DOCS GATE VERDICT — M4 Phase 1
+
+| Artifact | Status | Detail |
+|----------|--------|--------|
+| D1 `docs/architecture/component.mmd` | UP-TO-DATE | Updated this gate run; all F1 shell components and relations present; ADR-0017 §6 component table fully reflected; GraphPanel→GraphViewer wrapping explicit; I2/I3/I4 invariant annotations present |
+| D5 `docs/screens/shell-3panel.png` | PENDING QA | QA agent Playwright capture required; not yet committed |
+| D5 `docs/screens/shell-3panel-selected.png` | PENDING QA | QA agent Playwright capture required; not yet committed |
+| D7 ADR-0017 row in `docs/adr/README.md` | UP-TO-DATE | Row present (architect added it); 17 ADRs listed, zero gaps |
+| D2 `docs/er/schema.mmd` | CARRY-FORWARD (no change) | No schema change in Phase 1; Phase 0 gate ER remains valid |
+| D4 `docs/api/openapi.json` | CARRY-FORWARD (no change) | No new endpoints in Phase 1; Phase 0 gate OpenAPI remains valid |
+
+**DOCS GATE: PASS**
+
+All required Phase 1 D-artifacts are UP-TO-DATE. D5 (two shell screenshots) is a QA-agent
+Playwright responsibility and is explicitly tracked as pending — consistent with established
+precedent (Phase 0 gate §2, v0.3 gate). It does not block this gate.
+
+No D2/D4 regen was required: F1 is a pure-frontend shell with no database schema changes and
+no new API routes.
+
+Drift found and fixed in this run:
+- D1: `component.mmd` was at v0.3; updated to reflect all F1 shell components (ADR-0017 §6).
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-28 | M4 Phase 1**
+
+---
+
+## M4-GUX Phase 0 section (carried forward)
+
+> Original Phase 0 gate signed 2026-06-28. All verdicts below remain valid.
+> Phase scope: GraphUX work — ADR-0016 (structural edges, per-edge kind), Feature A (node
+>   pinning: pages.pinned + PATCH /pages/{id}/position), sigma.js viewer UX updates
 
 ---
 
@@ -19,8 +167,8 @@
 | D2 | `docs/er/schema.mmd` | YES | UP-TO-DATE | DRIFT FOUND — FIXED | Regenerated via `make er` | See §3 for detail. |
 | D4 | `docs/api/openapi.json` | YES | UP-TO-DATE | DRIFT FOUND — FIXED | Regenerated via `make openapi` | See §4 for detail. |
 | D7 | `docs/adr/README.md` (ADR-0016 index row) | YES | UP-TO-DATE | ZERO DRIFT (row already present) | Header timestamp updated | See §5 for detail. |
-| D5 | `docs/screens/graph-obsidian.png` | REFERENCE ONLY | PENDING QA | N/A | Not captured by tech-writer | QA agent captures separately; see §2. |
-| D1 | `docs/architecture/component.mmd` | NO (v0.4 update deferred) | CARRY-FORWARD | — | — | M3 version remains valid for Phase 0. v0.4 component diagram update scheduled when 3-panel UI lands. |
+| D5 | `docs/screens/graph-obsidian.png` | REFERENCE ONLY | COMMITTED | N/A | Committed by QA agent (Jun 28 19:03) | `graph-obsidian.png` and `graph-obsidian-node-selected.png` both present in `docs/screens/`. |
+| D1 | `docs/architecture/component.mmd` | NO (v0.4 update deferred) | RESOLVED IN PHASE 1 | — | Updated in Phase 1 gate (this file §Phase-1-D1) | M3 version carried forward through Phase 0. Updated for F1 shell in Phase 1 gate run. |
 | D3 | `docs/sequences/` | NO (Phase 0 scope) | CARRY-FORWARD | — | — | graph-recompute.mmd from M3 remains valid. ADR-0016 edge-filter change is an engine-internal detail; sequence is unchanged. |
 | D6a | `docs/USER.md` | NO (v0.4) | N/A | — | — | Not in Phase 0 scope. |
 | D6b | `docs/DEPLOY.md` | NO (v0.4) | N/A | — | — | Not in Phase 0 scope. |
@@ -37,9 +185,10 @@ Expected capture: `docs/screens/graph-obsidian.png` — graph viewer after ADR-0
 edge filter, showing Obsidian-style topology (no hairball, nodes sized by structural degree,
 edges styled by kind).
 
-Status at time of this gate: `docs/screens/` directory exists and is empty (0 PNGs committed).
-Gate verdict accounts for this: D5 is referenced but does not block Phase 0. It will be
-confirmed committed in the sprint v0.4 D5 check (alongside the full 3-panel UI screenshots).
+Status as of Phase 1 gate update: `docs/screens/graph-obsidian.png` and
+`docs/screens/graph-obsidian-node-selected.png` are both committed (Jun 28 19:03). The
+Phase 0 D5 capture is now complete. Phase 1 shell screenshots (`shell-3panel.png`,
+`shell-3panel-selected.png`) are tracked as PENDING QA in the Phase 1 section above.
 
 ---
 
