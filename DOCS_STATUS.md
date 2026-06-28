@@ -1,228 +1,230 @@
-# DOCS_STATUS — Sprint v0.2 (M2) Documentation Gate
+# DOCS_STATUS — Sprint 3 / v0.3 / M3 Documentation Gate
 
-> Tech-writer sign-off for EC-M2-16 (v0.2-scope §7 sign-off register).
+> Tech-writer sign-off for EC-M3-15 (v0.3-scope §6 / §8 sign-off register).
 > Generated: 2026-06-28
-> Author: tech-writer agent
-> Supersedes: DOCS_STATUS.md (v0.1 gate)
+> Author: tech-writer (claude-sonnet-4-6)
+> Supersedes: DOCS_STATUS.md (v0.2 gate)
+> Sprint branch: sprint/v0.3
+> Scope reference: docs/sprints/v0.3-scope.md §8
+> I8 gate: CLAUDE.md §3 invariant I8 (docs-as-DoD; ER matches live schema)
 
-This file is the artifact the milestone gate reads. ALL UP-TO-DATE means the docs gate
-passes and sprint/v0.2 may merge. NOT UP-TO-DATE means the gate blocks until resolved.
+This file is the artifact the milestone gate reads. ALL UP-TO-DATE (with DEFERRED-TO-LIVE for
+D5 capture explicitly tracked) means the docs gate passes. NOT UP-TO-DATE with untracked gaps
+blocks the gate.
 
 ---
 
 ## 1. Per-artifact status table
 
-| Artifact | Required v0.2? | Status | Drift result | Notes |
-|----------|----------------|--------|--------------|-------|
-| **D1 — C4 context** (`docs/architecture/context.mmd`) | YES (updated) | UP-TO-DATE | No drift. Line 1 = `C4Context`. Heading comment added this gate. | Shows Synapse + InferenceProvider relationship to Ollama and Anthropic API. Scope-accurate: no UI (v0.4), no SearXNG (v0.5), no graph (v0.3). |
-| **D1 — C4 container** (`docs/architecture/container.mmd`) | YES (updated) | UP-TO-DATE | No drift. Line 1 = `C4Container`. Heading comment added this gate. | Provider layer container + MCP server container added. All 5 DB tables listed. 202 IngestTriggerResponse noted on /ingest/trigger. |
-| **D1 — C4 component** (`docs/architecture/component.mmd`) | YES (new) | UP-TO-DATE | No drift. Line 1 = `C4Component`. Heading comment added this gate. | New in v0.2. Shows all 3 provider backends, ConfigResolver, WikiPage validator, K5 wikilink parser, K3 index writer, MCP server with 4 tools, Postgres component. |
-| **D2 — ER diagram** (`docs/er/schema.mmd`) | YES (updated) | UP-TO-DATE | ZERO DRIFT. Regenerated via `python backend/scripts/generate_er.py`; `git diff` shows no change to committed file. Sanity assertions passed. | All 5 tables present: PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS. No api_key column in PROVIDER_CONFIG. INGEST_RUNS has total_cost_usd, converged, cost_anomaly. LINKS has source_page_id, target_title, target_page_id, dangling. |
-| **D3 — ingest-routing.mmd** (`docs/sequences/ingest-routing.mmd`) | YES (new) | UP-TO-DATE | No drift. Line 1 = `sequenceDiagram`. Heading comment added this gate. | Both branches shown: `supports_agentic_loop == True` (CLI delegated) and `== False` (orchestrated). Routing branch reads only `supports_agentic_loop` — never isinstance/type. I7 cost log + anomaly check shown. |
-| **D3 — ingest-loop.mmd** (`docs/sequences/ingest-loop.mmd`) | YES (new) | UP-TO-DATE | No drift. Line 1 = `sequenceDiagram`. Heading comment added this gate. | analyze() called ONCE (AQ-v0.2-1). generate()/validate() loop with max_iter + token_budget dual bounds annotated (I7). whole-batch retry with augmented context. converged path and non-converged path both shown. ingest_runs write at end. |
-| **D4 — openapi.json** (`docs/api/openapi.json`) | YES (updated) | UP-TO-DATE | ZERO DRIFT. Regenerated via `python backend/scripts/generate_openapi.py`; `git diff` shows no change. | /provider/config GET + POST present. /provider/config/{id} DELETE present. POST /ingest/trigger 202 response is now a typed `$ref` to IngestTriggerResponse (task_id in schema). v0.1 carry-forward item RESOLVED. |
-| **D4 — mcp-tools.json** (`docs/api/mcp-tools.json`) | YES (new) | UP-TO-DATE | No drift. | All 4 tools documented with full input/output schemas: search_wiki, write_page, get_page, list_pages. Transport: stdio (v0.2, ADR-0010). Not-RAG note explicit. write_page invariants (I1, I5) documented. |
-| **D5 — UI screenshots** (`docs/screens/`) | NO | N/A-THIS-SPRINT | — | No UI in v0.2. First required sprint: v0.3. |
-| **D6a — USER.md** | NO | N/A-THIS-SPRINT | — | First required sprint: v0.4 (draft). |
-| **D6b — DEPLOY.md** (`docs/DEPLOY.md`) | NO | DRAFT/EARLY | Not required this sprint. | Remains DRAFT from v0.1. Not gated this sprint. |
-| **D7 — ADR-0007** (`docs/adr/0007-inference-provider-abc.md`) | YES (new) | UP-TO-DATE | File present and correct. | InferenceProvider ABC rationale, capability-aware routing, analyze-once retry strategy, validator contract (AQ-v0.2-1, AQ-v0.2-7). Status: Accepted. |
-| **D7 — ADR-0008** (`docs/adr/0008-provider-config-schema.md`) | YES (new) | UP-TO-DATE | File present and correct. | provider_config + ingest_runs + links schema, secrets-via-env, scope model with operation column (AQ-v0.2-2, AQ-v0.2-5). Status: Accepted. |
-| **D7 — ADR-0009** (`docs/adr/0009-bounded-loop-defaults.md`) | YES (new) | UP-TO-DATE | File present and correct. | max_iter=3, token_budget 60k/100k, Usage normalization per backend, CLI=$0.00 convention, $1 anomaly inline (AQ-v0.2-4, AQ-v0.2-8). Status: Accepted. |
-| **D7 — ADR-0010** (`docs/adr/0010-mcp-transport-and-write-path.md`) | YES (additional) | UP-TO-DATE | File present and correct. | stdio transport v0.2 (HTTP deferred v0.4), write_page shares persist primitives (I1, I5, I9) (AQ-v0.2-6). Status: Accepted. |
-| **D7 — ADR-0011** (`docs/adr/0011-ingest-contract-schemas.md`) | YES (additional) | UP-TO-DATE | File present and correct. | Locks Analysis/WikiPage/Message/ProviderCapabilities schemas in schemas.py (AQ-v0.2-3). Status: Accepted. |
-| **D7 — ADR README index** (`docs/adr/README.md`) | YES | UP-TO-DATE | All 11 ADRs (0001–0011) indexed. | One-line summaries for all 5 v0.2 ADRs. Sprint column present. |
+| ID | Artifact | Required v0.3? | Status | Drift result | Notes |
+|----|----------|----------------|--------|--------------|-------|
+| D1 | `docs/architecture/component.mmd` | YES (updated) | UP-TO-DATE | ZERO DRIFT | GraphEngine (graph/engine.py), GraphCache (graph/cache.py), sigma viewer, coord/edge persistence all present. I2 annotation in header `%%` comments. Line 1 = `C4Component` (no leading HTML comment). No v0.4 features depicted. Module labels match real files. Git working tree clean. |
+| D2 | `docs/er/schema.mmd` | YES (updated) | UP-TO-DATE | ZERO DRIFT | `make er` re-run via backend/.venv python3.13. Regenerated output byte-identical to committed file (git diff empty; working tree clean per `git status`). 6 tables confirmed: PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES. `pages.x` / `pages.y` (DOUBLE PRECISION, nullable, ADR-0013) present. EDGES table with source_page_id, target_page_id, weight, signals confirmed (ADR-0012). |
+| D3 | `docs/sequences/graph-recompute.mmd` | YES (new) | UP-TO-DATE | ZERO DRIFT | Line 1 = `sequenceDiagram`. Heading comment in `%%` (line 2). Debounce loop, cache-miss path (inline recompute, `X-Graph-Cache: miss`) and cache-hit path (pure Postgres read, `X-Graph-Cache: hit`) all present. FA2 server-side via igraph explicit. Client addNode with server coords and no client layout noted (ADR-0015). Wording polished. mmdc render deferred (no mmdc in sandbox — T-DOCS-MANUAL-003 sentinel). |
+| D4 | `docs/api/openapi.json` | YES (updated) | UP-TO-DATE | ZERO DRIFT | `make openapi` re-run via backend/.venv python3.13. Regenerated output byte-identical to committed file (git diff empty; working tree clean). `GET /graph` present. GraphResponse schema complete: nodes (id/title/type/x/y), edges (source/target/weight), data_version (int), cached (bool). `X-Graph-Cache: hit\|miss` documented in 200 response headers with ADR-0014 reference. info.version = "0.3.0". |
+| D5 | `docs/screens/` (Playwright PNGs) | YES — capture DEFERRED-TO-LIVE | DEFERRED-TO-LIVE | N/A — no fabrication | Harness exists (see §2). 0 PNGs committed. Acceptable: requires live browser + running stack. Run command documented in §2. EC-M3-11 remains open until Playwright runs against live stack as part of EC-M3-17 (Emanuele live confirmation). |
+| D6a | `docs/USER.md` | NO (v0.4) | N/A | N/A | Not required at M3. Deferred to v0.4 per v0.3-scope §3 and §9. |
+| D6b | `docs/DEPLOY.md` | NO (v0.4) | N/A | N/A | Not required at M3. Deferred to v0.4. DEPLOY.md remains DRAFT-tagged from prior sprint. |
+| D7 | `docs/adr/` (ADRs 0012–0015 + README) | YES (new) | UP-TO-DATE | ZERO DRIFT | ADR-0012 (4-signal formula), ADR-0013 (FA2 + coord persistence, I2), ADR-0014 (GraphCache + GET /graph), ADR-0015 (no client-side layout sigma contract) all present, non-empty, reference I2/FA2/igraph. ADR README index updated: all 15 ADRs listed (0001–0015), correct sprint/status/date/summary. Consistent format throughout. |
 
 ---
 
-## 2. D2 ER completeness detail (I8 gate)
+## 2. D5 deferred-capture status (DEFERRED-TO-LIVE)
 
-Regenerated from `backend/app/models.py` on 2026-06-28. `git diff --exit-code docs/er/schema.mmd` → ZERO DRIFT.
+The Playwright harness is written, verified present, and does not need to be re-run in this
+sandbox. Files confirmed:
 
-**5-table confirmation:**
+- `frontend/e2e/graph-perf.spec.ts` — E2E spec capturing G2/G4 metrics and D5 PNGs
+- `frontend/playwright.config.ts` — Config: testDir `./e2e`; baseURL `SYNAPSE_FRONTEND_URL`
+  (default `http://localhost:5173`); headless Chromium; trace on first retry
 
-| Table | ER name | Present | Key v0.2 columns confirmed |
+The spec writes two screenshots to `docs/screens/`:
+- `docs/screens/graph-viewer-initial.png` — graph rendered, no node selected
+- `docs/screens/graph-viewer-node-selected.png` — after node click, tooltip/drawer visible
+
+To populate D5 (satisfies EC-M3-11, T-E2E-D5-001..003, G2 runtime T-E2E-G2-001/002,
+G4 T-E2E-G4-001/002):
+
+```bash
+# 1. Seed 200-node/500-edge fixture
+cd backend && python scripts/seed_graph_fixture.py --nodes 200 --edges 500 --db-url $DATABASE_URL
+
+# 2. Start backend
+uvicorn app.main:app --port 8000
+
+# 3. Start frontend
+cd frontend && npm run dev
+
+# 4. Run Playwright (captures PNGs into docs/screens/ and asserts G2/G4)
+cd frontend && npx playwright test e2e/graph-perf.spec.ts --config playwright.config.ts
+```
+
+After the run, commit the two PNGs in `docs/screens/`. This closes EC-M3-11.
+
+---
+
+## 3. make er / make openapi drift check (I8 gate)
+
+| Script | Python used | Exit code | Drift vs committed file | Sanity output |
+|--------|------------|-----------|------------------------|---------------|
+| `make er` (`backend/scripts/generate_er.py`) | `backend/.venv/bin/python3` (3.13) | 0 | **ZERO** — `git status` clean | "all 6 tables present (PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES)" |
+| `make openapi` (`backend/scripts/generate_openapi.py`) | `backend/.venv/bin/python3` (3.13) | 0 | **ZERO** — `git status` clean | "all 5 required endpoints present (including GET /graph)" |
+
+Runtime note: the system Python at `/usr/bin/python3` is 3.9 and is incompatible with the
+codebase (requires Python 3.11+ per CLAUDE.md §12; `X | Y` union type syntax and
+`datetime.UTC` require 3.10+/3.11+). Both scripts must be run via `backend/.venv/bin/python3`
+(3.13). This is a devops note, not a drift issue — both scripts succeeded with the venv and
+produced zero drift.
+
+---
+
+## 4. D2 ER — 6-table confirmation (I8 gate)
+
+| Table | ER name | Present | Key v0.3 columns confirmed |
 |-------|---------|---------|---------------------------|
-| `pages` | PAGES | YES | id (PK), vault_id, file_path, title, type, sources (jsonb), content_hash, source_mtime_ns, qdrant_point_id, deleted_at, created_at, updated_at |
-| `vault_state` | VAULT_STATE | YES | id (PK), vault_id, data_version, updated_at |
-| `provider_config` | PROVIDER_CONFIG | YES | id (PK), scope, operation, vault_id, provider_type, model_id, base_url, max_iter, token_budget, is_fallback, created_at, updated_at. **No api_key column** (§12 / ADR-0008 §3). |
-| `ingest_runs` | INGEST_RUNS | YES | id (PK), vault_id, page_id (FK), provider_name, provider_type, model_id, route, max_iter_used, total_tokens, total_cost_usd (decimal), converged, cost_anomaly, started_at, finished_at |
-| `links` | LINKS | YES | id (PK), source_page_id (FK), target_title, target_page_id (FK, nullable), alias, dangling, created_at |
+| `pages` | PAGES | YES | x (double, nullable, ADR-0013), y (double, nullable, ADR-0013). All prior columns retained. |
+| `vault_state` | VAULT_STATE | YES | data_version (int, monotonic); updated_at. |
+| `provider_config` | PROVIDER_CONFIG | YES | Unchanged from v0.2. No api_key column. |
+| `ingest_runs` | INGEST_RUNS | YES | Unchanged from v0.2. total_cost_usd, converged, cost_anomaly present. |
+| `links` | LINKS | YES | Unchanged from v0.2. source_page_id, target_title, target_page_id (nullable FK), dangling. |
+| `edges` | EDGES | YES | id (PK), vault_id, source_page_id (FK), target_page_id (FK), weight (double), signals (jsonb), created_at. |
 
-**I8 verdict: ER matches live SQLAlchemy schema. Zero drift.**
-
----
-
-## 3. D4 OpenAPI completeness detail
-
-Generated from `backend/app/main.py` via FastAPI's `.openapi()`. `git diff --exit-code docs/api/openapi.json` → ZERO DRIFT.
-
-| Endpoint | Method | Expected status | Schema | Present |
-|----------|--------|-----------------|--------|---------|
-| `/status` | GET | 200 | `StatusResponse` | YES |
-| `/pages` | GET | 200 | `PageListResponse` | YES |
-| `/pages/{page_id}` | GET | 200 | `PageResponse` | YES |
-| `/ingest/trigger` | POST | 202 | `IngestTriggerResponse` (`$ref` — typed, task_id in schema) | YES — v0.1 carry-forward RESOLVED |
-| `/provider/config` | GET | 200 | `ProviderConfigListResponse` | YES |
-| `/provider/config` | POST | 201 | `ProviderConfigResponse` | YES |
-| `/provider/config/{config_id}` | DELETE | 204 | — | YES (bonus beyond scope requirement) |
-
-`ProviderConfigCreate` and `ProviderConfigResponse` schemas: no `api_key` field present in either.
-
-**Minor cosmetic note (non-blocking):** `info.version` in openapi.json is "0.1.0" and `info.description` still says "walking skeleton (M1)". These are set in `backend/app/main.py` (backend code; tech-writer cannot edit). The routes and schemas are v0.2-accurate. Backend-engineer should update the version string and description for the final v0.2 commit — tracked as a non-blocking polish item.
+**I8 verdict: ER matches live SQLAlchemy schema. Zero drift. 6 tables confirmed.**
 
 ---
 
-## 4. D3 sequence diagram validity detail
-
-### ingest-routing.mmd
-
-- Line 1: `sequenceDiagram` — PASS
-- Both branches rendered: `alt supports_agentic_loop == True (CLI — DELEGATED)` / `else supports_agentic_loop == False (Local/API — ORCHESTRATED)` — PASS
-- Routing branch key: reads `ProviderCapabilities{supports_agentic_loop, mode, ...}` output; no isinstance/type/provider_type-string check in routing branch — PASS (I6 compliant)
-- I7 annotation: ingest_runs INSERT with cost log + anomaly check at end — PASS
-- ConfigResolver resolution order (operation > vault > global) shown — PASS
-- CLI path: MCP tools (search_wiki, get_page, write_page) shown; pages_written count returned — PASS
-
-### ingest-loop.mmd
-
-- Line 1: `sequenceDiagram` — PASS
-- analyze() called before loop, labeled "ONCE per run (AQ-v0.2-1)" — PASS (I7 and AQ-v0.2-1 correct)
-- Loop annotation: `iteration = 1..max_iter (stop when converged OR iteration==max_iter OR tokens>=budget)` — PASS (dual-bound per I7)
-- Pre-call token_budget check shown inside loop — PASS
-- validate(pages) step with whole-batch retry on failure — PASS (ADR-0007 §5)
-- converged=True path: writes pages, persists links (K5), updates Postgres — PASS
-- converged=False path: augments retrieval_context, iterates — PASS
-- ingest_runs INSERT at end with cost/anomaly — PASS
-
----
-
-## 5. D1 C4 diagram validity detail
-
-### context.mmd
-
-- Line 1: `C4Context` (no leading HTML comment) — PASS
-- Shows Synapse system, Emanuele person, Ollama + Anthropic API as external systems, Qdrant, bge-m3, Vault filesystem — PASS
-- v0.2 additions: Synapse description updated to mention capability-aware ingest loop (I6) and bounded I7 — PASS
-- No v0.3+ systems drawn (graph, UI, SearXNG) — PASS
-
-### container.mmd
-
-- Line 1: `C4Container` — PASS
-- InferenceProvider layer container added with all 3 backends noted — PASS
-- MCP server container added (FastMCP, stdio) — PASS
-- Postgres description lists all 5 tables by name — PASS
-- No api_key mentioned — PASS
-
-### component.mmd
-
-- Line 1: `C4Component` — PASS (new file in v0.2)
-- All provider components (OllamaProvider, ApiProvider, CliAgentProvider) shown within InferenceProvider ABC — PASS
-- ConfigResolver, WikiPage validator, K5 wikilink parser, K3 index/overview writer shown — PASS
-- MCP server with 4 tools shown; write_page annotated with shared primitives (I1, I5) — PASS
-- Routing arrows correctly from orch → prov (ABC) → three backends; never isinstance/class reference — PASS
-
----
-
-## 6. D7 ADR completeness detail
-
-All 5 v0.2-required ADRs and 2 additional ADRs are present. v0.1 ADRs (0001–0006) remain Accepted.
-
-| ADR | Required by | Status | Key resolved questions |
-|-----|------------|--------|----------------------|
-| 0007 | EC-M2-11 | Accepted 2026-06-28 | AQ-v0.2-1 (analyze-once); AQ-v0.2-7 (validator contract); ABC vs Protocol; routing via capabilities() |
-| 0008 | EC-M2-11 | Accepted 2026-06-28 | AQ-v0.2-2 (ingest_runs table); AQ-v0.2-5 (operation column); secrets-via-env; links table in same migration |
-| 0009 | EC-M2-11 | Accepted 2026-06-28 | AQ-v0.2-4 (Usage normalization); AQ-v0.2-8 (anomaly WARNING site); max_iter=3; token_budget defaults |
-| 0010 | additional | Accepted 2026-06-28 | AQ-v0.2-6 (stdio transport); write_page reuses seam primitives (I1, I5, I9) |
-| 0011 | additional | Accepted 2026-06-28 | AQ-v0.2-3 (Pydantic schemas locked in schemas.py) |
-
-ADR README index: all 11 ADRs listed with status, date, sprint, and one-line summary.
-
----
-
-## 7. Cross-consistency sweep
+## 5. D4 OpenAPI — GET /graph confirmation
 
 | Check | Result |
 |-------|--------|
-| No `api_key` column in ER, OpenAPI schema, C4, or ADRs | PASS — explicitly excluded in ADR-0008 §3, OpenAPI descriptions reference "no api_key field", ER has no such column |
-| Routing in sequence diagram uses `supports_agentic_loop` only (not isinstance/type/provider_type string) | PASS — ingest-routing.mmd alt branch reads `supports_agentic_loop == True/False` only |
-| ER PROVIDER_CONFIG matches ADR-0008 §2 column table | PASS — all columns match (id, scope, operation, vault_id, provider_type, model_id, base_url, max_iter, token_budget, is_fallback, created_at, updated_at) |
-| ER INGEST_RUNS has total_cost_usd, converged, cost_anomaly (I7) | PASS — all three present with correct types (decimal, boolean, boolean) |
-| ER LINKS has source_page_id, target_title, target_page_id (nullable), dangling (K5) | PASS — all columns present; target_page_id is FK nullable for v0.3 graph resolution |
-| OpenAPI typed 202 response for /ingest/trigger (v0.1 carry-forward) | PASS — resolved: `$ref: IngestTriggerResponse`; task_id present in schema as nullable |
-| ingest-loop.mmd: analyze called once; generate retried (AQ-v0.2-1) | PASS — analyze before loop; generate inside loop |
-| C4 component diagram shows provider layer (I6 surface) | PASS — component.mmd is new in v0.2 and shows the full provider layer |
-| MCP tools in mcp-tools.json match MCP server contracts in v0.2-architecture §6 | PASS — all 4 tools present with matching input/output schemas; transport annotation (stdio) correct |
-| ADR-0010: write_page described as reusing persist primitives (not direct FS write) | PASS — mcp-tools.json description and ADR-0010 §2 are consistent |
-| ADR-0009 CLI=$0.00 convention: no cost claimed for CliAgentProvider | PASS — mcp-tools.json does not assert billing; ingest_runs total_cost_usd documented as 0.0000 for local/cli |
-| C4 context/container/component all start with C4 keyword on line 1 (no leading HTML comment) | PASS — verified by `head -1` of all three files |
-| Sequence diagrams start with `sequenceDiagram` on line 1 | PASS — verified by grep |
-| CLAUDE.md §12: no model id / API key outside provider/ — reflected in docs | PASS — ER has no api_key; OpenAPI ProviderConfigCreate accepts no api_key; ADRs document env-only constraint |
-| D5/D6 not required v0.2; correctly N/A | PASS |
-| openapi.json info.version = "0.1.0" and description = "walking skeleton (M1)" | MINOR DRIFT — cosmetic; set in backend/app/main.py (backend code). Routes and schemas are v0.2-accurate. Non-blocking; backend-engineer action required. |
-
-**One cosmetic inconsistency identified:** `openapi.json` `info.version` and `info.description` are stale from v0.1 (set in main.py, which tech-writer cannot edit). This is a cosmetic annotation issue; it does not affect endpoint correctness or schema accuracy. Classified as non-blocking with a tracked backend-engineer action.
-
-No structural contradictions found between CLAUDE.md, ER, OpenAPI, C4, sequence diagrams, and ADRs.
+| `GET /graph` path present | YES (path `/graph`, method `get`) |
+| `GraphResponse` `$ref` on 200 response | YES |
+| `nodes` array of `GraphNodeResponse` | YES — required fields: id, title, type, x, y |
+| `edges` array of `GraphEdgeResponse` | YES — required fields: source, target, weight |
+| `data_version` (integer, required) | YES |
+| `cached` (boolean, required) | YES |
+| `X-Graph-Cache: hit\|miss` in response headers | YES — documented in 200 headers object with description "hit\|miss — mirrors the cached field (ADR-0014 §5)" |
+| Synchronous 200 only (no 202) for `/graph` | YES — no 202 response defined for this path (AQ-v0.3-3) |
+| info.version | "0.3.0" (updated from v0.2 "0.1.0" — resolved) |
+| info.description | References F4, I2, FA2, igraph, ADR-0014. Accurate. |
 
 ---
 
-## 8. Heading comment compliance
+## 6. D1 component diagram — detailed validity check
 
-Per tech-writer rules, every diagram file must carry a version/date heading comment.
+File: `docs/architecture/component.mmd`
 
-| File | Comment form | Value | Added this gate |
-|------|-------------|-------|-----------------|
-| `docs/er/schema.mmd` | `<!-- ... -->` (line 1, generated by script) | `<!-- Generated: v0.2 sprint 2 | 2026-06-28 -->` | via generate_er.py (script emits it) |
-| `docs/architecture/context.mmd` | `%% <!-- ... -->` (line 2, after C4Context keyword) | `%% <!-- Generated: v0.2 sprint 2 | 2026-06-28 -->` | YES |
-| `docs/architecture/container.mmd` | `%% <!-- ... -->` (line 2) | `%% <!-- Generated: v0.2 sprint 2 | 2026-06-28 -->` | YES |
-| `docs/architecture/component.mmd` | `%% <!-- ... -->` (line 2) | `%% <!-- Generated: v0.2 sprint 2 | 2026-06-28 -->` | YES |
-| `docs/sequences/ingest-routing.mmd` | `%% <!-- ... -->` (line 2, after sequenceDiagram keyword) | `%% <!-- Generated: v0.2 sprint 2 | 2026-06-28 -->` | YES |
-| `docs/sequences/ingest-loop.mmd` | `%% <!-- ... -->` (line 2) | `%% <!-- Generated: v0.2 sprint 2 | 2026-06-28 -->` | YES |
-| `docs/api/openapi.json` | N/A (JSON; no comment syntax) | — | — |
-| `docs/api/mcp-tools.json` | N/A (JSON; no comment syntax) | `_generated` metadata key present in JSON | — |
+| Check | Result |
+|-------|--------|
+| Line 1 = `C4Component` (no leading HTML comment) | PASS |
+| Heading comment in `%%` on line 2 | PASS — `%% <!-- Generated: v0.3 sprint 3 \| 2026-06-28 -->` |
+| `GraphEngine` component, labelled `graph/engine.py` | PASS |
+| `GraphCache` component, labelled `graph/cache.py` | PASS |
+| `Coord/edge persistence` component, labelled `in engine.py` | PASS |
+| `Graph viewer` (sigma viewer) in Frontend boundary | PASS — `React 19 + Vite + sigma.js`, reads precomputed coords |
+| `Graph Zustand store` in Frontend boundary | PASS — selectors + shallow equality (I3) |
+| Postgres component: `pages (+x,y v0.3)` and `edges (v0.3)` noted | PASS |
+| I2 annotation in header comments | PASS |
+| ADR references (0012/0013/0014/0015) in component descriptions | PASS |
+| notify_bump() rel from orch to gcache | PASS |
+| recompute() rel from gcache to gengine (debounced, I7) | PASS |
+| GET /graph rel from rest to gcache (hit/miss) | PASS |
+| viewer fetches GET /graph rel | PASS |
+| No v0.4 features shown (no 3-panel, no chat, no provider selector UI, no CodeMirror) | PASS |
+| Module labels match real backend file paths | PASS |
 
-Note: Mermaid `%%` is the native Mermaid comment prefix. Using `%% <!-- ... -->` inside a `.mmd` file keeps the comment invisible to the Mermaid renderer while still being readable in the raw file source on GitHub and Obsidian (both render `.mmd` files through the Mermaid engine). The C4 keyword must remain on line 1 for the C4 plugin to activate; the comment is placed on line 2.
+Style note: the heading comment on line 2 embeds `<!-- -->` inside `%%` (i.e., `%% <!-- ... -->`). The outer `%%` makes it a Mermaid comment so the renderer never sees the HTML. Safe for GitHub and Obsidian. Not a blocking issue.
 
 ---
 
-## 9. v0.1 carry-forward items — resolution in v0.2
+## 7. D3 sequence diagram — detailed validity check
 
-| Item | v0.1 tracking | Resolution in v0.2 |
-|------|--------------|---------------------|
-| OpenAPI 202 schema typed for `/ingest/trigger` | OPEN in v0.1 gate §5 | RESOLVED: `$ref: IngestTriggerResponse` present; task_id in schema (nullable UUID). |
-| CI mmdc render check | OPEN in v0.1 gate §5 | Devops gate item; tracked per EC-M2-10 ("CI: mmdc render check"). Not a tech-writer gate item. |
-| provider_config table | N/A in v0.1 (v0.2 delivery) | DELIVERED: PROVIDER_CONFIG in ER, OpenAPI endpoints present, ADR-0008 authored. |
+File: `docs/sequences/graph-recompute.mmd`
+
+| Check | Result |
+|-------|--------|
+| Line 1 = `sequenceDiagram` | PASS |
+| Heading comment in `%%` (line 2) | PASS |
+| `title` line present | PASS |
+| `autonumber` enabled | PASS |
+| Participants: Watcher/Ingest, vault_state.data_version, GraphCache, GraphEngine, Postgres, Client | PASS |
+| Ingest bump: W→DV (+1 on successful upsert, ADR-0005) | PASS |
+| Ingest notify: W→GC (notify_bump(), in-process trigger) | PASS |
+| Debounce loop: N bumps within window reset fire_at (burst collapse) | PASS |
+| Recompute fires ONCE after debounce window (max 1 in-flight + 1 pending, I7) | PASS |
+| GE reads pages + links from Postgres (no vault walk, I1) | PASS |
+| 4-signal weight note (direct×3 + source×4 + AdamicAdar×1.5 + type×1, ADR-0012) | PASS |
+| Seeded FA2 via igraph noted | PASS |
+| GE→PG: ONE txn — UPDATE pages.x/y per node (column upsert, I1) + replace edges rows | PASS |
+| Cache marker stamp after recompute; one-follow-up rule (I7) | PASS |
+| GET /graph cache-miss path: inline recompute → `cached:false` + `X-Graph-Cache: miss` | PASS |
+| GET /graph cache-hit path: pure Postgres read → `cached:true` + `X-Graph-Cache: hit` | PASS |
+| Client addNode with server coords, NO client layout (ADR-0015) | PASS |
+| I2 invariant annotation at Note over GE | PASS |
+| mmdc render check | DEFERRED (no mmdc in sandbox; T-DOCS-MANUAL-003 sentinel in QA report) |
+
+---
+
+## 8. D7 ADR completeness detail
+
+| ADR | Sprint | Status | Key decisions locked |
+|-----|--------|--------|---------------------|
+| 0012 | v0.3 | Accepted 2026-06-28 | 4-signal additive weight formula; EDGES table persistence; edge inclusion rule (weight > 0); worked fixture |
+| 0013 | v0.3 | Accepted 2026-06-28 | FA2 only in engine.py via python-igraph; fixed seed=42; pages.x/y columns; incremental semantics (row-level, not coord-stable); single bounded pass (I7) |
+| 0014 | v0.3 | Accepted 2026-06-28 | In-process debounce on data_version bump (5s, injectable clock); bounded queue (1 in-flight + 1 pending, I7); synchronous GET /graph 200; X-Graph-Cache header; GET /graph response contract |
+| 0015 | v0.3 | Accepted 2026-06-28 | Zero client-side layout (P0 block; static bundle grep + architect review); sigma renders precomputed coords in ONE WebGL canvas; Zustand selectors + shallow equality (I3 pre-compliance); G2/G4 by construction |
+
+ADR README index: all 15 ADRs (0001–0015) listed with correct title, status, date, sprint, summary. No gaps in the index.
+
+---
+
+## 9. Cross-consistency sweep
+
+| Check | Result |
+|-------|--------|
+| No doc claims client-side FA2 or layout anywhere | PASS — ADR-0015, component.mmd, graph-recompute.mmd, openapi.json description all state FA2 is server-side only (I2). No contradiction. |
+| GET /graph contract consistent across openapi.json / ADR-0014 §6 / architecture doc §6 / sequence diagram | PASS — nodes/edges/data_version/cached schema identical; X-Graph-Cache header identical. |
+| pages.x/y in ER matches models.py `Page.x`, `Page.y` (Double, nullable) and ADR-0013 §3 | PASS |
+| EDGES table in ER matches models.py `Edge` class (source_page_id, target_page_id, weight, signals, vault_id, created_at) and ADR-0012 | PASS |
+| 4-signal formula consistent across ADR-0012 / architecture doc §2 / component.mmd GraphEngine description / sequence diagram Note | PASS — direct×3 + source×4 + AA×1.5 + type×1 everywhere |
+| 6 tables in ER consistent with models.py (Page, VaultState, ProviderConfig, IngestRun, Link, Edge) | PASS |
+| Debounce default 5s in sequence diagram matches ADR-0014 §2 and architecture doc §5 | PASS |
+| Synchronous 200 for /graph (no 202) in sequence diagram matches openapi.json and ADR-0014 §5 / AQ-v0.3-3 | PASS |
+| component.mmd Postgres description mentions `pages (+x,y v0.3)` and `edges (v0.3)` consistent with ER 6-table count | PASS |
+| ADR README index: 15 ADRs listed; 0012–0015 all Accepted, Sprint v0.3, date 2026-06-28 | PASS |
+| CLAUDE.md §4 F4 multipliers (direct×3, source-overlap×4, Adamic-Adar×1.5, type-affinity×1) match ADR-0012 formula | PASS |
+| I9 compliance: python-igraph (R9) in ADR-0013 and component.mmd; sigma.js (R10) in ADR-0015 and component.mmd; Playwright (R16) in D5 harness; no vis.js/cytoscape/d3-force/networkx referenced anywhere | PASS |
+| I2 is consistently enforced: no doc, no ADR, no diagram ever implies or permits a client-side layout | PASS |
+| Playwright harness + playwright.config.ts exist at expected paths | PASS (verified by file system check) |
+| docs/screens/ directory exists | PASS (T-DOCS-046 sentinel green per QA report) |
+
+**No contradictions found.** All D-artifacts are mutually consistent and consistent with CLAUDE.md.
 
 ---
 
 ## 10. DOCS GATE VERDICT
 
+| Item | Verdict |
+|------|---------|
+| D1 component.mmd (v0.3 update) | UP-TO-DATE |
+| D2 schema.mmd (v0.3 update — 6 tables, pages.x/y + EDGES) | UP-TO-DATE — ZERO DRIFT |
+| D3 graph-recompute.mmd (new) | UP-TO-DATE |
+| D4 openapi.json (v0.3 update — GET /graph + X-Graph-Cache) | UP-TO-DATE — ZERO DRIFT |
+| D5 screenshots | DEFERRED-TO-LIVE (harness present and verified; 0 PNGs; run command in §2) |
+| D6a/D6b USER.md / DEPLOY.md | N/A (v0.4) |
+| D7 ADRs 0012–0015 + README | UP-TO-DATE |
+| Cross-consistency sweep | PASS — no contradictions |
+| ER drift (I8 gate) | ZERO |
+| OpenAPI drift | ZERO |
+
 **DOCS GATE: UP-TO-DATE**
 
-All D-artifacts required for sprint v0.2 (D1 updated/new, D2 updated, D3 new, D4 updated/new, D7 new) are present, internally consistent, and pass the drift check. D5/D6 are correctly N/A this sprint.
+D5 screenshot capture is DEFERRED-TO-LIVE. This is explicitly tracked in §2, matches the QA
+report deferral (T-E2E-D5-001..003 DEFERRED-TO-LIVE in v0.3-qa-report.md §5), and is the
+established precedent for live-infra tests in this project. It does NOT block the docs gate;
+it holds only EC-M3-11 (D5 screenshots committed) which will close when Emanuele runs the
+Playwright suite against the live stack as part of EC-M3-17 (human checkpoint).
 
-**Summary of gate results:**
+All other required v0.3 D-artifacts are UP-TO-DATE with zero drift.
 
-| Gate item | Result |
-|-----------|--------|
-| D1 C4 context (updated) — line 1 = C4Context, v0.2 accurate | PASS |
-| D1 C4 container (updated) — line 1 = C4Container, provider + MCP shown | PASS |
-| D1 C4 component (new) — line 1 = C4Component, full provider layer | PASS |
-| D2 ER — zero drift, 5 tables, no api_key, all I7 columns | PASS |
-| D3 ingest-routing — line 1 = sequenceDiagram, both branches, I6/I7 compliant | PASS |
-| D3 ingest-loop — line 1 = sequenceDiagram, analyze-once, dual-bound loop | PASS |
-| D4 openapi.json — zero drift, /provider/config GET/POST/DELETE, typed 202 | PASS |
-| D4 mcp-tools.json — 4 tools, full input/output schemas, transport noted | PASS |
-| D7 ADR-0007 through 0011 — all present, Accepted, indexed in README | PASS |
-| Cross-consistency — no structural contradictions across ER/OpenAPI/C4/ADRs/CLAUDE.md | PASS |
-| Heading comments — all 6 diagram files now carry version/date annotation | PASS |
-
-**Non-blocking items (do not hold the docs gate):**
-
-1. `openapi.json` `info.version` = "0.1.0" and `info.description` = "walking skeleton (M1)" — cosmetic stale strings set in `backend/app/main.py`. Backend-engineer action before final v0.2 merge.
-2. CI mmdc render check — devops gate item (EC-M2-10 second half). Wiring in CI pipeline; not a tech-writer deliverable.
-3. D5/D6 remain N/A until v0.3/v0.4 respectively.
-
-The docs gate passes. Tech-writer signs off on EC-M2-16.
-
-**Signed: tech-writer | 2026-06-28**
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-28 | EC-M3-15**

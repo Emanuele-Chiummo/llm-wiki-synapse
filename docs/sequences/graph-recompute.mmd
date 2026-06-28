@@ -1,5 +1,5 @@
 sequenceDiagram
-    %% <!-- Generated: v0.3 sprint 3 | 2026-06-28 — DRAFT for tech-writer (D3, EC-M3-10) -->
+    %% <!-- Generated: v0.3 sprint 3 | 2026-06-28 (D3, EC-M3-10) -->
     %% I2: FA2 runs ONLY server-side (GraphEngine via igraph). Coords persisted in pages.x/y.
     %% Recompute is DEBOUNCED on vault_state.data_version — NOT on every GET /graph (ADR-0013/0014).
     title Graph recompute — debounced FA2 on dataVersion + GET /graph cache hit/miss (I2)
@@ -23,10 +23,12 @@ sequenceDiagram
     rect rgb(240,255,240)
     Note over GC: DEBOUNCE — a new bump within the window resets the timer (burst collapse)
     loop N bumps within GRAPH_DEBOUNCE_SECONDS (default 5s)
-        W->>GC: notify_bump()  %% resets fire_at = clock.now()+window
+        %% each bump resets fire_at = clock.now()+window (burst-collapse)
+        W->>GC: notify_bump()
     end
     Note over GC: clock.now() >= fire_at AND no run in-flight → fire ONCE (5 bumps → 1 recompute)
-    GC->>GE: recompute()  %% single bounded pass (I7); max 1 in-flight + 1 pending
+    %% single bounded pass (I7); max 1 in-flight + 1 pending (I7, ADR-0014)
+    GC->>GE: recompute()
     GE->>PG: SELECT live pages + resolved links (no vault walk, I1)
     Note over GE: build 4-signal weights (direct x3 + source x4 + AdamicAdar x1.5 + type x1, ADR-0012); run SEEDED FA2
     GE->>PG: ONE txn — UPDATE pages.x/y per node (column upsert, I1) + replace edges rows
@@ -38,7 +40,8 @@ sequenceDiagram
     CL->>GC: GET /graph
     alt cache-miss (no coords yet / data_version advanced past marker)
         Note over GC: first ever call or stale → run ONE inline recompute (cold-start safety net)
-        GC->>GE: recompute()  %% same in-flight guard; no concurrent FA2
+        %% same in-flight guard as background path — no concurrent FA2
+        GC->>GE: recompute()
         GE->>PG: write pages.x/y + edges
         GC-->>CL: 200 {nodes,edges,data_version,cached:false}  ·  header X-Graph-Cache: miss
     else cache-hit (data_version == marker, coords present)
