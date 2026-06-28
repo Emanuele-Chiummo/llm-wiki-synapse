@@ -1,0 +1,19 @@
+C4Context
+    title System Context — Synapse v0.1 (M1 "Data flows end-to-end")
+
+    Person(emanuele, "Emanuele", "Vault owner. Drops .md files into the vault and reads indexed state via the REST API. No UI in v0.1.")
+
+    System(synapse, "Synapse", "Self-hosted FastAPI service. Watches the vault, incrementally indexes Markdown into Postgres + Qdrant, and exposes a read/trigger REST API. NO LLM inference in v0.1.")
+
+    System_Ext(qdrant, "Qdrant", "Vector database (already running on TrueNAS). Stores bge-m3 embeddings in the synapse_pages collection.")
+    System_Ext(bgem3, "bge-m3 embedding service", "Embedding endpoint (already running on TrueNAS, reached via EMBEDDING_URL). Produces dense vectors. No local model is loaded by Synapse (I9).")
+    System_Ext(vaultfs, "Vault filesystem", "raw/ (immutable sources, read-only to Synapse), wiki/ (service-written, valid Obsidian vault), schema.md, purpose.md. On TrueNAS via Obsidian LiveSync.")
+
+    Rel(emanuele, synapse, "Drops .md files; reads indexed state", "filesystem / REST + JSON")
+    Rel(emanuele, vaultfs, "Edits sources, opens wiki/ in Obsidian", "filesystem / Obsidian")
+
+    Rel(synapse, vaultfs, "Reads raw/sources/ (events); writes wiki/log.md, .obsidian/", "watchdog / file I/O")
+    Rel(synapse, bgem3, "Requests embeddings per indexed page", "HTTP / JSON")
+    Rel(synapse, qdrant, "Upserts / deletes page vectors", "HTTP / gRPC")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

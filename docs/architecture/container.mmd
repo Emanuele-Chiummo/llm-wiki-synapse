@@ -1,0 +1,29 @@
+C4Container
+    title Container Diagram — Synapse v0.1 (M1 "Data flows end-to-end")
+
+    Person(emanuele, "Emanuele", "Vault owner")
+
+    System_Boundary(synapse, "Synapse (docker compose)") {
+        Container(api, "FastAPI service", "Python 3.11 / FastAPI", "Exposes GET /status, GET /pages, GET /pages/{id}, POST /ingest/trigger. Auto OpenAPI feeds D4. On startup: seeds vault_state, creates synapse_pages collection, writes .obsidian/app.json.")
+        Container(watcher, "Watcher", "Python / watchdog (same process)", "Reacts to CREATE/MODIFY/DELETE in raw/sources/. mtime-then-hash gate (I1, no rescan). Calls the ingest seam.")
+        Container(seam, "Ingest seam", "ingest/orchestrator.py", "ingest_file(): parse frontmatter, persist metadata, embed+upsert vector, append log, bump data_version. Thin provider-agnostic seam — F17 loop slots in here at v0.2 (I6).")
+        ContainerDb(pg, "Postgres 16", "PostgreSQL / SQLAlchemy 2 + Alembic", "Tables: pages, vault_state. Source of truth for D2 ER diagram (I8). Stores metadata, hashes, soft-delete, data_version.")
+    }
+
+    System_Ext(qdrant, "Qdrant", "Vector DB (external, TrueNAS)", "Collection synapse_pages. Point id == page id. Derived index, rebuildable.")
+    System_Ext(bgem3, "bge-m3 embedding service", "External (TrueNAS), via EMBEDDING_URL", "Dimension read from EMBEDDING_DIM and validated at startup. No local model (I9).")
+    System_Ext(vaultfs, "Vault filesystem", "raw/ read-only · wiki/ writable", "Valid Obsidian vault. raw/ never written by Synapse (AC-K1-5).")
+
+    Rel(emanuele, api, "REST calls; manual ingest trigger", "HTTP / JSON")
+    Rel(emanuele, vaultfs, "Drops sources; opens wiki/ in Obsidian", "filesystem")
+
+    Rel(watcher, vaultfs, "Observes raw/sources/ events; reads file bytes", "watchdog")
+    Rel(watcher, seam, "ingest_file(path)", "in-process call")
+    Rel(api, seam, "ingest_file(path) on POST /ingest/trigger (sync, 202)", "in-process call")
+    Rel(api, pg, "Reads pages / vault_state", "SQLAlchemy")
+    Rel(seam, pg, "Upserts page row; bumps data_version", "SQLAlchemy")
+    Rel(seam, bgem3, "Requests embedding per changed page", "HTTP / JSON")
+    Rel(seam, qdrant, "Upserts / deletes vector by page id", "HTTP / gRPC")
+    Rel(seam, vaultfs, "Appends wiki/log.md (append-only)", "file I/O")
+
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
