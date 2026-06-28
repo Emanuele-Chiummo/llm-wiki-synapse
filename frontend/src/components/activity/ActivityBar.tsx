@@ -12,6 +12,7 @@ import { useGraphStore } from "../../store/graphStore";
 import { selectVaultId } from "../../store/graphStore";
 import { useGraphMeta } from "../../store/graphStore";
 import { fetchStatus } from "../../api/pagesClient";
+import { useProviderStore, selectActiveProvider } from "../../store/providerStore";
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -23,6 +24,7 @@ interface StatusInfo {
 export function ActivityBar() {
   const vaultId = useGraphStore(selectVaultId);
   const { dataVersion: storeVersion } = useGraphMeta();
+  const activeProvider = useProviderStore(selectActiveProvider);
 
   const [status, setStatus] = useState<StatusInfo>({
     dataVersion: null,
@@ -139,13 +141,14 @@ export function ActivityBar() {
       {/* Spacer */}
       <span style={{ flex: 1 }} />
 
-      {/* Provider placeholder — F17 Provider Selector will replace this */}
+      {/* Active provider indicator (F17) */}
       <span
-        aria-label="Provider selector (coming in Phase 2)"
-        style={{ color: "#484f58", cursor: "default" }}
-        title="Provider selector — coming in v0.4 Phase 2 (F17)"
+        aria-label={`Active provider: ${activeProvider?.provider_type ?? "none"}`}
+        style={{ color: activeProvider ? "#6e7681" : "#484f58", cursor: "default" }}
       >
-        Provider: –
+        {activeProvider
+          ? `${activeProvider.provider_type}${activeProvider.model_id ? ` / ${activeProvider.model_id}` : ""}`
+          : "–"}
       </span>
     </footer>
   );

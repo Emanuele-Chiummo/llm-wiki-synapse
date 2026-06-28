@@ -103,3 +103,61 @@ export interface StatusResponse {
   started_at: string;
   uptime_seconds: number;
 }
+
+// ─── GET /ingest/runs (ADR-0018 §7) ──────────────────────────────────────────
+
+export type IngestStatus = "running" | "completed" | "failed" | "converged_false";
+
+export interface IngestRunItem {
+  id: string;
+  vault_id: string;
+  status: IngestStatus;
+  provider_type: string;        // "local" | "api" | "cli" — no hardcoded values (I6)
+  pages_created: number;
+  iterations_used: number;
+  total_cost_usd: number;
+  started_at: string;           // ISO-8601
+  completed_at: string | null;  // ISO-8601 or null
+  error_message: string | null;
+}
+
+export interface IngestRunListResponse {
+  items: IngestRunItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+// ─── GET/POST /provider/config (ADR-0018 §4) ─────────────────────────────────
+
+export interface ProviderConfigItem {
+  id: string;
+  scope: "global" | "vault";
+  operation: string | null;
+  vault_id: string | null;
+  provider_type: string;         // "local" | "api" | "cli" — no hardcoded values (I6)
+  model_id: string | null;
+  base_url: string | null;
+  max_iter: number | null;
+  token_budget: number | null;
+  is_fallback: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProviderConfigListResponse {
+  items: ProviderConfigItem[];
+  total: number;
+}
+
+export interface CreateProviderConfigBody {
+  scope: "global" | "vault";
+  vault_id?: string | null;
+  operation?: string | null;
+  provider_type: string;
+  model_id?: string | null;
+  base_url?: string | null;
+  max_iter?: number | null;
+  token_budget?: number | null;
+  is_fallback?: boolean;
+}

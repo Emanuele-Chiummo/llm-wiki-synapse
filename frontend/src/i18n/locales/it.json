@@ -1,0 +1,85 @@
+{
+  "nav": {
+    "pages": "Pagine",
+    "graph": "Grafo",
+    "ingest": "Importa",
+    "settings": "Impostazioni",
+    "chat": "Chat",
+    "chatComingSoon": "Fase 3"
+  },
+  "ingest": {
+    "title": "Attività di importazione",
+    "runIngest": "Avvia importazione",
+    "filePathLabel": "Percorso file sorgente",
+    "filePathHelp": "Percorso relativo a vault/raw/sources/ (es. mio_doc.md)",
+    "filePathPlaceholder": "raw/sources/mio_doc.md",
+    "submit": "Avvia",
+    "cancel": "Annulla",
+    "status": {
+      "running": "In esecuzione",
+      "completed": "Completato",
+      "failed": "Errore",
+      "convergedFalse": "Non convergito"
+    },
+    "pagesCreated": "pagine create",
+    "cost": "Costo",
+    "startedAt": "Avviato",
+    "completedAt": "Completato",
+    "iterationsUsed": "Iterazioni",
+    "error": "Errore",
+    "expandError": "Mostra errore completo",
+    "collapseError": "Nascondi",
+    "manifest": "Dettagli esecuzione",
+    "empty": "Nessuna importazione ancora. Clicca \"Avvia importazione\" per iniziare.",
+    "loadMore": "Carica altri",
+    "toastStarted": "Importazione avviata: {{file}}",
+    "toastError": "Importazione fallita: {{detail}}",
+    "costAnomaly": "Anomalia costo (> $1.00)",
+    "noRunSelected": "Seleziona un'esecuzione per vedere i dettagli."
+  },
+  "provider": {
+    "label": "Provider",
+    "active": "Attivo",
+    "scope": {
+      "vault": "Vault",
+      "global": "Globale"
+    },
+    "type": {
+      "local": "Locale (Ollama)",
+      "api": "API",
+      "cli": "CLI (claude-agent-sdk)"
+    },
+    "capability": {
+      "orchestrated": "ciclo orchestrato",
+      "orchestratedTools": "orchestrato + strumenti",
+      "delegated": "ciclo agentivo delegato"
+    },
+    "noProviders": "Nessun provider configurato.",
+    "changed": "Provider aggiornato.",
+    "changeError": "Aggiornamento provider fallito."
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "contextWindow": "Finestra di contesto",
+    "contextWindowHelp": "Numero massimo di token inviati al modello per richiesta.",
+    "budgetSplit": "Ripartizione budget (60 / 20 / 5 / 15)",
+    "budgetHistory": "Cronologia",
+    "budgetRetrieved": "Recuperato",
+    "budgetSystem": "Sistema",
+    "budgetGeneration": "Generazione",
+    "language": "Lingua",
+    "languageEn": "Inglese",
+    "languageIt": "Italiano",
+    "providerSection": "Configurazione provider",
+    "reset": "Ripristina impostazioni",
+    "resetConfirm": "Ripristinare tutte le impostazioni predefinite?"
+  },
+  "common": {
+    "loading": "Caricamento…",
+    "retry": "Riprova",
+    "vault": "Vault",
+    "dataVersion": "Versione",
+    "close": "Chiudi",
+    "unknown": "Sconosciuto"
+  }
+}

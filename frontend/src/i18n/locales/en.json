@@ -1,0 +1,85 @@
+{
+  "nav": {
+    "pages": "Pages",
+    "graph": "Graph",
+    "ingest": "Ingest",
+    "settings": "Settings",
+    "chat": "Chat",
+    "chatComingSoon": "Phase 3"
+  },
+  "ingest": {
+    "title": "Ingest Activity",
+    "runIngest": "Run Ingest",
+    "filePathLabel": "Source file path",
+    "filePathHelp": "Path relative to vault/raw/sources/ (e.g. mydoc.md)",
+    "filePathPlaceholder": "raw/sources/mydoc.md",
+    "submit": "Start",
+    "cancel": "Cancel",
+    "status": {
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "convergedFalse": "Did not converge"
+    },
+    "pagesCreated": "pages created",
+    "cost": "Cost",
+    "startedAt": "Started",
+    "completedAt": "Completed",
+    "iterationsUsed": "Iterations",
+    "error": "Error",
+    "expandError": "Show full error",
+    "collapseError": "Hide",
+    "manifest": "Run details",
+    "empty": "No ingest runs yet. Click \"Run Ingest\" to start.",
+    "loadMore": "Load more",
+    "toastStarted": "Ingest started: {{file}}",
+    "toastError": "Ingest failed: {{detail}}",
+    "costAnomaly": "Cost anomaly (> $1.00)",
+    "noRunSelected": "Select a run to see details."
+  },
+  "provider": {
+    "label": "Provider",
+    "active": "Active",
+    "scope": {
+      "vault": "Vault",
+      "global": "Global"
+    },
+    "type": {
+      "local": "Local (Ollama)",
+      "api": "API",
+      "cli": "CLI (claude-agent-sdk)"
+    },
+    "capability": {
+      "orchestrated": "orchestrated loop",
+      "orchestratedTools": "orchestrated + tools",
+      "delegated": "delegated agentic loop"
+    },
+    "noProviders": "No providers configured.",
+    "changed": "Provider updated.",
+    "changeError": "Failed to update provider."
+  },
+  "settings": {
+    "title": "Settings",
+    "contextWindow": "Context window",
+    "contextWindowHelp": "Maximum tokens sent to the model per request.",
+    "budgetSplit": "Budget split (60 / 20 / 5 / 15)",
+    "budgetHistory": "History",
+    "budgetRetrieved": "Retrieved",
+    "budgetSystem": "System",
+    "budgetGeneration": "Generation",
+    "language": "Language",
+    "languageEn": "English",
+    "languageIt": "Italian",
+    "providerSection": "Provider configuration",
+    "reset": "Reset settings",
+    "resetConfirm": "Reset all settings to defaults?"
+  },
+  "common": {
+    "loading": "Loading…",
+    "retry": "Retry",
+    "vault": "Vault",
+    "dataVersion": "Version",
+    "close": "Close",
+    "unknown": "Unknown"
+  }
+}
