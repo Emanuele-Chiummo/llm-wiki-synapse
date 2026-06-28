@@ -33,6 +33,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
@@ -118,6 +119,18 @@ app = FastAPI(
     ),
     openapi_url="/openapi.json",
     lifespan=lifespan,
+)
+
+# ── CORS ────────────────────────────────────────────────────────────────────────
+# Allow the browser frontend (Vite dev server / PWA / Tauri) to call the API.
+# Origins come from CORS_ALLOW_ORIGINS (env) — never hardcoded in prod (§12).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Graph-Cache"],  # so the viewer can read cache hit/miss (ADR-0014)
 )
 
 
