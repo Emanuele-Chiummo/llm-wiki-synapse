@@ -42,9 +42,13 @@ def main() -> None:
     openapi_ver = schema.get("openapi", "")
     assert openapi_ver.startswith("3."), f"Expected OpenAPI 3.x, got {openapi_ver!r}"
     paths = schema.get("paths", {})
-    for required_path in ["/status", "/pages", "/pages/{page_id}", "/ingest/trigger", "/graph"]:
+    for required_path in ["/status", "/pages", "/pages/{page_id}", "/ingest/trigger", "/graph",
+                          "/ingest/upload", "/import-schedule", "/import-schedule/run-now"]:
         assert required_path in paths, f"Missing path {required_path!r} in openapi.json"
-    print("Sanity check passed: all 5 required endpoints present (including GET /graph)")
+    print(
+        "Sanity check passed: all 8 required endpoints present "
+        "(including /ingest/upload, /import-schedule, /import-schedule/run-now)"
+    )
 
 
 if __name__ == "__main__":

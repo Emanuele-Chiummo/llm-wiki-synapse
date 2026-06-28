@@ -17,14 +17,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies from pyproject.toml
+# Install Python dependencies from pyproject.toml (including dev/test deps)
 COPY pyproject.toml .
-RUN pip install -e .
+RUN pip install -e ".[dev]"
 
 # Copy application code
 COPY app/ ./app/
 COPY alembic/ ./alembic/
 COPY alembic.ini .
+COPY tests/ ./tests/
+COPY scripts/ ./scripts/
 
 # Create non-root user
 RUN useradd -m -u 1000 synapse && chown -R synapse:synapse /app

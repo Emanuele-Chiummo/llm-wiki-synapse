@@ -96,6 +96,26 @@ class Settings(BaseSettings):
         """vault/wiki/log.md — append-only ingest history (K4)."""
         return self.wiki_dir / "log.md"
 
+    # ── M4-EXT: upload + scheduled import caps (ADR-0020 §2.4 / §4.4) ──────────
+
+    max_upload_bytes: int = 26_214_400
+    """
+    Maximum file size for POST /ingest/upload (Feature U). Default 25 MB (I7).
+    Env var: MAX_UPLOAD_BYTES.
+    """
+
+    import_scan_max_files: int = 200
+    """
+    Maximum number of files copied per scheduled scan tick (Feature S, I7).
+    Env var: IMPORT_SCAN_MAX_FILES.
+    """
+
+    import_scan_max_seconds: int = 60
+    """
+    Wall-clock deadline (seconds) for one scheduled scan tick (Feature S, I7).
+    Env var: IMPORT_SCAN_MAX_SECONDS.
+    """
+
 
 # Module-level singleton — import with `from app.config import settings`
 settings = Settings()

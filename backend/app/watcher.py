@@ -1,7 +1,11 @@
 """
 Watchdog-based incremental file watcher (I1, ADR-0001).
 
-Watches vault/raw/sources/ for *.md CREATE / MODIFY / DELETE events.
+Watches vault/raw/sources/ for text file CREATE / MODIFY / DELETE events.
+Accepted extensions are the SAME allow-list as the upload endpoint:
+  app.upload._ALLOWED_EXTENSIONS  → {".md", ".txt", ".markdown"}
+(single source of truth — never duplicate the list here).
+
 On each event, delegates to the ingest seam (ADR-0003):
   CREATE/MODIFY → ingest_file(path)
   DELETE        → delete_file(path)
@@ -32,6 +36,8 @@ from watchdog.observers import Observer
 
 from app.config import settings
 
+# Single source of truth for accepted extensions (shared with upload.py, import_scheduler.py).
+# Import lazily to avoid circular imports at module load; accessed only in _is_text_file().
 logger = logging.getLogger(__name__)
 
 # ── Event handler ──────────────────────────────────────────────────────────────
@@ -39,8 +45,9 @@ logger = logging.getLogger(__name__)
 
 class _MarkdownHandler(FileSystemEventHandler):
     """
-    Handle watchdog FS events for .md files under vault/raw/sources/.
+    Handle watchdog FS events for text files under vault/raw/sources/.
 
+    Accepted extensions mirror app.upload._ALLOWED_EXTENSIONS: .md, .txt, .markdown.
     Uses the running asyncio event loop to schedule coroutines from the watchdog
     thread (watchdog runs in its own OS thread; asyncio runs in the main thread).
     """
@@ -53,17 +60,17 @@ class _MarkdownHandler(FileSystemEventHandler):
 
     def on_created(self, event: FileSystemEvent) -> None:
         src = str(event.src_path)
-        if not event.is_directory and _is_markdown(src):
+        if not event.is_directory and _is_text_file(src):
             self._schedule(self._on_ingest(src))
 
     def on_modified(self, event: FileSystemEvent) -> None:
         src = str(event.src_path)
-        if not event.is_directory and _is_markdown(src):
+        if not event.is_directory and _is_text_file(src):
             self._schedule(self._on_ingest(src))
 
     def on_deleted(self, event: FileSystemEvent) -> None:
         src = str(event.src_path)
-        if not event.is_directory and _is_markdown(src):
+        if not event.is_directory and _is_text_file(src):
             self._schedule(self._on_delete(src))
 
     def on_moved(self, event: FileSystemEvent) -> None:
@@ -73,9 +80,9 @@ class _MarkdownHandler(FileSystemEventHandler):
         # Treat dst as a modified file; treat src (now gone) as deleted
         dst = str(event.dest_path)
         src = str(event.src_path)
-        if _is_markdown(dst):
+        if _is_text_file(dst):
             self._schedule(self._on_ingest(dst))
-        if _is_markdown(src):
+        if _is_text_file(src):
             self._schedule(self._on_delete(src))
 
     # ── Async delegates ────────────────────────────────────────────────────────
@@ -199,5 +206,13 @@ def stop_watcher() -> None:
 # ── Utility ────────────────────────────────────────────────────────────────────
 
 
-def _is_markdown(path: str) -> bool:
-    return Path(path).suffix.lower() == ".md"
+def _is_text_file(path: str) -> bool:
+    """
+    Return True if *path* has an extension in the upload allow-list.
+
+    Imports app.upload._ALLOWED_EXTENSIONS as the single source of truth so
+    upload.py, import_scheduler.py, and the watcher all share one definition.
+    """
+    from app.upload import _ALLOWED_EXTENSIONS  # lazy — avoids circular import
+
+    return Path(path).suffix.lower() in _ALLOWED_EXTENSIONS

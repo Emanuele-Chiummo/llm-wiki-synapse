@@ -1,4 +1,4 @@
-<!-- Generated: v0.3→v0.4 transition | 2026-06-28 — ADR-0016: edges.kind; Feature A: pages.pinned -->
+<!-- Generated: v0.4 M4-EXT | 2026-06-28 — ADR-0020: import_schedules (migration 0008); ADR-0019: conversations+messages (migration 0007); ADR-0016: edges.kind; Feature A: pages.pinned -->
 erDiagram
 
     CONVERSATIONS {
@@ -8,6 +8,20 @@ erDiagram
         timestamptz created_at "Row creation time"
         timestamptz updated_at "Bumped on each chat turn; drives last-active-conversation restore (AC-F6-1)"
         timestamptz deleted_at "NULL = live; set = soft-deleted (ADR-0005 / ADR-0019 §2.5)"
+    }
+
+    IMPORT_SCHEDULES {
+        uuid id PK "Row identity"
+        string vault_id "Logical vault identifier — one schedule row per vault (UNIQUE)"
+        boolean enabled "Scheduler is a no-op while false (ADR-0020 §4.1)"
+        string source_dir "Container-visible absolute path to scan (e.g. /import). NULL until set by the user. Must be mounted into the container (ADR-0020 §7)."
+        string frequency "Scan interval enum: '15m' | '1h' | '6h' | 'daily' (I7 — bounded, ADR-0020 §4.1)"
+        timestamptz last_run_at "Timestamp of the last completed scan; NULL if never run"
+        string last_status "Outcome of the last scan: 'ok' | 'error' | 'running' | 'skipped_disabled' | 'dir_missing' | NULL (never run)"
+        int last_imported_count "Number of files copied (new/changed) during the last scan (ADR-0020 §4.3)"
+        string last_error "Human-readable error from the last failed scan; NULL on success"
+        timestamptz created_at "Row creation time"
+        timestamptz updated_at "Updated on every PUT or scan completion"
     }
 
     PAGES {
@@ -104,3 +118,4 @@ erDiagram
         decimal total_cost_usd "0.0000 for local/cli (ADR-0009); logged + returned in done event (I7)"
         timestamptz created_at "Row creation time; messages ordered created_at ASC (ADR-0019 §2.5)"
     }
+
