@@ -267,6 +267,12 @@ async def ingest_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
 
     monkeypatch.setattr("app.db.get_session", patched_get_session)
     monkeypatch.setattr("app.ingest.orchestrator.get_session", patched_get_session)
+    # provider_config_service imports get_session via `from app.db import get_session`,
+    # giving it its own module-level reference that the two patches above do NOT cover.
+    # The ingest path resolves a provider, so this reference must be patched too — otherwise
+    # it falls through to the real asyncpg engine (test isolation bug, exposed when a live
+    # Postgres is reachable). See app/provider_config_service.py:118.
+    monkeypatch.setattr("app.provider_config_service.get_session", patched_get_session)
 
     # Patch qdrant operations
     monkeypatch.setattr("app.qdrant_client.get_qdrant_client", lambda: fake_qdrant)
