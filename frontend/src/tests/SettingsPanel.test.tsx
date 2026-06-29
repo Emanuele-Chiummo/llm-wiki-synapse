@@ -1,9 +1,10 @@
 /**
- * SettingsPanel.test.tsx — vitest unit tests for the M4-HARD settings panel.
+ * SettingsPanel.test.tsx — vitest unit tests for the M4-HARD + M5 settings panel.
  *
  * Covers:
  *   AC-HARD-SET-1/2: 9 sub-nav items render; clicking each switches the right pane.
- *   AC-HARD-SET-3/4: placeholder sections (Embeddings, API+MCP, Interface) render ComingSoonBadge.
+ *   AC-HARD-SET-3/4: placeholder sections (Interface) render ComingSoonBadge.
+ *   AC-F1-MCP-UI-3/4/5/6: SectionApiMcp renders connection + tools from mock payload.
  *   AC-HARD-PROV-1/2: provider list renders; ADD form toggles on button click.
  *   ITEM 2 (architect C2): Add button is disabled when model_id is empty.
  *   ITEM 4 (DEFECT-M4H-005): arrow-key navigation switches active section.
@@ -16,7 +17,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SettingsPanel } from "../components/settings/SettingsPanel";
 
 // ─── Mock i18n ────────────────────────────────────────────────────────────────
@@ -145,7 +146,10 @@ vi.mock("../components/settings/ImportScheduleCard", () => ({
   ImportScheduleCard: () => <div data-testid="import-schedule-card">ImportScheduleCard</div>,
 }));
 
-// ─── Mock providerClient (fetchEmbeddingConfig) ───────────────────────────────
+// ─── Mock providerClient (fetchEmbeddingConfig + fetchMcpInfo) ────────────────
+// NOTE: vi.mock is hoisted — no top-level variables may be referenced inside the
+// factory. The 4-tool fixture is inlined here and re-exported as MOCK_MCP_INFO
+// below for use in describe blocks.
 
 vi.mock("../api/providerClient", async (importOriginal) => {
   const orig = await importOriginal<typeof import("../api/providerClient")>();
@@ -155,6 +159,34 @@ vi.mock("../api/providerClient", async (importOriginal) => {
       embedding_url: "http://localhost:11434/api/embeddings",
       embedding_model: "bge-m3",
       embedding_dim: 1024,
+    }),
+    fetchMcpInfo: vi.fn().mockResolvedValue({
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 4,
+      tools: [
+        {
+          name: "search_wiki",
+          description: "Search the wiki for pages matching a query. Returns ranked results.",
+          input_schema: { type: "object", properties: { query: {}, limit: {} }, required: ["query"] },
+        },
+        {
+          name: "write_page",
+          description: "Write or overwrite a wiki page with the given content.",
+          input_schema: { type: "object", properties: { title: {}, content: {}, page_type: {} }, required: ["title", "content"] },
+        },
+        {
+          name: "get_page",
+          description: "Retrieve a wiki page by title or ID.",
+          input_schema: { type: "object", properties: { title: {} }, required: ["title"] },
+        },
+        {
+          name: "list_pages",
+          description: "List all wiki pages, optionally filtered by type.",
+          input_schema: { type: "object", properties: { page_type: {} } },
+        },
+      ],
     }),
   };
 });
@@ -236,14 +268,13 @@ describe("SettingsPanel — section switching (AC-HARD-SET-2)", () => {
     expect(screen.getByText("loading")).toBeTruthy();
   });
 
-  it("clicking API+MCP shows the ComingSoonBadge placeholder", () => {
+  it("clicking API+MCP shows the loading state (real panel, not ComingSoonBadge)", async () => {
     renderPanel();
     const apiBtn = document.querySelector('[data-settings-section="apiMcp"]');
     expect(apiBtn).not.toBeNull();
     fireEvent.click(apiBtn!);
-    // comingSoon key appears in the badge
-    const badges = screen.getAllByText("comingSoon");
-    expect(badges.length).toBeGreaterThanOrEqual(1);
+    // The real panel shows a loading message while fetching (i18n mock returns "loading")
+    expect(screen.getByText("loading")).toBeTruthy();
   });
 
   it("clicking Interface shows the ComingSoonBadge placeholder", () => {
@@ -277,11 +308,11 @@ describe("SettingsPanel — section switching (AC-HARD-SET-2)", () => {
 });
 
 // ─── 3. Placeholder sections render ComingSoonBadge (AC-HARD-SET-4) ──────────
-// Note: "embeddings" was removed from PLACEHOLDER_SECTIONS — it now renders a real
-// config display (GET /config/embedding) rather than a stub badge.
+// Note: "embeddings" and "apiMcp" were removed from PLACEHOLDER_SECTIONS —
+// both now render real read-only panels (GET /config/embedding, GET /mcp/info).
 
 describe("SettingsPanel — ComingSoonBadge on placeholder sections (AC-HARD-SET-4)", () => {
-  const PLACEHOLDER_SECTIONS = ["apiMcp", "interface"] as const;
+  const PLACEHOLDER_SECTIONS = ["interface"] as const;
 
   PLACEHOLDER_SECTIONS.forEach((sectionId) => {
     it(`section "${sectionId}" renders a comingSoon message (not empty)`, () => {
@@ -471,5 +502,100 @@ describe("SettingsPanel — About section", () => {
     const aboutBtn = document.querySelector('[data-settings-section="about"]');
     fireEvent.click(aboutBtn!);
     expect(screen.getByText("v0.4")).toBeTruthy();
+  });
+});
+
+// ─── 11. API + MCP section — real panel (ADR-0027, AC-F1-MCP-UI-3/4/5/6) ─────
+
+describe("SettingsPanel — API + MCP section renders real panel (ADR-0027)", () => {
+  function navigateToApiMcp() {
+    renderPanel();
+    const apiBtn = document.querySelector('[data-settings-section="apiMcp"]');
+    fireEvent.click(apiBtn!);
+  }
+
+  it("shows loading state immediately after navigation (before fetch resolves)", () => {
+    navigateToApiMcp();
+    // i18n mock returns last key segment; "settings.apiMcp.loading" → "loading"
+    expect(screen.getByText("loading")).toBeTruthy();
+  });
+
+  it("renders all 4 tool names after fetch resolves (AC-F1-MCP-UI-4)", async () => {
+    navigateToApiMcp();
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-tool-name-search_wiki")).toBeTruthy();
+    });
+    expect(screen.getByTestId("mcp-tool-name-write_page")).toBeTruthy();
+    expect(screen.getByTestId("mcp-tool-name-get_page")).toBeTruthy();
+    expect(screen.getByTestId("mcp-tool-name-list_pages")).toBeTruthy();
+  });
+
+  it("renders correct param counts for each tool via data-param-count attribute", async () => {
+    navigateToApiMcp();
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-tool-params-search_wiki")).toBeTruthy();
+    });
+    // Counts are on data-param-count (numeric, avoids i18n interpolation mock artefact)
+    // search_wiki: {query, limit} = 2 params
+    expect(screen.getByTestId("mcp-tool-params-search_wiki").getAttribute("data-param-count")).toBe("2");
+    // write_page: {title, content, page_type} = 3 params
+    expect(screen.getByTestId("mcp-tool-params-write_page").getAttribute("data-param-count")).toBe("3");
+    // get_page: {title} = 1 param
+    expect(screen.getByTestId("mcp-tool-params-get_page").getAttribute("data-param-count")).toBe("1");
+    // list_pages: {page_type} = 1 param
+    expect(screen.getByTestId("mcp-tool-params-list_pages").getAttribute("data-param-count")).toBe("1");
+  });
+
+  it("renders the copy-to-clipboard button (AC-F1-MCP-UI-5)", async () => {
+    navigateToApiMcp();
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-copy-btn")).toBeTruthy();
+    });
+  });
+
+  it("generated snippet is keyed by server_name and uses tokenised entry_point_command (AC-F1-MCP-UI-5)", async () => {
+    navigateToApiMcp();
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-snippet")).toBeTruthy();
+    });
+    const snippetText = screen.getByTestId("mcp-snippet").textContent ?? "";
+    // server_name "synapse" must be the key
+    expect(snippetText).toContain('"synapse"');
+    // argv[0] of "python -m app.mcp.server" → command = "python"
+    expect(snippetText).toContain('"command"');
+    expect(snippetText).toContain('"python"');
+    // args includes the rest of the command
+    expect(snippetText).toContain('"-m"');
+    expect(snippetText).toContain('"app.mcp.server"');
+    // must be valid JSON
+    expect(() => JSON.parse(snippetText)).not.toThrow();
+    const parsed = JSON.parse(snippetText) as {
+      mcpServers: { [key: string]: { command: string; args: string[] } };
+    };
+    expect(parsed.mcpServers["synapse"]).toBeDefined();
+    expect(parsed.mcpServers["synapse"]!.command).toBe("python");
+    expect(parsed.mcpServers["synapse"]!.args).toEqual(["-m", "app.mcp.server"]);
+  });
+
+  it("shows degraded error state when fetchMcpInfo rejects (AC-F1-MCP-UI — degraded)", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("network error"));
+
+    navigateToApiMcp();
+    await waitFor(() => {
+      // i18n mock returns "error" for "settings.apiMcp.error"
+      expect(screen.getByText("error")).toBeTruthy();
+    });
+    // No tool rows should be present
+    expect(screen.queryByTestId("mcp-tool-row-search_wiki")).toBeNull();
+  });
+
+  it("does NOT render the retired comingSoon key (stub removed — ADR-0027)", async () => {
+    navigateToApiMcp();
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-tool-name-search_wiki")).toBeTruthy();
+    });
+    // After the real panel loads, "comingSoon" text must not appear
+    expect(screen.queryByText("comingSoon")).toBeNull();
   });
 });
