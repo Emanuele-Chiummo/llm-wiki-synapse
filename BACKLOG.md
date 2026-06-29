@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-06-29 (Sprint 5 / v0.5 opened — M4 CLOSED; scope-lock in docs/sprints/v0.5-scope.md)
+> Last updated: 2026-06-29 (Sprint 5 / v0.5 Phase 1 DONE — PM phase-1 sign-off: docs/sprints/v0.5-pm-phase1-signoff.md; Phase 2 (F10 Deep Research) now in-progress)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -1299,8 +1299,9 @@ All 4 sign-offs still required before PM closes M4-HARD and unblocks Sprint 5.
 
 ## Sprint 5 — v0.5 — M5 "Feature parity core"
 
-**Sprint status: IN PROGRESS**
+**Sprint status: IN PROGRESS — Phase 1 DONE (PM sign-off 2026-06-29); Phase 2 (F10) now in-progress**
 **Scope locked: 2026-06-29 by product-manager — docs/sprints/v0.5-scope.md**
+**Phase 1 PM sign-off: docs/sprints/v0.5-pm-phase1-signoff.md (verdict: DONE-WITH-FOLLOWUPS)**
 **Branch: sprint/v0.5 (cut from sprint/v0.4 after EC-M4-HCP cleared)**
 **Prerequisite: M4 CLOSED — docs/sprints/v0.4-m4-closure.md (2026-06-29)**
 **Invariants with heightened priority: I7 (bounded loops — headline, F10 deep research),
@@ -1314,7 +1315,7 @@ All 4 sign-offs still required before PM closes M4-HARD and unblocks Sprint 5.
 |-------|-------|
 | Feature ID | F5 |
 | Sprint | v0.5 |
-| Status | backlog |
+| Status | done |
 | Priority | P0 — Phase 1; dependency root for F6 citations, F17 chat, F10→F9 chain |
 | Owner | backend-engineer (retrieval.py, GET /search); ai-agent-engineer (CliAgentProvider.chat() wiring) |
 
@@ -1338,7 +1339,7 @@ per-token during chat), I9 (reuse Qdrant + bge-m3 only).
 |-------|-------|
 | Feature ID | F6 (AC-F6-3 + AC-F6-5 only — all other ACs done in M4) |
 | Sprint | v0.5 |
-| Status | blocked — blocked on F5 (Phase 1) |
+| Status | done |
 | Priority | P0 — directly user-visible chat improvement |
 | Owner | frontend-engineer (citation rendering); backend-engineer (POST /ingest wire) |
 
@@ -1357,7 +1358,7 @@ AC-F6-5: save-to-wiki button enabled and wired to POST /ingest; inline result sh
 |-------|-------|
 | Feature ID | F17 (CliAgentProvider.chat() only — all other ACs done in M2/M4) |
 | Sprint | v0.5 |
-| Status | blocked — blocked on F5 (Phase 1) |
+| Status | done |
 | Priority | P1 — removes NotImplementedError for CLI backend chat |
 | Owner | ai-agent-engineer |
 
@@ -1376,7 +1377,7 @@ Streaming interface consistent with OllamaProvider and ApiProvider. total_cost_u
 |-------|-------|
 | Feature ID | F9 |
 | Sprint | v0.5 |
-| Status | blocked — blocked on F10 (Phase 2; Deep-Research action depends on /research/start) |
+| Status | blocked — blocked on F10 (Phase 2; Deep-Research action depends on /research/start) — Phase 2 now in-progress |
 | Priority | P0 — K8 principle; F9 is the async curation queue |
 | Owner | backend-engineer (review.py, REST endpoints); frontend-engineer (Review nav section) |
 
@@ -1404,7 +1405,7 @@ modified. Any engineer adding F9 actions to the Sources section will be blocked.
 |-------|-------|
 | Feature ID | F10 |
 | Sprint | v0.5 |
-| Status | backlog |
+| Status | in-progress |
 | Priority | P0 — Phase 2; headline I7 feature; unblocks F9 Deep-Research action |
 | Owner | backend-engineer (deep_research.py, REST endpoints); frontend-engineer (Deep Search nav section) |
 
