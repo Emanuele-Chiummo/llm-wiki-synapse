@@ -6,7 +6,7 @@
  *   │  Header (48px) — branding + ProviderSelector (F17)          │
  *   ├──────┬───────────────────────────────────────────────────────┤
  *   │ NavRail│  SectionRouter                                      │
- *   │ 48px  │  pages → PanelGroup (NavTree│Center│PreviewPanel)    │
+ *   │ 72px  │  pages → PanelGroup (NavTree│Center│PreviewPanel)    │
  *   │       │  graph → GraphPanel full-bleed                       │
  *   │       │  ingest → IngestView + IngestRunDetail               │
  *   │       │  settings → SettingsPanel                            │

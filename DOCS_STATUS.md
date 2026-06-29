@@ -2,6 +2,164 @@
 
 > Tech-writer sign-off. Phases appended chronologically; most recent phase at top.
 
+## M4-HARD — Labeled NavRail + Provider CRUD + Settings Rebuild — DOCS GATE: PASS-WITH-PENDING
+
+> Gate run: 2026-06-29
+> Scope: ADR-0021. Frontend-only increment. 9 feature IDs:
+>   F1-HARD-SETTINGS (9-section Settings), F1-HARD-COLLAPSE (panel collapse),
+>   F1-HARD-PROVIDER-EDIT (LLM Models CRUD), F1-HARD-MCP-STUB, F1-HARD-NAV-ORDER,
+>   F1-HARD-EMBED-STUB, F1-HARD-CONV-HISTORY, F1-HARD-NAV-LABELS (72px labeled rail),
+>   F1-HARD-M5-PLACEHOLDER (M5 items removed from rail).
+> No backend schema changes. No new API endpoints. No Alembic migration. D2 and D4 are
+>   N/A-unchanged for this increment.
+
+### Per-artifact status (M4-HARD)
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/component.mmd` | N/A-unchanged | Frontend-only increment. No topology change: no new backend component, no new REST route, no new container. The nav-rail width change, Settings sub-nav, and provider list are internal to the existing `settingspanel` / `navrail` / `providerclient` components already in the diagram. No regen required. |
+| D2 | `docs/er/schema.mmd` | N/A-unchanged | No Alembic migration. No models.py change. Last verified at M4-EXT gate (migration 0008 / import_schedules). |
+| D4 | `docs/api/openapi.json` | N/A-unchanged | No new routes. `POST /provider/config` and `DELETE /provider/config/{id}` already existed and are already in openapi.json (confirmed present from M4 Phase 2 gate). No regen required. |
+| D5 | `docs/screens/navrail-graph-active.png` | UP-TO-DATE | Recaptured 2026-06-29 via Playwright. Shows 72px labeled rail (Chat/Wiki/Sources/Graph labels below icons; Graph highlighted). |
+| D5 | `docs/screens/settings-section.png` | UP-TO-DATE | Recaptured 2026-06-29 via Playwright. Shows 9-section left-nav (General selected, LLM Models/Embeddings/Source Watch/API+MCP/Output/Interface/Maintenance/About visible). |
+| D5 | `docs/screens/shell-3panel.png` | UP-TO-DATE | Recaptured 2026-06-29 via Playwright. Shows labeled rail with Wiki active, 3-panel layout (page tree + graph + empty inspector). |
+| D5 | `docs/screens/shell-3panel-selected.png` | UP-TO-DATE | Recaptured 2026-06-29 via Playwright. Shows labeled rail with Wiki active, 3-panel layout with node selected. |
+| D5 | `docs/screens/settings-llm-models.png` | UP-TO-DATE (new) | NEW screenshot 2026-06-29. Shows LLM Models section: provider rows (API/Local with Delete buttons) and "+ Add provider" button. |
+| D5 | `docs/screens/shell-collapsed-panel.png` | PENDING-MANUAL-CAPTURE | See §M4-HARD-D5-note. |
+| D6a | `docs/USER.md` | UP-TO-DATE | Updated this gate run. See §M4-HARD-D6a. |
+| D6b | `docs/DEPLOY.md` | N/A-unchanged | No new operator configuration, no new env vars, no new volume mounts introduced by this frontend-only increment. DEPLOY.md remains current from M4-EXT gate. |
+| D7 | `docs/adr/0021-labeled-navrail-and-provider-crud.md` | UP-TO-DATE | Authored by solution-architect (2026-06-29). Indexed in `docs/adr/README.md` (row 0021, Accepted). See §M4-HARD-D7. |
+
+### §M4-HARD-D5-note — Screenshot status detail
+
+The following screenshots were recaptured from the live app (http://localhost:5199) via
+Playwright on 2026-06-29 and all show the M4-HARD UI (labeled 72px rail, 9-section Settings,
+provider CRUD list):
+
+| File | Captured | Content verified |
+|------|----------|-----------------|
+| `navrail-graph-active.png` | YES (2026-06-29 10:07) | Labeled rail: Chat/Wiki/Sources/Graph icons with text labels; Graph section active |
+| `settings-section.png` | YES (2026-06-29 10:07) | 9-section left-nav: General selected; all 9 items visible |
+| `shell-3panel.png` | YES (2026-06-29 10:07) | Labeled rail (Wiki active), 3-panel layout with page tree, graph, empty inspector |
+| `shell-3panel-selected.png` | YES (2026-06-29 10:07) | Labeled rail (Wiki active), 3-panel layout with node selected in tree |
+| `settings-llm-models.png` | YES (2026-06-29 10:07) | LLM Models section: provider rows with Delete buttons, + Add provider button |
+
+PENDING-MANUAL-CAPTURE — `shell-collapsed-panel.png`:
+
+The Playwright capture spec attempted to collapse the left panel via `[data-testid='collapse-left']`
+and `[aria-label*='collapse']` selectors. Neither matched the rendered collapse chevron in the
+live app. The spec screenshot fell back to the default Chat section (showing the labeled rail
+and chat UI — which is informative but does not demonstrate the collapse feature).
+
+Root cause: the collapse trigger in `AppShell.tsx` likely uses an icon button without a
+`data-testid` or standardized aria-label that the generic selector could match. The existing
+`shell-3panel.png` does show the collapse chevron button (`›`) on the right edge of the right
+panel (visible in the screenshot), providing documentary evidence that the control exists.
+
+Resolution: QA-engineer should add `data-testid="collapse-left-btn"` and
+`data-testid="collapse-right-btn"` to the chevron buttons in `AppShell.tsx`, then recapture via
+the phase-1 spec. This is a minor test-infrastructure gap, not a functional defect. The collapse
+feature itself (F1-HARD-COLLAPSE) is tested by the vitest AC-HARD-COL-1..5 suite (371/371 green).
+
+The `shell-collapsed-panel.png` file at `docs/screens/shell-collapsed-panel.png` shows the Chat
+section with the labeled rail, which is useful context but is not the intended collapsed-panel view.
+It is kept in the repository as a partial capture. A fully accurate replacement should be captured
+when the testid is added.
+
+### §M4-HARD-D6a — USER.md updates
+
+Changes made this gate run to `docs/USER.md`:
+
+- **Header comment** updated to `v0.4 M4-HARD | 2026-06-29`.
+- **Core journey** rewritten: step 1 now says "you land on the Chat section by default";
+  step 4 references "Wiki tree" not "Pages tree"; step 6 documents provider CRUD.
+- **Interface / Navigation rail section** rewritten entirely:
+  - Rail described as ~72px with persistent text labels (not icon-only).
+  - Item table updated: Pages→Wiki, Ingest→Sources; "Chat" now listed first as default;
+    M5 items (Search/Lint/Review/Deep Search) noted as not present in M4 rail.
+- **Pages section renamed to Wiki section** throughout.
+  - Added: left and right panels can be collapsed via the chevron button on their inner
+    edge.
+- **Graph section**: added note that it shows only the graph canvas (no tree/inspector);
+  refers user to Wiki section for the combined view.
+- **Ingest section renamed to Sources section** throughout.
+  - "Top of the Ingest section" → "Top of the Sources section".
+- **Settings section** fully rewritten:
+  - Old: single flat form (context window, language, provider list, reset).
+  - New: two-column layout (9-section sub-nav + content pane), with sub-sections:
+    General (context window), LLM Models (editable provider list with Add/Delete),
+    Output (conversation history length + language), Source Watch (scheduled import),
+    plus placeholder sections (Embeddings, API+MCP, Interface, Maintenance, About).
+  - New `settings-llm-models.png` screenshot embedded.
+  - `settings-section.png` caption updated to "General section".
+  - "Automatic import card in Settings" references updated to "Settings > Source Watch".
+- **Ingesting your first document**: "Ingest section" references updated to "Sources section";
+  "Automatic import card in Settings" updated to "Settings > Source Watch".
+- **"After ingest" paragraph**: "Ingest section" → "Sources section"; added "or Wiki section"
+  alongside Graph.
+- **What is coming in M5 and M6**: added Search/Lint/Review nav items (functional logic M5),
+  Vector embeddings config UI (M5), MCP server config UI (M5).
+
+### §M4-HARD-D7 — ADR index verification (ADR-0021)
+
+File: `docs/adr/README.md`
+
+| Field | Value | Correct |
+|-------|-------|---------|
+| ADR number | 0021 | YES |
+| Title | "Labeled NavRail standard + provider config CRUD contract (M4-HARD)" | YES |
+| Status | Accepted | YES |
+| Date | 2026-06-29 | YES |
+| Sprint | v0.4 | YES |
+| Link | `0021-labeled-navrail-and-provider-crud.md` | YES — file exists |
+
+Header reads: `Last updated: 2026-06-29 · Sprint v0.4 (M4-HARD)` — correct.
+Total ADRs in index: 21 (0001–0021, note: 0019 and 0020 are in reverse order in the table
+relative to their authoring sequence, which is correct as authored). All Accepted. Zero gaps.
+
+### DOCS GATE VERDICT — M4-HARD
+
+| Artifact | Status | Drift found | Detail |
+|----------|--------|-------------|--------|
+| D1 `docs/architecture/component.mmd` | N/A-UNCHANGED | N/A | Frontend-only increment; no topology change; no regen required |
+| D2 `docs/er/schema.mmd` | N/A-UNCHANGED | N/A | No migration; last verified M4-EXT (migration 0008) |
+| D4 `docs/api/openapi.json` | N/A-UNCHANGED | N/A | No new routes; POST/DELETE /provider/config already present from M4 Phase 2 |
+| D5 `docs/screens/navrail-graph-active.png` | UP-TO-DATE | YES — recaptured | Old screenshot showed icon-only 48px rail; new shows labeled 72px rail with Graph active |
+| D5 `docs/screens/settings-section.png` | UP-TO-DATE | YES — recaptured | Old screenshot showed flat Settings form; new shows 9-section sub-nav with General selected |
+| D5 `docs/screens/shell-3panel.png` | UP-TO-DATE | YES — recaptured | Old screenshot shows pre-M4-HARD UI; new shows labeled rail with Wiki active |
+| D5 `docs/screens/shell-3panel-selected.png` | UP-TO-DATE | YES — recaptured | Old screenshot shows pre-M4-HARD UI; new shows labeled rail with selected node |
+| D5 `docs/screens/settings-llm-models.png` | UP-TO-DATE (new) | N/A — new file | New screenshot showing editable provider list (F1-HARD-PROVIDER-EDIT) |
+| D5 `docs/screens/shell-collapsed-panel.png` | PENDING-MANUAL-CAPTURE | N/A | Collapse chevron selector not found by Playwright; existing shell-3panel.png shows the control; full recapture pending testid addition (see §M4-HARD-D5-note) |
+| D6a `docs/USER.md` | UP-TO-DATE | YES — fixed this run | Nav rail section, Settings section, section names (Wiki/Sources), provider CRUD, conversation history, panel collapse documented |
+| D6b `docs/DEPLOY.md` | N/A-UNCHANGED | N/A | No new operator config; remains current from M4-EXT |
+| D7 ADR-0021 row in `docs/adr/README.md` | UP-TO-DATE | NONE | Row present (architect authored); 21 ADRs, header updated to M4-HARD |
+
+**DOCS GATE: PASS-WITH-PENDING**
+
+All required D-artifacts for this frontend-only increment are UP-TO-DATE or N/A-unchanged.
+
+Pending item (non-blocking):
+- `shell-collapsed-panel.png`: Playwright selector did not find the collapse chevron button.
+  The feature is functionally verified by vitest (371/371 green). The existing shell-3panel.png
+  shows the chevron button visually. A full recapture requires adding `data-testid="collapse-left-btn"`
+  / `data-testid="collapse-right-btn"` to `AppShell.tsx` and re-running the phase-1 spec. This is
+  a QA-infrastructure gap; it does not block the docs gate.
+
+Drift found and fixed in this run:
+- D5: Four screenshots (navrail-graph-active, settings-section, shell-3panel, shell-3panel-selected)
+  replaced with M4-HARD captures showing the labeled 72px rail and 9-section Settings.
+- D5: One new screenshot (settings-llm-models.png) added.
+- D6a: USER.md updated for labeled rail, Chat default, 9-section Settings, provider CRUD,
+  panel collapse, conversation history control, and section renames (Wiki/Sources).
+
+Zero-drift items (no content change required):
+- D1 / D2 / D4 / D6b: frontend-only increment; no backend, schema, or OpenAPI changes.
+- D7: ADR-0021 row was already in the index (architect authored it before this gate run).
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-29 | M4-HARD gate**
+
+---
+
 ## M4-EXT — Feature U (upload) + Feature S (scheduled import) — DOCS GATE: PASS
 
 > Gate run: 2026-06-28

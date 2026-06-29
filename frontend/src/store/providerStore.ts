@@ -13,7 +13,7 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { ProviderConfigItem, CreateProviderConfigBody } from "../api/types";
-import { fetchProviderConfigs, createProviderConfig } from "../api/providerClient";
+import { fetchProviderConfigs, createProviderConfig, deleteProviderConfig } from "../api/providerClient";
 
 // ─── State / Actions ─────────────────────────────────────────────────────────
 
@@ -35,6 +35,8 @@ interface ProviderActions {
     scope: "vault" | "global",
     vaultId: string,
   ) => Promise<void>;
+  addProvider: (body: CreateProviderConfigBody, vaultId: string) => Promise<void>;
+  deleteProvider: (id: string, vaultId: string) => Promise<void>;
   setWriteScope: (scope: "vault" | "global") => void;
   /** Derive and set the active item from the current list + vaultId. */
   deriveActive: (vaultId: string) => void;
@@ -109,6 +111,32 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
     }
   },
 
+  addProvider: async (body, vaultId) => {
+    set({ error: null });
+    try {
+      await createProviderConfig(body);
+      const res = await fetchProviderConfigs();
+      const newList = res.items;
+      set({ list: newList, activeItem: deriveActiveItem(newList, vaultId) });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      set({ error: (err as Error).message });
+    }
+  },
+
+  deleteProvider: async (id, vaultId) => {
+    set({ error: null });
+    try {
+      await deleteProviderConfig(id);
+      const res = await fetchProviderConfigs();
+      const newList = res.items;
+      set({ list: newList, activeItem: deriveActiveItem(newList, vaultId) });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      set({ error: (err as Error).message });
+    }
+  },
+
   setWriteScope: (writeScope) => set({ writeScope }),
 
   deriveActive: (vaultId) => {
@@ -145,6 +173,14 @@ export function selectFetchProviderList(s: ProviderStore): ProviderActions["fetc
 
 export function selectSetActiveProvider(s: ProviderStore): ProviderActions["setActive"] {
   return s.setActive;
+}
+
+export function selectAddProvider(s: ProviderStore): ProviderActions["addProvider"] {
+  return s.addProvider;
+}
+
+export function selectDeleteProvider(s: ProviderStore): ProviderActions["deleteProvider"] {
+  return s.deleteProvider;
 }
 
 export function selectSetWriteScope(s: ProviderStore): ProviderActions["setWriteScope"] {

@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-06-28 (Sprint 4 exit — M4 MET-WITH-DEFERRALS; PM sign-off docs/sprints/v0.4-pm-signoff.md; EC-M4-HCP PENDING)
+> Last updated: 2026-06-29 (M4-HARD hardening increment opened — post-human-testing fixes; scope-lock in docs/sprints/v0.4-hard-scope.md)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -1027,7 +1027,10 @@ to show `GC->>Client: (from in-process snapshot)` on the HIT path.
 ## Sprint 4 — v0.4 — M4 "Usable & fluid"
 
 **Sprint status: DONE — M4 MET-WITH-DEFERRALS (D6 conditional); EC-M4-HCP PENDING**
-**M4-EXT IN PROGRESS — Feature U (F1-UPLOAD) and Feature S (F1-SCHED) added 2026-06-28**
+**M4-EXT: DONE — F1-UPLOAD and F1-SCHED shipped (commit f7c7865 / 59765f3)**
+**M4-HARD: DONE — MET-WITH-FOLLOWUPS — All 4 gate sign-offs received; PM verdict 2026-06-29; EC-M4-HCP still required before Sprint 5**
+**Sprint 5 gate: BLOCKED — waiting for EC-M4-HCP (Emanuele's manual browser confirmation)**
+**M4-HARD scope-lock document: docs/sprints/v0.4-hard-scope.md**
 Scope locked: 2026-06-28 by product-manager. Scope log: docs/sprints/v0.4-pm-scope.md
 PM sign-off: docs/sprints/v0.4-pm-signoff.md | 2026-06-28
 Scope amended: 2026-06-28 — F1-NAV (Left Navigation Rail) and F1-INGEST-VIEW (Ingest
@@ -1254,6 +1257,41 @@ All 3 endpoints in openapi.json (D4 zero-drift gate). New table in schema.mmd (D
 **M4-EXT acceptance criteria:** docs/sprints/v0.4-pm-scope.md §8
 **Phase plan:** docs/sprints/v0.4-pm-scope.md §4
 **DoD gate checklist (original 11 gates + 2 M4-EXT EC-M4-HCP conditions):** docs/sprints/v0.4-pm-scope.md §5 + §8
+
+---
+
+### M4-HARD — Post-human-testing hardening increment (scope-locked 2026-06-29)
+
+Opened after EC-M4-HCP human testing revealed usability problems. This is NOT a new
+milestone. It is a hardening pass on branch sprint/v0.4 before EC-M4-HCP can be
+confirmed and before Sprint 5 begins. Scope-lock document: docs/sprints/v0.4-hard-scope.md.
+All 4 sign-offs still required before PM closes M4-HARD and unblocks Sprint 5.
+
+| Feature ID | Description | Status | Priority |
+|------------|-------------|--------|----------|
+| F1-HARD-SETTINGS | Settings panel redesigned into 9-section left-nav (General / LLM Models / Embeddings / Source Watch / API+MCP / Output / Interface / Maintenance / About) | done | P0 |
+| F1-HARD-COLLAPSE | Left and right panels gain collapse/expand chevron buttons (react-resizable-panels usePanelRef) | done | P0 |
+| F1-HARD-PROVIDER-EDIT | Settings > LLM Models is now editable: add + delete providers via POST/DELETE /provider/config | done | P0 |
+| F1-HARD-MCP-STUB | API+MCP settings section added with "coming in M5" placeholder | done | P1 |
+| F1-HARD-NAV-ORDER | Nav rail order fixed: logo → Chat → Wiki → Sources → Search → Graph → Lint → Review → Deep Search → Settings; default section is Chat | done | P0 |
+| F1-HARD-EMBED-STUB | Vector Embeddings settings section added as M5 placeholder | done | P1 |
+| F1-HARD-CONV-HISTORY | Conversation history length control in Output settings section (2/4/6/8/10/20 messages) | done | P1 |
+| F1-HARD-NAV-LABELS | Nav rail items MUST display text labels beside icons — not icon-only. Rail width expands to accommodate. | done | P0 — AC-HARD-LBL-1..8 GREEN |
+| F1-HARD-M5-PLACEHOLDER | M5 nav items (Search, Lint, Review, Deep Search): remove from nav rail for M4. Add them back in M5 when logic exists. | done | P0 — AC-HARD-M5P-1..7 GREEN |
+
+**Gate sign-offs (all 4 received):**
+- QA (qa-test-engineer): PASS-WITH-NOTES — 371/371 vitest green; 4 defects self-fixed; 3 gaps escalated and closed by FE pass-2
+- Architect (solution-architect): APPROVE-WITH-CONDITIONS — ADR-0021 Accepted; C1/C2/C3 all closed by FE pass-2
+- Tech-Writer (tech-writer): PASS-WITH-PENDING — 5/6 D5 screenshots; USER.md updated; ADR-0021 indexed; 1 screenshot (CF-HARD-1) non-blocking follow-up
+- PM (product-manager): MET-WITH-FOLLOWUPS — 2026-06-29 — see docs/sprints/v0.4-hard-scope.md §6-PM
+
+**Carry-forward items:**
+- CF-HARD-1: Recapture docs/screens/shell-collapsed-panel.png (root cause fixed; make screenshots needed) — M5 pre-start
+- CF-HARD-6: Zustand persist rehydration guard for removed section names — M5 conditional (only if persist middleware added)
+
+**M4-HARD acceptance criteria:** docs/sprints/v0.4-hard-scope.md §2
+**Anti-scope-creep:** docs/sprints/v0.4-hard-scope.md §4
+**M4-HARD exit criteria + PM verdict:** docs/sprints/v0.4-hard-scope.md §5 + §6-PM
 
 ---
 

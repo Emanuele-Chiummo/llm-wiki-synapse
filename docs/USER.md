@@ -1,6 +1,6 @@
 # Synapse User Guide
 
-<!-- Generated: v0.4 M4-EXT | 2026-06-28 -->
+<!-- Generated: v0.4 M4-HARD | 2026-06-29 -->
 
 > Version: v0.4 (M4 — "Usable & fluid")
 > Language toggle: English / Italian available in Settings.
@@ -23,53 +23,65 @@ Obsidian app.
 
 ## The core journey
 
-1. **Drop a document** into `vault/raw/sources/` (or trigger ingest manually from the
-   Ingest section).
-2. **Watch the graph grow** — the knowledge graph updates automatically as pages are
+1. **Open the app** — you land on the Chat section by default. Ask a question or
+   navigate to another section using the labeled rail on the left.
+2. **Drop a document** into `vault/raw/sources/` (or use the upload zone in the
+   Sources section).
+3. **Watch the graph grow** — the knowledge graph updates automatically as pages are
    created.
-3. **Inspect a page** — click any node on the graph or row in the Pages tree to read
+4. **Inspect a page** — click any node on the graph or row in the Wiki tree to read
    its metadata and relationships.
-4. **Chat with your wiki** — ask questions in the Chat section; answers stream in
+5. **Chat with your wiki** — ask questions in the Chat section; answers stream in
    token by token.
-5. **Configure your provider** — choose which AI backend Synapse uses for ingest and
-   chat from the header dropdown or Settings.
+6. **Configure your provider** — add, edit, or delete inference providers from
+   Settings > LLM Models; select the active one from the header dropdown.
 
 ---
 
 ## The interface
 
-Synapse uses a dark-themed three-panel shell. A narrow icon navigation rail on the left
-lets you switch between four sections without a page reload.
+Synapse uses a dark-themed shell. A labeled navigation rail on the left lets you switch
+between sections without a page reload.
 
 ![3-panel shell](screens/shell-3panel.png)
 
 ### Navigation rail
 
-The leftmost strip contains five icons from top to bottom:
+The leftmost strip is approximately 72 px wide. Each item shows an icon and a
+persistent text label below it. The active section is highlighted with a rounded
+rectangle that encloses both icon and label.
 
-| Icon | Section |
-|------|---------|
-| Pages icon | **Pages** — file tree + graph + page inspector |
-| Graph icon | **Graph** — full-bleed sigma knowledge graph |
-| Ingest icon | **Ingest** — ingest activity history + Run Ingest button |
-| Chat icon | **Chat** — multi-conversation streaming chat |
-| Settings icon (bottom) | **Settings** — provider, context window, language |
+The rail contains five interactive items from top to bottom:
 
-The active section is highlighted. The vault name, data version, and active provider
-appear in the status bar at the bottom.
+| Label | Section |
+|-------|---------|
+| **Chat** | Multi-conversation streaming chat (default on first load) |
+| **Wiki** | File tree + knowledge graph + page inspector |
+| **Sources** | Ingest activity history, upload zone, Run Ingest button |
+| **Graph** | Full-bleed sigma knowledge graph |
+| **Settings** (pinned at bottom) | LLM providers, context window, language, maintenance |
+
+The Search, Lint, Review, and Deep Search sections are coming in M5; they do not appear
+in the M4 rail.
+
+The vault name, data version, and active provider appear in the status bar at the
+bottom of every section.
 
 ---
 
-### Pages section
+### Wiki section
 
-The Pages section has the classic three-panel layout: a page tree on the left, the
-knowledge graph in the center, and a metadata inspector on the right.
+The Wiki section (nav label: **Wiki**) has the classic three-panel layout: a page tree
+on the left, the knowledge graph in the center, and a metadata inspector on the right.
+Left and right panels can be collapsed by clicking the chevron button on their inner
+edge; click the chevron again to expand.
 
 ![3-panel with selected node](screens/shell-3panel-selected.png)
 
 **Left panel — page tree.** Wiki pages grouped by type (concept, entity, source,
 synthesis, comparison). Click any row to select that page and load its metadata in
-the right panel.
+the right panel. Click the `‹` chevron on the right edge of the left panel to collapse
+it and reclaim screen space.
 
 **Center panel — graph.** The same sigma viewer as the Graph section, embedded here
 for context. Node size reflects the number of structural connections a page has.
@@ -77,15 +89,17 @@ Colors identify page types (CVD-safe palette; legend shown bottom-left).
 
 **Right panel — inspector.** Shows the selected page's frontmatter (title, type,
 sources), its relationships (pages it links to and pages that link back to it), and
-a read-only content preview.
+a read-only content preview. Click the `›` chevron on the left edge of the right panel
+to collapse it.
 
 ---
 
 ### Graph section
 
-The full-bleed knowledge graph.
+The full-bleed knowledge graph. This section shows only the graph canvas — no tree or
+inspector. Use the Wiki section if you want the graph alongside the page tree.
 
-![Graph section — sigma viewer](screens/navrail-graph-active.png)
+![Graph section — sigma viewer with labeled nav rail](screens/navrail-graph-active.png)
 
 - **Node size** scales with the number of structural connections (direct wikilinks and
   shared-source provenance). Larger nodes are more connected.
@@ -103,16 +117,16 @@ force-directed layout, so the UI stays responsive regardless of graph size.
 
 ---
 
-### Ingest section
+### Sources section
 
-The Ingest section shows the history of all ingest runs for the current vault and
-provides two ways to add documents directly from the browser.
+The Sources section (nav label: **Sources**) shows the history of all ingest runs for
+the current vault and provides two ways to add documents directly from the browser.
 
 ![Ingest activity view](screens/ingest-section.png)
 
 #### Uploading a document
 
-The top of the Ingest section contains a drag-and-drop upload zone.
+The top of the Sources section contains a drag-and-drop upload zone.
 
 - **Drag** a Markdown or plain-text file (`.md`, `.txt`, `.markdown`) onto the zone, or
   click **Browse** to open a file picker.
@@ -185,32 +199,70 @@ that cannot be converted is left as a fenced code block.
 
 ### Settings section
 
-The Settings section controls the provider, context window, and display language.
+The Settings section uses a two-column layout: a left sub-navigation list of nine
+sections and a right content pane that shows the selected section. Click any sub-nav
+item to switch the pane without a page reload.
 
-![Settings section](screens/settings-section.png)
+![Settings — General section](screens/settings-section.png)
 
-**Context window.** Choose how many tokens Synapse sends to the model per request:
-4K, 8K, 16K, 32K (default), 64K, 128K, 256K, 512K, or 1M. The token budget is split
-60 % conversation history / 20 % retrieved context / 5 % system prompt / 15 %
-generation headroom. The bar chart in the Settings panel visualizes the absolute token
-counts for the chosen window size.
+The nine sections are:
+
+| Section | Contents |
+|---------|----------|
+| **General** | Context window size and token-budget bar chart |
+| **LLM Models** | Add, view, and delete inference provider configurations |
+| **Embeddings** | Vector embeddings configuration (coming in M5) |
+| **Source Watch** | Automatic folder import (scheduled scan) |
+| **API + MCP** | MCP server configuration (coming in M5) |
+| **Output** | Conversation history length; language toggle |
+| **Interface** | UI preferences (coming in M5) |
+| **Maintenance** | Reset settings |
+| **About** | Version and build information |
+
+#### General
+
+Choose how many tokens Synapse sends to the model per request: 4K, 8K, 16K, 32K
+(default), 64K, 128K, 256K, 512K, or 1M. The token budget is split 60 % conversation
+history / 20 % retrieved context / 5 % system prompt / 15 % generation headroom. The
+bar chart visualizes absolute token counts for the chosen window size.
+
+#### LLM Models
+
+The LLM Models section lists all configured inference providers. Each row shows the
+provider type (Local Ollama, API, or CLI), the model ID, and the scope (Global or
+Per-operation). Use this section to manage providers without editing the database.
+
+![Settings — LLM Models with provider list](screens/settings-llm-models.png)
+
+**Viewing providers.** The list is loaded from the backend on every visit. The
+currently active provider is shown in the header.
+
+**Adding a provider.** Click **+ Add provider** to expand the add form. Choose the
+provider type, enter a model ID (required), optionally enter a base URL (for
+OpenAI-compatible endpoints), and select a scope. The **Add** button is disabled until
+you enter a model ID. On success, the new row appears in the list immediately.
+
+**Deleting a provider.** Click **Delete** on any row. A confirmation prompt appears
+before the deletion is sent. If you are about to delete the last remaining provider, a
+warning is shown explaining that ingest and chat will fail without a provider — the
+deletion is still allowed, because a misconfigured sole provider should always be
+replaceable.
+
+#### Output
+
+**Conversation history length.** Choose how many past messages are sent to the model
+with each new chat message: 2, 4, 6, 8, 10, or 20. A smaller history reduces token
+cost; a larger history gives the model more context. The setting is persisted in
+browser local storage.
 
 **Language.** Toggle between English and Italian. The UI switches immediately; no
-reload needed. Settings survive a page refresh (stored in the browser's local storage).
+reload needed.
 
-**Provider configuration.** Lists all configured inference providers and their scope
-(Global or Vault-specific). To change the active provider use the header dropdown (see
-below). To add a new provider configuration, insert a row in the `provider_config`
-table (see the Deploy guide).
+#### Source Watch (automatic import)
 
-**Reset settings.** Clears all locally stored preferences and returns the UI to its
-defaults.
-
-#### Automatic import (scheduled folder import)
-
-The **Automatic import** card in Settings lets Synapse periodically scan a folder
-inside the backend container and import any new or changed documents automatically —
-no manual drag-and-drop required.
+The Source Watch section (previously called "Automatic import") lets Synapse
+periodically scan a mounted folder inside the backend container and import any new or
+changed documents automatically — no manual drag-and-drop required.
 
 **How to set it up:**
 
@@ -218,7 +270,7 @@ no manual drag-and-drop required.
    bind-mount to `docker-compose.yml` (see [DEPLOY.md §8](DEPLOY.md)) and restart the
    stack. Example: `./import:/import:ro` makes the host folder `./import` visible inside
    the container as `/import`.
-2. In the **Automatic import** card in Settings, enable the toggle.
+2. In Settings > **Source Watch**, enable the toggle.
 3. Enter the **container path** (e.g. `/import`). This is the path inside the container,
    not your host machine's path. If the path is not accessible inside the container, a
    warning appears — add the mount and it resolves on the next scan.
@@ -231,7 +283,7 @@ to test your setup or import a batch without waiting for the next scheduled tick
 
 After each scan the card shows "Last scan: N minutes ago — M imported". The number is
 how many files were copied into `vault/raw/sources/` (new or changed content only —
-identical files are skipped). Actual ingest runs for those files appear in the Ingest
+identical files are skipped). Actual ingest runs for those files appear in the Sources
 section with their normal status and cost.
 
 **Important constraints:**
@@ -272,24 +324,24 @@ for the next chat message or ingest run; no page reload needed.
 
 There are three ways to get a document into Synapse:
 
-**Option 1 — Drag and drop in the browser.** Open the Ingest section and drop a
+**Option 1 — Drag and drop in the browser.** Open the Sources section and drop a
 `.md` or `.txt` file onto the upload zone (or click Browse). The watcher ingests it
 asynchronously; a new run row appears within about 15–30 seconds.
 
 **Option 2 — Place the file directly.** Copy or move a file into `vault/raw/sources/`
 on the host. The file watcher detects it and ingests it automatically. You can also
-trigger a run manually with the **Run Ingest** button.
+trigger a run manually with the **Run Ingest** button in the Sources section.
 
-**Option 3 — Scheduled folder import.** Configure the Automatic import card in
-Settings to scan a mounted folder on a regular schedule. Any new or changed documents
-are imported automatically without manual action (see the Settings section above).
+**Option 3 — Scheduled folder import.** Configure Settings > Source Watch to scan a
+mounted folder on a regular schedule. Any new or changed documents are imported
+automatically without manual action (see the Source Watch sub-section above).
 
 Supported formats in v0.4: plain text and Markdown only. PDF, DOCX, images, and
 audio/video are coming in M5 (F12).
 
-After ingest, the Ingest section shows a Running row that changes to Completed once
-the AI has finished generating wiki pages. Switch to the Graph section to see the new
-nodes appear.
+After ingest, the Sources section shows a Running row that changes to Completed once
+the AI has finished generating wiki pages. Switch to the Graph or Wiki section to see
+the new nodes appear.
 
 ---
 
@@ -330,6 +382,9 @@ The following features are planned for the next sprints and are NOT present in v
 | Deep Research loop (web search via SearXNG, auto-ingest) | M5 |
 | Multi-format ingest: PDF, DOCX, PPTX, XLSX, images, audio/video | M5 |
 | Cascade deletion (delete a source and clean up all derived pages) | M5 |
+| Search, Lint, and Review nav rail items (functional logic ships in M5) | M5 |
+| Vector embeddings configuration UI | M5 |
+| MCP server configuration UI | M5 |
 | Chrome MV3 web clipper | M6 |
 | PWA and Tauri v2 desktop packaging | M6 |
 | Lint-fix loop | M6 |

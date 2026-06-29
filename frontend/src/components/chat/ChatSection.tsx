@@ -21,8 +21,9 @@ import { useTranslation } from "react-i18next";
 import { useChatStore, selectActiveConversationId, selectIsStreaming, selectMessages } from "../../store/chatStore";
 import type { ChatMessage } from "../../store/chatStore";
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
-import { useSettingsStore, selectContextWindow } from "../../store/settingsStore";
+import { useSettingsStore, selectContextWindow, selectConversationHistoryLength } from "../../store/settingsStore";
 import { useChatStream } from "./useChatStream";
+import { buildMessagePayload } from "./buildMessagePayload";
 import { ConversationList } from "./ConversationList";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
@@ -36,6 +37,7 @@ export function ChatSection(): ReactNode {
   const messages = useChatStore(selectMessages);
   const appendMessage = useChatStore((s) => s.appendMessage);
   const contextWindow = useSettingsStore(selectContextWindow);
+  const historyLength = useSettingsStore(selectConversationHistoryLength);
 
   const { send, abort } = useChatStream();
 
@@ -56,11 +58,13 @@ export function ChatSection(): ReactNode {
       };
       appendMessage(userMsg);
 
-      // Build message history to send (include existing settled messages + this new one)
-      const history = [
+      // Build message history to send (include existing settled messages + this new one),
+      // then trim to historyLength (I7 context-budget enforcement, AC-HARD-CONV-2).
+      const allMessages = [
         ...messages.map((m) => ({ role: m.role, content: m.content })),
         { role: "user" as const, content: text },
       ];
+      const history = buildMessagePayload(allMessages, historyLength);
 
       const req: ChatStreamRequest = {
         conversation_id: activeConversationId,
@@ -72,7 +76,7 @@ export function ChatSection(): ReactNode {
 
       send(req);
     },
-    [isStreaming, activeConversationId, messages, vaultId, contextWindow, appendMessage, send],
+    [isStreaming, activeConversationId, messages, vaultId, contextWindow, historyLength, appendMessage, send],
   );
 
   const handleRegenerate = useCallback(() => {
@@ -83,10 +87,12 @@ export function ChatSection(): ReactNode {
     const lastUser = messages[messages.length - 1 - lastUserIdx];
     if (!lastUser) return;
 
-    // Build history up to (and including) the last user message
-    const historyUpToUser = messages
+    // Build history up to (and including) the last user message,
+    // then trim to historyLength (I7 context-budget enforcement, AC-HARD-CONV-2).
+    const allUpToUser = messages
       .slice(0, messages.length - lastUserIdx)
       .map((m) => ({ role: m.role, content: m.content }));
+    const historyUpToUser = buildMessagePayload(allUpToUser, historyLength);
 
     const req: ChatStreamRequest = {
       conversation_id: activeConversationId,
@@ -98,7 +104,7 @@ export function ChatSection(): ReactNode {
     };
 
     send(req);
-  }, [isStreaming, messages, activeConversationId, vaultId, contextWindow, send]);
+  }, [isStreaming, messages, activeConversationId, vaultId, contextWindow, historyLength, send]);
 
   return (
     <div
