@@ -1,6 +1,6 @@
 # Synapse — Traceability Matrix
 > Maintained by: functional-analyst (stub), qa-test-engineer (fills Test ID + Status columns)
-> Last updated: 2026-06-29 (Sprint 5 / v0.5 — M5 Phase 2 ACs flipped to GREEN; tech-writer docs gate)
+> Last updated: 2026-06-29 (Sprint 5 / v0.5 — M5 Phase 3 ACs flipped to GREEN; tech-writer docs gate)
 > Source of truth for feature IDs: CLAUDE.md §4
 > User stories + ACs: docs/sprints/v0.1-stories.md, docs/sprints/v0.2-stories.md
 > Sprint scope + Exit Criteria (EC-x): docs/sprints/v0.1-scope.md §5, docs/sprints/v0.2-scope.md §7
@@ -1418,7 +1418,7 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 | AC-F10-2 | S-F10-1 | EC-M5-5 | — | I7 | backend/tests/test_deep_research.py | T-DR-002 (`test_max_iter_reached_terminates_at_exactly_max_iter`), T-DR-003, T-DR-004 (`test_no_provider_calls_after_max_iter`), T-DR-010, T-DR-012 (`test_max_queries_per_iter_not_exceeded`), T-DR-007 (`test_concurrency_ceiling_is_3`) | — | GREEN |
 | AC-F10-3 | S-F10-1 | EC-M5-6 | — | I9 | backend/tests/test_code_quality.py | T-DR-013 (`test_no_forbidden_search_imports`); T-RA-002 (`test_503_when_searxng_url_unset`) | — | GREEN |
 | AC-F10-4 | S-F10-1 | EC-M5-7 | D4 | I7, I8 | backend/tests/test_research_api.py, backend/tests/test_docs.py | T-RA-001 (POST /research/start 202), T-RA-007..010 (paginated list), T-RA-011..013 (detail+synthesis_text); all 3 endpoints in openapi.json (AC-F10-4d verified manually §7 QA report) | — | GREEN |
-| AC-F10-5 | S-F10-1 | EC-M5-9 | — | I7 | backend/tests/test_review_integration.py | PENDING — Phase 3 scope (review queue → deep-research action not yet implemented); deferred per QA Phase 2 report §2 | — | PENDING (Phase 3 scope) |
+| AC-F10-5 | S-F10-1 | EC-M5-9 | — | I7 | backend/tests/test_review_integration.py | `test_deep_research_returns_202_with_run_id`, `test_deep_research_stores_run_id_on_item` (T-RV-013, T-RV-014); 202 + run_id + DB persistence + no orphan row + 503 on SEARXNG_URL unset (T-RV-012) — QA Phase 3 §7 | — | GREEN |
 | AC-F10-6 | S-F10-1 | EC-M5-5 | D2 | I8 | backend/tests/test_models_schema.py | T-PG-031..031p (deep_research_runs: 17 tests); T-PG-032..032i (deep_research_sources: 9 tests); Alembic migration 0009 verified (T-PG-031p) | — | GREEN |
 | AC-F10-7 | S-F10-1 | EC-M5-5 | — | I7 | backend/tests/test_deep_research.py | T-DR-006 (`test_converged_after_first_round`), T-DR-002 (`test_max_iter_reached` with always-insufficient), T-DR-011 (`test_three_hits_three_fetch_calls`), T-DR-009 (`test_synthesis_routed_through_ingest_file`), T-DR-005 (budget_exhausted), T-DR-008 (assess before refine order) | — | GREEN |
 | AC-F10-8 | S-F10-1 | EC-M5-7 | D5 | I7 | frontend/e2e/deep-search.spec.ts | DeepSearchView.test.tsx (8 test groups, PASS); E2E Playwright deferred to live stack — PENDING-LIVE (non-blocking, established precedent) | — | GREEN (unit); D5 PENDING-LIVE |
@@ -1437,17 +1437,17 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 
 | AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|----------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F9-1 | S-F9-1 | EC-M5-8 | D2 | I5, I7 | backend/tests/test_models_schema.py | PENDING | — | PENDING |
-| AC-F9-2 | S-F9-1 | EC-M5-8 | — | I5, I6, I7 | backend/tests/test_ingest_review_queue.py | PENDING | — | PENDING |
-| AC-F9-3 | S-F9-1 | EC-M5-8 | D4 | I8 | backend/tests/test_review_api.py, backend/tests/test_docs.py | PENDING | — | PENDING |
-| AC-F9-4 | S-F9-1 | EC-M5-8 | — | I6, I7 | backend/tests/test_ingest_review_queue.py | PENDING | — | PENDING |
-| AC-F9-5 | S-F9-2 | EC-M5-8 | — | I4 | frontend/src/tests/ReviewQueue.test.tsx | PENDING | — | PENDING |
-| AC-F9-6 | S-F9-1 | EC-M5-8 | — | I1, I5 | backend/tests/test_review_api.py | PENDING | — | PENDING |
-| AC-F9-7 | S-F9-2 | EC-M5-8 | — | — | frontend/src/tests/IngestView.test.tsx | PENDING | — | PENDING |
-| AC-F9-8 | S-F9-1 | EC-M5-8, EC-M5-9 | — | I7 | backend/tests/test_review_integration.py | PENDING | — | PENDING |
-| AC-F9-9 | S-F9-2 | EC-M5-8 | — | — | frontend/src/tests/ReviewQueue.test.tsx | PENDING | — | PENDING |
-| AC-F9-10 | S-F9-2 | EC-M5-8 | — | — | frontend/src/tests/ReviewQueue.test.tsx | PENDING | — | PENDING |
-| AC-F9-11 | S-F9-2 | EC-M5-8, EC-M5-9 | — | — | frontend/src/tests/ReviewQueue.test.tsx | PENDING | — | PENDING |
+| AC-F9-1 | S-F9-1 | EC-M5-8 | D2 | I5, I7 | backend/tests/test_models_schema.py | T-RV-001 (`test_enqueues_pending_row`, `test_enqueues_without_query`, `test_enqueue_is_not_singleton`) — QA Phase 3 §1 | — | GREEN |
+| AC-F9-2 | S-F9-1 | EC-M5-8 | — | I5, I6, I7 | backend/tests/test_ingest_review_queue.py | T-RV-006 (`test_hook_exception_does_not_raise`); orchestrator.py:377-387 `try/except` defense-in-depth — QA Phase 3 §4 | — | GREEN |
+| AC-F9-3 | S-F9-1 | EC-M5-8 | D4 | I8 | backend/tests/test_review_api.py, backend/tests/test_docs.py | T-RV-007..011, T-RV-013..014, T-RV-016; `reviewClient.test.ts`; 4 review endpoints in openapi.json (§9 QA Phase 3) — QA Phase 3 §1 | — | GREEN |
+| AC-F9-4 | S-F9-1 | EC-M5-8 | — | I6, I7 | backend/tests/test_ingest_review_queue.py | T-RV-002 (`test_exactly_one_call`), T-RV-003 (`test_timeout_returns_none`), T-RV-004 (`test_provider_exception_returns_none`), T-RV-005, T-RV-015 (`test_caps_at_three_questions`) — QA Phase 3 §3 | — | GREEN |
+| AC-F9-5 | S-F9-2 | EC-M5-8 | — | I4 | frontend/src/tests/ReviewQueue.test.tsx | `ReviewQueueView.test.tsx` (TanStack Virtual `useVirtualizer`), `reviewStore.test.ts` (pagination) — QA Phase 3 §1 | — | GREEN |
+| AC-F9-6 | S-F9-1 | EC-M5-8 | — | I1, I5 | backend/tests/test_review_api.py | T-RV-009 (`assert mock_ingest.call_count == 0`); reviewStore `test_does_not_call_ingest_endpoint` — QA Phase 3 §1 | — | GREEN |
+| AC-F9-7 | S-F9-2 | EC-M5-8 | — | — | frontend/src/tests/IngestView.test.tsx | Static: review endpoints not on `/ingest/*`; section routing confirmed in `ReviewQueueView`; separate `review` section from Sources — QA Phase 3 §1 | — | GREEN |
+| AC-F9-8 | S-F9-1 | EC-M5-8, EC-M5-9 | — | I7 | backend/tests/test_review_integration.py | `test_approve_sets_status` + `test_skip_sets_status` + `test_deep_research_stores_run_id_on_item` (seed+action+DB verify — 3 focused tests, equivalent coverage) — QA Phase 3 §1 | — | GREEN |
+| AC-F9-9 | S-F9-2 | EC-M5-8 | — | — | frontend/src/tests/ReviewQueue.test.tsx | `TestI6NoIsinstanceBranching::test_no_isinstance_branching_in_review` — QA Phase 3 §1 | — | GREEN |
+| AC-F9-10 | S-F9-2 | EC-M5-8 | — | — | frontend/src/tests/ReviewQueue.test.tsx | T-RV-008 (`test_get_queue_limit_capped_at_200` → 422 on limit=201) — QA Phase 3 §1 | — | GREEN |
+| AC-F9-11 | S-F9-2 | EC-M5-8, EC-M5-9 | — | — | frontend/src/tests/ReviewQueue.test.tsx | T-RV-012; `reviewStore` 503 distinct handling; `reviewClient` 503 test — QA Phase 3 §1 | — | GREEN |
 
 ---
 
@@ -1455,13 +1455,13 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 
 | AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|----------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F12-1 | S-F12-1 | EC-M5-10 | — | I1, I5, I6 | backend/tests/test_extract.py | PENDING | — | PENDING |
-| AC-F12-2 | S-F12-1 | EC-M5-10 | D4 | — | backend/tests/test_upload.py, frontend/src/tests/IngestView.test.tsx | PENDING | — | PENDING |
-| AC-F12-3 | S-F12-1 | EC-M5-10 | — | I1 | backend/tests/test_upload.py | PENDING | — | PENDING |
-| AC-F12-4 | S-F12-1 | EC-M5-11 | — | I1, I5 | backend/tests/test_extract.py, backend/tests/test_obsidian_check.py | PENDING | — | PENDING |
-| AC-F12-5 | S-F12-1 | EC-M5-10 | — | — | backend/tests/test_code_quality.py | PENDING | — | PENDING |
-| AC-F12-6 | S-F12-1 | EC-M5-10 | — | I1 | backend/tests/test_extract.py | PENDING | — | PENDING |
-| AC-F12-7 | S-F12-1 | EC-M5-10 | — | I6, I9 | backend/tests/test_code_quality.py | PENDING | — | PENDING |
+| AC-F12-1 | S-F12-1 | EC-M5-10 | — | I1, I5, I6 | backend/tests/test_extract.py | T-EXT-001..006 (PDF/DOCX/PPTX/XLSX), T-EXT-012..014 (image/AV placeholder) — QA Phase 3 §2 | — | GREEN |
+| AC-F12-2 | S-F12-1 | EC-M5-10 | D4 | — | backend/tests/test_upload.py, frontend/src/tests/IngestView.test.tsx | `test_pdf_allowed_f12`, `test_docx_allowed_f12`, T-UPLOAD-005; T-EXT-007 (415 on unknown) — QA Phase 3 §2 | — | GREEN |
+| AC-F12-3 | S-F12-1 | EC-M5-10 | — | I1 | backend/tests/test_upload.py | T-UPLOAD-007 (upload.py overwrite test / re-upload → `overwritten=True`) — QA Phase 3 §2 | — | GREEN |
+| AC-F12-4 | S-F12-1 | EC-M5-11 | — | I1, I5 | backend/tests/test_extract.py, backend/tests/test_obsidian_check.py | T-UPLOAD-F12-1 (`test_upload_binary_creates_companion_and_preserves_original` — added this gate; binary preserved + companion + valid YAML frontmatter + binary not in `_ALLOWED_EXTENSIONS`) — QA Phase 3 §6 | — | GREEN |
+| AC-F12-5 | S-F12-1 | EC-M5-10 | — | — | backend/tests/test_code_quality.py | T-EXT-009 (static guard: `pypdf`/`docx`/`pptx`/`openpyxl` pinned in pyproject.toml; deps present in .venv) — QA Phase 3 §2 | — | GREEN |
+| AC-F12-6 | S-F12-1 | EC-M5-10 | — | I1 | backend/tests/test_extract.py | T-EXT-001..004 (PDF 2-page, DOCX paragraphs, XLSX GFM table), T-EXT-007 (unknown ext → 415) — QA Phase 3 §2 | — | GREEN |
+| AC-F12-7 | S-F12-1 | EC-M5-10 | — | I6, I9 | backend/tests/test_code_quality.py | `TestStaticGuard::test_no_format_lib_imports_outside_extract` + `test_no_unstructured_added` (T-EXT-009) — QA Phase 3 §2 | — | GREEN |
 
 ---
 
@@ -1509,16 +1509,16 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 | EC-M5-5 | F10 deep research loop with max_iter + token_budget + concurrency≤3; I7 test: always-insufficient mock stops at max_iter | AC-F10-1, AC-F10-2, AC-F10-6, AC-F10-7 | GREEN (Phase 2 gate 2026-06-29; 576 BE pytest pass — QA Phase 2 report) |
 | EC-M5-6 | SearXNG only; static import test: no Tavily/DDG/Google imports | AC-F10-3 | GREEN (Phase 2 gate 2026-06-29; T-DR-013 + T-RA-002 PASS) |
 | EC-M5-7 | POST /research/start, GET /research/runs, GET /research/runs/{id} live and in openapi.json | AC-F10-4, AC-F10-8 | GREEN (API: T-RA-001..013 PASS; D4 zero-drift; D5 PENDING-LIVE) |
-| EC-M5-8 | Review queue populated on ingest; Approve/Skip/Deep-Research work; pre-generated queries stored | AC-F9-1..11 | PENDING |
-| EC-M5-9 | F9 Deep-Research delegates to F10 POST /research/start; run_id stored on review_item | AC-F9-8, AC-F9-11, AC-F10-5 | PENDING |
-| EC-M5-10 | PDF/DOCX/PPTX/XLSX ingested via upload; text extracted by ingest/extract.py; wiki entry produced | AC-F12-1, AC-F12-2, AC-F12-5, AC-F12-6 | PENDING |
-| EC-M5-11 | .extracted.md written to vault/raw/sources/ only; vault/wiki/ written only by ingest pipeline; K1 3-layer intact | AC-F12-3, AC-F12-4, AC-F12-7 | PENDING |
+| EC-M5-8 | Review queue populated on ingest; Approve/Skip/Deep-Research work; pre-generated queries stored | AC-F9-1..11 | GREEN (Phase 3 gate 2026-06-29; 639 pytest pass) |
+| EC-M5-9 | F9 Deep-Research delegates to F10 POST /research/start; run_id stored on review_item | AC-F9-8, AC-F9-11, AC-F10-5 | GREEN (Phase 3 gate 2026-06-29; T-RV-013/014 + 503 path PASS) |
+| EC-M5-10 | PDF/DOCX/PPTX/XLSX ingested via upload; text extracted by ingest/extract.py; wiki entry produced | AC-F12-1, AC-F12-2, AC-F12-5, AC-F12-6 | GREEN (Phase 3 gate 2026-06-29; T-EXT-001..014 + T-UPLOAD PASS) |
+| EC-M5-11 | .extracted.md written to vault/raw/sources/ only; vault/wiki/ written only by ingest pipeline; K1 3-layer intact | AC-F12-3, AC-F12-4, AC-F12-7 | GREEN (Phase 3 gate 2026-06-29; T-UPLOAD-F12-1 PASS) |
 | EC-M5-12 | Cascade delete: Postgres soft-delete + Qdrant removal + index.md + dead wikilinks + shared-entity warnings | AC-F13-1, AC-F13-2, AC-F13-3, AC-F13-5, AC-F13-6, AC-F13-7 | PENDING |
 | EC-M5-13 | Cascade delete: targeted file edits only; no full rescan; data_version bumped once | AC-F13-4 | PENDING |
-| EC-M5-14 | vault/wiki/ valid Obsidian vault after all M5 ops; test_obsidian_check.py 15/15 green | AC-F12-4, AC-F13-4 | PENDING |
+| EC-M5-14 | vault/wiki/ valid Obsidian vault after all M5 ops; test_obsidian_check.py 15/15 green | AC-F12-4, AC-F13-4 | PARTIAL — AC-F12-4 GREEN (Phase 3 gate; companion has valid YAML frontmatter; binary excluded from watcher); AC-F13-4 PENDING (Phase 4 scope) |
 | EC-M5-15 | deep-research.mmd + cascade-delete.mmd: present, valid Mermaid, pass mmdc CI, reviewed by architect + tech-writer | AC-D3-DR-1, AC-D3-CD-1, AC-D3-CI-1 | PARTIAL — deep-research.mmd GREEN (Phase 2 gate); cascade-delete.mmd PENDING (Phase 4 scope); mmdc CI PENDING (GAP-v0.5-3 carry-forward) |
 | EC-M5-16 | Playwright captures ≥4 new M5 PNGs committed; CF-HARD-1 recaptured; make screenshots exits 0 | AC-D5-M5-1, AC-D5-M5-2, AC-D5-M5-3 | PENDING |
-| EC-M5-17 | D2 regenerated (includes deep_research_runs, deep_research_sources, review_items); D4 regenerated (all new endpoints); zero drift | AC-F10-6, AC-F9-1, AC-F13-5 + make er + make openapi | PARTIAL — D2 zero-drift (Phase 2 gate; DEEP_RESEARCH_RUNS + DEEP_RESEARCH_SOURCES + 9 prior tables confirmed); D4 zero-drift (Phase 2 gate; /research/* confirmed); review_items + cascade-delete endpoints PENDING (Phase 3/4 scope) |
+| EC-M5-17 | D2 regenerated (includes deep_research_runs, deep_research_sources, review_items); D4 regenerated (all new endpoints); zero drift | AC-F10-6, AC-F9-1, AC-F13-5 + make er + make openapi | PARTIAL — D2 zero-drift (Phase 3 gate; 12 tables confirmed: +REVIEW_ITEMS); D4 zero-drift (Phase 3 gate; 4 /review/* endpoints + widened upload confirmed); cascade-delete endpoints PENDING (Phase 4 scope) |
 | EC-M5-18 | Full pytest + vitest + Playwright suite green (0 failures, 0 regressions); ruff+black+mypy+ESLint+Prettier clean | All automated ACs above | PENDING |
 | EC-M5-19 | Architect gate: rag/retrieval.py (I1/I2/I3), deep_research.py (I7/I9), cascade_delete.py (I1/I5), review.py (I6/I7), CliAgentProvider.chat() (I6/I7) | All above | MANUAL |
 | EC-M5-20 | Tech-writer gate: D3 + D5 + D2/D4 consistent with implementation; D6 current with M5 additions | AC-D3-DR-1, AC-D3-CD-1, AC-D5-M5-1 | MANUAL |
