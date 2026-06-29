@@ -1,6 +1,169 @@
-# DOCS_STATUS — Sprint v0.4 / M4 Documentation Gate
+# DOCS_STATUS — Sprint v0.5 / M5 Documentation Gate
 
 > Tech-writer sign-off. Phases appended chronologically; most recent phase at top.
+
+## M5 Phase 1 — Retrieval Foundation (F5 + F6-citations + F17-chat) — DOCS GATE: PASS-WITH-PENDING
+
+> Gate run: 2026-06-29
+> Scope: ADR-0022 (4-phase RAG retrieval, [n] citations, save-to-wiki, CliAgentProvider.chat()).
+>   Backend-only phase. No new Alembic migration (D2 unchanged). No frontend schema changes.
+>   New endpoint: GET /search. Endpoint wired: POST /ingest/from-text (pre-existing, now exercised).
+>   CliAgentProvider.chat() stub replaced with full delegated streaming implementation.
+> QA verdict: PASS-WITH-NOTES (514 backend / 396 frontend, 2026-06-29).
+> Architect verdict: APPROVE-WITH-CONDITIONS (C1 ADR accuracy fix, C2 already done as pyproject bump).
+
+### Per-artifact status (M5 Phase 1)
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/component.mmd` | N/A-unchanged | Phase 1 adds no new container or top-level component. `rag/retrieval.py` is an internal module within the existing backend service boundary, already represented. `GET /search` is a new route on the existing REST component. No topology change warranting a regen; C1 condition does not require D1 update. |
+| D2 | `docs/er/schema.mmd` | N/A-unchanged | No Alembic migration in Phase 1. `messages.citations` column already present (reserved by ADR-0019, migration 0007). `slug` is derived in code, NOT a DB column (ADR-0022 §2.6). Last verified at M4-EXT gate (migration 0008). Zero drift. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (zero drift) | Regenerated via `python backend/scripts/generate_openapi.py` — zero diff vs committed file. GET /search and POST /ingest/from-text confirmed present. See §M5P1-D4. |
+| D5 | Citation renders + save-to-wiki button | PENDING-LIVE | Phase-1 UI changes ([n] citations as `<sup>`, save-to-wiki button states) need fresh Playwright PNGs. Requires live stack. Not blocking. See §M5P1-D5. |
+| D7 | `docs/adr/0022-retrieval-and-citations.md` | UP-TO-DATE (amended) | C1 condition: `.search()` → `.query_points()` code references corrected in §2.2 and §3 (AQ-v0.5-1). See §M5P1-D7. |
+| TRACEABILITY | Phase-1 ACs | UP-TO-DATE | AC-F5-1..8, AC-F6-3, AC-F6-5, AC-F17-CHAT-1..3 flipped PENDING → GREEN with concrete test IDs from QA report. See §M5P1-TRACE. |
+
+### §M5P1-D4 — OpenAPI zero-drift verification
+
+File: `docs/api/openapi.json`
+
+Ran `cd backend && .venv/bin/python scripts/generate_openapi.py`. Output:
+```
+Generated docs/api/openapi.json
+Sanity check passed: all 10 required endpoints present
+(including /search, /ingest/from-text, /ingest/upload, /import-schedule)
+```
+`git diff docs/api/openapi.json` produced zero output — the committed file is identical to the
+freshly generated output. No regen needed; the backend agent had already committed the current
+version.
+
+Key Phase-1 paths confirmed present in openapi.json:
+
+| Path | Method | Present |
+|------|--------|---------|
+| `/search` | GET | YES |
+| `/ingest/from-text` | POST | YES |
+
+**Result: zero drift. D4 is current.**
+
+### §M5P1-D5 — Screenshots (PENDING-LIVE, not blocking)
+
+Phase-1 UI changes that warrant new or updated screenshots:
+- Chat messages with `[n]` citation superscripts rendered (AC-F6-3).
+- Save-to-wiki button — idle / saving / saved / error states (AC-F6-5).
+- Optionally: a GET /search result view showing citations with scores.
+
+These require a running Synapse stack with at least one indexed document and a live chat session.
+QA/Playwright responsibility. Tracked here; not blocking this gate per established precedent
+(same handling as M4-EXT screenshots and Phase 1 shell screenshots).
+
+Files to capture (target names):
+- `docs/screens/chat-citations.png` — chat message with [n] superscripts.
+- `docs/screens/save-to-wiki-active.png` — save-to-wiki button in saving/saved state.
+
+### §M5P1-D7 — ADR-0022 amendment detail (C1)
+
+File: `docs/adr/0022-retrieval-and-citations.md`
+
+**C1 condition:** §2.2 and §3 (AQ-v0.5-1) referenced `qdrant.search(synapse_pages, ...)` which
+does not exist in qdrant-client ≥ 1.18. The implemented code uses
+`client.query_points(collection_name=…, query=vector, limit=k, with_payload=True)` reading
+`response.points`.
+
+**Amendment applied (§2.2, Phase 1 step 1):**
+
+Old text:
+> `qdrant.search(synapse_pages, vector, limit=k, with_payload=True)`. Point ids are `pages.id`.
+
+New text:
+> `client.query_points(collection_name="synapse_pages", query=vector, limit=k, with_payload=True)`,
+> reading `response.points`. Note: `qdrant_client.QdrantClient.search()` was removed in
+> qdrant-client 1.18; `query_points()` is the current dense top-k API (semantically identical).
+
+**Amendment applied (§3, AQ-v0.5-1):**
+
+Old text:
+> The keyword phase = bge-m3 dense top-k.
+
+New text:
+> The keyword phase = bge-m3 dense top-k via `client.query_points()` (qdrant-client ≥ 1.12;
+> `.search()` was removed in 1.18).
+
+No decision was changed — this is a code-reference accuracy fix only. The behaviour described
+(cosine top-k on the `synapse_pages` collection, same `ScoredPoint` shape) is identical.
+The pyproject.toml floor `qdrant-client>=1.12` was already bumped by the backend agent (C2
+of the architect conditions); this note in the ADR is consistent with that version floor.
+
+### §M5P1-TRACE — TRACEABILITY.md Phase-1 rows
+
+All Phase-1 ACs flipped from PENDING to GREEN. Test IDs sourced from
+`docs/sprints/v0.5-qa-phase1.md` (QA coverage table §4).
+
+| AC | Test file(s) | Test ID(s) | Status |
+|----|--------------|------------|--------|
+| AC-F5-1 | test_retrieval.py | test_ac_f5_1_four_phases_in_order, test_ac_f5_1_vector_seed_ranks_before_expansion | GREEN |
+| AC-F5-2 | test_retrieval.py | test_ac_f5_2_pageref_fields_and_markers, test_ac_f5_2_title_falls_back_to_file_stem | GREEN |
+| AC-F5-3 | test_code_quality.py | test_retrieval_does_not_import_sentence_transformers, test_retrieval_does_not_create_new_qdrant_collection, test_retrieval_uses_existing_embedding_wrapper, test_no_new_embedding_service_in_retrieval_imports | GREEN |
+| AC-F5-4 | test_retrieval.py | test_ac_f5_4_budget_drops_lowest_ranked, test_ac_f5_7d_overflow_drops_until_satisfied | GREEN |
+| AC-F5-5 | test_retrieval.py, test_api.py | test_ac_f5_5_data_version_unchanged, TestGetSearch::test_search_does_not_bump_data_version, TestGetSearch::test_search_data_version_in_response | GREEN |
+| AC-F5-6 | test_api.py, test_docs.py | TestGetSearch::test_search_returns_200, TestGetSearch::test_search_response_has_required_fields, TestGetSearch::test_search_query_reflected_in_response, TestGetSearch::test_openapi_has_search_path | GREEN |
+| AC-F5-7 | test_retrieval.py, test_api.py | test_ac_f5_7a_zero_hit_empty_context, test_ac_f5_7b_single_hit, test_ac_f5_7c_multi_page_expansion, test_ac_f5_7c_expansion_depth_hard_capped_at_2, test_ac_f5_7c_resolved_links_expansion, test_ac_f5_7d_overflow_drops_until_satisfied, TestGetSearch::test_search_0_hit_returns_empty_results | GREEN |
+| AC-F5-8 | test_chat_endpoint.py | test_ac_f5_8_all_providers_receive_retrieval_context[local/api/cli], test_ac_f5_8_done_event_carries_citations_for_all_providers[local/api/cli] | GREEN |
+| AC-F6-3 | test_chat.py, ChatMessage.test.tsx | TestChatCitations::test_citations_stored_in_assistant_message, TestChatCitations::test_done_event_has_citations_field, TestChatCitations::test_done_event_still_has_all_existing_fields, TestChatCitations::test_no_citations_when_retrieve_returns_empty, ChatMessage.test.tsx::decorateCitations (8 cases) | GREEN |
+| AC-F6-5 | ChatMessage.test.tsx, test_api.py | saveToWiki client (4 cases), save-to-wiki button state machine (6 cases), TestIngestFromText::test_from_text_returns_202, TestIngestFromText::test_from_text_response_shape, TestIngestFromText::test_from_text_writes_to_raw_sources | GREEN |
+| AC-F17-CHAT-1 | test_cli_chat.py | test_chat_streams_text_deltas_and_injects_context, test_chat_bounded_by_chat_agent_max_turns_env, test_chat_default_max_turns_is_eight, test_chat_invalid_max_turns_falls_back_to_default | GREEN |
+| AC-F17-CHAT-2 | test_cli_chat.py, test_schemas.py | test_chat_returns_async_iterator_of_strings, test_chat_returns_async_iterator_for_local_and_api, test_chat_cli_no_longer_notimplemented_clean_config_error_without_key | GREEN |
+| AC-F17-CHAT-3 | test_cli_chat.py | test_chat_records_real_sdk_cost_when_present, test_chat_falls_back_to_zero_cost_with_warning, test_chat_no_cost_metadata_does_not_raise | GREEN |
+
+Total rows flipped: **13** (AC-F5-1..8: 8 rows; AC-F6-3, AC-F6-5: 2 rows; AC-F17-CHAT-1..3: 3 rows).
+
+### §M5P1-CROSS — Cross-consistency check
+
+| Check | Result |
+|-------|--------|
+| ADR-0022 §2.2 `query_points()` call matches `backend/app/rag/retrieval.py` implementation | PASS — amendment aligns ADR to code |
+| ADR-0022 §3 AQ-v0.5-1 qdrant-client version note matches `backend/pyproject.toml` floor `>=1.12` | PASS |
+| openapi.json `GET /search` path present and matches ADR-0022 §2.5 response schema (`query`, `context`, `results`, `data_version`, `approx_tokens`, `token_budget`) | PASS |
+| openapi.json `POST /ingest/from-text` present (ADR-0022 §2.7 save-to-wiki seam) | PASS |
+| TRACEABILITY Phase-1 ACs GREEN with test IDs that match QA report `docs/sprints/v0.5-qa-phase1.md` §4 | PASS — sourced directly from QA report |
+| D2 (no migration): `messages.citations` column already present from migration 0007 (ADR-0019); `slug` derived in code; no new columns | PASS — consistent with ADR-0022 §2.6 |
+| D5 screenshots PENDING-LIVE: consistent with precedent set at M4-EXT, M4 Phase 1, M3 gates | PASS |
+| No schema drift introduced by Phase 1 (I8) | PASS — `make er` not needed; confirmed by no models.py change in git status |
+
+**No contradictions found across ADR-0022 / openapi.json / TRACEABILITY / QA report.**
+
+### DOCS GATE VERDICT — M5 Phase 1
+
+| Artifact | Status | Detail |
+|----------|--------|--------|
+| D1 `docs/architecture/component.mmd` | N/A-UNCHANGED | No topology change in Phase 1; existing backend service boundary covers new `rag/retrieval.py` module |
+| D2 `docs/er/schema.mmd` | N/A-UNCHANGED | No migration; messages.citations already present; slug is derived; last verified M4-EXT |
+| D4 `docs/api/openapi.json` | UP-TO-DATE | Zero drift on regeneration; GET /search and POST /ingest/from-text present |
+| D5 `docs/screens/` (citation + save-to-wiki views) | PENDING-LIVE | Playwright capture on live stack; not blocking |
+| D7 `docs/adr/0022-retrieval-and-citations.md` | UP-TO-DATE | C1 amendment: `.search()` → `.query_points()` with 1.18-removal note in §2.2 and §3 |
+| TRACEABILITY Phase-1 ACs | UP-TO-DATE | 13 rows flipped PENDING → GREEN with concrete test IDs from QA report |
+
+**DOCS GATE: PASS-WITH-PENDING**
+
+All required D-artifacts for M5 Phase 1 are UP-TO-DATE or N/A-unchanged.
+
+Pending items (non-blocking):
+- D5: `chat-citations.png` and `save-to-wiki-active.png` screenshots require a live stack.
+  These are QA/Playwright responsibility. Consistent with prior phase precedents.
+
+Drift found and fixed in this run:
+- D7 ADR-0022: `.search()` code references corrected to `.query_points()` in §2.2 and §3
+  (C1 architect condition). No decision changed — accuracy fix only.
+- TRACEABILITY: 13 Phase-1 AC rows updated from PENDING to GREEN with authoritative test IDs.
+
+Zero-drift items:
+- D4: `openapi.json` regeneration produced zero diff (backend agent had already committed the
+  current version with GET /search and POST /ingest/from-text).
+- D1, D2: no topology or schema changes in Phase 1.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-29 | M5 Phase 1 gate**
+
+---
 
 ## M4-HARD — Labeled NavRail + Provider CRUD + Settings Rebuild — DOCS GATE: PASS-WITH-PENDING
 
