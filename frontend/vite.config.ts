@@ -44,6 +44,22 @@ export default defineConfig({
         target: process.env["VITE_API_BASE"] ?? "http://localhost:8000",
         changeOrigin: true,
       },
+      "/mcp": {
+        target: process.env["VITE_API_BASE"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/research": {
+        target: process.env["VITE_API_BASE"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/review": {
+        target: process.env["VITE_API_BASE"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/search": {
+        target: process.env["VITE_API_BASE"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
     },
   },
   // VITE_API_BASE is injected via import.meta.env at build time.
