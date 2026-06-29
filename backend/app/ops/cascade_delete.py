@@ -178,6 +178,28 @@ def _rewrite_body(body: str, title: str) -> str:
     return _WIKILINK_RE.sub(_replace, body)
 
 
+def _rewrite_body_preserving_frontmatter(raw: str, title: str) -> str | None:
+    """
+    Rewrite dead [[wikilinks]] to *title* in the BODY only, preserving the YAML frontmatter
+    block BYTE-FOR-BYTE (I5, ADR-0026 §4.3 / DEFECT-F13-002).
+
+    A `frontmatter.loads`/`dumps` round-trip reorders keys and renormalises list indentation
+    (PyYAML default Dumper), so for a body-only edit we split on the `---` fences and leave the
+    frontmatter text untouched. Returns the new file text, or None if the body is unchanged.
+    Files without a leading `---` fence are rewritten whole.
+    """
+    if raw.startswith("---\n"):
+        parts = raw.split("---\n", maxsplit=2)
+        if len(parts) == 3:  # ['', <frontmatter block>, <body>]
+            fm_block, body = parts[1], parts[2]
+            new_body = _rewrite_body(body, title)
+            if new_body == body:
+                return None
+            return "---\n" + fm_block + "---\n" + new_body
+    new_raw = _rewrite_body(raw, title)
+    return None if new_raw == raw else new_raw
+
+
 def _load_page_file(file_path: str) -> tuple[str, str]:
     """
     Load a wiki file and split into (frontmatter_text, body).
@@ -496,32 +518,35 @@ async def _build_wikilink_rewrites(
                 )
             )
 
-    # Method (c) — fulltext fallback (ONLY when (a)∪(b) may be incomplete)
-    # The happy path skips (c) when (a) already found references (ADR-0026 §3.1).
-    # We still run (c) to catch hand-edited files absent from the links table.
+    # Method (c) — bounded full-text fallback. The no-rescan HAPPY PATH skips (c) entirely
+    # when the links index (a)∪(b) already returned references (ADR-0026 §3.1, DEFECT-F13-001):
+    # in an in-sync vault persist_links keeps that table current, so (c) — which opens every
+    # live wiki file — must NOT run. (c) is the last resort only when the index found nothing
+    # (e.g. a hand-edited file absent from links).
     all_found_ids = set(a_results.keys()) | set(b_results.keys())
-    c_results = await _method_c_fulltext(all_found_ids, title)
-    for fp, (source_id_str, tt) in c_results.items():
-        if fp in match_methods_used:
-            continue  # already found by (a) or (b)
-        logger.info(
-            "cascade_delete method(c) fulltext: file_path=%s target=%r",
-            fp,
-            tt,
-        )
-        match_methods_used[fp] = "fulltext"
-        _, body = _load_page_file(fp)
-        count = _count_body_occurrences(body, title)
-        if count > 0:
-            source_id = uuid.UUID(source_id_str) if source_id_str else uuid.uuid4()
-            rewrites.append(
-                WikilinkRewrite(
-                    source_page_id=source_id,
-                    file_path=fp,
-                    target_title=tt,
-                    occurrences=count,
-                )
+    if not all_found_ids:
+        c_results = await _method_c_fulltext(all_found_ids, title)
+        for fp, (source_id_str, tt) in c_results.items():
+            if fp in match_methods_used:
+                continue  # already found by (a) or (b)
+            logger.info(
+                "cascade_delete method(c) fulltext: file_path=%s target=%r",
+                fp,
+                tt,
             )
+            match_methods_used[fp] = "fulltext"
+            _, body = _load_page_file(fp)
+            count = _count_body_occurrences(body, title)
+            if count > 0:
+                source_id = uuid.UUID(source_id_str) if source_id_str else uuid.uuid4()
+                rewrites.append(
+                    WikilinkRewrite(
+                        source_page_id=source_id,
+                        file_path=fp,
+                        target_title=tt,
+                        occurrences=count,
+                    )
+                )
 
     return rewrites, match_methods_used
 
@@ -657,15 +682,15 @@ async def cascade_delete(page_id: uuid.UUID) -> CascadeResult:
         abs_path = settings.vault_root / rewrite.file_path
         try:
             raw = abs_path.read_text(encoding="utf-8")
-            post = frontmatter.loads(raw)
-            new_body = _rewrite_body(post.content, plan.target_title or "")
-            if new_body == post.content:
+            # I5 / DEFECT-F13-002: rewrite the BODY only and preserve the YAML frontmatter
+            # block BYTE-FOR-BYTE. We must NOT round-trip through frontmatter.loads/dumps here
+            # — PyYAML's dumper reorders keys alphabetically and renormalises list indentation,
+            # producing spurious git diffs on every vault file a delete touches.
+            new_text = _rewrite_body_preserving_frontmatter(raw, plan.target_title or "")
+            if new_text is None:
                 logger.debug("cascade_delete: no changes to %s (body unchanged)", rewrite.file_path)
                 continue
-            # Re-emit with byte-identical frontmatter (ADR-0026 §4.3 / I5)
-            post.content = new_body
-            serialized = frontmatter.dumps(post)
-            abs_path.write_text(serialized, encoding="utf-8")
+            abs_path.write_text(new_text, encoding="utf-8")
             total_occurrences += rewrite.occurrences
             files_written += 1
             logger.info(
@@ -805,7 +830,10 @@ async def _prune_sources(page_id: uuid.UUID, source_to_remove: str) -> None:
         raw = abs_path.read_text(encoding="utf-8")
         post = frontmatter.loads(raw)
         post.metadata["sources"] = new_sources
-        abs_path.write_text(frontmatter.dumps(post), encoding="utf-8")
+        # sources[] is intentionally mutated here, so byte-identity is impossible — but pass
+        # sort_keys=False so PyYAML keeps the existing key ORDER instead of alphabetising it
+        # (DEFECT-F13-002 / I5: minimise the git diff to just the sources change).
+        abs_path.write_text(frontmatter.dumps(post, sort_keys=False), encoding="utf-8")
         logger.info(
             "cascade_delete._prune_sources: pruned %r from sources[] in %s",
             source_to_remove,

@@ -1298,3 +1298,454 @@ class TestCascadeDeleteAPI:
 
         assert resp1.status_code == 200, f"First DELETE must be 200: {resp1.text}"
         assert resp2.status_code == 404, f"Second DELETE must be 404: {resp2.text}"
+
+
+# ── QA-added real-filesystem tests (I5 integrity + preserve-shared + I1) ─────
+#
+# These tests were added by the QA gate (v0.5-phase4) to close three gaps:
+#
+#   T-CD-024  Frontmatter BYTE-IDENTICAL after dead-wikilink rewrite (I5 proof)
+#             The existing T-CD-007 asserts only parsed metadata keys; the ADR
+#             requires "byte-for-byte via frontmatter.dumps".  This test compares
+#             the raw frontmatter bytes before and after the rewrite and asserts
+#             the YAML block is unchanged while the body link is gone.
+#
+#   T-CD-025  preserve-shared: sources[] mutation proven on REAL filesystem (I5 proof)
+#             T-CD-005 only checks that delete_point is NOT called for the
+#             preserved page.  It never reads the file back.  This test creates
+#             concept.md with two sources[], calls cascade_delete, then reads
+#             concept.md from disk and asserts (a) doc.md removed from sources[],
+#             (b) other.md still present, (c) frontmatter YAML valid.
+#
+#   T-CD-026  Method (c) fulltext NOT invoked on links-table-hit happy path (I1)
+#             The test inventory listed T-CD-004 but no test body was present.
+#             The ADR architect-review gate §9 requires this proof.  This test
+#             patches _method_c_fulltext and asserts it is not called when
+#             method (a) already found the referencing file.
+#             NOTE: the production code currently DOES call _method_c_fulltext
+#             unconditionally (passing all_found_ids to limit its effect).  This
+#             test therefore FAILS against the current implementation and is
+#             filed as DEFECT-F13-001 (see QA report).
+
+
+@pytest.mark.asyncio
+class TestQARealFilesystem:
+    """QA-added tests: T-CD-024, T-CD-025, T-CD-026."""
+
+    async def test_frontmatter_integrity_after_rewrite(self, tmp_path: Path) -> None:
+        """
+        T-CD-024 — I5 frontmatter integrity after dead-wikilink rewrite.
+
+        DEFECT-F13-002 (OPEN): The python-frontmatter/PyYAML round-trip via
+        frontmatter.dumps() does NOT preserve key order — it sorts keys
+        alphabetically.  The ADR §4.3 claims "byte-for-byte via frontmatter.dumps"
+        which is false for multi-key frontmatter with non-alphabetical ordering.
+        Filed against backend engineer.
+
+        What this test PROVES on real filesystem:
+          (a) All frontmatter key VALUES survive unchanged (parsed dict equals
+              original dict) — the YAML is semantically correct after rewrite.
+          (b) The body [[Target]] links are gone.
+          (c) Unrelated [[OtherPage]] link is untouched.
+          (d) The file is written (files_written == 1).
+
+        What this test does NOT yet prove (pending DEFECT-F13-002 fix):
+          (e) Key ORDER in frontmatter is preserved (byte-identical block).
+
+        To assert (e), use test_frontmatter_key_order_preserved_xfail below.
+        """
+        target_id = uuid.uuid4()
+        ref_id = uuid.uuid4()
+
+        wiki_dir = tmp_path / "wiki" / "concepts"
+        wiki_dir.mkdir(parents=True)
+        ref_file = wiki_dir / "ref_fm.md"
+
+        original_content = (
+            "---\n"
+            "title: Ref FM\n"
+            "type: concept\n"
+            "sources:\n"
+            "  - raw/sources/doc.md\n"
+            "tags:\n"
+            "  - alpha\n"
+            "  - beta\n"
+            "created_at: '2026-01-01T00:00:00Z'\n"
+            "---\n"
+            "\n"
+            "See [[Target]] in the body.  Also [[Target]] again.\n"
+            "\n"
+            "Unrelated [[OtherPage]] stays.\n"
+        )
+        ref_file.write_text(original_content, encoding="utf-8")
+
+        from app.ops.cascade_delete import CascadePlan, WikilinkRewrite
+
+        plan = CascadePlan(
+            target_page_id=target_id,
+            target_title="Target",
+            target_file_path="wiki/concepts/target.md",
+            will_delete=[target_id],
+            will_preserve_with_pruned_source=[],
+            wikilinks_to_rewrite=[
+                WikilinkRewrite(
+                    source_page_id=ref_id,
+                    file_path="wiki/concepts/ref_fm.md",
+                    target_title="Target",
+                    occurrences=2,
+                )
+            ],
+            index_entry_will_be_removed=True,
+            raw_source_to_delete=None,
+            shared_entity_warnings=[],
+            match_methods_used={"wiki/concepts/ref_fm.md": "exact"},
+        )
+
+        @asynccontextmanager
+        async def _get_session() -> AsyncIterator[Any]:
+            session = AsyncMock()
+            session.execute = AsyncMock(return_value=_make_mock_result())
+            session.add = MagicMock()
+            session.commit = AsyncMock()
+            yield session
+
+        with (
+            patch("app.ops.cascade_delete.plan_cascade_delete", AsyncMock(return_value=plan)),
+            patch("app.ops.cascade_delete.get_session", _get_session),
+            patch("app.ops.cascade_delete.settings") as mock_settings,
+            patch("app.ops.cascade_delete.delete_point", AsyncMock()),
+            patch("app.wiki.index.update_index", AsyncMock()),
+            patch("app.ops.cascade_delete._repersist_links", AsyncMock()),
+        ):
+            mock_settings.vault_root = tmp_path
+            mock_settings.vault_id = "test"
+
+            from app.ops.cascade_delete import cascade_delete
+
+            result = await cascade_delete(target_id)
+
+        # Read back the rewritten file
+        new_content = ref_file.read_text(encoding="utf-8")
+        new_parts = new_content.split("---\n", maxsplit=2)
+        new_body = new_parts[2]
+
+        # ── (b) Body: both [[Target]] dead links must be gone ────────────────
+        assert "[[Target]]" not in new_body, "Dead [[Target]] link survived rewrite"
+        # ── (c) Unrelated [[OtherPage]] stays ────────────────────────────────
+        assert "[[OtherPage]]" in new_body, "OtherPage link was incorrectly removed"
+
+        # ── (a) Parsed metadata: key values semantically intact ───────────────
+        post = fm.loads(new_content)
+        assert post.metadata.get("title") == "Ref FM"
+        assert post.metadata.get("type") == "concept"
+        assert post.metadata.get("sources") == ["raw/sources/doc.md"]
+        assert post.metadata.get("tags") == ["alpha", "beta"]
+
+        # ── (d) file was written ──────────────────────────────────────────────
+        assert result.files_written == 1
+
+    async def test_frontmatter_key_order_preserved_xfail(self, tmp_path: Path) -> None:
+        """
+        T-CD-024b — I5 byte-identical frontmatter (DEFECT-F13-002 FIXED).
+
+        The body-only wikilink rewrite preserves the YAML frontmatter block byte-for-byte
+        via _rewrite_body_preserving_frontmatter (raw `---` split, no PyYAML round-trip),
+        so the frontmatter block is unchanged after a dead-wikilink rewrite.
+        """
+        target_id = uuid.uuid4()
+        ref_id = uuid.uuid4()
+
+        wiki_dir = tmp_path / "wiki" / "concepts"
+        wiki_dir.mkdir(parents=True)
+        ref_file = wiki_dir / "ref_order.md"
+
+        original_content = (
+            "---\n"
+            "title: Ref Order\n"
+            "type: concept\n"
+            "sources:\n"
+            "  - raw/sources/doc.md\n"
+            "tags:\n"
+            "  - alpha\n"
+            "created_at: '2026-01-01T00:00:00Z'\n"
+            "---\n"
+            "\n"
+            "See [[Target]].\n"
+        )
+        ref_file.write_text(original_content, encoding="utf-8")
+        parts = original_content.split("---\n", maxsplit=2)
+        original_fm_block = parts[1]
+
+        from app.ops.cascade_delete import CascadePlan, WikilinkRewrite
+
+        plan = CascadePlan(
+            target_page_id=target_id,
+            target_title="Target",
+            target_file_path="wiki/concepts/target.md",
+            will_delete=[target_id],
+            will_preserve_with_pruned_source=[],
+            wikilinks_to_rewrite=[
+                WikilinkRewrite(
+                    source_page_id=ref_id,
+                    file_path="wiki/concepts/ref_order.md",
+                    target_title="Target",
+                    occurrences=1,
+                )
+            ],
+            index_entry_will_be_removed=True,
+            raw_source_to_delete=None,
+            shared_entity_warnings=[],
+            match_methods_used={"wiki/concepts/ref_order.md": "exact"},
+        )
+
+        @asynccontextmanager
+        async def _get_session() -> AsyncIterator[Any]:
+            session = AsyncMock()
+            session.execute = AsyncMock(return_value=_make_mock_result())
+            session.add = MagicMock()
+            session.commit = AsyncMock()
+            yield session
+
+        with (
+            patch("app.ops.cascade_delete.plan_cascade_delete", AsyncMock(return_value=plan)),
+            patch("app.ops.cascade_delete.get_session", _get_session),
+            patch("app.ops.cascade_delete.settings") as mock_settings,
+            patch("app.ops.cascade_delete.delete_point", AsyncMock()),
+            patch("app.wiki.index.update_index", AsyncMock()),
+            patch("app.ops.cascade_delete._repersist_links", AsyncMock()),
+        ):
+            mock_settings.vault_root = tmp_path
+            mock_settings.vault_id = "test"
+
+            from app.ops.cascade_delete import cascade_delete
+
+            await cascade_delete(target_id)
+
+        new_content = ref_file.read_text(encoding="utf-8")
+        new_parts = new_content.split("---\n", maxsplit=2)
+        new_fm_block = new_parts[1]
+
+        # This assertion will FAIL until DEFECT-F13-002 is fixed
+        assert new_fm_block == original_fm_block, (
+            "Frontmatter key order changed (DEFECT-F13-002).\n"
+            f"Original:\n{original_fm_block!r}\n"
+            f"After rewrite:\n{new_fm_block!r}"
+        )
+
+    async def test_preserve_shared_sources_pruned_in_file(self, tmp_path: Path) -> None:
+        """
+        T-CD-025 — preserve-shared: real sources[] mutation proven on filesystem (I5 proof).
+
+        T-CD-005 (existing test) only checks that delete_point is NOT called for the
+        preserved page.  It never reads the file back to assert the sources[] prune.
+
+        This test: creates concept.md with sources: [doc.md, other.md], calls
+        cascade_delete for a plan that puts wiki_id in will_preserve_with_pruned_source,
+        then reads concept.md from disk and asserts:
+          (a) sources[] no longer contains raw/sources/doc.md
+          (b) sources[] still contains raw/sources/other.md
+          (c) the YAML frontmatter round-trips correctly (title unchanged)
+          (d) delete_point NOT called for wiki_id (page is preserved)
+        """
+        target_id = uuid.uuid4()
+        wiki_id = uuid.uuid4()
+
+        # Create raw source file
+        raw_dir = tmp_path / "raw" / "sources"
+        raw_dir.mkdir(parents=True)
+        (raw_dir / "doc.md").write_text("source content", encoding="utf-8")
+
+        # Create the preserved wiki page with 2 sources
+        wiki_dir = tmp_path / "wiki" / "concepts"
+        wiki_dir.mkdir(parents=True)
+        concept_file = wiki_dir / "concept.md"
+        concept_file.write_text(
+            "---\n"
+            "title: Concept\n"
+            "type: concept\n"
+            "sources:\n"
+            "  - raw/sources/doc.md\n"
+            "  - raw/sources/other.md\n"
+            "---\n"
+            "\n"
+            "Concept body text.\n",
+            encoding="utf-8",
+        )
+
+        from app.ops.cascade_delete import CascadePlan
+
+        plan = CascadePlan(
+            target_page_id=target_id,
+            target_title="Doc",
+            target_file_path="raw/sources/doc.md",
+            will_delete=[target_id],
+            will_preserve_with_pruned_source=[wiki_id],
+            wikilinks_to_rewrite=[],
+            index_entry_will_be_removed=False,
+            raw_source_to_delete="raw/sources/doc.md",
+            shared_entity_warnings=[],
+            match_methods_used={},
+        )
+
+        delete_point_ids: list[uuid.UUID] = []
+
+        async def _mock_delete(pid: uuid.UUID) -> None:
+            delete_point_ids.append(pid)
+
+        @asynccontextmanager
+        async def _get_session() -> AsyncIterator[Any]:
+            session = AsyncMock()
+            # _prune_sources first call: select Page.file_path, Page.sources
+            result_select = MagicMock()
+            result_select.first.return_value = (
+                "wiki/concepts/concept.md",
+                ["raw/sources/doc.md", "raw/sources/other.md"],
+            )
+            result_select.all.return_value = []
+            result_select.scalar_one_or_none.return_value = None
+
+            # All other calls (UPDATE pages, UPDATE links, DELETE edges, vault_state):
+            # return empty mock result
+            call_idx = 0
+
+            async def _execute(stmt: Any, *args: Any, **kwargs: Any) -> Any:
+                nonlocal call_idx
+                call_idx += 1
+                # First execute inside _prune_sources is the SELECT
+                if call_idx == 1:
+                    return result_select
+                return _make_mock_result()
+
+            session.execute = _execute
+            session.add = MagicMock()
+            session.commit = AsyncMock()
+            yield session
+
+        with (
+            patch("app.ops.cascade_delete.plan_cascade_delete", AsyncMock(return_value=plan)),
+            patch("app.ops.cascade_delete.get_session", _get_session),
+            patch("app.ops.cascade_delete.settings") as mock_settings,
+            patch("app.ops.cascade_delete.delete_point", _mock_delete),
+            patch("app.wiki.index.update_index", AsyncMock()),
+        ):
+            mock_settings.vault_root = tmp_path
+            mock_settings.vault_id = "test"
+
+            from app.ops.cascade_delete import cascade_delete
+
+            await cascade_delete(target_id)
+
+        # ── (a) sources[] pruned in the file ─────────────────────────────────
+        updated_content = concept_file.read_text(encoding="utf-8")
+        post = fm.loads(updated_content)
+
+        assert "raw/sources/doc.md" not in post.metadata.get(
+            "sources", []
+        ), "sources[] still contains raw/sources/doc.md after prune"
+        # ── (b) other source entry preserved ─────────────────────────────────
+        assert "raw/sources/other.md" in post.metadata.get(
+            "sources", []
+        ), "sources[] lost raw/sources/other.md (should have been kept)"
+        # ── (c) frontmatter intact ────────────────────────────────────────────
+        assert post.metadata.get("title") == "Concept"
+        assert post.metadata.get("type") == "concept"
+        # ── (d) wiki_id NOT deleted ───────────────────────────────────────────
+        assert (
+            wiki_id not in delete_point_ids
+        ), "wiki_id was passed to delete_point — shared page must be PRESERVED"
+
+    async def test_method_c_not_called_on_links_table_hit(self, tmp_path: Path) -> None:
+        """
+        T-CD-026 — method (c) fulltext NOT invoked on links-table-hit happy path (I1).
+
+        ADR-0026 §3.1 architect-review gate: "the test suite proves (c) is NOT invoked
+        on the links-table-hit fixture".  When method (a) finds the referencing page via
+        the links table, method (c) must be skipped entirely.
+
+        DEFECT-F13-001: The current production code at _build_wikilink_rewrites calls
+        _method_c_fulltext unconditionally (passing all_found_ids to limit its scope),
+        which means it still issues a SQL query to enumerate live wiki pages on the
+        happy path.  This violates ADR-0026 §3.1 and the architect-review gate.
+
+        This test FAILS (xfail) against the current implementation and is filed as a
+        defect to the backend engineer.  Expected fix: add an early-return guard before
+        the _method_c_fulltext call when all candidate link rows are already in
+        all_found_ids (or a simpler: skip (c) when a_results is non-empty and
+        b_results is empty, matching the common case).
+        """
+        target_id = uuid.uuid4()
+        ref_id = uuid.uuid4()
+
+        # Seed filesystem
+        (tmp_path / "wiki" / "concepts").mkdir(parents=True)
+        (tmp_path / "wiki" / "concepts" / "ref.md").write_text(
+            "---\ntitle: Ref\ntype: concept\nsources: []\n---\n\nSee [[Target]].",
+            encoding="utf-8",
+        )
+
+        link_row = (ref_id, "Target")
+        ref_page_row = (ref_id, "wiki/concepts/ref.md")
+
+        call_count = 0
+
+        @asynccontextmanager
+        async def _get_session() -> AsyncIterator[Any]:
+            nonlocal call_count
+            call_count += 1
+            session = AsyncMock()
+            if call_count == 1:
+                # select(Page) for target → return page mock
+                page_mock = MagicMock()
+                page_mock.id = target_id
+                page_mock.title = "Target"
+                page_mock.file_path = "wiki/concepts/target.md"
+                page_mock.sources = []
+                r = MagicMock()
+                r.scalar_one_or_none.return_value = page_mock
+                r.all.return_value = []
+                r.first.return_value = page_mock
+                session.execute = AsyncMock(return_value=r)
+            elif call_count == 2:
+                # method_a: link rows
+                r = MagicMock()
+                r.all.return_value = [link_row]
+                r.scalar_one_or_none.return_value = None
+                r.first.return_value = None
+                session.execute = AsyncMock(return_value=r)
+            elif call_count == 3:
+                # method_a: page file_paths
+                r = MagicMock()
+                r.all.return_value = [ref_page_row]
+                r.scalar_one_or_none.return_value = None
+                session.execute = AsyncMock(return_value=r)
+            else:
+                session.execute = AsyncMock(return_value=_make_mock_result())
+            yield session
+
+        method_c_called = False
+
+        async def _mock_method_c(already_found: set[uuid.UUID], title: str) -> dict:
+            nonlocal method_c_called
+            method_c_called = True
+            return {}
+
+        with (
+            patch("app.ops.cascade_delete.get_session", _get_session),
+            patch("app.ops.cascade_delete.settings") as mock_settings,
+            patch("app.ops.cascade_delete._method_c_fulltext", _mock_method_c),
+        ):
+            mock_settings.vault_root = tmp_path
+            mock_settings.vault_id = "test"
+
+            from app.ops.cascade_delete import plan_cascade_delete
+
+            await plan_cascade_delete(target_id)
+
+        # ADR §3.1 architect-review gate: method (c) MUST NOT be called when
+        # method (a) found the reference via the links table.
+        assert not method_c_called, (
+            "DEFECT-F13-001: _method_c_fulltext was called on the links-table-hit happy "
+            "path (I1 violation per ADR-0026 §3.1).  Expected fix: add an early-return "
+            "guard in _build_wikilink_rewrites before the _method_c_fulltext call when "
+            "all_found_ids is non-empty."
+        )
