@@ -632,6 +632,25 @@
         }
       }
     },
+    "/mcp/info": {
+      "get": {
+        "summary": "Read-only MCP server introspection",
+        "description": "Returns the live FastMCP server metadata: name, transport, entry-point command, and the full list of registered tools (name, description, input_schema). All values are derived from the live `mcp` object and settings \u2014 nothing hardcoded (I6). No MCP transport session is opened; no tool is invoked (I9). Read-only \u2014 edit MCP_TRANSPORT / MCP_ENTRY_COMMAND env vars to change. F1-MCP-UI (ADR-0027 \u00a72.1).",
+        "operationId": "get_mcp_info_mcp_info_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/import-schedule": {
       "get": {
         "summary": "Get scheduled folder import config + last-run status",
@@ -2463,6 +2482,76 @@
           "page_id": "00000000-0000-0000-0000-000000000001",
           "status": "completed"
         }
+      },
+      "McpInfoResponse": {
+        "properties": {
+          "server_name": {
+            "type": "string",
+            "title": "Server Name",
+            "description": "MCP server name, derived from the live FastMCP object (I6)"
+          },
+          "transport": {
+            "type": "string",
+            "title": "Transport",
+            "description": "MCP transport type (MCP_TRANSPORT env, default 'stdio'; ADR-0010)"
+          },
+          "entry_point_command": {
+            "type": "string",
+            "title": "Entry Point Command",
+            "description": "Command to launch the MCP server (MCP_ENTRY_COMMAND env; ADR-0027 \u00a72.3)"
+          },
+          "tool_count": {
+            "type": "integer",
+            "title": "Tool Count",
+            "description": "Number of tools currently registered in the server"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/McpToolInfo"
+            },
+            "type": "array",
+            "title": "Tools",
+            "description": "Introspected tool list from the live registry"
+          }
+        },
+        "type": "object",
+        "required": [
+          "server_name",
+          "transport",
+          "entry_point_command",
+          "tool_count",
+          "tools"
+        ],
+        "title": "McpInfoResponse",
+        "description": "Response model for GET /mcp/info (ADR-0027 \u00a72.1)."
+      },
+      "McpToolInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Tool name as registered in the FastMCP server"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Full tool description (docstring); UI truncates"
+          },
+          "input_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Input Schema",
+            "description": "JSON-Schema object for the tool's input arguments (tool.parameters)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "input_schema"
+        ],
+        "title": "McpToolInfo",
+        "description": "Schema for a single tool entry in GET /mcp/info (ADR-0027 \u00a72.1)."
       },
       "PageListResponse": {
         "properties": {
