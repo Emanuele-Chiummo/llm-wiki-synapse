@@ -171,12 +171,18 @@ async def test_chat_returns_async_iterator_for_local_and_api(
 
 
 @pytest.mark.asyncio
-async def test_chat_cli_remains_not_implemented_in_m4(
+async def test_chat_cli_no_longer_notimplemented_clean_config_error_without_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """CLI delegated streaming chat is out of M4 scope (ADR-0019 §8) — documented, not faked."""
+    """
+    S-F17-1 (ADR-0022 §2.7) removed the M4 NotImplementedError stub: CliAgentProvider.chat() is
+    now a delegated streaming chat. With no ANTHROPIC_API_KEY it raises a CLEAN pre-stream config
+    error (ValueError) — never NotImplementedError, never a fake stream (Do-NOT #9). Full chat
+    behavior is covered in test_cli_chat.py.
+    """
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     cli = CliAgentProvider(ProviderSettings(provider_type="cli", model_id="dummy-model"))
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY not set"):
         await cli.chat([Message(role="user", content="hi")], "")  # type: ignore[attr-defined]
 
 
