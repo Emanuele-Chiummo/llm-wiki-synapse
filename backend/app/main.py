@@ -24,6 +24,7 @@ Endpoints:
   PUT  /import-schedule       — upsert import schedule config (Feature S)
   POST /import-schedule/run-now — trigger one bounded scan immediately (Feature S)
   GET  /config/embedding        — current embedding config (EMBEDDING_URL/MODEL/DIM env vars)
+  GET  /mcp/info                — read-only MCP server introspection (F1-MCP-UI, ADR-0027)
   POST /research/start          — start a bounded deep-research run; 202 {run_id} (F10, ADR-0024)
   GET  /research/runs           — paginated deep-research run list (F10)
   GET  /research/runs/{id}      — deep-research run detail + sources (F10)
@@ -73,6 +74,7 @@ from app.graph.engine import GraphEngine
 from app.import_scheduler import ImportScheduler, load_schedule, upsert_schedule
 from app.ingest.orchestrator import IngestResult, ingest_file
 from app.ingest.schemas import Message
+from app.mcp.server import mcp as _mcp_server
 from app.models import (
     ChatMessage,
     Conversation,
@@ -1576,6 +1578,77 @@ async def get_embedding_config() -> EmbeddingConfigResponse:
         embedding_url=settings.embedding_url,
         embedding_model=settings.embedding_model,
         embedding_dim=settings.embedding_dim,
+    )
+
+
+# ── GET /mcp/info — read-only MCP server introspection (F1-MCP-UI, ADR-0027) ──
+
+
+class McpToolInfo(BaseModel):
+    """Schema for a single tool entry in GET /mcp/info (ADR-0027 §2.1)."""
+
+    name: str = Field(description="Tool name as registered in the FastMCP server")
+    description: str = Field(description="Full tool description (docstring); UI truncates")
+    input_schema: dict[str, Any] = Field(
+        description="JSON-Schema object for the tool's input arguments (tool.parameters)"
+    )
+
+
+class McpInfoResponse(BaseModel):
+    """Response model for GET /mcp/info (ADR-0027 §2.1)."""
+
+    server_name: str = Field(
+        description="MCP server name, derived from the live FastMCP object (I6)"
+    )
+    transport: str = Field(
+        description="MCP transport type (MCP_TRANSPORT env, default 'stdio'; ADR-0010)"
+    )
+    entry_point_command: str = Field(
+        description="Command to launch the MCP server (MCP_ENTRY_COMMAND env; ADR-0027 §2.3)"
+    )
+    tool_count: int = Field(description="Number of tools currently registered in the server")
+    tools: list[McpToolInfo] = Field(description="Introspected tool list from the live registry")
+
+
+@app.get(
+    "/mcp/info",
+    response_model=McpInfoResponse,
+    summary="Read-only MCP server introspection",
+    description=(
+        "Returns the live FastMCP server metadata: name, transport, entry-point command, "
+        "and the full list of registered tools (name, description, input_schema). "
+        "All values are derived from the live `mcp` object and settings — nothing hardcoded (I6). "
+        "No MCP transport session is opened; no tool is invoked (I9). "
+        "Read-only — edit MCP_TRANSPORT / MCP_ENTRY_COMMAND env vars to change. "
+        "F1-MCP-UI (ADR-0027 §2.1)."
+    ),
+)
+async def get_mcp_info() -> McpInfoResponse:
+    """
+    GET /mcp/info — read-only introspection of the Synapse FastMCP server (ADR-0027 §2.1).
+
+    Derives every value from the live `mcp` object (imported at module level) and `settings`.
+    No string about the MCP server is hardcoded inside this function (I6).
+    No DB query, no Qdrant call, no MCP transport/stdio session is opened (I9).
+    """
+    # Introspect the live FastMCP registry — await directly in async handler (ADR-0027 §2.2).
+    raw_tools = await _mcp_server.list_tools()
+
+    tools: list[McpToolInfo] = [
+        McpToolInfo(
+            name=t.name,
+            description=t.description or "",
+            input_schema=t.parameters if t.parameters is not None else {},
+        )
+        for t in raw_tools
+    ]
+
+    return McpInfoResponse(
+        server_name=_mcp_server.name,
+        transport=settings.mcp_transport,
+        entry_point_command=settings.mcp_entry_command,
+        tool_count=len(tools),
+        tools=tools,
     )
 
 

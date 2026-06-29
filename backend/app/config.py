@@ -178,6 +178,22 @@ class Settings(BaseSettings):
     Env var: IMPORT_SCAN_MAX_SECONDS.
     """
 
+    # ── MCP server introspection (F1-MCP-UI, ADR-0027 §2.3) ──────────────────────
+
+    mcp_transport: str = "stdio"
+    """
+    MCP server transport type (ADR-0010 §1; ADR-0027 §2.3).
+    Default: "stdio" — the transport the synapse MCP server uses.
+    Env var: MCP_TRANSPORT.
+    """
+
+    mcp_entry_command: str = "python -m app.mcp.server"
+    """
+    Shell command to launch the MCP server (ADR-0027 §2.3).
+    Default: "python -m app.mcp.server" — the documented stdio entry point.
+    Env var: MCP_ENTRY_COMMAND.
+    """
+
 
 # Module-level singleton — import with `from app.config import settings`
 settings = Settings()
