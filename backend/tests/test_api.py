@@ -206,6 +206,11 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
     monkeypatch.setattr("app.db.get_session", patched_get_session)
     monkeypatch.setattr("app.ingest.orchestrator.get_session", patched_get_session)
     monkeypatch.setattr("app.main.get_session", patched_get_session)
+    # provider_config_service imports get_session via `from app.db import get_session`;
+    # the ingest/provider-resolution path uses that reference, which the patches above do
+    # not cover. Without this it falls through to the real asyncpg engine when a live
+    # Postgres is reachable (test isolation bug). See app/provider_config_service.py:118.
+    monkeypatch.setattr("app.provider_config_service.get_session", patched_get_session)
 
     # Patch Qdrant
     monkeypatch.setattr("app.qdrant_client.get_qdrant_client", lambda: fake_qdrant)
