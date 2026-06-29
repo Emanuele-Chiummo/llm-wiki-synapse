@@ -77,6 +77,7 @@ describe("G3 — parse-once invariant (AC-G3-2 / AC-G3-3)", () => {
       output_tokens: 50,
       total_cost_usd: 0,
       created_at: new Date().toISOString(),
+      citations: [],
     };
 
     useChatStore.getState().finalizeTurn(msg, {
@@ -163,6 +164,7 @@ describe("G3 — AC-G3-3: no parse-selector recompute during stream", () => {
       output_tokens: 50,
       total_cost_usd: 0,
       created_at: new Date().toISOString(),
+      citations: [],
     };
 
     useChatStore.getState().finalizeTurn(msg, {

@@ -29,6 +29,21 @@ export interface ConversationSummary {
 
 export type ChatRole = "user" | "assistant" | "system";
 
+/**
+ * CitationRef — compact citation reference carried from the done event (ADR-0022 §2.4).
+ * Shape: { n, id, title, slug } — score/phase are stored server-side, not streamed.
+ */
+export interface CitationRef {
+  /** 1-based citation index matching [n] markers in the message content. */
+  n: number;
+  /** UUID of the pages row (source document). */
+  id: string;
+  /** Display title of the source page (never empty). */
+  title: string;
+  /** URL-friendly slug derived from the title. */
+  slug: string;
+}
+
 export interface ChatMessage {
   id: string;
   conversation_id: string;
@@ -39,6 +54,11 @@ export interface ChatMessage {
   output_tokens: number;
   total_cost_usd: number;
   created_at: string;
+  /**
+   * Citations carried from the done event (ADR-0022 §2.4).
+   * Empty array when retrieval produced no citations (non-breaking additive field).
+   */
+  citations: CitationRef[];
 }
 
 export interface LastUsage {
@@ -100,6 +120,12 @@ export interface ChatActions {
    */
   finalizeTurn: (msg: ChatMessage, usage: LastUsage) => void;
 
+  /**
+   * Update citations on an already-settled message (used when done event carries
+   * citations but the message was already finalized — no-op if id not found).
+   */
+  updateMessageCitations: (messageId: string, citations: CitationRef[]) => void;
+
   /** Clear streaming state without persisting a message (on abort / error). */
   clearStream: () => void;
 }
@@ -159,6 +185,13 @@ export const useChatStore = create<ChatStore>((set) => ({
       streamError: null,
       lastUsage: usage,
       activeConversationId: s.activeConversationId ?? msg.conversation_id,
+    })),
+
+  updateMessageCitations: (messageId, citations) =>
+    set((s) => ({
+      messages: s.messages.map((m) =>
+        m.id === messageId ? { ...m, citations } : m,
+      ),
     })),
 
   clearStream: () =>
@@ -226,6 +259,9 @@ export const selectSetIsStreaming = (s: ChatStore): ChatActions["setIsStreaming"
   s.setIsStreaming;
 export const selectFinalizeTurn = (s: ChatStore): ChatActions["finalizeTurn"] => s.finalizeTurn;
 export const selectClearStream = (s: ChatStore): ChatActions["clearStream"] => s.clearStream;
+export const selectUpdateMessageCitations = (
+  s: ChatStore,
+): ChatActions["updateMessageCitations"] => s.updateMessageCitations;
 
 // ─── Shallow-equality hooks (I3) ─────────────────────────────────────────────
 

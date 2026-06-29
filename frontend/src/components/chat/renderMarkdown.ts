@@ -81,7 +81,8 @@ export function renderMarkdown(raw: string): string {
       "span",
       "sup", "sub",
     ],
-    ALLOWED_ATTR: ["href", "target", "rel", "class", "id"],
+    // "data-slug" and "tabindex" are needed by decorateCitations citation superscripts.
+    ALLOWED_ATTR: ["href", "target", "rel", "class", "id", "title", "role", "tabindex", "data-slug"],
     // Force external links to open safely
     ADD_ATTR: ["rel"],
     FORCE_BODY: false,

@@ -14,8 +14,8 @@
  *   - Settled messages: role-labelled rows, rendered by MarkdownView.
  *   - The in-flight assistant turn: rendered by StreamingMessage (appended below settled list).
  *   - Auto-scroll to bottom on new message / streaming append (scroll-to-last-row).
- *   - Save-to-wiki button on assistant messages (F6 AC-F6-5): DEFERRED to M5.
- *     Button is disabled with a "coming in M5" tooltip. No POST to /ingest/from-text.
+ *   - Save-to-wiki button on assistant messages (F6 AC-F6-5): enabled (M5).
+ *     On click: POST /ingest/from-text → shows success (page_title + wikilink) or error.
  *   - Cost display per turn (I7): 4dp from total_cost_usd on the done event.
  *   - Regenerate button on the last assistant message (AC-F6-4).
  */
@@ -23,6 +23,8 @@
 import {
   useRef,
   useEffect,
+  useState,
+  useCallback,
   memo,
   type ReactNode,
 } from "react";
@@ -35,6 +37,8 @@ import {
   selectLastUsage,
 } from "../../store/chatStore";
 import type { ChatMessage } from "../../store/chatStore";
+import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import { saveToWiki } from "../../api/chatClient";
 import { MarkdownView } from "./MarkdownView";
 import { StreamingMessage } from "./StreamingMessage";
 
@@ -48,6 +52,7 @@ export function MessageList({ onRegenerate }: MessageListProps): ReactNode {
   const messages = useMessages();
   const isStreaming = useChatStore(selectIsStreaming);
   const lastUsage = useChatStore(selectLastUsage);
+  const vaultId = useGraphStore(selectVaultId);
 
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -125,6 +130,7 @@ export function MessageList({ onRegenerate }: MessageListProps): ReactNode {
                   onRegenerate={isLast && msg.role === "assistant" ? onRegenerate : undefined}
                   showCost={isLast && msg.role === "assistant" && lastUsage !== null}
                   costUsd={isLast ? (lastUsage?.totalCostUsd ?? msg.total_cost_usd) : msg.total_cost_usd}
+                  vaultId={vaultId}
                   t={t}
                 />
               </div>
@@ -149,6 +155,14 @@ export function MessageList({ onRegenerate }: MessageListProps): ReactNode {
   );
 }
 
+// ─── Save-to-wiki state ───────────────────────────────────────────────────────
+
+type SaveState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "success"; pageTitle: string; wikilink: string }
+  | { kind: "error"; message: string };
+
 // ─── MessageRow — memoized per settled message ────────────────────────────────
 
 interface MessageRowProps {
@@ -157,6 +171,7 @@ interface MessageRowProps {
   onRegenerate?: (() => void) | undefined;
   showCost: boolean;
   costUsd: number;
+  vaultId: string | null | undefined;
   t: ReturnType<typeof useTranslation>["t"];
 }
 
@@ -166,14 +181,34 @@ const MessageRow = memo(function MessageRow({
   onRegenerate,
   showCost,
   costUsd,
+  vaultId,
   t,
 }: MessageRowProps): ReactNode {
-  // Save-to-wiki deferred to M5 (F5 retrieval/citations). No POST in this build.
+  const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
+
+  const handleSaveToWiki = useCallback(async () => {
+    if (saveState.kind === "loading") return;
+    setSaveState({ kind: "loading" });
+    try {
+      const result = await saveToWiki(msg.content, vaultId ?? null);
+      setSaveState({ kind: "success", pageTitle: result.page_title, wikilink: result.wikilink });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t("chat.saveToWikiError");
+      setSaveState({ kind: "error", message });
+    }
+  }, [saveState.kind, msg.content, vaultId, t]);
 
   return (
     <div>
       <MessageRoleLabel role={msg.role} t={t} />
-      <MarkdownView content={msg.content} />
+      {/* Pass citations to MarkdownView for [n] decoration (ADR-0022 §2.4).
+          onCitationClick is omitted — page navigation stub; TODO(F5-nav): wire when
+          wiki tree selection is wired to the chat panel. */}
+      <MarkdownView
+        content={msg.content}
+        citations={msg.citations}
+        /* onCitationClick intentionally omitted — navigation not yet wired (F5-nav stub) */
+      />
 
       {/* Metadata footer — cost + actions */}
       {(showCost || isLast) && msg.role === "assistant" && (
@@ -181,6 +216,7 @@ const MessageRow = memo(function MessageRow({
           style={{
             display: "flex",
             alignItems: "center",
+            flexWrap: "wrap",
             gap: 12,
             marginTop: 8,
             fontSize: 11,
@@ -194,25 +230,52 @@ const MessageRow = memo(function MessageRow({
             </span>
           )}
 
-          {/* Save to wiki — disabled stub, deferred to M5 (F5 retrieval/citations) */}
-          <button
-            type="button"
-            disabled
-            aria-disabled="true"
-            style={{
-              background: "none",
-              border: "1px solid #21262d",
-              borderRadius: 4,
-              color: "#30363d",
-              cursor: "not-allowed",
-              fontSize: 11,
-              padding: "2px 8px",
-              opacity: 0.5,
-            }}
-            title={t("chat.saveToWikiComingSoon")}
-          >
-            {t("chat.saveToWiki")}
-          </button>
+          {/* Save to wiki (AC-F6-5) — enabled in M5 */}
+          {saveState.kind === "idle" || saveState.kind === "error" ? (
+            <button
+              type="button"
+              onClick={() => void handleSaveToWiki()}
+              data-testid="save-to-wiki-btn"
+              style={{
+                background: "none",
+                border: "1px solid #30363d",
+                borderRadius: 4,
+                color: "#8b949e",
+                cursor: "pointer",
+                fontSize: 11,
+                padding: "2px 8px",
+              }}
+              title={t("chat.saveToWiki")}
+            >
+              {t("chat.saveToWiki")}
+            </button>
+          ) : saveState.kind === "loading" ? (
+            <span
+              data-testid="save-to-wiki-loading"
+              style={{ color: "#8b949e", fontSize: 11 }}
+            >
+              {t("chat.saveToWikiSaving")}
+            </span>
+          ) : (
+            /* success */
+            <span
+              data-testid="save-to-wiki-success"
+              style={{ color: "#3fb950", fontSize: 11 }}
+              title={saveState.wikilink}
+            >
+              {t("chat.saveToWikiSaved", { title: saveState.pageTitle })}
+            </span>
+          )}
+
+          {/* Inline error — shown below the button on next render */}
+          {saveState.kind === "error" && (
+            <span
+              data-testid="save-to-wiki-error"
+              style={{ color: "#f85149", fontSize: 11 }}
+            >
+              {saveState.message}
+            </span>
+          )}
 
           {/* Regenerate (AC-F6-4) — only on last assistant message */}
           {isLast && onRegenerate && (
