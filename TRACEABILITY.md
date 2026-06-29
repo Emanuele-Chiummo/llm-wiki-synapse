@@ -1,6 +1,6 @@
 # Synapse — Traceability Matrix
 > Maintained by: functional-analyst (stub), qa-test-engineer (fills Test ID + Status columns)
-> Last updated: 2026-06-29 (Sprint 5 / v0.5 — M5 section added; stale M4 PENDING rows resolved)
+> Last updated: 2026-06-29 (Sprint 5 / v0.5 — M5 Phase 1 ACs flipped to GREEN; tech-writer docs gate)
 > Source of truth for feature IDs: CLAUDE.md §4
 > User stories + ACs: docs/sprints/v0.1-stories.md, docs/sprints/v0.2-stories.md
 > Sprint scope + Exit Criteria (EC-x): docs/sprints/v0.1-scope.md §5, docs/sprints/v0.2-scope.md §7
@@ -1380,14 +1380,14 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 
 | AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|----------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F5-1 | S-F5-1 | EC-M5-1 | — | I1, I2, I3, I9 | backend/tests/test_retrieval.py | PENDING | — | PENDING |
-| AC-F5-2 | S-F5-1 | EC-M5-2 | — | I3 | backend/tests/test_retrieval.py | PENDING | — | PENDING |
-| AC-F5-3 | S-F5-1 | EC-M5-1 | — | I9 | backend/tests/test_code_quality.py | PENDING | — | PENDING |
-| AC-F5-4 | S-F5-1 | EC-M5-1 | — | I3 | backend/tests/test_retrieval.py | PENDING | — | PENDING |
-| AC-F5-5 | S-F5-1 | EC-M5-1 | — | I2 | backend/tests/test_retrieval.py | PENDING | — | PENDING |
-| AC-F5-6 | S-F5-1 | EC-M5-1 | D4 | I8 | backend/tests/test_api.py, backend/tests/test_docs.py | PENDING | — | PENDING |
-| AC-F5-7 | S-F5-1 | EC-M5-1 | — | I1 | backend/tests/test_retrieval.py | PENDING | — | PENDING |
-| AC-F5-8 | S-F5-1 | EC-M5-2 | — | I3, I6 | backend/tests/test_chat_endpoint.py | PENDING | — | PENDING |
+| AC-F5-1 | S-F5-1 | EC-M5-1 | — | I1, I2, I3, I9 | backend/tests/test_retrieval.py | test_ac_f5_1_four_phases_in_order, test_ac_f5_1_vector_seed_ranks_before_expansion | — | GREEN |
+| AC-F5-2 | S-F5-1 | EC-M5-2 | — | I3 | backend/tests/test_retrieval.py | test_ac_f5_2_pageref_fields_and_markers, test_ac_f5_2_title_falls_back_to_file_stem | — | GREEN |
+| AC-F5-3 | S-F5-1 | EC-M5-1 | — | I9 | backend/tests/test_code_quality.py | test_retrieval_does_not_import_sentence_transformers, test_retrieval_does_not_create_new_qdrant_collection, test_retrieval_uses_existing_embedding_wrapper, test_no_new_embedding_service_in_retrieval_imports | — | GREEN |
+| AC-F5-4 | S-F5-1 | EC-M5-1 | — | I3 | backend/tests/test_retrieval.py | test_ac_f5_4_budget_drops_lowest_ranked, test_ac_f5_7d_overflow_drops_until_satisfied | — | GREEN |
+| AC-F5-5 | S-F5-1 | EC-M5-1 | — | I2 | backend/tests/test_retrieval.py, backend/tests/test_api.py | test_ac_f5_5_data_version_unchanged, TestGetSearch::test_search_does_not_bump_data_version, TestGetSearch::test_search_data_version_in_response | — | GREEN |
+| AC-F5-6 | S-F5-1 | EC-M5-1 | D4 | I8 | backend/tests/test_api.py, backend/tests/test_docs.py | TestGetSearch::test_search_returns_200, TestGetSearch::test_search_response_has_required_fields, TestGetSearch::test_search_query_reflected_in_response, TestGetSearch::test_openapi_has_search_path | — | GREEN |
+| AC-F5-7 | S-F5-1 | EC-M5-1 | — | I1 | backend/tests/test_retrieval.py, backend/tests/test_api.py | test_ac_f5_7a_zero_hit_empty_context, test_ac_f5_7b_single_hit, test_ac_f5_7c_multi_page_expansion, test_ac_f5_7c_expansion_depth_hard_capped_at_2, test_ac_f5_7c_resolved_links_expansion, test_ac_f5_7d_overflow_drops_until_satisfied, TestGetSearch::test_search_0_hit_returns_empty_results | — | GREEN |
+| AC-F5-8 | S-F5-1 | EC-M5-2 | — | I3, I6 | backend/tests/test_chat_endpoint.py | test_ac_f5_8_all_providers_receive_retrieval_context[local/api/cli], test_ac_f5_8_done_event_carries_citations_for_all_providers[local/api/cli] | — | GREEN |
 
 ---
 
@@ -1395,8 +1395,8 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 
 | AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|----------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F6-3 | S-F6-1 | EC-M5-2 | D2 | I3 | backend/tests/test_chat_endpoint.py, frontend/src/tests/ChatMessage.test.tsx | PENDING | — | PENDING |
-| AC-F6-5 | S-F6-2 | EC-M5-3 | — | I1, I6 | frontend/src/tests/ChatMessage.test.tsx | PENDING | — | PENDING |
+| AC-F6-3 | S-F6-1 | EC-M5-2 | D2 | I3 | backend/tests/test_chat.py, frontend/src/tests/ChatMessage.test.tsx | TestChatCitations::test_citations_stored_in_assistant_message, TestChatCitations::test_done_event_has_citations_field, TestChatCitations::test_done_event_still_has_all_existing_fields, TestChatCitations::test_no_citations_when_retrieve_returns_empty, ChatMessage.test.tsx::decorateCitations (8 cases) | — | GREEN |
+| AC-F6-5 | S-F6-2 | EC-M5-3 | — | I1, I6 | frontend/src/tests/ChatMessage.test.tsx, backend/tests/test_api.py | ChatMessage.test.tsx::saveToWiki client (4 cases), ::save-to-wiki button state machine (6 cases), TestIngestFromText::test_from_text_returns_202, TestIngestFromText::test_from_text_response_shape, TestIngestFromText::test_from_text_writes_to_raw_sources | — | GREEN |
 
 ---
 
@@ -1404,9 +1404,9 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 
 | AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|----------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F17-CHAT-1 | S-F17-1 | EC-M5-4 | — | I6, I7 | backend/tests/test_cli_chat.py | PENDING | — | PENDING |
-| AC-F17-CHAT-2 | S-F17-1 | EC-M5-4 | — | I6 | backend/tests/test_cli_chat.py | PENDING | — | PENDING |
-| AC-F17-CHAT-3 | S-F17-1 | EC-M5-4 | — | I7 | backend/tests/test_cli_chat.py | PENDING | — | PENDING |
+| AC-F17-CHAT-1 | S-F17-1 | EC-M5-4 | — | I6, I7 | backend/tests/test_cli_chat.py | test_chat_streams_text_deltas_and_injects_context, test_chat_bounded_by_chat_agent_max_turns_env, test_chat_default_max_turns_is_eight, test_chat_invalid_max_turns_falls_back_to_default | — | GREEN |
+| AC-F17-CHAT-2 | S-F17-1 | EC-M5-4 | — | I6 | backend/tests/test_cli_chat.py, backend/tests/test_schemas.py | test_chat_returns_async_iterator_of_strings, test_chat_returns_async_iterator_for_local_and_api, test_chat_cli_no_longer_notimplemented_clean_config_error_without_key | — | GREEN |
+| AC-F17-CHAT-3 | S-F17-1 | EC-M5-4 | — | I7 | backend/tests/test_cli_chat.py | test_chat_records_real_sdk_cost_when_present, test_chat_falls_back_to_zero_cost_with_warning, test_chat_no_cost_metadata_does_not_raise | — | GREEN |
 
 ---
 
@@ -1502,10 +1502,10 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 
 | EC | Description (abbreviated) | Covering ACs | Status |
 |----|---------------------------|-------------|--------|
-| EC-M5-1 | F5 4-phase retrieval; unit + integration tests; GET /search in openapi.json | AC-F5-1..7 | PENDING |
-| EC-M5-2 | [n] citations in chat messages; stored in Postgres; render as clickable superscripts | AC-F5-2, AC-F5-8, AC-F6-3 | PENDING |
-| EC-M5-3 | save-to-wiki button wired; POST /ingest called; inline result shown | AC-F6-5 | PENDING |
-| EC-M5-4 | CliAgentProvider.chat() implemented; streaming consistent; I7 bounded; cost logged | AC-F17-CHAT-1, AC-F17-CHAT-2, AC-F17-CHAT-3 | PENDING |
+| EC-M5-1 | F5 4-phase retrieval; unit + integration tests; GET /search in openapi.json | AC-F5-1..7 | GREEN (Phase 1 gate 2026-06-29; 514 pytest pass) |
+| EC-M5-2 | [n] citations in chat messages; stored in Postgres; render as clickable superscripts | AC-F5-2, AC-F5-8, AC-F6-3 | GREEN (Phase 1 gate 2026-06-29) |
+| EC-M5-3 | save-to-wiki button wired; POST /ingest called; inline result shown | AC-F6-5 | GREEN (Phase 1 gate 2026-06-29) |
+| EC-M5-4 | CliAgentProvider.chat() implemented; streaming consistent; I7 bounded; cost logged | AC-F17-CHAT-1, AC-F17-CHAT-2, AC-F17-CHAT-3 | GREEN (Phase 1 gate 2026-06-29) |
 | EC-M5-5 | F10 deep research loop with max_iter + token_budget + concurrency≤3; I7 test: always-insufficient mock stops at max_iter | AC-F10-1, AC-F10-2, AC-F10-6, AC-F10-7 | PENDING |
 | EC-M5-6 | SearXNG only; static import test: no Tavily/DDG/Google imports | AC-F10-3 | PENDING |
 | EC-M5-7 | POST /research/start, GET /research/runs, GET /research/runs/{id} live and in openapi.json | AC-F10-4, AC-F10-8 | PENDING |

@@ -66,7 +66,11 @@ bodies, and assembles a context string + citation map server-side (I3).
 ### 2.2 The four phases (in order)
 
 1. **Tokenized / vector search (I9).** Embed `query` via the existing `get_embedding_client()` (bge-m3),
-   `qdrant.search(synapse_pages, vector, limit=k, with_payload=True)`. Point ids are `pages.id`.
+   `client.query_points(collection_name="synapse_pages", query=vector, limit=k, with_payload=True)`,
+   reading `response.points`. Note: `qdrant_client.QdrantClient.search()` was removed in
+   qdrant-client 1.18; `query_points()` is the current dense top-k API (semantically identical —
+   same cosine top-k, same single-dense `synapse_pages` collection, same `ScoredPoint` where
+   `point.id == pages.id`). Point ids are `pages.id`.
    **Dense-only** (see §3, AQ-v0.5-1). Score = cosine similarity.
 2. **Graph-expansion (I2).** BFS over the **`edges` table** (the F4 4-signal output) from the seed
    pages, `expansion_depth ≤ 2` (hard cap), ordered by edge `weight DESC`; also follow resolved
@@ -158,8 +162,9 @@ no sparse vector).
 
 - **AQ-v0.5-1 (P0) — dense-only, no BM25.** The `synapse_pages` collection is single-dense; adding a
   named sparse vector is a collection-shape change we do not take on the dependency-root feature. The
-  keyword phase = bge-m3 dense top-k. Hybrid (named sparse vector + RRF fusion) is a **measured
-  post-M5 enhancement**, not a guess. Recall is widened by graph-expansion (Phase 2).
+  keyword phase = bge-m3 dense top-k via `client.query_points()` (qdrant-client ≥ 1.12; `.search()`
+  was removed in 1.18). Hybrid (named sparse vector + RRF fusion) is a **measured post-M5
+  enhancement**, not a guess. Recall is widened by graph-expansion (Phase 2).
 - **AQ-v0.5-2 (P0) — char/4, not tiktoken.** Reuse the existing `_CHARS_PER_TOKEN=4` convention
   (`chat/context.py`/`stream.py`). tiktoken is OpenAI-specific (mis-estimates Anthropic/Ollama), a new
   heavy dependency (I9), and unnecessary for a *drop-lowest-ranked* safety cap. Under-fill is the safe
