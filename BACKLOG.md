@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-06-29 (M4-HARD hardening increment opened — post-human-testing fixes; scope-lock in docs/sprints/v0.4-hard-scope.md)
+> Last updated: 2026-06-29 (Sprint 5 / v0.5 opened — M4 CLOSED; scope-lock in docs/sprints/v0.5-scope.md)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -1026,10 +1026,12 @@ to show `GC->>Client: (from in-process snapshot)` on the HIT path.
 
 ## Sprint 4 — v0.4 — M4 "Usable & fluid"
 
-**Sprint status: DONE — M4 MET-WITH-DEFERRALS (D6 conditional); EC-M4-HCP PENDING**
+**Sprint status: DONE — M4 CLOSED**
+**EC-M4-HCP: CLEARED 2026-06-29 — docs/sprints/v0.4-m4-closure.md**
+**v0.4.0 released — https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases/tag/v0.4.0**
 **M4-EXT: DONE — F1-UPLOAD and F1-SCHED shipped (commit f7c7865 / 59765f3)**
-**M4-HARD: DONE — MET-WITH-FOLLOWUPS — All 4 gate sign-offs received; PM verdict 2026-06-29; EC-M4-HCP still required before Sprint 5**
-**Sprint 5 gate: BLOCKED — waiting for EC-M4-HCP (Emanuele's manual browser confirmation)**
+**M4-HARD: DONE — MET-WITH-FOLLOWUPS — All 4 gate sign-offs received; PM verdict 2026-06-29**
+**Sprint 5 gate: OPEN — EC-M4-HCP cleared; Sprint 5 scope locked in docs/sprints/v0.5-scope.md**
 **M4-HARD scope-lock document: docs/sprints/v0.4-hard-scope.md**
 Scope locked: 2026-06-28 by product-manager. Scope log: docs/sprints/v0.4-pm-scope.md
 PM sign-off: docs/sprints/v0.4-pm-signoff.md | 2026-06-28
@@ -1295,46 +1297,244 @@ All 4 sign-offs still required before PM closes M4-HARD and unblocks Sprint 5.
 
 ---
 
-## Sprint 5 — v0.5 — M5 "Feature parity core" — BACKLOG (not yet started)
+## Sprint 5 — v0.5 — M5 "Feature parity core"
 
-Sprint 5 blocked until EC-M4-HCP human checkpoint is confirmed by Emanuele.
+**Sprint status: IN PROGRESS**
+**Scope locked: 2026-06-29 by product-manager — docs/sprints/v0.5-scope.md**
+**Branch: sprint/v0.5 (cut from sprint/v0.4 after EC-M4-HCP cleared)**
+**Prerequisite: M4 CLOSED — docs/sprints/v0.4-m4-closure.md (2026-06-29)**
+**Invariants with heightened priority: I7 (bounded loops — headline, F10 deep research),
+  I9 (SearXNG reuse — never Tavily; Qdrant + bge-m3 for embeddings). All 9 invariants apply.**
 
-### Core M5 features (from CLAUDE.md §8 roadmap)
+---
 
-| Feature ID | Description | Notes |
-|------------|-------------|-------|
-| F5 | 4-phase retrieval (tokenized → graph-expansion → budget → assembly), [n] citation markers | Required for AC-F6-3 citations |
-| F9 | Async HITL review queue (Create / Deep-Research / Skip actions, pre-generated queries) | K8 principle; NOT the ingest trigger (that is F1-INGEST-VIEW done in M4) |
-| F10 | Deep Research loop (SearXNG multi-query → fetch → assess → refine → synthesize → auto-ingest) | I9: SearXNG only; concurrency=3 |
-| F12 | Multi-format ingest: PDF/DOCX/PPTX/XLSX/images/AV | pypdf, unstructured, python-docx/pptx, openpyxl |
-| F13 | Cascade deletion (3-method matching, preserve shared entities, cleanup index.md + dead wikilinks) | |
-| D3 (update) | Sequence diagrams: deep-research, cascade-delete | Tied to F10/F13 |
-| D5 (update) | Screenshots refreshed | |
+### F5 — 4-phase RAG retrieval
 
-### Carried from M4 (deferred items — PM-approved)
+| Field | Value |
+|-------|-------|
+| Feature ID | F5 |
+| Sprint | v0.5 |
+| Status | backlog |
+| Priority | P0 — Phase 1; dependency root for F6 citations, F17 chat, F10→F9 chain |
+| Owner | backend-engineer (retrieval.py, GET /search); ai-agent-engineer (CliAgentProvider.chat() wiring) |
 
-| Item | Feature ID | Notes |
-|------|------------|-------|
-| [n] citations population | F6 (AC-F6-3) | Blocked on F5 retrieval pipeline |
-| save-to-wiki from chat | F6 (AC-F6-5) | Button disabled in M4 UI; wire to POST /ingest in M5 |
-| CliAgentProvider.chat() | F17 | Honest NotImplementedError in M4; implement in M5 |
-| Selected-page context injection into chat | F6/F5 | Requires F5 retrieval context assembly |
-| docs/USER.md | D6 (AC-D6-1) | MUST be delivered; conditional requirement for EC-M4-HCP close |
-| docs/DEPLOY.md v0.4 promotion | D6 (AC-D6-2) | MUST be delivered; conditional for EC-M4-HCP close |
-| chat-think-block D5 screenshot | D5 | Needs <think>-capable model (qwen2.5:3b emits none) |
+**Scope:**
+`backend/app/rag/retrieval.py` — 4-phase retrieval pipeline:
+(1) tokenized keyword search via Qdrant (bge-m3); (2) graph-expansion via Postgres `edges`
+table (depth 1–2, no FA2 recompute); (3) token-budget allocation (20% of configured window
+per F14); (4) context assembly with `[n]` citation markers. Returns `RetrievalContext`
+Pydantic model with passages + page refs. `GET /search` REST endpoint.
 
-### Carried nits from M4 (non-blocking)
+**Key invariants:** I1 (no rescan), I2 (no graph recompute triggered), I3 (no retrieval
+per-token during chat), I9 (reuse Qdrant + bge-m3 only).
 
-| Item | Tracking ID | Notes |
-|------|-------------|-------|
-| graph-recompute.mmd hit-path cosmetic | NB-7 | Optional tech-writer polish |
-| component.mmd store label (store/graphStore.ts) | NB-8 | Optional tech-writer polish |
-| CI branch filter (add sprint/v0.3, sprint/v0.4) | NB-9 | Devops; non-blocking |
-| Architect P1 nit: capability heuristic | — | Backend hardening |
-| Architect P2 nit: optimistic think reconstruction | — | Frontend hardening |
-| Architect P3 nit: token_budget stream-stop test | — | QA test addition |
-| G4 fps Playwright test (live-run deferred) | — | T-E2E-G4-001/002; requires TrueNAS run |
-| G2 runtime Playwright test (live-run deferred) | — | T-E2E-G2-001/002 |
+**Acceptance criteria:** docs/sprints/v0.5-scope.md §4 AC-F5-1..8
+
+---
+
+### F6 (carry-forward) — AC-F6-3 citations + AC-F6-5 save-to-wiki
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F6 (AC-F6-3 + AC-F6-5 only — all other ACs done in M4) |
+| Sprint | v0.5 |
+| Status | blocked — blocked on F5 (Phase 1) |
+| Priority | P0 — directly user-visible chat improvement |
+| Owner | frontend-engineer (citation rendering); backend-engineer (POST /ingest wire) |
+
+**Scope:**
+AC-F6-3: `[n]` citation markers in assistant messages, populated by F5 retrieval context.
+Stored in messages table (JSONB citations field). Rendered as clickable superscripts.
+AC-F6-5: save-to-wiki button enabled and wired to POST /ingest; inline result shown on 202.
+
+**Acceptance criteria:** docs/sprints/v0.5-scope.md §4 AC-F6-3, AC-F6-5
+
+---
+
+### F17 (carry-forward) — CliAgentProvider.chat()
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F17 (CliAgentProvider.chat() only — all other ACs done in M2/M4) |
+| Sprint | v0.5 |
+| Status | blocked — blocked on F5 (Phase 1) |
+| Priority | P1 — removes NotImplementedError for CLI backend chat |
+| Owner | ai-agent-engineer |
+
+**Scope:**
+Implement `CliAgentProvider.chat(messages, retrieval_context)` — delegates to
+claude-agent-sdk with retrieval context injected. Bounded by max_iter + token_budget (I7).
+Streaming interface consistent with OllamaProvider and ApiProvider. total_cost_usd logged.
+
+**Acceptance criteria:** docs/sprints/v0.5-scope.md §4 AC-F17-CHAT-1..3
+
+---
+
+### F9 — Async HITL review queue
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F9 |
+| Sprint | v0.5 |
+| Status | blocked — blocked on F10 (Phase 2; Deep-Research action depends on /research/start) |
+| Priority | P0 — K8 principle; F9 is the async curation queue |
+| Owner | backend-engineer (review.py, REST endpoints); frontend-engineer (Review nav section) |
+
+**Scope:**
+`backend/app/ops/review.py` — async queue backed by `review_items` Postgres table. Enqueue
+on every ingest (item_type=new_page). Actions: Create (approve), Deep-Research (delegates
+to F10 POST /research/start), Skip. Pre-generated queries (1–3 per item, bounded 1
+InferenceProvider call). Review nav section activated in UI (previously "coming in M5"
+placeholder). TanStack Virtual for list >50 items (I4).
+
+**F9 boundary (explicit):** This is NOT the Ingest Activity View (F1-INGEST-VIEW, done
+in M4). F9 is a separate Review nav section. The Sources section (F1-INGEST-VIEW) is not
+modified. Any engineer adding F9 actions to the Sources section will be blocked.
+
+**Key invariants:** I6 (pre-generated query calls through InferenceProvider), I7 (bounded
+1 call/item for query generation).
+
+**Acceptance criteria:** docs/sprints/v0.5-scope.md §4 AC-F9-1..8
+
+---
+
+### F10 — Deep Research loop
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F10 |
+| Sprint | v0.5 |
+| Status | backlog |
+| Priority | P0 — Phase 2; headline I7 feature; unblocks F9 Deep-Research action |
+| Owner | backend-engineer (deep_research.py, REST endpoints); frontend-engineer (Deep Search nav section) |
+
+**Scope:**
+`backend/app/ops/deep_research.py` — bounded multi-query SearXNG loop:
+query generation (InferenceProvider) → SearXNG search (I9; never Tavily); concurrency=3
+(asyncio semaphore) → fetch+parse → assess sufficiency (InferenceProvider) → refine queries
+(bounded by max_iter, default 3) → synthesize (InferenceProvider) → auto-ingest (via
+existing orchestrated pipeline). New Postgres tables: `deep_research_runs`,
+`deep_research_sources`. REST: POST /research/start, GET /research/runs,
+GET /research/runs/{id}. "Deep Search" nav section activated.
+
+**Key invariants:** I7 (max_iter + token_budget + concurrency≤3 ALL enforced; total_cost_usd
+logged), I9 (SearXNG only), I6 (all InferenceProvider calls via ABC).
+
+**Acceptance criteria:** docs/sprints/v0.5-scope.md §4 AC-F10-1..8
+
+---
+
+### F12 — Multi-format ingest
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F12 |
+| Sprint | v0.5 |
+| Status | backlog |
+| Priority | P0 — Phase 3; removes .txt/.md constraint introduced by F1-UPLOAD (M4) |
+| Owner | backend-engineer (ingest/extract.py; pyproject.toml deps; upload endpoint extension) |
+
+**Scope:**
+`backend/app/ingest/extract.py` — dispatch function `extract_text(file_path) -> str` with
+per-format extractors: PDF (pypdf), DOCX (python-docx), PPTX (python-pptx), XLSX
+(openpyxl), images (unstructured or placeholder), AV (placeholder). Extracted text fed
+into existing `analyze()`/`generate()` pipeline — no new LLM calls in extraction.
+Extend POST /ingest/upload to accept PDF/DOCX/PPTX/XLSX/image MIME types. Binary files
+written to vault/raw/sources/; extracted companion .md also in vault/raw/sources/. wiki/
+only written by ingest pipeline (I5, K1 3-layer rule).
+
+**Key invariants:** I1 (same file twice = no duplicate), I5 (raw/ layer preserved), I6
+(no direct LLM calls in extractor).
+
+**Acceptance criteria:** docs/sprints/v0.5-scope.md §4 AC-F12-1..7
+
+---
+
+### F13 — Cascade deletion
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F13 |
+| Sprint | v0.5 |
+| Status | backlog |
+| Priority | P0 — Phase 4; highest vault-integrity risk; placed last when vault is stable |
+| Owner | backend-engineer (cascade_delete.py, DELETE /pages/{id}); frontend-engineer (delete modal) |
+
+**Scope:**
+`backend/app/ops/cascade_delete.py` — `cascade_delete(page_id)`: soft-delete Postgres row
++ Qdrant vector removal + index.md entry removal + targeted wikilink cleanup in wiki/ files
+(3-method matching: exact title, slug, fulltext scan). Shared-entity warning (non-blocking).
+data_version bump triggers existing debounced recompute. DELETE /pages/{id} REST endpoint.
+Frontend delete action with confirmation modal showing shared-entity warnings.
+
+**Key invariants:** I1 (targeted file edits only — no full rescan, no mass wiki rewrite),
+I5 (vault remains valid Obsidian vault after deletion).
+
+**Acceptance criteria:** docs/sprints/v0.5-scope.md §4 AC-F13-1..7
+
+---
+
+### D3 (update) — Sequence diagrams: deep-research + cascade-delete
+
+| Field | Value |
+|-------|-------|
+| Feature ID | D3 (docs artifact — update) |
+| Sprint | v0.5 |
+| Status | backlog |
+| Priority | P1 — required by I8 for M5 sign-off |
+| Owner | tech-writer (diagrams); architect (review) |
+
+**Scope:**
+`docs/sequences/deep-research.mmd` — new Mermaid sequenceDiagram for F10 loop (see
+AC-D3-DR-1 for required content including max_iter and concurrency annotations).
+`docs/sequences/cascade-delete.mmd` — new Mermaid sequenceDiagram for F13 (see
+AC-D3-CD-1 for required content). Both must pass mmdc CI render check (NB-6 step already
+wired from M4).
+
+**Acceptance criteria:** docs/sprints/v0.5-scope.md §4 AC-D3-DR-1, AC-D3-CD-1, AC-D3-CI-1, AC-D3-REV-1
+
+---
+
+### D5 (update) — Screenshots refreshed for M5 UI surfaces
+
+| Field | Value |
+|-------|-------|
+| Feature ID | D5 (docs artifact — update) |
+| Sprint | v0.5 |
+| Status | backlog |
+| Priority | P1 — required by I8 for M5 sign-off |
+| Owner | qa-test-engineer (Playwright capture); tech-writer (review) |
+
+**Scope:**
+New PNGs: `docs/screens/review-queue.png`, `docs/screens/deep-search-trigger.png`,
+`docs/screens/upload-multiformat.png`, `docs/screens/cascade-delete-modal.png`.
+CF-HARD-1 recapture: `docs/screens/shell-collapsed-panel.png`.
+`make screenshots` target exits 0.
+
+**Acceptance criteria:** docs/sprints/v0.5-scope.md §4 AC-D5-M5-1..3
+
+---
+
+### M4 carry-forward nits (disposal required by Phase 1 exit)
+
+| Tracking ID | Item | Status | Owner |
+|-------------|------|--------|-------|
+| CF-HARD-1 | Recapture shell-collapsed-panel.png | backlog | qa-test-engineer |
+| NB-7 | graph-recompute.mmd hit-path cosmetic | backlog | tech-writer |
+| NB-8 | component.mmd store label (store/graphStore.ts) | backlog | tech-writer |
+| NB-9 | CI branch filter — add sprint/v0.3, sprint/v0.4 | backlog | devops-engineer |
+| AC-HARD-SET-5 | Settings left-nav arrow-key handler | backlog | frontend-engineer |
+| GAP-HARD-1 / GAP-HARD-5 | TRACEABILITY.md stale PENDING rows | backlog | functional-analyst |
+
+These items do NOT hold M5 sign-off but must be disposed of (done or formally deferred
+with PM approval) before Phase 1 exits.
+
+---
+
+**Acceptance criteria for all M5 items:** docs/sprints/v0.5-scope.md §4
+**Phase plan (4 phases with independent gate chains):** docs/sprints/v0.5-scope.md §7
+**Exit criteria (EC-M5-1..21):** docs/sprints/v0.5-scope.md §8
+**Human checkpoint (EC-M5-HCP, 6 conditions):** docs/sprints/v0.5-scope.md §9
 
 ---
 
