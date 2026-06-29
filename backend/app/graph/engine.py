@@ -537,7 +537,7 @@ def _compress_to_disc(
 
     # 4. Compress and convert back
     result: list[tuple[float, float]] = []
-    for (dx, dy), r in zip(centered, radii):
+    for (dx, dy), r in zip(centered, radii, strict=True):
         if r < 1e-9:
             result.append((cx, cy))
             continue

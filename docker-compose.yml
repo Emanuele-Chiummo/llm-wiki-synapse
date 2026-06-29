@@ -24,8 +24,6 @@
 # Stop:
 #   docker compose down
 
-version: "3.8"
-
 services:
   # ─────────────────────────────────────────────────────────────────────────
   # PostgreSQL 16 — single source of truth for metadata, links, config, coords

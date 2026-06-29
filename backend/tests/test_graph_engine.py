@@ -387,9 +387,9 @@ class TestFourSignalWeights:
         snapshot = await GraphEngine().recompute(vault_id)
         edge = _find_edge(snapshot.edges, p["P3"], p["P4"])
         assert edge is not None, "P3-P4 edge must be present (structural: direct link)"
-        assert abs(edge.weight - 7.0) < 0.01, (
-            f"P3-P4 weight {edge.weight} != 7.0 (direct 1x3=3 + source 1x4=4 + AA 0 + type 0=0)"
-        )
+        assert (
+            abs(edge.weight - 7.0) < 0.01
+        ), f"P3-P4 weight {edge.weight} != 7.0 (direct 1x3=3 + source 1x4=4 + AA 0 + type 0=0)"
 
     async def test_p3_p5_absent(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
         """
@@ -632,9 +632,9 @@ class TestADR0016KindAndSize:
         snapshot = await GraphEngine().recompute(vault_id)
         edge = _find_edge(snapshot.edges, p["P1"], p["P2"])
         assert edge is not None, "P1-P2 must be present"
-        assert edge.kind == "link", (
-            f"P1-P2 has direct wikilinks -> kind must be 'link', got {edge.kind!r}"
-        )
+        assert (
+            edge.kind == "link"
+        ), f"P1-P2 has direct wikilinks -> kind must be 'link', got {edge.kind!r}"
 
     async def test_direct_link_edge_kind_link_wins_over_source(
         self, graph_db: tuple[Any, dict[str, str], str]
@@ -649,9 +649,9 @@ class TestADR0016KindAndSize:
         snapshot = await GraphEngine().recompute(vault_id)
         edge = _find_edge(snapshot.edges, p["P3"], p["P4"])
         assert edge is not None, "P3-P4 must be present"
-        assert edge.kind == "link", (
-            f"P3-P4: direct link exists -> kind='link' wins, got {edge.kind!r}"
-        )
+        assert (
+            edge.kind == "link"
+        ), f"P3-P4: direct link exists -> kind='link' wins, got {edge.kind!r}"
 
     async def test_shared_source_only_edge_kind_is_source(
         self, graph_db: tuple[Any, dict[str, str], str]
@@ -665,9 +665,9 @@ class TestADR0016KindAndSize:
         snapshot = await GraphEngine().recompute(vault_id)
         edge = _find_edge(snapshot.edges, p["P2"], p["P4"])
         assert edge is not None, "P2-P4 must be present (shared source doc_a)"
-        assert edge.kind == "source", (
-            f"P2-P4: no direct link, shared source -> kind='source', got {edge.kind!r}"
-        )
+        assert (
+            edge.kind == "source"
+        ), f"P2-P4: no direct link, shared source -> kind='source', got {edge.kind!r}"
 
     async def test_structural_degree_drives_size_monotonically(
         self, graph_db: tuple[Any, dict[str, str], str]
@@ -714,9 +714,10 @@ class TestADR0016KindAndSize:
 
         snapshot = await GraphEngine().recompute(vault_id)
         for edge in snapshot.edges:
-            assert edge.kind in {"link", "source"}, (
-                f"Edge {edge.source}-{edge.target} has invalid kind {edge.kind!r}"
-            )
+            assert edge.kind in {
+                "link",
+                "source",
+            }, f"Edge {edge.source}-{edge.target} has invalid kind {edge.kind!r}"
 
 
 class TestStructuralEdgeCount:
@@ -748,9 +749,7 @@ class TestStructuralEdgeCount:
             frozenset([p["P3"], p["P4"]]),
         }
         assert edge_pairs == expected, (
-            f"Structural edges mismatch.\n"
-            f"  Expected: {expected}\n"
-            f"  Got:      {edge_pairs}"
+            f"Structural edges mismatch.\n" f"  Expected: {expected}\n" f"  Got:      {edge_pairs}"
         )
 
 
@@ -772,9 +771,9 @@ class TestPinnedNodePreservation:
         pinned_y = -888.0
         async with session_factory() as s:
             await s.execute(
-                sa_text(
-                    "UPDATE pages SET pinned = 1, x = :x, y = :y WHERE id = :id"
-                ).bindparams(id=p["P1"], x=pinned_x, y=pinned_y)
+                sa_text("UPDATE pages SET pinned = 1, x = :x, y = :y WHERE id = :id").bindparams(
+                    id=p["P1"], x=pinned_x, y=pinned_y
+                )
             )
             await s.commit()
 
@@ -784,12 +783,12 @@ class TestPinnedNodePreservation:
         node_map = {n.id: n for n in snapshot.nodes}
 
         p1 = node_map[p["P1"]]
-        assert abs(p1.x - pinned_x) < 0.001, (
-            f"Pinned P1 x should be {pinned_x}, got {p1.x} (FR must not overwrite pinned coords)"
-        )
-        assert abs(p1.y - pinned_y) < 0.001, (
-            f"Pinned P1 y should be {pinned_y}, got {p1.y} (FR must not overwrite pinned coords)"
-        )
+        assert (
+            abs(p1.x - pinned_x) < 0.001
+        ), f"Pinned P1 x should be {pinned_x}, got {p1.x} (FR must not overwrite pinned coords)"
+        assert (
+            abs(p1.y - pinned_y) < 0.001
+        ), f"Pinned P1 y should be {pinned_y}, got {p1.y} (FR must not overwrite pinned coords)"
 
     async def test_unpinned_nodes_coords_are_fr_output(
         self, graph_db: tuple[Any, dict[str, str], str]
@@ -807,9 +806,9 @@ class TestPinnedNodePreservation:
         # Not all zero or identical — layout must have spread them out
         xs = [n.x for n in snapshot.nodes]
         ys = [n.y for n in snapshot.nodes]
-        assert max(xs) - min(xs) > 1e-6 or max(ys) - min(ys) > 1e-6, (
-            "Unpinned nodes should have non-trivial spread (FR layout ran)"
-        )
+        assert (
+            max(xs) - min(xs) > 1e-6 or max(ys) - min(ys) > 1e-6
+        ), "Unpinned nodes should have non-trivial spread (FR layout ran)"
 
     async def test_mixed_pinned_and_free_nodes(
         self, graph_db: tuple[Any, dict[str, str], str]
@@ -824,9 +823,9 @@ class TestPinnedNodePreservation:
         pinned_x, pinned_y = 500.0, 500.0
         async with session_factory() as s:
             await s.execute(
-                sa_text(
-                    "UPDATE pages SET pinned = 1, x = :x, y = :y WHERE id = :id"
-                ).bindparams(id=p["P1"], x=pinned_x, y=pinned_y)
+                sa_text("UPDATE pages SET pinned = 1, x = :x, y = :y WHERE id = :id").bindparams(
+                    id=p["P1"], x=pinned_x, y=pinned_y
+                )
             )
             await s.commit()
 
@@ -843,9 +842,9 @@ class TestPinnedNodePreservation:
         free_coords = [(node_map[p[k]].x, node_map[p[k]].y) for k in ("P2", "P3", "P4", "P5")]
         xs = [x for x, _ in free_coords]
         ys = [y for _, y in free_coords]
-        assert max(xs) - min(xs) > 1e-6 or max(ys) - min(ys) > 1e-6, (
-            "Free nodes must have non-trivial spread"
-        )
+        assert (
+            max(xs) - min(xs) > 1e-6 or max(ys) - min(ys) > 1e-6
+        ), "Free nodes must have non-trivial spread"
 
 
 class TestFeatureBDiscEnvelope:
@@ -862,16 +861,16 @@ class TestFeatureBDiscEnvelope:
         # Origin stays near origin (radius 0 -> output x,y near centroid)
         # Far outlier (20.0) gets pulled in (radius < 20.0 in result)
         # All are along positive X (angles preserved for non-origin points)
-        for (rx, ry) in result:
+        for rx, ry in result:
             # All results within the target disc
             r_out = math.sqrt(rx * rx + ry * ry)
             assert r_out <= 10.01, f"Point outside r_target: ({rx:.3f}, {ry:.3f}), r={r_out:.3f}"
 
     def test_compress_to_disc_preserves_angles(self) -> None:
         """Angles (polar theta) are preserved exactly by _compress_to_disc."""
-        from app.graph.engine import _compress_to_disc
-
         import math as _math
+
+        from app.graph.engine import _compress_to_disc
 
         # Points at four cardinal directions
         coords = [(3.0, 0.0), (-3.0, 0.0), (0.0, 3.0), (0.0, -3.0)]
@@ -880,10 +879,10 @@ class TestFeatureBDiscEnvelope:
         # Centroid of input is (0,0) so angles are unchanged
         original_angles = [_math.atan2(y, x) for x, y in coords]
         result_angles = [_math.atan2(y, x) for x, y in result if x != 0.0 or y != 0.0]
-        for orig, res in zip(original_angles, result_angles):
-            assert abs(orig - res) < 0.001, (
-                f"Angle not preserved: original={orig:.4f} result={res:.4f}"
-            )
+        for orig, res in zip(original_angles, result_angles, strict=False):
+            assert (
+                abs(orig - res) < 0.001
+            ), f"Angle not preserved: original={orig:.4f} result={res:.4f}"
 
     def test_compress_to_disc_single_node(self) -> None:
         """Single-node input is returned unchanged (degenerate case)."""
@@ -955,7 +954,9 @@ class TestGraphCachePatchNodePosition:
         from app.graph.engine import GraphEngine, GraphSnapshot, NodeSnapshot
 
         cache = GraphCache(engine=GraphEngine(), vault_id="test")
-        cache._snapshot = GraphSnapshot(nodes=[NodeSnapshot(id="n1", title=None, page_type=None, x=0.0, y=0.0)], edges=[])
+        cache._snapshot = GraphSnapshot(
+            nodes=[NodeSnapshot(id="n1", title=None, page_type=None, x=0.0, y=0.0)], edges=[]
+        )
         cache._marker = 42
 
         cache.patch_node_position("n1", 1.0, 2.0)

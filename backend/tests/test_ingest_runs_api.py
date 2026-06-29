@@ -29,11 +29,20 @@ from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import BigInteger, Boolean, Column, Float, Integer, MetaData, Numeric, String, Table, Text
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    Float,
+    Integer,
+    MetaData,
+    Numeric,
+    String,
+    Table,
+    Text,
+)
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
-
 
 # ── SQLite schema for ingest_runs tests ───────────────────────────────────────
 
@@ -217,7 +226,8 @@ async def _insert_run(
                 " cost_anomaly, started_at, finished_at, status, pages_created, error_message) "
                 "VALUES (:id, :vault_id, NULL, :provider_name, :provider_type, :model_id, "
                 " :route, :max_iter_used, :total_tokens, :total_cost_usd, :converged, "
-                " :cost_anomaly, :started_at, :finished_at, :status, :pages_created, :error_message)"
+                " :cost_anomaly, :started_at, :finished_at, :status, "
+                ":pages_created, :error_message)"
             ),
             {
                 "id": run_id,
@@ -282,12 +292,21 @@ class TestIngestRunsEndpoint:
         assert len(data["items"]) >= 1
         item = data["items"][0]
         required_keys = {
-            "id", "vault_id", "status", "provider_type",
-            "pages_created", "iterations_used", "total_cost_usd",
-            "started_at", "completed_at", "error_message",
+            "id",
+            "vault_id",
+            "status",
+            "provider_type",
+            "pages_created",
+            "iterations_used",
+            "total_cost_usd",
+            "started_at",
+            "completed_at",
+            "error_message",
         }
         for key in required_keys:
-            assert key in item, f"IngestRunResponse must have '{key}'; got keys: {list(item.keys())}"
+            assert (
+                key in item
+            ), f"IngestRunResponse must have '{key}'; got keys: {list(item.keys())}"
 
     async def test_ordering_started_at_desc(
         self,
@@ -311,12 +330,12 @@ class TestIngestRunsEndpoint:
 
         ids_in_order = [it["id"] for it in items]
         # Most recent (t3) should come first
-        assert ids_in_order.index(id3) < ids_in_order.index(id2), (
-            f"id3 (most recent) must come before id2; order was {ids_in_order}"
-        )
-        assert ids_in_order.index(id2) < ids_in_order.index(id1), (
-            f"id2 must come before id1; order was {ids_in_order}"
-        )
+        assert ids_in_order.index(id3) < ids_in_order.index(
+            id2
+        ), f"id3 (most recent) must come before id2; order was {ids_in_order}"
+        assert ids_in_order.index(id2) < ids_in_order.index(
+            id1
+        ), f"id2 must come before id1; order was {ids_in_order}"
 
     async def test_pagination_second_page(
         self,
@@ -359,9 +378,9 @@ class TestIngestRunsEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         for item in data["items"]:
-            assert item["vault_id"] == "other-vault", (
-                f"Filter vault_id=other-vault returned row with vault_id={item['vault_id']!r}"
-            )
+            assert (
+                item["vault_id"] == "other-vault"
+            ), f"Filter vault_id=other-vault returned row with vault_id={item['vault_id']!r}"
 
     async def test_422_for_limit_zero(
         self,
@@ -370,9 +389,9 @@ class TestIngestRunsEndpoint:
     ) -> None:
         """T-IR-006: AC-BE-IR-5 — limit=0 must return 422."""
         resp = await ingest_runs_client.get("/ingest/runs?limit=0")
-        assert resp.status_code == 422, (
-            f"limit=0 must return 422 (AC-BE-IR-5); got {resp.status_code}: {resp.text}"
-        )
+        assert (
+            resp.status_code == 422
+        ), f"limit=0 must return 422 (AC-BE-IR-5); got {resp.status_code}: {resp.text}"
 
     async def test_422_for_limit_101(
         self,
@@ -381,9 +400,9 @@ class TestIngestRunsEndpoint:
     ) -> None:
         """T-IR-007: AC-BE-IR-5 — limit=101 must return 422."""
         resp = await ingest_runs_client.get("/ingest/runs?limit=101")
-        assert resp.status_code == 422, (
-            f"limit=101 must return 422 (AC-BE-IR-5); got {resp.status_code}: {resp.text}"
-        )
+        assert (
+            resp.status_code == 422
+        ), f"limit=101 must return 422 (AC-BE-IR-5); got {resp.status_code}: {resp.text}"
 
     async def test_422_for_negative_offset(
         self,
@@ -392,34 +411,33 @@ class TestIngestRunsEndpoint:
     ) -> None:
         """T-IR-008: AC-BE-IR-5 — offset=-1 must return 422."""
         resp = await ingest_runs_client.get("/ingest/runs?offset=-1")
-        assert resp.status_code == 422, (
-            f"offset=-1 must return 422 (AC-BE-IR-5); got {resp.status_code}: {resp.text}"
-        )
+        assert (
+            resp.status_code == 422
+        ), f"offset=-1 must return 422 (AC-BE-IR-5); got {resp.status_code}: {resp.text}"
 
     async def test_field_aliases(
         self,
         ingest_runs_client: AsyncClient,
         ingest_runs_env: dict[str, Any],
     ) -> None:
-        """T-IR-009: ADR-0018 §7 — response uses iterations_used and completed_at (not max_iter_used/finished_at)."""
+        """T-IR-009: ADR-0018 §7 — response uses iterations_used and completed_at
+        (not max_iter_used/finished_at)."""
         await _insert_run(ingest_runs_env, iter_used=3, status="completed")
 
         resp = await ingest_runs_client.get("/ingest/runs?limit=1")
         assert resp.status_code == 200
         item = resp.json()["items"][0]
 
-        assert "iterations_used" in item, (
-            "Response must use alias 'iterations_used' (not max_iter_used)"
-        )
-        assert "completed_at" in item, (
-            "Response must use alias 'completed_at' (not finished_at)"
-        )
+        assert (
+            "iterations_used" in item
+        ), "Response must use alias 'iterations_used' (not max_iter_used)"
+        assert "completed_at" in item, "Response must use alias 'completed_at' (not finished_at)"
         assert "max_iter_used" not in item, "max_iter_used must NOT appear in response"
         assert "finished_at" not in item, "finished_at must NOT appear in response"
 
-        assert item["iterations_used"] == 3, (
-            f"iterations_used must reflect max_iter_used=3; got {item['iterations_used']}"
-        )
+        assert (
+            item["iterations_used"] == 3
+        ), f"iterations_used must reflect max_iter_used=3; got {item['iterations_used']}"
 
     async def test_completed_at_none_for_running(
         self,
@@ -435,9 +453,9 @@ class TestIngestRunsEndpoint:
 
         running = [it for it in items if it["status"] == "running"]
         assert running, "Expected at least one running item"
-        assert running[0]["completed_at"] is None, (
-            f"completed_at must be null for running runs; got {running[0]['completed_at']!r}"
-        )
+        assert (
+            running[0]["completed_at"] is None
+        ), f"completed_at must be null for running runs; got {running[0]['completed_at']!r}"
 
     async def test_total_cost_usd_is_float(
         self,
@@ -452,7 +470,8 @@ class TestIngestRunsEndpoint:
         item = resp.json()["items"][0]
 
         assert isinstance(item["total_cost_usd"], (int, float)), (
-            f"total_cost_usd must be a number; got {type(item['total_cost_usd'])}: {item['total_cost_usd']!r}"
+            f"total_cost_usd must be a number; got {type(item['total_cost_usd'])}: "
+            f"{item['total_cost_usd']!r}"
         )
 
     async def test_all_status_values_returned(
@@ -460,7 +479,7 @@ class TestIngestRunsEndpoint:
         ingest_runs_client: AsyncClient,
         ingest_runs_env: dict[str, Any],
     ) -> None:
-        """T-IR-012: all four status values (running/completed/failed/converged_false) can be returned."""
+        """T-IR-012: all four status values (running/completed/failed/converged_false) returned."""
         for status in ("running", "completed", "failed", "converged_false"):
             await _insert_run(
                 ingest_runs_env,
@@ -473,9 +492,9 @@ class TestIngestRunsEndpoint:
         statuses_returned = {it["status"] for it in resp.json()["items"]}
 
         for expected_status in ("running", "completed", "failed", "converged_false"):
-            assert expected_status in statuses_returned, (
-                f"Status {expected_status!r} must be returned; got {statuses_returned}"
-            )
+            assert (
+                expected_status in statuses_returned
+            ), f"Status {expected_status!r} must be returned; got {statuses_returned}"
 
     async def test_error_message_on_failed_run(
         self,

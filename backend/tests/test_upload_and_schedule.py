@@ -10,12 +10,11 @@ Test IDs: T-UPLOAD-001..007, T-SCHED-001..005, T-SCAN-001..002,
 
 from __future__ import annotations
 
-import hashlib
 import io
 import uuid
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -119,12 +118,16 @@ class TestSafeSourceName:
 class TestResolveUnderSources:
     """T-UPLOAD-002: resolve_under_sources() containment check (ADR-0020 §2.2)."""
 
-    def test_valid_name_resolves_under_sources(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_valid_name_resolves_under_sources(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from app import config as cfg
 
         sources_dir = tmp_path / "raw" / "sources"
         sources_dir.mkdir(parents=True)
-        monkeypatch.setattr(type(cfg.settings), "raw_sources_dir", property(lambda self: sources_dir))
+        monkeypatch.setattr(
+            type(cfg.settings), "raw_sources_dir", property(lambda self: sources_dir)
+        )
 
         from app.upload import resolve_under_sources
 
@@ -134,13 +137,14 @@ class TestResolveUnderSources:
 
     def test_unsafe_name_raises_422(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """A resolved path that escapes raw_sources_dir raises 422."""
-        from fastapi import HTTPException
 
         from app import config as cfg
 
         sources_dir = tmp_path / "raw" / "sources"
         sources_dir.mkdir(parents=True)
-        monkeypatch.setattr(type(cfg.settings), "raw_sources_dir", property(lambda self: sources_dir))
+        monkeypatch.setattr(
+            type(cfg.settings), "raw_sources_dir", property(lambda self: sources_dir)
+        )
 
         # Construct a name that after Path().name might escape — but safe_source_name
         # prevents this; test resolve_under_sources directly with a crafted name
@@ -240,7 +244,9 @@ async def upload_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
         sa.Column("converged", sa.Boolean, nullable=False, server_default=sa.text("0")),
         sa.Column("cost_anomaly", sa.Boolean, nullable=False, server_default=sa.text("0")),
         sa.Column("started_at", sa.Text, nullable=False, server_default=sa.text("datetime('now')")),
-        sa.Column("finished_at", sa.Text, nullable=False, server_default=sa.text("datetime('now')")),
+        sa.Column(
+            "finished_at", sa.Text, nullable=False, server_default=sa.text("datetime('now')")
+        ),
         sa.Column("status", sa.Text, nullable=False, server_default=sa.text("'completed'")),
         sa.Column("pages_created", sa.Integer, nullable=False, server_default=sa.text("0")),
         sa.Column("error_message", sa.Text, nullable=True),
@@ -286,12 +292,21 @@ async def upload_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
     monkeypatch.setattr("app.ingest.orchestrator.get_session", patched_get_session)
     monkeypatch.setattr("app.main.get_session", patched_get_session)
 
-    monkeypatch.setattr("app.qdrant_client.get_qdrant_client", lambda: MagicMock(
-        get_collections=AsyncMock(return_value=MagicMock(collections=[MagicMock(name="synapse_pages")])),
-        get_collection=AsyncMock(return_value=MagicMock(config=MagicMock(params=MagicMock(vectors=MagicMock(size=8))))),
-        upsert=AsyncMock(),
-        delete=AsyncMock(),
-    ))
+    monkeypatch.setattr(
+        "app.qdrant_client.get_qdrant_client",
+        lambda: MagicMock(
+            get_collections=AsyncMock(
+                return_value=MagicMock(collections=[MagicMock(name="synapse_pages")])
+            ),
+            get_collection=AsyncMock(
+                return_value=MagicMock(
+                    config=MagicMock(params=MagicMock(vectors=MagicMock(size=8)))
+                )
+            ),
+            upsert=AsyncMock(),
+            delete=AsyncMock(),
+        ),
+    )
     monkeypatch.setattr(
         "app.ingest.orchestrator.upsert_point",
         AsyncMock(),
@@ -307,10 +322,9 @@ async def upload_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
     # FastAPI test lifespan
     from contextlib import asynccontextmanager as acm
 
+    from app.main import app
     from fastapi import FastAPI
     from httpx import ASGITransport, AsyncClient
-
-    from app.main import app
 
     @acm
     async def test_lifespan(app: FastAPI):  # type: ignore[override]
@@ -384,7 +398,9 @@ async def test_upload_pdf_returns_415(upload_env: dict[str, Any]) -> None:
 
 
 @pytest.mark.asyncio
-async def test_upload_oversize_returns_413(upload_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_upload_oversize_returns_413(
+    upload_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
     """T-UPLOAD-006: file exceeding MAX_UPLOAD_BYTES returns 413."""
     from app import config as cfg
 
@@ -548,10 +564,9 @@ async def schedule_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[
 
     from contextlib import asynccontextmanager as acm
 
+    from app.main import app
     from fastapi import FastAPI
     from httpx import ASGITransport, AsyncClient
-
-    from app.main import app
 
     @acm
     async def test_lifespan(app: FastAPI):  # type: ignore[override]
@@ -649,7 +664,9 @@ class TestBoundedScan:
     """T-SCAN-001: run_one_scan respects MAX_FILES and MAX_SECONDS."""
 
     @pytest.mark.asyncio
-    async def test_scan_copies_new_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_scan_copies_new_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """T-SCAN-001: A new .md file in source_dir is copied to raw_sources/."""
         from app import config as cfg
 
@@ -660,7 +677,9 @@ class TestBoundedScan:
 
         (source_dir / "test.md").write_text("# Hello\n")
 
-        monkeypatch.setattr(type(cfg.settings), "raw_sources_dir", property(lambda self: raw_sources))
+        monkeypatch.setattr(
+            type(cfg.settings), "raw_sources_dir", property(lambda self: raw_sources)
+        )
         monkeypatch.setattr(cfg.settings, "import_scan_max_files", 200)
         monkeypatch.setattr(cfg.settings, "import_scan_max_seconds", 60)
 
@@ -676,7 +695,9 @@ class TestBoundedScan:
         assert (raw_sources / "test.md").exists()
 
     @pytest.mark.asyncio
-    async def test_scan_skips_unchanged_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_scan_skips_unchanged_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """T-SCAN-002: A file already in raw_sources/ with identical hash is skipped (I1)."""
         from app import config as cfg
 
@@ -689,7 +710,9 @@ class TestBoundedScan:
         (source_dir / "same.md").write_bytes(content)
         (raw_sources / "same.md").write_bytes(content)  # identical bytes in dest
 
-        monkeypatch.setattr(type(cfg.settings), "raw_sources_dir", property(lambda self: raw_sources))
+        monkeypatch.setattr(
+            type(cfg.settings), "raw_sources_dir", property(lambda self: raw_sources)
+        )
         monkeypatch.setattr(cfg.settings, "import_scan_max_files", 200)
         monkeypatch.setattr(cfg.settings, "import_scan_max_seconds", 60)
 
@@ -703,7 +726,9 @@ class TestBoundedScan:
         assert status == "ok"
 
     @pytest.mark.asyncio
-    async def test_scan_respects_max_files_cap(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_scan_respects_max_files_cap(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """T-SCAN-001 cap: scan copies at most IMPORT_SCAN_MAX_FILES files per tick."""
         from app import config as cfg
 
@@ -716,7 +741,9 @@ class TestBoundedScan:
         for i in range(10):
             (source_dir / f"file{i:02d}.md").write_text(f"# File {i}\n")
 
-        monkeypatch.setattr(type(cfg.settings), "raw_sources_dir", property(lambda self: raw_sources))
+        monkeypatch.setattr(
+            type(cfg.settings), "raw_sources_dir", property(lambda self: raw_sources)
+        )
         monkeypatch.setattr(cfg.settings, "import_scan_max_files", 3)
         monkeypatch.setattr(cfg.settings, "import_scan_max_seconds", 60)
 
@@ -730,7 +757,9 @@ class TestBoundedScan:
         assert status == "ok"
 
     @pytest.mark.asyncio
-    async def test_scan_skips_non_text_files(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_scan_skips_non_text_files(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """T-SCAN: Non-text files (.pdf, .docx) are skipped silently (F12/M5 boundary)."""
         from app import config as cfg
 
@@ -742,7 +771,9 @@ class TestBoundedScan:
         (source_dir / "doc.pdf").write_bytes(b"%PDF-1.4 fake")
         (source_dir / "note.md").write_text("# Note\n")
 
-        monkeypatch.setattr(type(cfg.settings), "raw_sources_dir", property(lambda self: raw_sources))
+        monkeypatch.setattr(
+            type(cfg.settings), "raw_sources_dir", property(lambda self: raw_sources)
+        )
         monkeypatch.setattr(cfg.settings, "import_scan_max_files", 200)
         monkeypatch.setattr(cfg.settings, "import_scan_max_seconds", 60)
 
@@ -757,13 +788,17 @@ class TestBoundedScan:
         assert not (raw_sources / "doc.pdf").exists()
 
     @pytest.mark.asyncio
-    async def test_scan_missing_dir_returns_dir_missing(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_scan_missing_dir_returns_dir_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """T-SCAN: Missing source_dir → status='dir_missing', no files imported."""
         from app import config as cfg
 
         raw_sources = tmp_path / "raw" / "sources"
         raw_sources.mkdir(parents=True)
-        monkeypatch.setattr(type(cfg.settings), "raw_sources_dir", property(lambda self: raw_sources))
+        monkeypatch.setattr(
+            type(cfg.settings), "raw_sources_dir", property(lambda self: raw_sources)
+        )
         monkeypatch.setattr(cfg.settings, "import_scan_max_files", 200)
         monkeypatch.setattr(cfg.settings, "import_scan_max_seconds", 60)
 
@@ -821,7 +856,9 @@ class TestWatcherExtensions:
         from app.watcher import _is_text_file
 
         for ext in _ALLOWED_EXTENSIONS:
-            assert _is_text_file(f"testfile{ext}"), f"{ext} in upload allow-list but rejected by watcher"
+            assert _is_text_file(
+                f"testfile{ext}"
+            ), f"{ext} in upload allow-list but rejected by watcher"
 
 
 @pytest.mark.asyncio

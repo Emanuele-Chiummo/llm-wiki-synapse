@@ -144,9 +144,7 @@ async def run_chat_stream(
         if conversation_id is not None:
             conv = await _load_conversation(session, conversation_id)
             if conv is None:
-                raise ChatStreamError(
-                    "not_found", f"conversation_id {conversation_id} not found"
-                )
+                raise ChatStreamError("not_found", f"conversation_id {conversation_id} not found")
         else:
             conv = Conversation(
                 vault_id=effective_vault_id,

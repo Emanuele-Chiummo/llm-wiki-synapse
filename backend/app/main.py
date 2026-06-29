@@ -6,7 +6,7 @@ Endpoints:
   GET  /pages                 — paginated list of live pages
   GET  /pages/{id}            — single page by UUID
   POST /ingest/trigger        — sync ingest; HTTP 202 (typed IngestTriggerResponse, AC-D4u)
-  POST /ingest/upload         — multipart file upload → ingest; 201 {file_path, page_id, status, overwritten} (ADR-0020 Feature U)
+  POST /ingest/upload         — multipart file upload → ingest; 201 (ADR-0020 Feature U)
   GET  /ingest/runs           — paginated ingest run history (ADR-0018 §7, AC-BE-IR-1..5)
   GET  /provider/config       — list effective + raw provider_config rows (F17)
   POST /provider/config       — create/update a provider_config row (F17, §12 — no api key)
@@ -18,7 +18,7 @@ Endpoints:
   GET  /conversations/{id}/messages — ordered message history (F6)
   DELETE /conversations/{id}  — soft-delete a conversation (F6)
   POST /chat/stream           — bounded NDJSON streaming chat turn (F6/F7, I6/I7, ADR-0019)
-  GET  /import-schedule       — scheduled folder import config + last-run status (ADR-0020 Feature S)
+  GET  /import-schedule       — scheduled folder import config + last-run (ADR-0020 Feature S)
   PUT  /import-schedule       — upsert import schedule config (Feature S)
   POST /import-schedule/run-now — trigger one bounded scan immediately (Feature S)
 
@@ -354,9 +354,7 @@ class IngestRunResponse(BaseModel):
 
     id: uuid.UUID
     vault_id: str
-    status: str = Field(
-        description="running | completed | failed | converged_false (ADR-0018 §7)"
-    )
+    status: str = Field(description="running | completed | failed | converged_false (ADR-0018 §7)")
     provider_type: str = Field(description="local | api | cli")
     pages_created: int = Field(description="Wiki pages persisted during this run")
     iterations_used: int = Field(
@@ -369,9 +367,7 @@ class IngestRunResponse(BaseModel):
     completed_at: datetime | None = Field(
         description="Run finish time (aliases finished_at); null for running rows"
     )
-    error_message: str | None = Field(
-        description="Error detail for failed runs; null otherwise"
-    )
+    error_message: str | None = Field(description="Error detail for failed runs; null otherwise")
 
     model_config = {
         "from_attributes": True,
@@ -503,9 +499,7 @@ class ImportSchedulePutBody(BaseModel):
     @classmethod
     def _valid_frequency(cls, v: str | None) -> str | None:
         if v is not None and v not in _VALID_FREQUENCIES:
-            raise ValueError(
-                f"frequency must be one of {sorted(_VALID_FREQUENCIES)}, got {v!r}"
-            )
+            raise ValueError(f"frequency must be one of {sorted(_VALID_FREQUENCIES)}, got {v!r}")
         return v
 
 
@@ -897,8 +891,7 @@ async def trigger_ingest(body: IngestTriggerRequest) -> IngestTriggerResponse:
         413: {"description": "File exceeds MAX_UPLOAD_BYTES"},
         415: {
             "description": (
-                "Only .md/.txt/.markdown accepted in v0.4; "
-                "multi-format (F12) is planned for M5"
+                "Only .md/.txt/.markdown accepted in v0.4; " "multi-format (F12) is planned for M5"
             )
         },
         422: {"description": "Filename is empty or unsafe after sanitization"},
@@ -953,9 +946,7 @@ async def upload_ingest(
                 if bytes_read > max_bytes:
                     raise HTTPException(
                         status_code=413,
-                        detail=(
-                            f"File exceeds the {max_bytes // (1024 * 1024)} MB upload limit."
-                        ),
+                        detail=(f"File exceeds the {max_bytes // (1024 * 1024)} MB upload limit."),
                     )
                 tmp_file.write(chunk)
     except HTTPException:
@@ -1048,9 +1039,7 @@ async def list_ingest_runs(
         data_stmt = select(IngestRun)
         if vault_id is not None:
             data_stmt = data_stmt.where(IngestRun.vault_id == vault_id)
-        data_stmt = (
-            data_stmt.order_by(IngestRun.started_at.desc()).offset(offset).limit(limit)
-        )
+        data_stmt = data_stmt.order_by(IngestRun.started_at.desc()).offset(offset).limit(limit)
         rows = await session.execute(data_stmt)
         runs = list(rows.scalars().all())
 
@@ -1068,9 +1057,7 @@ def _ingest_run_to_response(run: IngestRun) -> IngestRunResponse:
     total_cost_usd converted from Decimal (Numeric column) to float for JSON serialisation.
     completed_at is None when status == 'running' (run still in progress).
     """
-    completed_at: datetime | None = (
-        None if run.status == "running" else run.finished_at
-    )
+    completed_at: datetime | None = None if run.status == "running" else run.finished_at
     return IngestRunResponse(
         id=run.id,
         vault_id=run.vault_id,
@@ -1340,7 +1327,10 @@ async def run_import_now() -> RunNowResponse:
     if scheduler.scan_in_flight:
         raise HTTPException(
             status_code=409,
-            detail="A scan is already in-flight. Wait for it to finish or poll GET /import-schedule.",
+            detail=(
+                "A scan is already in-flight. "
+                "Wait for it to finish or poll GET /import-schedule."
+            ),
         )
 
     # Kick off the scan as a background task
@@ -1358,7 +1348,9 @@ async def run_import_now() -> RunNowResponse:
         if cfg is None or not getattr(cfg, "enabled", False):
             raise HTTPException(
                 status_code=400,
-                detail="Schedule is disabled or not configured. Enable it and set source_dir first.",
+                detail=(
+                    "Schedule is disabled or not configured. " "Enable it and set source_dir first."
+                ),
             )
         source_dir = getattr(cfg, "source_dir", None)
         if not source_dir:
@@ -1373,7 +1365,8 @@ async def run_import_now() -> RunNowResponse:
                 status_code=400,
                 detail=(
                     f"Directory '{source_dir}' is not accessible inside the container. "
-                    "Add a mount (e.g. - ./import:/import:ro) and set source_dir to the container path."
+                    "Add a mount (e.g. - ./import:/import:ro) and set "
+                    "source_dir to the container path."
                 ),
             )
     except HTTPException:
@@ -1406,9 +1399,7 @@ async def list_conversations(
             Conversation.vault_id == effective_vault_id,
             Conversation.deleted_at.is_(None),
         )
-        total_row = await session.execute(
-            select(func.count()).select_from(base.subquery())
-        )
+        total_row = await session.execute(select(func.count()).select_from(base.subquery()))
         total: int = total_row.scalar_one()
         rows = await session.execute(
             base.order_by(Conversation.updated_at.desc()).offset(offset).limit(limit)
@@ -1611,7 +1602,10 @@ class GraphEdgeResponse(BaseModel):
     weight: float
     kind: str = Field(
         default="link",
-        description='Structural edge kind: "link" (direct wikilink) | "source" (shared provenance). ADR-0016 §4',
+        description=(
+            'Structural edge kind: "link" (direct wikilink) | '
+            '"source" (shared provenance). ADR-0016 §4'
+        ),
     )
 
 
