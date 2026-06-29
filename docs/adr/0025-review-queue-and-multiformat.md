@@ -93,13 +93,23 @@ tests follows the `deep_research_runs` pattern — `UUID(as_uuid=True).with_vari
 | `id` | UUID PK | no | `gen_random_uuid()` server default |
 | `vault_id` | String | no | **The existing `vault_id` String** (AQ-v0.5-6); matches `pages`/`edges`/`conversations`. No FK — there is no `vaults` table. |
 | `page_id` | UUID FK → `pages.id` | **yes** | The wiki page this item reviews; NULL for page-less items (e.g. a future gap item not tied to one page). |
-| `item_type` | Text (enum-by-convention) | no | `new_page` \| `update_page` \| `deep_research_candidate`. CHECK constraint enumerates values (matches scope-doc AC-F9-1; `suggested_query`/`gap`/`contradiction` are **payload sub-kinds**, not new column values — see §3.4). |
-| `status` | Text (enum-by-convention) | no | `pending` \| `approved` \| `skipped` \| `deep_researched`. Defaults `pending` (server default). CHECK constraint. |
+| `item_type` | Text (enum-by-convention) | no | `new_page` \| `update_page` \| `deep_research_candidate`. Enforced at app level by handler `Literal` types — no DB CHECK constraint (see §3.1 amendment note below). Sub-kinds (`suggested_query`/`gap`/`contradiction`) are **payload sub-kinds** inside `pre_generated_query`, not column values — see §3.4. |
+| `status` | Text (enum-by-convention) | no | `pending` \| `approved` \| `skipped` \| `deep_researched`. Defaults `pending` (server default). Enforced at app level by handler `Literal` types — no DB CHECK constraint (see §3.1 amendment note below). |
 | `pre_generated_query` | Text | yes | Newline-separated 1–3 questions from the bounded gen call; **NULL** when the call failed/timed out or was not configured (AC-F9-4). |
 | `deep_research_run_id` | UUID FK → `deep_research_runs.id` | yes | Set when the Deep-Research action fired (AC-F10-5); NULL otherwise. |
 | `created_at` | TIMESTAMP(tz) | no | `func.now()` |
 | `reviewed_at` | TIMESTAMP(tz) | yes | Set on approve/skip/deep-research; NULL while `pending`. |
 | `reviewed_by` | Text | yes | Free-text actor (e.g. `"web-ui"`); NULL while `pending`. M5 is single-operator, so this is audit-only. |
+
+> **§3.1 Amendment (docs gate, M5 Phase 3 — 2026-06-29):** Migration 0010 implements `item_type`
+> and `status` as plain `Text` columns with **no DB CHECK constraint**. Validation is enforced
+> application-side via handler `Literal` types (FastAPI/Pydantic) and the `_set_status` helper in
+> `ops/review.py`. This is the **established Synapse convention** — `ingest_runs.status` and
+> `deep_research_runs.status` are identically structured (Text + app-level Literal, no CHECK). The
+> original ADR text read "CHECK constraint"; that was aspirational and was not implemented. No
+> follow-up migration is required; enum-by-convention (app-level Literal types + mapped Literal on the
+> handlers) is accepted as the house standard, consistent with `ingest_runs` and `deep_research_runs`.
+> Architect condition (Phase 3 review, item 1) resolved by this amendment.
 
 **Index:** `ix_review_items_vault_status_created` on `(vault_id, status, created_at)` — the
 paginated pending-queue read (`WHERE vault_id=? AND status='pending' ORDER BY created_at`). No
@@ -449,6 +459,12 @@ Conditions on the Phase 3 gate (architect review, EC-M5-19):
    watcher ingests **only** the companion (one `pages` row, one Qdrant point); re-upload is `skipped`
    (I1). `_ALLOWED_EXTENSIONS` is unchanged.
 6. D4 regenerated with the 4 review endpoints + widened upload accept list; zero drift (I8).
+
+> **Architect condition (item — non-blocking) RESOLVED:** DB-level CHECK constraints on `item_type`
+> and `status` were absent from migration 0010. Resolution: §3.1 amended to document
+> **enum-by-convention (app-level Literal types + handler validation)** as the accepted approach,
+> consistent with `ingest_runs.status` and `deep_research_runs.status` (same Text + Literal pattern).
+> No migration added. See §3.1 amendment note. Resolved by tech-writer docs gate, M5 Phase 3, 2026-06-29.
 
 > Handoff: ADR-0025 → tech-writer (formatting + README row). Interface contracts (§3.2, §4.1) →
 > backend-engineer (`ops/review.py`, `ingest/extract.py`, the orchestrator hook, the upload widening,

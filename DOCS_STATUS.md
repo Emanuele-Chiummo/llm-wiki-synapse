@@ -2,6 +2,174 @@
 
 > Tech-writer sign-off. Phases appended chronologically; most recent phase at top.
 
+## M5 Phase 3 — Review Queue (F9) + Multi-format Ingest (F12) — DOCS GATE: PASS-WITH-PENDING
+
+> Gate run: 2026-06-29
+> Scope: ADR-0025 (HITL review queue + multi-format ingest). F9: `review_items` table (Alembic 0010),
+>   4 `/review/queue*` endpoints, fire-and-forget post-ingest hook, bounded query-gen (1 call/item).
+>   F12: `ingest/extract.py` dispatch (pypdf/python-docx/python-pptx/openpyxl), companion `.extracted.md`
+>   on upload, watcher ingests companion only. D2 updated (12 tables). D4 updated (/review/* + upload).
+> QA verdict: PASS (639 backend / 483 frontend, 2026-06-29 — v0.5-qa-phase3.md).
+> Architect verdict: APPROVE-WITH-CONDITIONS; architect condition (DB CHECK constraints) resolved by
+>   this gate run via §3.1 amendment to ADR-0025 (enum-by-convention, house standard).
+
+### Per-artifact status (M5 Phase 3)
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/component.mmd` | N/A-unchanged | Phase 3 adds no new container or top-level component. `ops/review.py` and `ingest/extract.py` are internal modules within the existing FastAPI service boundary. No topology change warranting a regen. ADR-0025 §8 handoff explicitly predicted no D1 change. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (zero drift) | Regenerated; 12 tables confirmed including REVIEW_ITEMS (10 columns, both FKs). Header: `v0.5-F9/F10 | 2026-06-29`. See §M5P3-D2. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (zero drift) | Regenerated; 4 `/review/queue*` endpoints present; `/ingest/upload` description references F12 binary/placeholder flows; 3 review schemas confirmed. See §M5P3-D4. |
+| D5 | `docs/screens/review-queue.png` | PENDING-LIVE | Review Queue view requires live stack. Non-blocking per established precedent. See §M5P3-D5. |
+| D5 | `docs/screens/upload-multiformat.png` | PENDING-LIVE | Multi-format upload view requires live stack. Non-blocking. See §M5P3-D5. |
+| D7 | `docs/adr/0025-review-queue-and-multiformat.md` | UP-TO-DATE (amended) | Architect condition (DB CHECK constraints absent) resolved: §3.1 amended to document enum-by-convention as house standard, consistent with `ingest_runs.status` and `deep_research_runs.status`. See §M5P3-D7. |
+| TRACEABILITY | Phase-3 ACs | UP-TO-DATE | AC-F9-1..11, AC-F12-1..7, AC-F10-5 flipped PENDING → GREEN with concrete test IDs from QA Phase 3 report. See §M5P3-TRACE. |
+
+### §M5P3-D2 — ER diagram zero-drift verification
+
+File: `docs/er/schema.mmd`
+
+Header: `<!-- Generated: v0.5-F9/F10 | 2026-06-29 — ADR-0025: review_items; ADR-0024: deep_research_runs/sources; ADR-0016: edges.kind; Feature A: pages.pinned -->`
+
+QA Phase 3 §9 confirmed zero drift (D2 verdict: "ZERO DRIFT"). Cross-checked against `backend/app/models.py` `ReviewItem` class and the architect review migration/schema conformance table.
+
+| Table | Columns present | ADR reference | Match |
+|-------|----------------|---------------|-------|
+| REVIEW_ITEMS | 10 columns: `id`, `vault_id` (String — no FK, AQ-v0.5-6), `page_id` (FK → PAGES), `item_type`, `status`, `pre_generated_query`, `deep_research_run_id` (FK → DEEP_RESEARCH_RUNS), `created_at`, `reviewed_at`, `reviewed_by` | ADR-0025 §3.1 | PASS |
+
+Total: 12 tables (CONVERSATIONS, IMPORT_SCHEDULES, PAGES, PROVIDER_CONFIG, VAULT_STATE, INGEST_RUNS, LINKS, MESSAGES, EDGES, DEEP_RESEARCH_RUNS, DEEP_RESEARCH_SOURCES, REVIEW_ITEMS). Count increase from 11 (Phase 2) to 12 (Phase 3) is exactly +REVIEW_ITEMS.
+
+Cross-check: `models.py` `ReviewItem` — `vault_id: Mapped[str] = mapped_column(String, …)` (no FK), `page_id` nullable FK → `pages.id`, `deep_research_run_id` nullable FK → `deep_research_runs.id`. Matches ER entity exactly.
+
+`ingest_runs.status` and `deep_research_runs.status` confirmed as plain `Text` columns in `models.py` (lines 481 and 1019 respectively) — no CHECK constraints. House convention confirmed for the ADR amendment.
+
+**Result: zero drift. D2 is current.**
+
+### §M5P3-D4 — OpenAPI zero-drift verification
+
+File: `docs/api/openapi.json`
+
+QA Phase 3 §9 confirmed zero drift (D4 verdict: "ZERO DRIFT"). Verified programmatically: 26 total paths; review paths present:
+
+| Path | Method | Present | Notes |
+|------|--------|---------|-------|
+| `/review/queue` | GET | YES | `?vault_id&limit&offset`; limit capped at 200 (I7); references ADR-0025 §3.5 |
+| `/review/queue/{item_id}/approve` | POST | YES | Status-write only; no re-ingest (AC-F9-6) |
+| `/review/queue/{item_id}/skip` | POST | YES | Status-write only |
+| `/review/queue/{item_id}/deep-research` | POST | YES | 202; 503 on SEARXNG_URL unset; references F10 |
+| `/ingest/upload` | POST | YES (updated) | Description references F12 binary/placeholder flows and companion `.extracted.md` |
+
+Review schemas confirmed: `ReviewDeepResearchResponse`, `ReviewItemResponse`, `ReviewQueueResponse`.
+
+**Result: zero drift. D4 is current.**
+
+### §M5P3-D5 — Screenshots status (PENDING-LIVE, not blocking)
+
+Two screenshots scoped to Phase 3 require a running Synapse stack:
+
+- `docs/screens/review-queue.png` — Review Queue section: virtualized list with pending items, page title, item type, pre-generated query, Approve/Skip/Deep-Research action buttons.
+- `docs/screens/upload-multiformat.png` — Sources/Ingest section: UploadZone accepting binary formats (PDF/DOCX shown), companion `.extracted.md` creation noted.
+
+`ReviewQueueView.tsx` and `reviewStore.ts` are code-complete and unit-tested (RTL: `ReviewQueueView.test.tsx`, PASS). E2E Playwright spec target: `frontend/e2e/m5-screenshots.spec.ts`. Not blocking this gate. Consistent with all prior phase precedents.
+
+### §M5P3-D7 — ADR-0025 amendment detail (architect condition)
+
+File: `docs/adr/0025-review-queue-and-multiformat.md`
+
+**Architect condition (Phase 3 review, item 1):** DB-level CHECK constraints on `review_items.item_type` and `review_items.status` were specified in the original ADR §3.1 but absent from migration 0010. Architect offered two resolution paths: (a) add CHECK constraints, or (b) amend ADR to document enum-by-convention.
+
+**Resolution: (b) — ADR-0025 §3.1 amended.**
+
+Basis for choosing (b): `ingest_runs.status` (`models.py:481`) and `deep_research_runs.status` (`models.py:1019`) are both plain `Text` columns with Literal-typed handlers and no DB CHECK — identical pattern to `review_items`. This is the established Synapse house convention. No follow-up migration needed.
+
+**Amendments made:**
+1. §3.1 table rows for `item_type` and `status`: text changed from "CHECK constraint" to "Enforced at app level by handler `Literal` types — no DB CHECK constraint (see §3.1 amendment note)."
+2. §3.1 blockquote amendment note added: cites the house convention (`ingest_runs.status` / `deep_research_runs.status`), states no migration is required, records condition resolution.
+3. §8 Conditions section: resolution paragraph appended confirming the condition is cleared.
+
+No decision was changed — this is a documentation-accuracy amendment. **Condition CLEARED.**
+
+### §M5P3-TRACE — TRACEABILITY.md Phase-3 rows
+
+All Phase-3 ACs flipped from PENDING to GREEN. Test IDs sourced from `docs/sprints/v0.5-qa-phase3.md` (coverage tables §1 and §2).
+
+| AC | Test file(s) | Key test ID(s) | Status |
+|----|--------------|----------------|--------|
+| AC-F9-1 | test_models_schema.py | T-RV-001 (`test_enqueues_pending_row`, `test_enqueues_without_query`, `test_enqueue_is_not_singleton`) | GREEN |
+| AC-F9-2 | test_ingest_review_queue.py | T-RV-006 (`test_hook_exception_does_not_raise`) | GREEN |
+| AC-F9-3 | test_review_api.py, test_docs.py, reviewClient.test.ts | T-RV-007..011, T-RV-013..014, T-RV-016; 4 review endpoints in openapi.json | GREEN |
+| AC-F9-4 | test_ingest_review_queue.py | T-RV-002..005, T-RV-015 | GREEN |
+| AC-F9-5 | ReviewQueueView.test.tsx, reviewStore.test.ts | TanStack Virtual `useVirtualizer`; pagination tests | GREEN |
+| AC-F9-6 | test_review_api.py, reviewStore.test.ts | T-RV-009 (`mock_ingest.call_count == 0`); `test_does_not_call_ingest_endpoint` | GREEN |
+| AC-F9-7 | ReviewQueueView section routing | Static: `/review/*` not on `/ingest/*`; separate section confirmed | GREEN |
+| AC-F9-8 | test_review_integration.py | `test_approve_sets_status` + `test_skip_sets_status` + `test_deep_research_stores_run_id_on_item` | GREEN |
+| AC-F9-9 | test_review.py (I6 test) | `TestI6NoIsinstanceBranching::test_no_isinstance_branching_in_review` | GREEN |
+| AC-F9-10 | test_review_api.py | T-RV-008 (`test_get_queue_limit_capped_at_200` → 422 on limit=201) | GREEN |
+| AC-F9-11 | test_review_api.py, reviewStore.test.ts, reviewClient.test.ts | T-RV-012; 503 distinct handling; 503 client test | GREEN |
+| AC-F12-1 | test_extract.py | T-EXT-001..006, T-EXT-012..014 | GREEN |
+| AC-F12-2 | test_upload.py | `test_pdf_allowed_f12`, `test_docx_allowed_f12`, T-UPLOAD-005, T-EXT-007 | GREEN |
+| AC-F12-3 | test_upload.py | T-UPLOAD-007 (`overwritten=True` on re-upload) | GREEN |
+| AC-F12-4 | test_upload_and_schedule.py | T-UPLOAD-F12-1 (`test_upload_binary_creates_companion_and_preserves_original` — added this gate) | GREEN |
+| AC-F12-5 | test_code_quality.py | T-EXT-009 (pyproject.toml static guard + deps in .venv) | GREEN |
+| AC-F12-6 | test_extract.py | T-EXT-001..004, T-EXT-007 | GREEN |
+| AC-F12-7 | test_code_quality.py | `TestStaticGuard::test_no_format_lib_imports_outside_extract` + `test_no_unstructured_added` (T-EXT-009) | GREEN |
+| AC-F10-5 | test_review_integration.py | T-RV-013 (`test_deep_research_returns_202_with_run_id`), T-RV-014 (`test_deep_research_stores_run_id_on_item`), T-RV-012 (503 orphan-free path) | GREEN |
+
+Total rows flipped: **19** (AC-F9-1..11: 11 rows; AC-F12-1..7: 7 rows; AC-F10-5: 1 row).
+
+### §M5P3-CROSS — Cross-consistency check (ADR-0025 ↔ code ↔ openapi.json ↔ ER ↔ TRACEABILITY)
+
+| Check | Result |
+|-------|--------|
+| ADR-0025 §3.1 `review_items` columns ↔ `schema.mmd` REVIEW_ITEMS entity (10 columns, 2 FKs) | PASS — all 10 columns present; `vault_id` String no-FK (AQ-v0.5-6); `page_id` FK → PAGES; `deep_research_run_id` FK → DEEP_RESEARCH_RUNS |
+| ADR-0025 §3.1 amendment: enum-by-convention ↔ `models.py` `Text` columns (no CHECK) ↔ `ingest_runs.status` + `deep_research_runs.status` (same pattern) | PASS — house convention confirmed; ADR amended |
+| ADR-0025 §3.2 exactly-one-call bound (I7) ↔ T-RV-002 `call_count == 1` instrumented test ↔ `review.py:_single_chat_call` | PASS — proven by call_count instrumentation (QA Phase 3 §3) |
+| ADR-0025 §3.3 fire-and-forget hook ↔ T-RV-006 hook-exception isolation ↔ `orchestrator.py:377-387` try/except | PASS — two-level defense confirmed by architect review §3 + QA Phase 3 §4 |
+| ADR-0025 §3.5 REST surface ↔ openapi.json `/review/queue*` (4 paths) ↔ TRACEABILITY AC-F9-3 | PASS — all 4 paths present with correct methods and 202/503 documentation |
+| ADR-0025 §4.2 `_ALLOWED_EXTENSIONS` unchanged ↔ `upload.py` ↔ T-UPLOAD-F12-1 assertion | PASS — binary exts in separate set; watcher unchanged; companion-only ingested |
+| ADR-0025 §4.4 companion frontmatter (type/title/sources) ↔ T-UPLOAD-F12-1 YAML assertions | PASS — test checks `---`, `type:`, `title:`, `sources:` in companion body |
+| ADR-0025 §4.6 only 4 pure-Python libs (no unstructured) ↔ T-EXT-009 static guard ↔ pyproject.toml | PASS — static guard PASS; no `unstructured` |
+| D2 12-table count: Phase 2 had 11; Phase 3 adds REVIEW_ITEMS → 12 | PASS |
+| D4 openapi.json: 26 paths total; 4 new `/review/*` + updated `/ingest/upload` description | PASS — confirmed programmatically |
+| TRACEABILITY Phase-3 test IDs ↔ QA Phase 3 report §1/§2 | PASS — test IDs sourced verbatim from authoritative QA Phase 3 report |
+| AC-F10-5 now GREEN: Phase 3 scope fulfilled — `ops/review.py::deep_research()` wired to F10 | PASS — run_id threading safe (C1 pattern confirmed by architect review §2); 202 + DB persistence verified |
+| D5 screenshots PENDING-LIVE — consistent with all prior phase precedents | PASS |
+| No new C4 topology change: `ops/review.py` and `ingest/extract.py` internal to FastAPI service | PASS — architect review confirmed "No new container/component topology" |
+
+**No contradictions found across ADR-0025 / openapi.json / schema.mmd / TRACEABILITY / QA Phase 3 report.**
+
+### DOCS GATE VERDICT — M5 Phase 3
+
+| Artifact | Status | Detail |
+|----------|--------|--------|
+| D1 `docs/architecture/component.mmd` | N/A-UNCHANGED | No topology change; `ops/review.py` and `ingest/extract.py` internal to existing FastAPI service boundary |
+| D2 `docs/er/schema.mmd` | UP-TO-DATE (zero drift) | 12 tables; REVIEW_ITEMS with all 10 columns + 2 FKs confirmed; zero diff vs committed file |
+| D4 `docs/api/openapi.json` | UP-TO-DATE (zero drift) | 4 `/review/queue*` endpoints + 3 review schemas + updated `/ingest/upload` description; zero diff vs committed file |
+| D5 `docs/screens/review-queue.png` | PENDING-LIVE | Playwright capture on live stack; ReviewQueueView code-complete + unit-tested; non-blocking |
+| D5 `docs/screens/upload-multiformat.png` | PENDING-LIVE | Playwright capture on live stack; non-blocking |
+| D7 `docs/adr/0025-review-queue-and-multiformat.md` | UP-TO-DATE (amended) | §3.1 amended: DB CHECK → enum-by-convention, house standard; architect condition cleared |
+| TRACEABILITY Phase-3 ACs | UP-TO-DATE | 19 rows flipped PENDING → GREEN (AC-F9-1..11, AC-F12-1..7, AC-F10-5) |
+
+**DOCS GATE: PASS-WITH-PENDING**
+
+All required D-artifacts for M5 Phase 3 are UP-TO-DATE or N/A-unchanged. The architect condition is cleared.
+
+Pending items (non-blocking):
+- D5: `review-queue.png` and `upload-multiformat.png` require a live stack. QA/Playwright responsibility. Consistent with all prior phase precedents.
+
+Drift found and fixed in this run:
+- D7 ADR-0025 §3.1: CHECK constraint text corrected to enum-by-convention; amendment note + condition resolution added.
+- TRACEABILITY: 19 Phase-3 AC rows updated from PENDING to GREEN with authoritative test IDs from `docs/sprints/v0.5-qa-phase3.md`.
+
+Zero-drift items (no content change required):
+- D2: `schema.mmd` already contained REVIEW_ITEMS; confirmed zero diff (QA Phase 3 §9).
+- D4: `openapi.json` already contained all 4 `/review/queue*` routes and updated upload description; confirmed zero diff (QA Phase 3 §9).
+- D1: No topology change.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-29 | M5 Phase 3 gate (architect condition cleared)**
+
+---
+
 ## M5 Phase 2 — Deep Research Loop (F10) — DOCS GATE: PASS-WITH-PENDING
 
 > Gate run: 2026-06-29
