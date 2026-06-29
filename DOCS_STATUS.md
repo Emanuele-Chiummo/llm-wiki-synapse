@@ -2,6 +2,184 @@
 
 > Tech-writer sign-off. Phases appended chronologically; most recent phase at top.
 
+## M5 Phase 4 — Cascade Deletion (F13) — DOCS GATE: PASS-WITH-PENDING
+
+> Gate run: 2026-06-29
+> Scope: ADR-0026 (single-pass cascade delete: 3-method match, preserve-shared, frontmatter-safe dead-wikilink rewrite, soft-delete + Qdrant delete, index.md update, data_version +1 once). No Alembic migration (D2 unchanged). Two new endpoints (POST /pages/{id}/cascade-delete/preview + DELETE /pages/{id}). D4 updated.
+> QA verdict: PASS (674 backend / 526 frontend — re-verified 2026-06-29, v0.5-qa-phase4.md §10). Both P1 defects (DEFECT-F13-001 I1 violation; DEFECT-F13-002 I5 violation) FIXED and CLOSED.
+> Architect verdict: APPROVE-WITH-CONDITIONS; gate-touching condition C3 (I1 defect DEFECT-F13-001) FIXED per §10 re-verification. ADR accuracy condition resolved by this gate run (§4.3 amendment).
+
+### Per-artifact status (M5 Phase 4)
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/component.mmd` | N/A-unchanged | Phase 4 adds no new container or top-level component. `ops/cascade_delete.py` is an internal module within the existing FastAPI service boundary. The existing REST component already covers the two new routes. No topology change warranting a regen. ADR-0026 §9 handoff did not predict a D1 change. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (zero drift) | No Alembic migration in F13 (ADR-0026 §5.1: "No new column, no new table, no Alembic migration"). Last migration was 0010 (review_items, Phase 3). D2 confirmed by QA Phase 4 §4.6: "PASS. Last Alembic migration: 0010_review_items.py". Schema unchanged. See §M5P4-D2. |
+| D3 | `docs/sequences/cascade-delete.mmd` | UP-TO-DATE (amended) | File present (authored at Phase 4 start). Content verified: sequenceDiagram keyword, 3-method match, soft-delete/deleted_at, data_version bump (exact once), frontmatter-safe wikilink rewrite, wikilink notation, shared-entity warnings. DEFECT-F13-002 fix annotated in diagram. See §M5P4-D3. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (zero drift) | POST /pages/{id}/cascade-delete/preview + DELETE /pages/{id} both present with CascadePreviewResponse + CascadeDeleteResponse schemas and accurate descriptions. Confirmed by QA Phase 4 §4.6: "PASS". See §M5P4-D4. |
+| D5 | `docs/screens/cascade-delete-preview.png` | PENDING-LIVE | Cascade-delete preview modal requires live stack (page must exist with wikilink references). Non-blocking per established precedent. See §M5P4-D5. |
+| D5 | `docs/screens/cascade-delete-confirm.png` | PENDING-LIVE | Cascade-delete confirmation step (step 2 with shared-entity warnings visible). Non-blocking. See §M5P4-D5. |
+| D7 | `docs/adr/0026-cascade-delete.md` | UP-TO-DATE (amended) | §4.3 amended: replaced false "byte-for-byte via `frontmatter.dumps`" claim with accurate description of `_rewrite_body_preserving_frontmatter` (raw `---` split) for dead-wikilink rewrites and `frontmatter.dumps(sort_keys=False)` for `_prune_sources`. Amendment note records DEFECT-F13-002. §4.4, Do-NOT #5, and §9 gate item #4 updated to match. See §M5P4-D7. |
+| TRACEABILITY | Phase-4 ACs | UP-TO-DATE | AC-F13-1..7, AC-D3-CD-1 flipped PENDING → GREEN with test IDs from QA Phase 4 report. AC-D3-CI-1 flipped PENDING → DEFERRED (GAP-v0.5-3 carry-forward). EC-M5-12..15, EC-M5-17, EC-M5-18 summary rows updated. See §M5P4-TRACE. |
+
+### §M5P4-D2 — ER diagram (no-change confirmation)
+
+File: `docs/er/schema.mmd`
+
+ADR-0026 §5.1 is explicit: "No new column, no new table, no Alembic migration." F13 reuses `pages.deleted_at` (ADR-0005), `links.dangling`/`links.target_page_id`, the two `edges` endpoint indexes, `pages.sources` (JSONB), and `vault_state`. All of these columns are already in the 12-table ER (confirmed at Phase 3 gate). QA Phase 4 §4.6 confirmed: "Last Alembic migration: `0010_review_items.py` (F9). No F13 migration. PASS." and "`docs/er/schema.mmd` contains `deleted_at` (pre-existing). No new columns. PASS."
+
+No `make er` regeneration needed or performed. The committed file from Phase 3 gate remains current.
+
+**Result: UP-TO-DATE (no-change confirmed). D2 unchanged by F13.**
+
+### §M5P4-D3 — Cascade-delete sequence diagram verification
+
+File: `docs/sequences/cascade-delete.mmd`
+
+Cross-check against the implemented phases (ADR-0026 §5) and the QA Phase 4 report:
+
+| Required element | Present | Evidence |
+|-----------------|---------|---------|
+| `sequenceDiagram` keyword | YES | Line 2 |
+| 3-method reference match (a/b/c) | YES | `3-METHOD MATCH (logged per reference): (a)/(b)/(c)` note block; `SELECT links WHERE target_page_id=:id OR target_title=:T` |
+| `soft-delete` / `deleted_at` | YES | `UPDATE pages SET deleted_at=now()` |
+| `data_version` bump exactly once | YES | `bump_version() (+1 — exactly once, regardless of files touched)` |
+| Wikilink notation `[[T]]` | YES | `rewrite [[T]]→T in BODY only` (original and amended step) |
+| Frontmatter-safe annotation (byte-for-byte, raw split) | YES | `raw ---split → rewrite [[T]]→T in BODY only → frontmatter block byte-for-byte (I5, DEFECT-F13-002 fix)` — updated this gate run |
+| `sources[]` prune with `sort_keys=False` | YES | `frontmatter.dumps(sort_keys=False)` — updated this gate run |
+| Shared-entity warnings (advisory, never block) | YES | `WARN, never block — deletion proceeds (AC-F13-3)` |
+| `update_index()` once | YES | `update_index() once → index.md` |
+| `raw/sources/X` file deleted (AQ-v0.5-5) | YES | `delete raw/sources/X file (watcher sees DELETE, not CREATE on restart)` |
+| I1 annotation (targeted writes, no rescan) | YES | `(ONLY these — AC-F13-4a/b)` |
+| I2 annotation (debounced, no inline FA2) | YES | `NO inline FA2 (I2)` via Cache participant |
+| I7 annotation (single pass, no loop) | YES | `%% ── APPLY (single pass — not a loop, I7)` |
+| DRY-RUN / preview path shown | YES | `%% ── DRY-RUN / PREVIEW` section |
+| Generation header comment | YES | Added this gate run |
+
+The diagram correctly annotates AC-F13-6a (modal shows warnings BEFORE any action) and AC-F13-5c (404 on double-delete).
+
+**D3 verdict: UP-TO-DATE. Amended this gate run to annotate DEFECT-F13-002 fix in the dead-wikilink rewrite and `_prune_sources` loop steps.**
+
+### §M5P4-D4 — OpenAPI zero-drift verification
+
+File: `docs/api/openapi.json`
+
+QA Phase 4 §4.6 confirmed: "Both endpoints present with full descriptions. PASS."
+
+| Path | Method | Present | Schema | Notes |
+|------|--------|---------|--------|-------|
+| `/pages/{page_id}/cascade-delete/preview` | POST | YES | `CascadePreviewResponse` | Read-only DRY-RUN; 200/404; description references ADR-0026 §6 and AC-F13-5/6 |
+| `/pages/{page_id}` | DELETE | YES | `CascadeDeleteResponse` | Single-pass apply; 200/404; description references all 7 steps, I1/I2/I5, mandatory preview |
+
+Schemas confirmed in `components/schemas`:
+- `CascadePreviewResponse`: 10 fields matching `CascadePlan` dataclass (ADR-0026 §2): `target_page_id`, `target_title` (nullable), `target_file_path`, `will_delete`, `will_preserve_with_pruned_source`, `wikilinks_to_rewrite`, `index_entry_will_be_removed`, `raw_source_to_delete` (nullable), `shared_entity_warnings`, `match_methods_used`.
+- `CascadeDeleteResponse`: 4 fields matching `CascadeResult` (ADR-0026 §2): `deleted_page_id`, `wikilinks_cleaned`, `index_entry_removed`, `shared_entity_warnings`.
+
+No regeneration needed; QA Phase 4 confirmed the committed file is current.
+
+**Result: UP-TO-DATE (zero drift confirmed by QA Phase 4 §4.6). D4 current.**
+
+### §M5P4-D5 — Screenshots status (PENDING-LIVE, not blocking)
+
+Two screenshots scoped to Phase 4 require a running Synapse stack:
+
+- `docs/screens/cascade-delete-preview.png` — Delete preview modal (step 1): shows will_delete list, wikilinks_to_rewrite count, shared_entity_warnings (if any), Cancel and Continue buttons.
+- `docs/screens/cascade-delete-confirm.png` — Delete confirmation modal (step 2): warnings repeated, Back and Delete buttons visible; confirms the two-step flow (AC-F13-6a).
+
+`CascadeDeleteModal.tsx` is code-complete and unit-tested (CascadeDeleteModal.test.tsx — all 10 modal interaction tests PASS per QA Phase 4 §4.5). E2E Playwright spec target: `frontend/e2e/m5-screenshots.spec.ts`. Not blocking this gate. Consistent with all prior phase precedents.
+
+### §M5P4-D7 — ADR-0026 §4.3 amendment detail
+
+File: `docs/adr/0026-cascade-delete.md`
+
+**Root defect (DEFECT-F13-002):** The original §4.3 claimed "The frontmatter block is re-emitted byte-for-byte via `frontmatter.dumps`." This was false: PyYAML's default `Dumper` sorts mapping keys alphabetically and changes list-item indentation on every round-trip. QA T-CD-024b proved the drift: `title, type, sources, tags, created_at` was reordered to `created_at, sources, tags, title, type` and `  - item` became `- item`.
+
+**Fix implemented (backend-engineer, confirmed by QA Phase 4 §10):**
+1. New helper `_rewrite_body_preserving_frontmatter(raw, target_title)` (lines 181-200 in `cascade_delete.py`): splits on `---\n` (maxsplit=2), keeps the frontmatter block as a raw string with no parse or round-trip, applies `_rewrite_body` to the body segment only. Returns `None` if body is unchanged (no unnecessary write).
+2. Step 4 of `cascade_delete` changed from `frontmatter.loads/dumps` to `_rewrite_body_preserving_frontmatter`. Frontmatter block is now byte-identical after a dead-wikilink rewrite.
+3. `_prune_sources` (line 836): `frontmatter.dumps` now passes `sort_keys=False`. Key order is preserved; only the `sources` value changes (the pruned entry is removed). Byte-identity is impossible here by design, and not claimed.
+
+**Amendments made to ADR-0026 this gate run:**
+1. §4.3: blockquote amendment note added at section top. Body rewritten to describe `_rewrite_body_preserving_frontmatter` accurately. Over-claiming removed. Distinction between the two paths (byte-identical rewrite vs. key-order-preserving prune) made explicit.
+2. §4.4 heading: "same frontmatter-safe path" → "key-order-preserving frontmatter edit". Text updated to reference `sort_keys=False` and note the `sources` value change is by design.
+3. Do-NOT #5: updated to describe both paths (raw split for rewrite; `sort_keys=False` for prune).
+4. §9 architect gate item #4: updated to reference `_rewrite_body_preserving_frontmatter` and tests T-CD-024b (byte-identical gate) and T-CD-025 (prune-on-disk gate).
+
+No decision changed — this is a documentation-accuracy amendment. **Condition CLEARED.**
+
+### §M5P4-TRACE — TRACEABILITY.md Phase-4 rows
+
+All Phase-4 F13 ACs flipped from PENDING to GREEN. Test IDs sourced from `docs/sprints/v0.5-qa-phase4.md` §2 (AC coverage map) and §10 (re-verification record after both P1 defects were closed).
+
+| AC | Test file(s) | Key test ID(s) | Status |
+|----|--------------|----------------|--------|
+| AC-F13-1 | test_cascade_delete.py | T-CD-009, T-CD-010, T-CD-007/013 (rewrite), T-CD-015 (index), T-CD-011 (data_version), T-CD-014 (raw file), T-CD-024 (frontmatter integrity), T-CD-025 (prune on disk) | GREEN |
+| AC-F13-2 | test_cascade_delete.py | T-CD-002 (method a), T-CD-005 (multi-source preserve), T-CD-026 (method c not called — DEFECT-F13-001 fix) | GREEN |
+| AC-F13-3 | test_cascade_delete.py | T-CD-016 (shared-entity advisory; deletion proceeds) | GREEN |
+| AC-F13-4 | test_cascade_delete.py | T-CD-011 (bump once), T-CD-012 (no FA2), T-CD-013/021 (files_written == rewrites), T-CD-026 (method c skip gate), T-CD-024b (byte-identical frontmatter gate — DEFECT-F13-002 fix) | GREEN |
+| AC-F13-5 | test_cascade_delete.py, test_docs.py | T-CD-017/018/019/019b/020; POST preview + DELETE in openapi.json confirmed | GREEN |
+| AC-F13-6 | CascadeDeleteModal.test.tsx | Loading/error/warnings-before-confirm/step-2-warnings/cancel/ESC/backdrop/confirm/back/DELETE-error | GREEN |
+| AC-F13-7 | test_cascade_delete.py | T-CD-021 (3-rewrite scenario), T-CD-016 (shared-overlap), T-CD-019b (double-delete) | GREEN |
+| AC-D3-CD-1 | cascade-delete.mmd content | Present; valid sequenceDiagram; all required elements confirmed; DEFECT-F13-002 annotation added | GREEN |
+| AC-D3-CI-1 | CI: mmdc step | GAP-v0.5-3 carry-forward — mmdc not yet wired in CI | DEFERRED |
+
+Total rows flipped: **9** (AC-F13-1..7: 7 GREEN; AC-D3-CD-1: 1 GREEN; AC-D3-CI-1: DEFERRED).
+EC summary rows updated: EC-M5-12, EC-M5-13, EC-M5-14, EC-M5-15, EC-M5-17, EC-M5-18.
+AC-D5-M5-1..3 updated from bare PENDING to PENDING-LIVE (scope clarified, consistent with precedent).
+
+### §M5P4-CROSS — Cross-consistency check (ADR-0026 ↔ code ↔ openapi.json ↔ ER ↔ TRACEABILITY ↔ D3)
+
+| Check | Result |
+|-------|--------|
+| ADR-0026 §4.3 amendment ↔ `_rewrite_body_preserving_frontmatter` in `cascade_delete.py` (raw `---` split, no PyYAML round-trip) | PASS — ADR amended to match as-built code; T-CD-024b byte-identical gate PASS confirms |
+| ADR-0026 §4.4 `sort_keys=False` ↔ `_prune_sources` in `cascade_delete.py` (line 836) | PASS — ADR amended; T-CD-025 prune-on-disk PASS confirms correct key order preserved |
+| ADR-0026 §3.1 "method (c) skipped when (a)∪(b) covers candidates" ↔ `_build_wikilink_rewrites` guard `if not all_found_ids:` ↔ T-CD-026 PASS | PASS — DEFECT-F13-001 fix confirmed by re-verification; guard is in production code |
+| ADR-0026 §6.1 REST surface ↔ openapi.json (POST /pages/{id}/cascade-delete/preview + DELETE /pages/{id}) ↔ QA Phase 4 §4.6 | PASS — both endpoints present with correct schemas and descriptions |
+| ADR-0026 §5.1 "no migration" ↔ schema.mmd (12 tables, last migration 0010) ↔ QA Phase 4 §4.6 "No F13 migration" | PASS — D2 unchanged; zero-drift confirmed |
+| cascade-delete.mmd step annotations ↔ ADR-0026 §5 (7-step applied order) ↔ `cascade_delete.py` implementation | PASS — diagram updated this gate run to annotate DEFECT-F13-002 fix; all 7 steps present |
+| cascade-delete.mmd I1/I2/I5/I7 annotations ↔ ADR-0026 §1 invariants owned | PASS — I1 (targeted, no rescan, one bump), I2 (debounced, no inline FA2), I5 (frontmatter-safe after fix), I7 (single pass) all annotated |
+| TRACEABILITY Phase-4 test IDs ↔ QA Phase 4 report §2/§10 | PASS — test IDs sourced verbatim from authoritative QA Phase 4 report |
+| D5 screenshots PENDING-LIVE — consistent with all prior phase precedents | PASS |
+| ADR-0026 Do-NOT #5 and §9 gate item #4 ↔ as-built code (raw split + sort_keys=False) | PASS — both updated to describe the current production approach |
+| No D1 topology change: `ops/cascade_delete.py` internal to FastAPI service boundary | PASS — confirmed by ADR-0026 §2 and architect review |
+
+**No contradictions found across ADR-0026 / openapi.json / schema.mmd / cascade-delete.mmd / TRACEABILITY / QA Phase 4 report.**
+
+### DOCS GATE VERDICT — M5 Phase 4
+
+| Artifact | Status | Detail |
+|----------|--------|--------|
+| D1 `docs/architecture/component.mmd` | N/A-UNCHANGED | No topology change; `ops/cascade_delete.py` internal to existing FastAPI service boundary |
+| D2 `docs/er/schema.mmd` | UP-TO-DATE (no-change) | No F13 migration; `deleted_at` pre-existing; 12 tables confirmed; zero drift (QA Phase 4 §4.6) |
+| D3 `docs/sequences/cascade-delete.mmd` | UP-TO-DATE (amended) | Present; valid sequenceDiagram; 3-method/soft-delete/data_version/wikilink/frontmatter-safe elements confirmed; DEFECT-F13-002 fix annotated; generation header added |
+| D4 `docs/api/openapi.json` | UP-TO-DATE (zero drift) | POST /pages/{id}/cascade-delete/preview + DELETE /pages/{id} with CascadePreviewResponse + CascadeDeleteResponse schemas; zero drift confirmed (QA Phase 4 §4.6) |
+| D5 `docs/screens/cascade-delete-preview.png` | PENDING-LIVE | Playwright capture on live stack; CascadeDeleteModal code-complete and unit-tested; non-blocking |
+| D5 `docs/screens/cascade-delete-confirm.png` | PENDING-LIVE | Playwright capture on live stack; non-blocking |
+| D7 `docs/adr/0026-cascade-delete.md` | UP-TO-DATE (amended) | §4.3 rewritten: raw-split wikilink rewrite (byte-identical frontmatter); §4.4 updated: `sort_keys=False`; Do-NOT #5 + §9 gate #4 updated; DEFECT-F13-002 amendment note present |
+| TRACEABILITY Phase-4 ACs | UP-TO-DATE | 9 rows updated: AC-F13-1..7 → GREEN (7 rows); AC-D3-CD-1 → GREEN (1 row); AC-D3-CI-1 → DEFERRED (1 row). EC-M5-12..15, 17, 18 summary rows updated. |
+
+**DOCS GATE: PASS-WITH-PENDING**
+
+All required D-artifacts for M5 Phase 4 are UP-TO-DATE, N/A-unchanged, or DEFERRED with valid rationale. Both P1 defects are closed. The ADR-0026 §4.3 accuracy amendment is complete.
+
+Pending items (non-blocking):
+- D5: `cascade-delete-preview.png` and `cascade-delete-confirm.png` require a live stack. QA/Playwright responsibility. Consistent with all prior phase precedents.
+- AC-D3-CI-1 (mmdc CI step): GAP-v0.5-3 carry-forward from v0.3. devops-engineer to wire before M6 sign-off.
+
+Drift found and fixed in this run:
+- D7 ADR-0026 §4.3: `frontmatter.dumps` byte-for-byte claim replaced with accurate raw-split description; DEFECT-F13-002 amendment note added. §4.4, Do-NOT #5, §9 gate item #4 updated.
+- D3 cascade-delete.mmd: dead-wikilink loop step and preserve-branch step updated to annotate DEFECT-F13-002 fix; generation header comment added.
+- TRACEABILITY: 9 Phase-4 AC rows updated; 6 EC summary rows updated; AC-D5-M5-1..3 clarified to PENDING-LIVE.
+
+Zero-drift items (no content change required):
+- D2: No F13 migration; confirmed unchanged by QA Phase 4.
+- D4: Both cascade-delete endpoints already present with full schemas; confirmed by QA Phase 4.
+- D1: No topology change.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-29 | M5 Phase 4 gate (both P1 defects closed; ADR-0026 §4.3 accuracy amendment)**
+
+---
+
 ## M5 Phase 3 — Review Queue (F9) + Multi-format Ingest (F12) — DOCS GATE: PASS-WITH-PENDING
 
 > Gate run: 2026-06-29

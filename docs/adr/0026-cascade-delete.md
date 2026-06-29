@@ -208,9 +208,23 @@ no other file is read or written (AC-F13-4a/b).
 
 ### 4.3 The dead-link rewrite (AC-F13-1 step 6) — body-only, frontmatter-safe
 
-For each `WikilinkRewrite`, F13 opens **only that one file**, splits frontmatter from body using the
-**same `python-frontmatter` round-trip the writer uses** (`frontmatter.loads` → mutate body →
-`frontmatter.dumps`), and rewrites dead links in the **body only**:
+> **Amendment — DEFECT-F13-002 fix (re-verified 2026-06-29):** The original design claimed "the
+> frontmatter block is re-emitted byte-for-byte via `frontmatter.dumps`". That claim was FALSE:
+> PyYAML's default `Dumper` reorders keys alphabetically and changes list-item indentation on every
+> round-trip. The fix replaced the `frontmatter.loads/dumps` round-trip in the dead-wikilink rewrite
+> path with a raw `---` split (`_rewrite_body_preserving_frontmatter`). The `_prune_sources` path
+> intentionally mutates `sources[]` content so a full round-trip is unavoidable there, but now uses
+> `sort_keys=False` to preserve key order (see §4.4). The description below reflects the as-built
+> implementation.
+
+For each `WikilinkRewrite`, F13 opens **only that one file** and rewrites dead links in the
+**body only**, keeping the frontmatter block **byte-for-byte identical**:
+
+The helper `_rewrite_body_preserving_frontmatter(raw, target_title)` splits the raw file content
+on `---\n` fences (`str.split("---\n", maxsplit=2)`) to isolate the frontmatter block as a raw
+string. The frontmatter block is kept **entirely unchanged** — no PyYAML parse, no round-trip,
+no re-serialisation. The body (the third segment) is passed to `_rewrite_body`, which applies the
+wikilink substitutions:
 
 - `[[T]]`          → `T`
 - `[[T|alias]]`    → `alias`   (the displayed text is preserved — Obsidian renders the alias)
@@ -219,24 +233,28 @@ For each `WikilinkRewrite`, F13 opens **only that one file**, splits frontmatter
 
 The replacement is performed with an **anchored regex** over the body string (the same `_WIKILINK_RE`
 grammar from `wiki/links.py`, matched against `T` / `slugify(T)`), so it cannot touch a `[[OtherPage]]`
-link or any frontmatter key. The frontmatter block is re-emitted **byte-for-byte via `frontmatter.dumps`**
-— F13 never string-edits inside the `---` fences (I5). After writing, F13 re-runs
-`parse_wikilinks(new_body)` + `persist_links(...)` for that page so the `links` index reflects the
-removed link (the row's `dangling`/`target_page_id` no longer points at the deleted page). Affected
-`links` rows that previously pointed at the deleted page have `dangling=True` set (AC-F13-1 step 7) for
-any link the rewrite did not remove (defensive — should be none after a clean rewrite).
+link or any frontmatter key. The function returns `None` when the body is unchanged, preventing a
+no-op file write. After writing, F13 re-runs `parse_wikilinks(new_body)` + `persist_links(...)` for
+that page so the `links` index reflects the removed link (the row's `dangling`/`target_page_id` no
+longer points at the deleted page). Affected `links` rows that previously pointed at the deleted
+page have `dangling=True` set (AC-F13-1 step 7) for any link the rewrite did not remove (defensive
+— should be none after a clean rewrite).
 
 > **Configurable dead-link form.** The default neutralisation is plain text (display text retained).
 > A `CASCADE_DEAD_LINK_STYLE` env (`plain` | `strikethrough`) is reserved; `plain` is the M5 shipped
 > behavior and the only one the `test_obsidian_check.py` gate is asserted against. `strikethrough`
 > (`~~T~~`) is a post-M5 nicety, not built now.
 
-### 4.4 The `sources[]` prune (preserve branch) — same frontmatter-safe path
+### 4.4 The `sources[]` prune (preserve branch) — key-order-preserving frontmatter edit
 
 For each page in `will_preserve_with_pruned_source`, F13 opens only that file, loads it with
 `frontmatter.loads`, removes `X` from the `sources` list in the metadata dict, re-emits with
-`frontmatter.dumps`, and updates `pages.sources` (JSONB) to match — a targeted edit, never a vault walk.
-This page is **not** deleted, its Qdrant point is **not** removed, and it stays in `index.md`.
+`frontmatter.dumps(sort_keys=False)`, and updates `pages.sources` (JSONB) to match — a targeted
+edit, never a vault walk. Passing `sort_keys=False` preserves the original YAML key order (fixing
+DEFECT-F13-002 for this path); the `sources` value itself changes by design (the pruned entry is
+removed), so byte-identical output is impossible and not claimed. Other keys and their values are
+unchanged. This page is **not** deleted, its Qdrant point is **not** removed, and it stays in
+`index.md`.
 
 ---
 
@@ -357,9 +375,12 @@ shared-entity warning shown as an explicit note/branch. Rendered by `mmdc` in CI
 4. **Do NOT leave a dead `[[wikilink]]` anywhere (I5).** Every dead link in every referencing file is
    rewritten to plain text (or its alias). `test_obsidian_check.py` 15/15 is the gate; a surviving dead
    link is a reject.
-5. **Do NOT corrupt YAML frontmatter (I5).** Rewrites and `sources[]` prunes go through the
-   `frontmatter.loads`/`dumps` round-trip; the body regex never matches inside the `---` fences. A
-   global string replace that can touch frontmatter is a reject.
+5. **Do NOT corrupt YAML frontmatter (I5).** Dead-wikilink rewrites use a raw `---\n` split
+   (`_rewrite_body_preserving_frontmatter`) that keeps the frontmatter block byte-for-byte; the body
+   regex never matches inside the `---` fences. `sources[]` prunes use `frontmatter.dumps(sort_keys=False)`
+   to preserve key order while mutating only the `sources` value. A global string replace that can touch
+   frontmatter keys, or a `frontmatter.dumps` call without `sort_keys=False` on the prune path, is a
+   reject.
 6. **Do NOT delete a shared page** (AC-F13-2 preserve / AC-F13-3). A page whose `sources[]` retains
    another entry after removing `X` is preserved with a pruned source. Deleting it because it merely
    *referenced* `X` is a reject.
@@ -385,8 +406,10 @@ A F13 PR is approved only if:
    proven NOT invoked on a links-table-hit fixture (AC-F13-2, §3.1).
 3. The preserve-shared rule deletes a page **iff** its `sources[]` becomes empty and prunes the rest
    (AC-F13-2 preserve / AC-F13-3); a shared page is never deleted.
-4. Every dead-link rewrite is frontmatter-safe (round-trip via `frontmatter`); `test_obsidian_check.py`
-   15/15 green after a cascade delete (I5).
+4. Every dead-link rewrite is frontmatter-safe (raw `---` split via `_rewrite_body_preserving_frontmatter`
+   — byte-identical frontmatter block, no PyYAML round-trip); `sources[]` prunes use `frontmatter.dumps(sort_keys=False)`
+   (key order preserved, only `sources` value mutated); `test_obsidian_check.py` 15/15 green after a
+   cascade delete (I5). T-CD-024b (byte-identical gate) and T-CD-025 (prune-on-disk gate) both PASS.
 5. `POST /pages/{id}/cascade-delete/preview` mutates nothing (read-only assertion: `data_version`,
    files, Qdrant, rows all unchanged); `DELETE /pages/{id}` returns the AC-F13-5 shape and 404s on
    double-delete.

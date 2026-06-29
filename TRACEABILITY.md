@@ -1,6 +1,6 @@
 # Synapse — Traceability Matrix
 > Maintained by: functional-analyst (stub), qa-test-engineer (fills Test ID + Status columns)
-> Last updated: 2026-06-29 (Sprint 5 / v0.5 — M5 Phase 3 ACs flipped to GREEN; tech-writer docs gate)
+> Last updated: 2026-06-29 (Sprint 5 / v0.5 — M5 Phase 4 ACs flipped to GREEN; tech-writer docs gate)
 > Source of truth for feature IDs: CLAUDE.md §4
 > User stories + ACs: docs/sprints/v0.1-stories.md, docs/sprints/v0.2-stories.md
 > Sprint scope + Exit Criteria (EC-x): docs/sprints/v0.1-scope.md §5, docs/sprints/v0.2-scope.md §7
@@ -1469,13 +1469,13 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 
 | AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|----------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F13-1 | S-F13-1 | EC-M5-12 | — | I1, I5 | backend/tests/test_cascade_delete.py | PENDING | — | PENDING |
-| AC-F13-2 | S-F13-1 | EC-M5-12 | — | I1 | backend/tests/test_cascade_delete.py | PENDING | — | PENDING |
-| AC-F13-3 | S-F13-1 | EC-M5-12 | — | I1 | backend/tests/test_cascade_delete.py | PENDING | — | PENDING |
-| AC-F13-4 | S-F13-1 | EC-M5-13 | — | I1, I2, I5 | backend/tests/test_cascade_delete.py | PENDING | — | PENDING |
-| AC-F13-5 | S-F13-1 | EC-M5-12 | D4 | I8 | backend/tests/test_cascade_delete_api.py, backend/tests/test_docs.py | PENDING | — | PENDING |
-| AC-F13-6 | S-F13-1 | EC-M5-12 | D5 | I5 | frontend/src/tests/PageView.test.tsx | PENDING | — | PENDING |
-| AC-F13-7 | S-F13-1 | EC-M5-12 | — | I1, I5 | backend/tests/test_cascade_delete.py | PENDING | — | PENDING |
+| AC-F13-1 | S-F13-1 | EC-M5-12 | — | I1, I5 | backend/tests/test_cascade_delete.py | T-CD-009 (soft-delete), T-CD-010 (Qdrant), T-CD-007/T-CD-013 (rewrite), T-CD-015 (index), T-CD-011 (data_version); T-CD-014 (raw file deleted); T-CD-024 (frontmatter integrity); T-CD-025 (prune on disk) — QA Phase 4 §2, §10 | — | GREEN |
+| AC-F13-2 | S-F13-1 | EC-M5-12 | — | I1 | backend/tests/test_cascade_delete.py | T-CD-002 (method a exact), T-CD-005 (multi-source preserve), T-CD-026 (`test_method_c_not_called_on_links_table_hit`) — QA Phase 4 §2, §10 re-verification | — | GREEN |
+| AC-F13-3 | S-F13-1 | EC-M5-12 | — | I1 | backend/tests/test_cascade_delete.py | T-CD-016 (`test_shared_entity_warning_is_advisory`; deletion proceeds, warnings surfaced) — QA Phase 4 §2 | — | GREEN |
+| AC-F13-4 | S-F13-1 | EC-M5-13 | — | I1, I2, I5 | backend/tests/test_cascade_delete.py | T-CD-011 (bump exactly once), T-CD-012 (no FA2/GraphEngine), T-CD-013/T-CD-021 (files_written == rewrites), T-CD-026 (method c skipped on happy path), T-CD-024b (frontmatter byte-identical after rewrite) — QA Phase 4 §2, §10 re-verification | — | GREEN |
+| AC-F13-5 | S-F13-1 | EC-M5-12 | D4 | I8 | backend/tests/test_cascade_delete.py, backend/tests/test_docs.py | T-CD-017 (`test_preview_returns_200`), T-CD-018 (`test_delete_returns_200_correct_shape`), T-CD-019 (`test_delete_returns_correct_body_shape`), T-CD-019b (`test_double_delete_returns_404`), T-CD-020 (`test_preview_404_on_unknown`); POST /pages/{id}/cascade-delete/preview + DELETE /pages/{id} in openapi.json (QA Phase 4 §4.6) | — | GREEN |
+| AC-F13-6 | S-F13-1 | EC-M5-12 | D5 | I5 | frontend/src/tests/CascadeDeleteModal.test.tsx | CascadeDeleteModal.test.tsx: loading state, preview error, shared-entity warnings before confirm, warnings on step 2, cancel/ESC/backdrop no-op, confirm fires `cascadeDelete(pageId)` + `onDeleted(result)`, back button returns to step 1, DELETE error shown inline — QA Phase 4 §4.5 | — | GREEN |
+| AC-F13-7 | S-F13-1 | EC-M5-12 | — | I1, I5 | backend/tests/test_cascade_delete.py | T-CD-021 (3-rewrite scenario), T-CD-016 (shared-overlap scenario), T-CD-019b (double-delete scenario) — QA Phase 4 §2 | — | GREEN |
 
 ---
 
@@ -1483,8 +1483,8 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 
 | AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|----------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-D3-CD-1 | S-D3-2 | EC-M5-15 | D3 | I1, I5, I8 | backend/tests/test_docs.py; CI: mmdc render | PENDING | — | PENDING |
-| AC-D3-CI-1 | S-D3-1, S-D3-2 | EC-M5-15 | D3 | I8 | CI: mmdc render step; backend/tests/test_docs.py | PENDING | — | PENDING |
+| AC-D3-CD-1 | S-D3-2 | EC-M5-15 | D3 | I1, I5, I8 | backend/tests/test_docs.py; CI: mmdc render | `docs/sequences/cascade-delete.mmd` present; sequenceDiagram keyword; 3-method match, soft-delete/deleted_at, data_version bump (exact once), frontmatter-safe wikilink rewrite noted; DEFECT-F13-002 fix annotated in diagram; architect-reviewed (ADR-0026 §7, Phase 4 review APPROVE-WITH-CONDITIONS). mmdc CI PENDING-carry-forward (GAP-v0.5-3) — QA Phase 4 §4.6 | — | GREEN |
+| AC-D3-CI-1 | S-D3-1, S-D3-2 | EC-M5-15 | D3 | I8 | CI: mmdc render step; backend/tests/test_docs.py | DEFERRED — mmdc not yet wired in CI (GAP-v0.5-3 carry-forward from v0.3). Both .mmd files present and valid Mermaid syntax (content-checked by test_docs.py). devops-engineer to wire mmdc step before M6 sign-off. | — | DEFERRED |
 
 ---
 
@@ -1492,9 +1492,9 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 
 | AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|----------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-D5-M5-1 | S-D5-1 | EC-M5-16 | D5 | I8 | frontend/e2e/m5-screenshots.spec.ts; backend/tests/test_docs.py | PENDING | — | PENDING |
-| AC-D5-M5-2 | S-D5-1 | EC-M5-16 | D5 | I8 | backend/tests/test_docs.py | PENDING | — | PENDING |
-| AC-D5-M5-3 | S-D5-1 | EC-M5-16 | D5 | I8 | CI: make screenshots | PENDING | — | PENDING |
+| AC-D5-M5-1 | S-D5-1 | EC-M5-16 | D5 | I8 | frontend/e2e/m5-screenshots.spec.ts; backend/tests/test_docs.py | PENDING-LIVE — cascade-delete modal (delete preview + confirm) requires live stack; non-blocking per established precedent (consistent with all prior phase D5 deferrals) | — | PENDING-LIVE |
+| AC-D5-M5-2 | S-D5-1 | EC-M5-16 | D5 | I8 | backend/tests/test_docs.py | PENDING-LIVE — same rationale as AC-D5-M5-1 | — | PENDING-LIVE |
+| AC-D5-M5-3 | S-D5-1 | EC-M5-16 | D5 | I8 | CI: make screenshots | PENDING-LIVE — requires live stack with Playwright capture spec targeting cascade-delete modal; non-blocking | — | PENDING-LIVE |
 
 ---
 
@@ -1513,13 +1513,13 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 | EC-M5-9 | F9 Deep-Research delegates to F10 POST /research/start; run_id stored on review_item | AC-F9-8, AC-F9-11, AC-F10-5 | GREEN (Phase 3 gate 2026-06-29; T-RV-013/014 + 503 path PASS) |
 | EC-M5-10 | PDF/DOCX/PPTX/XLSX ingested via upload; text extracted by ingest/extract.py; wiki entry produced | AC-F12-1, AC-F12-2, AC-F12-5, AC-F12-6 | GREEN (Phase 3 gate 2026-06-29; T-EXT-001..014 + T-UPLOAD PASS) |
 | EC-M5-11 | .extracted.md written to vault/raw/sources/ only; vault/wiki/ written only by ingest pipeline; K1 3-layer intact | AC-F12-3, AC-F12-4, AC-F12-7 | GREEN (Phase 3 gate 2026-06-29; T-UPLOAD-F12-1 PASS) |
-| EC-M5-12 | Cascade delete: Postgres soft-delete + Qdrant removal + index.md + dead wikilinks + shared-entity warnings | AC-F13-1, AC-F13-2, AC-F13-3, AC-F13-5, AC-F13-6, AC-F13-7 | PENDING |
-| EC-M5-13 | Cascade delete: targeted file edits only; no full rescan; data_version bumped once | AC-F13-4 | PENDING |
-| EC-M5-14 | vault/wiki/ valid Obsidian vault after all M5 ops; test_obsidian_check.py 15/15 green | AC-F12-4, AC-F13-4 | PARTIAL — AC-F12-4 GREEN (Phase 3 gate; companion has valid YAML frontmatter; binary excluded from watcher); AC-F13-4 PENDING (Phase 4 scope) |
-| EC-M5-15 | deep-research.mmd + cascade-delete.mmd: present, valid Mermaid, pass mmdc CI, reviewed by architect + tech-writer | AC-D3-DR-1, AC-D3-CD-1, AC-D3-CI-1 | PARTIAL — deep-research.mmd GREEN (Phase 2 gate); cascade-delete.mmd PENDING (Phase 4 scope); mmdc CI PENDING (GAP-v0.5-3 carry-forward) |
+| EC-M5-12 | Cascade delete: Postgres soft-delete + Qdrant removal + index.md + dead wikilinks + shared-entity warnings | AC-F13-1, AC-F13-2, AC-F13-3, AC-F13-5, AC-F13-6, AC-F13-7 | GREEN (Phase 4 gate 2026-06-29; 674 pytest pass, 526 vitest pass — QA Phase 4 §10 re-verification; both P1 defects CLOSED) |
+| EC-M5-13 | Cascade delete: targeted file edits only; no full rescan; data_version bumped once | AC-F13-4 | GREEN (Phase 4 gate 2026-06-29; T-CD-011/012/013/021/024b/026 all PASS — QA Phase 4 §10 re-verification; DEFECT-F13-001 + DEFECT-F13-002 CLOSED) |
+| EC-M5-14 | vault/wiki/ valid Obsidian vault after all M5 ops; test_obsidian_check.py 15/15 green | AC-F12-4, AC-F13-4 | GREEN — AC-F12-4 GREEN (Phase 3 gate); AC-F13-4 GREEN (Phase 4 gate; T-CD-024b byte-identical frontmatter gate PASS; T-CD-025 prune-on-disk PASS; dead wikilinks fully cleaned T-CD-021) |
+| EC-M5-15 | deep-research.mmd + cascade-delete.mmd: present, valid Mermaid, pass mmdc CI, reviewed by architect + tech-writer | AC-D3-DR-1, AC-D3-CD-1, AC-D3-CI-1 | PARTIAL — deep-research.mmd GREEN (Phase 2 gate); cascade-delete.mmd GREEN (Phase 4 gate; present, valid sequenceDiagram, architect-reviewed, DEFECT-F13-002 fix annotated); mmdc CI DEFERRED (GAP-v0.5-3 carry-forward) |
 | EC-M5-16 | Playwright captures ≥4 new M5 PNGs committed; CF-HARD-1 recaptured; make screenshots exits 0 | AC-D5-M5-1, AC-D5-M5-2, AC-D5-M5-3 | PENDING |
-| EC-M5-17 | D2 regenerated (includes deep_research_runs, deep_research_sources, review_items); D4 regenerated (all new endpoints); zero drift | AC-F10-6, AC-F9-1, AC-F13-5 + make er + make openapi | PARTIAL — D2 zero-drift (Phase 3 gate; 12 tables confirmed: +REVIEW_ITEMS); D4 zero-drift (Phase 3 gate; 4 /review/* endpoints + widened upload confirmed); cascade-delete endpoints PENDING (Phase 4 scope) |
-| EC-M5-18 | Full pytest + vitest + Playwright suite green (0 failures, 0 regressions); ruff+black+mypy+ESLint+Prettier clean | All automated ACs above | PENDING |
+| EC-M5-17 | D2 regenerated (includes deep_research_runs, deep_research_sources, review_items); D4 regenerated (all new endpoints); zero drift | AC-F10-6, AC-F9-1, AC-F13-5 + make er + make openapi | GREEN — D2 zero-drift (Phase 3 gate; 12 tables; no F13 migration); D4 zero-drift (Phase 4 gate; POST /pages/{id}/cascade-delete/preview + DELETE /pages/{id} confirmed with CascadePreviewResponse + CascadeDeleteResponse schemas — QA Phase 4 §4.6) |
+| EC-M5-18 | Full pytest + vitest + Playwright suite green (0 failures, 0 regressions); ruff+black+mypy+ESLint+Prettier clean | All automated ACs above | PARTIAL — 674 pytest + 526 vitest PASS (Phase 4 re-verification 2026-06-29); ruff+black+mypy+tsc+eslint CLEAN (QA Phase 4 §10). Playwright E2E (cascade-delete modal, review queue, deep-search) PENDING-LIVE. Phase 5 (F1-MCP-UI) ACs not yet started. |
 | EC-M5-19 | Architect gate: rag/retrieval.py (I1/I2/I3), deep_research.py (I7/I9), cascade_delete.py (I1/I5), review.py (I6/I7), CliAgentProvider.chat() (I6/I7) | All above | MANUAL |
 | EC-M5-20 | Tech-writer gate: D3 + D5 + D2/D4 consistent with implementation; D6 current with M5 additions | AC-D3-DR-1, AC-D3-CD-1, AC-D5-M5-1 | MANUAL |
 | EC-M5-21 | PM gate: all EC-M5-1..20 MET; M4 carry-forward nits disposed; velocity note filed | All above | PENDING |
