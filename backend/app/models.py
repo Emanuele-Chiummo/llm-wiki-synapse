@@ -12,6 +12,8 @@ Tables defined here:
   - conversations     : v0.4 F6 chat threads; soft-deletable (ADR-0019 §2.5).
   - messages          : v0.4 F6 chat messages; per-message token/cost columns (I7, ADR-0019).
   - import_schedules  : M4-EXT scheduled folder import config + last-run status (ADR-0020 §4.1).
+  - deep_research_runs    : v0.5 F10 per-run audit ledger for deep research (ADR-0024 §7.1).
+  - deep_research_sources : v0.5 F10 per-source child rows (ADR-0024 §7.2).
 
 provider_config + ingest_runs added in v0.2 (ADR-0008). links added in v0.2 (ADR-0008 §5).
 All three new tables ship in a single Alembic migration 0002 (one schema-change event).
@@ -24,6 +26,9 @@ v0.4: ingest_runs.status / pages_created / error_message added in Alembic migrat
 iterations_used and completed_at respectively.
 
 M4-EXT: import_schedules table added in Alembic migration 0008 (ADR-0020 §4.1).
+
+v0.5-F10: deep_research_runs + deep_research_sources added in Alembic migration 0009
+(ADR-0024 §7 — F10 Deep Research loop).
 
 Run `make er` to regenerate docs/er/schema.mmd from this file (I8).
 """
@@ -970,3 +975,235 @@ class ImportSchedule(Base):
             f"<ImportSchedule vault={self.vault_id!r} enabled={self.enabled} "
             f"freq={self.frequency!r} status={self.last_status!r}>"
         )
+
+
+class DeepResearchRun(Base):
+    """
+    v0.5 F10 deep-research run — one row per run_deep_research() call (ADR-0024 §7.1).
+
+    Bounds (max_iter, token_budget) are FROZEN at INSERT and never re-read mid-loop (I7).
+    status defaults to 'running'; terminal values: converged | max_iter_reached |
+    budget_exhausted | error. Never left 'running' on loop fall-through (Do-NOT #7).
+    total_cost_usd: 0.0000 for local/cli (ADR-0009 convention).
+    synthesis_page_id: FK → pages.id; NULL until _ingest_synthesis completes.
+
+    Index: (vault_id, started_at DESC) mirrors ingest_runs (ADR-0024 §7.1).
+    """
+
+    __tablename__ = "deep_research_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Run identity",
+    )
+
+    vault_id: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment="Scope — string, no vaults table (AQ-v0.5-6, ADR-0024 §7.1)",
+    )
+
+    topic: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="The research topic provided by the caller",
+    )
+
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="running",
+        server_default=sa_text("'running'"),
+        comment=(
+            "running | converged | max_iter_reached | budget_exhausted | error. "
+            "Defaults 'running'; terminal write always in finally (Do-NOT #7, ADR-0024 §3.2)"
+        ),
+    )
+
+    max_iter: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="Iteration cap FROZEN at INSERT from POST body → env default (AQ-v0.5-4)",
+    )
+
+    token_budget: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="Token budget FROZEN at INSERT (AQ-v0.5-4, I7)",
+    )
+
+    iterations_used: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="Rounds consumed (1..max_iter); 0 until first round completes",
+    )
+
+    queries_used: Mapped[list[str]] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"),
+        nullable=False,
+        default=list,
+        server_default=sa_text("'[]'"),
+        comment="Array of every query issued, per round (AC-F10-4c)",
+    )
+
+    sources_fetched: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="Count of fetched candidate sources across all iterations",
+    )
+
+    converged: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_text("false"),
+        comment="True iff status == 'converged' (audit convenience, ADR-0024 §7.1)",
+    )
+
+    total_cost_usd: Mapped[float] = mapped_column(
+        Numeric(10, 4),
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="I7 cost ledger; 0.0000 for local/cli (ADR-0009); $1 anomaly threshold",
+    )
+
+    synthesis_text: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="The synthesized markdown; NULL until step 5 completes (AC-F10-4c)",
+    )
+
+    synthesis_page_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        ForeignKey("pages.id"),
+        nullable=True,
+        comment="FK → pages.id created by the re-entrant ingest_file; NULL until done",
+    )
+
+    started_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Run start time",
+    )
+
+    completed_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        comment="NULL while running; set in finally block (mirrors ingest_runs alias rule)",
+    )
+
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Populated only on status='error'; NULL otherwise",
+    )
+
+    # Relationships
+    sources: Mapped[list[DeepResearchSource]] = relationship(
+        "DeepResearchSource",
+        back_populates="run",
+        cascade="all, delete-orphan",
+        lazy="raise",
+    )
+
+    __table_args__ = (
+        # Paginated list query: (vault_id, started_at DESC) mirrors ingest_runs
+        Index("ix_deep_research_runs_vault_started", "vault_id", "started_at"),
+    )
+
+    def __repr__(self) -> str:
+        topic_short = self.topic[:40] if self.topic else ""
+        return (
+            f"<DeepResearchRun id={self.id} status={self.status!r} "
+            f"vault={self.vault_id!r} topic={topic_short!r}>"
+        )
+
+
+class DeepResearchSource(Base):
+    """
+    v0.5 F10 per-source child row — one per fetched URL within a run (ADR-0024 §7.2).
+
+    ON DELETE CASCADE from deep_research_runs (run.sources is the ORM relationship).
+    relevance_score is optional/best-effort in Phase 2 (NULL allowed, ADR-0024 §11).
+    fetched_content_md is capped at DEEP_RESEARCH_FETCH_MAX_CHARS (ADR-0024 §4).
+    """
+
+    __tablename__ = "deep_research_sources"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Row identity",
+    )
+
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        ForeignKey("deep_research_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="FK → deep_research_runs.id (ON DELETE CASCADE)",
+    )
+
+    url: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="The fetched source URL (from SearXNG hit)",
+    )
+
+    title: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Hit title from SearXNG; may be URL if no title available",
+    )
+
+    fetched_content_md: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Extracted markdown (capped at DEEP_RESEARCH_FETCH_MAX_CHARS); "
+            "NULL on fetch failure (ADR-0024 §4 / Do-NOT #9)"
+        ),
+    )
+
+    relevance_score: Mapped[float | None] = mapped_column(
+        Numeric(6, 4),
+        nullable=True,
+        comment="Optional model/heuristic relevance; NULL in Phase 2 (ADR-0024 §11)",
+    )
+
+    iteration: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default=sa_text("1"),
+        comment="Which round produced this source (1..max_iter); audit trail",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time",
+    )
+
+    # Relationship back to the run
+    run: Mapped[DeepResearchRun] = relationship(
+        "DeepResearchRun",
+        back_populates="sources",
+        lazy="raise",
+    )
+
+    __table_args__ = (Index("ix_deep_research_sources_run_id", "run_id"),)
+
+    def __repr__(self) -> str:
+        return f"<DeepResearchSource run={self.run_id} url={self.url!r} iter={self.iteration}>"

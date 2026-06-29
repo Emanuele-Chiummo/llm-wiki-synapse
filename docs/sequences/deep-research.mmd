@@ -1,0 +1,72 @@
+sequenceDiagram
+    %% Deep Research loop — F10 / ADR-0024
+    %% AC-D3-DR-1: must show all 6 steps + bounded loop + fire-and-poll pattern
+
+    participant Client as Web UI / API Client
+    participant API as FastAPI (/research/start)
+    participant DB as Postgres
+    participant DR as run_deep_research
+    participant Provider as InferenceProvider (I6)
+    participant SearXNG as SearXNG (I9)
+    participant Ingest as ingest_file seam (I1/I5)
+
+    %% ── Fire-and-poll: 202 immediately ──────────────────────────────────────
+    Client->>API: POST /research/start {vault_id, topic, max_iter, token_budget}
+    API->>API: Check SEARXNG_URL set (503 if not, I9)
+    API->>DB: INSERT deep_research_runs (status=running, bounds frozen, AQ-v0.5-4)
+    API-->>Client: 202 {run_id}
+    API-)DR: asyncio.create_task(run_deep_research(...))
+
+    Note over Client,DR: 202 returned immediately; client polls GET /research/runs/{id}
+
+    %% ── Step 1: Initial query generation ────────────────────────────────────
+    DR->>Provider: chat(generate_queries_prompt, prior_context="")
+    Provider-->>DR: ["query1", "query2", ...]  (up to MAX_QUERIES, I7)
+
+    %% ── Bounded loop (for i in range(1, max_iter+1)) ─────────────────────────
+    loop for iteration in range(1, max_iter+1)  [HARD CAP — I7, ADR-0024 §3.2]
+        DR->>DR: Budget gate: if tokens >= token_budget → status=budget_exhausted; break
+
+        %% Step 2: SearXNG search (concurrency=3, I9)
+        DR->>SearXNG: GET /search?q=query1 (async, semaphore=3)
+        DR->>SearXNG: GET /search?q=query2 (async, semaphore=3)
+        SearXNG-->>DR: SearchHit[] (URL, title, snippet)
+
+        %% Step 3: Fetch + extract
+        DR->>DR: httpx GET each URL (async, bounded by FETCH_MAX_CHARS)
+        DR->>DR: _html_to_markdown(html) — no LLM call
+        DR->>DB: INSERT deep_research_sources row per fetched URL
+
+        %% Step 4: Assess sufficiency BEFORE refine (Do-NOT #8)
+        DR->>Provider: chat(assess_sufficiency_prompt, collected_sources)
+        Provider-->>DR: "SUFFICIENT" | "INSUFFICIENT\n<gaps>"
+
+        alt sufficient
+            DR->>DR: status = "converged"; break
+        else not sufficient AND iteration < max_iter
+            DR->>Provider: chat(generate_queries_prompt, prior_context=gaps)
+            Provider-->>DR: refined queries for next round
+        end
+    end
+    %% Loop exits: status = converged | max_iter_reached | budget_exhausted
+
+    %% ── Step 5: Synthesize (terminal, only on non-error exit) ────────────────
+    alt status in (converged, max_iter_reached, budget_exhausted)
+        DR->>Provider: chat(synthesize_prompt, all_collected_sources)
+        Provider-->>DR: synthesis markdown
+    end
+
+    %% ── Step 6: Ingest synthesis via seam (AQ-v0.5-3, I1/I5) ───────────────
+    DR->>DR: Write synthesis to vault/raw/sources/deep-research-{run_id}.md
+    DR->>Ingest: ingest_file(path)  [NOT direct wiki write — Do-NOT #5]
+    Ingest-->>DR: IngestResult {page_id}
+
+    %% ── Terminal write — always in finally (Do-NOT #7) ──────────────────────
+    DR->>DB: UPDATE deep_research_runs SET status=<terminal>, completed_at=now(), total_cost_usd
+    DR->>DR: if total_cost_usd >= $1.00 → WARNING anomaly log (ADR-0024 §3.3)
+
+    %% ── Client polls ─────────────────────────────────────────────────────────
+    Client->>API: GET /research/runs/{run_id}
+    API->>DB: SELECT deep_research_runs + deep_research_sources WHERE id=run_id
+    DB-->>API: run row + source rows
+    API-->>Client: ResearchRunDetail {status, synthesis_text, sources[]}

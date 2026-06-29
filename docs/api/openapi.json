@@ -917,6 +917,154 @@
           }
         }
       }
+    },
+    "/research/start": {
+      "post": {
+        "summary": "Start a bounded deep-research run",
+        "description": "F10 Deep Research loop (ADR-0024 \u00a78.1, AC-F10-4a). Validates topic/vault_id; bounds max_iter (1..10) and token_budget (1k..1M) so the caller cannot request an unbounded run (I7). Freezes bounds onto the deep_research_runs row before the background task starts (AQ-v0.5-4). Schedules run_deep_research as a background asyncio task (fire-and-poll). Returns 202 {run_id} immediately \u2014 poll GET /research/runs/{id} for progress. 503 if SEARXNG_URL is unset (I9 \u2014 no fake run, no fallback engine).",
+        "operationId": "research_start_research_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Run accepted; poll GET /research/runs/{id} for progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchStartResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (empty topic, max_iter out of range, etc.)"
+          },
+          "503": {
+            "description": "SEARXNG_URL is not configured (I9)"
+          }
+        }
+      }
+    },
+    "/research/runs": {
+      "get": {
+        "summary": "List deep-research run history",
+        "description": "Paginated, started_at DESC list of deep_research_runs rows (ADR-0024 \u00a78.2, AC-F10-4b). limit: 1..100 default 20; offset: >=0 default 0; vault_id: optional filter. Mirrors GET /ingest/runs contract.",
+        "operationId": "list_research_runs_research_runs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Max rows (1..100)",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Max rows (1..100)"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Row offset (>=0)",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Row offset (>=0)"
+          },
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional vault_id filter",
+              "title": "Vault Id"
+            },
+            "description": "Optional vault_id filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated run list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchRunListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (limit/offset out of range)"
+          }
+        }
+      }
+    },
+    "/research/runs/{run_id}": {
+      "get": {
+        "summary": "Get deep-research run detail + sources",
+        "description": "Returns full run detail including queries_used, synthesis_text, and per-source summaries (ADR-0024 \u00a78.3, AC-F10-4c). synthesis_text is null until step 5 completes. sources array excludes fetched_content_md blobs (size guard). 404 if unknown run_id.",
+        "operationId": "get_research_run_research_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run detail with sources",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchRunDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No run with this id"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2290,6 +2438,341 @@
         ],
         "title": "ProviderConfigResponse",
         "description": "API response shape for a provider_config row (\u00a712: no api_key field)."
+      },
+      "ResearchRunDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "vault_id": {
+            "type": "string",
+            "title": "Vault Id"
+          },
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "max_iter": {
+            "type": "integer",
+            "title": "Max Iter"
+          },
+          "token_budget": {
+            "type": "integer",
+            "title": "Token Budget"
+          },
+          "iterations_used": {
+            "type": "integer",
+            "title": "Iterations Used"
+          },
+          "queries_used": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Queries Used"
+          },
+          "sources_fetched": {
+            "type": "integer",
+            "title": "Sources Fetched"
+          },
+          "total_cost_usd": {
+            "type": "number",
+            "title": "Total Cost Usd"
+          },
+          "synthesis_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synthesis Text"
+          },
+          "synthesis_page_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synthesis Page Id"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchSourceSummary"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "vault_id",
+          "topic",
+          "status",
+          "max_iter",
+          "token_budget",
+          "iterations_used",
+          "queries_used",
+          "sources_fetched",
+          "total_cost_usd",
+          "started_at"
+        ],
+        "title": "ResearchRunDetail",
+        "description": "GET /research/runs/{id} response (ADR-0024 \u00a78.3, AC-F10-4c).\n\nIncludes the full queries_used array and per-source summaries.\nsynthesis_text is null until step 5 completes (AC-F10-4c).\nsources array excludes fetched_content_md blobs by default (size guard, ADR-0024 \u00a78.3)."
+      },
+      "ResearchRunListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchRunSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "ResearchRunListResponse",
+        "description": "Paginated list response for GET /research/runs (ADR-0024 \u00a78.2)."
+      },
+      "ResearchRunSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "vault_id": {
+            "type": "string",
+            "title": "Vault Id"
+          },
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "running | converged | max_iter_reached | budget_exhausted | error"
+          },
+          "iterations_used": {
+            "type": "integer",
+            "title": "Iterations Used"
+          },
+          "sources_fetched": {
+            "type": "integer",
+            "title": "Sources Fetched"
+          },
+          "total_cost_usd": {
+            "type": "number",
+            "title": "Total Cost Usd"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "vault_id",
+          "topic",
+          "status",
+          "iterations_used",
+          "sources_fetched",
+          "total_cost_usd",
+          "started_at"
+        ],
+        "title": "ResearchRunSummary",
+        "description": "One item in GET /research/runs (ADR-0024 \u00a78.2, AC-F10-4b).\n\nMirrors the ingest_runs list shape: id, topic, status, cost, timing."
+      },
+      "ResearchSourceSummary": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "relevance_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relevance Score"
+          },
+          "iteration": {
+            "type": "integer",
+            "title": "Iteration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "title",
+          "iteration"
+        ],
+        "title": "ResearchSourceSummary",
+        "description": "One source row in GET /research/runs/{id} (ADR-0024 \u00a78.3, AC-F10-6b)."
+      },
+      "ResearchStartRequest": {
+        "properties": {
+          "vault_id": {
+            "type": "string",
+            "title": "Vault Id",
+            "description": "Vault scope for the run"
+          },
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Topic",
+            "description": "Research topic (non-empty)"
+          },
+          "max_iter": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Iter",
+            "description": "Max refinement rounds (1..10); null \u2192 DEEP_RESEARCH_MAX_ITER default"
+          },
+          "token_budget": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000000.0,
+                "minimum": 1000.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Budget",
+            "description": "Token budget (1_000..1_000_000); null \u2192 DEEP_RESEARCH_TOKEN_BUDGET default"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vault_id",
+          "topic"
+        ],
+        "title": "ResearchStartRequest",
+        "description": "Request body for POST /research/start (ADR-0024 \u00a78.1, AC-F10-4).\n\nmax_iter and token_budget are optional \u2014 env defaults apply when omitted.\nBoth are FROZEN onto the deep_research_runs row before the background task starts\n(AQ-v0.5-4, I7). Server-side validators cap the range so callers cannot request an\nunbounded run (I7 / Do-NOT #1/#2).",
+        "example": {
+          "max_iter": 3,
+          "token_budget": 100000,
+          "topic": "Kubernetes networking with Calico",
+          "vault_id": "default"
+        }
+      },
+      "ResearchStartResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id",
+            "description": "UUID of the created deep_research_runs row"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id"
+        ],
+        "title": "ResearchStartResponse",
+        "description": "202 response for POST /research/start (ADR-0024 \u00a78.1).",
+        "example": {
+          "run_id": "00000000-0000-0000-0000-000000000001"
+        }
       },
       "RunNowResponse": {
         "properties": {
