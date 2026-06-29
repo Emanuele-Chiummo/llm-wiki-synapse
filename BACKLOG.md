@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-06-29 (Sprint 5 / v0.5 Phase 3 DONE — PM phase-3 sign-off: docs/sprints/v0.5-pm-phase3-signoff.md; F9 → done; F12 → done; Phase 4 (F13) now in-progress; follow-ups FU-P3-1/FU-P3-2/FU-P3-3 logged; Phase 2 follow-ups FU-P2-1/FU-P2-2/FU-P2-3 still open)
+> Last updated: 2026-06-29 (Sprint 5 / v0.5 Phase 4 DONE — PM phase-4 sign-off: docs/sprints/v0.5-pm-phase4-signoff.md; F13 → done-with-followups; DEFECT-F13-001/002 FIXED; Phase 5 (F1-MCP-UI) now in-progress; follow-ups FU-P4-1..6 logged; Phase 2/3 follow-ups FU-P2-1/FU-P2-2/FU-P2-3/FU-P3-1/FU-P3-2 still open)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -1299,12 +1299,13 @@ All 4 sign-offs still required before PM closes M4-HARD and unblocks Sprint 5.
 
 ## Sprint 5 — v0.5 — M5 "Feature parity core"
 
-**Sprint status: IN PROGRESS — Phase 1 DONE (PM sign-off 2026-06-29); Phase 2 (F10) DONE (PM sign-off 2026-06-29); Phase 3 (F9 + F12) DONE (PM sign-off 2026-06-29); Phase 4 (F13) now in-progress**
+**Sprint status: IN PROGRESS — Phase 1 DONE (PM sign-off 2026-06-29); Phase 2 (F10) DONE (PM sign-off 2026-06-29); Phase 3 (F9 + F12) DONE (PM sign-off 2026-06-29); Phase 4 (F13) DONE (PM sign-off 2026-06-29); Phase 5 (F1-MCP-UI) now in-progress**
 **Scope locked: 2026-06-29 by product-manager — docs/sprints/v0.5-scope.md**
 **Scope amended: 2026-06-29 — Amendment A1: F1-MCP-UI added (stakeholder request: Emanuele Chiummo) — docs/sprints/v0.5-scope.md §3 Amendment A1**
 **Phase 1 PM sign-off: docs/sprints/v0.5-pm-phase1-signoff.md (verdict: DONE-WITH-FOLLOWUPS)**
 **Phase 2 PM sign-off: docs/sprints/v0.5-pm-phase2-signoff.md (verdict: DONE-WITH-FOLLOWUPS)**
 **Phase 3 PM sign-off: docs/sprints/v0.5-pm-phase3-signoff.md (verdict: DONE-WITH-FOLLOWUPS)**
+**Phase 4 PM sign-off: docs/sprints/v0.5-pm-phase4-signoff.md (verdict: DONE-WITH-FOLLOWUPS)**
 **Branch: sprint/v0.5 (cut from sprint/v0.4 after EC-M4-HCP cleared)**
 **Prerequisite: M4 CLOSED — docs/sprints/v0.4-m4-closure.md (2026-06-29)**
 **Invariants with heightened priority: I7 (bounded loops — headline, F10 deep research),
@@ -1463,7 +1464,7 @@ only written by ingest pipeline (I5, K1 3-layer rule).
 |-------|-------|
 | Feature ID | F13 |
 | Sprint | v0.5 |
-| Status | in-progress — Phase 4; CLEARED by PM Phase 3 sign-off 2026-06-29; architect pre-design consultation recommended before engineering begins (I1 + I5 critical; 3-method matching + shared-entity logic) |
+| Status | done-with-followups — AC-F13-1..7 GREEN; AC-D3-CD-1 GREEN; DEFECT-F13-001 (I1) + DEFECT-F13-002 (I5) both FIXED; PM sign-off 2026-06-29; FU-P4-1..6 logged |
 | Priority | P0 — Phase 4; highest vault-integrity risk; placed last when vault is stable |
 | Owner | backend-engineer (cascade_delete.py, DELETE /pages/{id}); frontend-engineer (delete modal) |
 
@@ -1487,7 +1488,7 @@ I5 (vault remains valid Obsidian vault after deletion).
 |-------|-------|
 | Feature ID | D3 (docs artifact — update) |
 | Sprint | v0.5 |
-| Status | in-progress (deep-research.mmd DONE Phase 2; cascade-delete.mmd pending Phase 4) |
+| Status | done (deep-research.mmd DONE Phase 2; cascade-delete.mmd DONE Phase 4 — AC-D3-CD-1 GREEN; mmdc CI DEFERRED GAP-v0.5-3 carry-forward) |
 | Priority | P1 — required by I8 for M5 sign-off |
 | Owner | tech-writer (diagrams); architect (review) |
 
@@ -1528,7 +1529,7 @@ CF-HARD-1 recapture: `docs/screens/shell-collapsed-panel.png`.
 |-------|-------|
 | Feature ID | F1-MCP-UI (sub-item of F1 + F17; Settings > API + MCP panel) |
 | Sprint | v0.5 |
-| Status | backlog |
+| Status | in-progress — Phase 5; cleared to start by PM Phase 4 sign-off 2026-06-29 |
 | Priority | P1 — Phase 5; stakeholder request; closes M4-HARD promise |
 | Owner | backend-engineer (GET /mcp/info); frontend-engineer (SectionApiMcp replacement) |
 | Source | Stakeholder request 2026-06-29 (Emanuele Chiummo); Amendment A1 |
@@ -1603,6 +1604,19 @@ with PM approval) before Phase 1 exits.
 | FU-P3-1 | F9 + F12 / D5 | `docs/screens/review-queue.png` + `docs/screens/upload-multiformat.png` pending live stack. | Fold into EC-M5-HCP browser session: run `make screenshots` when Emanuele verifies HCP-4 (review queue) and HCP-5 (PDF upload). Owner: qa-test-engineer. |
 | FU-P3-2 | F9 / D6a | CLI delegated ingest path does not enqueue review items (ADR-0025 §7, Risk 1). Conscious design gap. | Add note to USER.md F9 / Review Queue section. Owner: tech-writer, Phase 4/5 docs gate. Post-M5 / v0.6 consideration for full CLI path enqueue. |
 | FU-P3-3 | F12 / extract.py | images/AV extraction is a placeholder one-liner. Out-of-M5 scope per ADR-0025 §4.3. | No action before M5 close. Future ADR required if OCR/AV extraction is added. |
+
+---
+
+### Phase 4 Gap Register (v0.5)
+
+| Gap ID | Feature | Issue | Resolution |
+|--------|---------|-------|-----------|
+| FU-P4-1 | F13 / D5 | `docs/screens/cascade-delete-preview.png` + `docs/screens/cascade-delete-confirm.png` pending live stack. | Fold into EC-M5-HCP-6 browser session: run `make screenshots` when Emanuele verifies EC-M5-HCP-6 (delete a page, confirm tree and index.md update). Owner: qa-test-engineer. |
+| FU-P4-2 | F13 / cascade_delete.py | Advisory test gap: no dedicated test asserts that when (a) and (b) return empty, method (c) does fire (the `test_method_c_fires_when_links_table_empty` case). Happy-path skip proven by T-CD-026; fallback path exercised indirectly. | Non-blocking. Add as post-M5 or Phase 5 QA cycle if capacity permits. |
+| FU-P4-3 | F13 / ADR-0026 | Architect C1: `cascade_delete` opens separate `get_session()` per step (5 transactions). A crash mid-run leaves a partially-applied state (transiently inconsistent but idempotent on retry). ADR §8 Consequences note missing this non-atomic, idempotent-on-retry semantics. | Document Consequences note in ADR-0026 OR wrap DB mutations in single session. Non-blocking for M5 ship. Owner: tech-writer (ADR amendment) or backend-engineer. Pre-M6. |
+| FU-P4-4 | F13 / cascade_delete.py | Architect C2: `files_written == len(wikilinks_to_rewrite)` equality contract in AC-F13-4a. Code `continue`s without incrementing when body is unchanged or write fails. Pre-plan `_count_body_occurrences > 0` guard should make `continue` dead on the happy path — confirm or relax AC assertion to `<=`. | Confirm with QA and backend-engineer. Align code or AC so assertion is deterministic. Non-blocking for M5 ship. Pre-M6. |
+| FU-P4-5 | F13 / cascade_delete.py | Architect C4: method (b) reads full `links` table when `already_found` is empty (`or_(True)` branch); method (c) enumerates all live wiki pages. Advisory perf concern on large vaults. Bounded by `CASCADE_FULLTEXT_MAX_FILES`. | Post-M5 perf follow-up. Consider scoping (b) or pushing slug comparison to SQL. Non-blocking for M5 ship. |
+| FU-P4-6 | F10/F9 / D6a | FU-P2-2: USER.md no-provider Deep Research note; FU-P3-2: USER.md F9 CLI path enqueue note. Both pending Phase 5 docs gate. | Owner: tech-writer. Capture at Phase 5 (F1-MCP-UI) docs gate. |
 
 ---
 
