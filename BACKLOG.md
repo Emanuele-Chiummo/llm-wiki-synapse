@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-06-29 (Sprint 5 / v0.5 Phase 2 DONE — PM phase-2 sign-off: docs/sprints/v0.5-pm-phase2-signoff.md; F10 → done; Phase 3 (F9 + F12) now in-progress; follow-ups FU-P2-1/FU-P2-2/FU-P2-3 logged)
+> Last updated: 2026-06-29 (Sprint 5 / v0.5 Phase 3 DONE — PM phase-3 sign-off: docs/sprints/v0.5-pm-phase3-signoff.md; F9 → done; F12 → done; Phase 4 (F13) now in-progress; follow-ups FU-P3-1/FU-P3-2/FU-P3-3 logged; Phase 2 follow-ups FU-P2-1/FU-P2-2/FU-P2-3 still open)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -1299,11 +1299,12 @@ All 4 sign-offs still required before PM closes M4-HARD and unblocks Sprint 5.
 
 ## Sprint 5 — v0.5 — M5 "Feature parity core"
 
-**Sprint status: IN PROGRESS — Phase 1 DONE (PM sign-off 2026-06-29); Phase 2 (F10) DONE (PM sign-off 2026-06-29); Phase 3 (F9 + F12) now in-progress**
+**Sprint status: IN PROGRESS — Phase 1 DONE (PM sign-off 2026-06-29); Phase 2 (F10) DONE (PM sign-off 2026-06-29); Phase 3 (F9 + F12) DONE (PM sign-off 2026-06-29); Phase 4 (F13) now in-progress**
 **Scope locked: 2026-06-29 by product-manager — docs/sprints/v0.5-scope.md**
 **Scope amended: 2026-06-29 — Amendment A1: F1-MCP-UI added (stakeholder request: Emanuele Chiummo) — docs/sprints/v0.5-scope.md §3 Amendment A1**
 **Phase 1 PM sign-off: docs/sprints/v0.5-pm-phase1-signoff.md (verdict: DONE-WITH-FOLLOWUPS)**
 **Phase 2 PM sign-off: docs/sprints/v0.5-pm-phase2-signoff.md (verdict: DONE-WITH-FOLLOWUPS)**
+**Phase 3 PM sign-off: docs/sprints/v0.5-pm-phase3-signoff.md (verdict: DONE-WITH-FOLLOWUPS)**
 **Branch: sprint/v0.5 (cut from sprint/v0.4 after EC-M4-HCP cleared)**
 **Prerequisite: M4 CLOSED — docs/sprints/v0.4-m4-closure.md (2026-06-29)**
 **Invariants with heightened priority: I7 (bounded loops — headline, F10 deep research),
@@ -1379,7 +1380,7 @@ Streaming interface consistent with OllamaProvider and ApiProvider. total_cost_u
 |-------|-------|
 | Feature ID | F9 |
 | Sprint | v0.5 |
-| Status | in-progress |
+| Status | done — AC-F9-1..11 all GREEN; AC-F10-5 (F9→F10 wiring) GREEN; I7 bounded generator PROVEN; hook safety PROVEN; chat() 2-arg signature CONFIRMED; PM sign-off 2026-06-29 |
 | Priority | P0 — Phase 3; K8 principle; F9 is the async curation queue |
 | Owner | backend-engineer (review.py, REST endpoints); frontend-engineer (Review nav section) |
 | Unblocked | F10 DONE (Phase 2 PM sign-off 2026-06-29); POST /research/start live; AC-F10-5 (F9→F10 wiring) now workable in Phase 3 |
@@ -1436,7 +1437,7 @@ logged), I9 (SearXNG only), I6 (all InferenceProvider calls via ABC).
 |-------|-------|
 | Feature ID | F12 |
 | Sprint | v0.5 |
-| Status | in-progress |
+| Status | done — AC-F12-1..7 all GREEN; companion flow (I1/I5) PROVEN; format-lib isolation PROVEN; images/AV placeholder is conscious gap (out-of-M5 scope per ADR-0025 §4.3); PM sign-off 2026-06-29 |
 | Priority | P0 — Phase 3; removes .txt/.md constraint introduced by F1-UPLOAD (M4) |
 | Owner | backend-engineer (ingest/extract.py; pyproject.toml deps; upload endpoint extension) |
 
@@ -1462,7 +1463,7 @@ only written by ingest pipeline (I5, K1 3-layer rule).
 |-------|-------|
 | Feature ID | F13 |
 | Sprint | v0.5 |
-| Status | backlog |
+| Status | in-progress — Phase 4; CLEARED by PM Phase 3 sign-off 2026-06-29; architect pre-design consultation recommended before engineering begins (I1 + I5 critical; 3-method matching + shared-entity logic) |
 | Priority | P0 — Phase 4; highest vault-integrity risk; placed last when vault is stable |
 | Owner | backend-engineer (cascade_delete.py, DELETE /pages/{id}); frontend-engineer (delete modal) |
 
@@ -1592,6 +1593,16 @@ with PM approval) before Phase 1 exits.
 | GAP-v0.5-P2-1 | F10 (AC-F10-2 / I7) | No dedicated unit test asserts that `logger.warning(...)` fires when `total_cost_usd > 1.00`. Constant `COST_ANOMALY_THRESHOLD_USD = 1.00` and code path are present and code-reviewed. | Non-blocking. The anomaly is an observability feature, not a safety bound — it cannot cause runaway execution. A `caplog` fixture test may be added in Phase 3 QA cycle if capacity permits. This gap does not hold Phase 3 or M5 sign-off. |
 | FU-P2-1 | F10 / D5 | D5 Deep Search screenshots (`deep-search-running.png`, `deep-search-complete.png`) pending live stack. | Fold into EC-M5-HCP-3 capture: run `make screenshots` at the same time as Emanuele's EC-M5-HCP-3 browser verification. Owner: qa-test-engineer. |
 | FU-P2-2 | F10 / D6a | No-provider degraded path (zero LLM calls → low-quality stub) not yet documented in USER.md. | Add to USER.md F10 / Deep Search section: "Configure a provider before running Deep Research; an unconfigured vault produces a raw-fetch stub." Owner: tech-writer, Phase 4/5 docs gate. |
+
+---
+
+### Phase 3 Gap Register (v0.5)
+
+| Gap ID | Feature | Issue | Resolution |
+|--------|---------|-------|-----------|
+| FU-P3-1 | F9 + F12 / D5 | `docs/screens/review-queue.png` + `docs/screens/upload-multiformat.png` pending live stack. | Fold into EC-M5-HCP browser session: run `make screenshots` when Emanuele verifies HCP-4 (review queue) and HCP-5 (PDF upload). Owner: qa-test-engineer. |
+| FU-P3-2 | F9 / D6a | CLI delegated ingest path does not enqueue review items (ADR-0025 §7, Risk 1). Conscious design gap. | Add note to USER.md F9 / Review Queue section. Owner: tech-writer, Phase 4/5 docs gate. Post-M5 / v0.6 consideration for full CLI path enqueue. |
+| FU-P3-3 | F12 / extract.py | images/AV extraction is a placeholder one-liner. Out-of-M5 scope per ADR-0025 §4.3. | No action before M5 close. Future ADR required if OCR/AV extraction is added. |
 
 ---
 
