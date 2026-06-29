@@ -137,7 +137,16 @@
     "apiMcp": {
       "title": "API + MCP",
       "desc": "Esponi Synapse ai tuoi strumenti tramite l'API HTTP locale e il server MCP bundled per client agentivi.",
-      "comingSoon": "Configurazione server MCP — disponibile in M5."
+      "connectionTitle": "Connessione",
+      "transportLabel": "Trasporto",
+      "entryPointLabel": "Comando di avvio",
+      "copySnippet": "Copia config Claude Desktop",
+      "copied": "Copiato!",
+      "toolsTitle": "Strumenti disponibili",
+      "paramCount": "{{count}} param",
+      "paramCount_plural": "{{count}} param",
+      "loading": "Caricamento info server MCP…",
+      "error": "Impossibile caricare le info del server MCP. Il backend è in esecuzione?"
     },
     "output": {
       "title": "Preferenze Output",

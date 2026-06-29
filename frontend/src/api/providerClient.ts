@@ -4,6 +4,7 @@
  * GET  /provider/config              → ProviderConfigListResponse
  * POST /provider/config { body }     → ProviderConfigItem (201 Created)
  * GET  /config/embedding             → EmbeddingConfig (read-only, from env vars)
+ * GET  /mcp/info                     → McpInfoResponse (read-only, ADR-0027)
  *
  * No secrets in this file (CLAUDE.md §12).
  * No provider/model literals hardcoded (I6) — all values come from the API response.
@@ -99,4 +100,42 @@ export async function fetchEmbeddingConfig(
   const res = await fetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as EmbeddingConfig;
+}
+
+// ─── MCP info (ADR-0027) ──────────────────────────────────────────────────────
+
+/** One tool as returned by GET /mcp/info. All values come from the live MCP registry (I6). */
+export interface McpToolInfo {
+  name: string;
+  description: string;
+  /** JSON-Schema object for the tool arguments. Properties count = param count. */
+  input_schema: {
+    type?: string;
+    properties?: Record<string, unknown>;
+    required?: string[];
+    [key: string]: unknown;
+  };
+}
+
+/** Response from GET /mcp/info (ADR-0027 §2.1). */
+export interface McpInfoResponse {
+  server_name: string;
+  transport: string;
+  entry_point_command: string;
+  tool_count: number;
+  tools: McpToolInfo[];
+}
+
+/**
+ * Fetch MCP server introspection (read-only, from the live FastMCP registry).
+ * GET /mcp/info  — ADR-0027 §2.1.
+ * Display only — no tool invocation, no config-write (I9).
+ */
+export async function fetchMcpInfo(
+  signal?: AbortSignal,
+): Promise<McpInfoResponse> {
+  const url = `${API_BASE}/mcp/info`;
+  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as McpInfoResponse;
 }

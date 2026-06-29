@@ -46,7 +46,7 @@ import {
 } from "../../store/providerStore";
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
 import type { CreateProviderConfigBody } from "../../api/types";
-import { fetchEmbeddingConfig, type EmbeddingConfig } from "../../api/providerClient";
+import { fetchEmbeddingConfig, fetchMcpInfo, type EmbeddingConfig, type McpInfoResponse } from "../../api/providerClient";
 
 // ─── Settings section type ────────────────────────────────────────────────────
 
@@ -628,13 +628,171 @@ function SectionSourceWatch() {
 }
 
 // ─── Section: API + MCP ───────────────────────────────────────────────────────
+// ADR-0027 §2.4: read-only panel, mirrors SectionEmbeddings (fetch-on-mount,
+// local useState + AbortController, degraded state on failure).
+// I3: single fetch on mount; no Zustand store.
+// I9: display only — no tool invocation, no config-write.
 
 function SectionApiMcp() {
   const { t } = useTranslation();
+  const [info, setInfo] = useState<McpInfoResponse | null>(null);
+  const [err, setErr] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    fetchMcpInfo(ac.signal)
+      .then((data) => { setInfo(data); })
+      .catch(() => { setErr(true); });
+    return () => { ac.abort(); };
+  }, []);
+
+  /**
+   * Build a Claude Desktop MCP JSON snippet from the live API payload (ADR-0027 §2.4).
+   * entry_point_command is tokenised: argv[0] = command, rest = args.
+   * Server is keyed by server_name — nothing is hardcoded (I6).
+   */
+  function buildClaudeDesktopSnippet(mcpInfo: McpInfoResponse): string {
+    const tokens = mcpInfo.entry_point_command.trim().split(/\s+/);
+    const command = tokens[0] ?? "";
+    const args = tokens.slice(1);
+    const payload = {
+      mcpServers: {
+        [mcpInfo.server_name]: {
+          command,
+          args,
+        },
+      },
+    };
+    return JSON.stringify(payload, null, 2);
+  }
+
+  const handleCopy = () => {
+    if (!info) return;
+    const snippet = buildClaudeDesktopSnippet(info);
+    navigator.clipboard.writeText(snippet).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => { /* clipboard unavailable */ });
+  };
+
   return (
     <div>
       <SectionHeader title={t("settings.nav.apiMcp")} desc={t("settings.apiMcp.desc")} />
-      <ComingSoonBadge message={t("settings.apiMcp.comingSoon")} />
+
+      {err ? (
+        <p style={{ fontSize: 12, color: "#f85149", margin: "8px 0" }}>
+          {t("settings.apiMcp.error")}
+        </p>
+      ) : info === null ? (
+        <p style={{ fontSize: 12, color: "#6e7681", margin: "8px 0" }}>
+          {t("settings.apiMcp.loading")}
+        </p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+          {/* Connection sub-section */}
+          <div>
+            <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              {t("settings.apiMcp.connectionTitle")}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <EmbedRow label={t("settings.apiMcp.transportLabel")} value={info.transport} mono />
+              <EmbedRow label={t("settings.apiMcp.entryPointLabel")} value={info.entry_point_command} mono />
+            </div>
+
+            {/* Claude Desktop copy snippet — generated from payload (I6) */}
+            <div style={{ marginTop: 14 }}>
+              <div
+                style={{
+                  fontFamily: "monospace",
+                  fontSize: 11,
+                  background: "#0d1117",
+                  border: "1px solid #21262d",
+                  borderRadius: 6,
+                  padding: "10px 12px",
+                  color: "#8b949e",
+                  whiteSpace: "pre",
+                  overflowX: "auto",
+                  marginBottom: 8,
+                }}
+                data-testid="mcp-snippet"
+              >
+                {buildClaudeDesktopSnippet(info)}
+              </div>
+              <button
+                onClick={handleCopy}
+                data-testid="mcp-copy-btn"
+                style={{
+                  padding: "5px 12px",
+                  border: "1px solid #21262d",
+                  borderRadius: 6,
+                  background: copied ? "#1b2d1b" : "transparent",
+                  color: copied ? "#3fb950" : "#6e7681",
+                  fontSize: 11,
+                  cursor: "pointer",
+                  transition: "background 0.15s, color 0.15s",
+                }}
+              >
+                {copied ? t("settings.apiMcp.copied") : t("settings.apiMcp.copySnippet")}
+              </button>
+            </div>
+          </div>
+
+          {/* Tools sub-section — rendered from info.tools, nothing hardcoded (I6/I9) */}
+          <div>
+            <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              {t("settings.apiMcp.toolsTitle")}
+              <span style={{ marginLeft: 8, fontWeight: 400, textTransform: "none", color: "#484f58" }}>
+                ({info.tool_count})
+              </span>
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {info.tools.map((tool) => {
+                const paramCount = Object.keys(tool.input_schema.properties ?? {}).length;
+                const firstSentence = (tool.description ?? "").split(/[.!?]/)[0] ?? "";
+                const truncated = firstSentence.length > 80
+                  ? firstSentence.slice(0, 79) + "…"
+                  : firstSentence;
+                return (
+                  <div
+                    key={tool.name}
+                    data-testid={`mcp-tool-row-${tool.name}`}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "140px 1fr auto",
+                      gap: 10,
+                      alignItems: "center",
+                      padding: "8px 12px",
+                      background: "#161b22",
+                      border: "1px solid #21262d",
+                      borderRadius: 6,
+                    }}
+                  >
+                    <span
+                      data-testid={`mcp-tool-name-${tool.name}`}
+                      style={{ fontFamily: "monospace", fontSize: 12, color: "#e6edf3", fontWeight: 600 }}
+                    >
+                      {tool.name}
+                    </span>
+                    <span style={{ fontSize: 12, color: "#6e7681", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {truncated}
+                    </span>
+                    <span
+                      data-testid={`mcp-tool-params-${tool.name}`}
+                      data-param-count={paramCount}
+                      style={{ fontSize: 11, color: "#484f58", whiteSpace: "nowrap" }}
+                    >
+                      {t("settings.apiMcp.paramCount", { count: paramCount })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+        </div>
+      )}
     </div>
   );
 }

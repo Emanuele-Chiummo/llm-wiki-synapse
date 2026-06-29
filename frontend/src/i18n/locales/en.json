@@ -137,7 +137,16 @@
     "apiMcp": {
       "title": "API + MCP",
       "desc": "Expose Synapse to your own tools through the local HTTP API, and optionally through the bundled MCP server for agent clients.",
-      "comingSoon": "MCP server configuration — coming in M5."
+      "connectionTitle": "Connection",
+      "transportLabel": "Transport",
+      "entryPointLabel": "Entry-point command",
+      "copySnippet": "Copy Claude Desktop config",
+      "copied": "Copied!",
+      "toolsTitle": "Available Tools",
+      "paramCount": "{{count}} param",
+      "paramCount_plural": "{{count}} params",
+      "loading": "Loading MCP server info…",
+      "error": "Could not load MCP server info. Is the backend running?"
     },
     "output": {
       "title": "Output Preferences",
