@@ -24,6 +24,7 @@ import { IngestView } from "./ingest/IngestView";
 import { IngestRunDetail } from "./ingest/IngestRunDetail";
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { ChatSection } from "./chat/ChatSection";
+import { DeepSearchView } from "./research/DeepSearchView";
 
 // ─── M5 placeholder ───────────────────────────────────────────────────────────
 
@@ -138,8 +139,8 @@ export function SectionRouter() {
 
   if (activeSection === "deep-search") {
     return (
-      <div style={{ flex: 1, display: "flex", background: "#0d1117" }} data-testid="section-deep-search">
-        <ComingSoonPlaceholder titleKey="nav.deepSearch" descKey="nav.comingSoon" />
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "#0d1117" }} data-testid="section-deep-search">
+        <DeepSearchView />
       </div>
     );
   }

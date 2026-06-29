@@ -230,6 +230,33 @@
     "usingProvider": "{{provider}}",
     "ragActive": "Risponde dal tuo wiki"
   },
+  "research": {
+    "title": "Ricerca Profonda",
+    "topicLabel": "Argomento di ricerca",
+    "topicPlaceholder": "es. Networking Kubernetes con Calico",
+    "topicHint": "Synapse cercherà sul web, valuterà le fonti e creerà una pagina wiki sintetica.",
+    "startButton": "Avvia ricerca",
+    "empty": "Nessuna ricerca ancora. Inserisci un argomento e clicca Avvia ricerca.",
+    "noRunSelected": "Seleziona un'esecuzione per vedere i dettagli e la sintesi.",
+    "loadMore": "Carica altri",
+    "runLabel": "Esecuzione ricerca",
+    "cost": "Costo",
+    "iterations": "Iterazioni",
+    "sources": "Fonti",
+    "synthesis": "Sintesi",
+    "queriesUsed": "Query utilizzate",
+    "sourcesFetched": "Fonti recuperate",
+    "wikiPageCreated": "Pagina wiki creata dalla sintesi",
+    "iteration": "Iter",
+    "relevance": "Rel",
+    "status": {
+      "running": "In esecuzione",
+      "converged": "Convergito",
+      "max_iter_reached": "Iterazioni massime",
+      "budget_exhausted": "Budget esaurito",
+      "error": "Errore"
+    }
+  },
   "common": {
     "loading": "Caricamento…",
     "retry": "Riprova",
