@@ -53,11 +53,19 @@ def main() -> None:
         "/graph",
         "/import-schedule",
         "/import-schedule/run-now",
+        # F9 review queue (ADR-0025 §3.5)
+        "/review/queue",
+        "/review/queue/{item_id}/approve",
+        "/review/queue/{item_id}/skip",
+        "/review/queue/{item_id}/deep-research",
+        # F10 deep research
+        "/research/start",
+        "/research/runs",
     ]:
         assert required_path in paths, f"Missing path {required_path!r} in openapi.json"
     print(
-        "Sanity check passed: all 10 required endpoints present "
-        "(including /search, /ingest/from-text, /ingest/upload, /import-schedule)"
+        "Sanity check passed: all 16 required endpoints present "
+        "(including /review/queue, /research/start, /search, /ingest/upload)"
     )
 
 

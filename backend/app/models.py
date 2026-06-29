@@ -14,6 +14,8 @@ Tables defined here:
   - import_schedules  : M4-EXT scheduled folder import config + last-run status (ADR-0020 §4.1).
   - deep_research_runs    : v0.5 F10 per-run audit ledger for deep research (ADR-0024 §7.1).
   - deep_research_sources : v0.5 F10 per-source child rows (ADR-0024 §7.2).
+  - review_items      : v0.5 F9 HITL review queue; one row per post-ingest review event
+                        (ADR-0025 §3.1); Alembic migration 0010.
 
 provider_config + ingest_runs added in v0.2 (ADR-0008). links added in v0.2 (ADR-0008 §5).
 All three new tables ship in a single Alembic migration 0002 (one schema-change event).
@@ -29,6 +31,8 @@ M4-EXT: import_schedules table added in Alembic migration 0008 (ADR-0020 §4.1).
 
 v0.5-F10: deep_research_runs + deep_research_sources added in Alembic migration 0009
 (ADR-0024 §7 — F10 Deep Research loop).
+
+v0.5-F9: review_items added in Alembic migration 0010 (ADR-0025 §3.1 — F9 HITL review queue).
 
 Run `make er` to regenerate docs/er/schema.mmd from this file (I8).
 """
@@ -1207,3 +1211,123 @@ class DeepResearchSource(Base):
 
     def __repr__(self) -> str:
         return f"<DeepResearchSource run={self.run_id} url={self.url!r} iter={self.iteration}>"
+
+
+class ReviewItem(Base):
+    """
+    v0.5 F9 HITL review queue — one row per post-ingest review event (ADR-0025 §3.1).
+
+    vault_id is the existing String identifier (no vaults table — AQ-v0.5-6, ADR-0025 §3.1).
+    page_id is a nullable FK → pages.id; NULL for page-less items (future gap/contradiction items).
+    item_type enum: new_page | update_page | deep_research_candidate.
+    status enum: pending | approved | skipped | deep_researched. Defaults 'pending'.
+    pre_generated_query: newline-separated 1–3 questions; NULL on failure/timeout (I7, AC-F9-4).
+    deep_research_run_id: FK → deep_research_runs.id; set when the Deep-Research action fires
+                          (AC-F10-5); NULL otherwise.
+
+    Index (vault_id, status, created_at): optimises the paginated pending-queue read
+    (WHERE vault_id=? AND status='pending' ORDER BY created_at).
+
+    The table is an event log — no per-page uniqueness constraint (ADR-0025 §3.1 note).
+    UUID type follows deep_research_runs pattern: UUID(as_uuid=True).with_variant(String(36)).
+    """
+
+    __tablename__ = "review_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Row identity",
+    )
+
+    vault_id: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment=(
+            "Logical vault identifier — existing String (no FK, no vaults table). "
+            "AQ-v0.5-6; ADR-0025 §3.1"
+        ),
+    )
+
+    page_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        ForeignKey("pages.id"),
+        nullable=True,
+        comment=(
+            "FK → pages.id; the wiki page being reviewed. "
+            "NULL for page-less items (future gap/contradiction items)."
+        ),
+    )
+
+    item_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment=(
+            "new_page | update_page | deep_research_candidate. "
+            "Enum-by-convention (CHECK constraint); sub-kinds are payload, not column values."
+        ),
+    )
+
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="pending",
+        server_default=sa_text("'pending'"),
+        comment="pending | approved | skipped | deep_researched. Defaults 'pending'.",
+    )
+
+    pre_generated_query: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Newline-separated 1–3 follow-up research questions from the bounded provider call. "
+            "NULL when the call failed/timed out or no provider is configured (I7, AC-F9-4)."
+        ),
+    )
+
+    deep_research_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        ForeignKey("deep_research_runs.id"),
+        nullable=True,
+        comment=(
+            "FK → deep_research_runs.id; set when the Deep-Research action fires (AC-F10-5). "
+            "NULL while status != 'deep_researched'."
+        ),
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time",
+    )
+
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        comment="Set on approve/skip/deep-research; NULL while pending.",
+    )
+
+    reviewed_by: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Free-text actor (e.g. 'web-ui'); NULL while pending. Audit-only in M5.",
+    )
+
+    __table_args__ = (
+        # Paginated pending-queue read: WHERE vault_id=? AND status='pending' ORDER BY created_at
+        Index(
+            "ix_review_items_vault_status_created",
+            "vault_id",
+            "status",
+            "created_at",
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ReviewItem id={self.id} type={self.item_type!r} "
+            f"status={self.status!r} vault={self.vault_id!r}>"
+        )

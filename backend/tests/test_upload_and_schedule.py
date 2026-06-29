@@ -70,20 +70,22 @@ class TestSafeSourceName:
             self._call("..")
         assert exc_info.value.status_code == 422
 
-    def test_pdf_raises_415(self) -> None:
-        """Non-text extension → 415 with F12/M5 message."""
+    def test_pdf_allowed_f12(self) -> None:
+        """F12: .pdf extension is now accepted (ADR-0025 §4.2)."""
+        result = self._call("notes.pdf")
+        assert result == "notes.pdf"
+
+    def test_docx_allowed_f12(self) -> None:
+        """F12: .docx extension is now accepted (ADR-0025 §4.2)."""
+        result = self._call("report.docx")
+        assert result == "report.docx"
+
+    def test_unknown_extension_raises_415(self) -> None:
+        """Unknown extension → 415 (not in any accepted set)."""
         from fastapi import HTTPException
 
         with pytest.raises(HTTPException) as exc_info:
-            self._call("notes.pdf")
-        assert exc_info.value.status_code == 415
-        assert "F12" in exc_info.value.detail or "M5" in exc_info.value.detail
-
-    def test_docx_raises_415(self) -> None:
-        from fastapi import HTTPException
-
-        with pytest.raises(HTTPException) as exc_info:
-            self._call("report.docx")
+            self._call("binary.exe")
         assert exc_info.value.status_code == 415
 
     def test_md_allowed(self) -> None:
@@ -386,15 +388,14 @@ async def test_upload_overwrite(upload_env: dict[str, Any]) -> None:
 
 
 @pytest.mark.asyncio
-async def test_upload_pdf_returns_415(upload_env: dict[str, Any]) -> None:
-    """T-UPLOAD-005: .pdf upload returns 415 with F12/M5 message."""
+async def test_upload_unknown_ext_returns_415(upload_env: dict[str, Any]) -> None:
+    """T-UPLOAD-005: unknown extension (.exe) returns 415 (F12 — not accepted)."""
     client = upload_env["client"]
     response = await client.post(
         "/ingest/upload",
-        files={"file": ("document.pdf", io.BytesIO(b"%PDF-1.4 ..."), "application/pdf")},
+        files={"file": ("malware.exe", io.BytesIO(b"\x4d\x5a"), "application/octet-stream")},
     )
     assert response.status_code == 415, response.text
-    assert "F12" in response.json()["detail"] or "M5" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

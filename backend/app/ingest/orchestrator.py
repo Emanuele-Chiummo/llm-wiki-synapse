@@ -363,9 +363,28 @@ async def run_ingest_pipeline(
         converged = loop_result.converged
         # Guarantee a source-summary page (F3) even if the provider omitted it.
         pages = _ensure_source_summary(pages, analysis, origin_source)
+        written_pages: list[Page] = []
         for page in pages:
-            await write_wiki_page(None, page, origin_source)
+            written_page = await write_wiki_page(None, page, origin_source)
+            written_pages.append(written_page)
         await _update_overview(analysis, origin_source)
+
+        # ── F9 post-write hook: enqueue review items (ADR-0025 §3.3) ──────────
+        # Fire-and-forget: NEVER raises into the ingest critical path (AC-F9-2).
+        # One bounded provider call per page (I7); failure → query=NULL, item still enqueued.
+        # Runs only on the orchestrated branch (§3.3.4); delegated (CLI) path is a reserved
+        # follow-up.
+        try:
+            await _enqueue_review_items(
+                written_pages=written_pages,
+                vault_id=settings.vault_id,
+            )
+        except Exception as _f9_exc:  # noqa: BLE001
+            # Intentionally swallowed: page is written; queue is advisory (AC-F9-2).
+            logger.warning(
+                "run_ingest_pipeline: F9 review hook failed (non-fatal): %s",
+                _f9_exc,
+            )
 
     finished_at = datetime.now(UTC)
 
@@ -925,6 +944,74 @@ async def _touch_mtime(page_id: uuid.UUID, mtime_ns: int) -> None:
     async with get_session() as session:
         await session.execute(
             update(Page).where(Page.id == page_id).values(source_mtime_ns=mtime_ns)
+        )
+
+
+async def _enqueue_review_items(
+    *,
+    written_pages: list[Page],
+    vault_id: str,
+) -> None:
+    """
+    F9 post-write hook: enqueue one review item per written wiki page (ADR-0025 §3.3).
+
+    For each page:
+      1. Call generate_review_queries (EXACTLY ONE bounded provider call — I7).
+      2. Call enqueue_review (pure DB write).
+
+    This function is called FIRE-AND-FORGET from run_ingest_pipeline (wrapped in try/except).
+    Any exception propagating out here is caught by the caller and logged as WARNING — it
+    NEVER fails the ingest (AC-F9-2). The pages are already on disk.
+
+    Delegated (CLI) path: this helper is not called for the delegated branch (§3.3.4).
+    """
+    from app.ops.review import enqueue_review, generate_review_queries
+
+    for page_orm in written_pages:
+        page_id = page_orm.id
+        title = page_orm.title or (page_orm.file_path or "Untitled")
+        # Use title as excerpt fallback — content is on disk; load a short excerpt
+        try:
+            abs_path = settings.vault_root / page_orm.file_path
+            if abs_path.exists():
+                raw = abs_path.read_text(encoding="utf-8", errors="replace")
+                # Skip YAML frontmatter block (---…---) for the excerpt
+                lines = raw.splitlines()
+                in_fm = False
+                body_lines: list[str] = []
+                if lines and lines[0].strip() == "---":
+                    in_fm = True
+                    for line in lines[1:]:
+                        if line.strip() == "---":
+                            in_fm = False
+                            continue
+                        if not in_fm:
+                            body_lines.append(line)
+                else:
+                    body_lines = lines
+                excerpt = "\n".join(body_lines[:20])  # first 20 body lines
+            else:
+                excerpt = title
+        except Exception:  # noqa: BLE001
+            excerpt = title
+
+        # Exactly one bounded provider call per page (I7, AC-F9-4)
+        query = await generate_review_queries(
+            vault_id=vault_id,
+            page_title=title,
+            page_excerpt=excerpt,
+        )
+        await enqueue_review(
+            vault_id=vault_id,
+            page_id=page_id,
+            item_type="new_page",
+            pre_generated_query=query,
+        )
+        logger.debug(
+            "_enqueue_review_items: enqueued item for page_id=%s title=%r query=%s",
+            page_id,
+            title,
+            "present" if query else "NULL",
         )
 
 
