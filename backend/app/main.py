@@ -2284,13 +2284,16 @@ async def research_start(body: ResearchStartRequest) -> ResearchStartResponse:
         )
         session.add(run)
 
-    # Schedule the bounded loop as a background task (ADR-0020 fire-and-poll pattern)
+    # Schedule the bounded loop as a background task (ADR-0020 fire-and-poll pattern).
+    # Pass the SAME run_id so the loop updates the row we just inserted — not a new one
+    # (C1: without this the client polls a row the loop never touches → stuck "running").
     asyncio.create_task(
         run_deep_research(
             vault_id=body.vault_id,
             topic=body.topic,
             max_iter=frozen_max_iter,
             token_budget=frozen_token_budget,
+            run_id=run_id,
         )
     )
 

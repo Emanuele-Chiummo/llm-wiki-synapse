@@ -122,6 +122,7 @@ async def run_deep_research(
     topic: str,
     max_iter: int | None = None,
     token_budget: int | None = None,
+    run_id: uuid.UUID | None = None,
 ) -> DeepResearchResult:
     """
     Run ONE bounded deep-research operation end-to-end (S-F10-1, AC-F10-1..7).
@@ -142,15 +143,21 @@ async def run_deep_research(
     frozen_max_iter: int = max_iter if max_iter is not None else _default_max_iter()
     frozen_token_budget: int = token_budget if token_budget is not None else _default_token_budget()
 
-    # ── INSERT the run row with status="running" ───────────────────────────────
-    run_id = uuid.uuid4()
-    run_obj = await _create_run_row(
-        run_id=run_id,
-        vault_id=vault_id,
-        topic=topic,
-        max_iter=frozen_max_iter,
-        token_budget=frozen_token_budget,
-    )
+    # ── Run row ────────────────────────────────────────────────────────────────
+    # The caller may have already INSERTed the row (POST /research/start pre-inserts
+    # it so the client can poll immediately after 202, then passes its run_id here).
+    # In that case we reuse that single row — minting a second id would orphan the
+    # caller's row and leave it stuck "running" forever (C1, ADR-0024 §8.1).
+    # For direct/test calls (run_id is None) we mint + INSERT the row ourselves.
+    if run_id is None:
+        run_id = uuid.uuid4()
+        await _create_run_row(
+            run_id=run_id,
+            vault_id=vault_id,
+            topic=topic,
+            max_iter=frozen_max_iter,
+            token_budget=frozen_token_budget,
+        )
 
     # ── Resolve provider ONCE (I6 — operation="ingest") ───────────────────────
     provider = await _resolve_provider(vault_id)
@@ -172,8 +179,10 @@ async def run_deep_research(
         # ── BOUNDS: read ONCE into locals (ADR-0024 §3.2, AQ-v0.5-4) ────────
         # max_iter and token_budget are NOW LOCAL CONSTANTS for this run.
         # The loop NEVER re-reads settings, the DB row, or any config.
-        max_iter_local: int = run_obj.max_iter  # frozen on the row at INSERT
-        token_budget_local: int = run_obj.token_budget
+        # Bounds are frozen at start (identical to the values written on the row,
+        # whether the row was inserted here or by the endpoint). Never re-read.
+        max_iter_local: int = frozen_max_iter
+        token_budget_local: int = frozen_token_budget
 
         # Initial query generation (outside the loop — same as ADR-0024 §3.2 spec)
         _mq = _max_queries()
