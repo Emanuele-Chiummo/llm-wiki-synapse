@@ -8,8 +8,12 @@
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 #
 # Services added / overridden:
-#   qdrant    — local Qdrant container (overrides QDRANT_URL on backend)
-#   frontend  — Vite dev server with HMR; proxies API calls to synapse-backend
+#   qdrant          — local Qdrant container (overrides QDRANT_URL on backend)
+#   frontend        — Vite dev server with HMR; proxies API calls to synapse-backend
+#   synapse-backend — source-mounted + `uvicorn --reload` so backend code changes
+#                     reload live WITHOUT an image rebuild (matches the frontend HMR
+#                     loop; fixes the prior front/back skew where the backend image
+#                     was stale)
 #
 # Ports exposed to the host:
 #   5173  — frontend (http://localhost:5173)
@@ -32,6 +36,17 @@ services:
     environment:
       # Point at the local qdrant container instead of host.docker.internal:6333
       QDRANT_URL: http://qdrant:6333
+    volumes:
+      # Live-mount the source over the image copy so edits reload without a rebuild.
+      # Only app/ (+ alembic/scripts) — NOT the whole backend/ (avoids overlaying the
+      # host macOS .venv onto the linux container).
+      - ./backend/app:/app/app
+      - ./backend/alembic:/app/alembic
+      - ./backend/scripts:/app/scripts
+    # uvicorn --reload watches /app and restarts the server on any .py change.
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     depends_on:
       qdrant:
         condition: service_started
