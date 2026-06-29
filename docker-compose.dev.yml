@@ -1,15 +1,21 @@
 # docker-compose.dev.yml — local development override
 #
-# Adds Qdrant as a local container so you can run the full stack on macOS
-# without needing TrueNAS. Ollama is expected already running at localhost:11434
-# (e.g. via the Ollama.app).
+# Adds Qdrant + React/Vite frontend as local containers so the full stack
+# runs on macOS with a single command, without needing TrueNAS.
+# Ollama must already be running at localhost:11434 (e.g. via Ollama.app).
 #
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 #
-# This file overrides:
-#   - QDRANT_URL → points synapse-backend to the local qdrant service
-#   - adds `qdrant` service dependency to synapse-backend
+# Services added / overridden:
+#   qdrant    — local Qdrant container (overrides QDRANT_URL on backend)
+#   frontend  — Vite dev server with HMR; proxies API calls to synapse-backend
+#
+# Ports exposed to the host:
+#   5173  — frontend (http://localhost:5173)
+#   8000  — backend  (http://localhost:8000)
+#   5432  — postgres (localhost:5432)
+#   6333  — qdrant   (localhost:6333)
 #
 # Production docker-compose.yml is unchanged.
 
@@ -29,6 +35,23 @@ services:
     depends_on:
       qdrant:
         condition: service_started
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      # Anonymous volume: container installs its own platform-native node_modules
+      # without overwriting the host copy (avoids arm64/x86 binary conflicts).
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE: http://synapse-backend:8000
+    # --host binds Vite to 0.0.0.0 so the port is reachable from the host browser.
+    command: sh -c "npm ci --prefer-offline && npm run dev -- --host"
+    depends_on:
+      - synapse-backend
 
 volumes:
   qdrant_data:
