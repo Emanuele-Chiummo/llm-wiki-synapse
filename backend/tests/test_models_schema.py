@@ -570,9 +570,9 @@ class TestDeepResearchRunsColumns:
         from app.models import Base
 
         table_names = {t.name for t in Base.metadata.sorted_tables}
-        assert "deep_research_runs" in table_names, (
-            "deep_research_runs table missing from SQLAlchemy models (AC-F10-6a, ADR-0024 §7.1)"
-        )
+        assert (
+            "deep_research_runs" in table_names
+        ), "deep_research_runs table missing from SQLAlchemy models (AC-F10-6a, ADR-0024 §7.1)"
 
     def test_has_id(self) -> None:
         """T-PG-031a: deep_research_runs.id (PK UUID)."""
@@ -682,9 +682,9 @@ class TestDeepResearchSourcesColumns:
         from app.models import Base
 
         table_names = {t.name for t in Base.metadata.sorted_tables}
-        assert "deep_research_sources" in table_names, (
-            "deep_research_sources table missing from SQLAlchemy models (AC-F10-6b)"
-        )
+        assert (
+            "deep_research_sources" in table_names
+        ), "deep_research_sources table missing from SQLAlchemy models (AC-F10-6b)"
 
     def test_has_id(self) -> None:
         """T-PG-032a: deep_research_sources.id (PK)."""
@@ -733,9 +733,9 @@ class TestDeepResearchSourcesColumns:
         er_path = Path(__file__).resolve().parent.parent.parent / "docs" / "er" / "schema.mmd"
         assert er_path.exists(), "docs/er/schema.mmd must exist (AC-F10-6d)"
         text = er_path.read_text(encoding="utf-8").upper()
-        assert "DEEP_RESEARCH_RUNS" in text, (
-            "docs/er/schema.mmd must include DEEP_RESEARCH_RUNS table (AC-F10-6d, ADR-0024 §7.3)"
-        )
-        assert "DEEP_RESEARCH_SOURCES" in text, (
-            "docs/er/schema.mmd must include DEEP_RESEARCH_SOURCES table (AC-F10-6d, ADR-0024 §7.3)"
-        )
+        assert (
+            "DEEP_RESEARCH_RUNS" in text
+        ), "docs/er/schema.mmd must include DEEP_RESEARCH_RUNS table (AC-F10-6d, ADR-0024 §7.3)"
+        assert (
+            "DEEP_RESEARCH_SOURCES" in text
+        ), "docs/er/schema.mmd must include DEEP_RESEARCH_SOURCES table (AC-F10-6d, ADR-0024 §7.3)"
