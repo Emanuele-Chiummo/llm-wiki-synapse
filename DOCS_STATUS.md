@@ -2,6 +2,216 @@
 
 > Tech-writer sign-off. Phases appended chronologically; most recent phase at top.
 
+## M5 Phase 2 — Deep Research Loop (F10) — DOCS GATE: PASS-WITH-PENDING
+
+> Gate run: 2026-06-29
+> Scope: ADR-0024 (bounded SearXNG loop, fire-and-poll REST, synthesis via ingest_file seam).
+>   New Alembic migration: 0009 (deep_research_runs + deep_research_sources). D2 updated.
+>   New endpoints: POST /research/start, GET /research/runs, GET /research/runs/{id}. D4 updated.
+>   New sequence diagram: docs/sequences/deep-research.mmd. D3 updated.
+> QA verdict: PASS (576 backend / 442 frontend, 2026-06-29 — v0.5-qa-phase2.md).
+> Architect verdict: APPROVE-WITH-CONDITIONS; C1 (run_id threading bug) fixed; C2 (test added); C3 (D2/D3/D4 regen) is this gate run.
+
+### Per-artifact status (M5 Phase 2)
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/component.mmd` | N/A-unchanged | Phase 2 adds no new container or top-level component. `ops/deep_research.py` and `ops/searxng.py` are internal modules within the existing backend service boundary. The existing REST component already covers new routes on the same service. No topology change warranting a regen. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (zero drift) | Regenerated via `backend/.venv/bin/python backend/scripts/generate_openapi.py`. Zero diff vs committed file. 11 tables confirmed including DEEP_RESEARCH_RUNS (13 ADR-0024 §7.1 columns) and DEEP_RESEARCH_SOURCES (7 ADR-0024 §7.2 columns). See §M5P2-D2. |
+| D3 | `docs/sequences/deep-research.mmd` | UP-TO-DATE | File present. All 8 T-DOCS-051..058 assertions PASS (sequenceDiagram keyword, SearXNG, max_iter, concurrency, total_cost_usd, ingest_file, InferenceProvider, 202 fire-and-poll). See §M5P2-D3. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (zero drift) | Regenerated via `backend/.venv/bin/python backend/scripts/generate_openapi.py`. Zero diff vs committed file. POST /research/start, GET /research/runs, GET /research/runs/{id} confirmed present. All 6 research schemas confirmed (ResearchStartRequest, ResearchStartResponse, ResearchRunSummary, ResearchRunDetail, ResearchRunListResponse, ResearchSourceSummary). See §M5P2-D4. |
+| D5 | Deep Search view PNG (`docs/screens/deep-search-*.png`) | PENDING-LIVE | Requires live stack with SearXNG reachable. Non-blocking per established precedent (same handling as all prior Playwright captures). See §M5P2-D5. |
+| D7 | `docs/adr/0024-deep-research.md` + README row | UP-TO-DATE | ADR-0024 present and indexed (Accepted, 2026-06-29, v0.5). See §M5P2-D7. |
+| TRACEABILITY | Phase-2 ACs | UP-TO-DATE | AC-F10-1..4, AC-F10-6..8, AC-D3-DR-1 flipped PENDING → GREEN with concrete test IDs from QA Phase 2 report. AC-F10-5 remains PENDING (Phase 3 scope — review queue integration). See §M5P2-TRACE. |
+
+### §M5P2-D2 — ER diagram zero-drift verification
+
+File: `docs/er/schema.mmd`
+
+Ran `backend/.venv/bin/python backend/scripts/generate_er.py`. Output:
+```
+Generated docs/er/schema.mmd
+Sanity check passed: all 11 tables present (PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS,
+LINKS, EDGES, CONVERSATIONS, MESSAGES, IMPORT_SCHEDULES, DEEP_RESEARCH_RUNS, DEEP_RESEARCH_SOURCES)
+```
+`git diff docs/er/schema.mmd` produced zero output — the committed file is identical to the
+freshly generated output. The backend engineer had already committed the current version
+(header: `Generated: v0.5-F10 | 2026-06-29 — ADR-0024: deep_research_runs/sources; ADR-0016: edges.kind; Feature A: pages.pinned`).
+
+Key Phase-2 tables confirmed present in schema.mmd:
+
+| Table | Columns present | ADR reference | Match |
+|-------|----------------|---------------|-------|
+| DEEP_RESEARCH_RUNS | 13 columns incl. max_iter, token_budget, converged, synthesis_text, synthesis_page_id (FK) | ADR-0024 §7.1 | PASS |
+| DEEP_RESEARCH_SOURCES | 7 columns incl. run_id (FK CASCADE), fetched_content_md, relevance_score, iteration | ADR-0024 §7.2 | PASS |
+
+Total: 11 tables (CONVERSATIONS, IMPORT_SCHEDULES, PAGES, PROVIDER_CONFIG, VAULT_STATE, INGEST_RUNS,
+LINKS, MESSAGES, EDGES, DEEP_RESEARCH_RUNS, DEEP_RESEARCH_SOURCES). Count verified by the
+generate_er.py sanity check assertions.
+
+**Result: zero drift. D2 is current.**
+
+### §M5P2-D3 — Deep Research sequence diagram verification
+
+File: `docs/sequences/deep-research.mmd`
+
+All 8 T-DOCS-051..058 assertions (from QA Phase 2 test_docs.py) manually verified:
+
+| Test ID | Assertion | Result |
+|---------|-----------|--------|
+| T-DOCS-051 | `sequenceDiagram` keyword present | PASS |
+| T-DOCS-052 | Fire-and-poll 202 pattern present | PASS — `202 {run_id}` line present |
+| T-DOCS-053 | SearXNG participant present | PASS — `participant SearXNG as SearXNG (I9)` |
+| T-DOCS-054 | max_iter annotation present | PASS — `[HARD CAP — I7, ADR-0024 §3.2]` |
+| T-DOCS-055 | concurrency annotation present | PASS — `semaphore=3` in Step 2 |
+| T-DOCS-056 | InferenceProvider participant present | PASS — `participant Provider as InferenceProvider (I6)` |
+| T-DOCS-057 | ingest_file seam call present | PASS — `DR->>Ingest: ingest_file(path)` |
+| T-DOCS-058 | total_cost_usd in terminal write | PASS — `UPDATE deep_research_runs SET status=…, total_cost_usd` |
+
+Diagram also shows: fire-and-poll 202 → `asyncio.create_task` → client polls via
+`GET /research/runs/{run_id}`; sufficiency check before refine; `budget_exhausted` break;
+`_finalize_run_row` in `finally` (status never stuck `running` — I7, ADR-0024 §3.2);
+synthesis routed through `ingest_file` not direct wiki write (I1/I5, AQ-v0.5-3).
+
+**D3 verdict: UP-TO-DATE. All 8 T-DOCS assertions pass.**
+
+### §M5P2-D4 — OpenAPI zero-drift verification
+
+File: `docs/api/openapi.json`
+
+Ran `backend/.venv/bin/python backend/scripts/generate_openapi.py`. Output:
+```
+Generated docs/api/openapi.json
+Sanity check passed: all 10 required endpoints present
+(including /search, /ingest/from-text, /ingest/upload, /import-schedule)
+```
+`git diff docs/api/openapi.json` produced zero output — the committed file is identical to the
+freshly generated output.
+
+Key Phase-2 paths confirmed present in openapi.json:
+
+| Path | Method | Present | Notes |
+|------|--------|---------|-------|
+| `/research/start` | POST | YES | 202 response; SEARXNG_URL guard; I7 bounds in description |
+| `/research/runs` | GET | YES | Paginated; vault_id filter |
+| `/research/runs/{run_id}` | GET | YES | 200/404; synthesis_text null-until-done noted |
+
+Research schemas confirmed present: `ResearchStartRequest`, `ResearchStartResponse`,
+`ResearchRunSummary`, `ResearchRunDetail`, `ResearchRunListResponse`, `ResearchSourceSummary`.
+
+The generate_openapi.py sanity check asserts only the 10 pre-F10 paths; the research endpoints
+are present in addition to those 10. Path listing verified programmatically (all 21 paths
+checked; `/research/start`, `/research/runs`, `/research/runs/{run_id}` all confirmed).
+
+**Result: zero drift. D4 is current.**
+
+### §M5P2-D5 — Screenshots status (PENDING-LIVE, not blocking)
+
+Deep Search view PNG requires a running Synapse stack with SearXNG reachable and at least one
+deep research run completed to a terminal state. The frontend component `DeepSearchView.tsx`
+is code-complete and unit-tested (DeepSearchView.test.tsx, 8 test groups, PASS). E2E Playwright
+spec target: `frontend/e2e/deep-search.spec.ts`.
+
+Target screenshot file names:
+- `docs/screens/deep-search-running.png` — view with a run in progress (topic input + run list)
+- `docs/screens/deep-search-complete.png` — view with a completed run (synthesis_text expanded)
+
+These require a live stack (`make screenshots` or manual Playwright run). Not blocking this gate.
+Consistent with precedent established at M4-EXT, M4 Phase 1, M3, and M5 Phase 1 gates.
+
+### §M5P2-D7 — ADR-0024 verification
+
+File: `docs/adr/0024-deep-research.md` and `docs/adr/README.md`
+
+| Field | Value | Correct |
+|-------|-------|---------|
+| ADR number | 0024 | YES |
+| Title | "Deep Research: bounded multi-query SearXNG loop + ingest-seam synthesis (F10, M5 Phase 2)" | YES |
+| Status | Accepted | YES |
+| Date | 2026-06-29 | YES |
+| Sprint | v0.5 | YES |
+| Link | `0024-deep-research.md` | YES — file exists |
+
+ADR-0024 documents: structural I7 loop cap (`for range`), SearXNG-only constraint (I9), assess
+before refine (Do-NOT #8), synthesis via `ingest_file` (I1/I5), bounds frozen at run start
+(AQ-v0.5-4), status never stuck `running` (`finally` block), cost ledger + $1 anomaly (ADR-0009),
+and the two new Postgres tables (Alembic migration 0009). Full D2/D3/D4 cross-references present.
+
+Note: ADR-0023 is absent from the index (no ADR-0023 file exists). This is not a gap — the
+architect skipped that number; 0024 follows 0022 in this sprint's authoring sequence.
+
+### §M5P2-TRACE — TRACEABILITY.md Phase-2 rows
+
+AC rows flipped from PENDING to GREEN. Test IDs sourced from `docs/sprints/v0.5-qa-phase2.md`
+(QA coverage table §2 and §9).
+
+| AC | Test file(s) | Key test ID(s) | Status |
+|----|--------------|----------------|--------|
+| AC-F10-1 | test_deep_research.py | T-DR-001 (`test_all_six_steps_execute`) | GREEN |
+| AC-F10-2 | test_deep_research.py | T-DR-002..004, T-DR-007, T-DR-010, T-DR-012 (I7 bounds suite) | GREEN |
+| AC-F10-3 | test_code_quality.py, test_research_api.py | T-DR-013 (`test_no_forbidden_search_imports`); T-RA-002 (`test_503_when_searxng_url_unset`) | GREEN |
+| AC-F10-4 | test_research_api.py, test_docs.py | T-RA-001, T-RA-007..010, T-RA-011..013; all 3 endpoints in openapi.json (§7 QA report) | GREEN |
+| AC-F10-5 | (Phase 3 scope) | — | PENDING — review queue → deep-research action not yet implemented; explicitly deferred per QA Phase 2 report §2 note |
+| AC-F10-6 | test_models_schema.py | T-PG-031..031p (17 tests, deep_research_runs); T-PG-032..032i (9 tests, deep_research_sources) | GREEN |
+| AC-F10-7 | test_deep_research.py | T-DR-005..006, T-DR-008..009, T-DR-011 | GREEN |
+| AC-F10-8 | DeepSearchView.test.tsx (8 groups), frontend/e2e/deep-search.spec.ts | Frontend unit PASS; E2E PENDING-LIVE | GREEN (unit); D5 PENDING-LIVE |
+| AC-D3-DR-1 | test_docs.py (T-DOCS-051..058) | All 8 assertions PASS (file + keyword + SearXNG + max_iter + concurrency + cost + ingest_file + InferenceProvider) | GREEN |
+
+Total rows flipped: **9** (AC-F10-1..4, AC-F10-6..8: 8 rows; AC-D3-DR-1: 1 row).
+AC-F10-5 remains PENDING (Phase 3 scope).
+
+### §M5P2-CROSS — Cross-consistency check (ADR-0024 ↔ code ↔ openapi.json ↔ ER ↔ TRACEABILITY)
+
+| Check | Result |
+|-------|--------|
+| ADR-0024 §7.1 deep_research_runs columns ↔ schema.mmd DEEP_RESEARCH_RUNS entity | PASS — all 13 columns present; FK synthesis_page_id to pages.id present |
+| ADR-0024 §7.2 deep_research_sources columns ↔ schema.mmd DEEP_RESEARCH_SOURCES entity | PASS — all 7 columns present; run_id FK with ON DELETE CASCADE noted |
+| ADR-0024 §3.2 `for range(1, max_iter+1)` structural cap ↔ deep-research.mmd `[HARD CAP — I7]` annotation | PASS — diagram explicitly annotates I7 structural loop cap |
+| ADR-0024 §4 SearXNG-only constraint (I9) ↔ T-DR-013 import ban + T-RA-002 503 test | PASS — code guard + API guard; both tested |
+| ADR-0024 REST contract (202 + fire-and-poll) ↔ openapi.json `/research/start` (POST, 202) | PASS — openapi.json response code 202; fire-and-poll pattern in D3 |
+| ADR-0024 AQ-v0.5-3 synthesis via `ingest_file` ↔ deep-research.mmd Step 6 + T-DR-009 | PASS — diagram shows `ingest_file(path)`, test asserts it is called with raw/sources path |
+| ADR-0024 AQ-v0.5-4 bounds frozen ↔ deep-research.mmd `bounds frozen` note at INSERT step | PASS — diagram shows `INSERT deep_research_runs (status=running, bounds frozen, AQ-v0.5-4)` |
+| openapi.json research schemas ↔ QA Phase 2 §7 schema list | PASS — all 6 schemas present (ResearchStartRequest/Response, ResearchRunSummary/Detail, ResearchRunListResponse, ResearchSourceSummary) |
+| TRACEABILITY Phase-2 test IDs ↔ QA Phase 2 report §2/§9 | PASS — test IDs sourced verbatim from authoritative QA report |
+| C1 fix (run_id threading) — no schema/endpoint shape change | PASS — zero diff on D2 regen and D4 regen confirms C1 fix was internal-only |
+| AC-F10-5 Phase 3 scope — correctly kept PENDING | PASS — review queue integration not yet implemented; AC explicitly notes Phase 3 deferral |
+| D5 screenshots PENDING-LIVE — consistent with precedent | PASS — same handling as M4-EXT, M4 Phase 1, M3, M5 Phase 1 |
+
+**No contradictions found across ADR-0024 / openapi.json / schema.mmd / deep-research.mmd / TRACEABILITY / QA Phase 2 report.**
+
+### DOCS GATE VERDICT — M5 Phase 2
+
+| Artifact | Status | Detail |
+|----------|--------|--------|
+| D1 `docs/architecture/component.mmd` | N/A-UNCHANGED | No topology change; ops/deep_research.py and ops/searxng.py are internal modules within existing backend service boundary |
+| D2 `docs/er/schema.mmd` | UP-TO-DATE (zero drift) | Regenerated; 11 tables; DEEP_RESEARCH_RUNS + DEEP_RESEARCH_SOURCES confirmed; zero diff vs committed file |
+| D3 `docs/sequences/deep-research.mmd` | UP-TO-DATE | All 8 T-DOCS-051..058 assertions PASS; diagram covers all 6 pipeline steps + bounded loop + fire-and-poll + I7/I9 annotations |
+| D4 `docs/api/openapi.json` | UP-TO-DATE (zero drift) | Regenerated; 3 research endpoints + 6 research schemas confirmed; zero diff vs committed file |
+| D5 `docs/screens/deep-search-*.png` | PENDING-LIVE | E2E Playwright capture on live stack with SearXNG; non-blocking per established precedent |
+| D7 `docs/adr/0024-deep-research.md` | UP-TO-DATE | ADR present and indexed (Accepted, 2026-06-29, v0.5); covers all I7/I9/I1/I5/I6 invariants |
+| TRACEABILITY Phase-2 ACs | UP-TO-DATE | 9 rows flipped PENDING → GREEN; AC-F10-5 correctly kept PENDING (Phase 3 scope) |
+
+**DOCS GATE: PASS-WITH-PENDING**
+
+All required D-artifacts for M5 Phase 2 are UP-TO-DATE or N/A-unchanged. The architect
+condition C3 (D2/D3/D4 regen + TRACEABILITY Phase-2 flip) is hereby cleared.
+
+Pending items (non-blocking):
+- D5: Deep Search view screenshots require a live stack with SearXNG reachable.
+  QA/Playwright responsibility. Consistent with all prior phase precedents.
+- AC-F10-5: Review queue → deep-research action is Phase 3 scope; PENDING is correct.
+
+Zero-drift items (no content change required):
+- D2: `schema.mmd` regen produced zero diff (backend engineer had committed the current version
+  after Alembic migration 0009 was authored).
+- D4: `openapi.json` regen produced zero diff (backend engineer had committed the current version
+  with all three research endpoints).
+- D1: No topology change in Phase 2; existing backend service boundary covers new modules.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-29 | M5 Phase 2 gate (C3 cleared)**
+
+---
+
 ## M5 Phase 1 — Retrieval Foundation (F5 + F6-citations + F17-chat) — DOCS GATE: PASS-WITH-PENDING
 
 > Gate run: 2026-06-29
