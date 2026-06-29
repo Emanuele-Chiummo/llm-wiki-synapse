@@ -46,6 +46,7 @@ import {
 } from "../../store/providerStore";
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
 import type { CreateProviderConfigBody } from "../../api/types";
+import { fetchEmbeddingConfig, type EmbeddingConfig } from "../../api/providerClient";
 
 // ─── Settings section type ────────────────────────────────────────────────────
 
@@ -502,18 +503,28 @@ function SectionLlmModels() {
               type="text"
               value={formModelId}
               onChange={(e) => setFormModelId(e.target.value)}
-              placeholder={t("settings.llmModels.modelIdPlaceholder")}
+              placeholder={
+                formType === "local"
+                  ? t("settings.llmModels.modelIdPlaceholderLocal")
+                  : formType === "cli"
+                  ? t("settings.llmModels.modelIdPlaceholderCli")
+                  : t("settings.llmModels.modelIdPlaceholder")
+              }
               style={INPUT_STYLE}
             />
           </Field>
 
-          {formType === "api" && (
+          {(formType === "api" || formType === "local") && (
             <Field label={t("settings.llmModels.baseUrl")} compact>
               <input
                 type="text"
                 value={formBaseUrl}
                 onChange={(e) => setFormBaseUrl(e.target.value)}
-                placeholder={t("settings.llmModels.baseUrlPlaceholder")}
+                placeholder={
+                  formType === "local"
+                    ? t("settings.llmModels.baseUrlPlaceholderLocal")
+                    : t("settings.llmModels.baseUrlPlaceholder")
+                }
                 style={INPUT_STYLE}
               />
             </Field>
@@ -550,10 +561,56 @@ function SectionLlmModels() {
 
 function SectionEmbeddings() {
   const { t } = useTranslation();
+  const [cfg, setCfg] = useState<EmbeddingConfig | null>(null);
+  const [err, setErr] = useState(false);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    fetchEmbeddingConfig(ac.signal)
+      .then((data) => { setCfg(data); })
+      .catch(() => { setErr(true); });
+    return () => { ac.abort(); };
+  }, []);
+
   return (
     <div>
       <SectionHeader title={t("settings.nav.embeddings")} desc={t("settings.embeddings.desc")} />
-      <ComingSoonBadge message={t("settings.embeddings.comingSoon")} />
+      {err ? (
+        <p style={{ fontSize: 12, color: "#f85149", margin: "8px 0" }}>{t("settings.embeddings.error")}</p>
+      ) : cfg === null ? (
+        <p style={{ fontSize: 12, color: "#6e7681", margin: "8px 0" }}>{t("settings.embeddings.loading")}</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <EmbedRow label={t("settings.embeddings.urlLabel")} value={cfg.embedding_url} mono />
+          <EmbedRow label={t("settings.embeddings.modelLabel")} value={cfg.embedding_model} mono />
+          <EmbedRow label={t("settings.embeddings.dimLabel")} value={String(cfg.embedding_dim)} />
+          <p style={{ fontSize: 11, color: "#484f58", margin: "4px 0 0", lineHeight: 1.5 }}>
+            {t("settings.embeddings.envNote")}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmbedRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <span style={{ fontSize: 11, color: "#6e7681" }}>{label}</span>
+      <span
+        style={{
+          fontSize: 12,
+          color: "#e6edf3",
+          fontFamily: mono ? "monospace" : undefined,
+          padding: "5px 8px",
+          background: "#161b22",
+          borderRadius: 4,
+          border: "1px solid #21262d",
+          wordBreak: "break-all",
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }

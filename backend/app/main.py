@@ -21,6 +21,7 @@ Endpoints:
   GET  /import-schedule       — scheduled folder import config + last-run (ADR-0020 Feature S)
   PUT  /import-schedule       — upsert import schedule config (Feature S)
   POST /import-schedule/run-now — trigger one bounded scan immediately (Feature S)
+  GET  /config/embedding        — current embedding config (EMBEDDING_URL/MODEL/DIM env vars)
 
 Startup sequence (ordered, per v0.1-architecture §2.5):
   1. Vault skeleton bootstrap (vault.py) — AC-K7-1, I5
@@ -1187,6 +1188,33 @@ async def delete_provider_config(config_id: uuid.UUID) -> None:
             status_code=404,
             detail=f"provider_config {config_id} not found",
         )
+
+
+# ── GET /config/embedding ─────────────────────────────────────────────────────
+
+
+class EmbeddingConfigResponse(BaseModel):
+    embedding_url: str = Field(description="HTTP endpoint for embeddings (EMBEDDING_URL env)")
+    embedding_model: str = Field(description="Model name for embeddings (EMBEDDING_MODEL env)")
+    embedding_dim: int = Field(description="Vector dimension (EMBEDDING_DIM env)")
+
+
+@app.get(
+    "/config/embedding",
+    response_model=EmbeddingConfigResponse,
+    summary="Get current embedding configuration",
+    description=(
+        "Returns the active embedding config read from environment variables "
+        "(EMBEDDING_URL, EMBEDDING_MODEL, EMBEDDING_DIM). Read-only — edit .env to change. (I9)"
+    ),
+)
+async def get_embedding_config() -> EmbeddingConfigResponse:
+    """Return current embedding settings (F17 / I9)."""
+    return EmbeddingConfigResponse(
+        embedding_url=settings.embedding_url,
+        embedding_model=settings.embedding_model,
+        embedding_dim=settings.embedding_dim,
+    )
 
 
 # ── Import schedule REST (Feature S, ADR-0020 §4.6) ───────────────────────────
