@@ -5,18 +5,22 @@
  * the Zustand store (nodes array). Relationship list (edges to/from the node)
  * is shown inline. Empty state when nothing is selected.
  *
+ * v0.5 (F13): delete affordance added to the header — opens CascadeDeleteModal.
+ *
  * INVARIANT I3: subscribes via typed selectors + useShallow for collections.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { useTranslation } from "react-i18next";
 import { useGraphStore } from "../../store/graphStore";
 import {
   selectSelectedNodeId,
   selectNodes,
   selectEdges,
 } from "../../store/graphStore";
-import type { GraphNode, GraphEdge } from "../../api/types";
+import type { GraphNode, GraphEdge, CascadeDeleteResult } from "../../api/types";
+import { CascadeDeleteModal } from "../wiki/CascadeDeleteModal";
 
 // ─── Type colour palette (mirrors NavTree) ────────────────────────────────────
 
@@ -36,9 +40,23 @@ function typeColor(type: string | null): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function PreviewPanel() {
+  const { t } = useTranslation();
   const selectedNodeId = useGraphStore(selectSelectedNodeId);
   const nodes = useGraphStore(useShallow(selectNodes));
   const edges = useGraphStore(useShallow(selectEdges));
+  const setSelectedNodeId = useGraphStore((s) => s.setSelectedNodeId);
+
+  // ── Cascade-delete modal state ─────────────────────────────────────────────
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
+  const handleDeleteSuccess = useCallback(
+    (_result: CascadeDeleteResult) => {
+      // Remove the deleted page from selection and close the modal
+      setSelectedNodeId(null);
+      setDeleteModalOpen(false);
+    },
+    [setSelectedNodeId],
+  );
 
   // Find selected node object
   const selectedNode = useMemo<GraphNode | null>(
@@ -134,6 +152,36 @@ export function PreviewPanel() {
           >
             {selectedNode.type ?? "other"}
           </span>
+
+          {/* Delete affordance — opens two-step CascadeDeleteModal (F13, ADR-0026) */}
+          <button
+            onClick={() => setDeleteModalOpen(true)}
+            data-testid="preview-panel-delete-btn"
+            aria-label={t("cascadeDelete.deleteButton")}
+            title={t("cascadeDelete.deleteButton")}
+            style={{
+              marginLeft: "auto",
+              background: "none",
+              border: "1px solid #30363d",
+              borderRadius: 4,
+              color: "#8b949e",
+              cursor: "pointer",
+              fontSize: 11,
+              padding: "2px 8px",
+              lineHeight: 1.6,
+              transition: "color 0.1s, border-color 0.1s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "#f85149";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "#f85149";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "#8b949e";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "#30363d";
+            }}
+          >
+            {t("cascadeDelete.deleteButton")}
+          </button>
         </div>
 
         <h2
@@ -151,6 +199,16 @@ export function PreviewPanel() {
           {selectedNode.title}
         </h2>
       </header>
+
+      {/* Two-step cascade-delete modal (F13) */}
+      {deleteModalOpen && (
+        <CascadeDeleteModal
+          pageId={selectedNode.id}
+          pageTitle={selectedNode.title}
+          onDeleted={handleDeleteSuccess}
+          onCancel={() => setDeleteModalOpen(false)}
+        />
+      )}
 
       {/* Scrollable body */}
       <div

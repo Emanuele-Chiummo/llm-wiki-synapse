@@ -276,6 +276,33 @@
       "deep_research_candidate": "Research candidate"
     }
   },
+  "cascadeDelete": {
+    "deleteButton": "Delete page",
+    "modalTitle": "Delete page",
+    "step1Title": "Review deletion plan",
+    "step2Title": "Confirm deletion",
+    "warningsBanner": "Shared-entity warnings",
+    "warningsHint": "These pages share source overlap with the page being deleted. The deletion will proceed, but review these after.",
+    "willDelete": "Pages that will be deleted",
+    "willPreserve": "Pages preserved (source pruned)",
+    "wikilinksToRewrite": "Wikilinks to rewrite",
+    "wikilinksCount": "{{count}} dead [[wikilink]] will be neutralised to plain text",
+    "wikilinksCount_plural": "{{count}} dead [[wikilinks]] will be neutralised to plain text",
+    "indexEntryRemoved": "Entry in index.md will be removed",
+    "rawSourceDeleted": "Raw source file will be deleted",
+    "confirmButton": "Yes, delete permanently",
+    "cancelButton": "Cancel",
+    "backButton": "Back",
+    "previewLoading": "Computing deletion plan…",
+    "previewError": "Could not compute deletion plan",
+    "deleteSuccess": "Page deleted. {{count}} wikilink(s) cleaned.",
+    "deleteError": "Deletion failed",
+    "noSharedWarnings": "No shared-entity warnings.",
+    "noPagesDeleted": "Only this page will be deleted.",
+    "noWikilinksToRewrite": "No other pages reference this page.",
+    "noRawSource": "No raw source file to delete.",
+    "occurrences": "{{n}} occurrence(s)"
+  },
   "common": {
     "loading": "Loading…",
     "retry": "Retry",
