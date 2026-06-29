@@ -276,6 +276,33 @@
       "deep_research_candidate": "Candidato ricerca"
     }
   },
+  "cascadeDelete": {
+    "deleteButton": "Elimina pagina",
+    "modalTitle": "Elimina pagina",
+    "step1Title": "Revisione piano di eliminazione",
+    "step2Title": "Conferma eliminazione",
+    "warningsBanner": "Avvisi entità condivise",
+    "warningsHint": "Queste pagine condividono sovrapposizione sorgente con la pagina da eliminare. L'eliminazione procederà, ma rivedi queste pagine dopo.",
+    "willDelete": "Pagine che verranno eliminate",
+    "willPreserve": "Pagine conservate (sorgente rimossa)",
+    "wikilinksToRewrite": "Wikilink da riscrivere",
+    "wikilinksCount": "{{count}} [[wikilink]] morto verrà convertito in testo normale",
+    "wikilinksCount_plural": "{{count}} [[wikilink]] morti verranno convertiti in testo normale",
+    "indexEntryRemoved": "La voce in index.md verrà rimossa",
+    "rawSourceDeleted": "Il file sorgente grezzo verrà eliminato",
+    "confirmButton": "Sì, elimina definitivamente",
+    "cancelButton": "Annulla",
+    "backButton": "Indietro",
+    "previewLoading": "Calcolo piano di eliminazione…",
+    "previewError": "Impossibile calcolare il piano di eliminazione",
+    "deleteSuccess": "Pagina eliminata. {{count}} wikilink rimossi.",
+    "deleteError": "Eliminazione fallita",
+    "noSharedWarnings": "Nessun avviso entità condivise.",
+    "noPagesDeleted": "Verrà eliminata solo questa pagina.",
+    "noWikilinksToRewrite": "Nessun'altra pagina fa riferimento a questa.",
+    "noRawSource": "Nessun file sorgente grezzo da eliminare.",
+    "occurrences": "{{n}} occorrenza/e"
+  },
   "common": {
     "loading": "Caricamento…",
     "retry": "Riprova",

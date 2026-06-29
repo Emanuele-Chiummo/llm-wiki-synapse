@@ -1,0 +1,64 @@
+/**
+ * cascadeDeleteClient.ts — typed API client for F13 cascade-delete endpoints.
+ *
+ * POST /pages/{id}/cascade-delete/preview  → CascadePreviewResponse (dry-run, read-only)
+ * DELETE /pages/{id}                        → CascadeDeleteResult   (single-pass apply)
+ *
+ * ADR-0026 §6.1 (REST surface). No secrets in this file (CLAUDE.md §12).
+ * Base URL from VITE_API_BASE env var (default: http://localhost:8000).
+ */
+
+import type { CascadePreviewResponse, CascadeDeleteResult } from "./types";
+import { ApiError } from "./graphClient";
+
+const API_BASE: string =
+  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "http://localhost:8000";
+
+async function checkResponse(res: Response): Promise<void> {
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = (await res.json()) as { detail?: string };
+      if (body.detail) detail = body.detail;
+    } catch {
+      // ignore parse error
+    }
+    throw new ApiError(res.status, `${res.status} ${detail}`);
+  }
+}
+
+/**
+ * Dry-run: fetch the cascade-delete plan for a page WITHOUT mutating anything.
+ * POST /pages/{pageId}/cascade-delete/preview → 200 CascadePreviewResponse
+ * 404 if the page does not exist or is already soft-deleted.
+ */
+export async function previewCascadeDelete(
+  pageId: string,
+  signal?: AbortSignal,
+): Promise<CascadePreviewResponse> {
+  const url = `${API_BASE}/pages/${encodeURIComponent(pageId)}/cascade-delete/preview`;
+  const res = await fetch(url, {
+    method: "POST",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as CascadePreviewResponse;
+}
+
+/**
+ * Apply: execute the cascade delete (single pass, inference-free).
+ * DELETE /pages/{pageId} → 200 CascadeDeleteResult
+ * 404 on non-existent or already-soft-deleted page (idempotent double-delete, AC-F13-5c).
+ */
+export async function cascadeDelete(
+  pageId: string,
+  signal?: AbortSignal,
+): Promise<CascadeDeleteResult> {
+  const url = `${API_BASE}/pages/${encodeURIComponent(pageId)}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as CascadeDeleteResult;
+}
