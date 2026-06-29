@@ -109,8 +109,11 @@
       "providerType": "Tipo",
       "modelId": "ID Modello",
       "modelIdPlaceholder": "es. claude-sonnet-4-6",
+      "modelIdPlaceholderLocal": "es. qwen2.5:3b",
+      "modelIdPlaceholderCli": "es. claude-opus-4-8",
       "baseUrl": "Base URL",
       "baseUrlPlaceholder": "es. https://api.anthropic.com",
+      "baseUrlPlaceholderLocal": "es. http://localhost:11434",
       "scope": "Ambito",
       "add": "Aggiungi",
       "cancel": "Annulla",
@@ -125,7 +128,12 @@
     "embeddings": {
       "title": "Vector Embeddings",
       "desc": "Abilita la ricerca semantica nel wiki. Compatibile con endpoint /v1/embeddings OpenAI-compatibili, embedding nativi di Ollama e altri modelli locali.",
-      "comingSoon": "Configurazione vector embeddings — disponibile in M5."
+      "urlLabel": "Embedding URL",
+      "modelLabel": "Modello embedding",
+      "dimLabel": "Dimensioni vettore",
+      "envNote": "Sola lettura — configurato tramite variabili d'ambiente (EMBEDDING_URL, EMBEDDING_MODEL, EMBEDDING_DIM). Modifica .env o docker-compose.yml per cambiare.",
+      "loading": "Caricamento configurazione embedding…",
+      "error": "Impossibile caricare la configurazione embedding. Il backend è in esecuzione?"
     },
     "apiMcp": {
       "title": "API + MCP",

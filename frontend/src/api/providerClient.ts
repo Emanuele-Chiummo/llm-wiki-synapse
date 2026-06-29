@@ -3,6 +3,7 @@
  *
  * GET  /provider/config              → ProviderConfigListResponse
  * POST /provider/config { body }     → ProviderConfigItem (201 Created)
+ * GET  /config/embedding             → EmbeddingConfig (read-only, from env vars)
  *
  * No secrets in this file (CLAUDE.md §12).
  * No provider/model literals hardcoded (I6) — all values come from the API response.
@@ -79,4 +80,23 @@ export async function deleteProviderConfig(
     ...(signal !== undefined ? { signal } : {}),
   });
   await checkResponse(res);
+}
+
+export interface EmbeddingConfig {
+  embedding_url: string;
+  embedding_model: string;
+  embedding_dim: number;
+}
+
+/**
+ * Fetch current embedding configuration (read-only, from env vars).
+ * GET /config/embedding
+ */
+export async function fetchEmbeddingConfig(
+  signal?: AbortSignal,
+): Promise<EmbeddingConfig> {
+  const url = `${API_BASE}/config/embedding`;
+  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as EmbeddingConfig;
 }

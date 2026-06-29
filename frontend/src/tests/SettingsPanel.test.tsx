@@ -145,6 +145,20 @@ vi.mock("../components/settings/ImportScheduleCard", () => ({
   ImportScheduleCard: () => <div data-testid="import-schedule-card">ImportScheduleCard</div>,
 }));
 
+// ─── Mock providerClient (fetchEmbeddingConfig) ───────────────────────────────
+
+vi.mock("../api/providerClient", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("../api/providerClient")>();
+  return {
+    ...orig,
+    fetchEmbeddingConfig: vi.fn().mockResolvedValue({
+      embedding_url: "http://localhost:11434/api/embeddings",
+      embedding_model: "bge-m3",
+      embedding_dim: 1024,
+    }),
+  };
+});
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function renderPanel() {
@@ -212,13 +226,14 @@ describe("SettingsPanel — section switching (AC-HARD-SET-2)", () => {
     expect(screen.getByText("10")).toBeTruthy(); // default selected value
   });
 
-  it("clicking Embeddings shows the ComingSoonBadge placeholder", () => {
+  it("clicking Embeddings shows the embedding config section (not a ComingSoonBadge)", () => {
     renderPanel();
     const embBtn = document.querySelector('[data-settings-section="embeddings"]');
     expect(embBtn).not.toBeNull();
     fireEvent.click(embBtn!);
-    // ComingSoonBadge renders the "comingSoon" key → text "comingSoon"
-    expect(screen.getByText("comingSoon")).toBeTruthy();
+    // SectionEmbeddings now shows a real config display (loading or data), not a stub
+    // The "loading" i18n key is shown while the fetch resolves
+    expect(screen.getByText("loading")).toBeTruthy();
   });
 
   it("clicking API+MCP shows the ComingSoonBadge placeholder", () => {
@@ -262,9 +277,11 @@ describe("SettingsPanel — section switching (AC-HARD-SET-2)", () => {
 });
 
 // ─── 3. Placeholder sections render ComingSoonBadge (AC-HARD-SET-4) ──────────
+// Note: "embeddings" was removed from PLACEHOLDER_SECTIONS — it now renders a real
+// config display (GET /config/embedding) rather than a stub badge.
 
 describe("SettingsPanel — ComingSoonBadge on placeholder sections (AC-HARD-SET-4)", () => {
-  const PLACEHOLDER_SECTIONS = ["embeddings", "apiMcp", "interface"] as const;
+  const PLACEHOLDER_SECTIONS = ["apiMcp", "interface"] as const;
 
   PLACEHOLDER_SECTIONS.forEach((sectionId) => {
     it(`section "${sectionId}" renders a comingSoon message (not empty)`, () => {

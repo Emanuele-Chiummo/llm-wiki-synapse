@@ -451,6 +451,25 @@
         }
       }
     },
+    "/config/embedding": {
+      "get": {
+        "summary": "Get current embedding configuration",
+        "description": "Returns the active embedding config read from environment variables (EMBEDDING_URL, EMBEDDING_MODEL, EMBEDDING_DIM). Read-only \u2014 edit .env to change. (I9)",
+        "operationId": "get_embedding_config_config_embedding_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmbeddingConfigResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/import-schedule": {
       "get": {
         "summary": "Get scheduled folder import config + last-run status",
@@ -1104,6 +1123,32 @@
         ],
         "title": "ConversationResponse",
         "description": "API shape for one conversations row (ADR-0019 \u00a72.5)."
+      },
+      "EmbeddingConfigResponse": {
+        "properties": {
+          "embedding_url": {
+            "type": "string",
+            "title": "Embedding Url",
+            "description": "HTTP endpoint for embeddings (EMBEDDING_URL env)"
+          },
+          "embedding_model": {
+            "type": "string",
+            "title": "Embedding Model",
+            "description": "Model name for embeddings (EMBEDDING_MODEL env)"
+          },
+          "embedding_dim": {
+            "type": "integer",
+            "title": "Embedding Dim",
+            "description": "Vector dimension (EMBEDDING_DIM env)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "embedding_url",
+          "embedding_model",
+          "embedding_dim"
+        ],
+        "title": "EmbeddingConfigResponse"
       },
       "GraphEdgeResponse": {
         "properties": {
