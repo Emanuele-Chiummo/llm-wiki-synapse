@@ -122,6 +122,48 @@
             }
           }
         }
+      },
+      "delete": {
+        "summary": "Cascade-delete a wiki page and clean up dead wikilinks",
+        "description": "F13 Cascade Delete (ADR-0026, AC-F13-1..7). Single-pass, inference-free operation: soft-deletes the page (deleted_at=now()); hard-deletes its Qdrant point; rewrites all dead [[Target]] wikilinks to plain text (body-only, frontmatter-safe, I5); removes the index.md catalogue entry; deletes the raw/sources/ file (AQ-v0.5-5); bumps data_version EXACTLY ONCE (I2); fires the debounced graph recompute (I2). Makes ZERO inference calls, ZERO FA2 calls. 404 on non-existent or already-soft-deleted page (idempotent double-delete, AC-F13-5c). Use POST /pages/{id}/cascade-delete/preview first (ADR-0026 \u00a76 \u2014 mandatory dry-run).",
+        "operationId": "delete_page_pages__page_id__delete",
+        "parameters": [
+          {
+            "name": "page_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Page Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page deleted; dead wikilinks cleaned; index.md updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CascadeDeleteResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Page not found or already deleted (AC-F13-5c)"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/pages/{page_id}/position": {
@@ -1262,6 +1304,50 @@
           }
         }
       }
+    },
+    "/pages/{page_id}/cascade-delete/preview": {
+      "post": {
+        "summary": "Dry-run preview of cascade delete (read-only)",
+        "description": "F13 Cascade Delete \u2014 mandatory dry-run (ADR-0026 \u00a76, AC-F13-5). Computes the full deletion plan WITHOUT mutating any store or file: no soft-delete, no Qdrant delete, no file write, no data_version bump. Returns will_delete, wikilinks_to_rewrite, shared_entity_warnings, match_methods_used. 404 if the page does not exist or is already soft-deleted. Call this before DELETE /pages/{id} to populate a confirmation modal (AC-F13-6).",
+        "operationId": "cascade_delete_preview_pages__page_id__cascade_delete_preview_post",
+        "parameters": [
+          {
+            "name": "page_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Page Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cascade plan computed (read-only)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CascadePreviewResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Page not found or already deleted"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1280,6 +1366,129 @@
           "file"
         ],
         "title": "Body_upload_ingest_ingest_upload_post"
+      },
+      "CascadeDeleteResponse": {
+        "properties": {
+          "deleted_page_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Deleted Page Id"
+          },
+          "wikilinks_cleaned": {
+            "type": "integer",
+            "title": "Wikilinks Cleaned"
+          },
+          "index_entry_removed": {
+            "type": "boolean",
+            "title": "Index Entry Removed"
+          },
+          "shared_entity_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Shared Entity Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted_page_id",
+          "wikilinks_cleaned",
+          "index_entry_removed",
+          "shared_entity_warnings"
+        ],
+        "title": "CascadeDeleteResponse",
+        "description": "DELETE /pages/{id} response (ADR-0026 \u00a76.1, AC-F13-5).\n\ndeleted_page_id: the page that was deleted.\nwikilinks_cleaned: total [[Target]] spans neutralised.\nindex_entry_removed: True when index.md was successfully regenerated.\nshared_entity_warnings: advisory list of source-overlap pages."
+      },
+      "CascadePreviewResponse": {
+        "properties": {
+          "target_page_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Page Id"
+          },
+          "target_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Title"
+          },
+          "target_file_path": {
+            "type": "string",
+            "title": "Target File Path"
+          },
+          "will_delete": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Will Delete"
+          },
+          "will_preserve_with_pruned_source": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Will Preserve With Pruned Source"
+          },
+          "wikilinks_to_rewrite": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Wikilinks To Rewrite"
+          },
+          "index_entry_will_be_removed": {
+            "type": "boolean",
+            "title": "Index Entry Will Be Removed"
+          },
+          "raw_source_to_delete": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Source To Delete"
+          },
+          "shared_entity_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Shared Entity Warnings"
+          },
+          "match_methods_used": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Match Methods Used"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_page_id",
+          "target_file_path",
+          "will_delete",
+          "will_preserve_with_pruned_source",
+          "wikilinks_to_rewrite",
+          "index_entry_will_be_removed",
+          "shared_entity_warnings",
+          "match_methods_used"
+        ],
+        "title": "CascadePreviewResponse",
+        "description": "POST /pages/{id}/cascade-delete/preview response (ADR-0026 \u00a76.1, DRY-RUN).\n\nRead-only: mutates nothing \u2014 no soft-delete, no Qdrant delete, no file write,\nno data_version bump.  Returns the full CascadePlan as JSON."
       },
       "ChatMessageIn": {
         "properties": {
