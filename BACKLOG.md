@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-06-29 (Sprint 5 / v0.5 Phase 1 DONE — PM phase-1 sign-off: docs/sprints/v0.5-pm-phase1-signoff.md; Phase 2 (F10 Deep Research) now in-progress)
+> Last updated: 2026-06-29 (Sprint 5 / v0.5 Phase 1 DONE — PM phase-1 sign-off: docs/sprints/v0.5-pm-phase1-signoff.md; Phase 2 (F10 Deep Research) now in-progress; Amendment A1: F1-MCP-UI added at stakeholder request)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -1301,6 +1301,7 @@ All 4 sign-offs still required before PM closes M4-HARD and unblocks Sprint 5.
 
 **Sprint status: IN PROGRESS — Phase 1 DONE (PM sign-off 2026-06-29); Phase 2 (F10) now in-progress**
 **Scope locked: 2026-06-29 by product-manager — docs/sprints/v0.5-scope.md**
+**Scope amended: 2026-06-29 — Amendment A1: F1-MCP-UI added (stakeholder request: Emanuele Chiummo) — docs/sprints/v0.5-scope.md §3 Amendment A1**
 **Phase 1 PM sign-off: docs/sprints/v0.5-pm-phase1-signoff.md (verdict: DONE-WITH-FOLLOWUPS)**
 **Branch: sprint/v0.5 (cut from sprint/v0.4 after EC-M4-HCP cleared)**
 **Prerequisite: M4 CLOSED — docs/sprints/v0.4-m4-closure.md (2026-06-29)**
@@ -1513,6 +1514,47 @@ CF-HARD-1 recapture: `docs/screens/shell-collapsed-panel.png`.
 `make screenshots` target exits 0.
 
 **Acceptance criteria:** docs/sprints/v0.5-scope.md §4 AC-D5-M5-1..3
+
+---
+
+### F1-MCP-UI — MCP Configuration UI [Amendment A1, 2026-06-29]
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1-MCP-UI (sub-item of F1 + F17; Settings > API + MCP panel) |
+| Sprint | v0.5 |
+| Status | backlog |
+| Priority | P1 — Phase 5; stakeholder request; closes M4-HARD promise |
+| Owner | backend-engineer (GET /mcp/info); frontend-engineer (SectionApiMcp replacement) |
+| Source | Stakeholder request 2026-06-29 (Emanuele Chiummo); Amendment A1 |
+
+**Scope:**
+Replace the `ComingSoonBadge` stub in `SectionApiMcp` (SettingsPanel.tsx) with a real
+panel that fetches `GET /mcp/info` and displays: (1) connection details — transport type,
+entry-point command (`python -m app.mcp.server`), copy-to-clipboard Claude Desktop JSON
+config snippet; (2) tools list — all tools from the real FastMCP registry (currently
+search_wiki, write_page, get_page, list_pages), each with name and truncated description.
+
+The backend adds a new read-only `GET /mcp/info` endpoint that derives its data from the
+live `app.mcp.server.mcp` FastMCP instance — not hardcoded strings. The endpoint requires
+no DB query and no live MCP transport call. It reflects the tool registry at import time.
+
+This feature SURFACES the existing MCP server built in M2. It does NOT add new MCP tools,
+does not invoke tools from the UI, does not add configuration-write capability. I9
+(do not reinvent) is the primary invariant guard.
+
+**Key invariants:** I9 (no reinvention — surface existing server only), I6 (no hardcoded
+server name, command, or tool list in handler or JSX).
+
+**Phase placement:** Phase 5 (new phase after F13/Phase 4). Can be deferred to M6 by PM
+decision at Phase 4 sign-off only; deferral is not the default.
+
+**Gate chain:** functional-analyst → architect → engineer → QA → tech-writer → PM (same
+chain as all other work items per CLAUDE.md §8 DoD).
+
+**Acceptance criteria:** docs/sprints/v0.5-scope.md §4 AC-F1-MCP-UI-1..10
+
+**EC gate:** EC-M5-22 (§8); EC-M5-HCP-7 (§9)
 
 ---
 
