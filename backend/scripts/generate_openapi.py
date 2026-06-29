@@ -38,16 +38,26 @@ def main() -> None:
     OUTFILE.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
     print(f"Generated {OUTFILE}")
 
-    # Sanity checks (AC-D4-3)
+    # Sanity checks (AC-D4-3 + AC-F5-6 + AC-F6-5 — I8)
     openapi_ver = schema.get("openapi", "")
     assert openapi_ver.startswith("3."), f"Expected OpenAPI 3.x, got {openapi_ver!r}"
     paths = schema.get("paths", {})
-    for required_path in ["/status", "/pages", "/pages/{page_id}", "/ingest/trigger", "/graph",
-                          "/ingest/upload", "/import-schedule", "/import-schedule/run-now"]:
+    for required_path in [
+        "/status",
+        "/pages",
+        "/pages/{page_id}",
+        "/ingest/trigger",
+        "/ingest/upload",
+        "/ingest/from-text",
+        "/search",
+        "/graph",
+        "/import-schedule",
+        "/import-schedule/run-now",
+    ]:
         assert required_path in paths, f"Missing path {required_path!r} in openapi.json"
     print(
-        "Sanity check passed: all 8 required endpoints present "
-        "(including /ingest/upload, /import-schedule, /import-schedule/run-now)"
+        "Sanity check passed: all 10 required endpoints present "
+        "(including /search, /ingest/from-text, /ingest/upload, /import-schedule)"
     )
 
 

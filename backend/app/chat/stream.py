@@ -1,17 +1,23 @@
 """
-Bounded chat stream orchestration (ADR-0019 §2.2 / I7).
+Bounded chat stream orchestration (ADR-0019 §2.2 / I7) + F5 citation integration
+(ADR-0022, M5 Phase 1).
 
 `run_chat_stream()` is the single async generator behind `POST /chat/stream`. It:
 
   1. resolves the provider for the "chat" operation (I6 — never hardcoded),
-  2. builds the light system context (purpose.md + overview.md, §2.3),
-  3. persists the user message immediately (so Regenerate works on failure),
-  4. consumes `provider.chat()` deltas through the streaming-safe <think> scanner (F7, §2.4),
-  5. enforces TWO bounds (I7 / Do-NOT #5): `token_budget` and `timeout_seconds`, both from the
+  2. calls `retrieve()` ONCE before streaming (ADR-0022 §2.7, I3 — NOT per-token),
+  3. prepends the light system context header (purpose.md + overview.md) to
+     `RetrievalContext.text` and passes the combined string as `retrieval_context`
+     to `provider.chat()` — the provider signature is unchanged (I6, Do-NOT #7),
+  4. persists the user message immediately (so Regenerate works on failure),
+  5. consumes `provider.chat()` deltas through the streaming-safe <think> scanner (F7, §2.4),
+  6. enforces TWO bounds (I7 / Do-NOT #5): `token_budget` and `timeout_seconds`, both from the
      resolved provider_config row — never literals,
-  6. on success persists the RAW assistant message (incl. literal <think>…) with token/cost
-     columns and bumps conversation.updated_at, then yields exactly one `done` event,
-  7. on failure yields exactly one `error` event (and does NOT persist the assistant message).
+  7. on success persists the RAW assistant message (incl. literal <think>…) with token/cost
+     columns + the serialised Citation list in the `citations` JSONB column (ADR-0022 §2.4),
+     bumps conversation.updated_at, then yields exactly one `done` event with an additive
+     `citations` field (compact `[{n,id,title,slug}]` — score/phase stored, not streamed),
+  8. on failure yields exactly one `error` event (and does NOT persist the assistant message).
 
 It yields already-serialised NDJSON LINES (str ending in "\n") so `main.py` only has to wrap a
 `StreamingResponse` around it. Cost is logged per run (I7) and returned in `done`.
@@ -42,6 +48,7 @@ from app.ingest.provider.base import UsageAccumulator
 from app.ingest.schemas import Message
 from app.models import ChatMessage, Conversation
 from app.provider_config_service import ConfigNotFoundError, resolve_provider_config
+from app.rag.retrieval import Citation, retrieve
 
 logger = logging.getLogger(__name__)
 
@@ -169,10 +176,36 @@ async def run_chat_stream(
         await session.flush()
     # session committed here — user message durable so Regenerate works on later failure.
 
+    # ── F5: call retrieve() ONCE before streaming (ADR-0022 §2.7, I3 — NOT per-token) ──
+    # retrieve() is a pure store read (zero inference, zero vault walk — I1/I7).
+    # We tolerate any retrieval error gracefully: fall back to empty context (no citations).
+    retrieval_citations: list[Citation] = []
+    retrieval_text = ""
+    try:
+        rctx = await retrieve(
+            query=last_user.content if last_user else "",
+            vault_id=effective_vault_id,
+            context_window=window,
+        )
+        retrieval_text = rctx.text
+        retrieval_citations = rctx.citations
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "chat: retrieve() failed (vault=%s) — proceeding with empty retrieval context: %s",
+            effective_vault_id,
+            exc,
+        )
+
     # ── Build the bounded provider call args (I6: provider chooses model; we pass ctx) ──
-    system_context = build_chat_context(vault_root=settings.vault_root, context_window=window)
-    # The provider's chat() takes (messages, retrieval_context). We prepend the system context
-    # as the retrieval_context string (backend-neutral, I6); the provider injects it as system.
+    # Prepend light grounding header (purpose.md + overview.md) to the retrieval context text
+    # so the provider receives ONE combined context string (I6 signature unchanged, ADR-0022 §2.7).
+    light_header = build_chat_context(vault_root=settings.vault_root, context_window=window)
+    if retrieval_text:
+        system_context = light_header + "\n\n## Retrieved context\n" + retrieval_text
+    else:
+        system_context = light_header
+    # The provider's chat() takes (messages, retrieval_context). We pass the combined string
+    # as retrieval_context (backend-neutral, I6 — signature unchanged, Do-NOT #7).
     provider_messages = list(messages)
 
     # ── Stream, bounded by timeout + token_budget (I7) ──────────────────────────────
@@ -258,12 +291,26 @@ async def run_chat_stream(
     snap = accumulator.snapshot()
     cost = round(float(snap.total_cost_usd), 4)
 
+    # Serialise citations for the JSONB column (ADR-0022 §2.4 — stored with score/phase).
+    # Empty list when no context was retrieved (no migration needed: column already exists).
+    citations_json: list[dict[str, object]] = [
+        {
+            "n": c.n,
+            "id": c.ref.id,
+            "title": c.ref.title,
+            "slug": c.ref.slug,
+            "score": c.score,
+            "phase": c.phase,
+        }
+        for c in retrieval_citations
+    ]
+
     async with get_session() as session:
         assistant = ChatMessage(
             conversation_id=conv_id,
             role="assistant",
             content=raw_content,
-            citations=[],
+            citations=citations_json,
             provider_type=provider_type,
             model_id=model_id,
             input_tokens=snap.input_tokens,
@@ -280,14 +327,22 @@ async def run_chat_stream(
         )
 
     logger.info(
-        "chat turn done: conv=%s model=%s in=%d out=%d cost=$%.4f reason=%s",
+        "chat turn done: conv=%s model=%s in=%d out=%d cost=$%.4f reason=%s citations=%d",
         conv_id,
         model_id,
         snap.input_tokens,
         snap.output_tokens,
         cost,
         finish_reason,
+        len(retrieval_citations),
     )
+
+    # Compact citation projection for the done event (ADR-0022 §2.4 — score/phase stored, not
+    # streamed). Additive field → non-breaking for existing clients that ignore unknown keys.
+    done_citations = [
+        {"n": c.n, "id": c.ref.id, "title": c.ref.title, "slug": c.ref.slug}
+        for c in retrieval_citations
+    ]
 
     yield _line(
         {
@@ -299,5 +354,6 @@ async def run_chat_stream(
             "total_cost_usd": cost,
             "iterations_used": 1,
             "finish_reason": finish_reason,
+            "citations": done_citations,
         }
     )

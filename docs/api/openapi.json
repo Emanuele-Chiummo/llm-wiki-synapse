@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Synapse",
-    "description": "Self-organising wiki backend \u2014 M4 + M4-EXT (upload + scheduled import). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8].",
-    "version": "0.4.0"
+    "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8].",
+    "version": "0.5.0"
   },
   "paths": {
     "/status": {
@@ -244,6 +244,126 @@
           },
           "422": {
             "description": "Filename is empty or unsafe after sanitization"
+          }
+        }
+      }
+    },
+    "/ingest/from-text": {
+      "post": {
+        "summary": "Write inline text to raw/sources/ and queue watcher-driven ingest",
+        "description": "Save-to-wiki seam (ADR-0019 \u00a72.7, AC-F6-5). Materialises ``text`` to ``vault/raw/sources/chat-<hint>.md`` and returns 202 immediately. The watcher picks up the file and runs the full ingest pipeline (no new ingest logic \u2014 ADR-0003 guarantee, I1/I6). ``source_hint`` is sanitised to a safe basename; falls back to ``chat-<uuid>`` when omitted or unsafe. 422 on empty text.",
+        "operationId": "ingest_from_text_ingest_from_text_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestFromTextRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Text saved; watcher will ingest asynchronously",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestFromTextResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (text empty or too long)"
+          }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "summary": "4-phase RAG retrieval (F5, ADR-0022)",
+        "description": "Run the F5 4-phase retrieval pipeline (ADR-0022 \u00a72.2, AC-F5-6) and return a grounded context string + citation list. Phase 1: dense vector search via bge-m3 (Qdrant, top-k). Phase 2: BFS graph-expansion over the `edges` table (depth \u2264 2). Phase 3: token-budget allocation (20% of context_window, F14). Phase 4: context assembly with inline [n] markers. 0-hit query \u2192 200 with empty results + empty context (AC-F5-7a). READ-ONLY \u2014 never bumps data_version (AC-F5-5). Documented in openapi.json (I8, AC-F5-6).",
+        "operationId": "search_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The query string to retrieve context for",
+              "title": "Q"
+            },
+            "description": "The query string to retrieve context for"
+          },
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Vault scope; defaults to settings.vault_id",
+              "title": "Vault Id"
+            },
+            "description": "Vault scope; defaults to settings.vault_id"
+          },
+          {
+            "name": "k",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "description": "Dense top-k for the vector phase (1..50); default 8 (ADR-0022 \u00a72.1)",
+              "default": 8,
+              "title": "K"
+            },
+            "description": "Dense top-k for the vector phase (1..50); default 8 (ADR-0022 \u00a72.1)"
+          },
+          {
+            "name": "context_window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 1000000,
+                  "minimum": 4096
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Context window override (4096..1_000_000); null \u2192 32 768 default (F14)",
+              "title": "Context Window"
+            },
+            "description": "Context window override (4096..1_000_000); null \u2192 32 768 default (F14)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieval result (0-hit \u2192 empty results array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (k out of range or missing q)"
           }
         }
       }
@@ -1529,6 +1649,88 @@
         "title": "ImportScheduleResponse",
         "description": "GET /import-schedule response body (ADR-0020 \u00a74.6).\n\nReturns the current config + last-run status for the vault's import schedule.\nReturns sane defaults (enabled=false, frequency=\"1h\") if no row exists yet."
       },
+      "IngestFromTextRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text",
+            "description": "Raw text to ingest (e.g. an assistant message)"
+          },
+          "source_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Hint",
+            "description": "Optional hint for the output filename stem, e.g. a message_id or short slug. Sanitised to basename; falls back to 'chat-<uuid>' when omitted or unsafe."
+          },
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id",
+            "description": "Defaults to settings.vault_id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "IngestFromTextRequest",
+        "description": "Request body for POST /ingest/from-text (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki).\n\nWrites ``text`` to ``vault/raw/sources/chat-{message_id}.md`` (or a derived name)\nand runs the same ``ingest_file`` seam (ADR-0003).  No new ingest logic \u2014 only a\nfile-materialisation step.",
+        "example": {
+          "source_hint": "chat-homelab-notes",
+          "text": "# Homelab notes\nDocker services on TrueNAS..."
+        }
+      },
+      "IngestFromTextResponse": {
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "title": "File Path",
+            "description": "Path written relative to vault_root"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "\"queued\" \u2014 watcher ingests asynchronously"
+          },
+          "page_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Id",
+            "description": "Page UUID when ingest completes synchronously (trigger path); null when async (watcher path)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_path",
+          "status"
+        ],
+        "title": "IngestFromTextResponse",
+        "description": "202 response for POST /ingest/from-text (ADR-0019 \u00a72.7).",
+        "example": {
+          "file_path": "raw/sources/chat-homelab-notes.md",
+          "status": "queued"
+        }
+      },
       "IngestRunListResponse": {
         "properties": {
           "items": {
@@ -2101,6 +2303,123 @@
         "type": "object",
         "title": "RunNowResponse",
         "description": "202 response body for POST /import-schedule/run-now (ADR-0020 \u00a74.6)."
+      },
+      "SearchResponse": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "context": {
+            "type": "string",
+            "title": "Context",
+            "description": "Assembled context string with inline [n] markers (\u2264 token_budget, ADR-0022)"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SearchResultItem"
+            },
+            "type": "array",
+            "title": "Results",
+            "description": "Citations in rank order (vector seeds first, then expansions by edge weight)"
+          },
+          "data_version": {
+            "type": "integer",
+            "title": "Data Version",
+            "description": "Snapshot read BEFORE assembly \u2014 proves the call is read-only (AC-F5-5)"
+          },
+          "approx_tokens": {
+            "type": "integer",
+            "title": "Approx Tokens",
+            "description": "char/4 estimate of context length"
+          },
+          "token_budget": {
+            "type": "integer",
+            "title": "Token Budget",
+            "description": "20% of context_window used as the retrieval slice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "context",
+          "results",
+          "data_version",
+          "approx_tokens",
+          "token_budget"
+        ],
+        "title": "SearchResponse",
+        "description": "GET /search response (ADR-0022 \u00a72.5, AC-F5-6).\n\nread-only \u2014 never bumps data_version (AC-F5-5).\n0-hit \u2192 200 with empty results + empty context (AC-F5-7a).",
+        "example": {
+          "approx_tokens": 512,
+          "context": "[1] Homelab Setup\nDocker Compose ...\n",
+          "data_version": 5,
+          "query": "homelab docker services",
+          "results": [
+            {
+              "id": "00000000-0000-0000-0000-000000000001",
+              "n": 1,
+              "phase": "vector",
+              "score": 0.87,
+              "slug": "homelab-setup",
+              "title": "Homelab Setup"
+            }
+          ],
+          "token_budget": 6553
+        }
+      },
+      "SearchResultItem": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N",
+            "description": "1-based citation index, contiguous from 1"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "UUID of the pages row (== Qdrant point id, ADR-0002)"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "Frontmatter title or filename stem (never empty, \u00a72.6)"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug",
+            "description": "slugify(title) \u2014 derived, not a DB column (\u00a72.6)"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "Cosine similarity (vector) or edge weight (expansion)"
+          },
+          "phase": {
+            "type": "string",
+            "title": "Phase",
+            "description": "\"vector\" | \"expansion\""
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "id",
+          "title",
+          "slug",
+          "score",
+          "phase"
+        ],
+        "title": "SearchResultItem",
+        "description": "One citation entry in the GET /search response (ADR-0022 \u00a72.5, AC-F5-6).\n\nMaps to Citation.{n, ref.id, ref.title, ref.slug, score, phase}.",
+        "example": {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "n": 1,
+          "phase": "vector",
+          "score": 0.87,
+          "slug": "homelab-setup",
+          "title": "Homelab Setup"
+        }
       },
       "StatusResponse": {
         "properties": {

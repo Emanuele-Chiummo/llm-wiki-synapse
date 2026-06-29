@@ -188,6 +188,10 @@ async def chat_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
 
     monkeypatch.setattr("app.db.get_session", patched_get_session)
     monkeypatch.setattr("app.main.get_session", patched_get_session)
+    # Patch all other modules that import get_session via their own module reference
+    # (ADR-0022 test-isolation rule: retrieval + provider_config_service have their own refs).
+    monkeypatch.setattr("app.rag.retrieval.get_session", patched_get_session)
+    monkeypatch.setattr("app.provider_config_service.get_session", patched_get_session)
 
     # Mock provider resolution (I6 surface) — never touches the network.
     async def fake_resolve_config(operation, vault_id=None, *, session=None):  # type: ignore[no-untyped-def]
@@ -201,6 +205,41 @@ async def chat_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
     monkeypatch.setattr("app.chat.stream.resolve_provider_config", fake_resolve_config)
     monkeypatch.setattr("app.chat.stream.resolve_provider", fake_resolve_provider)
 
+    # Mock retrieve() so chat tests do not need Qdrant or Postgres (ADR-0022 §2.7 isolation).
+    # The mock returns a RetrievalContext with one citation so citation-stamping tests work.
+    from app.rag.retrieval import Citation, PageRef, RetrievalContext
+
+    _mock_citations_holder: dict[str, list[Citation]] = {
+        "citations": [
+            Citation(
+                n=1,
+                ref=PageRef(
+                    id="00000000-0000-0000-0000-000000000001",
+                    title="Mock Source",
+                    slug="mock-source",
+                ),
+                score=0.9,
+                phase="vector",
+            )
+        ]
+    }
+
+    async def fake_retrieve(  # type: ignore[no-untyped-def]
+        query: str, *, vault_id: str, context_window: int, **kwargs: Any
+    ) -> RetrievalContext:
+        cits = _mock_citations_holder["citations"]
+        text = "".join(f"[{c.n}] {c.ref.title}\nMock passage.\n" for c in cits)
+        return RetrievalContext(
+            query=query,
+            text=text,
+            citations=cits,
+            token_budget=6553,
+            approx_tokens=len(text) // 4,
+            data_version=0,
+        )
+
+    monkeypatch.setattr("app.chat.stream.retrieve", fake_retrieve)
+
     from app.main import app
     from fastapi import FastAPI
 
@@ -209,7 +248,7 @@ async def chat_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
         yield
 
     app.router.lifespan_context = test_lifespan  # type: ignore[assignment]
-    return {"app": app, "deltas": deltas_holder}
+    return {"app": app, "deltas": deltas_holder, "citations": _mock_citations_holder}
 
 
 @pytest.fixture()
@@ -343,3 +382,122 @@ class TestChatStream:
         msgs = (await client.get(f"/conversations/{conv_id}/messages")).json()["items"]
         # exactly one assistant message remains (the regenerated one)
         assert [m["role"] for m in msgs].count("assistant") == 1
+
+
+# ── 4. Citation integration tests (ADR-0022 §2.4, AC-F6-3) ───────────────────
+
+
+class TestChatCitations:
+    """
+    AC-F6-3 (carry-forward from M4): citations stored in DB + returned in done event.
+    The mock retrieve() in chat_app returns one Citation (n=1, "Mock Source").
+    """
+
+    async def test_citations_stored_in_assistant_message(
+        self, client: AsyncClient, chat_app: dict[str, Any]
+    ) -> None:
+        """Citations are written to messages.citations JSONB column (ADR-0022 §2.4)."""
+        r = await client.post(
+            "/chat/stream",
+            json={"messages": [{"role": "user", "content": "tell me about the vault"}]},
+        )
+        assert r.status_code == 200
+        events = _parse_ndjson(r.text)
+        done = next(e for e in events if e["type"] == "done")
+        conv_id = done["conversation_id"]
+
+        msgs = (await client.get(f"/conversations/{conv_id}/messages")).json()["items"]
+        assistant = next(m for m in msgs if m["role"] == "assistant")
+
+        # The citations column is returned as a list with the one mock citation.
+        cits = assistant.get("citations") or []
+        assert len(cits) == 1, f"Expected 1 citation stored in DB, got {len(cits)}: {cits}"
+        assert cits[0]["n"] == 1
+        assert cits[0]["id"] == "00000000-0000-0000-0000-000000000001"
+        assert cits[0]["title"] == "Mock Source"
+        assert cits[0]["slug"] == "mock-source"
+        # score and phase are stored (not just the compact projection)
+        assert "score" in cits[0]
+        assert "phase" in cits[0]
+
+    async def test_done_event_has_citations_field(
+        self, client: AsyncClient, chat_app: dict[str, Any]
+    ) -> None:
+        """done event gains an additive compact citations field (ADR-0022 §2.4)."""
+        r = await client.post(
+            "/chat/stream",
+            json={"messages": [{"role": "user", "content": "test"}]},
+        )
+        assert r.status_code == 200
+        events = _parse_ndjson(r.text)
+        done = next(e for e in events if e["type"] == "done")
+
+        # Additive field — must be present and be a list.
+        assert (
+            "citations" in done
+        ), f"done event must have 'citations' field; got keys: {list(done)}"
+        cits = done["citations"]
+        assert isinstance(cits, list), f"citations must be a list; got {type(cits)}"
+        assert len(cits) == 1
+        c = cits[0]
+        # Compact projection: n, id, title, slug (ADR-0022 §2.4 — score/phase NOT streamed)
+        assert c["n"] == 1
+        assert c["id"] == "00000000-0000-0000-0000-000000000001"
+        assert c["title"] == "Mock Source"
+        assert c["slug"] == "mock-source"
+        assert "score" not in c, "score must NOT be in streamed citation (stored only, §2.4)"
+        assert "phase" not in c, "phase must NOT be in streamed citation (stored only, §2.4)"
+
+    async def test_done_event_still_has_all_existing_fields(
+        self, client: AsyncClient, chat_app: dict[str, Any]
+    ) -> None:
+        """citations is ADDITIVE — all pre-existing done fields must still be present."""
+        r = await client.post(
+            "/chat/stream",
+            json={"messages": [{"role": "user", "content": "hi"}]},
+        )
+        events = _parse_ndjson(r.text)
+        done = next(e for e in events if e["type"] == "done")
+
+        # All M4 done fields must remain.
+        for field in (
+            "conversation_id",
+            "message_id",
+            "input_tokens",
+            "output_tokens",
+            "total_cost_usd",
+            "iterations_used",
+            "finish_reason",
+        ):
+            assert (
+                field in done
+            ), f"done event missing pre-existing field '{field}' after citations added"
+
+    async def test_no_citations_when_retrieve_returns_empty(
+        self, client: AsyncClient, chat_app: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When retrieve() returns no citations, done.citations == [] (empty retrieval graceful)."""
+        from app.rag.retrieval import RetrievalContext
+
+        async def empty_retrieve(  # type: ignore[no-untyped-def]
+            query: str, *, vault_id: str, context_window: int, **kwargs: Any
+        ) -> RetrievalContext:
+            return RetrievalContext(
+                query=query,
+                text="",
+                citations=[],
+                token_budget=6553,
+                approx_tokens=0,
+                data_version=0,
+            )
+
+        monkeypatch.setattr("app.chat.stream.retrieve", empty_retrieve)
+
+        r = await client.post(
+            "/chat/stream",
+            json={"messages": [{"role": "user", "content": "hi"}]},
+        )
+        assert r.status_code == 200
+        events = _parse_ndjson(r.text)
+        done = next(e for e in events if e["type"] == "done")
+        assert done.get("citations") == [], f"No citations expected; got {done.get('citations')}"

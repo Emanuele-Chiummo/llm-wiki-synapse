@@ -1,13 +1,15 @@
 """
-Synapse FastAPI service — v0.4 (M4 Phase 2 + M4-EXT).
+Synapse FastAPI service — v0.5 (M5 Phase 1: F5 retrieval + citations).
 
 Endpoints:
   GET  /status                — vault_id, data_version, started_at, uptime
   GET  /pages                 — paginated list of live pages
   GET  /pages/{id}            — single page by UUID
   POST /ingest/trigger        — sync ingest; HTTP 202 (typed IngestTriggerResponse, AC-D4u)
-  POST /ingest/upload         — multipart file upload → ingest; 201 (ADR-0020 Feature U)
+  POST /ingest/upload         — multipart file upload → ingest; 202 (ADR-0020 Feature U)
+  POST /ingest/from-text      — inline text → raw/sources/ + ingest; 202 (ADR-0019 §2.7)
   GET  /ingest/runs           — paginated ingest run history (ADR-0018 §7, AC-BE-IR-1..5)
+  GET  /search                — 4-phase RAG retrieval (F5, ADR-0022); read-only (AC-F5-5/6)
   GET  /provider/config       — list effective + raw provider_config rows (F17)
   POST /provider/config       — create/update a provider_config row (F17, §12 — no api key)
   DELETE /provider/config/{id} — delete a provider_config row by UUID
@@ -17,7 +19,7 @@ Endpoints:
   POST /conversations         — create an empty conversation (F6)
   GET  /conversations/{id}/messages — ordered message history (F6)
   DELETE /conversations/{id}  — soft-delete a conversation (F6)
-  POST /chat/stream           — bounded NDJSON streaming chat turn (F6/F7, I6/I7, ADR-0019)
+  POST /chat/stream           — bounded NDJSON streaming chat turn (F6/F7, I6/I7, ADR-0019/0022)
   GET  /import-schedule       — scheduled folder import config + last-run (ADR-0020 Feature S)
   PUT  /import-schedule       — upsert import schedule config (Feature S)
   POST /import-schedule/run-now — trigger one bounded scan immediately (Feature S)
@@ -141,15 +143,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
 
 app = FastAPI(
     title="Synapse",
-    version="0.4.0",
+    version="0.5.0",
     description=(
-        "Self-organising wiki backend — M4 + M4-EXT (upload + scheduled import). "
+        "Self-organising wiki backend — M5 Phase 1 (F5 4-phase retrieval + [n] citations). "
         "4-signal knowledge graph (F4): direct×3 + source-overlap×4 + Adamic-Adar×1.5 + type×1. "
         "FA2 server-side via igraph (I2); coords persisted in Postgres; "
         "dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). "
         "Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, "
         "CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). "
         "POST /ingest/upload: multipart upload → ingest (ADR-0020 Feature U). "
+        "POST /ingest/from-text: inline text → ingest (ADR-0019 §2.7, AC-F6-5 save-to-wiki). "
+        "GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). "
         "GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import "
         "(ADR-0020 Feature S). "
         "Karpathy LLM Wiki pattern [K1–K8]."
@@ -436,6 +440,145 @@ class UploadResponse(BaseModel):
                 "file_path": "raw/sources/notes.md",
                 "status": "queued",
                 "overwritten": False,
+            }
+        }
+    }
+
+
+# ── GET /search Pydantic models (F5, ADR-0022 §2.5) ──────────────────────────
+
+
+class SearchResultItem(BaseModel):
+    """
+    One citation entry in the GET /search response (ADR-0022 §2.5, AC-F5-6).
+
+    Maps to Citation.{n, ref.id, ref.title, ref.slug, score, phase}.
+    """
+
+    n: int = Field(..., description="1-based citation index, contiguous from 1")
+    id: str = Field(..., description="UUID of the pages row (== Qdrant point id, ADR-0002)")
+    title: str = Field(..., description="Frontmatter title or filename stem (never empty, §2.6)")
+    slug: str = Field(..., description="slugify(title) — derived, not a DB column (§2.6)")
+    score: float = Field(..., description="Cosine similarity (vector) or edge weight (expansion)")
+    phase: str = Field(..., description='"vector" | "expansion"')
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "n": 1,
+                "id": "00000000-0000-0000-0000-000000000001",
+                "title": "Homelab Setup",
+                "slug": "homelab-setup",
+                "score": 0.87,
+                "phase": "vector",
+            }
+        }
+    }
+
+
+class SearchResponse(BaseModel):
+    """
+    GET /search response (ADR-0022 §2.5, AC-F5-6).
+
+    read-only — never bumps data_version (AC-F5-5).
+    0-hit → 200 with empty results + empty context (AC-F5-7a).
+    """
+
+    query: str
+    context: str = Field(
+        ...,
+        description="Assembled context string with inline [n] markers (≤ token_budget, ADR-0022)",
+    )
+    results: list[SearchResultItem] = Field(
+        ...,
+        description="Citations in rank order (vector seeds first, then expansions by edge weight)",
+    )
+    data_version: int = Field(
+        ...,
+        description="Snapshot read BEFORE assembly — proves the call is read-only (AC-F5-5)",
+    )
+    approx_tokens: int = Field(..., description="char/4 estimate of context length")
+    token_budget: int = Field(..., description="20% of context_window used as the retrieval slice")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "query": "homelab docker services",
+                "context": "[1] Homelab Setup\nDocker Compose ...\n",
+                "results": [
+                    {
+                        "n": 1,
+                        "id": "00000000-0000-0000-0000-000000000001",
+                        "title": "Homelab Setup",
+                        "slug": "homelab-setup",
+                        "score": 0.87,
+                        "phase": "vector",
+                    }
+                ],
+                "data_version": 5,
+                "approx_tokens": 512,
+                "token_budget": 6553,
+            }
+        }
+    }
+
+
+# ── POST /ingest/from-text Pydantic models (ADR-0019 §2.7, AC-F6-5) ──────────
+
+
+class IngestFromTextRequest(BaseModel):
+    """
+    Request body for POST /ingest/from-text (ADR-0019 §2.7, AC-F6-5 save-to-wiki).
+
+    Writes ``text`` to ``vault/raw/sources/chat-{message_id}.md`` (or a derived name)
+    and runs the same ``ingest_file`` seam (ADR-0003).  No new ingest logic — only a
+    file-materialisation step.
+    """
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        description="Raw text to ingest (e.g. an assistant message)",
+    )
+    source_hint: str | None = Field(
+        default=None,
+        description=(
+            "Optional hint for the output filename stem, e.g. a message_id or short slug. "
+            "Sanitised to basename; falls back to 'chat-<uuid>' when omitted or unsafe."
+        ),
+    )
+    vault_id: str | None = Field(default=None, description="Defaults to settings.vault_id")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "text": "# Homelab notes\nDocker services on TrueNAS...",
+                "source_hint": "chat-homelab-notes",
+                "vault_id": None,
+            }
+        }
+    }
+
+
+class IngestFromTextResponse(BaseModel):
+    """202 response for POST /ingest/from-text (ADR-0019 §2.7)."""
+
+    file_path: str = Field(..., description="Path written relative to vault_root")
+    status: str = Field(..., description='"queued" — watcher ingests asynchronously')
+    page_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "Page UUID when ingest completes synchronously (trigger path); "
+            "null when async (watcher path)."
+        ),
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "file_path": "raw/sources/chat-homelab-notes.md",
+                "status": "queued",
+                "page_id": None,
             }
         }
     }
@@ -981,6 +1124,166 @@ async def upload_ingest(
         file_path=rel_path,
         status="queued",
         overwritten=overwritten,
+    )
+
+
+# ── POST /ingest/from-text ────────────────────────────────────────────────────
+
+
+@app.post(
+    "/ingest/from-text",
+    response_model=IngestFromTextResponse,
+    status_code=202,
+    summary="Write inline text to raw/sources/ and queue watcher-driven ingest",
+    description=(
+        "Save-to-wiki seam (ADR-0019 §2.7, AC-F6-5). "
+        "Materialises ``text`` to ``vault/raw/sources/chat-<hint>.md`` and returns 202 "
+        "immediately. The watcher picks up the file and runs the full ingest pipeline "
+        "(no new ingest logic — ADR-0003 guarantee, I1/I6). "
+        "``source_hint`` is sanitised to a safe basename; falls back to ``chat-<uuid>`` when "
+        "omitted or unsafe. 422 on empty text."
+    ),
+    responses={
+        202: {"description": "Text saved; watcher will ingest asynchronously"},
+        422: {"description": "Validation error (text empty or too long)"},
+    },
+)
+async def ingest_from_text(body: IngestFromTextRequest) -> IngestFromTextResponse:
+    """
+    POST /ingest/from-text — materialise inline text to raw/sources/ and enqueue watcher.
+
+    1. Derive a safe filename from source_hint (basename-only, slug-safe fallback).
+    2. Write the text to vault/raw/sources/<name>.md (atomically via temp → rename).
+    3. Return 202 {file_path, status:'queued'} — watcher ingests asynchronously.
+
+    I1: watcher's mtime/hash gate deduplicates re-posts of identical content.
+    I5: writes ONLY to vault/raw/sources/ — never to wiki/ or .obsidian/.
+    I6: inference goes through the existing ingest pipeline (ADR-0003, no shortcut).
+    """
+    import re as _re
+    import tempfile as _tempfile
+
+    _SLUG_RE_MAIN = _re.compile(r"[^a-z0-9_-]+")
+
+    # Derive a safe filename stem from the hint (or a fresh UUID).
+    raw_hint = (body.source_hint or "").strip()
+    if raw_hint:
+        stem = _SLUG_RE_MAIN.sub("-", raw_hint.lower()).strip("-")[:80]
+        if not stem:
+            stem = f"chat-{uuid.uuid4().hex[:8]}"
+    else:
+        stem = f"chat-{uuid.uuid4().hex[:8]}"
+    filename = f"{stem}.md"
+
+    raw_sources = settings.raw_sources_dir
+    raw_sources.mkdir(parents=True, exist_ok=True)
+    dst = raw_sources / filename
+
+    # Atomic write via temp → rename (same approach as upload_ingest).
+    tmp_fd, tmp_name = _tempfile.mkstemp(dir=str(raw_sources), suffix=".fromtext_tmp")
+    try:
+        with open(tmp_fd, "w", encoding="utf-8") as tmp_file:
+            tmp_file.write(body.text)
+    except Exception as exc:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=f"Failed to write text: {exc}") from exc
+
+    try:
+        Path(tmp_name).replace(dst)
+    except OSError as exc:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=f"Failed to persist file: {exc}") from exc
+
+    rel_path = str(dst.relative_to(settings.vault_root))
+    logger.info(
+        "ingest_from_text: saved %s (%d chars) — watcher will ingest",
+        filename,
+        len(body.text),
+    )
+    return IngestFromTextResponse(file_path=rel_path, status="queued", page_id=None)
+
+
+# ── GET /search ───────────────────────────────────────────────────────────────
+
+
+@app.get(
+    "/search",
+    response_model=SearchResponse,
+    summary="4-phase RAG retrieval (F5, ADR-0022)",
+    description=(
+        "Run the F5 4-phase retrieval pipeline (ADR-0022 §2.2, AC-F5-6) and return a grounded "
+        "context string + citation list. "
+        "Phase 1: dense vector search via bge-m3 (Qdrant, top-k). "
+        "Phase 2: BFS graph-expansion over the `edges` table (depth ≤ 2). "
+        "Phase 3: token-budget allocation (20% of context_window, F14). "
+        "Phase 4: context assembly with inline [n] markers. "
+        "0-hit query → 200 with empty results + empty context (AC-F5-7a). "
+        "READ-ONLY — never bumps data_version (AC-F5-5). "
+        "Documented in openapi.json (I8, AC-F5-6)."
+    ),
+    responses={
+        200: {"description": "Retrieval result (0-hit → empty results array)"},
+        422: {"description": "Validation error (k out of range or missing q)"},
+    },
+)
+async def search(
+    q: str = Query(..., min_length=1, description="The query string to retrieve context for"),
+    vault_id: str | None = Query(
+        default=None,
+        description="Vault scope; defaults to settings.vault_id",
+    ),
+    k: int = Query(
+        default=8,
+        ge=1,
+        le=50,
+        description="Dense top-k for the vector phase (1..50); default 8 (ADR-0022 §2.1)",
+    ),
+    context_window: int | None = Query(
+        default=None,
+        ge=4096,
+        le=1_000_000,
+        description="Context window override (4096..1_000_000); null → 32 768 default (F14)",
+    ),
+) -> SearchResponse:
+    """
+    GET /search — F5 4-phase retrieval (ADR-0022, AC-F5-6).
+
+    Single bounded pass (I7): Qdrant bge-m3 dense search → edges BFS expansion → budget
+    allocation → context assembly. Zero inference calls, zero vault walk (I1). Read-only
+    — data_version is unchanged (AC-F5-5).
+    """
+    from app.chat.context import DEFAULT_CONTEXT_WINDOW as _DEFAULT_WINDOW
+    from app.rag.retrieval import retrieve
+
+    effective_vault_id = vault_id or settings.vault_id
+    window = context_window or _DEFAULT_WINDOW
+
+    rctx = await retrieve(
+        query=q,
+        vault_id=effective_vault_id,
+        context_window=window,
+        k=k,
+    )
+
+    results: list[SearchResultItem] = [
+        SearchResultItem(
+            n=c.n,
+            id=c.ref.id,
+            title=c.ref.title,
+            slug=c.ref.slug,
+            score=c.score,
+            phase=c.phase,
+        )
+        for c in rctx.citations
+    ]
+
+    return SearchResponse(
+        query=rctx.query,
+        context=rctx.text,
+        results=results,
+        data_version=rctx.data_version,
+        approx_tokens=rctx.approx_tokens,
+        token_budget=rctx.token_budget,
     )
 
 

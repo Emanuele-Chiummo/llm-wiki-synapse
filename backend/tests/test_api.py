@@ -83,6 +83,19 @@ class FakeQdrantClientAPI:
             self.points.pop(str(pid), None)
             self.delete_calls += 1
 
+    async def query_points(
+        self,
+        *,
+        collection_name: str,
+        query: list[float],
+        limit: int,
+        with_payload: bool,
+    ) -> MagicMock:
+        """Return an empty QueryResponse (no Qdrant hits in API tests — search returns empty)."""
+        resp = MagicMock()
+        resp.points = []
+        return resp
+
 
 @pytest.fixture()
 async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
@@ -164,6 +177,26 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
         Column("data_version", Integer, nullable=False, default=0),
         Column("updated_at", Text, nullable=False),
     )
+    # Retrieval needs edges + links tables (ADR-0022 §2.2 phase 2 — BFS expansion).
+    # Added for GET /search test isolation (AC-F5-6 / ADR-0022 test-isolation rule).
+    Table(
+        "edges",
+        meta,
+        Column("id", String(36), primary_key=True),
+        Column("vault_id", String, nullable=False),
+        Column("source_page_id", String(36), nullable=False),
+        Column("target_page_id", String(36), nullable=False),
+        Column("weight", Float, nullable=False),
+    )
+    Table(
+        "links",
+        meta,
+        Column("id", String(36), primary_key=True),
+        Column("source_page_id", String(36), nullable=False),
+        Column("target_title", Text, nullable=False),
+        Column("target_page_id", String(36), nullable=True),
+        Column("dangling", Integer, nullable=False, server_default=sa_text("1")),
+    )
 
     async with engine.begin() as conn:
         await conn.run_sync(meta.create_all)
@@ -211,9 +244,13 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
     # not cover. Without this it falls through to the real asyncpg engine when a live
     # Postgres is reachable (test isolation bug). See app/provider_config_service.py:118.
     monkeypatch.setattr("app.provider_config_service.get_session", patched_get_session)
+    # ADR-0022 test-isolation rule: retrieval.py imports get_session via its own module
+    # reference — must be patched too, or it falls through to the real asyncpg engine.
+    monkeypatch.setattr("app.rag.retrieval.get_session", patched_get_session)
 
-    # Patch Qdrant
+    # Patch Qdrant (both the ingest/qdrant path AND the retrieval path, ADR-0022)
     monkeypatch.setattr("app.qdrant_client.get_qdrant_client", lambda: fake_qdrant)
+    monkeypatch.setattr("app.rag.retrieval.get_qdrant_client", lambda: fake_qdrant)
     monkeypatch.setattr(
         "app.ingest.orchestrator.upsert_point",
         lambda **kwargs: fake_qdrant.upsert(
@@ -578,3 +615,204 @@ class TestOpenAPISpec:
         assert set(live.get("paths", {}).keys()) == set(
             saved.get("paths", {}).keys()
         ), "Live /openapi.json paths must match saved docs/api/openapi.json"
+
+
+# ── AC-F5-6: GET /search ──────────────────────────────────────────────────────
+
+
+class TestGetSearch:
+    """
+    AC-F5-6 — GET /search must return HTTP 200 with the required response shape.
+    Read-only; never bumps data_version (AC-F5-5).
+    The api_env fixture has Qdrant returning empty results (FakeQdrantClientAPI.query_points
+    returns []) so all search tests exercise the 0-hit path (AC-F5-7a) unless seeded.
+    """
+
+    async def test_search_returns_200(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-022: AC-F5-6 — GET /search?q=test returns HTTP 200."""
+        resp = await api_client.get("/search?q=test")
+        assert resp.status_code == 200, f"Expected 200; got {resp.status_code}: {resp.text}"
+
+    async def test_search_0_hit_returns_empty_results(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-023: AC-F5-7a — 0-hit query → empty results + empty context (not 404)."""
+        resp = await api_client.get("/search?q=xyzzy-no-match-ever")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "results" in data
+        assert data["results"] == []
+        assert data.get("context", "") == ""
+
+    async def test_search_response_has_required_fields(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-024: AC-F5-6 — response must contain query, context, results, data_version,
+        approx_tokens, token_budget."""
+        resp = await api_client.get("/search?q=some query")
+        assert resp.status_code == 200
+        data = resp.json()
+        for field in (
+            "query",
+            "context",
+            "results",
+            "data_version",
+            "approx_tokens",
+            "token_budget",
+        ):
+            assert field in data, f"GET /search response missing field '{field}'"
+
+    async def test_search_query_reflected_in_response(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-025: AC-F5-6 — response.query must equal the q parameter."""
+        resp = await api_client.get("/search?q=reflected+query")
+        assert resp.status_code == 200
+        assert resp.json()["query"] == "reflected query"
+
+    async def test_search_does_not_bump_data_version(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-026: AC-F5-5 — GET /search must NOT bump data_version (read-only)."""
+        before = (await api_client.get("/status")).json()["data_version"]
+        await api_client.get("/search?q=test query")
+        after = (await api_client.get("/status")).json()["data_version"]
+        assert before == after, "data_version must not change after GET /search (AC-F5-5)"
+
+    async def test_search_missing_q_returns_422(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-027: AC-REST-6 — missing q parameter → 422 (required query param)."""
+        resp = await api_client.get("/search")
+        assert resp.status_code == 422, f"Missing q must return 422; got {resp.status_code}"
+
+    async def test_search_k_out_of_range_returns_422(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-028: AC-REST-6 — k=0 is below the 1..50 range → 422."""
+        resp = await api_client.get("/search?q=test&k=0")
+        assert resp.status_code == 422, f"k=0 must return 422; got {resp.status_code}"
+
+    async def test_search_data_version_in_response(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-029: AC-F5-5 — data_version in response matches vault_state snapshot."""
+        status_dv = (await api_client.get("/status")).json()["data_version"]
+        search_dv = (await api_client.get("/search?q=test")).json()["data_version"]
+        assert (
+            search_dv == status_dv
+        ), f"search.data_version ({search_dv}) must equal vault_state.data_version ({status_dv})"
+
+    def test_openapi_has_search_path(self) -> None:
+        """T-API-030: AC-F5-6 / I8 — GET /search must be in openapi.json (D4)."""
+        p = Path(__file__).resolve().parent.parent.parent / "docs" / "api" / "openapi.json"
+        if not p.exists():
+            import pytest as _pytest
+
+            _pytest.skip("openapi.json not generated yet — run make openapi")
+        data = json.loads(p.read_text(encoding="utf-8"))
+        paths = data.get("paths", {})
+        assert "/search" in paths, (
+            f"openapi.json must include GET /search (AC-F5-6, I8). "
+            f"Found paths: {list(paths.keys())}"
+        )
+
+
+# ── AC-F6-5: POST /ingest/from-text ──────────────────────────────────────────
+
+
+class TestIngestFromText:
+    """
+    AC-F6-5 — POST /ingest/from-text: save-to-wiki seam (ADR-0019 §2.7).
+    Writes inline text to raw/sources/ and returns 202 {file_path, status:'queued'}.
+    """
+
+    async def test_from_text_returns_202(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-031: POST /ingest/from-text returns HTTP 202."""
+        resp = await api_client.post(
+            "/ingest/from-text",
+            json={"text": "# Test Note\n\nSome content for the wiki.", "source_hint": "test-note"},
+        )
+        assert resp.status_code == 202, f"Expected 202; got {resp.status_code}: {resp.text}"
+
+    async def test_from_text_response_shape(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-032: response has {file_path, status:'queued', page_id}."""
+        resp = await api_client.post(
+            "/ingest/from-text",
+            json={"text": "Content here.", "source_hint": "save-wiki-shape"},
+        )
+        assert resp.status_code == 202
+        data = resp.json()
+        assert "file_path" in data
+        assert data["status"] == "queued"
+        assert "page_id" in data
+
+    async def test_from_text_writes_to_raw_sources(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-033: file is written inside vault/raw/sources/ (I5 — never wiki/)."""
+        resp = await api_client.post(
+            "/ingest/from-text",
+            json={"text": "Written content.", "source_hint": "written-test"},
+        )
+        assert resp.status_code == 202
+        rel_path = resp.json()["file_path"]
+        # Must be inside raw/sources/ (I5)
+        assert "raw/sources" in rel_path, f"file_path must be inside raw/sources/; got {rel_path!r}"
+        # File must exist on disk
+        full = api_env["vault_root"] / rel_path
+        assert full.exists(), f"Expected file at {full}"
+        assert "Written content." in full.read_text(encoding="utf-8")
+
+    async def test_from_text_filename_derived_from_hint(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-034: source_hint is sanitised and used as the filename stem."""
+        resp = await api_client.post(
+            "/ingest/from-text",
+            json={"text": "Content.", "source_hint": "My Hint  HERE"},
+        )
+        assert resp.status_code == 202
+        rel_path = resp.json()["file_path"]
+        # Sanitised slug of "My Hint  HERE" → "my-hint--here" or "my-hint-here"
+        # (exact slug depends on regex; must start with the hint content lowercased)
+        assert "my" in rel_path.lower(), f"filename should derive from hint; got {rel_path!r}"
+
+    async def test_from_text_no_hint_uses_uuid_fallback(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-035: omitting source_hint → filename falls back to chat-<uuid>."""
+        resp = await api_client.post(
+            "/ingest/from-text",
+            json={"text": "No hint provided."},
+        )
+        assert resp.status_code == 202
+        rel_path = resp.json()["file_path"]
+        assert "chat-" in rel_path, f"Expected 'chat-<uuid>' fallback; got {rel_path!r}"
+
+    async def test_from_text_empty_text_returns_422(
+        self, api_client: AsyncClient, api_env: dict[str, Any]
+    ) -> None:
+        """T-API-036: AC-REST-6 — empty text → 422 (min_length=1 enforced)."""
+        resp = await api_client.post("/ingest/from-text", json={"text": ""})
+        assert resp.status_code == 422, f"Empty text must return 422; got {resp.status_code}"
+
+    def test_openapi_has_ingest_from_text_path(self) -> None:
+        """T-API-037: I8 — POST /ingest/from-text must be in openapi.json (D4)."""
+        p = Path(__file__).resolve().parent.parent.parent / "docs" / "api" / "openapi.json"
+        if not p.exists():
+            import pytest as _pytest
+
+            _pytest.skip("openapi.json not generated yet — run make openapi")
+        data = json.loads(p.read_text(encoding="utf-8"))
+        paths = data.get("paths", {})
+        assert "/ingest/from-text" in paths, (
+            f"openapi.json must include POST /ingest/from-text (AC-F6-5, I8). "
+            f"Found paths: {list(paths.keys())}"
+        )
