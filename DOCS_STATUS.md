@@ -2,6 +2,293 @@
 
 > Tech-writer sign-off. Phases appended chronologically; most recent phase at top.
 
+---
+
+## M5 — Milestone Docs Roll-up (all 5 phases) — CONSOLIDATED VERDICT: PASS-WITH-PENDING
+
+> Roll-up run: 2026-06-29
+> Scope: Full sprint v0.5 (M5). Five phases: Phase 1 (F5/F6/F17-chat), Phase 2 (F10), Phase 3 (F9/F12), Phase 4 (F13), Phase 5 (F1-MCP-UI). This is the LAST phase; M5 is feature-complete.
+> Outstanding items: D5 live-capture screenshots (all phases) + mmdc CI step (GAP-v0.5-3).
+> All code, test, and documentation artifacts are current. No functional gaps remain.
+
+### D2 — ER Diagram (docs/er/schema.mmd)
+
+**Status: UP-TO-DATE (zero drift). Final table count: 12.**
+
+Tables present:
+
+| # | Table | Introduced | ADR |
+|---|-------|-----------|-----|
+| 1 | PAGES | v0.1 | ADR-0002, ADR-0005 |
+| 2 | VAULT_STATE | v0.1 | ADR-0005 |
+| 3 | PROVIDER_CONFIG | v0.2 | ADR-0008 |
+| 4 | INGEST_RUNS | v0.2 | ADR-0008, ADR-0009 |
+| 5 | LINKS | v0.2 | ADR-0008 (K5) |
+| 6 | EDGES | v0.3 | ADR-0012, ADR-0016 |
+| 7 | CONVERSATIONS | v0.4 | ADR-0019 |
+| 8 | MESSAGES | v0.4 | ADR-0019 |
+| 9 | IMPORT_SCHEDULES | v0.4 | ADR-0020 |
+| 10 | DEEP_RESEARCH_RUNS | v0.5 Phase 2 | ADR-0024 (Alembic 0009) |
+| 11 | DEEP_RESEARCH_SOURCES | v0.5 Phase 2 | ADR-0024 (Alembic 0009) |
+| 12 | REVIEW_ITEMS | v0.5 Phase 3 | ADR-0025 (Alembic 0010) |
+
+Zero drift vs `backend/app/models.py` confirmed at Phase 3 gate (QA Phase 3 §9) and Phase 4 gate (QA Phase 4 §4.6). Phase 5 (F1-MCP-UI) introduced no DB table and no migration (ADR-0027 §4 Do-NOT #6). D2 is current for the full M5 sprint.
+
+Last ER header: `<!-- Generated: v0.5-F9/F10 | 2026-06-29 — ADR-0025: review_items; ADR-0024: deep_research_runs/sources; ADR-0016: edges.kind; Feature A: pages.pinned -->`
+
+### D3 — Sequence Diagrams (docs/sequences/)
+
+**Status: UP-TO-DATE for content. mmdc CI render DEFERRED (GAP-v0.5-3).**
+
+M5 added two new sequence diagrams:
+
+| File | Feature | Gate | Status |
+|------|---------|------|--------|
+| `docs/sequences/deep-research.mmd` | F10 Deep Research | Phase 2 gate | UP-TO-DATE — 8/8 T-DOCS-051..058 assertions PASS; SearXNG/max_iter/concurrency/ingest_file/total_cost_usd annotated |
+| `docs/sequences/cascade-delete.mmd` | F13 Cascade Delete | Phase 4 gate (amended) | UP-TO-DATE — 3-method/soft-delete/data_version/wikilink/frontmatter-safe elements confirmed; DEFECT-F13-002 fix annotated |
+
+Pre-existing diagrams from v0.2/v0.3 (ingest-loop.mmd, ingest-routing.mmd, graph-recompute.mmd) are unchanged and UP-TO-DATE for their respective features.
+
+GAP-v0.5-3: mmdc CI render step carries forward from v0.3. Both M5 `.mmd` files are valid Mermaid syntax (content-checked by `test_docs.py`). devops-engineer to wire `mmdc` before M6 sign-off. Non-blocking for M5.
+
+### D4 — API Reference (docs/api/openapi.json)
+
+**Status: UP-TO-DATE (zero drift). All M5 endpoints present.**
+
+M5 endpoint inventory by phase:
+
+| Phase | Endpoint(s) | Status |
+|-------|------------|--------|
+| Phase 1 | `GET /search` | PRESENT — RetrievalResponse; zero drift (QA Phase 1) |
+| Phase 1 | `POST /ingest/from-text` | PRESENT — save-to-wiki path; zero drift (QA Phase 1) |
+| Phase 2 | `POST /research/start` | PRESENT — 202 + run_id; zero drift (QA Phase 2) |
+| Phase 2 | `GET /research/runs` | PRESENT — paginated; zero drift (QA Phase 2) |
+| Phase 2 | `GET /research/runs/{run_id}` | PRESENT — detail + synthesis_text; zero drift (QA Phase 2) |
+| Phase 3 | `GET /review/queue` | PRESENT — paginated, capped; zero drift (QA Phase 3) |
+| Phase 3 | `POST /review/queue/{item_id}/approve` | PRESENT — status write; zero drift (QA Phase 3) |
+| Phase 3 | `POST /review/queue/{item_id}/skip` | PRESENT — status write; zero drift (QA Phase 3) |
+| Phase 3 | `POST /review/queue/{item_id}/deep-research` | PRESENT — 202/503; zero drift (QA Phase 3) |
+| Phase 4 | `POST /pages/{page_id}/cascade-delete/preview` | PRESENT — CascadePreviewResponse (10 fields); zero drift (QA Phase 4 §4.6) |
+| Phase 4 | `DELETE /pages/{page_id}` | PRESENT — CascadeDeleteResponse (4 fields); zero drift (QA Phase 4 §4.6) |
+| Phase 5 | `GET /mcp/info` | PRESENT — McpInfoResponse (5 fields) + McpToolInfo (3 fields); zero drift (QA Phase 5 §5) |
+| pre-M5 | `GET /config/embedding` | PRESENT — confirmed at Phase 5 as the mirror for GET /mcp/info pattern |
+
+Total paths in openapi.json: confirmed growing phase-by-phase; all M5 paths present as of Phase 5 gate.
+
+### D5 — Screenshots (docs/screens/)
+
+**Status: PENDING-LIVE for all M5 captures. Non-blocking; Playwright specs exist.**
+
+Existing committed screenshots (pre-M5, from M4/M3): shell-3panel.png, shell-3panel-selected.png, shell-collapsed-panel.png, graph-obsidian.png, graph-obsidian-node-selected.png, navrail-graph-active.png, provider-selector-open.png, settings-section.png, settings-llm-models.png, settings-import-schedule.png, ingest-section.png, ingest-upload.png, chat-conversation.png, chat-streaming.png.
+
+M5 screenshots PENDING-LIVE (all require live stack with Playwright):
+
+| Screenshot | Phase | Playwright Spec | Notes |
+|-----------|-------|----------------|-------|
+| `docs/screens/chat-citations.png` | Phase 1 | frontend/e2e/m5-screenshots.spec.ts | Chat with [n] citation superscripts visible |
+| `docs/screens/save-to-wiki.png` | Phase 1 | frontend/e2e/m5-screenshots.spec.ts | Save-to-wiki panel inline result |
+| `docs/screens/deep-search-running.png` | Phase 2 | frontend/e2e/deep-search.spec.ts | Run in progress |
+| `docs/screens/deep-search-complete.png` | Phase 2 | frontend/e2e/deep-search.spec.ts | Synthesis expanded |
+| `docs/screens/review-queue.png` | Phase 3 | frontend/e2e/m5-screenshots.spec.ts | Review queue with pending items |
+| `docs/screens/upload-multiformat.png` | Phase 3 | frontend/e2e/m5-screenshots.spec.ts | Binary upload with companion creation |
+| `docs/screens/cascade-delete-preview.png` | Phase 4 | frontend/e2e/m5-screenshots.spec.ts | Delete preview modal (step 1) |
+| `docs/screens/cascade-delete-confirm.png` | Phase 4 | frontend/e2e/m5-screenshots.spec.ts | Delete confirm modal (step 2) |
+| `docs/screens/settings-api-mcp.png` | Phase 5 | frontend/e2e/shell-m5-phase5-mcp-ui.spec.ts | API + MCP settings panel |
+
+All M5 PENDING-LIVE screenshots fold into EC-M5-HCP / EC-M5-HCP-7: captured in a single `make screenshots` session on the live stack. No individual phase is blocked; this is a documentation completeness item.
+
+### D7 — Architecture Decision Records (docs/adr/)
+
+**Status: UP-TO-DATE. All M5 ADRs present and indexed.**
+
+M5 ADRs:
+
+| ADR | Feature | Phase | Status |
+|-----|---------|-------|--------|
+| 0022 | F5 4-phase retrieval + citations | Phase 1 | PRESENT — file exists; indexed in README |
+| 0023 | *(reserved — skipped)* | — | ABSENT BY DESIGN — number reserved then not promoted; README now documents this explicitly. Number will not be reused. |
+| 0024 | F10 Deep Research | Phase 2 | PRESENT — file exists; indexed in README |
+| 0025 | F9 Review Queue + F12 Multi-format | Phase 3 | PRESENT — file exists; indexed in README (amended this phase: §3.1 enum-by-convention) |
+| 0026 | F13 Cascade Delete | Phase 4 | PRESENT — file exists; indexed in README (amended this phase: §4.3 raw-split wikilink rewrite) |
+| 0027 | F1-MCP-UI | Phase 5 | PRESENT — file exists; indexed in README; no amendment required (implementation matched design) |
+
+ADR README header corrected to Sprint v0.5 (was stale v0.4) this gate run. ADR-0022 row moved to correct numerical position in the index table (was out-of-order at the bottom; now follows 0021, before 0023 skipped note). No content change to any ADR file — documentation-accuracy corrections to the index only.
+
+### TRACEABILITY — M5 full-sprint AC status
+
+**Status: UP-TO-DATE. All M5 phase ACs GREEN except PENDING-LIVE D5 screenshot rows.**
+
+| Phase | ACs | GREEN | PENDING-LIVE | DEFERRED | Notes |
+|-------|-----|-------|-------------|---------|-------|
+| Phase 1 (F5/F6/F17-chat) | AC-F5-1..8, AC-F6-3/5, AC-F17-CHAT-1..3, AC-D3-... | All GREEN | — | — | Phase 1 gate 2026-06-29 |
+| Phase 2 (F10) | AC-F10-1..4, AC-F10-6..8, AC-D3-DR-1 | All GREEN | AC-F10-8 D5 | — | Phase 2 gate 2026-06-29 |
+| Phase 3 (F9/F12) | AC-F9-1..11, AC-F12-1..7, AC-F10-5 | All GREEN | — | — | Phase 3 gate 2026-06-29 |
+| Phase 4 (F13) | AC-F13-1..7, AC-D3-CD-1 | All GREEN | AC-D5-M5-1..3 | AC-D3-CI-1 (mmdc) | Phase 4 gate 2026-06-29 |
+| Phase 5 (F1-MCP-UI) | AC-F1-MCP-UI-1..10, AC-D7-0027-1 | 10 GREEN | AC-F1-MCP-UI-9 (screenshot) | — | Phase 5 gate 2026-06-29 |
+
+EC-M5-22 status: CONDITIONAL (GREEN when `docs/screens/settings-api-mcp.png` is committed after live-stack capture).
+
+All non-screenshot M5 ACs are GREEN. The mmdc CI deferral (GAP-v0.5-3, AC-D3-CI-1) is a devops carry-forward to M6 — the `.mmd` files are valid and content-checked.
+
+### M5 Milestone Docs Consolidated Verdict
+
+**PASS-WITH-PENDING**
+
+Pending items (non-blocking — all require the live stack):
+1. D5 screenshots: 9 M5 captures PENDING-LIVE (see table above). Fold into a single `make screenshots` session. Playwright specs all exist and committed.
+2. AC-D3-CI-1 (mmdc CI render step): GAP-v0.5-3 carry-forward from v0.3. devops-engineer to wire before M6 sign-off.
+
+All other D-artifacts are UP-TO-DATE:
+- D2: 12 tables, zero drift vs models.py (confirmed through Phase 5; no Phase 5 migration)
+- D3: deep-research.mmd + cascade-delete.mmd both present, valid Mermaid, architect-reviewed
+- D4: all M5 endpoints present (GET /search + /ingest/from-text + /research/* + /review/queue* + /pages/{id}/cascade-delete/preview + DELETE /pages/{id} + GET /mcp/info); zero drift confirmed at each phase gate
+- D7: ADRs 0022/0024/0025/0026/0027 all present and indexed; ADR-0023 skipped/reserved (documented in README); no ADR has unresolved conditions
+- TRACEABILITY: all M5 phase ACs GREEN except PENDING-LIVE D5 rows
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-29 | M5 milestone docs consolidation**
+
+---
+
+## M5 Phase 5 — F1-MCP-UI (MCP Configuration UI) — DOCS GATE: PASS-WITH-PENDING
+
+> Gate run: 2026-06-29
+> Scope: ADR-0027 (read-only GET /mcp/info endpoint + SectionApiMcp settings panel). No Alembic migration (D2 unchanged). One new endpoint (GET /mcp/info). D4 updated. D5 spec created (PNG pending live stack). D7 ADR-0027 added.
+> QA verdict: PASS-WITH-NOTES (688 backend / 557 frontend — v0.5-qa-phase5.md). Single open item (NOTE-1): D5 screenshot not yet captured.
+> Architect verdict: APPROVE (unconditional — v0.5-architect-review-phase5.md). No conditions; no ADR amendment required.
+
+### Per-artifact status (M5 Phase 5)
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/component.mmd` | N/A-unchanged | Phase 5 adds no new container or top-level component. `GET /mcp/info` is an introspection endpoint on the existing FastAPI service boundary; `SectionApiMcp` is a panel within the existing Settings section. No topology change. ADR-0027 §3 explicitly documents this as a display-only addition with no new server. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (zero drift, no change) | No Alembic migration in F1-MCP-UI (ADR-0027 §4 Do-NOT #6: "No DB table or migration"). Confirmed by QA Phase 5 §5: "D2 is unchanged (no schema migration for this feature)." Last migration remains 0010 (review_items, Phase 3). 12 tables confirmed. See §M5P5-D2. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (zero drift) | GET /mcp/info present with operationId `get_mcp_info_mcp_info_get`; McpInfoResponse (5 fields) and McpToolInfo (3 fields) schemas present. Confirmed by QA Phase 5 §5 and architect review. See §M5P5-D4. |
+| D5 | `docs/screens/settings-api-mcp.png` | PENDING-LIVE | Playwright spec `frontend/e2e/shell-m5-phase5-mcp-ui.spec.ts` created and committed. PNG capture requires live backend+frontend stack. Non-blocking per established precedent (consistent with all prior phase D5 deferrals). See §M5P5-D5. |
+| D7 | `docs/adr/0027-mcp-info-ui.md` | UP-TO-DATE (no amendment) | File present. Architect review confirmed: "implementation matched the design; no amendment required." ADR-0027 indexed in docs/adr/README.md (added this gate run, including 0023 skipped note and 0022 reordering). See §M5P5-D7. |
+| TRACEABILITY | Phase-5 ACs | UP-TO-DATE | AC-F1-MCP-UI-1..8 and AC-F1-MCP-UI-10 flipped PENDING → GREEN with test IDs from QA Phase 5 report §2. AC-F1-MCP-UI-9 PENDING-LIVE. AC-D7-0027-1 GREEN. EC-M5-17 updated (GET /mcp/info added). EC-M5-18 updated (688/557 final baseline). EC-M5-22 added as CONDITIONAL. EC-M5-HCP updated to include Phase 5 screenshot. See §M5P5-TRACE. |
+
+### §M5P5-D2 — ER diagram (no-change confirmation)
+
+File: `docs/er/schema.mmd`
+
+ADR-0027 §4 is explicit: "No DB table or migration." The feature is pure in-process FastMCP introspection — handler body is only `await _mcp_server.list_tools()` plus field reads (architect review §2, Do-NOT #2). No new SQLAlchemy model. No Alembic migration file in `backend/alembic/versions` for this phase (confirmed by QA Phase 5 §4).
+
+No `make er` regeneration needed or performed. The committed file from Phase 3 gate remains current.
+
+**Result: UP-TO-DATE (no-change confirmed). D2 unchanged by Phase 5.**
+
+### §M5P5-D4 — OpenAPI zero-drift verification
+
+File: `docs/api/openapi.json`
+
+QA Phase 5 §5 confirmed zero drift. Verified by grep:
+
+| Path | Method | Present | Schema | Notes |
+|------|--------|---------|--------|-------|
+| `/mcp/info` | GET | YES | `McpInfoResponse` | operationId `get_mcp_info_mcp_info_get`; description references ADR-0027 §2.1 |
+
+Schemas confirmed in `components/schemas`:
+- `McpInfoResponse`: 5 fields: `server_name`, `transport`, `entry_point_command`, `tool_count`, `tools` (array of McpToolInfo). Description: "Response model for GET /mcp/info (ADR-0027 §2.1)."
+- `McpToolInfo`: 3 fields: `name`, `description`, `input_schema`. Description: "Schema for a single tool entry in GET /mcp/info (ADR-0027 §2.1)."
+
+Confirmed by architect review: "D4 (OpenAPI): `GET /mcp/info` present in `docs/api/openapi.json` (3 occurrences). Zero-drift gate satisfied for the route."
+
+No regeneration needed; the committed file is current.
+
+**Result: UP-TO-DATE (zero drift confirmed by QA Phase 5 §5 and architect review). D4 current.**
+
+### §M5P5-D5 — Screenshots status (PENDING-LIVE, not blocking)
+
+One screenshot scoped to Phase 5 requires a running Synapse stack:
+
+- `docs/screens/settings-api-mcp.png` — Settings > API + MCP panel: Connection sub-section with transport/entry_point_command rows and copy-to-clipboard button visible; Tools sub-section with ≥4 tool rows showing name, truncated description, and param count.
+
+`SectionApiMcp` in `SettingsPanel.tsx` is code-complete and unit-tested (SettingsPanel.test.tsx §11 — loading state, error state, snippet content, tool names, copy button, param counts all PASS per QA Phase 5 §2). Playwright spec: `frontend/e2e/shell-m5-phase5-mcp-ui.spec.ts` (created by QA). Not blocking this gate. Consistent with all prior phase precedents.
+
+### §M5P5-D7 — ADR-0027 and README verification
+
+File: `docs/adr/0027-mcp-info-ui.md` and `docs/adr/README.md`
+
+ADR-0027: file present, non-empty, Accepted status, 2026-06-29 date, Sprint v0.5. Architect review confirmed no amendment required: "The implementation is a faithful, minimal realization of ADR-0027. Every Do-NOT holds." No architecture drift detected.
+
+README corrections made this gate run:
+1. Header "Last updated" corrected from "Sprint v0.4 (M4-HARD)" to "Sprint v0.5 (M5 Phase 5)".
+2. ADR-0022 row moved from out-of-order position (was at table bottom) to correct numerical position (after 0021, before 0024).
+3. ADR-0023 skipped/reserved note added: "reserved — skipped; no decision was promoted to ADR status; number will not be reused."
+4. ADR-0027 row added.
+
+**Result: UP-TO-DATE. ADR-0027 present and indexed; README corrected; 0023 status documented.**
+
+### §M5P5-TRACE — TRACEABILITY.md Phase-5 rows
+
+All Phase-5 F1-MCP-UI ACs: 9 rows GREEN, 1 row PENDING-LIVE, 1 row GREEN (D7). Test IDs sourced from `docs/sprints/v0.5-qa-phase5.md` §2 (AC coverage table).
+
+| AC | Test file(s) | Key test ID(s) | Status |
+|----|--------------|----------------|--------|
+| AC-F1-MCP-UI-1 | backend/tests/test_mcp_info.py | `test_mcp_info_returns_200`, `test_mcp_info_response_shape`, `test_mcp_info_tool_count_ge_4` | GREEN |
+| AC-F1-MCP-UI-2 | backend/tests/test_mcp_info.py | `test_mcp_info_server_name_is_synapse`, `test_mcp_info_entry_point_command_from_settings`, `test_mcp_info_transport_from_settings`, `test_mcp_info_tools_match_live_registry`, `test_mcp_info_tool_descriptions_match_live_registry`, `test_mcp_info_input_schema_matches_live_registry` | GREEN |
+| AC-F1-MCP-UI-3 | frontend/src/tests/SettingsPanel.test.tsx §11 | loading state, error state, no comingSoon key | GREEN |
+| AC-F1-MCP-UI-4 | frontend/src/tests/SettingsPanel.test.tsx §11; frontend/src/tests/mcpClient.test.ts | snippet content, server_name key, tokenised command+args (6 snippet tokenisation tests) | GREEN |
+| AC-F1-MCP-UI-5 | frontend/src/tests/SettingsPanel.test.tsx §11 | 4 tool names rendered, param counts via data-param-count | GREEN |
+| AC-F1-MCP-UI-6 | frontend/src/tests/SettingsPanel.test.tsx §11 (grep) | Python key-parity check; no apiMcp.comingSoon key | GREEN |
+| AC-F1-MCP-UI-7 | Code inspection (main.py:1626-1652; SettingsPanel.tsx) | handler calls only `await _mcp_server.list_tools()`; frontend has no MCP call path | GREEN |
+| AC-F1-MCP-UI-8 | backend/tests/test_docs.py (grep) | `/mcp/info`, `McpInfoResponse`, `McpToolInfo` confirmed in openapi.json | GREEN |
+| AC-F1-MCP-UI-9 | frontend/e2e/shell-m5-phase5-mcp-ui.spec.ts | Playwright spec created; `docs/screens/settings-api-mcp.png` PNG pending live stack — QA Phase 5 NOTE-1 | PENDING-LIVE |
+| AC-F1-MCP-UI-10 | backend/tests/test_mcp_info.py (14 tests); frontend/src/tests/SettingsPanel.test.tsx §11 | All 14 backend tests PASS; copy button + 4 tool rows confirmed | GREEN |
+| AC-D7-0027-1 | backend/tests/test_docs.py; docs/adr/README.md | ADR-0027 file exists; indexed; no amendment required | GREEN |
+
+Total rows updated this gate run: **11** (AC-F1-MCP-UI-1..10: 9 GREEN + 1 PENDING-LIVE; AC-D7-0027-1: 1 GREEN).
+EC summary rows updated: EC-M5-17 (D4 GET /mcp/info added), EC-M5-18 (688/557 baseline), EC-M5-22 (new row — CONDITIONAL), EC-M5-HCP (updated to include Phase 5 screenshot in consolidated live-capture session).
+
+### §M5P5-CROSS — Cross-consistency check (ADR-0027 ↔ code ↔ openapi.json ↔ ER ↔ TRACEABILITY)
+
+| Check | Result |
+|-------|--------|
+| ADR-0027 §2.1 GET /mcp/info response schema ↔ McpInfoResponse in openapi.json (5 fields) + McpToolInfo (3 fields) | PASS — all fields present; descriptions reference ADR-0027 §2.1 |
+| ADR-0027 Do-NOT #1 (no hardcoded tool list) ↔ handler body (`await _mcp_server.list_tools()`) ↔ T-tests (`test_mcp_info_tools_match_live_registry`) | PASS — dynamic check confirmed; no string literal tool data |
+| ADR-0027 Do-NOT #6 (no DB table or migration) ↔ models.py (no new class) ↔ alembic/versions (no Phase 5 file) ↔ schema.mmd (12 tables, unchanged) | PASS — zero-migration confirmed; D2 unchanged |
+| ADR-0027 §2.2 async introspection ↔ main.py:1626-1652 (`await _mcp_server.list_tools()`) ↔ architect review (no asyncio.run, no thread bridge) | PASS — pure await inside async def; confirmed by architect review §2 |
+| TRACEABILITY Phase-5 test IDs ↔ QA Phase 5 report §2 (AC coverage table) | PASS — test IDs sourced verbatim from authoritative QA Phase 5 report |
+| D5 screenshots PENDING-LIVE — consistent with all prior phase precedents | PASS |
+| ADR README: 0022 reordered, 0023 skipped note, header corrected | PASS — no content change to any ADR file; index-only corrections |
+| ADR-0027 file ↔ architect review verdict (implementation matched design; no amendment) | PASS — ADR unchanged; architect APPROVE unconditional |
+
+**No contradictions found across ADR-0027 / openapi.json / schema.mmd / TRACEABILITY / QA Phase 5 report.**
+
+### DOCS GATE VERDICT — M5 Phase 5
+
+| Artifact | Status | Detail |
+|----------|--------|--------|
+| D1 `docs/architecture/component.mmd` | N/A-UNCHANGED | No topology change; `GET /mcp/info` introspects the existing MCP object within the FastAPI boundary; SectionApiMcp is within the existing Settings section |
+| D2 `docs/er/schema.mmd` | UP-TO-DATE (no-change) | No Phase 5 migration; 12 tables confirmed; zero drift (QA Phase 5 §5) |
+| D4 `docs/api/openapi.json` | UP-TO-DATE (zero drift) | GET /mcp/info with McpInfoResponse (5 fields) + McpToolInfo (3 fields); operationId + descriptions confirmed; zero drift (QA Phase 5 §5 + architect review) |
+| D5 `docs/screens/settings-api-mcp.png` | PENDING-LIVE | Playwright spec committed; PNG capture requires live stack; non-blocking |
+| D7 `docs/adr/0027-mcp-info-ui.md` | UP-TO-DATE (no amendment) | Present; indexed; implementation matched design; no amendment required (architect review) |
+| D7 `docs/adr/README.md` | UP-TO-DATE (corrected) | Sprint header corrected to v0.5; 0022 row moved to correct position; 0023 skipped note added; 0027 row added |
+| TRACEABILITY Phase-5 ACs | UP-TO-DATE | 11 rows updated: AC-F1-MCP-UI-1..8 + -10 → GREEN (9 rows); AC-F1-MCP-UI-9 → PENDING-LIVE (1 row); AC-D7-0027-1 → GREEN (1 row). EC-M5-17/18/22/HCP summary rows updated. |
+
+**DOCS GATE: PASS-WITH-PENDING**
+
+All required D-artifacts for M5 Phase 5 are UP-TO-DATE, N/A-unchanged, or carry-forward DEFERRED with valid rationale.
+
+Pending items (non-blocking):
+- D5: `settings-api-mcp.png` requires a live stack. Playwright spec `frontend/e2e/shell-m5-phase5-mcp-ui.spec.ts` committed. Fold into EC-M5-HCP consolidated `make screenshots` session.
+- AC-D3-CI-1 (mmdc CI step): GAP-v0.5-3 carry-forward from v0.3. devops-engineer to wire before M6.
+
+Drift found and fixed in this run:
+- D7 README: stale sprint header (v0.4 → v0.5) corrected; ADR-0022 row reordered to numerical position; ADR-0023 skipped/reserved note added; ADR-0027 row added.
+- TRACEABILITY: 11 Phase-5 AC rows added/updated; 4 EC summary rows updated.
+
+Zero-drift items (no content change required):
+- D2: No Phase 5 migration; confirmed unchanged.
+- D4: GET /mcp/info already present with full schemas; confirmed by QA Phase 5 and architect.
+- D1: No topology change.
+- D7 ADR-0027 file: implementation matched design; no amendment required.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-29 | M5 Phase 5 gate + M5 milestone docs consolidation (last phase)**
+
+---
+
 ## M5 Phase 4 — Cascade Deletion (F13) — DOCS GATE: PASS-WITH-PENDING
 
 > Gate run: 2026-06-29
