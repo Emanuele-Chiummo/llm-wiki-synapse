@@ -1,3 +1,4 @@
+%% <!-- Generated: v0.5 sprint 5 Phase 4 | 2026-06-29 | Updated: DEFECT-F13-002 fix — raw-split wikilink rewrite -->
 sequenceDiagram
     %% Cascade deletion — F13 / ADR-0026
     %% AC-D3-CD-1: must show DELETE → 3-method match → soft-delete → Qdrant delete →
@@ -46,13 +47,13 @@ sequenceDiagram
 
     %% ── Dead-wikilink cleanup — frontmatter-safe, targeted (I5/I1) ───────────
     loop each referencing wiki file (ONLY these — AC-F13-4a/b)
-        CD->>Wiki: frontmatter.loads → rewrite [[T]]→T in BODY only → frontmatter.dumps
+        CD->>Wiki: raw ---split → rewrite [[T]]→T in BODY only → frontmatter block byte-for-byte (I5, DEFECT-F13-002 fix)
         CD->>DB: re-persist_links(file) ; set links.dangling=True residuals (step 7)
     end
 
-    %% ── Preserve branch: prune sources[] (frontmatter-safe) ──────────────────
+    %% ── Preserve branch: prune sources[] (key-order-preserving) ─────────────
     opt preserve+prune pages
-        CD->>Wiki: frontmatter.loads → remove X from sources[] → frontmatter.dumps
+        CD->>Wiki: frontmatter.loads → remove X from sources[] → frontmatter.dumps(sort_keys=False)
         CD->>DB: UPDATE pages.sources JSONB
     end
 
