@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-06-29 (Sprint 5 / v0.5 Phase 4 DONE — PM phase-4 sign-off: docs/sprints/v0.5-pm-phase4-signoff.md; F13 → done-with-followups; DEFECT-F13-001/002 FIXED; Phase 5 (F1-MCP-UI) now in-progress; follow-ups FU-P4-1..6 logged; Phase 2/3 follow-ups FU-P2-1/FU-P2-2/FU-P2-3/FU-P3-1/FU-P3-2 still open)
+> Last updated: 2026-06-29 (Sprint 5 / v0.5 Phase 5 DONE — PM phase-5 sign-off: docs/sprints/v0.5-pm-phase5-signoff.md; F1-MCP-UI → done-with-followups; M5 milestone verdict: MET-PENDING-EC-M5-HCP — docs/sprints/v0.5-m5-exit-criteria.md; Sprint 6 BLOCKED until EC-M5-HCP confirmed by Emanuele in browser)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -1299,7 +1299,8 @@ All 4 sign-offs still required before PM closes M4-HARD and unblocks Sprint 5.
 
 ## Sprint 5 — v0.5 — M5 "Feature parity core"
 
-**Sprint status: IN PROGRESS — Phase 1 DONE (PM sign-off 2026-06-29); Phase 2 (F10) DONE (PM sign-off 2026-06-29); Phase 3 (F9 + F12) DONE (PM sign-off 2026-06-29); Phase 4 (F13) DONE (PM sign-off 2026-06-29); Phase 5 (F1-MCP-UI) now in-progress**
+**Sprint status: M5 MET-PENDING-EC-M5-HCP — All 5 phases DONE; full PM exit-criteria declaration: docs/sprints/v0.5-m5-exit-criteria.md (2026-06-29); Sprint 6 BLOCKED until EC-M5-HCP confirmed**
+**Phase 1 DONE (PM sign-off 2026-06-29); Phase 2 (F10) DONE (PM sign-off 2026-06-29); Phase 3 (F9 + F12) DONE (PM sign-off 2026-06-29); Phase 4 (F13) DONE (PM sign-off 2026-06-29); Phase 5 (F1-MCP-UI) DONE (PM sign-off 2026-06-29)**
 **Scope locked: 2026-06-29 by product-manager — docs/sprints/v0.5-scope.md**
 **Scope amended: 2026-06-29 — Amendment A1: F1-MCP-UI added (stakeholder request: Emanuele Chiummo) — docs/sprints/v0.5-scope.md §3 Amendment A1**
 **Phase 1 PM sign-off: docs/sprints/v0.5-pm-phase1-signoff.md (verdict: DONE-WITH-FOLLOWUPS)**
@@ -1529,7 +1530,7 @@ CF-HARD-1 recapture: `docs/screens/shell-collapsed-panel.png`.
 |-------|-------|
 | Feature ID | F1-MCP-UI (sub-item of F1 + F17; Settings > API + MCP panel) |
 | Sprint | v0.5 |
-| Status | in-progress — Phase 5; cleared to start by PM Phase 4 sign-off 2026-06-29 |
+| Status | done-with-followups — AC-F1-MCP-UI-1..8 + -10 GREEN; AC-F1-MCP-UI-9 PENDING-LIVE (screenshot, folds into EC-M5-HCP-7); PM sign-off 2026-06-29; EC-M5-22 CONDITIONAL (fully MET when docs/screens/settings-api-mcp.png committed) |
 | Priority | P1 — Phase 5; stakeholder request; closes M4-HARD promise |
 | Owner | backend-engineer (GET /mcp/info); frontend-engineer (SectionApiMcp replacement) |
 | Source | Stakeholder request 2026-06-29 (Emanuele Chiummo); Amendment A1 |
