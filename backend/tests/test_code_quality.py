@@ -249,6 +249,58 @@ class TestNoHardcodedProvider:
             )
 
 
+# ── AC-F5-3: retrieval.py must not introduce a new embedding service ─────────
+
+
+class TestRetrievalNoNewEmbeddingService:
+    """
+    AC-F5-3 (ADR-0022 §2.1, I9) — retrieval.py must use only the existing Qdrant wrapper
+    (get_embedding_client / bge-m3) and must NOT import sentence_transformers, a raw 'bge'
+    package, or create a new Qdrant collection outside the existing wrapper module.
+    """
+
+    def test_retrieval_does_not_import_sentence_transformers(self) -> None:
+        """T-CQ-011: AC-F5-3 — retrieval.py must not import sentence_transformers (I9)."""
+        retrieval = _APP / "rag" / "retrieval.py"
+        text = retrieval.read_text(encoding="utf-8")
+        assert "sentence_transformers" not in text, (
+            "retrieval.py must not import sentence_transformers — "
+            "reuse get_embedding_client() / bge-m3 (AC-F5-3, I9)"
+        )
+
+    def test_retrieval_does_not_create_new_qdrant_collection(self) -> None:
+        """T-CQ-012: AC-F5-3 — retrieval.py must not call create_collection (I9)."""
+        retrieval = _APP / "rag" / "retrieval.py"
+        text = retrieval.read_text(encoding="utf-8")
+        assert "create_collection" not in text, (
+            "retrieval.py must not call create_collection — "
+            "the existing synapse_pages collection is the only Qdrant collection (AC-F5-3, I9)"
+        )
+
+    def test_retrieval_uses_existing_embedding_wrapper(self) -> None:
+        """T-CQ-013: AC-F5-3 — retrieval.py must use get_embedding_client() (I9)."""
+        retrieval = _APP / "rag" / "retrieval.py"
+        text = retrieval.read_text(encoding="utf-8")
+        assert "get_embedding_client" in text, (
+            "retrieval.py must call get_embedding_client() to embed queries — "
+            "no new embedding service (AC-F5-3, I9)"
+        )
+
+    def test_no_new_embedding_service_in_retrieval_imports(self) -> None:
+        """T-CQ-014: AC-F5-3 — retrieval.py import lines must not reference raw 'bge' package."""
+        retrieval = _APP / "rag" / "retrieval.py"
+        import_lines = [
+            ln
+            for ln in retrieval.read_text(encoding="utf-8").splitlines()
+            if ln.strip().startswith(("import ", "from "))
+        ]
+        import_text = "\n".join(import_lines)
+        assert "import bge" not in import_text and "from bge" not in import_text, (
+            "retrieval.py must not import the raw 'bge' package — "
+            "use get_embedding_client() (AC-F5-3, I9)"
+        )
+
+
 # ── I7 guard: no unbounded loops in v0.1 code ────────────────────────────────
 
 
