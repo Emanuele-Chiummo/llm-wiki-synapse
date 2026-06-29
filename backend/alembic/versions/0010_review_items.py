@@ -44,7 +44,7 @@ def upgrade() -> None:
         "review_items",
         sa.Column(
             "id",
-            sa.String(36),
+            sa.dialects.postgresql.UUID(as_uuid=True),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
             comment="Row identity",
@@ -57,7 +57,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "page_id",
-            sa.String(36),
+            sa.dialects.postgresql.UUID(as_uuid=True),
             sa.ForeignKey("pages.id"),
             nullable=True,
             comment="FK → pages.id; NULL for page-less items",
@@ -83,7 +83,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "deep_research_run_id",
-            sa.String(36),
+            sa.dialects.postgresql.UUID(as_uuid=True),
             sa.ForeignKey("deep_research_runs.id"),
             nullable=True,
             comment="FK → deep_research_runs.id; set by deep-research action (AC-F10-5)",
