@@ -31,6 +31,8 @@ Endpoints:
   POST /review/queue/{id}/approve — set status=approved; status write only (F9)
   POST /review/queue/{id}/skip    — set status=skipped (F9)
   POST /review/queue/{id}/deep-research — delegate to F10; 202 {review_item_id, run_id} (F9)
+  POST /pages/{id}/cascade-delete/preview — dry-run plan; read-only; 200 (F13, ADR-0026)
+  DELETE /pages/{id}               — cascade-delete; single-pass; 200 (F13, ADR-0026)
 
 Startup sequence (ordered, per v0.1-architecture §2.5):
   1. Vault skeleton bootstrap (vault.py) — AC-K7-1, I5
@@ -2704,6 +2706,140 @@ async def deep_research_review_item(item_id: uuid.UUID) -> ReviewDeepResearchRes
     return ReviewDeepResearchResponse(
         review_item_id=result.review_item_id,
         run_id=result.run_id,
+    )
+
+
+# ── F13 Cascade Delete REST (ADR-0026, AC-F13-5/7) ───────────────────────────
+
+
+class CascadePreviewResponse(BaseModel):
+    """
+    POST /pages/{id}/cascade-delete/preview response (ADR-0026 §6.1, DRY-RUN).
+
+    Read-only: mutates nothing — no soft-delete, no Qdrant delete, no file write,
+    no data_version bump.  Returns the full CascadePlan as JSON.
+    """
+
+    target_page_id: uuid.UUID
+    target_title: str | None = None
+    target_file_path: str
+    will_delete: list[uuid.UUID]
+    will_preserve_with_pruned_source: list[uuid.UUID]
+    wikilinks_to_rewrite: list[dict[str, Any]]
+    index_entry_will_be_removed: bool
+    raw_source_to_delete: str | None = None
+    shared_entity_warnings: list[str]
+    match_methods_used: dict[str, str]
+
+
+class CascadeDeleteResponse(BaseModel):
+    """
+    DELETE /pages/{id} response (ADR-0026 §6.1, AC-F13-5).
+
+    deleted_page_id: the page that was deleted.
+    wikilinks_cleaned: total [[Target]] spans neutralised.
+    index_entry_removed: True when index.md was successfully regenerated.
+    shared_entity_warnings: advisory list of source-overlap pages.
+    """
+
+    deleted_page_id: uuid.UUID
+    wikilinks_cleaned: int
+    index_entry_removed: bool
+    shared_entity_warnings: list[str]
+
+
+@app.post(
+    "/pages/{page_id}/cascade-delete/preview",
+    response_model=CascadePreviewResponse,
+    summary="Dry-run preview of cascade delete (read-only)",
+    description=(
+        "F13 Cascade Delete — mandatory dry-run (ADR-0026 §6, AC-F13-5). "
+        "Computes the full deletion plan WITHOUT mutating any store or file: "
+        "no soft-delete, no Qdrant delete, no file write, no data_version bump. "
+        "Returns will_delete, wikilinks_to_rewrite, shared_entity_warnings, match_methods_used. "
+        "404 if the page does not exist or is already soft-deleted. "
+        "Call this before DELETE /pages/{id} to populate a confirmation modal (AC-F13-6)."
+    ),
+    responses={
+        200: {"description": "Cascade plan computed (read-only)"},
+        404: {"description": "Page not found or already deleted"},
+    },
+)
+async def cascade_delete_preview(page_id: uuid.UUID) -> CascadePreviewResponse:
+    """
+    POST /pages/{page_id}/cascade-delete/preview — dry-run plan (ADR-0026 §6, AC-F13-5).
+
+    Read-only: plan_cascade_delete() never mutates any store or file.
+    404 on unknown / already-soft-deleted page (PageNotFoundError).
+    """
+    from app.ops.cascade_delete import PageNotFoundError, plan_cascade_delete
+
+    try:
+        plan = await plan_cascade_delete(page_id)
+    except PageNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return CascadePreviewResponse(
+        target_page_id=plan.target_page_id,
+        target_title=plan.target_title,
+        target_file_path=plan.target_file_path,
+        will_delete=plan.will_delete,
+        will_preserve_with_pruned_source=plan.will_preserve_with_pruned_source,
+        wikilinks_to_rewrite=[
+            {
+                "source_page_id": str(r.source_page_id),
+                "file_path": r.file_path,
+                "target_title": r.target_title,
+                "occurrences": r.occurrences,
+            }
+            for r in plan.wikilinks_to_rewrite
+        ],
+        index_entry_will_be_removed=plan.index_entry_will_be_removed,
+        raw_source_to_delete=plan.raw_source_to_delete,
+        shared_entity_warnings=plan.shared_entity_warnings,
+        match_methods_used=plan.match_methods_used,
+    )
+
+
+@app.delete(
+    "/pages/{page_id}",
+    response_model=CascadeDeleteResponse,
+    summary="Cascade-delete a wiki page and clean up dead wikilinks",
+    description=(
+        "F13 Cascade Delete (ADR-0026, AC-F13-1..7). "
+        "Single-pass, inference-free operation: "
+        "soft-deletes the page (deleted_at=now()); hard-deletes its Qdrant point; "
+        "rewrites all dead [[Target]] wikilinks to plain text (body-only, frontmatter-safe, I5); "
+        "removes the index.md catalogue entry; deletes the raw/sources/ file (AQ-v0.5-5); "
+        "bumps data_version EXACTLY ONCE (I2); fires the debounced graph recompute (I2). "
+        "Makes ZERO inference calls, ZERO FA2 calls. "
+        "404 on non-existent or already-soft-deleted page (idempotent double-delete, AC-F13-5c). "
+        "Use POST /pages/{id}/cascade-delete/preview first (ADR-0026 §6 — mandatory dry-run)."
+    ),
+    responses={
+        200: {"description": "Page deleted; dead wikilinks cleaned; index.md updated"},
+        404: {"description": "Page not found or already deleted (AC-F13-5c)"},
+    },
+)
+async def delete_page(page_id: uuid.UUID) -> CascadeDeleteResponse:
+    """
+    DELETE /pages/{page_id} — cascade delete (ADR-0026, AC-F13-5).
+
+    Single pass; zero inference; zero FA2 (I7/I2/I6). data_version +1 EXACTLY ONCE.
+    404 on double-delete (PageNotFoundError from plan_cascade_delete).
+    """
+    from app.ops.cascade_delete import PageNotFoundError, cascade_delete
+
+    try:
+        result = await cascade_delete(page_id)
+    except PageNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return CascadeDeleteResponse(
+        deleted_page_id=result.deleted_page_id,
+        wikilinks_cleaned=result.wikilinks_cleaned,
+        index_entry_removed=result.index_entry_removed,
+        shared_entity_warnings=result.shared_entity_warnings,
     )
 
 
