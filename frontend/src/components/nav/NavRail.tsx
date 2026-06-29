@@ -76,6 +76,16 @@ function IconSettings() {
   );
 }
 
+function IconSearch() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="8"/>
+      <path d="m21 21-4.35-4.35"/>
+      <path d="M11 8v6m-3-3h6"/>
+    </svg>
+  );
+}
+
 // ─── Rail item types ──────────────────────────────────────────────────────────
 
 interface RailItem {
@@ -96,11 +106,13 @@ const TOP_ITEMS: RailItem[] = [
 ];
 
 /**
- * M5_ITEMS intentionally empty in M4.
- * M5 will populate: Search, Lint, Review, Deep Search.
- * DO NOT remove the i18n keys: nav.search, nav.lint, nav.review, nav.deepSearch, nav.comingSoon.
+ * M5_ITEMS — Deep Search is active (F10, ADR-0024, EC-M5-HCP-3).
+ * Search, Lint, Review remain as placeholders until their M5 phases land.
+ * i18n keys nav.search / nav.lint / nav.review / nav.comingSoon retained.
  */
-const M5_ITEMS: RailItem[] = [];
+const M5_ITEMS: RailItem[] = [
+  { id: "deep-search", icon: <IconSearch />, labelKey: "nav.deepSearch" },
+];
 
 const BOTTOM_ITEMS: RailItem[] = [
   { id: "settings", icon: <IconSettings />, labelKey: "nav.settings" },
@@ -205,6 +217,25 @@ export function NavRail() {
           />
         ))}
       </div>
+
+      {/* M5 items (Deep Search active; Search/Lint/Review come in subsequent phases) */}
+      {M5_ITEMS.length > 0 && (
+        <>
+          <div style={{ width: 40, height: 1, background: "#21262d", margin: "4px 0 2px" }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center", width: "100%" }}>
+            {M5_ITEMS.map((item) => (
+              <RailButton
+                key={item.id}
+                item={item}
+                isActive={item.id === activeSection}
+                badge={0}
+                label={t(item.labelKey)}
+                onClick={() => handleItemClick(item)}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />

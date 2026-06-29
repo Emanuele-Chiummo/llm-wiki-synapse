@@ -230,6 +230,33 @@
     "usingProvider": "{{provider}}",
     "ragActive": "Answers from your wiki"
   },
+  "research": {
+    "title": "Deep Search",
+    "topicLabel": "Research topic",
+    "topicPlaceholder": "e.g. Kubernetes networking with Calico",
+    "topicHint": "Synapse will search the web, assess sources, and synthesize a wiki page.",
+    "startButton": "Start Research",
+    "empty": "No research runs yet. Enter a topic and click Start Research.",
+    "noRunSelected": "Select a run to see its detail and synthesis.",
+    "loadMore": "Load more",
+    "runLabel": "Research run",
+    "cost": "Cost",
+    "iterations": "Iterations",
+    "sources": "Sources",
+    "synthesis": "Synthesis",
+    "queriesUsed": "Queries used",
+    "sourcesFetched": "Fetched sources",
+    "wikiPageCreated": "Wiki page created from synthesis",
+    "iteration": "Iter",
+    "relevance": "Rel",
+    "status": {
+      "running": "Running",
+      "converged": "Converged",
+      "max_iter_reached": "Max iterations",
+      "budget_exhausted": "Budget exhausted",
+      "error": "Error"
+    }
+  },
   "common": {
     "loading": "Loading…",
     "retry": "Retry",
