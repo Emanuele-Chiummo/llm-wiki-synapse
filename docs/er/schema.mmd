@@ -1,4 +1,4 @@
-<!-- Generated: v0.4 M4-EXT | 2026-06-29 — ADR-0020: import_schedules (migration 0008); ADR-0019: conversations+messages (migration 0007); ADR-0016: edges.kind; Feature A: pages.pinned -->
+<!-- Generated: v0.5-F10 | 2026-06-29 — ADR-0024: deep_research_runs/sources; ADR-0016: edges.kind; Feature A: pages.pinned -->
 erDiagram
 
     CONVERSATIONS {
@@ -64,6 +64,25 @@ erDiagram
         timestamptz updated_at "Last bump time"
     }
 
+    DEEP_RESEARCH_RUNS {
+        uuid id PK "Run identity"
+        string vault_id "Scope — string, no vaults table (AQ-v0.5-6, ADR-0024 §7.1)"
+        string topic "The research topic provided by the caller"
+        string status "running | converged | max_iter_reached | budget_exhausted | error. Defaults 'running'; terminal write always in finally (Do-NOT #7, ADR-0024 §3.2)"
+        int max_iter "Iteration cap FROZEN at INSERT from POST body → env default (AQ-v0.5-4)"
+        int token_budget "Token budget FROZEN at INSERT (AQ-v0.5-4, I7)"
+        int iterations_used "Rounds consumed (1..max_iter); 0 until first round completes"
+        jsonb queries_used "Array of every query issued, per round (AC-F10-4c)"
+        int sources_fetched "Count of fetched candidate sources across all iterations"
+        boolean converged "True iff status == 'converged' (audit convenience, ADR-0024 §7.1)"
+        decimal total_cost_usd "I7 cost ledger; 0.0000 for local/cli (ADR-0009); $1 anomaly threshold"
+        string synthesis_text "The synthesized markdown; NULL until step 5 completes (AC-F10-4c)"
+        uuid synthesis_page_id FK "FK → pages.id created by the re-entrant ingest_file; NULL until done"
+        timestamptz started_at "Run start time"
+        timestamptz completed_at "NULL while running; set in finally block (mirrors ingest_runs alias rule)"
+        string error_message "Populated only on status='error'; NULL otherwise"
+    }
+
     EDGES {
         uuid id PK "Row identity"
         string vault_id "Scope edges per vault (matches pages/vault_state pattern)"
@@ -117,4 +136,15 @@ erDiagram
         int output_tokens "Completion tokens for an assistant turn (I7)"
         decimal total_cost_usd "0.0000 for local/cli (ADR-0009); logged + returned in done event (I7)"
         timestamptz created_at "Row creation time; messages ordered created_at ASC (ADR-0019 §2.5)"
+    }
+
+    DEEP_RESEARCH_SOURCES {
+        uuid id PK "Row identity"
+        uuid run_id FK "FK → deep_research_runs.id (ON DELETE CASCADE)"
+        string url "The fetched source URL (from SearXNG hit)"
+        string title "Hit title from SearXNG; may be URL if no title available"
+        string fetched_content_md "Extracted markdown (capped at DEEP_RESEARCH_FETCH_MAX_CHARS); NULL on fetch failure (ADR-0024 §4 / Do-NOT #9)"
+        decimal relevance_score "Optional model/heuristic relevance; NULL in Phase 2 (ADR-0024 §11)"
+        int iteration "Which round produced this source (1..max_iter); audit trail"
+        timestamptz created_at "Row creation time"
     }

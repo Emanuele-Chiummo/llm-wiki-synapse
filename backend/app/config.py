@@ -96,6 +96,43 @@ class Settings(BaseSettings):
         """vault/wiki/log.md — append-only ingest history (K4)."""
         return self.wiki_dir / "log.md"
 
+    # ── Deep Research (F10, ADR-0024) ────────────────────────────────────────────
+    searxng_url: str | None = None
+    """
+    HTTP base URL for the SearXNG search backend (R8 — already running on TrueNAS).
+    Example: http://searxng:8080
+    Required when deep research is used; POST /research/start returns 503 if unset (I9).
+    No API key — SearXNG is open-access on the internal network.
+    NEVER falls back to another search engine when unset (I9 / Do-NOT #3).
+    """
+
+    deep_research_max_iter: int = 3
+    """
+    Default max iterations for run_deep_research (ADR-0024 §3.1).
+    Caller-overridable via POST /research/start body (bounded 1..10).
+    Env var: DEEP_RESEARCH_MAX_ITER.
+    """
+
+    deep_research_token_budget: int = 100_000
+    """
+    Default token budget for run_deep_research (ADR-0024 §3.1).
+    Caller-overridable via POST /research/start body (bounded 1_000..1_000_000).
+    Env var: DEEP_RESEARCH_TOKEN_BUDGET.
+    """
+
+    deep_research_max_queries: int = 5
+    """
+    Maximum SearXNG queries generated per iteration (ADR-0024 §3.1).
+    Env var: DEEP_RESEARCH_MAX_QUERIES.
+    """
+
+    deep_research_fetch_max_chars: int = 20_000
+    """
+    Per-source content cap (chars) after HTML→markdown extraction (ADR-0024 §4).
+    Prevents a single large page from blowing the token budget.
+    Env var: DEEP_RESEARCH_FETCH_MAX_CHARS.
+    """
+
     # ── M4-EXT: upload + scheduled import caps (ADR-0020 §2.4 / §4.4) ──────────
 
     max_upload_bytes: int = 26_214_400
