@@ -63,3 +63,20 @@ export async function createProviderConfig(
   await checkResponse(res);
   return (await res.json()) as ProviderConfigItem;
 }
+
+/**
+ * Delete a provider config row by ID.
+ * DELETE /provider/config/{id}
+ * 204 No Content on success.
+ */
+export async function deleteProviderConfig(
+  id: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const url = `${API_BASE}/provider/config/${encodeURIComponent(id)}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+}

@@ -1,11 +1,18 @@
 {
   "nav": {
-    "pages": "Pagine",
-    "graph": "Grafo",
-    "ingest": "Importa",
-    "settings": "Impostazioni",
     "chat": "Chat",
-    "chatComingSoon": "Fase 3"
+    "wiki": "Wiki",
+    "pages": "Wiki",
+    "sources": "Sorgenti",
+    "ingest": "Sorgenti",
+    "search": "Cerca",
+    "graph": "Grafo",
+    "lint": "Lint",
+    "review": "Revisione",
+    "deepSearch": "Ricerca Profonda",
+    "settings": "Impostazioni",
+    "chatComingSoon": "Fase 3",
+    "comingSoon": "Disponibile in M5"
   },
   "ingest": {
     "title": "Attività di importazione",
@@ -52,7 +59,8 @@
     "active": "Attivo",
     "scope": {
       "vault": "Vault",
-      "global": "Globale"
+      "global": "Globale",
+      "operation": "Per-operazione"
     },
     "type": {
       "local": "Locale (Ollama)",
@@ -83,6 +91,80 @@
     "providerSection": "Configurazione provider",
     "reset": "Ripristina impostazioni",
     "resetConfirm": "Ripristinare tutte le impostazioni predefinite?",
+    "nav": {
+      "general": "Generale",
+      "llmModels": "Modelli LLM",
+      "embeddings": "Embeddings",
+      "sourceWatch": "Source Watch",
+      "apiMcp": "API + MCP",
+      "output": "Output",
+      "interface": "Interfaccia",
+      "maintenance": "Manutenzione",
+      "about": "Informazioni"
+    },
+    "llmModels": {
+      "title": "Modelli LLM",
+      "desc": "Una riga per provider. Le modifiche hanno effetto immediato. Le API key sono variabili d'ambiente — non configurabili qui.",
+      "addProvider": "Aggiungi provider",
+      "providerType": "Tipo",
+      "modelId": "ID Modello",
+      "modelIdPlaceholder": "es. claude-sonnet-4-6",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "es. https://api.anthropic.com",
+      "scope": "Ambito",
+      "add": "Aggiungi",
+      "cancel": "Annulla",
+      "delete": "Elimina",
+      "added": "Provider aggiunto.",
+      "deleted": "Provider rimosso.",
+      "confirmDelete": "Rimuovere questo provider?",
+      "fallback": "predefinito",
+      "modelIdRequired": "ID Modello obbligatorio",
+      "lastProviderWarning": "Questo è l'ultimo provider configurato. Chat e ingest non funzioneranno finché non viene aggiunto un nuovo provider."
+    },
+    "embeddings": {
+      "title": "Vector Embeddings",
+      "desc": "Abilita la ricerca semantica nel wiki. Compatibile con endpoint /v1/embeddings OpenAI-compatibili, embedding nativi di Ollama e altri modelli locali.",
+      "comingSoon": "Configurazione vector embeddings — disponibile in M5."
+    },
+    "apiMcp": {
+      "title": "API + MCP",
+      "desc": "Esponi Synapse ai tuoi strumenti tramite l'API HTTP locale e il server MCP bundled per client agentivi.",
+      "comingSoon": "Configurazione server MCP — disponibile in M5."
+    },
+    "output": {
+      "title": "Preferenze Output",
+      "desc": "Controlli per i contenuti generati — lingua, lunghezza cronologia conversazione.",
+      "convHistoryTitle": "Lunghezza Cronologia Conversazione",
+      "convHistoryDesc": "Numero di messaggi precedenti inviati all'IA per ogni richiesta. Più messaggi = contesto più ricco ma più token.",
+      "convHistoryLabel": "Attualmente {{count}} messaggi (circa {{turns}} turni)"
+    },
+    "interface": {
+      "title": "Interfaccia",
+      "desc": "Preferenze di visualizzazione e layout.",
+      "comingSoon": "Opzioni tema e densità — disponibili in M5."
+    },
+    "maintenance": {
+      "title": "Manutenzione",
+      "desc": "Strumenti per la pulizia del wiki — rileva e unisci entità/concetti duplicati creati dall'LLM con nomi diversi tra re-ingest.",
+      "duplicates": "Rileva entità / concetti duplicati",
+      "duplicatesDesc": "Chiede all'LLM di scansionare tutte le pagine entità/concetto e raggruppare quelle che probabilmente si riferiscono allo stesso argomento con nomi diversi. Confermi ogni gruppo prima dell'unione.",
+      "duplicatesScan": "Scansiona duplicati",
+      "duplicatesComingSoon": "Rilevamento duplicati — disponibile in M5.",
+      "dangerZone": "Zona Pericolosa",
+      "reset": "Ripristina impostazioni",
+      "resetDesc": "Cancella tutte le impostazioni locali e il layout pannelli.",
+      "resetConfirm": "Ripristinare tutte le impostazioni predefinite?"
+    },
+    "about": {
+      "title": "Informazioni",
+      "version": "Versione",
+      "sprint": "Sprint",
+      "milestone": "Milestone",
+      "links": "Risorse",
+      "github": "Codice sorgente",
+      "docs": "Documentazione"
+    },
     "import": {
       "title": "Importazione cartella programmata",
       "enabled": "Abilitata",
@@ -134,7 +216,8 @@
     "costLabel": "${{cost}}",
     "reasoning": "Ragionamento",
     "thinking": "in elaborazione…",
-    "usingProvider": "{{provider}}"
+    "usingProvider": "{{provider}}",
+    "ragActive": "Risponde dal tuo wiki"
   },
   "common": {
     "loading": "Caricamento…",

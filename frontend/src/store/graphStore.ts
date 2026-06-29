@@ -28,7 +28,16 @@ export type CenterTab = "graph" | "chat";
  * ADR-0018 §2 / ADR-0019 §3: "chat" enabled in Phase 3.
  * Scalar, Object.is comparison — no shallow needed.
  */
-export type Section = "pages" | "graph" | "ingest" | "settings" | "chat";
+export type Section =
+  | "chat"
+  | "pages"
+  | "ingest"
+  | "search"
+  | "graph"
+  | "lint"
+  | "review"
+  | "deep-search"
+  | "settings";
 
 /** UI state added in v0.4 Phase 1 shell (F1). */
 export interface UiState {
@@ -122,7 +131,7 @@ const INITIAL_STATE: GraphState = {
   selectedSource: null,
   activeTab: "graph",
   treeCollapsed: {},
-  activeSection: "pages" as Section,
+  activeSection: "chat" as Section,
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────

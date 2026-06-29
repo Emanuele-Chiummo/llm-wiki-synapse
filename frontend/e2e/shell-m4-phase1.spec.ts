@@ -125,11 +125,10 @@ test.describe("CHECK-2 — 3-panel shell renders correctly (F1 / ADR-0017)", () 
     const ariaDisabled = await chatBtn.getAttribute("aria-disabled");
     expect(ariaDisabled === null || ariaDisabled === "false", "NavRail Chat must not be aria-disabled").toBe(true);
 
-    // Pages section is active on load
-    const pagesBtn = page.locator("[data-section='pages']");
-    const pageCurrent = await pagesBtn.getAttribute("aria-current");
-    expect(pageCurrent, "Pages must be aria-current=page after load").toBe("page");
-    console.log(`[CHECK-2] NavRail Chat button enabled (Phase 3); Pages active on load`);
+    // Chat section is active on load (M4-HARD AC-HARD-ORD-2: default section = Chat)
+    const chatCurrent = await chatBtn.getAttribute("aria-current");
+    expect(chatCurrent, "Chat must be aria-current=page after load (AC-HARD-ORD-2)").toBe("page");
+    console.log(`[CHECK-2] NavRail Chat button enabled (Phase 3); Chat active on load (AC-HARD-ORD-2)`);
   });
 
   test("right panel: PreviewPanel shows empty state when nothing selected", async ({ page }) => {

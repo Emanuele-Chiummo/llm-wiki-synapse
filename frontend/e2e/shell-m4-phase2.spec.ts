@@ -72,10 +72,11 @@ test.describe("NavRail", () => {
     await expect(buttons).toHaveCount(5);
   });
 
-  test("CHECK-NAVRAIL-2: Pages is active by default (aria-current=page)", async ({ page }) => {
+  test("CHECK-NAVRAIL-2: Chat is active by default (AC-HARD-ORD-2 — default section = Chat)", async ({ page }) => {
     await gotoApp(page);
-    const pagesBtn = page.locator("[data-section='pages']");
-    await expect(pagesBtn).toHaveAttribute("aria-current", "page");
+    // M4-HARD F1-HARD-NAV-ORDER: default section on first load is Chat (graphStore INITIAL_STATE.activeSection = "chat")
+    const chatBtn = page.locator("[data-section='chat']");
+    await expect(chatBtn).toHaveAttribute("aria-current", "page");
   });
 
   test("CHECK-NAVRAIL-3: clicking Graph switches section, shows graph canvas", async ({ page }) => {

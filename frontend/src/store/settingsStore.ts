@@ -42,23 +42,34 @@ export function computeBudgetSplit(tokens: number): {
  * render cleanly: 4096 → "4K", 32768 → "32K", 1048576 → "1M", etc.
  */
 export function formatTokenCount(n: number): string {
-  if (n >= 1_048_576) return `${n / 1_048_576}M`;
-  if (n >= 1_024) return `${n / 1_024}K`;
+  if (n >= 1_048_576) return `${+(n / 1_048_576).toPrecision(3)}M`;
+  if (n >= 1_024) return `${+(n / 1_024).toPrecision(3)}K`;
   return `${n}`;
 }
 
 // ─── Persistence keys ─────────────────────────────────────────────────────────
+
+/** Available conversation history window sizes (number of messages). */
+export const CONV_HISTORY_OPTIONS = [2, 4, 6, 8, 10, 20] as const;
+export type ConvHistoryLength = (typeof CONV_HISTORY_OPTIONS)[number];
+export const DEFAULT_CONV_HISTORY: ConvHistoryLength = 10;
 
 const LS_LANG = "synapse.lang";
 const LS_SETTINGS = "synapse.settings";
 
 interface PersistedSettings {
   contextWindowTokens: number;
+  conversationHistoryLength?: number;
 }
 
-function loadSettings(): { language: string; contextWindowTokens: ContextWindowTokens } {
+function loadSettings(): {
+  language: string;
+  contextWindowTokens: ContextWindowTokens;
+  conversationHistoryLength: ConvHistoryLength;
+} {
   let language = "en";
   let contextWindowTokens: ContextWindowTokens = DEFAULT_CONTEXT_WINDOW;
+  let conversationHistoryLength: ConvHistoryLength = DEFAULT_CONV_HISTORY;
 
   try {
     const storedLang = localStorage.getItem(LS_LANG);
@@ -75,17 +86,21 @@ function loadSettings(): { language: string; contextWindowTokens: ContextWindowT
       if (CONTEXT_WINDOW_OPTIONS.includes(v as ContextWindowTokens)) {
         contextWindowTokens = v as ContextWindowTokens;
       }
+      const h = parsed.conversationHistoryLength;
+      if (h !== undefined && CONV_HISTORY_OPTIONS.includes(h as ConvHistoryLength)) {
+        conversationHistoryLength = h as ConvHistoryLength;
+      }
     }
   } catch {
     // ignore
   }
 
-  return { language, contextWindowTokens };
+  return { language, contextWindowTokens, conversationHistoryLength };
 }
 
-function saveSettings(contextWindowTokens: number): void {
+function saveSettings(contextWindowTokens: number, conversationHistoryLength: number): void {
   try {
-    localStorage.setItem(LS_SETTINGS, JSON.stringify({ contextWindowTokens }));
+    localStorage.setItem(LS_SETTINGS, JSON.stringify({ contextWindowTokens, conversationHistoryLength }));
   } catch {
     // ignore
   }
@@ -96,11 +111,13 @@ function saveSettings(contextWindowTokens: number): void {
 interface SettingsState {
   language: string;
   contextWindowTokens: ContextWindowTokens;
+  conversationHistoryLength: ConvHistoryLength;
 }
 
 interface SettingsActions {
   setLanguage: (lang: string) => void;
   setContextWindow: (tokens: ContextWindowTokens) => void;
+  setConversationHistoryLength: (n: ConvHistoryLength) => void;
   reset: () => void;
 }
 
@@ -108,7 +125,7 @@ export type SettingsStore = SettingsState & SettingsActions;
 
 const initial = loadSettings();
 
-export const useSettingsStore = create<SettingsStore>((set) => ({
+export const useSettingsStore = create<SettingsStore>((set, get) => ({
   ...initial,
 
   setLanguage: (language) => {
@@ -117,8 +134,13 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   },
 
   setContextWindow: (contextWindowTokens) => {
-    saveSettings(contextWindowTokens);
+    saveSettings(contextWindowTokens, get().conversationHistoryLength);
     set({ contextWindowTokens });
+  },
+
+  setConversationHistoryLength: (conversationHistoryLength) => {
+    saveSettings(get().contextWindowTokens, conversationHistoryLength);
+    set({ conversationHistoryLength });
   },
 
   reset: () => {
@@ -127,7 +149,11 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       localStorage.removeItem(LS_SETTINGS);
       localStorage.removeItem("synapse-panel-layout-v2");
     } catch { /* ignore */ }
-    set({ language: "en", contextWindowTokens: DEFAULT_CONTEXT_WINDOW });
+    set({
+      language: "en",
+      contextWindowTokens: DEFAULT_CONTEXT_WINDOW,
+      conversationHistoryLength: DEFAULT_CONV_HISTORY,
+    });
   },
 }));
 
@@ -141,12 +167,22 @@ export function selectContextWindow(s: SettingsStore): ContextWindowTokens {
   return s.contextWindowTokens;
 }
 
+export function selectConversationHistoryLength(s: SettingsStore): ConvHistoryLength {
+  return s.conversationHistoryLength;
+}
+
 export function selectSetLanguage(s: SettingsStore): SettingsActions["setLanguage"] {
   return s.setLanguage;
 }
 
 export function selectSetContextWindow(s: SettingsStore): SettingsActions["setContextWindow"] {
   return s.setContextWindow;
+}
+
+export function selectSetConversationHistoryLength(
+  s: SettingsStore,
+): SettingsActions["setConversationHistoryLength"] {
+  return s.setConversationHistoryLength;
 }
 
 export function selectResetSettings(s: SettingsStore): SettingsActions["reset"] {

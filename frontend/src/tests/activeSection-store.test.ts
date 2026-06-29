@@ -2,8 +2,8 @@
  * activeSection-store.test.ts — vitest tests for ADR-0018 §2 extension of graphStore.
  *
  * Tests:
- *   - default activeSection is "pages"
- *   - setActiveSection transitions all 4 sections
+ *   - default activeSection is "chat" (ADR-0018 §2 Phase 3 + F1-HARD-NAV-ORDER, AC-HARD-ORD-2)
+ *   - setActiveSection transitions all valid sections
  *   - scalar selector returns new value after set
  *   - graph state keys are NOT touched by setActiveSection
  */
@@ -19,9 +19,9 @@ describe("graphStore activeSection slice (ADR-0018 §2)", () => {
     useGraphStore.getState().reset();
   });
 
-  it("defaults to 'pages'", () => {
+  it("defaults to 'chat' (F1-HARD-NAV-ORDER / AC-HARD-ORD-2: default section on first load is Chat)", () => {
     const state = useGraphStore.getState();
-    expect(selectActiveSection(state)).toBe("pages");
+    expect(selectActiveSection(state)).toBe("chat");
   });
 
   it("transitions to 'graph'", () => {
@@ -65,10 +65,10 @@ describe("graphStore activeSection slice (ADR-0018 §2)", () => {
     expect(selectActiveSection(useGraphStore.getState())).toBe("ingest");
   });
 
-  it("reset() brings activeSection back to 'pages'", () => {
+  it("reset() brings activeSection back to 'chat' (F1-HARD-NAV-ORDER / AC-HARD-ORD-2)", () => {
     useGraphStore.getState().setActiveSection("settings");
     useGraphStore.getState().reset();
-    expect(selectActiveSection(useGraphStore.getState())).toBe("pages");
+    expect(selectActiveSection(useGraphStore.getState())).toBe("chat");
   });
 
   it("all 4 valid section values are accepted without throwing", () => {

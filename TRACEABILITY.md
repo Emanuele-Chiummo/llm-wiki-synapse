@@ -1137,3 +1137,216 @@ Owner: backend-engineer (seed_demo_vault.py).
 | M4-Phase0-15 | D5 graph screenshot committed (structural-only, size variation visible) | AC-F4-GUX-18 | DEFERRED-TO-LIVE |
 | M4-Phase0-16 | ADR-0016 signed off by architect + tech-writer | — | MANUAL |
 | M4-Phase0-17 | TRACEABILITY.md M4-GUX section present; P3–P5 correction on record | (this section) | DONE |
+
+---
+
+## Sprint 4 — v0.4 / M4-HARD Coverage
+
+> Scope: post-human-testing hardening increment (locked 2026-06-29 by product-manager).
+> Scope record: docs/sprints/v0.4-hard-scope.md
+> User stories: docs/sprints/v0.4-hard-scope.md §Stories
+> All 9 feature IDs are extensions of F1 (shell/nav rail) and F16 (settings persistence).
+> No new CLAUDE.md §4 feature IDs introduced. No M5 work started.
+> Invariants with heightened priority: I3 (no per-token work in chat; no main-thread layout),
+>   I6 (provider config from API, never hardcoded).
+>
+> QA pass: 2026-06-29 (qa-test-engineer). vitest 302/302 GREEN. tsc --noEmit: 0 errors.
+> ESLint: 0 errors after fix (React import missing in SettingsPanel.tsx — fixed in this pass).
+> Playwright: 2 stale assertions corrected (CHECK-NAVRAIL-2, NavRail:Chat-is-default in phase1).
+> ctx-select id added to SettingsPanel context-window select (required by CHECK-SETTINGS-1).
+>
+> Column guide (same as Sprint 1/2/3):
+>   Feature ID  — M4-HARD sub-ID
+>   User Story  — US-HARD-<label> in docs/sprints/v0.4-hard-scope.md §Stories
+>   AC ID       — AC-HARD-<LABEL>-<N> as defined in v0.4-hard-scope.md §3
+>   EC          — M4-HARD DoD gate number (§5 of scope doc); N/A for already-done items
+>   D-artifacts — D1–D7 touched
+>   Invariants  — I1–I9 directly exercised
+>   Planned test file — path relative to frontend/src/tests/ or frontend/e2e/
+>   Test ID     — filled by qa-test-engineer; format T-HARD-<GROUP>-<NNN>
+>   PR          — filled by engineer
+>   Status      — PENDING / GREEN / PARTIAL / MANUAL / GAP
+
+---
+
+### F1-HARD-SETTINGS — 9-section settings panel
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-HARD-SET-1 | US-HARD-SET | M4-HARD-gate-1 | D5, D6 | I3 | Code inspection + e2e/shell-m4-phase2.spec.ts | T-HARD-SET-001 | — | GREEN |
+| AC-HARD-SET-2 | US-HARD-SET | M4-HARD-gate-1 | D5 | I3 | Code inspection (conditional render per activeSection) | T-HARD-SET-002 | — | GREEN |
+| AC-HARD-SET-3 | US-HARD-SET | M4-HARD-gate-1 | — | — | frontend/src/tests/i18n-key-parity.test.ts (9 settings.nav.* keys verified) | T-HARD-SET-003 | — | GREEN |
+| AC-HARD-SET-4 | US-HARD-SET | M4-HARD-gate-1 | — | — | Code inspection: SectionEmbeddings/SectionApiMcp/SectionInterface use ComingSoonBadge | T-HARD-SET-004 | — | GREEN |
+| AC-HARD-SET-5 | US-HARD-SET | M4-HARD-gate-1 | — | — | Code inspection: onKeyDown arrow-key handler on nav element | T-HARD-SET-005 | — | PARTIAL |
+| AC-HARD-SET-6 | US-HARD-SET | M4-HARD-gate-1 | — | — | frontend/src/tests/SettingsPanel.test.tsx (file not yet created) | T-HARD-SET-006 | — | GAP |
+
+Note: AC-HARD-SET-5 keyboard nav is present in NavRail (which wraps the rail nav element)
+but SettingsPanel's left sub-nav uses plain <button> elements without an explicit onKeyDown
+arrow-key handler. Arrow-key traversal depends on browser default tabbing, not ARIA listbox
+semantics. This is a gap vs the AC; flagged GAP-HARD-4. AC-HARD-SET-6 is blocked by the
+absence of SettingsPanel.test.tsx (GAP-HARD-5). Source: commit 65a6407; SettingsPanel.tsx.
+
+---
+
+### F1-HARD-COLLAPSE — Panel collapse/expand
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-HARD-COL-1 | US-HARD-COL | M4-HARD-gate-1 | D5 | I3, I4 | Code inspection: CollapseButton + usePanelRef().collapse() | T-HARD-COL-001 | — | GREEN |
+| AC-HARD-COL-2 | US-HARD-COL | M4-HARD-gate-1 | — | I3, I4 | Code inspection: toggleLeft/toggleRight expand() restores | T-HARD-COL-002 | — | GREEN |
+| AC-HARD-COL-3 | US-HARD-COL | M4-HARD-gate-1 | — | — | Code inspection: PanelGroup saves layout on onLayoutChanged → localStorage | T-HARD-COL-003 | — | GREEN |
+| AC-HARD-COL-4 | US-HARD-COL | M4-HARD-gate-1 | — | I3 | react-resizable-panels collapse() is async/RAF-based; no getBoundingClientRect in collapse path | T-HARD-COL-004 | — | GREEN |
+| AC-HARD-COL-5 | US-HARD-COL | M4-HARD-gate-1 | — | I3, I4 | frontend/src/tests/AppShell.test.tsx (file not yet created) | T-HARD-COL-005 | — | GAP |
+
+Note: AC-HARD-COL-3 technically satisfied: PanelGroup writes layout percentages to localStorage
+on every resize (LS_KEY = "synapse-panel-layout-v2"), which includes post-collapse layout.
+AC-HARD-COL-5 automated vitest collapse/expand assertion requires AppShell.test.tsx (GAP-HARD-5).
+Source: commit 65a6407; PanelGroup.tsx.
+
+---
+
+### F1-HARD-PROVIDER-EDIT — Editable LLM Models section
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-HARD-PROV-1 | US-HARD-PROV | M4-HARD-gate-1 | D4 | I6 | Code inspection: providerList.map renders provider rows from GET /provider/config | T-HARD-PROV-001 | — | GREEN |
+| AC-HARD-PROV-2 | US-HARD-PROV | M4-HARD-gate-1 | D4 | I6, I3 | Code inspection: handleAdd calls addProvider(body, vaultId) → POST /provider/config | T-HARD-PROV-002 | — | GREEN |
+| AC-HARD-PROV-3 | US-HARD-PROV | M4-HARD-gate-1 | D4 | I6 | Code inspection: handleDelete → window.confirm(t("settings.llmModels.confirmDelete")) then deleteProvider(id) | T-HARD-PROV-003 | — | GREEN |
+| AC-HARD-PROV-4 | US-HARD-PROV | M4-HARD-gate-1 | — | I6 | Code inspection: no hardcoded model_id/provider_type literals; all from providerList (API) | T-HARD-PROV-004 | — | GREEN |
+| AC-HARD-PROV-5 | US-HARD-PROV | M4-HARD-gate-1 | — | I6, I3 | frontend/src/tests/SettingsPanel.test.tsx (file not yet created) | T-HARD-PROV-005 | — | GAP |
+| AC-HARD-PROV-6 | US-HARD-PROV | M4-HARD-gate-1 | — | — | Code inspection: handleDelete permits deletion even if providerList.length === 1 (no minimum-1 guard) | T-HARD-PROV-006 | — | GREEN |
+
+Note: AC-HARD-PROV-4 (I6): SettingsPanel.tsx LLM Models section constructs the POST body from
+form state (formType, formModelId, formBaseUrl, formScope) which the user types — no literals
+injected by the component. formModelId starts as "" (empty string). I6 PASS.
+AC-HARD-PROV-5 mock-render test requires SettingsPanel.test.tsx (GAP-HARD-5).
+Source: commit 65a6407; SettingsPanel.tsx + providerStore.ts + providerClient.ts.
+
+---
+
+### F1-HARD-MCP-STUB — API+MCP settings placeholder
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-HARD-MCP-1 | US-HARD-MCP | M4-HARD-gate-1 | — | — | Code inspection: SectionApiMcp renders ComingSoonBadge(t("settings.apiMcp.comingSoon")) | T-HARD-MCP-001 | — | GREEN |
+
+Note: i18n key settings.apiMcp.comingSoon is present in en.json ("MCP server configuration — coming in M5.")
+and it.json ("Configurazione server MCP — disponibile in M5."). Source: commit 65a6407.
+
+---
+
+### F1-HARD-NAV-ORDER — Nav rail order and default section
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-HARD-ORD-1 | US-HARD-ORD | M4-HARD-gate-1 | D5 | I3 | NavRail.test.tsx: "renders exactly 5 interactive buttons (Chat/Wiki/Sources/Graph/Settings)" | T-HARD-ORD-001 | — | GREEN |
+| AC-HARD-ORD-2 | US-HARD-ORD | M4-HARD-gate-1 | — | I3 | activeSection-store.test.ts: "defaults to 'chat'" + "reset() brings activeSection back to 'chat'" | T-HARD-ORD-002 | — | GREEN |
+| AC-HARD-ORD-3 | US-HARD-ORD | M4-HARD-gate-1 | — | I3 | graphStore: INITIAL_STATE.activeSection = "chat"; no localStorage restore implemented for M4 | T-HARD-ORD-003 | — | PARTIAL |
+
+Note: AC-HARD-ORD-3 requires that if localStorage holds a removed M5 section name, the app
+falls back to "chat". The current implementation sets INITIAL_STATE.activeSection = "chat" and
+does not restore from localStorage at startup (Zustand does not auto-hydrate unless configured
+with persist middleware). The zustand/persist middleware is not used in graphStore — so stale
+localStorage values are never read. This means the fallback condition is satisfied trivially
+(the store always starts at "chat"), but the AC's intent (explicit fallback guard) is not tested.
+Flagged GAP-HARD-6 for Sprint 5: if persist middleware is added to graphStore, an explicit
+M5-section-name guard must be added to the rehydration logic before that can ship.
+Source: commit 65a6407; graphStore.ts + NavRail.tsx.
+
+---
+
+### F1-HARD-EMBED-STUB — Vector Embeddings settings placeholder
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-HARD-EMBD-1 | US-HARD-EMBD | M4-HARD-gate-1 | — | — | Code inspection: SectionEmbeddings renders ComingSoonBadge(t("settings.embeddings.comingSoon")) | T-HARD-EMBD-001 | — | GREEN |
+
+Note: i18n key settings.embeddings.comingSoon present in both en.json and it.json. Source: commit 65a6407.
+
+---
+
+### F1-HARD-CONV-HISTORY — Conversation history length selector
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-HARD-CONV-1 | US-HARD-CONV | M4-HARD-gate-1 | — | I3, I7 | Code inspection: SectionOutput renders CONV_HISTORY_OPTIONS [2,4,6,8,10,20] as toggle buttons; value persisted in settingsStore → localStorage | T-HARD-CONV-001 | — | GREEN |
+| AC-HARD-CONV-2 | US-HARD-CONV | M4-HARD-gate-1 | — | I3, I7 | chatStore.test.ts exists but does not test assembler history slicing; GAP-HARD-1 confirmed | T-HARD-CONV-002 | — | GAP |
+
+Note: AC-HARD-CONV-1: CONV_HISTORY_OPTIONS = [2, 4, 6, 8, 10, 20] (settingsStore.ts line 53).
+Value persisted via saveSettings() to localStorage key "synapse-settings". PASS.
+AC-HARD-CONV-2: chatStore.test.ts (frontend/src/tests/chatStore.test.ts) tests conversation
+CRUD operations but not the messages-array assembly with history truncation. The assembler
+slice (if it exists) is not independently testable. GAP-HARD-1 confirmed: frontend-engineer
+must extract history slicing into a testable utility before this AC can be GREEN.
+Source: commit 65a6407; settingsStore.ts.
+
+---
+
+### F1-HARD-NAV-LABELS — Persistent text labels beside nav icons (P0 — implemented)
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-HARD-LBL-1 | US-HARD-LBL | M4-HARD-gate-1 | D5, D6 | I3 | NavRail.test.tsx: "each nav button contains a non-empty .nav-rail__label span" | T-HARD-LBL-001 | — | GREEN |
+| AC-HARD-LBL-2 | US-HARD-LBL | M4-HARD-gate-1 | — | I4 | Code inspection: nav-rail style.width = 72 (inline style, NavRail.tsx line 179) | T-HARD-LBL-002 | — | GREEN |
+| AC-HARD-LBL-3 | US-HARD-LBL | M4-HARD-gate-1 | — | — | i18n-key-parity.test.ts: nav.chat/wiki/sources/ingest/graph/settings keys present in en+it | T-HARD-LBL-003 | — | GREEN |
+| AC-HARD-LBL-4 | US-HARD-LBL | M4-HARD-gate-1 | D5 | I3 | Code inspection: active state sets background on button enclosing both icon + label (flexDirection=column) | T-HARD-LBL-004 | — | GREEN |
+| AC-HARD-LBL-5 | US-HARD-LBL | M4-HARD-gate-1 | — | — | Code inspection: .nav-rail__label style.fontSize = 10 (NavRail.tsx line 274) | T-HARD-LBL-005 | — | GREEN |
+| AC-HARD-LBL-6 | US-HARD-LBL | M4-HARD-gate-1 | — | I3, I4 | No numeric 48px width assertion found in any Playwright spec (QA verified grep). GAP-HARD-2 RESOLVED (there was no hardcoded constant to update). | T-HARD-LBL-006 | — | GREEN |
+| AC-HARD-LBL-7 | US-HARD-LBL | M4-HARD-gate-1 | — | I3 | NavRail.test.tsx: "each nav button contains at least one SVG icon (aria-hidden)" + "non-empty .nav-rail__label span" | T-HARD-LBL-007 | — | GREEN |
+| AC-HARD-LBL-8 | US-HARD-LBL | M4-HARD-gate-1 | — | — | NavRail.test.tsx: "badge is absolutely positioned (top-right, not inside label span)" | T-HARD-LBL-008 | — | GREEN |
+
+Note: AC-HARD-LBL-6: QA grepped all Playwright specs for "48" and "width.*48" — no match found
+in e2e/. The engineer's claim that no spec hard-coded the 48px width is correct. GAP-HARD-2 is
+CLOSED: no test update was needed. Source: NavRail.tsx commit this session.
+
+---
+
+### F1-HARD-M5-PLACEHOLDER — Remove M5 nav items from M4 rail (P0 — implemented)
+
+| AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|------------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-HARD-M5P-1 | US-HARD-M5P | M4-HARD-gate-1 | D5 | I3 | NavRail.test.tsx: "does NOT render data-section='search/lint/review/deep-search'" (4 tests) | T-HARD-M5P-001 | — | GREEN |
+| AC-HARD-M5P-2 | US-HARD-M5P | M4-HARD-gate-1 | D5 | — | Code inspection: no separator rendered between TOP_ITEMS and BOTTOM_ITEMS (only spacer div flex:1) | T-HARD-M5P-002 | — | GREEN |
+| AC-HARD-M5P-3 | US-HARD-M5P | M4-HARD-gate-1 | — | — | Code inspection: M5_ITEMS = [] (NavRail.tsx line 103) | T-HARD-M5P-003 | — | GREEN |
+| AC-HARD-M5P-4 | US-HARD-M5P | M4-HARD-gate-1 | — | — | Code inspection of en.json + it.json: nav.search/lint/review/deepSearch/comingSoon PRESENT | T-HARD-M5P-004 | — | GREEN |
+| AC-HARD-M5P-5 | US-HARD-M5P | M4-HARD-gate-1 | — | I3 | Code inspection: graphStore.ts Section type retains "search","lint","review","deep-search" members | T-HARD-M5P-005 | — | GREEN |
+| AC-HARD-M5P-6 | US-HARD-M5P | M4-HARD-gate-1 | — | — | NavRail.test.tsx: "does NOT render any aria-disabled button" + "does NOT render any HTML-disabled button" | T-HARD-M5P-006 | — | GREEN |
+| AC-HARD-M5P-7 | US-HARD-M5P | M4-HARD-gate-1 | D5 | — | e2e/shell-m4-phase2.spec.ts CHECK-NAVRAIL-1: "renders 5 buttons (pages/graph/ingest/chat/settings)" | T-HARD-M5P-007 | — | GREEN |
+
+Note: AC-HARD-M5P-3: M5_ITEMS = [] satisfies both the empty-array form and the no-render form.
+GAP-HARD-3 CLOSED: the implementation chose the empty-array approach, which is verified by
+NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session.
+
+---
+
+## M4-HARD Exit Criteria coverage summary
+
+| Gate | Description | Covering ACs | Status |
+|------|-------------|-------------|--------|
+| M4-HARD-gate-1 | All 22 AC-HARD-* assertions green (vitest + Playwright + code inspection) | AC-HARD-SET-1..6, AC-HARD-COL-1..5, AC-HARD-PROV-1..6, AC-HARD-MCP-1, AC-HARD-ORD-1..3, AC-HARD-EMBD-1, AC-HARD-CONV-1..2, AC-HARD-LBL-1..8, AC-HARD-M5P-1..7 | PARTIAL — 3 GAPs open (SET-6/COL-5/PROV-5 require SettingsPanel.test.tsx; CONV-2 requires assembler extraction) |
+| M4-HARD-gate-2 | No regression on T-NCL-001..022 (no-client-layout), T-OBS-001..015 (Obsidian compat) | Prior test suites | GREEN — vitest 302/302 passed (includes no-client-layout source scan) |
+| M4-HARD-gate-3 | Architect gate: rail width change layout impact (I3/I4), M5 Section type safety (I3), provider add/delete (I6) | AC-HARD-LBL-2, AC-HARD-LBL-6, AC-HARD-M5P-5, AC-HARD-PROV-4 | MANUAL (architect sign-off required) |
+| M4-HARD-gate-4 | Tech-writer gate: i18n files updated if new keys; D5 screenshots refreshed; USER.md updated | AC-HARD-LBL-3, AC-HARD-M5P-4 | MANUAL (tech-writer sign-off required) |
+| M4-HARD-gate-5 | PM exit verdict delivered to orchestrator | All above gates MET | BLOCKED on gates 1/3/4 |
+
+---
+
+## Gap register (M4-HARD) — updated 2026-06-29
+
+| Gap ID | AC ID | Issue | Resolution |
+|--------|-------|-------|-----------|
+| GAP-HARD-1 | AC-HARD-CONV-2 | Chat message assembler history-slicing is not a standalone testable unit. chatStore.test.ts covers CRUD only, not messages-array construction with history-length cap. | Frontend-engineer must extract the messages-array assembly function (currently inline in ChatView or equivalent) into a named utility (e.g. buildMessagePayload(messages, historyLength)) before QA can write test T-HARD-CONV-002. Escalate to frontend-engineer. |
+| GAP-HARD-2 | AC-HARD-LBL-6 | CLOSED (2026-06-29). QA grep confirmed no hardcoded 48px width assertion in any Playwright spec. Engineer's claim was correct; no update was needed. | RESOLVED. |
+| GAP-HARD-3 | AC-HARD-M5P-3 | CLOSED (2026-06-29). NavRail.tsx M5_ITEMS = [] satisfies AC-HARD-M5P-3 and AC-HARD-M5P-1. | RESOLVED. |
+| GAP-HARD-4 | AC-HARD-SET-5 | SettingsPanel left sub-nav uses plain button elements without explicit onKeyDown arrow-key handler. Arrow-key navigation is not implemented; only Tab/Shift-Tab works. AC-HARD-SET-5 requires arrow-key navigation. | Frontend-engineer must add onKeyDown arrow-key handler to the settings left-nav button group. This is a small a11y fix. |
+| GAP-HARD-5 | AC-HARD-SET-6, AC-HARD-COL-5, AC-HARD-PROV-5 | SettingsPanel.test.tsx and AppShell.test.tsx do not exist. Multiple ACs (SET-6, COL-5, PROV-5) are blocked on these test files. | Frontend-engineer must create these test files. They are the single largest gap in the M4-HARD automated test coverage. QA will write specs once the engineer confirms the component test setup (vitest + testing-library) is in place. |
+| GAP-HARD-6 | AC-HARD-ORD-3 | PARTIAL. The fallback to "chat" for stale M5 section names in localStorage is satisfied trivially (graphStore does not use persist middleware, so localStorage is never read on startup). If persist middleware is added in M5 or later, an explicit guard must be added. | Carry-forward to M5: if graphStore gains persist middleware, add a rehydration guard that maps removed section names to "chat". QA must add T-HARD-ORD-003 at that point. |
+
+---
+
+## Ambiguities flagged to orchestrator (M4-HARD) — resolved status
+
+| AQ ID | Blocks ACs | Question | Resolution |
+|-------|-----------|----------|------|
+| AQ-HARD-1 | AC-HARD-LBL-1, AC-HARD-LBL-4 | Orientation of label relative to icon (horizontal vs vertical). | RESOLVED: frontend-engineer chose vertical (flexDirection: column, icon above label). Active background covers both icon and label (width 64px, height 52px button). AC-HARD-LBL-4 PASS. |
+| AQ-HARD-2 | AC-HARD-M5P-1, AC-HARD-ORD-1 | "search" was in TOP_ITEMS with disabled: true in the old spec. | RESOLVED: current NavRail.tsx has only Chat/Wiki/Sources/Graph in TOP_ITEMS. "search" is absent from TOP_ITEMS and absent from M5_ITEMS (M5_ITEMS = []). AC-HARD-ORD-1 PASS. |

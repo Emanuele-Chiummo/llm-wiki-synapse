@@ -1,11 +1,18 @@
 {
   "nav": {
-    "pages": "Pages",
-    "graph": "Graph",
-    "ingest": "Ingest",
-    "settings": "Settings",
     "chat": "Chat",
-    "chatComingSoon": "Phase 3"
+    "wiki": "Wiki",
+    "pages": "Wiki",
+    "sources": "Sources",
+    "ingest": "Sources",
+    "search": "Search",
+    "graph": "Graph",
+    "lint": "Lint",
+    "review": "Review",
+    "deepSearch": "Deep Search",
+    "settings": "Settings",
+    "chatComingSoon": "Phase 3",
+    "comingSoon": "Coming in M5"
   },
   "ingest": {
     "title": "Ingest Activity",
@@ -52,7 +59,8 @@
     "active": "Active",
     "scope": {
       "vault": "Vault",
-      "global": "Global"
+      "global": "Global",
+      "operation": "Per-operation"
     },
     "type": {
       "local": "Local (Ollama)",
@@ -83,6 +91,80 @@
     "providerSection": "Provider configuration",
     "reset": "Reset settings",
     "resetConfirm": "Reset all settings to defaults?",
+    "nav": {
+      "general": "General",
+      "llmModels": "LLM Models",
+      "embeddings": "Embeddings",
+      "sourceWatch": "Source Watch",
+      "apiMcp": "API + MCP",
+      "output": "Output",
+      "interface": "Interface",
+      "maintenance": "Maintenance",
+      "about": "About"
+    },
+    "llmModels": {
+      "title": "LLM Models",
+      "desc": "One row per provider. Changes take effect immediately. API keys are stored as environment variables — not in this UI.",
+      "addProvider": "Add provider",
+      "providerType": "Type",
+      "modelId": "Model ID",
+      "modelIdPlaceholder": "e.g. claude-sonnet-4-6",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "e.g. https://api.anthropic.com",
+      "scope": "Scope",
+      "add": "Add",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "added": "Provider added.",
+      "deleted": "Provider removed.",
+      "confirmDelete": "Remove this provider?",
+      "fallback": "fallback",
+      "modelIdRequired": "Model ID is required",
+      "lastProviderWarning": "This is the last configured provider. Chat and ingest will fail until a new provider is added."
+    },
+    "embeddings": {
+      "title": "Vector Embeddings",
+      "desc": "Enable semantic search against your wiki. Works with OpenAI-compatible /v1/embeddings endpoints, Ollama native embeddings, and other local models. No API key needed for local models.",
+      "comingSoon": "Vector embeddings configuration — coming in M5."
+    },
+    "apiMcp": {
+      "title": "API + MCP",
+      "desc": "Expose Synapse to your own tools through the local HTTP API, and optionally through the bundled MCP server for agent clients.",
+      "comingSoon": "MCP server configuration — coming in M5."
+    },
+    "output": {
+      "title": "Output Preferences",
+      "desc": "Controls for generated content — language, conversation history length.",
+      "convHistoryTitle": "Conversation History Length",
+      "convHistoryDesc": "Number of prior messages sent to the AI on each request. More = richer context but more tokens.",
+      "convHistoryLabel": "Currently {{count}} messages (about {{turns}} turns)"
+    },
+    "interface": {
+      "title": "Interface",
+      "desc": "Display and layout preferences.",
+      "comingSoon": "Theme and density options — coming in M5."
+    },
+    "maintenance": {
+      "title": "Maintenance",
+      "desc": "Tools for cleaning up the wiki — detect and merge duplicate entities/concepts that the LLM created under different names across re-ingests.",
+      "duplicates": "Detect duplicate entities / concepts",
+      "duplicatesDesc": "Asks the LLM to scan all entity / concept pages and group ones that likely refer to the same topic under different names (English vs Italian, plural vs singular, abbreviation vs full form). You confirm each group before merging.",
+      "duplicatesScan": "Scan for duplicates",
+      "duplicatesComingSoon": "Duplicate detection — coming in M5.",
+      "dangerZone": "Danger Zone",
+      "reset": "Reset settings",
+      "resetDesc": "Clears all locally stored settings and panel layout.",
+      "resetConfirm": "Reset all settings to defaults?"
+    },
+    "about": {
+      "title": "About",
+      "version": "Version",
+      "sprint": "Sprint",
+      "milestone": "Milestone",
+      "links": "Resources",
+      "github": "Source code",
+      "docs": "Documentation"
+    },
     "import": {
       "title": "Scheduled folder import",
       "enabled": "Enabled",
@@ -134,7 +216,8 @@
     "costLabel": "${{cost}}",
     "reasoning": "Reasoning",
     "thinking": "thinking…",
-    "usingProvider": "{{provider}}"
+    "usingProvider": "{{provider}}",
+    "ragActive": "Answers from your wiki"
   },
   "common": {
     "loading": "Loading…",

@@ -1,23 +1,41 @@
 /**
- * NavRail.tsx — persistent ~48px left icon rail (ADR-0018 §1 / F1-NAV).
+ * NavRail.tsx — persistent ~72px left icon rail with persistent text labels.
  *
- * Always visible; outside and to the left of the section content area.
- * Items: Pages / Graph / Ingest(+badge) / Chat (disabled, Phase 3) + Settings (pinned bottom).
- * Active item = soft tint highlight (#1f2937).
- * INVARIANT I3: reads activeSection (scalar) + setActiveSection only from graphStore;
- *               ingest badge reads from useIngestRunningCount() (separate hook, not graphStore).
- * Keyboard: role="navigation", arrow key nav, aria-current for active.
- * i18n: all labels are keys (ADR-0018 §6 / AC-F1-NAV-5).
+ * Order (top → bottom):
+ *   Logo (branding, non-nav)
+ *   Chat · Wiki · Sources · Graph  (TOP_ITEMS)
+ *   [spacer]
+ *   Settings  (pinned bottom)
+ *
+ * CHANGE F1-HARD-M5-PLACEHOLDER: Search, Lint, Review, Deep Search removed from
+ * rail entirely (Point B ruling). M5_ITEMS emptied; separator removed.
+ * i18n keys nav.search / nav.lint / nav.review / nav.deepSearch / nav.comingSoon
+ * are RETAINED in en.json/it.json — do NOT delete them.
+ * The Section type in graphStore.ts is UNCHANGED.
+ *
+ * CHANGE F1-HARD-NAV-LABELS: rail widened to 72px; each button renders the icon
+ * SVG with a <span> caption below it (10px, centered, truncate with ellipsis).
+ * Button height increased to 52px to accommodate icon + label.
+ *
+ * INVARIANT I3: reads activeSection (scalar) + setActiveSection only from graphStore.
+ * i18n: all labels are translation keys.
  */
 
 import { useCallback, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useGraphStore } from "../../store/graphStore";
-import { selectActiveSection, selectSetActiveSection } from "../../store/graphStore";
+import { useGraphStore, selectActiveSection, selectSetActiveSection } from "../../store/graphStore";
 import type { Section } from "../../store/graphStore";
 import { useIngestRunningCount } from "../../store/ingestStore";
 
-// ─── Inline SVG icons (lucide-style outline, 20×20) ─────────────────────────
+// ─── Icons ────────────────────────────────────────────────────────────────────
+
+function IconMessageSquare() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  );
+}
 
 function IconFiles() {
   return (
@@ -25,16 +43,6 @@ function IconFiles() {
       <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
       <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
       <path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
-    </svg>
-  );
-}
-
-function IconShare() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
     </svg>
   );
 }
@@ -49,10 +57,12 @@ function IconDownload() {
   );
 }
 
-function IconMessageSquare() {
+function IconShare() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
     </svg>
   );
 }
@@ -72,20 +82,59 @@ interface RailItem {
   id: Section;
   icon: ReactNode;
   labelKey: string;
-  disabled?: boolean;
-  disabledLabel?: string;
 }
 
+/**
+ * Active items for M4. Search/Lint/Review/Deep-Search removed per F1-HARD-M5-PLACEHOLDER.
+ * i18n keys for removed items are retained in en.json/it.json for M5.
+ */
 const TOP_ITEMS: RailItem[] = [
-  { id: "pages",   icon: <IconFiles />,         labelKey: "nav.pages" },
-  { id: "graph",   icon: <IconShare />,         labelKey: "nav.graph" },
-  { id: "ingest",  icon: <IconDownload />,      labelKey: "nav.ingest" },
-  { id: "chat",    icon: <IconMessageSquare />, labelKey: "nav.chat" },
+  { id: "chat",   icon: <IconMessageSquare />, labelKey: "nav.chat" },
+  { id: "pages",  icon: <IconFiles />,        labelKey: "nav.wiki" },
+  { id: "ingest", icon: <IconDownload />,     labelKey: "nav.sources" },
+  { id: "graph",  icon: <IconShare />,        labelKey: "nav.graph" },
 ];
+
+/**
+ * M5_ITEMS intentionally empty in M4.
+ * M5 will populate: Search, Lint, Review, Deep Search.
+ * DO NOT remove the i18n keys: nav.search, nav.lint, nav.review, nav.deepSearch, nav.comingSoon.
+ */
+const M5_ITEMS: RailItem[] = [];
 
 const BOTTOM_ITEMS: RailItem[] = [
   { id: "settings", icon: <IconSettings />, labelKey: "nav.settings" },
 ];
+
+// ─── Logo ─────────────────────────────────────────────────────────────────────
+
+function Logo() {
+  return (
+    <div
+      aria-label="Synapse"
+      style={{
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        background: "linear-gradient(135deg, #1f6feb 0%, #58a6ff 100%)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        margin: "4px 0 8px",
+      }}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="2"/>
+        <path d="M12 2a10 10 0 0 1 10 10"/>
+        <path d="M12 22a10 10 0 0 1-10-10"/>
+        <path d="M2 12h4m12 0h4"/>
+        <path d="m4.93 4.93 2.83 2.83m8.48 8.48 2.83 2.83"/>
+        <path d="m19.07 4.93-2.83 2.83M7.76 16.24l-2.83 2.83"/>
+      </svg>
+    </div>
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -97,16 +146,15 @@ export function NavRail() {
 
   const handleItemClick = useCallback(
     (item: RailItem) => {
-      if (item.disabled) return;
       setActiveSection(item.id);
     },
     [setActiveSection],
   );
 
-  // Arrow-key navigation within the rail (WCAG 2.1)
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLElement>) => {
-      const allItems = [...TOP_ITEMS, ...BOTTOM_ITEMS].filter((i) => !i.disabled);
+      // Only iterate currently-rendered items (M5_ITEMS is empty in M4)
+      const allItems = [...TOP_ITEMS, ...M5_ITEMS, ...BOTTOM_ITEMS];
       const currentIdx = allItems.findIndex((i) => i.id === activeSection);
       if (e.key === "ArrowDown" || e.key === "ArrowRight") {
         e.preventDefault();
@@ -124,11 +172,11 @@ export function NavRail() {
   return (
     <nav
       className="nav-rail"
-      aria-label={t("nav.pages") + " navigation"}
+      aria-label="Main navigation"
       data-testid="nav-rail"
       onKeyDown={handleKeyDown}
       style={{
-        width: 48,
+        width: 72,
         flexShrink: 0,
         display: "flex",
         flexDirection: "column",
@@ -141,8 +189,11 @@ export function NavRail() {
         overflow: "hidden",
       }}
     >
+      {/* Branding */}
+      <Logo />
+
       {/* Top items */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, alignItems: "center", width: "100%" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center", width: "100%" }}>
         {TOP_ITEMS.map((item) => (
           <RailButton
             key={item.id}
@@ -150,17 +201,13 @@ export function NavRail() {
             isActive={item.id === activeSection}
             badge={item.id === "ingest" ? runningCount : 0}
             label={t(item.labelKey)}
-            disabledLabel={item.disabledLabel ? t(item.disabledLabel) : undefined}
             onClick={() => handleItemClick(item)}
           />
         ))}
       </div>
 
-      {/* Separator */}
-      <div
-        aria-hidden="true"
-        style={{ width: 28, height: 1, background: "#21262d", flexShrink: 0, margin: "4px 0" }}
-      />
+      {/* Spacer */}
+      <div style={{ flex: 1 }} />
 
       {/* Bottom items (pinned) */}
       <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center", width: "100%" }}>
@@ -179,31 +226,26 @@ export function NavRail() {
   );
 }
 
-// ─── Rail button sub-component ────────────────────────────────────────────────
+// ─── Rail button ──────────────────────────────────────────────────────────────
 
 interface RailButtonProps {
   item: RailItem;
   isActive: boolean;
   badge: number;
   label: string;
-  disabledLabel?: string | undefined;
   onClick: () => void;
 }
 
-function RailButton({ item, isActive, badge, label, disabledLabel, onClick }: RailButtonProps) {
-  const isDisabled = item.disabled === true;
-
+function RailButton({ item, isActive, badge, label, onClick }: RailButtonProps) {
   return (
     <button
       id={`nav-rail-${item.id}`}
-      className={`nav-rail__item${isActive ? " nav-rail__item--active" : ""}${isDisabled ? " nav-rail__item--disabled" : ""}`}
+      className={`nav-rail__item${isActive ? " nav-rail__item--active" : ""}`}
       data-section={item.id}
-      aria-label={isDisabled && disabledLabel ? `${label} — ${disabledLabel}` : label}
+      aria-label={label}
       aria-current={isActive ? "page" : undefined}
-      aria-disabled={isDisabled}
-      disabled={isDisabled}
-      tabIndex={isActive ? 0 : isDisabled ? -1 : 0}
-      title={isDisabled && disabledLabel ? `${label} (${disabledLabel})` : label}
+      tabIndex={0}
+      title={label}
       onClick={onClick}
       style={{
         position: "relative",
@@ -211,21 +253,37 @@ function RailButton({ item, isActive, badge, label, disabledLabel, onClick }: Ra
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        width: 40,
-        height: 40,
+        width: 64,
+        height: 52,
         border: "none",
         borderRadius: 8,
         background: isActive ? "#1f2937" : "transparent",
-        color: isActive ? "#e6edf3" : isDisabled ? "#30363d" : "#6e7681",
-        cursor: isDisabled ? "not-allowed" : "pointer",
-        padding: 0,
+        color: isActive ? "#e6edf3" : "#6e7681",
+        cursor: "pointer",
+        padding: "6px 4px 4px",
+        gap: 3,
         transition: "background 0.1s ease, color 0.1s ease",
         outline: isActive ? "1px solid #21262d" : "none",
       }}
     >
       {item.icon}
 
-      {/* Running badge on ingest */}
+      <span
+        className="nav-rail__label"
+        style={{
+          fontSize: 10,
+          lineHeight: 1.2,
+          textAlign: "center",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          maxWidth: "100%",
+          userSelect: "none",
+        }}
+      >
+        {label}
+      </span>
+
       {badge > 0 && (
         <span
           aria-label={`${badge} running`}
