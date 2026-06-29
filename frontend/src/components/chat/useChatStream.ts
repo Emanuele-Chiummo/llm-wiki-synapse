@@ -139,6 +139,7 @@ export function useChatStream(): UseChatStreamReturn {
               total_cost_usd: event.total_cost_usd,
               iterations_used: event.iterations_used,
               finish_reason: event.finish_reason,
+              citations_count: event.citations?.length ?? 0,
             });
 
             // Build the settled message from the accumulated streaming buffer.
@@ -159,6 +160,9 @@ export function useChatStream(): UseChatStreamReturn {
               output_tokens: event.output_tokens,
               total_cost_usd: event.total_cost_usd,
               created_at: new Date().toISOString(),
+              // ADR-0022 §2.4: additive citations field from done event.
+              // Empty array when backend omits the field (non-breaking for old backends).
+              citations: event.citations ?? [],
             };
 
             finalizeTurn(msg, usage);

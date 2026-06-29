@@ -128,6 +128,7 @@ describe("chatStore — finalizeTurn", () => {
       output_tokens: 5,
       total_cost_usd: 0.0001,
       created_at: new Date().toISOString(),
+      citations: [],
     };
     const usage = { inputTokens: 10, outputTokens: 5, totalCostUsd: 0.0001 };
 
@@ -154,6 +155,7 @@ describe("chatStore — finalizeTurn", () => {
       output_tokens: 50,
       total_cost_usd: 0.0042,
       created_at: new Date().toISOString(),
+      citations: [],
     };
     useChatStore.getState().finalizeTurn(msg, {
       inputTokens: 100,
@@ -179,6 +181,7 @@ describe("chatStore — clearStream", () => {
       output_tokens: 0,
       total_cost_usd: 0,
       created_at: new Date().toISOString(),
+      citations: [],
     };
     useChatStore.getState().appendMessage(msg);
     useChatStore.getState().appendToken("streaming...");

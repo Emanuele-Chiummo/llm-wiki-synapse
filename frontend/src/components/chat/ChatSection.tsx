@@ -55,6 +55,7 @@ export function ChatSection(): ReactNode {
         output_tokens: 0,
         total_cost_usd: 0,
         created_at: new Date().toISOString(),
+        citations: [],
       };
       appendMessage(userMsg);
 

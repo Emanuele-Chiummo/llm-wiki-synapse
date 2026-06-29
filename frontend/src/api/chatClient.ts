@@ -1,5 +1,5 @@
 /**
- * chatClient.ts — HTTP client for chat endpoints (ADR-0019 §2.2 / F6).
+ * chatClient.ts — HTTP client for chat endpoints (ADR-0019 §2.2 / F6 / ADR-0022 §2.4/§2.7).
  *
  * INVARIANT I6: no provider_type / model_id sent from client.
  * INVARIANT I3: this module has zero parse logic — it only transports bytes.
@@ -10,9 +10,10 @@
  *   GET  /conversations/{id}/messages
  *   DELETE /conversations/{id}
  *   POST /chat/stream  (NDJSON ReadableStream — consumed by useChatStream)
+ *   POST /ingest/from-text  (save assistant message to wiki — AC-F6-5)
  */
 
-import type { ConversationSummary, ChatMessage } from "../store/chatStore";
+import type { ConversationSummary, ChatMessage, CitationRef } from "../store/chatStore";
 
 const API_BASE = (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
 
@@ -63,7 +64,16 @@ export async function fetchMessages(
     signal: signal ?? null,
   });
   if (!res.ok) throw new Error(`GET /conversations/${conversationId}/messages: ${res.status}`);
-  return res.json() as Promise<MessageListResponse>;
+  const data = (await res.json()) as MessageListResponse;
+  // Normalize: messages loaded from the API may predate the citations column (ADR-0022 §2.4).
+  // Ensure citations is always an array so the rest of the UI can rely on it without null checks.
+  return {
+    ...data,
+    items: data.items.map((m) => ({
+      ...m,
+      citations: Array.isArray(m.citations) ? m.citations : [],
+    })),
+  };
 }
 
 export async function deleteConversation(
@@ -119,6 +129,12 @@ export interface DoneEvent {
   total_cost_usd: number;
   iterations_used: number;
   finish_reason: "stop" | "length" | "timeout";
+  /**
+   * Additive citation field from ADR-0022 §2.4.
+   * Compact projection: [{n, id, title, slug}]. Absent or empty for messages
+   * with no retrieved context. Non-breaking — old backends omit this field.
+   */
+  citations?: CitationRef[];
 }
 
 export interface ErrorEvent {
@@ -150,4 +166,54 @@ export async function openChatStream(
     throw new Error(`POST /chat/stream: ${res.status}`);
   }
   return res;
+}
+
+// ─── Save to wiki (AC-F6-5 / ADR-0022 §2.7) ──────────────────────────────────
+
+/**
+ * Response from POST /ingest/from-text.
+ * The backend reuses the existing ingest/from-text seam (ADR-0022 §2.7).
+ * Centralised here so a field rename is a one-line change.
+ */
+export interface SaveToWikiResponse {
+  /** Human-readable title of the generated wiki page. */
+  page_title: string;
+  /** Obsidian [[wikilink]] for the generated page. */
+  wikilink: string;
+}
+
+/**
+ * saveToWiki — POST the settled assistant message text to POST /ingest/from-text.
+ *
+ * Reuses the existing ingest seam (ADR-0019 §2.7 / ADR-0022 §2.7 / I1/I6).
+ * The backend queues the text for the standard analyze→generate ingest loop.
+ *
+ * @param text — the raw assistant message content (may include <think>…</think>)
+ * @param vaultId — optional vault scoping
+ * @param signal — optional AbortSignal for cancellation
+ */
+export async function saveToWiki(
+  text: string,
+  vaultId?: string | null,
+  signal?: AbortSignal,
+): Promise<SaveToWikiResponse> {
+  const body: Record<string, unknown> = { text };
+  if (vaultId) body["vault_id"] = vaultId;
+  const res = await fetch(`${API_BASE}/ingest/from-text`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const payload = (await res.json()) as { detail?: string };
+      if (payload.detail) detail = payload.detail;
+    } catch {
+      // ignore JSON parse error; use status code as message
+    }
+    throw new Error(detail);
+  }
+  return res.json() as Promise<SaveToWikiResponse>;
 }
