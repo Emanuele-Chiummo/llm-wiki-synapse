@@ -46,12 +46,11 @@
     "upload": {
       "label": "Carica documento",
       "drop": "Trascina un file qui, o clicca per scegliere",
-      "hint": "Solo Markdown / testo semplice (.md, .txt, .markdown)",
-      "m5Note": "PDF, DOCX e altri formati — disponibili in M5",
+      "hint": ".md · .txt · .markdown · .pdf · .docx · .pptx · .xlsx",
       "toastStarted": "Caricamento in coda: {{file}}",
       "toastError": "Caricamento fallito: {{detail}}",
       "tooLarge": "File troppo grande (max 25 MB).",
-      "badType": "Tipo di file non supportato. Accettati solo .md, .txt, .markdown."
+      "badType": "Tipo di file non supportato. Accettati: .md, .txt, .markdown, .pdf, .docx, .pptx, .xlsx"
     }
   },
   "provider": {
@@ -255,6 +254,26 @@
       "max_iter_reached": "Iterazioni massime",
       "budget_exhausted": "Budget esaurito",
       "error": "Errore"
+    }
+  },
+  "review": {
+    "title": "Coda Revisione",
+    "hint": "Pagine generate di recente dalla pipeline di importazione — approva, salta o avvia una ricerca approfondita.",
+    "empty": "Nessun elemento in attesa. Importa dei documenti per popolare la coda di revisione.",
+    "loadMore": "Carica altri",
+    "refresh": "Aggiorna",
+    "noPage": "(nessuna pagina collegata)",
+    "noQuery": "Nessuna query suggerita generata",
+    "approve": "Approva",
+    "skip": "Salta",
+    "deepResearch": "Ricerca Profonda",
+    "deepResearchStarted": "Ricerca approfondita avviata.",
+    "viewRun": "Visualizza esecuzione",
+    "searxngUnavailable": "Ricerca approfondita non disponibile: SEARXNG_URL non configurato nel backend.",
+    "itemType": {
+      "new_page": "Nuova pagina",
+      "update_page": "Aggiornata",
+      "deep_research_candidate": "Candidato ricerca"
     }
   },
   "common": {

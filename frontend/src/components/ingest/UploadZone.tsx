@@ -1,7 +1,11 @@
 /**
  * UploadZone.tsx — drag-and-drop + browse upload area (ADR-0020 §3 / Feature U).
  *
- * - Accepts .md / .txt / .markdown (client-side guard for UX; backend is authoritative)
+ * F12 (ADR-0025 §4, AC-F12-2): now accepts PDF, DOCX, PPTX, XLSX in addition to
+ * markdown/plain-text. Binary files are extracted server-side on upload.
+ *
+ * - Accepts .md / .txt / .markdown / .pdf / .docx / .pptx / .xlsx
+ *   (client-side guard for UX; backend is authoritative — 415 for unknown types)
  * - Rejects others client-side with a friendly message (backs up the server 415)
  * - Size check: warn client-side if > 25 MB (backs up the server 413)
  * - On drop/select → POST /ingest/upload (multipart) → success toast + fetchFresh
@@ -22,9 +26,14 @@ import { showToast } from "../common/Toast";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ACCEPTED_EXTENSIONS = new Set([".md", ".txt", ".markdown"]);
+// F12: binary formats accepted on upload; backend extracts text synchronously (ADR-0025 §4.2).
+// Text formats are ingested directly by the watcher; binary companion .extracted.md is ingested.
+const ACCEPTED_EXTENSIONS = new Set([
+  ".md", ".txt", ".markdown",
+  ".pdf", ".docx", ".pptx", ".xlsx",
+]);
 const MAX_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB client-side cap (mirrors ADR-0020 §2.4)
-const ACCEPT_ATTR = ".md,.txt,.markdown";
+const ACCEPT_ATTR = ".md,.txt,.markdown,.pdf,.docx,.pptx,.xlsx";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -183,14 +192,9 @@ export function UploadZone({ onSuccess }: UploadZoneProps) {
         {uploading ? t("common.loading") : t("ingest.upload.drop")}
       </span>
 
-      {/* Accepted types hint */}
-      <span style={{ fontSize: 11, color: "#484f58" }}>
+      {/* Accepted types hint (F12: PDF/DOCX/PPTX/XLSX now accepted — ADR-0025 §4) */}
+      <span style={{ fontSize: 11, color: "#484f58" }} data-testid="upload-hint">
         {t("ingest.upload.hint")}
-      </span>
-
-      {/* M5 note */}
-      <span style={{ fontSize: 10, color: "#30363d" }}>
-        {t("ingest.upload.m5Note")}
       </span>
     </div>
   );

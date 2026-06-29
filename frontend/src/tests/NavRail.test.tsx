@@ -1,14 +1,16 @@
 /**
- * NavRail.test.tsx — vitest unit tests for NavRail (M4-HARD + M5 Phase 2 update).
+ * NavRail.test.tsx — vitest unit tests for NavRail (M4-HARD + M5 Phase 3 update).
  *
  * M5 Phase 2 (F10): Deep Search is now an ACTIVE nav item (AC-F10-8a).
+ * M5 Phase 3 (F9): Review is now an ACTIVE nav item (AC-F9-5).
  *
  * Covers:
  *   AC-HARD-LBL-7: each rendered item has both an SVG icon and a visible label span.
- *   AC-HARD-M5P-6 (updated for M5): search/lint/review remain absent; deep-search IS present.
- *   AC-HARD-ORD-1 (updated for M5): exactly 6 interactive items
- *                  (Chat/Wiki/Sources/Graph/DeepSearch/Settings).
+ *   AC-HARD-M5P-6 (updated for M5 Phase 3): search/lint absent; deep-search + review present.
+ *   AC-HARD-ORD-1 (updated for M5 Phase 3): exactly 7 interactive items
+ *                  (Chat/Wiki/Sources/Graph/Review/DeepSearch/Settings).
  *   AC-F10-8a: "Deep Search" nav item renders in the rail.
+ *   AC-F9-5: "Review" nav item renders in the rail.
  *
  * Does NOT test the Playwright E2E resize path (AC-HARD-LBL-6 / AC-F1-7) — that is
  * a Playwright concern.
@@ -55,17 +57,17 @@ function renderNavRail() {
   return render(<NavRail />);
 }
 
-// ─── AC-HARD-ORD-1 (M5 update): exactly 6 interactive nav items ──────────────
+// ─── AC-HARD-ORD-1 (M5 Phase 3 update): exactly 7 interactive nav items ──────
 
-describe("NavRail — item count and order (AC-HARD-ORD-1 M5, AC-F10-8a)", () => {
+describe("NavRail — item count and order (AC-HARD-ORD-1 M5 Phase3, AC-F10-8a, AC-F9-5)", () => {
   beforeEach(() => {
     renderNavRail();
   });
 
-  it("renders exactly 6 interactive buttons (Chat/Wiki/Sources/Graph/DeepSearch/Settings)", () => {
+  it("renders exactly 7 interactive buttons (Chat/Wiki/Sources/Graph/Review/DeepSearch/Settings)", () => {
     const buttons = screen.getAllByRole("button");
-    // 6 nav buttons: chat, pages, ingest, graph, deep-search, settings
-    expect(buttons).toHaveLength(6);
+    // 7 nav buttons: chat, pages, ingest, graph, review, deep-search, settings
+    expect(buttons).toHaveLength(7);
   });
 
   it("renders a Chat button", () => {
@@ -95,14 +97,14 @@ describe("NavRail — item count and order (AC-HARD-ORD-1 M5, AC-F10-8a)", () =>
   });
 });
 
-// ─── AC-HARD-M5P-6 (M5 update) + AC-F10-8a: deep-search IS present ──────────
+// ─── AC-HARD-M5P-6 (M5 Phase 3 update) + AC-F10-8a + AC-F9-5 ────────────────
 
-describe("NavRail — M5 Phase 2 items (AC-HARD-M5P-6 updated, AC-F10-8a)", () => {
+describe("NavRail — M5 Phase 3 items (AC-HARD-M5P-6 updated, AC-F10-8a, AC-F9-5)", () => {
   beforeEach(() => {
     renderNavRail();
   });
 
-  it("does NOT render data-section='search' (not yet active in M5 Phase 2)", () => {
+  it("does NOT render data-section='search' (not yet active in M5 Phase 3)", () => {
     expect(document.querySelector("[data-section='search']")).toBeNull();
   });
 
@@ -110,12 +112,11 @@ describe("NavRail — M5 Phase 2 items (AC-HARD-M5P-6 updated, AC-F10-8a)", () =
     expect(document.querySelector("[data-section='lint']")).toBeNull();
   });
 
-  it("does NOT render data-section='review' (not yet active in M5 Phase 2)", () => {
-    expect(document.querySelector("[data-section='review']")).toBeNull();
+  it("DOES render data-section='review' (AC-F9-5 — Review active in M5 Phase 3)", () => {
+    expect(document.querySelector("[data-section='review']")).not.toBeNull();
   });
 
   it("DOES render data-section='deep-search' (AC-F10-8a — Deep Search active in M5 Phase 2)", () => {
-    // Deep Search is now an active nav item per EC-M5-HCP-3 / AC-F10-8a
     expect(document.querySelector("[data-section='deep-search']")).not.toBeNull();
   });
 

@@ -301,18 +301,25 @@ describe("AppShell — section navigation at shell level", () => {
     expect(screen.getByTestId("section-settings")).toBeTruthy();
   });
 
-  it("the nav rail has exactly 5 buttons (Chat/Wiki/Sources/Graph/Settings)", () => {
+  it("the nav rail has the expected buttons (stub NavRail with 5 items — Chat/Wiki/Sources/Graph/Settings)", () => {
+    // NOTE: This test uses a stub NavRail (vi.mock above) with 5 items for isolation.
+    // The real NavRail has 7 items in M5 Phase 3 (+ Review + Deep Search).
+    // Real item count is tested in NavRail.test.tsx (AC-HARD-ORD-1).
     render(<AppShell />);
     const navRail = screen.getByTestId("nav-rail");
     const buttons = navRail.querySelectorAll("button");
     expect(buttons).toHaveLength(5);
   });
 
-  it("nav rail does NOT contain disabled/M5 buttons", () => {
+  it("nav rail stub does NOT contain search/lint/review/deep-search (stub isolation)", () => {
+    // NOTE: The stub NavRail (vi.mock) only renders the 5 primary items.
+    // M5 Phase 3 items (review, deep-search) are active in the real NavRail.
+    // This test is about the AppShell isolation mock, not the real NavRail.
     render(<AppShell />);
     const navRail = screen.getByTestId("nav-rail");
     expect(navRail.querySelector("[data-section='search']")).toBeNull();
     expect(navRail.querySelector("[data-section='lint']")).toBeNull();
+    // These ARE active in the real NavRail (M5 Phase 3) but not in this stub:
     expect(navRail.querySelector("[data-section='review']")).toBeNull();
     expect(navRail.querySelector("[data-section='deep-search']")).toBeNull();
   });

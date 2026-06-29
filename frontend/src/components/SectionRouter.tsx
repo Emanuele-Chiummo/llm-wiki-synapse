@@ -25,6 +25,7 @@ import { IngestRunDetail } from "./ingest/IngestRunDetail";
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { ChatSection } from "./chat/ChatSection";
 import { DeepSearchView } from "./research/DeepSearchView";
+import { ReviewQueueView } from "./review/ReviewQueueView";
 
 // ─── M5 placeholder ───────────────────────────────────────────────────────────
 
@@ -131,8 +132,8 @@ export function SectionRouter() {
 
   if (activeSection === "review") {
     return (
-      <div style={{ flex: 1, display: "flex", background: "#0d1117" }} data-testid="section-review">
-        <ComingSoonPlaceholder titleKey="nav.review" descKey="nav.comingSoon" />
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "#0d1117" }} data-testid="section-review">
+        <ReviewQueueView />
       </div>
     );
   }

@@ -231,6 +231,49 @@ export interface ResearchStartResponse {
   run_id: string;
 }
 
+// ─── GET /review/queue + POST /review/queue/{id}/… (F9, ADR-0025 §3.5) ────────
+
+export type ReviewItemType =
+  | "new_page"
+  | "update_page"
+  | "deep_research_candidate";
+
+export type ReviewItemStatus =
+  | "pending"
+  | "approved"
+  | "skipped"
+  | "deep_researched";
+
+/** One review_items row as returned by the API (ADR-0025 §3.5, AC-F9-5). */
+export interface ReviewItem {
+  id: string;
+  vault_id: string;
+  page_id: string | null;
+  /** Convenience join from pages.title (AC-F9-5). */
+  page_title: string | null;
+  item_type: ReviewItemType;
+  status: ReviewItemStatus;
+  /** Newline-separated 1–3 follow-up questions; null when generation failed (I7). */
+  pre_generated_query: string | null;
+  /** Set when the Deep-Research action fires (AC-F10-5); null otherwise. */
+  deep_research_run_id: string | null;
+  created_at: string;   // ISO-8601
+  reviewed_at: string | null;
+}
+
+export interface ReviewQueueResponse {
+  items: ReviewItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** 202 response for POST /review/queue/{id}/deep-research */
+export interface ReviewDeepResearchResponse {
+  review_item_id: string;
+  run_id: string;
+}
+
 // ─── GET/PUT /import-schedule (ADR-0020 §4.6) ────────────────────────────────
 
 export type ImportFrequency = "15m" | "1h" | "6h" | "daily";
