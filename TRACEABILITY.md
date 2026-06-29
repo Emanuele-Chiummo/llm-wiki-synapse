@@ -1,6 +1,6 @@
 # Synapse — Traceability Matrix
 > Maintained by: functional-analyst (stub), qa-test-engineer (fills Test ID + Status columns)
-> Last updated: 2026-06-29 (Sprint 5 / v0.5 — M5 Phase 4 ACs flipped to GREEN; tech-writer docs gate)
+> Last updated: 2026-06-29 (Sprint 5 / v0.5 — M5 Phase 5 ACs flipped to GREEN; M5 milestone docs consolidation; tech-writer docs gate)
 > Source of truth for feature IDs: CLAUDE.md §4
 > User stories + ACs: docs/sprints/v0.1-stories.md, docs/sprints/v0.2-stories.md
 > Sprint scope + Exit Criteria (EC-x): docs/sprints/v0.1-scope.md §5, docs/sprints/v0.2-scope.md §7
@@ -1498,6 +1498,41 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 
 ---
 
+### Phase 5 — F1-MCP-UI: Read-only MCP server introspection endpoint + Settings panel
+
+> ACs: AC-F1-MCP-UI-1..10 as defined by PM Amendment A1 / ADR-0027.
+> QA verdict: PASS-WITH-NOTES (688 pytest / 557 vitest — docs/sprints/v0.5-qa-phase5.md).
+> Architect verdict: APPROVE (unconditional — docs/sprints/v0.5-architect-review-phase5.md).
+
+| AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|----------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F1-MCP-UI-1 | S-F1-MCP-1 | EC-M5-22 | D4 | I9 | backend/tests/test_mcp_info.py | `test_mcp_info_returns_200`, `test_mcp_info_response_shape`, `test_mcp_info_tool_count_ge_4` — QA Phase 5 §2 | — | GREEN |
+| AC-F1-MCP-UI-2 | S-F1-MCP-1 | EC-M5-22 | — | I6 | backend/tests/test_mcp_info.py | `test_mcp_info_server_name_is_synapse`, `test_mcp_info_entry_point_command_from_settings`, `test_mcp_info_transport_from_settings`, `test_mcp_info_tools_match_live_registry`, `test_mcp_info_tool_descriptions_match_live_registry`, `test_mcp_info_input_schema_matches_live_registry` — QA Phase 5 §2 | — | GREEN |
+| AC-F1-MCP-UI-3 | S-F1-MCP-2 | EC-M5-22 | — | I3 | frontend/src/tests/SettingsPanel.test.tsx §11 | loading state, error state, no comingSoon key — QA Phase 5 §2 | — | GREEN |
+| AC-F1-MCP-UI-4 | S-F1-MCP-2 | EC-M5-22 | — | I6 | frontend/src/tests/SettingsPanel.test.tsx §11, frontend/src/tests/mcpClient.test.ts | snippet content, server_name key, tokenised command+args; Claude Desktop snippet tokenisation contract (6 tests) — QA Phase 5 §2 | — | GREEN |
+| AC-F1-MCP-UI-5 | S-F1-MCP-2 | EC-M5-22 | — | I6, I9 | frontend/src/tests/SettingsPanel.test.tsx §11 | 4 tool names rendered, param counts via data-param-count — QA Phase 5 §2 | — | GREEN |
+| AC-F1-MCP-UI-6 | S-F1-MCP-2 | EC-M5-22 | — | — | frontend/src/tests/SettingsPanel.test.tsx §11 (grep guard) | Python key-parity check (automated inline); grep confirms no apiMcp.comingSoon key — QA Phase 5 §2 | — | GREEN |
+| AC-F1-MCP-UI-7 | S-F1-MCP-1 | EC-M5-22 | — | I9 | Code inspection (backend/app/main.py:1626-1652; frontend/src/components/settings/SettingsPanel.tsx) | handler calls only `await _mcp_server.list_tools()`, no DB/Qdrant; frontend has no MCP call path — QA Phase 5 §2, §4 | — | GREEN |
+| AC-F1-MCP-UI-8 | S-F1-MCP-1 | EC-M5-22 | D4 | I8 | backend/tests/test_docs.py (grep) | grep confirms `/mcp/info`, `McpInfoResponse`, `McpToolInfo` in docs/api/openapi.json — QA Phase 5 §5 | — | GREEN |
+| AC-F1-MCP-UI-9 | S-F1-MCP-2 | EC-M5-22 | D5 | I8 | frontend/e2e/shell-m5-phase5-mcp-ui.spec.ts | Playwright spec created; PNG capture pending live stack (`docs/screens/settings-api-mcp.png`) — QA Phase 5 NOTE-1 | — | PENDING-LIVE |
+| AC-F1-MCP-UI-10 | S-F1-MCP-1 | EC-M5-22 | — | I6 | backend/tests/test_mcp_info.py; frontend/src/tests/SettingsPanel.test.tsx §11 | 14 backend tests PASS (HTTP 200, tool_count >= 4, server_name == "synapse", entry_point_command non-empty); copy button present; 4 tools rendered — QA Phase 5 §2 | — | GREEN |
+
+Note: AC-F1-MCP-UI-1..8 and AC-F1-MCP-UI-10: GREEN. AC-F1-MCP-UI-9: PENDING-LIVE (screenshot only —
+code-complete, unit-tested, non-blocking). QA Phase 5 baseline: 688 pytest (no regressions), 557 vitest (no
+regressions). i18n `apiMcp.comingSoon` key fully retired from en.json + it.json (NOTE-2). Nothing hardcoded
+confirmed by QA §3 (I6/I9). Do-NOT list (ADR-0027 §4) confirmed clean by architect review (unconditional APPROVE).
+D2 unchanged (no DB table, no migration). D4 zero-drift (QA Phase 5 §5).
+
+---
+
+### Phase 5 — D7: ADR-0027
+
+| AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|----------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-D7-0027-1 | S-D7-1 | EC-M5-22 | D7 | I6, I8, I9 | backend/tests/test_docs.py (ADR file exists + non-empty + I6/I9 reference) | ADR-0027 file present (`docs/adr/0027-mcp-info-ui.md`); indexed in docs/adr/README.md; implementation matched design — no amendment required (architect review Phase 5) — QA Phase 5 §2 | — | GREEN |
+
+---
+
 ## M5 Exit Criteria coverage summary
 
 | EC | Description (abbreviated) | Covering ACs | Status |
@@ -1518,12 +1553,13 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 | EC-M5-14 | vault/wiki/ valid Obsidian vault after all M5 ops; test_obsidian_check.py 15/15 green | AC-F12-4, AC-F13-4 | GREEN — AC-F12-4 GREEN (Phase 3 gate); AC-F13-4 GREEN (Phase 4 gate; T-CD-024b byte-identical frontmatter gate PASS; T-CD-025 prune-on-disk PASS; dead wikilinks fully cleaned T-CD-021) |
 | EC-M5-15 | deep-research.mmd + cascade-delete.mmd: present, valid Mermaid, pass mmdc CI, reviewed by architect + tech-writer | AC-D3-DR-1, AC-D3-CD-1, AC-D3-CI-1 | PARTIAL — deep-research.mmd GREEN (Phase 2 gate); cascade-delete.mmd GREEN (Phase 4 gate; present, valid sequenceDiagram, architect-reviewed, DEFECT-F13-002 fix annotated); mmdc CI DEFERRED (GAP-v0.5-3 carry-forward) |
 | EC-M5-16 | Playwright captures ≥4 new M5 PNGs committed; CF-HARD-1 recaptured; make screenshots exits 0 | AC-D5-M5-1, AC-D5-M5-2, AC-D5-M5-3 | PENDING |
-| EC-M5-17 | D2 regenerated (includes deep_research_runs, deep_research_sources, review_items); D4 regenerated (all new endpoints); zero drift | AC-F10-6, AC-F9-1, AC-F13-5 + make er + make openapi | GREEN — D2 zero-drift (Phase 3 gate; 12 tables; no F13 migration); D4 zero-drift (Phase 4 gate; POST /pages/{id}/cascade-delete/preview + DELETE /pages/{id} confirmed with CascadePreviewResponse + CascadeDeleteResponse schemas — QA Phase 4 §4.6) |
-| EC-M5-18 | Full pytest + vitest + Playwright suite green (0 failures, 0 regressions); ruff+black+mypy+ESLint+Prettier clean | All automated ACs above | PARTIAL — 674 pytest + 526 vitest PASS (Phase 4 re-verification 2026-06-29); ruff+black+mypy+tsc+eslint CLEAN (QA Phase 4 §10). Playwright E2E (cascade-delete modal, review queue, deep-search) PENDING-LIVE. Phase 5 (F1-MCP-UI) ACs not yet started. |
+| EC-M5-17 | D2 regenerated (includes deep_research_runs, deep_research_sources, review_items); D4 regenerated (all new endpoints); zero drift | AC-F10-6, AC-F9-1, AC-F13-5, AC-F1-MCP-UI-8 + make er + make openapi | GREEN — D2 zero-drift (Phase 3 gate; 12 tables; no F13 migration; no Phase 5 migration); D4 zero-drift (Phase 4 gate for cascade-delete endpoints; Phase 5 gate for GET /mcp/info with McpInfoResponse + McpToolInfo schemas — QA Phase 5 §5) |
+| EC-M5-18 | Full pytest + vitest + Playwright suite green (0 failures, 0 regressions); ruff+black+mypy+ESLint+Prettier clean | All automated ACs above | PARTIAL — 688 pytest + 557 vitest PASS (Phase 5 gate 2026-06-29; no regressions — QA Phase 5 §1); ruff+black+mypy+tsc+ESLint CLEAN (QA Phase 5 §1). Playwright E2E (cascade-delete modal, review queue, deep-search, settings-api-mcp) PENDING-LIVE (all screenshots require live stack — non-blocking, consistent precedent). |
 | EC-M5-19 | Architect gate: rag/retrieval.py (I1/I2/I3), deep_research.py (I7/I9), cascade_delete.py (I1/I5), review.py (I6/I7), CliAgentProvider.chat() (I6/I7) | All above | MANUAL |
 | EC-M5-20 | Tech-writer gate: D3 + D5 + D2/D4 consistent with implementation; D6 current with M5 additions | AC-D3-DR-1, AC-D3-CD-1, AC-D5-M5-1 | MANUAL |
-| EC-M5-21 | PM gate: all EC-M5-1..20 MET; M4 carry-forward nits disposed; velocity note filed | All above | PENDING |
-| EC-M5-HCP | Human checkpoint: Emanuele confirms 6 conditions in browser (docs/sprints/v0.5-scope.md §9) | EC-M5-HCP-1..6 | MANUAL |
+| EC-M5-21 | PM gate: all EC-M5-1..22 MET; M4 carry-forward nits disposed; velocity note filed | All above | PENDING |
+| EC-M5-22 | GET /mcp/info returns correct live-registry JSON; SectionApiMcp replaces stub; snippet generated from payload; D4 zero-drift; D5 spec created | AC-F1-MCP-UI-1..10 | CONDITIONAL — AC-F1-MCP-UI-1..8 and -10 GREEN (Phase 5 gate 2026-06-29); AC-F1-MCP-UI-9 (D5 settings-api-mcp.png) PENDING-LIVE. Architect APPROVE unconditional. Becomes GREEN when screenshot committed. |
+| EC-M5-HCP | Human checkpoint: Emanuele confirms conditions in browser including all live-stack Playwright screenshot captures (docs/sprints/v0.5-scope.md §9) | EC-M5-HCP-1..6 + all PENDING-LIVE D5 screenshots | MANUAL — includes the consolidated D5 screenshot capture session (settings-api-mcp.png, cascade-delete-preview/confirm.png, review-queue.png, upload-multiformat.png, deep-search-running/complete.png, chat-citations.png, save-to-wiki.png) — see EC-M5-HCP-7 |
 
 ---
 
