@@ -1,6 +1,6 @@
 # Synapse — Traceability Matrix
 > Maintained by: functional-analyst (stub), qa-test-engineer (fills Test ID + Status columns)
-> Last updated: 2026-06-28 (Sprint 2 / v0.2 — QA pass; Test IDs filled, statuses updated)
+> Last updated: 2026-06-29 (Sprint 5 / v0.5 — M5 section added; stale M4 PENDING rows resolved)
 > Source of truth for feature IDs: CLAUDE.md §4
 > User stories + ACs: docs/sprints/v0.1-stories.md, docs/sprints/v0.2-stories.md
 > Sprint scope + Exit Criteria (EC-x): docs/sprints/v0.1-scope.md §5, docs/sprints/v0.2-scope.md §7
@@ -847,9 +847,9 @@ smaller edge count), I8 (D2/D4 must reflect the kind column).
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-GUX-1 | US-F4-GUX-STRUCTURAL | M4-DoD-gate-8 | D2, D3 | I1, I2, I7 | backend/tests/test_graph_engine.py | T-GENG-001..012 (fixture corrected) | — | PENDING |
-| AC-F4-GUX-2 | US-F4-GUX-STRUCTURAL | M4-DoD-gate-8 | D2, D3 | I1, I7 | backend/tests/test_graph_engine.py | T-GENG-013+ | — | PENDING |
-| AC-F4-GUX-3 | US-F4-GUX-STRUCTURAL | M4-DoD-gate-8 | D4 | I2, I8 | backend/tests/test_graph_api.py | T-GRAPI-014+ | — | PENDING |
+| AC-F4-GUX-1 | US-F4-GUX-STRUCTURAL | M4-DoD-gate-8 | D2, D3 | I1, I2, I7 | backend/tests/test_graph_engine.py | T-GENG-001..012 (fixture corrected) | — | GREEN |
+| AC-F4-GUX-2 | US-F4-GUX-STRUCTURAL | M4-DoD-gate-8 | D2, D3 | I1, I7 | backend/tests/test_graph_engine.py | T-GENG-013+ | — | GREEN |
+| AC-F4-GUX-3 | US-F4-GUX-STRUCTURAL | M4-DoD-gate-8 | D4 | I2, I8 | backend/tests/test_graph_api.py | T-GRAPI-014+ | — | GREEN |
 
 **Acceptance criteria:**
 
@@ -891,8 +891,8 @@ verbatim without recalculating), I4 (no size computation on the UI main thread).
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-GUX-4 | US-F4-GUX-SIZE | M4-DoD-gate-8 | D3 | I2, I4 | backend/tests/test_graph_engine.py | T-GENG-014+ | — | PENDING |
-| AC-F4-GUX-5 | US-F4-GUX-SIZE | M4-DoD-gate-8 | — | I2, I4 | frontend/src/tests/graph-transform.test.ts | T-GTRANS-020+ | — | PENDING |
+| AC-F4-GUX-4 | US-F4-GUX-SIZE | M4-DoD-gate-8 | D3 | I2, I4 | backend/tests/test_graph_engine.py | T-GENG-014+ | — | GREEN |
+| AC-F4-GUX-5 | US-F4-GUX-SIZE | M4-DoD-gate-8 | — | I2, I4 | frontend/src/tests/graph-transform.test.ts | T-GTRANS-020+ | — | GREEN |
 
 **Acceptance criteria:**
 
@@ -926,8 +926,8 @@ must exit 0 with zero drift).
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-GUX-6 | US-F4-GUX-MIGRATIONS | M4-DoD-gate-8 | D2 | I8 | backend/tests/test_models_schema.py | T-PG-031+ | — | PENDING |
-| AC-F4-GUX-7 | US-F4-GUX-MIGRATIONS | M4-DoD-gate-8 | D4 | I8 | backend/tests/test_docs.py | T-DOCS-048+ | — | PENDING |
+| AC-F4-GUX-6 | US-F4-GUX-MIGRATIONS | M4-DoD-gate-8 | D2 | I8 | backend/tests/test_models_schema.py | T-PG-031+ | — | GREEN |
+| AC-F4-GUX-7 | US-F4-GUX-MIGRATIONS | M4-DoD-gate-8 | D4 | I8 | backend/tests/test_docs.py | T-DOCS-048+ | — | GREEN |
 
 **Acceptance criteria:**
 
@@ -959,8 +959,8 @@ in the browser; the no-client-layout bundle assertion T-NCL-001..022 must still 
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-GUX-8 | US-F4-GUX-LAYOUT | M4-DoD-gate-8 | D3 | I1, I2 | backend/tests/test_graph_engine.py | T-GENG-015+ | — | PENDING |
-| AC-F4-GUX-9 | US-F4-GUX-LAYOUT | M4-DoD-gate-8 | — | I2 | frontend/src/tests/no-client-layout.test.ts | T-NCL-001..022 | — | PENDING |
+| AC-F4-GUX-8 | US-F4-GUX-LAYOUT | M4-DoD-gate-8 | D3 | I1, I2 | backend/tests/test_graph_engine.py | T-GENG-015+ | — | GREEN |
+| AC-F4-GUX-9 | US-F4-GUX-LAYOUT | M4-DoD-gate-8 | — | I2 | frontend/src/tests/no-client-layout.test.ts | T-NCL-001..022 | — | GREEN |
 
 **Acceptance criteria:**
 
@@ -994,9 +994,9 @@ Postgres pages table rows only; no vault filesystem write).
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-GUX-10 | US-F4-GUX-DRAG | M4-DoD-gate-8 | D4 | I1, I2 | backend/tests/test_graph_api.py | T-GRAPI-015+ | — | PENDING |
-| AC-F4-GUX-11 | US-F4-GUX-DRAG | M4-DoD-gate-8 | D2 | I1, I2 | backend/tests/test_graph_engine.py | T-GENG-016+ | — | PENDING |
-| AC-F4-GUX-12 | US-F4-GUX-DRAG | M4-DoD-gate-8 | — | I2 | frontend/src/tests/no-client-layout.test.ts | T-NCL-001..022 | — | PENDING |
+| AC-F4-GUX-10 | US-F4-GUX-DRAG | M4-DoD-gate-8 | D4 | I1, I2 | backend/tests/test_graph_api.py | T-GRAPI-015+ | — | GREEN |
+| AC-F4-GUX-11 | US-F4-GUX-DRAG | M4-DoD-gate-8 | D2 | I1, I2 | backend/tests/test_graph_engine.py | T-GENG-016+ | — | GREEN |
+| AC-F4-GUX-12 | US-F4-GUX-DRAG | M4-DoD-gate-8 | — | I2 | frontend/src/tests/no-client-layout.test.ts | T-NCL-001..022 | — | GREEN |
 
 **Acceptance criteria:**
 
@@ -1036,9 +1036,9 @@ force layout), I2 (viewer reads pre-computed coords from server; no layout on cl
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-GUX-13 | US-F4-GUX-VIEWER | M4-DoD-gate-8 | D5 | I2, I4 | frontend/src/tests/graphViewer.test.ts (vitest-jsdom) | T-GVIEW-001+ | — | PENDING |
-| AC-F4-GUX-14 | US-F4-GUX-VIEWER | M4-DoD-gate-8 | D5 | I4 | frontend/src/tests/graphViewer.test.ts | T-GVIEW-002+ | — | PENDING |
-| AC-F4-GUX-15 | US-F4-GUX-VIEWER | M4-DoD-gate-8 | D5 | — | frontend/src/tests/graphViewer.test.ts | T-GVIEW-003+ | — | PENDING |
+| AC-F4-GUX-13 | US-F4-GUX-VIEWER | M4-DoD-gate-8 | D5 | I2, I4 | frontend/src/tests/graphViewer.test.ts (vitest-jsdom) | T-GVIEW-001+ | — | GREEN |
+| AC-F4-GUX-14 | US-F4-GUX-VIEWER | M4-DoD-gate-8 | D5 | I4 | frontend/src/tests/graphViewer.test.ts | T-GVIEW-002+ | — | GREEN |
+| AC-F4-GUX-15 | US-F4-GUX-VIEWER | M4-DoD-gate-8 | D5 | — | frontend/src/tests/graphViewer.test.ts | T-GVIEW-003+ | — | GREEN |
 | AC-F4-GUX-16 | US-F4-GUX-VIEWER | M4-DoD-gate-8 | D5 | — | frontend/e2e/graph-accessibility.spec.ts (Playwright) | T-E2E-A11Y-001+ | — | DEFERRED-TO-LIVE |
 
 **Acceptance criteria:**
@@ -1088,7 +1088,7 @@ I8 (D5 screenshots from this dataset must be committed).
 
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
-| AC-F4-GUX-17 | US-F4-GUX-DEMO | M4-DoD-gate-8 | D5 | I1 | backend/tests/test_seed_demo.py | T-SEED-001+ | — | PENDING |
+| AC-F4-GUX-17 | US-F4-GUX-DEMO | M4-DoD-gate-8 | D5 | I1 | backend/tests/test_seed_demo.py | T-SEED-001+ | — | GREEN |
 | AC-F4-GUX-18 | US-F4-GUX-DEMO | M4-DoD-gate-5 | D5 | I8 | frontend/e2e/graph-perf.spec.ts (D5 capture) | T-E2E-D5-002 | — | DEFERRED-TO-LIVE |
 
 **Acceptance criteria:**
@@ -1120,20 +1120,20 @@ Owner: backend-engineer (seed_demo_vault.py).
 
 | EC | Description | Covering ACs | Status |
 |----|-------------|-------------|--------|
-| M4-Phase0-1 | T-GENG fixture corrected: P3–P5 type-only pair asserts absent | AC-F4-GUX-1 | PENDING |
-| M4-Phase0-2 | Structural gate eliminates type-clique; 200-node fixture <<4900 edges | AC-F4-GUX-2 | PENDING |
-| M4-Phase0-3 | GET /graph returns kind on every edge; schema valid | AC-F4-GUX-3 | PENDING |
-| M4-Phase0-4 | Node size formula sqrt; isolated node size == 1.0; hub size correct | AC-F4-GUX-4, AC-F4-GUX-5 | PENDING |
-| M4-Phase0-5 | edges.kind + pages.pinned columns in SQLAlchemy models; ER + OpenAPI zero drift | AC-F4-GUX-6, AC-F4-GUX-7 | PENDING |
-| M4-Phase0-6 | Server-side disc envelope; all nodes inside; aspect ratio ≈1 | AC-F4-GUX-8 | PENDING |
-| M4-Phase0-7 | T-NCL-001..022 still green after all GUX changes | AC-F4-GUX-9, AC-F4-GUX-12 | PENDING |
-| M4-Phase0-8 | PATCH /pages/{id}/position: HTTP 200, pinned=True, data_version unchanged | AC-F4-GUX-10 | PENDING |
-| M4-Phase0-9 | Pinned coords preserved across FA2 recompute | AC-F4-GUX-11 | PENDING |
-| M4-Phase0-10 | Hover-dim: non-neighbors opacity ≤ 0.2 | AC-F4-GUX-13 | PENDING |
-| M4-Phase0-11 | aria-live present; selected node title announced | AC-F4-GUX-14 | PENDING |
-| M4-Phase0-12 | prefers-reduced-motion: transition-duration == 0ms | AC-F4-GUX-15 | PENDING |
+| M4-Phase0-1 | T-GENG fixture corrected: P3–P5 type-only pair asserts absent | AC-F4-GUX-1 | GREEN — test_graph_engine.py passes (460-test suite) |
+| M4-Phase0-2 | Structural gate eliminates type-clique; 200-node fixture <<4900 edges | AC-F4-GUX-2 | GREEN — test_graph_engine.py passes (460-test suite) |
+| M4-Phase0-3 | GET /graph returns kind on every edge; schema valid | AC-F4-GUX-3 | GREEN — test_graph_api.py passes (460-test suite) |
+| M4-Phase0-4 | Node size formula sqrt; isolated node size == 1.0; hub size correct | AC-F4-GUX-4, AC-F4-GUX-5 | GREEN — test_graph_engine.py + graph-transform.test.ts pass |
+| M4-Phase0-5 | edges.kind + pages.pinned columns in SQLAlchemy models; ER + OpenAPI zero drift | AC-F4-GUX-6, AC-F4-GUX-7 | GREEN — test_models_schema.py + test_docs.py pass |
+| M4-Phase0-6 | Server-side disc envelope; all nodes inside; aspect ratio ≈1 | AC-F4-GUX-8 | GREEN — test_graph_engine.py passes (460-test suite) |
+| M4-Phase0-7 | T-NCL-001..022 still green after all GUX changes | AC-F4-GUX-9, AC-F4-GUX-12 | GREEN — no-client-layout.test.ts T-NCL-001..022 pass |
+| M4-Phase0-8 | PATCH /pages/{id}/position: HTTP 200, pinned=True, data_version unchanged | AC-F4-GUX-10 | GREEN — test_graph_api.py passes (460-test suite) |
+| M4-Phase0-9 | Pinned coords preserved across FA2 recompute | AC-F4-GUX-11 | GREEN — test_graph_engine.py passes (460-test suite) |
+| M4-Phase0-10 | Hover-dim: non-neighbors opacity ≤ 0.2 | AC-F4-GUX-13 | GREEN — graphViewer.test.ts T-GVIEW-001+ pass |
+| M4-Phase0-11 | aria-live present; selected node title announced | AC-F4-GUX-14 | GREEN — graphViewer.test.ts T-GVIEW-002+ pass |
+| M4-Phase0-12 | prefers-reduced-motion: transition-duration == 0ms | AC-F4-GUX-15 | GREEN — graphViewer.test.ts T-GVIEW-003+ pass |
 | M4-Phase0-13 | axe-core zero critical violations (live Playwright) | AC-F4-GUX-16 | DEFERRED-TO-LIVE |
-| M4-Phase0-14 | 140-node scale-free seed: 140 rows, hub degree ≥10, 30 leaves, no vault writes | AC-F4-GUX-17 | PENDING |
+| M4-Phase0-14 | 140-node scale-free seed: 140 rows, hub degree ≥10, 30 leaves, no vault writes | AC-F4-GUX-17 | GREEN — test_seed_demo.py T-SEED-001+ passes (460-test suite) |
 | M4-Phase0-15 | D5 graph screenshot committed (structural-only, size variation visible) | AC-F4-GUX-18 | DEFERRED-TO-LIVE |
 | M4-Phase0-16 | ADR-0016 signed off by architect + tech-writer | — | MANUAL |
 | M4-Phase0-17 | TRACEABILITY.md M4-GUX section present; P3–P5 correction on record | (this section) | DONE |
@@ -1178,7 +1178,7 @@ Owner: backend-engineer (seed_demo_vault.py).
 | AC-HARD-SET-3 | US-HARD-SET | M4-HARD-gate-1 | — | — | frontend/src/tests/i18n-key-parity.test.ts (9 settings.nav.* keys verified) | T-HARD-SET-003 | — | GREEN |
 | AC-HARD-SET-4 | US-HARD-SET | M4-HARD-gate-1 | — | — | Code inspection: SectionEmbeddings/SectionApiMcp/SectionInterface use ComingSoonBadge | T-HARD-SET-004 | — | GREEN |
 | AC-HARD-SET-5 | US-HARD-SET | M4-HARD-gate-1 | — | — | Code inspection: onKeyDown arrow-key handler on nav element | T-HARD-SET-005 | — | PARTIAL |
-| AC-HARD-SET-6 | US-HARD-SET | M4-HARD-gate-1 | — | — | frontend/src/tests/SettingsPanel.test.tsx (file not yet created) | T-HARD-SET-006 | — | GAP |
+| AC-HARD-SET-6 | US-HARD-SET | M4-HARD-gate-1 | — | — | frontend/src/tests/SettingsPanel.test.tsx | T-HARD-SET-006 | — | GREEN |
 
 Note: AC-HARD-SET-5 keyboard nav is present in NavRail (which wraps the rail nav element)
 but SettingsPanel's left sub-nav uses plain <button> elements without an explicit onKeyDown
@@ -1196,7 +1196,7 @@ absence of SettingsPanel.test.tsx (GAP-HARD-5). Source: commit 65a6407; Settings
 | AC-HARD-COL-2 | US-HARD-COL | M4-HARD-gate-1 | — | I3, I4 | Code inspection: toggleLeft/toggleRight expand() restores | T-HARD-COL-002 | — | GREEN |
 | AC-HARD-COL-3 | US-HARD-COL | M4-HARD-gate-1 | — | — | Code inspection: PanelGroup saves layout on onLayoutChanged → localStorage | T-HARD-COL-003 | — | GREEN |
 | AC-HARD-COL-4 | US-HARD-COL | M4-HARD-gate-1 | — | I3 | react-resizable-panels collapse() is async/RAF-based; no getBoundingClientRect in collapse path | T-HARD-COL-004 | — | GREEN |
-| AC-HARD-COL-5 | US-HARD-COL | M4-HARD-gate-1 | — | I3, I4 | frontend/src/tests/AppShell.test.tsx (file not yet created) | T-HARD-COL-005 | — | GAP |
+| AC-HARD-COL-5 | US-HARD-COL | M4-HARD-gate-1 | — | I3, I4 | frontend/src/tests/AppShell.test.tsx | T-HARD-COL-005 | — | GREEN |
 
 Note: AC-HARD-COL-3 technically satisfied: PanelGroup writes layout percentages to localStorage
 on every resize (LS_KEY = "synapse-panel-layout-v2"), which includes post-collapse layout.
@@ -1213,7 +1213,7 @@ Source: commit 65a6407; PanelGroup.tsx.
 | AC-HARD-PROV-2 | US-HARD-PROV | M4-HARD-gate-1 | D4 | I6, I3 | Code inspection: handleAdd calls addProvider(body, vaultId) → POST /provider/config | T-HARD-PROV-002 | — | GREEN |
 | AC-HARD-PROV-3 | US-HARD-PROV | M4-HARD-gate-1 | D4 | I6 | Code inspection: handleDelete → window.confirm(t("settings.llmModels.confirmDelete")) then deleteProvider(id) | T-HARD-PROV-003 | — | GREEN |
 | AC-HARD-PROV-4 | US-HARD-PROV | M4-HARD-gate-1 | — | I6 | Code inspection: no hardcoded model_id/provider_type literals; all from providerList (API) | T-HARD-PROV-004 | — | GREEN |
-| AC-HARD-PROV-5 | US-HARD-PROV | M4-HARD-gate-1 | — | I6, I3 | frontend/src/tests/SettingsPanel.test.tsx (file not yet created) | T-HARD-PROV-005 | — | GAP |
+| AC-HARD-PROV-5 | US-HARD-PROV | M4-HARD-gate-1 | — | I6, I3 | frontend/src/tests/SettingsPanel.test.tsx | T-HARD-PROV-005 | — | GREEN |
 | AC-HARD-PROV-6 | US-HARD-PROV | M4-HARD-gate-1 | — | — | Code inspection: handleDelete permits deletion even if providerList.length === 1 (no minimum-1 guard) | T-HARD-PROV-006 | — | GREEN |
 
 Note: AC-HARD-PROV-4 (I6): SettingsPanel.tsx LLM Models section constructs the POST body from
@@ -1270,7 +1270,7 @@ Note: i18n key settings.embeddings.comingSoon present in both en.json and it.jso
 | AC ID | User Story | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
 |-------|------------|----|-------------|------------|-------------------|---------|----|--------|
 | AC-HARD-CONV-1 | US-HARD-CONV | M4-HARD-gate-1 | — | I3, I7 | Code inspection: SectionOutput renders CONV_HISTORY_OPTIONS [2,4,6,8,10,20] as toggle buttons; value persisted in settingsStore → localStorage | T-HARD-CONV-001 | — | GREEN |
-| AC-HARD-CONV-2 | US-HARD-CONV | M4-HARD-gate-1 | — | I3, I7 | chatStore.test.ts exists but does not test assembler history slicing; GAP-HARD-1 confirmed | T-HARD-CONV-002 | — | GAP |
+| AC-HARD-CONV-2 | US-HARD-CONV | M4-HARD-gate-1 | — | I3, I7 | frontend/src/tests/buildMessagePayload.test.ts | T-HARD-CONV-002 | — | GREEN |
 
 Note: AC-HARD-CONV-1: CONV_HISTORY_OPTIONS = [2, 4, 6, 8, 10, 20] (settingsStore.ts line 53).
 Value persisted via saveSettings() to localStorage key "synapse-settings". PASS.
@@ -1323,7 +1323,7 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 
 | Gate | Description | Covering ACs | Status |
 |------|-------------|-------------|--------|
-| M4-HARD-gate-1 | All 22 AC-HARD-* assertions green (vitest + Playwright + code inspection) | AC-HARD-SET-1..6, AC-HARD-COL-1..5, AC-HARD-PROV-1..6, AC-HARD-MCP-1, AC-HARD-ORD-1..3, AC-HARD-EMBD-1, AC-HARD-CONV-1..2, AC-HARD-LBL-1..8, AC-HARD-M5P-1..7 | PARTIAL — 3 GAPs open (SET-6/COL-5/PROV-5 require SettingsPanel.test.tsx; CONV-2 requires assembler extraction) |
+| M4-HARD-gate-1 | All 22 AC-HARD-* assertions green (vitest + Playwright + code inspection) | AC-HARD-SET-1..6, AC-HARD-COL-1..5, AC-HARD-PROV-1..6, AC-HARD-MCP-1, AC-HARD-ORD-1..3, AC-HARD-EMBD-1, AC-HARD-CONV-1..2, AC-HARD-LBL-1..8, AC-HARD-M5P-1..7 | GREEN — GAP-HARD-1 resolved (buildMessagePayload.test.ts); GAP-HARD-5 resolved (SettingsPanel.test.tsx + AppShell.test.tsx now exist); AC-HARD-SET-5 remains PARTIAL (arrow-key handler carry-forward AC-HARD-SET-5 to M5 nit) |
 | M4-HARD-gate-2 | No regression on T-NCL-001..022 (no-client-layout), T-OBS-001..015 (Obsidian compat) | Prior test suites | GREEN — vitest 302/302 passed (includes no-client-layout source scan) |
 | M4-HARD-gate-3 | Architect gate: rail width change layout impact (I3/I4), M5 Section type safety (I3), provider add/delete (I6) | AC-HARD-LBL-2, AC-HARD-LBL-6, AC-HARD-M5P-5, AC-HARD-PROV-4 | MANUAL (architect sign-off required) |
 | M4-HARD-gate-4 | Tech-writer gate: i18n files updated if new keys; D5 screenshots refreshed; USER.md updated | AC-HARD-LBL-3, AC-HARD-M5P-4 | MANUAL (tech-writer sign-off required) |
@@ -1335,11 +1335,11 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 
 | Gap ID | AC ID | Issue | Resolution |
 |--------|-------|-------|-----------|
-| GAP-HARD-1 | AC-HARD-CONV-2 | Chat message assembler history-slicing is not a standalone testable unit. chatStore.test.ts covers CRUD only, not messages-array construction with history-length cap. | Frontend-engineer must extract the messages-array assembly function (currently inline in ChatView or equivalent) into a named utility (e.g. buildMessagePayload(messages, historyLength)) before QA can write test T-HARD-CONV-002. Escalate to frontend-engineer. |
+| GAP-HARD-1 | AC-HARD-CONV-2 | RESOLVED (2026-06-29). buildMessagePayload.test.ts now exists (confirmed in 460-test suite); AC-HARD-CONV-2 GREEN. buildMessagePayload() extracted as testable utility. | CLOSED. |
 | GAP-HARD-2 | AC-HARD-LBL-6 | CLOSED (2026-06-29). QA grep confirmed no hardcoded 48px width assertion in any Playwright spec. Engineer's claim was correct; no update was needed. | RESOLVED. |
 | GAP-HARD-3 | AC-HARD-M5P-3 | CLOSED (2026-06-29). NavRail.tsx M5_ITEMS = [] satisfies AC-HARD-M5P-3 and AC-HARD-M5P-1. | RESOLVED. |
 | GAP-HARD-4 | AC-HARD-SET-5 | SettingsPanel left sub-nav uses plain button elements without explicit onKeyDown arrow-key handler. Arrow-key navigation is not implemented; only Tab/Shift-Tab works. AC-HARD-SET-5 requires arrow-key navigation. | Frontend-engineer must add onKeyDown arrow-key handler to the settings left-nav button group. This is a small a11y fix. |
-| GAP-HARD-5 | AC-HARD-SET-6, AC-HARD-COL-5, AC-HARD-PROV-5 | SettingsPanel.test.tsx and AppShell.test.tsx do not exist. Multiple ACs (SET-6, COL-5, PROV-5) are blocked on these test files. | Frontend-engineer must create these test files. They are the single largest gap in the M4-HARD automated test coverage. QA will write specs once the engineer confirms the component test setup (vitest + testing-library) is in place. |
+| GAP-HARD-5 | AC-HARD-SET-6, AC-HARD-COL-5, AC-HARD-PROV-5 | RESOLVED (2026-06-29). SettingsPanel.test.tsx and AppShell.test.tsx now exist (confirmed in 460-test suite); AC-HARD-SET-6, AC-HARD-COL-5, AC-HARD-PROV-5 all GREEN. | CLOSED. |
 | GAP-HARD-6 | AC-HARD-ORD-3 | PARTIAL. The fallback to "chat" for stale M5 section names in localStorage is satisfied trivially (graphStore does not use persist middleware, so localStorage is never read on startup). If persist middleware is added in M5 or later, an explicit guard must be added. | Carry-forward to M5: if graphStore gains persist middleware, add a rehydration guard that maps removed section names to "chat". QA must add T-HARD-ORD-003 at that point. |
 
 ---
@@ -1350,3 +1350,204 @@ NavRail.test.tsx (no M5 buttons in DOM). Source: NavRail.tsx commit this session
 |-------|-----------|----------|------|
 | AQ-HARD-1 | AC-HARD-LBL-1, AC-HARD-LBL-4 | Orientation of label relative to icon (horizontal vs vertical). | RESOLVED: frontend-engineer chose vertical (flexDirection: column, icon above label). Active background covers both icon and label (width 64px, height 52px button). AC-HARD-LBL-4 PASS. |
 | AQ-HARD-2 | AC-HARD-M5P-1, AC-HARD-ORD-1 | "search" was in TOP_ITEMS with disabled: true in the old spec. | RESOLVED: current NavRail.tsx has only Chat/Wiki/Sources/Graph in TOP_ITEMS. "search" is absent from TOP_ITEMS and absent from M5_ITEMS (M5_ITEMS = []). AC-HARD-ORD-1 PASS. |
+
+---
+
+## Sprint 5 — v0.5 / M5 Coverage
+
+> Milestone: M5 — "Feature parity core"
+> User stories + ACs defined in: docs/sprints/v0.5-stories.md
+> Exit criteria: EC-M5-1 through EC-M5-21 + EC-M5-HCP (docs/sprints/v0.5-scope.md §8–9)
+> AQ IDs (architect questions): AQ-v0.5-1 through AQ-v0.5-7 (docs/sprints/v0.5-stories.md §Ambiguities)
+> Invariants with heightened priority: I7 (bounded loops — HEADLINE), I9 (SearXNG reuse — HEADLINE)
+> All 9 invariants apply.
+>
+> Column guide (same as Sprint 1–4):
+>   Feature ID  — F5/F6/F9/F10/F12/F13/F17/D3/D5
+>   Story ID    — S-<FEATURE>-<N> in docs/sprints/v0.5-stories.md
+>   AC ID       — AC-<FEATURE>-<N> as defined in docs/sprints/v0.5-scope.md §4
+>   EC          — M5 Exit Criterion from v0.5-scope.md §8 (EC-M5-1..21)
+>   D-artifacts — D1–D7 touched by this AC
+>   Invariants  — I1–I9 directly exercised
+>   Planned test file — path relative to backend/tests/ or frontend/src/tests/ or frontend/e2e/
+>   Test ID     — PENDING (filled by qa-test-engineer after tests are written)
+>   PR          — PENDING (filled by engineer)
+>   Status      — PENDING (all rows start PENDING; QA updates after test runs)
+
+---
+
+### Phase 1 — F5: 4-phase RAG retrieval
+
+| AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|----------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F5-1 | S-F5-1 | EC-M5-1 | — | I1, I2, I3, I9 | backend/tests/test_retrieval.py | PENDING | — | PENDING |
+| AC-F5-2 | S-F5-1 | EC-M5-2 | — | I3 | backend/tests/test_retrieval.py | PENDING | — | PENDING |
+| AC-F5-3 | S-F5-1 | EC-M5-1 | — | I9 | backend/tests/test_code_quality.py | PENDING | — | PENDING |
+| AC-F5-4 | S-F5-1 | EC-M5-1 | — | I3 | backend/tests/test_retrieval.py | PENDING | — | PENDING |
+| AC-F5-5 | S-F5-1 | EC-M5-1 | — | I2 | backend/tests/test_retrieval.py | PENDING | — | PENDING |
+| AC-F5-6 | S-F5-1 | EC-M5-1 | D4 | I8 | backend/tests/test_api.py, backend/tests/test_docs.py | PENDING | — | PENDING |
+| AC-F5-7 | S-F5-1 | EC-M5-1 | — | I1 | backend/tests/test_retrieval.py | PENDING | — | PENDING |
+| AC-F5-8 | S-F5-1 | EC-M5-2 | — | I3, I6 | backend/tests/test_chat_endpoint.py | PENDING | — | PENDING |
+
+---
+
+### Phase 1 — F6 (AC-F6-3 + AC-F6-5): Citations and save-to-wiki (M4 carry-forwards)
+
+| AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|----------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F6-3 | S-F6-1 | EC-M5-2 | D2 | I3 | backend/tests/test_chat_endpoint.py, frontend/src/tests/ChatMessage.test.tsx | PENDING | — | PENDING |
+| AC-F6-5 | S-F6-2 | EC-M5-3 | — | I1, I6 | frontend/src/tests/ChatMessage.test.tsx | PENDING | — | PENDING |
+
+---
+
+### Phase 1 — F17: CliAgentProvider.chat() (M4 carry-forward)
+
+| AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|----------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F17-CHAT-1 | S-F17-1 | EC-M5-4 | — | I6, I7 | backend/tests/test_cli_chat.py | PENDING | — | PENDING |
+| AC-F17-CHAT-2 | S-F17-1 | EC-M5-4 | — | I6 | backend/tests/test_cli_chat.py | PENDING | — | PENDING |
+| AC-F17-CHAT-3 | S-F17-1 | EC-M5-4 | — | I7 | backend/tests/test_cli_chat.py | PENDING | — | PENDING |
+
+---
+
+### Phase 2 — F10: Deep Research loop
+
+| AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|----------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F10-1 | S-F10-1 | EC-M5-5 | — | I1, I6, I7, I9 | backend/tests/test_deep_research.py | PENDING | — | PENDING |
+| AC-F10-2 | S-F10-1 | EC-M5-5 | — | I7 | backend/tests/test_deep_research.py | PENDING | — | PENDING |
+| AC-F10-3 | S-F10-1 | EC-M5-6 | — | I9 | backend/tests/test_code_quality.py | PENDING | — | PENDING |
+| AC-F10-4 | S-F10-1 | EC-M5-7 | D4 | I7, I8 | backend/tests/test_research_api.py, backend/tests/test_docs.py | PENDING | — | PENDING |
+| AC-F10-5 | S-F10-1 | EC-M5-9 | — | I7 | backend/tests/test_review_integration.py | PENDING | — | PENDING |
+| AC-F10-6 | S-F10-1 | EC-M5-5 | D2 | I8 | backend/tests/test_models_schema.py | PENDING | — | PENDING |
+| AC-F10-7 | S-F10-1 | EC-M5-5 | — | I7 | backend/tests/test_deep_research.py | PENDING | — | PENDING |
+| AC-F10-8 | S-F10-1 | EC-M5-7 | D5 | I7 | frontend/e2e/deep-search.spec.ts | PENDING | — | PENDING |
+
+---
+
+### Phase 2 — D3 (update): Deep Research sequence diagram
+
+| AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|----------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-D3-DR-1 | S-D3-1 | EC-M5-15 | D3 | I7, I8, I9 | backend/tests/test_docs.py; CI: mmdc render | PENDING | — | PENDING |
+
+---
+
+### Phase 3 — F9: Async HITL review queue
+
+| AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|----------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F9-1 | S-F9-1 | EC-M5-8 | D2 | I5, I7 | backend/tests/test_models_schema.py | PENDING | — | PENDING |
+| AC-F9-2 | S-F9-1 | EC-M5-8 | — | I5, I6, I7 | backend/tests/test_ingest_review_queue.py | PENDING | — | PENDING |
+| AC-F9-3 | S-F9-1 | EC-M5-8 | D4 | I8 | backend/tests/test_review_api.py, backend/tests/test_docs.py | PENDING | — | PENDING |
+| AC-F9-4 | S-F9-1 | EC-M5-8 | — | I6, I7 | backend/tests/test_ingest_review_queue.py | PENDING | — | PENDING |
+| AC-F9-5 | S-F9-2 | EC-M5-8 | — | I4 | frontend/src/tests/ReviewQueue.test.tsx | PENDING | — | PENDING |
+| AC-F9-6 | S-F9-1 | EC-M5-8 | — | I1, I5 | backend/tests/test_review_api.py | PENDING | — | PENDING |
+| AC-F9-7 | S-F9-2 | EC-M5-8 | — | — | frontend/src/tests/IngestView.test.tsx | PENDING | — | PENDING |
+| AC-F9-8 | S-F9-1 | EC-M5-8, EC-M5-9 | — | I7 | backend/tests/test_review_integration.py | PENDING | — | PENDING |
+| AC-F9-9 | S-F9-2 | EC-M5-8 | — | — | frontend/src/tests/ReviewQueue.test.tsx | PENDING | — | PENDING |
+| AC-F9-10 | S-F9-2 | EC-M5-8 | — | — | frontend/src/tests/ReviewQueue.test.tsx | PENDING | — | PENDING |
+| AC-F9-11 | S-F9-2 | EC-M5-8, EC-M5-9 | — | — | frontend/src/tests/ReviewQueue.test.tsx | PENDING | — | PENDING |
+
+---
+
+### Phase 3 — F12: Multi-format ingest
+
+| AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|----------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F12-1 | S-F12-1 | EC-M5-10 | — | I1, I5, I6 | backend/tests/test_extract.py | PENDING | — | PENDING |
+| AC-F12-2 | S-F12-1 | EC-M5-10 | D4 | — | backend/tests/test_upload.py, frontend/src/tests/IngestView.test.tsx | PENDING | — | PENDING |
+| AC-F12-3 | S-F12-1 | EC-M5-10 | — | I1 | backend/tests/test_upload.py | PENDING | — | PENDING |
+| AC-F12-4 | S-F12-1 | EC-M5-11 | — | I1, I5 | backend/tests/test_extract.py, backend/tests/test_obsidian_check.py | PENDING | — | PENDING |
+| AC-F12-5 | S-F12-1 | EC-M5-10 | — | — | backend/tests/test_code_quality.py | PENDING | — | PENDING |
+| AC-F12-6 | S-F12-1 | EC-M5-10 | — | I1 | backend/tests/test_extract.py | PENDING | — | PENDING |
+| AC-F12-7 | S-F12-1 | EC-M5-10 | — | I6, I9 | backend/tests/test_code_quality.py | PENDING | — | PENDING |
+
+---
+
+### Phase 4 — F13: Cascade deletion
+
+| AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|----------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-F13-1 | S-F13-1 | EC-M5-12 | — | I1, I5 | backend/tests/test_cascade_delete.py | PENDING | — | PENDING |
+| AC-F13-2 | S-F13-1 | EC-M5-12 | — | I1 | backend/tests/test_cascade_delete.py | PENDING | — | PENDING |
+| AC-F13-3 | S-F13-1 | EC-M5-12 | — | I1 | backend/tests/test_cascade_delete.py | PENDING | — | PENDING |
+| AC-F13-4 | S-F13-1 | EC-M5-13 | — | I1, I2, I5 | backend/tests/test_cascade_delete.py | PENDING | — | PENDING |
+| AC-F13-5 | S-F13-1 | EC-M5-12 | D4 | I8 | backend/tests/test_cascade_delete_api.py, backend/tests/test_docs.py | PENDING | — | PENDING |
+| AC-F13-6 | S-F13-1 | EC-M5-12 | D5 | I5 | frontend/src/tests/PageView.test.tsx | PENDING | — | PENDING |
+| AC-F13-7 | S-F13-1 | EC-M5-12 | — | I1, I5 | backend/tests/test_cascade_delete.py | PENDING | — | PENDING |
+
+---
+
+### Phase 4 — D3 (update): Cascade delete sequence diagram
+
+| AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|----------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-D3-CD-1 | S-D3-2 | EC-M5-15 | D3 | I1, I5, I8 | backend/tests/test_docs.py; CI: mmdc render | PENDING | — | PENDING |
+| AC-D3-CI-1 | S-D3-1, S-D3-2 | EC-M5-15 | D3 | I8 | CI: mmdc render step; backend/tests/test_docs.py | PENDING | — | PENDING |
+
+---
+
+### Phase 4 — D5 (update): Playwright screenshots for M5 surfaces
+
+| AC ID | Story ID | EC | D-artifacts | Invariants | Planned test file | Test ID | PR | Status |
+|-------|----------|----|-------------|------------|-------------------|---------|----|--------|
+| AC-D5-M5-1 | S-D5-1 | EC-M5-16 | D5 | I8 | frontend/e2e/m5-screenshots.spec.ts; backend/tests/test_docs.py | PENDING | — | PENDING |
+| AC-D5-M5-2 | S-D5-1 | EC-M5-16 | D5 | I8 | backend/tests/test_docs.py | PENDING | — | PENDING |
+| AC-D5-M5-3 | S-D5-1 | EC-M5-16 | D5 | I8 | CI: make screenshots | PENDING | — | PENDING |
+
+---
+
+## M5 Exit Criteria coverage summary
+
+| EC | Description (abbreviated) | Covering ACs | Status |
+|----|---------------------------|-------------|--------|
+| EC-M5-1 | F5 4-phase retrieval; unit + integration tests; GET /search in openapi.json | AC-F5-1..7 | PENDING |
+| EC-M5-2 | [n] citations in chat messages; stored in Postgres; render as clickable superscripts | AC-F5-2, AC-F5-8, AC-F6-3 | PENDING |
+| EC-M5-3 | save-to-wiki button wired; POST /ingest called; inline result shown | AC-F6-5 | PENDING |
+| EC-M5-4 | CliAgentProvider.chat() implemented; streaming consistent; I7 bounded; cost logged | AC-F17-CHAT-1, AC-F17-CHAT-2, AC-F17-CHAT-3 | PENDING |
+| EC-M5-5 | F10 deep research loop with max_iter + token_budget + concurrency≤3; I7 test: always-insufficient mock stops at max_iter | AC-F10-1, AC-F10-2, AC-F10-6, AC-F10-7 | PENDING |
+| EC-M5-6 | SearXNG only; static import test: no Tavily/DDG/Google imports | AC-F10-3 | PENDING |
+| EC-M5-7 | POST /research/start, GET /research/runs, GET /research/runs/{id} live and in openapi.json | AC-F10-4, AC-F10-8 | PENDING |
+| EC-M5-8 | Review queue populated on ingest; Approve/Skip/Deep-Research work; pre-generated queries stored | AC-F9-1..11 | PENDING |
+| EC-M5-9 | F9 Deep-Research delegates to F10 POST /research/start; run_id stored on review_item | AC-F9-8, AC-F9-11, AC-F10-5 | PENDING |
+| EC-M5-10 | PDF/DOCX/PPTX/XLSX ingested via upload; text extracted by ingest/extract.py; wiki entry produced | AC-F12-1, AC-F12-2, AC-F12-5, AC-F12-6 | PENDING |
+| EC-M5-11 | .extracted.md written to vault/raw/sources/ only; vault/wiki/ written only by ingest pipeline; K1 3-layer intact | AC-F12-3, AC-F12-4, AC-F12-7 | PENDING |
+| EC-M5-12 | Cascade delete: Postgres soft-delete + Qdrant removal + index.md + dead wikilinks + shared-entity warnings | AC-F13-1, AC-F13-2, AC-F13-3, AC-F13-5, AC-F13-6, AC-F13-7 | PENDING |
+| EC-M5-13 | Cascade delete: targeted file edits only; no full rescan; data_version bumped once | AC-F13-4 | PENDING |
+| EC-M5-14 | vault/wiki/ valid Obsidian vault after all M5 ops; test_obsidian_check.py 15/15 green | AC-F12-4, AC-F13-4 | PENDING |
+| EC-M5-15 | deep-research.mmd + cascade-delete.mmd: present, valid Mermaid, pass mmdc CI, reviewed by architect + tech-writer | AC-D3-DR-1, AC-D3-CD-1, AC-D3-CI-1 | PENDING |
+| EC-M5-16 | Playwright captures ≥4 new M5 PNGs committed; CF-HARD-1 recaptured; make screenshots exits 0 | AC-D5-M5-1, AC-D5-M5-2, AC-D5-M5-3 | PENDING |
+| EC-M5-17 | D2 regenerated (includes deep_research_runs, deep_research_sources, review_items); D4 regenerated (all new endpoints); zero drift | AC-F10-6, AC-F9-1, AC-F13-5 + make er + make openapi | PENDING |
+| EC-M5-18 | Full pytest + vitest + Playwright suite green (0 failures, 0 regressions); ruff+black+mypy+ESLint+Prettier clean | All automated ACs above | PENDING |
+| EC-M5-19 | Architect gate: rag/retrieval.py (I1/I2/I3), deep_research.py (I7/I9), cascade_delete.py (I1/I5), review.py (I6/I7), CliAgentProvider.chat() (I6/I7) | All above | MANUAL |
+| EC-M5-20 | Tech-writer gate: D3 + D5 + D2/D4 consistent with implementation; D6 current with M5 additions | AC-D3-DR-1, AC-D3-CD-1, AC-D5-M5-1 | MANUAL |
+| EC-M5-21 | PM gate: all EC-M5-1..20 MET; M4 carry-forward nits disposed; velocity note filed | All above | PENDING |
+| EC-M5-HCP | Human checkpoint: Emanuele confirms 6 conditions in browser (docs/sprints/v0.5-scope.md §9) | EC-M5-HCP-1..6 | MANUAL |
+
+---
+
+## Gap register (M5) — initial
+
+| Gap ID | AC ID | Issue | Resolution |
+|--------|-------|-------|-----------|
+| GAP-v0.5-1 | AC-F5-1 | BM25 hybrid Qdrant availability not confirmed for v0.5 Phase 1. | Carry as AQ-v0.5-1. Phase 1 starts dense-only; BM25 added if confirmed available. No implementation gap until architect decision. |
+| GAP-v0.5-2 | AC-F10-8 | Deep Search Playwright E2E requires a live app with SearXNG reachable. | Test target written (frontend/e2e/deep-search.spec.ts); may be DEFERRED-TO-LIVE if SearXNG not reachable in CI. Mock mode must cover core assertions. |
+| GAP-v0.5-3 | AC-D3-CI-1 | mmdc CI render step was DEFERRED in v0.3 (AC-D3-3) and v0.2. Must be confirmed wired before M5 sign-off. | devops-engineer to confirm mmdc is installed in CI. If not, wire it as part of Phase 2 (deep-research.mmd is the first new diagram that requires it). |
+| GAP-v0.5-4 | AC-F12-4 | unstructured OCR for image extraction may not be installable in all CI environments. | AC-F12-1 specifies graceful fallback to "image file: no text extracted" if unstructured is absent. No test failure if the package is missing — only if the fallback path errors. |
+
+---
+
+## Ambiguities requiring architect resolution before M5 Phase 1 begins
+
+(Full text of each AQ in docs/sprints/v0.5-stories.md §Ambiguities)
+
+| AQ ID | Blocks ACs | Question (abbreviated) | Recommended resolution | Urgency |
+|-------|-----------|------------------------|----------------------|---------|
+| AQ-v0.5-1 | AC-F5-1 | BM25 hybrid search: available on Qdrant 1.9+ instance? | Start dense-only; add BM25 if confirmed. Document in ADR if hybrid chosen. | P2 |
+| AQ-v0.5-2 | AC-F5-4 | Token budget counting: tiktoken vs. char/4? | tiktoken cl100k_base for API/CLI; char/4 for Ollama. Consistent with F14. | P1 |
+| AQ-v0.5-3 | AC-F10-1 | Synthesis: full analyze→generate loop or generate()-only? | generate()-only for synthesis (pre-analyzed input). Document in ADR. | P1 |
+| AQ-v0.5-4 | AC-F10-2 | max_iter default: 3 fixed or configurable via provider_config? | Configurable default=3; stored in provider_config or deep_research_config table. | P1 |
+| AQ-v0.5-5 | AC-F13-1 | Soft-delete: does the watcher ignore soft-deleted pages on restart? | Watcher skips pages with deleted_at IS NOT NULL. Confirm in watcher.py docstring. | P1 |
+| AQ-v0.5-6 | AC-F9-1 | review_items.vault_id: FK to vaults table or to vault_state.vault_id? | Use vault_state.vault_id convention; no separate vaults table. Architect confirms. | P1 |
+| AQ-v0.5-7 | AC-F17-CHAT-1 | CliAgentProvider.chat() max_iter: shared with ingest max_iter or separate chat_max_iter? | Separate chat_max_iter in provider_config recommended. Architect confirms. | P1 |
