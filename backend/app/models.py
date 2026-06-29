@@ -963,9 +963,7 @@ class ImportSchedule(Base):
         comment="Updated on every PUT or scan completion",
     )
 
-    __table_args__ = (
-        UniqueConstraint("vault_id", name="uq_import_schedules_vault_id"),
-    )
+    __table_args__ = (UniqueConstraint("vault_id", name="uq_import_schedules_vault_id"),)
 
     def __repr__(self) -> str:
         return (

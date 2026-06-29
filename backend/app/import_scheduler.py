@@ -25,9 +25,10 @@ import os
 import shutil
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Protocol
 
 from app.config import settings
 from app.upload import safe_source_name
@@ -95,7 +96,7 @@ async def upsert_schedule(
         )
         schedule = row.scalar_one_or_none()
         if schedule is None:
-            schedule = ImportSchedule(id=uuid.uuid4(), vault_id=vault_id, **kwargs)  # type: ignore[arg-type]
+            schedule = ImportSchedule(id=uuid.uuid4(), vault_id=vault_id, **kwargs)
             session.add(schedule)
         else:
             for key, value in kwargs.items():
@@ -134,7 +135,11 @@ async def run_one_scan(cfg: object) -> tuple[int, str, str | None]:
 
     source_path = Path(source_dir)
     if not source_path.is_dir():
-        return 0, "dir_missing", f"Directory not found or not readable inside the container: {source_dir}"
+        return (
+            0,
+            "dir_missing",
+            f"Directory not found or not readable inside the container: {source_dir}",
+        )
 
     raw_sources = settings.raw_sources_dir
     raw_sources.mkdir(parents=True, exist_ok=True)
@@ -260,7 +265,7 @@ class ImportScheduler:
     def __init__(
         self,
         clock: _ClockProtocol | None = None,
-        scan_fn: Callable[..., object] | None = None,
+        scan_fn: Callable[..., Awaitable[tuple[int, str, str | None]]] | None = None,
     ) -> None:
         self._clock: _ClockProtocol = clock or _RealClock()
         self._scan_fn = scan_fn or run_one_scan
@@ -404,8 +409,8 @@ class ImportScheduler:
                         last_error=str(exc),
                         updated_at=datetime.now(UTC),
                     )
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as write_exc:  # noqa: BLE001
+                    logger.debug("ImportScheduler: failed to persist error status: %s", write_exc)
             finally:
                 self._scan_in_flight = False
 

@@ -45,25 +45,33 @@ def safe_source_name(raw_filename: str) -> str:
     Raises HTTPException(415) for disallowed extensions.
     """
     if not raw_filename:
-        raise HTTPException(status_code=422, detail="Filename is empty or unsafe after sanitization.")
+        raise HTTPException(
+            status_code=422, detail="Filename is empty or unsafe after sanitization."
+        )
 
     # Step 1 — basename only
     name = Path(raw_filename).name
 
     # Step 2 — reject sentinel values
     if not name or name in {".", ".."}:
-        raise HTTPException(status_code=422, detail="Filename is empty or unsafe after sanitization.")
+        raise HTTPException(
+            status_code=422, detail="Filename is empty or unsafe after sanitization."
+        )
 
     # Step 3 — belt-and-braces: no separator chars should survive step 1, but reject if present
     if _SEP_RE.search(name):
-        raise HTTPException(status_code=422, detail="Filename is empty or unsafe after sanitization.")
+        raise HTTPException(
+            status_code=422, detail="Filename is empty or unsafe after sanitization."
+        )
 
     # Step 4 — strip NUL and control characters (chr < 0x20 except ordinary space),
     #           then collapse runs of whitespace
     name = "".join(ch for ch in name if ord(ch) >= 0x20 and ch != "\x7f")
     name = re.sub(r"\s+", " ", name).strip()
     if not name:
-        raise HTTPException(status_code=422, detail="Filename is empty or unsafe after sanitization.")
+        raise HTTPException(
+            status_code=422, detail="Filename is empty or unsafe after sanitization."
+        )
 
     # Step 5 — extension allow-list check (authoritative — MIME hint is advisory)
     suffix = Path(name).suffix.lower()
@@ -100,6 +108,8 @@ def resolve_under_sources(name: str) -> Path:
     if not str(dst).startswith(str(raw_dir) + "/"):
         # Also accept exact match (in case name has no extension or path ends exactly)
         if dst != raw_dir and not str(dst).startswith(str(raw_dir) + "/"):
-            raise HTTPException(status_code=422, detail="Filename is empty or unsafe after sanitization.")
+            raise HTTPException(
+                status_code=422, detail="Filename is empty or unsafe after sanitization."
+            )
 
     return dst

@@ -116,9 +116,7 @@ class OllamaProvider(InferenceProvider):
         out_tok = 0
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
-                async with client.stream(
-                    "POST", f"{self._base_url}/api/chat", json=body
-                ) as resp:
+                async with client.stream("POST", f"{self._base_url}/api/chat", json=body) as resp:
                     resp.raise_for_status()
                     async for raw_line in resp.aiter_lines():
                         if not raw_line.strip():

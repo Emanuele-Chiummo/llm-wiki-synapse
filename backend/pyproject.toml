@@ -67,6 +67,20 @@ ignore = [
 "tests/*" = ["ANN", "S"]
 "scripts/*" = ["ANN", "S", "E501"]  # scripts are not production code — relax annotations and line length
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency-injection markers are idiomatic in argument defaults (B008).
+# Treat them as immutable calls so `param = File(...)` / `Depends(...)` are allowed.
+extend-immutable-calls = [
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Body",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+]
+
 [tool.black]
 line-length = 100
 target-version = ["py311"]
