@@ -435,6 +435,75 @@ async def test_upload_path_traversal_sanitized(upload_env: dict[str, Any]) -> No
 
 
 @pytest.mark.asyncio
+async def test_upload_binary_creates_companion_and_preserves_original(
+    upload_env: dict[str, Any],
+) -> None:
+    """
+    T-UPLOAD-F12-1: AC-F12-4 companion flow.
+
+    Uploading a PDF (or any extractable binary):
+      1. Returns HTTP 202.
+      2. Original binary preserved at raw/sources/<name>.pdf.
+      3. Companion <stem>.extracted.md created at raw/sources/<stem>.extracted.md.
+      4. Companion has valid YAML frontmatter (type: source, title, sources[]).
+      5. Binary NOT in _ALLOWED_EXTENSIONS → watcher won't ingest the binary.
+
+    Uses a minimal PDF-like bytes blob; the extract_text() call is mocked
+    to avoid requiring pypdf at test runtime (tests/test_extract.py already
+    exercises the real extractor).
+    """
+    import io as _io
+    from unittest.mock import patch
+
+    client = upload_env["client"]
+    sources_dir: Path = upload_env["sources_dir"]
+
+    # Minimal fake PDF bytes (valid enough for the upload handler)
+    fake_pdf = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n%%EOF"
+    extracted_text = "Extracted PDF content: Lorem ipsum."
+
+    # Patch extract_text so the test does not need pypdf available
+    with patch(
+        "app.ingest.extract.extract_text",
+        return_value=extracted_text,
+    ):
+        response = await client.post(
+            "/ingest/upload",
+            files={"file": ("sample_doc.pdf", _io.BytesIO(fake_pdf), "application/pdf")},
+        )
+
+    # 1. HTTP 202
+    assert response.status_code == 202, response.text
+    body = response.json()
+    assert body["status"] == "queued"
+
+    # 2. Original binary preserved
+    original = sources_dir / "sample_doc.pdf"
+    assert original.exists(), "Original binary must be preserved in raw/sources/"
+    assert original.read_bytes() == fake_pdf
+
+    # 3. Companion .extracted.md created
+    companion = sources_dir / "sample_doc.extracted.md"
+    assert companion.exists(), "Companion .extracted.md must be written by the upload handler"
+
+    # 4. Companion has valid YAML frontmatter (I5)
+    companion_text = companion.read_text(encoding="utf-8")
+    assert "---" in companion_text, "Companion must have YAML frontmatter"
+    assert "type:" in companion_text
+    assert "title:" in companion_text
+    assert "sources:" in companion_text
+    # Extracted text is in the body
+    assert extracted_text in companion_text
+
+    # 5. Binary extension NOT in _ALLOWED_EXTENSIONS (watcher won't ingest it)
+    from app.upload import _ALLOWED_EXTENSIONS
+
+    assert ".pdf" not in _ALLOWED_EXTENSIONS, (
+        ".pdf must NOT be in _ALLOWED_EXTENSIONS — watcher must ignore binaries (ADR-0025 Do-NOT #13)"
+    )
+
+
+@pytest.mark.asyncio
 async def test_upload_i1_dedup(upload_env: dict[str, Any]) -> None:
     """T-UPLOAD-007: re-uploading identical content returns 202 queued (I1 gate is watcher-side)."""
     client = upload_env["client"]

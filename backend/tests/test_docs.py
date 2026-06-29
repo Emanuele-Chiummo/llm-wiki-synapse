@@ -812,9 +812,9 @@ class TestDeepResearchSequenceDiagram:
         if not self._path.exists():
             pytest.skip("deep-research.mmd not yet created — see T-DOCS-051")
         text = self._path.read_text(encoding="utf-8")
-        assert "sequenceDiagram" in text, (
-            "docs/sequences/deep-research.mmd must contain 'sequenceDiagram' (AC-D3-DR-1(a))"
-        )
+        assert (
+            "sequenceDiagram" in text
+        ), "docs/sequences/deep-research.mmd must contain 'sequenceDiagram' (AC-D3-DR-1(a))"
 
     def test_deep_research_mmd_shows_searxng(self) -> None:
         """T-DOCS-053: AC-D3-DR-1(b) — diagram must show SearXNG multi-query (I9)."""
@@ -831,9 +831,9 @@ class TestDeepResearchSequenceDiagram:
         if not self._path.exists():
             pytest.skip("deep-research.mmd not yet created")
         text = self._path.read_text(encoding="utf-8")
-        assert "max_iter" in text, (
-            "docs/sequences/deep-research.mmd must annotate max_iter cap (AC-D3-DR-1(c), I7)"
-        )
+        assert (
+            "max_iter" in text
+        ), "docs/sequences/deep-research.mmd must annotate max_iter cap (AC-D3-DR-1(c), I7)"
 
     def test_deep_research_mmd_annotates_concurrency(self) -> None:
         """T-DOCS-055: AC-D3-DR-1(c) — diagram must annotate concurrency=3 (I7)."""
@@ -850,18 +850,18 @@ class TestDeepResearchSequenceDiagram:
         if not self._path.exists():
             pytest.skip("deep-research.mmd not yet created")
         text = self._path.read_text(encoding="utf-8")
-        assert "total_cost_usd" in text or "cost" in text.lower(), (
-            "docs/sequences/deep-research.mmd must show total_cost_usd logged (AC-D3-DR-1(b), I7)"
-        )
+        assert (
+            "total_cost_usd" in text or "cost" in text.lower()
+        ), "docs/sequences/deep-research.mmd must show total_cost_usd logged (AC-D3-DR-1(b), I7)"
 
     def test_deep_research_mmd_shows_ingest_file(self) -> None:
         """T-DOCS-057: AC-D3-DR-1(b) — diagram must show ingest_file seam (AQ-v0.5-3 / I1/I5)."""
         if not self._path.exists():
             pytest.skip("deep-research.mmd not yet created")
         text = self._path.read_text(encoding="utf-8")
-        assert "ingest_file" in text or "ingest" in text.lower(), (
-            "docs/sequences/deep-research.mmd must show ingest_file seam (AC-D3-DR-1(b), AQ-v0.5-3)"
-        )
+        assert (
+            "ingest_file" in text or "ingest" in text.lower()
+        ), "docs/sequences/deep-research.mmd must show ingest_file seam (AC-D3-DR-1(b), AQ-v0.5-3)"
 
     def test_deep_research_mmd_shows_inference_provider(self) -> None:
         """T-DOCS-058: AC-D3-DR-1(b) — diagram must show InferenceProvider participant (I6)."""
