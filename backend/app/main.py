@@ -1,12 +1,12 @@
 """
-Synapse FastAPI service — v0.5 (M5 Phase 1: F5 retrieval + citations).
+Synapse FastAPI service — v0.5 (M5 Phase 3: F9 HITL Review Queue + F12 Multi-format ingest).
 
 Endpoints:
   GET  /status                — vault_id, data_version, started_at, uptime
   GET  /pages                 — paginated list of live pages
   GET  /pages/{id}            — single page by UUID
   POST /ingest/trigger        — sync ingest; HTTP 202 (typed IngestTriggerResponse, AC-D4u)
-  POST /ingest/upload         — multipart file upload → ingest; 202 (ADR-0020 Feature U)
+  POST /ingest/upload         — multipart file upload → ingest; 202 (ADR-0020 Feature U + F12)
   POST /ingest/from-text      — inline text → raw/sources/ + ingest; 202 (ADR-0019 §2.7)
   GET  /ingest/runs           — paginated ingest run history (ADR-0018 §7, AC-BE-IR-1..5)
   GET  /search                — 4-phase RAG retrieval (F5, ADR-0022); read-only (AC-F5-5/6)
@@ -27,6 +27,10 @@ Endpoints:
   POST /research/start          — start a bounded deep-research run; 202 {run_id} (F10, ADR-0024)
   GET  /research/runs           — paginated deep-research run list (F10)
   GET  /research/runs/{id}      — deep-research run detail + sources (F10)
+  GET  /review/queue            — paginated HITL review queue (F9, ADR-0025)
+  POST /review/queue/{id}/approve — set status=approved; status write only (F9)
+  POST /review/queue/{id}/skip    — set status=skipped (F9)
+  POST /review/queue/{id}/deep-research — delegate to F10; 202 {review_item_id, run_id} (F9)
 
 Startup sequence (ordered, per v0.1-architecture §2.5):
   1. Vault skeleton bootstrap (vault.py) — AC-K7-1, I5
@@ -76,6 +80,7 @@ from app.models import (
     IngestRun,
     Page,
     ProviderConfig,
+    ReviewItem,
     VaultState,
 )
 from app.qdrant_client import ensure_collection
@@ -1025,24 +1030,26 @@ async def trigger_ingest(body: IngestTriggerRequest) -> IngestTriggerResponse:
     "/ingest/upload",
     response_model=UploadResponse,
     status_code=202,
-    summary="Upload a document for async watcher-driven ingest",
+    summary="Upload a document for async watcher-driven ingest (F12 multi-format)",
     description=(
-        "Feature U (ADR-0020 §2, M4-EXT non-blocking). "
-        "Accepts a single text/markdown file (.md/.txt/.markdown) via multipart/form-data. "
-        "Writes to vault/raw/sources/<name> (I5) and returns 202 immediately. "
-        "The watcher observes the write and ingests asynchronously (~15-30s). "
-        "Strict basename-only path sanitization (ADR-0020 §2.2). "
-        "413 on oversize (MAX_UPLOAD_BYTES). 415 for non-text (names F12/M5). "
+        "Feature U (ADR-0020 §2, M4-EXT) + F12 Multi-format ingest (ADR-0025 §4.2). "
+        "Accepts text/markdown (.md/.txt/.markdown), binary formats (.pdf/.docx/.pptx/.xlsx), "
+        "and placeholder formats (.png/.jpg/.jpeg/.gif/.webp/.mp3/.mp4/.wav/.m4a). "
+        "For text: writes directly to vault/raw/sources/<name>; watcher ingests asynchronously. "
+        "For binary/placeholder: (1) writes original binary to vault/raw/sources/<name>.<ext> "
+        "(preserved, I5/K1); (2) synchronously extracts text → companion "
+        "<stem>.extracted.md with valid YAML frontmatter (I5); (3) returns 202. "
+        "The watcher ingests ONLY the companion (.md is in _ALLOWED_EXTENSIONS); the binary "
+        "is ignored by the watcher (I1). Extraction is upload-time, NEVER in the watcher. "
+        "413 on oversize (MAX_UPLOAD_BYTES). 415 for truly unknown types. "
         "422 for unsafe filename. 202 {file_path, status:'queued', overwritten}."
     ),
     responses={
-        202: {"description": "File saved; watcher will ingest asynchronously"},
-        413: {"description": "File exceeds MAX_UPLOAD_BYTES"},
-        415: {
-            "description": (
-                "Only .md/.txt/.markdown accepted in v0.4; " "multi-format (F12) is planned for M5"
-            )
+        202: {
+            "description": "File saved; watcher will ingest asynchronously (companion for binaries)"
         },
+        413: {"description": "File exceeds MAX_UPLOAD_BYTES"},
+        415: {"description": "Unsupported file type"},
         422: {"description": "Filename is empty or unsafe after sanitization"},
     },
 )
@@ -1122,8 +1129,53 @@ async def upload_ingest(
         Path(tmp_name).unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail=f"Failed to write file: {exc}") from exc
 
+    # ── F12: synchronous extraction for binary/placeholder uploads (ADR-0025 §4.2) ──
+    # If the file is a binary or placeholder extension, extract text NOW (before 202)
+    # so the companion .extracted.md exists when the watcher fires.
+    # The watcher ignores the binary (not in _ALLOWED_EXTENSIONS); only the companion is
+    # ingested. This is the ONLY place extraction happens — never inside the watcher (Do-NOT #12).
+    suffix_lower = Path(name).suffix.lower()
+    from app.upload import _EXTRACTABLE_EXTENSIONS, _PLACEHOLDER_EXTENSIONS
+
+    if suffix_lower in (_EXTRACTABLE_EXTENSIONS | _PLACEHOLDER_EXTENSIONS):
+        try:
+            from app.ingest.extract import UnsupportedFormatError, extract_text
+
+            extracted = extract_text(dst)
+            # Build companion filename: <stem>.extracted.md
+            stem = Path(name).stem
+            companion_name = f"{stem}.extracted.md"
+            companion_dst = settings.raw_sources_dir / companion_name
+            # Write valid Obsidian YAML frontmatter (I5, AC-F12-4, ADR-0025 §4.4)
+            raw_rel = str(dst.relative_to(settings.vault_root))
+            companion_content = (
+                f'---\ntype: source\ntitle: {stem}\nsources: ["{raw_rel}"]\n---\n\n' + extracted
+            )
+            companion_dst.write_text(companion_content, encoding="utf-8")
+            logger.info(
+                "upload_ingest: extracted %s → companion %s (%d chars)",
+                name,
+                companion_name,
+                len(extracted),
+            )
+            # Return the companion path as the queued file (the watcher ingests this)
+            rel_path = str(companion_dst.relative_to(settings.vault_root))
+        except UnsupportedFormatError as exc:
+            # Should not happen (upload guard already validated the extension), but handle cleanly
+            raise HTTPException(status_code=415, detail=str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001
+            # Extraction failure: log but do NOT block the 202 — the binary is safely saved.
+            # The companion will not be created; the watcher will silently skip the binary (I1).
+            logger.warning(
+                "upload_ingest: extraction failed for %s: %s — companion not created",
+                name,
+                exc,
+            )
+            rel_path = str(dst.relative_to(settings.vault_root))
+    else:
+        rel_path = str(dst.relative_to(settings.vault_root))
+
     # ── Return 202 immediately — watcher ingests asynchronously ──────────────
-    rel_path = str(dst.relative_to(settings.vault_root))
     logger.info("upload_ingest: saved %s (%d bytes) — watcher will ingest", name, bytes_read)
     return UploadResponse(
         file_path=rel_path,
@@ -2423,6 +2475,235 @@ async def get_research_run(run_id: uuid.UUID) -> ResearchRunDetail:
         started_at=run.started_at,
         completed_at=run.completed_at,
         error_message=run.error_message,
+    )
+
+
+# ── F9 Review Queue REST (ADR-0025 §3.5, AC-F9-3) ─────────────────────────────
+
+# Maximum page size for GET /review/queue (I7 — bounded list)
+_REVIEW_QUEUE_MAX_LIMIT: int = 200
+
+
+class ReviewItemResponse(BaseModel):
+    """
+    API response shape for one review_items row (ADR-0025 §3.5).
+
+    page_title is a convenience join from the pages table for the UI list (AC-F9-5).
+    deep_research_run_id is None while the Deep-Research action has not been taken.
+    """
+
+    id: uuid.UUID
+    vault_id: str
+    page_id: uuid.UUID | None = None
+    page_title: str | None = Field(
+        default=None, description="Convenience join from pages.title (AC-F9-5)"
+    )
+    item_type: str = Field(description="new_page | update_page | deep_research_candidate")
+    status: str = Field(description="pending | approved | skipped | deep_researched")
+    pre_generated_query: str | None = Field(
+        default=None,
+        description="Newline-sep 1–3 follow-up questions; null when call failed/timed out",
+    )
+    deep_research_run_id: uuid.UUID | None = Field(
+        default=None,
+        description="FK → deep_research_runs.id; set when Deep-Research action fires (AC-F10-5)",
+    )
+    created_at: datetime
+    reviewed_at: datetime | None = None
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+class ReviewQueueResponse(BaseModel):
+    """Paginated response for GET /review/queue (ADR-0025 §3.5)."""
+
+    items: list[ReviewItemResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class ReviewDeepResearchResponse(BaseModel):
+    """202 response for POST /review/queue/{id}/deep-research (ADR-0025 §3.5)."""
+
+    review_item_id: uuid.UUID
+    run_id: uuid.UUID
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "review_item_id": "00000000-0000-0000-0000-000000000001",
+                "run_id": "00000000-0000-0000-0000-000000000002",
+            }
+        }
+    }
+
+
+def _review_item_to_response(item: ReviewItem, page_title: str | None = None) -> ReviewItemResponse:
+    """Convert ReviewItem ORM row to ReviewItemResponse (handles str/UUID for id fields)."""
+
+    # UUID fields stored as str in SQLite, UUID in Postgres — normalise to UUID
+    def _to_uuid(val: Any) -> uuid.UUID | None:
+        if val is None:
+            return None
+        try:
+            return uuid.UUID(str(val))
+        except (ValueError, AttributeError):
+            return None
+
+    return ReviewItemResponse(
+        id=_to_uuid(item.id) or uuid.UUID(int=0),
+        vault_id=item.vault_id,
+        page_id=_to_uuid(item.page_id),
+        page_title=page_title,
+        item_type=item.item_type,
+        status=item.status,
+        pre_generated_query=item.pre_generated_query,
+        deep_research_run_id=_to_uuid(item.deep_research_run_id),
+        created_at=item.created_at,
+        reviewed_at=item.reviewed_at,
+    )
+
+
+@app.get(
+    "/review/queue",
+    response_model=ReviewQueueResponse,
+    summary="List HITL review queue items",
+    description=(
+        "F9 HITL Review Queue (ADR-0025 §3.5, AC-F9-3). "
+        "Returns paginated review_items for a vault, ordered created_at ASC. "
+        "limit: default 50, max 200 (I7 — bounded page size). offset: >=0. "
+        "vault_id: required filter. "
+        "page_title is a convenience join from pages.title for the UI list (AC-F9-5)."
+    ),
+    responses={
+        200: {"description": "Paginated review queue"},
+        422: {"description": "Validation error (limit out of range, missing vault_id)"},
+    },
+)
+async def list_review_queue(
+    vault_id: str = Query(..., description="Vault scope (required)"),
+    limit: int = Query(
+        default=50,
+        ge=1,
+        le=_REVIEW_QUEUE_MAX_LIMIT,
+        description=f"Max rows to return (1..{_REVIEW_QUEUE_MAX_LIMIT}); I7 cap",
+    ),
+    offset: int = Query(default=0, ge=0, description="Row offset for pagination"),
+) -> ReviewQueueResponse:
+    """
+    GET /review/queue — paginated HITL review queue (ADR-0025 §3.5, AC-F9-3).
+
+    READ-ONLY — no data_version bump, no ingest triggered (AC-F9-6).
+    limit capped at 200 (I7 — bounded page size, ADR-0025 §3.5).
+    page_title is loaded via a JOIN on pages.title (AC-F9-5).
+    """
+    from app.ops.review import list_queue
+
+    queue_page = await list_queue(vault_id, limit=limit, offset=offset)
+
+    # Load page_title for each item (convenience join, AC-F9-5)
+    page_ids = [str(it.page_id) for it in queue_page.items if it.page_id is not None]
+    page_titles: dict[str, str | None] = {}
+    if page_ids:
+        async with get_session() as session:
+            rows = await session.execute(
+                select(Page.id, Page.title).where(
+                    Page.id.in_(page_ids),
+                )
+            )
+            for row in rows:
+                page_titles[str(row[0])] = row[1]
+
+    items = [
+        _review_item_to_response(
+            it, page_title=page_titles.get(str(it.page_id)) if it.page_id else None
+        )
+        for it in queue_page.items
+    ]
+    return ReviewQueueResponse(
+        items=items,
+        total=queue_page.total,
+        limit=queue_page.limit,
+        offset=queue_page.offset,
+    )
+
+
+@app.post(
+    "/review/queue/{item_id}/approve",
+    response_model=ReviewItemResponse,
+    summary="Approve a review item (status write only)",
+    description=(
+        "F9 HITL Review Queue — approve action (ADR-0025 §3.5, AC-F9-3). "
+        "Sets status=approved, reviewed_at=now(). "
+        "Does NOT re-trigger ingest or rescan the vault (AC-F9-6, I1). "
+        "404 if item_id is unknown."
+    ),
+    responses={
+        200: {"description": "Item approved"},
+        404: {"description": "Review item not found"},
+    },
+)
+async def approve_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
+    """POST /review/queue/{id}/approve — status write only (AC-F9-6, I1)."""
+    from app.ops.review import approve
+
+    item = await approve(item_id)
+    return _review_item_to_response(item)
+
+
+@app.post(
+    "/review/queue/{item_id}/skip",
+    response_model=ReviewItemResponse,
+    summary="Skip a review item",
+    description=(
+        "F9 HITL Review Queue — skip action (ADR-0025 §3.5, AC-F9-3). "
+        "Sets status=skipped, reviewed_at=now(). "
+        "404 if item_id is unknown."
+    ),
+    responses={
+        200: {"description": "Item skipped"},
+        404: {"description": "Review item not found"},
+    },
+)
+async def skip_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
+    """POST /review/queue/{id}/skip — status write (ADR-0025 §3.5)."""
+    from app.ops.review import skip
+
+    item = await skip(item_id)
+    return _review_item_to_response(item)
+
+
+@app.post(
+    "/review/queue/{item_id}/deep-research",
+    response_model=ReviewDeepResearchResponse,
+    status_code=202,
+    summary="Trigger deep research for a review item",
+    description=(
+        "F9 HITL Review Queue — deep-research action (ADR-0025 §3.5, AC-F9-3, AC-F10-5). "
+        "Sets status=deep_researched; delegates to POST /research/start (F10) with the item's "
+        "pre_generated_query (first line) or the page topic as the research topic. "
+        "Stores the returned run_id in review_items.deep_research_run_id (AC-F10-5). "
+        "Returns 202 {review_item_id, run_id} immediately (fire-and-poll). "
+        "503 if SEARXNG_URL is unset (inherits F10's guard, I9). "
+        "404 if item_id is unknown."
+    ),
+    responses={
+        202: {
+            "description": "Deep research started; poll GET /research/runs/{run_id} for progress"
+        },
+        404: {"description": "Review item not found"},
+        503: {"description": "SEARXNG_URL is not configured (I9)"},
+    },
+)
+async def deep_research_review_item(item_id: uuid.UUID) -> ReviewDeepResearchResponse:
+    """POST /review/queue/{id}/deep-research — delegate to F10 (ADR-0025 §3.5, AC-F10-5)."""
+    from app.ops.review import deep_research as _deep_research_op
+
+    result = await _deep_research_op(item_id)
+    return ReviewDeepResearchResponse(
+        review_item_id=result.review_item_id,
+        run_id=result.run_id,
     )
 
 

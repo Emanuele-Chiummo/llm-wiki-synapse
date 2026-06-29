@@ -66,7 +66,7 @@ def _nullable_marker(col: object) -> str:  # type: ignore[type-arg]
 def generate_mermaid_er() -> str:
     from datetime import date
 
-    header = f"<!-- Generated: v0.5-F10 | {date.today().isoformat()} — ADR-0024: deep_research_runs/sources; ADR-0016: edges.kind; Feature A: pages.pinned -->"
+    header = f"<!-- Generated: v0.5-F9/F10 | {date.today().isoformat()} — ADR-0025: review_items; ADR-0024: deep_research_runs/sources; ADR-0016: edges.kind; Feature A: pages.pinned -->"
     lines = [header, "erDiagram", ""]
 
     for table in Base.metadata.sorted_tables:
@@ -104,11 +104,12 @@ def main() -> None:
     assert "IMPORT_SCHEDULES" in mermaid
     assert "DEEP_RESEARCH_RUNS" in mermaid
     assert "DEEP_RESEARCH_SOURCES" in mermaid
+    assert "REVIEW_ITEMS" in mermaid
     print(
-        "Sanity check passed: all 11 tables present "
+        "Sanity check passed: all 12 tables present "
         "(PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES, "
         "CONVERSATIONS, MESSAGES, IMPORT_SCHEDULES, "
-        "DEEP_RESEARCH_RUNS, DEEP_RESEARCH_SOURCES)"
+        "DEEP_RESEARCH_RUNS, DEEP_RESEARCH_SOURCES, REVIEW_ITEMS)"
     )
 
 

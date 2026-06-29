@@ -29,7 +29,6 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-
 # ── Shared mock infrastructure ───────────────────────────────────────────────
 
 
@@ -134,7 +133,9 @@ async def _make_chat_client(
     recording = _RecordingProvider(provider_type)
     config_row = _make_config_row(provider_type)
 
-    async def fake_resolve_config(operation: str, vault_id: str | None = None, *, session: Any = None) -> Any:  # noqa: ARG001
+    async def fake_resolve_config(
+        operation: str, vault_id: str | None = None, *, session: Any = None
+    ) -> Any:  # noqa: ARG001
         return config_row
 
     monkeypatch.setattr("app.chat.stream.resolve_provider_config", fake_resolve_config)
@@ -193,9 +194,9 @@ async def test_ac_f5_8_all_providers_receive_retrieval_context(
             json={"messages": [{"role": "user", "content": "tell me about widgets"}]},
         )
 
-    assert resp.status_code == 200, (
-        f"provider_type={provider_type!r}: expected 200, got {resp.status_code}: {resp.text}"
-    )
+    assert (
+        resp.status_code == 200
+    ), f"provider_type={provider_type!r}: expected 200, got {resp.status_code}: {resp.text}"
 
     # The recording provider must have been called with a non-None retrieval_context.
     assert recording.received_retrieval_context is not None, (
@@ -203,10 +204,10 @@ async def test_ac_f5_8_all_providers_receive_retrieval_context(
         f"(received_retrieval_context is None — retrieval context not injected)"
     )
 
-    # The retrieval text from the mocked retrieve() must appear in the context passed to the provider.
+    # The retrieval text from the mocked retrieve() must appear in the context sent to the provider.
     assert _MOCK_RETRIEVAL_TEXT in recording.received_retrieval_context, (
-        f"provider_type={provider_type!r}: provider.chat() received retrieval_context that does NOT "
-        f"contain the assembled retrieval text.\n"
+        f"provider_type={provider_type!r}: provider.chat() received retrieval_context that does "
+        f"NOT contain the assembled retrieval text.\n"
         f"Expected substring: {_MOCK_RETRIEVAL_TEXT!r}\n"
         f"Received context (truncated): {recording.received_retrieval_context[:200]!r}"
     )
@@ -234,12 +235,12 @@ async def test_ac_f5_8_done_event_carries_citations_for_all_providers(
     events = [json.loads(line) for line in resp.text.splitlines() if line.strip()]
     done = next((e for e in events if e.get("type") == "done"), None)
     assert done is not None, f"provider_type={provider_type!r}: no 'done' event in stream"
-    assert "citations" in done, (
-        f"provider_type={provider_type!r}: done event missing 'citations' field (ADR-0022 §2.4)"
-    )
-    assert isinstance(done["citations"], list), (
-        f"provider_type={provider_type!r}: done.citations is not a list"
-    )
+    assert (
+        "citations" in done
+    ), f"provider_type={provider_type!r}: done event missing 'citations' field (ADR-0022 §2.4)"
+    assert isinstance(
+        done["citations"], list
+    ), f"provider_type={provider_type!r}: done.citations is not a list"
     assert len(done["citations"]) == 1, (
         f"provider_type={provider_type!r}: expected 1 citation in done event, "
         f"got {len(done['citations'])}"

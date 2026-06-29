@@ -133,6 +133,31 @@ class Settings(BaseSettings):
     Env var: DEEP_RESEARCH_FETCH_MAX_CHARS.
     """
 
+    # ── F9: Review queue (ADR-0025 §3.2) ────────────────────────────────────────
+
+    review_query_timeout_seconds: float = 30.0
+    """
+    Timeout in seconds for the single pre-generated-query provider call (F9, I7).
+    On timeout → pre_generated_query=NULL; item still enqueued (AC-F9-4).
+    Env var: REVIEW_QUERY_TIMEOUT_SECONDS.
+    """
+
+    review_query_token_budget: int = 2_000
+    """
+    Token budget for the single query-gen call (F9, I7).
+    Small: the prompt + 1-3 questions should comfortably fit in 2K tokens.
+    Env var: REVIEW_QUERY_TOKEN_BUDGET.
+    """
+
+    # ── F12: Multi-format ingest (ADR-0025 §4.1) ─────────────────────────────────
+
+    extract_max_chars: int = 2_000_000
+    """
+    Maximum characters of extracted text output (F12, I7 — pathological-file guard).
+    Default ~2M chars (~500K tokens at 4 chars/token) — generous but bounded.
+    Env var: EXTRACT_MAX_CHARS.
+    """
+
     # ── M4-EXT: upload + scheduled import caps (ADR-0020 §2.4 / §4.4) ──────────
 
     max_upload_bytes: int = 26_214_400

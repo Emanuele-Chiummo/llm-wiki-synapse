@@ -212,8 +212,8 @@
     },
     "/ingest/upload": {
       "post": {
-        "summary": "Upload a document for async watcher-driven ingest",
-        "description": "Feature U (ADR-0020 \u00a72, M4-EXT non-blocking). Accepts a single text/markdown file (.md/.txt/.markdown) via multipart/form-data. Writes to vault/raw/sources/<name> (I5) and returns 202 immediately. The watcher observes the write and ingests asynchronously (~15-30s). Strict basename-only path sanitization (ADR-0020 \u00a72.2). 413 on oversize (MAX_UPLOAD_BYTES). 415 for non-text (names F12/M5). 422 for unsafe filename. 202 {file_path, status:'queued', overwritten}.",
+        "summary": "Upload a document for async watcher-driven ingest (F12 multi-format)",
+        "description": "Feature U (ADR-0020 \u00a72, M4-EXT) + F12 Multi-format ingest (ADR-0025 \u00a74.2). Accepts text/markdown (.md/.txt/.markdown), binary formats (.pdf/.docx/.pptx/.xlsx), and placeholder formats (.png/.jpg/.jpeg/.gif/.webp/.mp3/.mp4/.wav/.m4a). For text: writes directly to vault/raw/sources/<name>; watcher ingests asynchronously. For binary/placeholder: (1) writes original binary to vault/raw/sources/<name>.<ext> (preserved, I5/K1); (2) synchronously extracts text \u2192 companion <stem>.extracted.md with valid YAML frontmatter (I5); (3) returns 202. The watcher ingests ONLY the companion (.md is in _ALLOWED_EXTENSIONS); the binary is ignored by the watcher (I1). Extraction is upload-time, NEVER in the watcher. 413 on oversize (MAX_UPLOAD_BYTES). 415 for truly unknown types. 422 for unsafe filename. 202 {file_path, status:'queued', overwritten}.",
         "operationId": "upload_ingest_ingest_upload_post",
         "requestBody": {
           "content": {
@@ -227,7 +227,7 @@
         },
         "responses": {
           "202": {
-            "description": "File saved; watcher will ingest asynchronously",
+            "description": "File saved; watcher will ingest asynchronously (companion for binaries)",
             "content": {
               "application/json": {
                 "schema": {
@@ -240,7 +240,7 @@
             "description": "File exceeds MAX_UPLOAD_BYTES"
           },
           "415": {
-            "description": "Only .md/.txt/.markdown accepted in v0.4; multi-format (F12) is planned for M5"
+            "description": "Unsupported file type"
           },
           "422": {
             "description": "Filename is empty or unsafe after sanitization"
@@ -1052,6 +1052,203 @@
           },
           "404": {
             "description": "No run with this id"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/queue": {
+      "get": {
+        "summary": "List HITL review queue items",
+        "description": "F9 HITL Review Queue (ADR-0025 \u00a73.5, AC-F9-3). Returns paginated review_items for a vault, ordered created_at ASC. limit: default 50, max 200 (I7 \u2014 bounded page size). offset: >=0. vault_id: required filter. page_title is a convenience join from pages.title for the UI list (AC-F9-5).",
+        "operationId": "list_review_queue_review_queue_get",
+        "parameters": [
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Vault scope (required)",
+              "title": "Vault Id"
+            },
+            "description": "Vault scope (required)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Max rows to return (1..200); I7 cap",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Max rows to return (1..200); I7 cap"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Row offset for pagination",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Row offset for pagination"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated review queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewQueueResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (limit out of range, missing vault_id)"
+          }
+        }
+      }
+    },
+    "/review/queue/{item_id}/approve": {
+      "post": {
+        "summary": "Approve a review item (status write only)",
+        "description": "F9 HITL Review Queue \u2014 approve action (ADR-0025 \u00a73.5, AC-F9-3). Sets status=approved, reviewed_at=now(). Does NOT re-trigger ingest or rescan the vault (AC-F9-6, I1). 404 if item_id is unknown.",
+        "operationId": "approve_review_item_review_queue__item_id__approve_post",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Item approved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewItemResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review item not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/queue/{item_id}/skip": {
+      "post": {
+        "summary": "Skip a review item",
+        "description": "F9 HITL Review Queue \u2014 skip action (ADR-0025 \u00a73.5, AC-F9-3). Sets status=skipped, reviewed_at=now(). 404 if item_id is unknown.",
+        "operationId": "skip_review_item_review_queue__item_id__skip_post",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Item skipped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewItemResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review item not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/queue/{item_id}/deep-research": {
+      "post": {
+        "summary": "Trigger deep research for a review item",
+        "description": "F9 HITL Review Queue \u2014 deep-research action (ADR-0025 \u00a73.5, AC-F9-3, AC-F10-5). Sets status=deep_researched; delegates to POST /research/start (F10) with the item's pre_generated_query (first line) or the page topic as the research topic. Stores the returned run_id in review_items.deep_research_run_id (AC-F10-5). Returns 202 {review_item_id, run_id} immediately (fire-and-poll). 503 if SEARXNG_URL is unset (inherits F10's guard, I9). 404 if item_id is unknown.",
+        "operationId": "deep_research_review_item_review_queue__item_id__deep_research_post",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Deep research started; poll GET /research/runs/{run_id} for progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDeepResearchResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review item not found"
+          },
+          "503": {
+            "description": "SEARXNG_URL is not configured (I9)"
           },
           "422": {
             "description": "Validation Error",
@@ -2773,6 +2970,162 @@
         "example": {
           "run_id": "00000000-0000-0000-0000-000000000001"
         }
+      },
+      "ReviewDeepResearchResponse": {
+        "properties": {
+          "review_item_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Review Item Id"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "review_item_id",
+          "run_id"
+        ],
+        "title": "ReviewDeepResearchResponse",
+        "description": "202 response for POST /review/queue/{id}/deep-research (ADR-0025 \u00a73.5).",
+        "example": {
+          "review_item_id": "00000000-0000-0000-0000-000000000001",
+          "run_id": "00000000-0000-0000-0000-000000000002"
+        }
+      },
+      "ReviewItemResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "vault_id": {
+            "type": "string",
+            "title": "Vault Id"
+          },
+          "page_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Id"
+          },
+          "page_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Title",
+            "description": "Convenience join from pages.title (AC-F9-5)"
+          },
+          "item_type": {
+            "type": "string",
+            "title": "Item Type",
+            "description": "new_page | update_page | deep_research_candidate"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "pending | approved | skipped | deep_researched"
+          },
+          "pre_generated_query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pre Generated Query",
+            "description": "Newline-sep 1\u20133 follow-up questions; null when call failed/timed out"
+          },
+          "deep_research_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deep Research Run Id",
+            "description": "FK \u2192 deep_research_runs.id; set when Deep-Research action fires (AC-F10-5)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "vault_id",
+          "item_type",
+          "status",
+          "created_at"
+        ],
+        "title": "ReviewItemResponse",
+        "description": "API response shape for one review_items row (ADR-0025 \u00a73.5).\n\npage_title is a convenience join from the pages table for the UI list (AC-F9-5).\ndeep_research_run_id is None while the Deep-Research action has not been taken."
+      },
+      "ReviewQueueResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewItemResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "ReviewQueueResponse",
+        "description": "Paginated response for GET /review/queue (ADR-0025 \u00a73.5)."
       },
       "RunNowResponse": {
         "properties": {

@@ -1,11 +1,20 @@
 """
-Upload sanitizer — Feature U (ADR-0020 §2.2/§2.3/§2.4).
+Upload sanitizer — Feature U (ADR-0020 §2.2/§2.3/§2.4) + F12 (ADR-0025 §4.2).
 
 Pure functions for path-traversal protection and type/size gating.
 Unit-testable in isolation; no I/O, no DB, no network.
 
 safe_source_name(raw_filename)  → sanitized basename
 resolve_under_sources(name)     → absolute Path under raw_sources_dir (containment-checked)
+
+F12 extension contract (ADR-0025 §4.2, Do-NOT #13):
+  _ALLOWED_EXTENSIONS        — watcher ingests these; UNCHANGED from v0.4 (watcher imports it).
+  _EXTRACTABLE_EXTENSIONS    — extracted on upload; binary stays in raw/; companion .md is watched.
+  _PLACEHOLDER_EXTENSIONS    — placeholder text on upload; no OCR/transcript in M5.
+  _UPLOAD_ACCEPTED           — union of all three; 415 only for extensions outside this set.
+
+CRITICAL: Do NOT add binary extensions to _ALLOWED_EXTENSIONS. The watcher imports that
+frozenset and must remain format-agnostic (ADR-0025 §4.3, Do-NOT #13).
 """
 
 from __future__ import annotations
@@ -17,8 +26,25 @@ from fastapi import HTTPException
 
 from app.config import settings
 
-# ── Extension allow-list (v0.4 text/markdown only; F12/M5 boundary) ───────────
+# ── Extension allow-list (watcher ingests THESE; UNCHANGED from v0.4) ─────────
+# WARNING: The watcher (app.watcher) imports this frozenset directly.
+# Do NOT add binary extensions here (ADR-0025 §4.3, Do-NOT #13).
 _ALLOWED_EXTENSIONS: frozenset[str] = frozenset({".md", ".txt", ".markdown"})
+
+# ── F12: binary extensions extracted synchronously on upload (ADR-0025 §4.2) ──
+# These produce a companion .extracted.md; the binary is preserved in raw/sources/.
+# NOT added to _ALLOWED_EXTENSIONS so the watcher ignores the binary (I1).
+_EXTRACTABLE_EXTENSIONS: frozenset[str] = frozenset({".pdf", ".docx", ".pptx", ".xlsx"})
+
+# ── F12: placeholder-only extensions (§4.5 — no OCR/transcript in M5) ─────────
+_PLACEHOLDER_EXTENSIONS: frozenset[str] = frozenset(
+    {".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp3", ".mp4", ".wav", ".m4a"}
+)
+
+# ── Upload accepted = all three sets (415 only for truly unknown types) ────────
+_UPLOAD_ACCEPTED: frozenset[str] = (
+    _ALLOWED_EXTENSIONS | _EXTRACTABLE_EXTENSIONS | _PLACEHOLDER_EXTENSIONS
+)
 
 # ── Reject filenames with path separators (belt-and-braces) ───────────────────
 _SEP_RE = re.compile(r"[/\\]")
@@ -74,13 +100,18 @@ def safe_source_name(raw_filename: str) -> str:
         )
 
     # Step 5 — extension allow-list check (authoritative — MIME hint is advisory)
+    # F12 (ADR-0025 §4.2): _UPLOAD_ACCEPTED includes binary + placeholder extensions.
+    # 415 only for extensions outside _UPLOAD_ACCEPTED.
     suffix = Path(name).suffix.lower()
-    if suffix not in _ALLOWED_EXTENSIONS:
+    if suffix not in _UPLOAD_ACCEPTED:
         raise HTTPException(
             status_code=415,
             detail=(
-                "Only text/markdown files (.md, .txt, .markdown) are accepted in v0.4. "
-                "Multi-format ingest (PDF, DOCX, …) is F12, planned for M5."
+                f"Unsupported file type: {suffix!r}. "
+                "Accepted text formats: .md, .txt, .markdown. "
+                "Accepted binary formats (F12): .pdf, .docx, .pptx, .xlsx. "
+                "Accepted placeholder formats: .png, .jpg, .jpeg, .gif, .webp, "
+                ".mp3, .mp4, .wav, .m4a."
             ),
         )
 
