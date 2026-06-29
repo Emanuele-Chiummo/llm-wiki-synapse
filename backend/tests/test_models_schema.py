@@ -545,3 +545,197 @@ class TestLinksModel:
         """T-PG-030d: links.dangling must exist (K5 unresolved wikilinks)."""
         col = self._get_column("dangling")
         assert col is not None, "links.dangling missing (K5)"
+
+
+# ── AC-F10-6: deep_research_runs + deep_research_sources tables ───────────────
+
+
+class TestDeepResearchRunsColumns:
+    """
+    T-PG-031 — AC-F10-6a: deep_research_runs table exists with all required columns (ADR-0024 §7.1).
+    Tests are infra-free: SQLAlchemy model metadata introspection, no live Postgres needed.
+    """
+
+    @staticmethod
+    def _get_column(col_name: str):  # type: ignore[return]
+        from app.models import Base
+
+        t = Base.metadata.tables.get("deep_research_runs")
+        if t is None:
+            return None
+        return t.columns.get(col_name)
+
+    def test_deep_research_runs_table_exists(self) -> None:
+        """T-PG-031: deep_research_runs table must exist in SQLAlchemy models (AC-F10-6a)."""
+        from app.models import Base
+
+        table_names = {t.name for t in Base.metadata.sorted_tables}
+        assert "deep_research_runs" in table_names, (
+            "deep_research_runs table missing from SQLAlchemy models (AC-F10-6a, ADR-0024 §7.1)"
+        )
+
+    def test_has_id(self) -> None:
+        """T-PG-031a: deep_research_runs.id (PK UUID)."""
+        col = self._get_column("id")
+        assert col is not None, "deep_research_runs.id missing (AC-F10-6a)"
+
+    def test_has_vault_id(self) -> None:
+        """T-PG-031b: deep_research_runs.vault_id (string scope, AQ-v0.5-6)."""
+        col = self._get_column("vault_id")
+        assert col is not None, "deep_research_runs.vault_id missing (AC-F10-6a)"
+
+    def test_has_topic(self) -> None:
+        """T-PG-031c: deep_research_runs.topic."""
+        col = self._get_column("topic")
+        assert col is not None, "deep_research_runs.topic missing (AC-F10-6a)"
+
+    def test_has_status(self) -> None:
+        """T-PG-031d: deep_research_runs.status (running/converged/…)."""
+        col = self._get_column("status")
+        assert col is not None, "deep_research_runs.status missing (AC-F10-6a)"
+
+    def test_has_max_iter(self) -> None:
+        """T-PG-031e: deep_research_runs.max_iter (frozen bound, I7, AQ-v0.5-4)."""
+        col = self._get_column("max_iter")
+        assert col is not None, "deep_research_runs.max_iter missing (AC-F10-6a, I7)"
+
+    def test_has_token_budget(self) -> None:
+        """T-PG-031f: deep_research_runs.token_budget (frozen bound, I7)."""
+        col = self._get_column("token_budget")
+        assert col is not None, "deep_research_runs.token_budget missing (AC-F10-6a, I7)"
+
+    def test_has_iterations_used(self) -> None:
+        """T-PG-031g: deep_research_runs.iterations_used."""
+        col = self._get_column("iterations_used")
+        assert col is not None, "deep_research_runs.iterations_used missing (AC-F10-6a)"
+
+    def test_has_queries_used(self) -> None:
+        """T-PG-031h: deep_research_runs.queries_used (JSONB, AC-F10-4c)."""
+        col = self._get_column("queries_used")
+        assert col is not None, "deep_research_runs.queries_used missing (AC-F10-4c)"
+
+    def test_has_sources_fetched(self) -> None:
+        """T-PG-031i: deep_research_runs.sources_fetched."""
+        col = self._get_column("sources_fetched")
+        assert col is not None, "deep_research_runs.sources_fetched missing (AC-F10-6a)"
+
+    def test_has_total_cost_usd(self) -> None:
+        """T-PG-031j: deep_research_runs.total_cost_usd (I7 cost ledger)."""
+        col = self._get_column("total_cost_usd")
+        assert col is not None, "deep_research_runs.total_cost_usd missing (AC-F10-6a, I7)"
+
+    def test_has_synthesis_text(self) -> None:
+        """T-PG-031k: deep_research_runs.synthesis_text (nullable, AC-F10-4c)."""
+        col = self._get_column("synthesis_text")
+        assert col is not None, "deep_research_runs.synthesis_text missing (AC-F10-4c)"
+
+    def test_has_synthesis_page_id(self) -> None:
+        """T-PG-031l: deep_research_runs.synthesis_page_id (FK→pages, nullable)."""
+        col = self._get_column("synthesis_page_id")
+        assert col is not None, "deep_research_runs.synthesis_page_id missing (AC-F10-6a)"
+
+    def test_has_started_at(self) -> None:
+        """T-PG-031m: deep_research_runs.started_at."""
+        col = self._get_column("started_at")
+        assert col is not None, "deep_research_runs.started_at missing (AC-F10-6a)"
+
+    def test_has_completed_at(self) -> None:
+        """T-PG-031n: deep_research_runs.completed_at (nullable while running, AC-F10-4c)."""
+        col = self._get_column("completed_at")
+        assert col is not None, "deep_research_runs.completed_at missing (AC-F10-4c)"
+
+    def test_has_error_message(self) -> None:
+        """T-PG-031o: deep_research_runs.error_message (nullable)."""
+        col = self._get_column("error_message")
+        assert col is not None, "deep_research_runs.error_message missing (AC-F10-6a)"
+
+    def test_migration_0009_exists(self) -> None:
+        """T-PG-031p: Alembic migration 0009 (deep_research tables) must exist (AC-F10-6c)."""
+        from pathlib import Path
+
+        versions_dir = Path(__file__).resolve().parent.parent / "alembic" / "versions"
+        migration_files = list(versions_dir.glob("0009_*.py"))
+        assert len(migration_files) >= 1, (
+            f"Alembic migration 0009 (deep_research tables) not found in "
+            f"backend/alembic/versions/ (AC-F10-6c, ADR-0024 §7). "
+            f"Files found: {[f.name for f in versions_dir.glob('*.py')]}"
+        )
+
+
+class TestDeepResearchSourcesColumns:
+    """
+    T-PG-032 — AC-F10-6b: deep_research_sources table exists with all required columns
+    (ADR-0024 §7.2). Infra-free SQLAlchemy model introspection.
+    """
+
+    @staticmethod
+    def _get_column(col_name: str):  # type: ignore[return]
+        from app.models import Base
+
+        t = Base.metadata.tables.get("deep_research_sources")
+        if t is None:
+            return None
+        return t.columns.get(col_name)
+
+    def test_deep_research_sources_table_exists(self) -> None:
+        """T-PG-032: deep_research_sources table must exist (AC-F10-6b, ADR-0024 §7.2)."""
+        from app.models import Base
+
+        table_names = {t.name for t in Base.metadata.sorted_tables}
+        assert "deep_research_sources" in table_names, (
+            "deep_research_sources table missing from SQLAlchemy models (AC-F10-6b)"
+        )
+
+    def test_has_id(self) -> None:
+        """T-PG-032a: deep_research_sources.id (PK)."""
+        col = self._get_column("id")
+        assert col is not None, "deep_research_sources.id missing (AC-F10-6b)"
+
+    def test_has_run_id(self) -> None:
+        """T-PG-032b: deep_research_sources.run_id (FK→deep_research_runs, cascade delete)."""
+        col = self._get_column("run_id")
+        assert col is not None, "deep_research_sources.run_id missing (AC-F10-6b)"
+
+    def test_has_url(self) -> None:
+        """T-PG-032c: deep_research_sources.url."""
+        col = self._get_column("url")
+        assert col is not None, "deep_research_sources.url missing (AC-F10-6b)"
+
+    def test_has_title(self) -> None:
+        """T-PG-032d: deep_research_sources.title."""
+        col = self._get_column("title")
+        assert col is not None, "deep_research_sources.title missing (AC-F10-6b)"
+
+    def test_has_fetched_content_md(self) -> None:
+        """T-PG-032e: deep_research_sources.fetched_content_md (nullable on fetch failure)."""
+        col = self._get_column("fetched_content_md")
+        assert col is not None, "deep_research_sources.fetched_content_md missing (AC-F10-6b)"
+
+    def test_has_relevance_score(self) -> None:
+        """T-PG-032f: deep_research_sources.relevance_score (nullable, ADR-0024 §7.2)."""
+        col = self._get_column("relevance_score")
+        assert col is not None, "deep_research_sources.relevance_score missing (AC-F10-6b)"
+
+    def test_has_iteration(self) -> None:
+        """T-PG-032g: deep_research_sources.iteration (which round, audit)."""
+        col = self._get_column("iteration")
+        assert col is not None, "deep_research_sources.iteration missing (AC-F10-6b)"
+
+    def test_has_created_at(self) -> None:
+        """T-PG-032h: deep_research_sources.created_at."""
+        col = self._get_column("created_at")
+        assert col is not None, "deep_research_sources.created_at missing (AC-F10-6b)"
+
+    def test_er_diagram_contains_deep_research_tables(self) -> None:
+        """T-PG-032i: docs/er/schema.mmd must reflect both deep_research tables (AC-F10-6d)."""
+        from pathlib import Path
+
+        er_path = Path(__file__).resolve().parent.parent.parent / "docs" / "er" / "schema.mmd"
+        assert er_path.exists(), "docs/er/schema.mmd must exist (AC-F10-6d)"
+        text = er_path.read_text(encoding="utf-8").upper()
+        assert "DEEP_RESEARCH_RUNS" in text, (
+            "docs/er/schema.mmd must include DEEP_RESEARCH_RUNS table (AC-F10-6d, ADR-0024 §7.3)"
+        )
+        assert "DEEP_RESEARCH_SOURCES" in text, (
+            "docs/er/schema.mmd must include DEEP_RESEARCH_SOURCES table (AC-F10-6d, ADR-0024 §7.3)"
+        )

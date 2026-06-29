@@ -235,6 +235,83 @@ async def _run_with_provider(
         )
 
 
+# ── T-DR-014: C1 regression — caller-provided run_id reuses the row ──────────
+
+
+async def _run_loop_patched(*, run_id: uuid.UUID | None, create_spy: AsyncMock) -> Any:
+    """Run the loop with all internals mocked; spy on _create_run_row."""
+    from app.ops.deep_research import FetchedSource, run_deep_research
+    from app.ops.searxng import SearchHit
+
+    hits = _make_search_hits(2)
+
+    async def _mock_searxng(queries: list[str]) -> list[SearchHit]:
+        return hits
+
+    async def _mock_fetch(hits_in: list[SearchHit], *, iteration: int = 1) -> list[FetchedSource]:
+        return [
+            FetchedSource(url=h.url, title=h.title, content_md="x", iteration=iteration)
+            for h in hits_in
+        ]
+
+    async def _mock_resolve(vault_id: str) -> Any:
+        return _make_mock_provider(always_sufficient=True)
+
+    with (
+        patch("app.ops.deep_research._search_searxng", side_effect=_mock_searxng),
+        patch("app.ops.deep_research._fetch_and_extract", side_effect=_mock_fetch),
+        patch("app.ops.deep_research._resolve_provider", side_effect=_mock_resolve),
+        patch("app.ops.deep_research._create_run_row", create_spy),
+        patch("app.ops.deep_research._update_run_iterations", new=AsyncMock()),
+        patch("app.ops.deep_research._update_run_sources", new=AsyncMock()),
+        patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
+        patch("app.ops.deep_research._finalize_run_row", new=AsyncMock()),
+        patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
+    ):
+        return await run_deep_research(
+            vault_id="test-vault",
+            topic="t",
+            max_iter=1,
+            token_budget=100_000,
+            run_id=run_id,
+        )
+
+
+@pytest.mark.asyncio
+async def test_provided_run_id_skips_row_creation() -> None:
+    """
+    C1 regression (ADR-0024 §8.1): the endpoint pre-INSERTs the row and passes its
+    run_id; run_deep_research MUST reuse it and NOT create a second row — otherwise
+    the client polls a row the loop never finalizes (stuck "running" forever).
+    """
+    given = uuid.uuid4()
+    create_spy = AsyncMock()
+    result = await _run_loop_patched(run_id=given, create_spy=create_spy)
+
+    create_spy.assert_not_called()  # no second row minted
+    assert result.run_id == given  # loop finalizes the caller's row
+
+
+@pytest.mark.asyncio
+async def test_no_run_id_still_creates_row() -> None:
+    """Companion: a direct call (run_id=None) still mints + INSERTs its own row."""
+    minted = uuid.uuid4()
+
+    async def _mock_create(**kwargs: Any) -> Any:
+        from app.models import DeepResearchRun
+
+        run = MagicMock(spec=DeepResearchRun)
+        run.id = minted
+        run.max_iter = kwargs["max_iter"]
+        run.token_budget = kwargs["token_budget"]
+        return run
+
+    create_spy = AsyncMock(side_effect=_mock_create)
+    await _run_loop_patched(run_id=None, create_spy=create_spy)
+
+    create_spy.assert_called_once()
+
+
 # ── T-DR-001: all 6 steps execute in order ───────────────────────────────────
 
 
