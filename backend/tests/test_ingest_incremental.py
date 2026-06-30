@@ -784,9 +784,9 @@ class TestEmbeddingsDisabledIngest:
             f"(call_count went {embed_before} → {ingest_env['embedding'].call_count})"
         )
         # NO Qdrant upsert / no point.
-        assert len(ingest_env["qdrant"].upsert_calls) == upserts_before, (
-            "Qdrant upsert must NOT be called when embeddings_enabled is False"
-        )
+        assert (
+            len(ingest_env["qdrant"].upsert_calls) == upserts_before
+        ), "Qdrant upsert must NOT be called when embeddings_enabled is False"
         assert not ingest_env["qdrant"].point_exists(
             result.page_id
         ), "No Qdrant point may be created when embeddings_enabled is False"
@@ -843,12 +843,12 @@ class TestEmbeddingsDisabledIngest:
         upserts_before = len(ingest_env["qdrant"].upsert_calls)
         result = await ingest_file(src)
 
-        assert ingest_env["embedding"].call_count == embed_before + 1, (
-            "embed() must be called exactly once when embeddings_enabled is True"
-        )
-        assert len(ingest_env["qdrant"].upsert_calls) == upserts_before + 1, (
-            "Qdrant upsert must be called when embeddings_enabled is True"
-        )
+        assert (
+            ingest_env["embedding"].call_count == embed_before + 1
+        ), "embed() must be called exactly once when embeddings_enabled is True"
+        assert (
+            len(ingest_env["qdrant"].upsert_calls) == upserts_before + 1
+        ), "Qdrant upsert must be called when embeddings_enabled is True"
         assert ingest_env["qdrant"].point_exists(
             result.page_id
         ), "Qdrant point must exist when embeddings_enabled is True"

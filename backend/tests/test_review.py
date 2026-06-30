@@ -578,17 +578,16 @@ class TestReviewQueueEndpoints:
         The Create action invokes _run_generation which raises NotImplementedError until
         ai-agent-engineer fills the stub. The item must remain pending (no state change on 502).
         """
-        item_id = await _insert_review_item(
-            review_env, proposed_title="Galaxy Formation"
-        )
+        item_id = await _insert_review_item(review_env, proposed_title="Galaxy Formation")
 
         # approve calls create_page_from_review → resolve_provider_config needed
         # but there's no configured provider in the test DB, so we get either 409 or 502
         resp = await review_client.post(f"/review/queue/{item_id}/approve")
         # Either 409 (no provider) or 502 (AI seam stub) is correct per ADR-0034 §5
-        assert resp.status_code in (409, 502), (
-            f"Expected 409 (no provider) or 502 (AI seam), got {resp.status_code}: {resp.text}"
-        )
+        assert resp.status_code in (
+            409,
+            502,
+        ), f"Expected 409 (no provider) or 502 (AI seam), got {resp.status_code}: {resp.text}"
 
     async def test_skip_sets_status(
         self, review_env: dict[str, Any], review_client: AsyncClient
@@ -798,12 +797,12 @@ class TestADR0034PreGeneratedQueryDropped:
         text = review_path.read_text(encoding="utf-8")
 
         # Must not use attribute access or assignment for the dropped column
-        assert ".pre_generated_query" not in text, (
-            "review.py must not access .pre_generated_query attribute (dropped ADR-0034 §10)"
-        )
-        assert "pre_generated_query=" not in text, (
-            "review.py must not assign pre_generated_query= (dropped ADR-0034 §10)"
-        )
+        assert (
+            ".pre_generated_query" not in text
+        ), "review.py must not access .pre_generated_query attribute (dropped ADR-0034 §10)"
+        assert (
+            "pre_generated_query=" not in text
+        ), "review.py must not assign pre_generated_query= (dropped ADR-0034 §10)"
 
     def test_generate_review_queries_not_in_review(self) -> None:
         """generate_review_queries function is removed in ADR-0034 (§10 Do-NOT list)."""
@@ -814,6 +813,5 @@ class TestADR0034PreGeneratedQueryDropped:
 
         # The function must not be defined
         assert "def generate_review_queries" not in text, (
-            "generate_review_queries was removed in ADR-0034 §10; "
-            "must not exist in review.py"
+            "generate_review_queries was removed in ADR-0034 §10; " "must not exist in review.py"
         )

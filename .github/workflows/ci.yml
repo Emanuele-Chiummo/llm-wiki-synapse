@@ -3,13 +3,11 @@ name: CI — Lint, Unit Tests, Docs Gate
 on:
   push:
     branches:
-      - sprint/v0.1
-      - sprint/v0.2
+      - sprint/**
       - main
   pull_request:
     branches:
-      - sprint/v0.1
-      - sprint/v0.2
+      - sprint/**
       - main
 
 jobs:
@@ -128,7 +126,41 @@ jobs:
 
       - name: pytest (infra-free tests)
         working-directory: backend
-        run: python -m pytest -v --tb=short
+        run: python -m pytest -q
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Stage 4b: Frontend tests (vitest, typecheck, eslint)
+  # Runs service-free. Failure blocks merge.
+  # Tests use jsdom. Validates TypeScript and ESLint rules.
+  # ──────────────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend Tests (vitest + TypeScript + ESLint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: TypeScript type check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: ESLint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: vitest
+        working-directory: frontend
+        run: npm run test
 
   # ──────────────────────────────────────────────────────────────────────
   # Stage 5: Docs gate (I8 — ER diagram, OpenAPI auto-gen, Mermaid validation)

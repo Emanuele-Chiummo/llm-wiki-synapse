@@ -211,7 +211,9 @@ class TestEmbeddingToggleSideEffectFree:
         )
 
         async with engine.begin() as conn:
-            await conn.execute(sa_text("""
+            await conn.execute(
+                sa_text(
+                    """
                 CREATE TABLE pages (
                     id TEXT PRIMARY KEY,
                     vault_id TEXT NOT NULL,
@@ -229,8 +231,12 @@ class TestEmbeddingToggleSideEffectFree:
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
                     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
                 )
-            """))
-            await conn.execute(sa_text("""
+            """
+                )
+            )
+            await conn.execute(
+                sa_text(
+                    """
                 CREATE TABLE links (
                     id TEXT PRIMARY KEY,
                     source_page_id TEXT NOT NULL,
@@ -238,8 +244,12 @@ class TestEmbeddingToggleSideEffectFree:
                     target_page_id TEXT,
                     dangling INTEGER NOT NULL DEFAULT 0
                 )
-            """))
-            await conn.execute(sa_text("""
+            """
+                )
+            )
+            await conn.execute(
+                sa_text(
+                    """
                 CREATE TABLE vault_state (
                     id TEXT PRIMARY KEY,
                     vault_id TEXT NOT NULL UNIQUE,
@@ -249,7 +259,9 @@ class TestEmbeddingToggleSideEffectFree:
                     mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
                     updated_at TEXT NOT NULL
                 )
-            """))
+            """
+                )
+            )
 
         session_factory = async_sessionmaker(
             engine, class_=AsyncSession, expire_on_commit=False, autoflush=False
@@ -329,9 +341,9 @@ class TestEmbeddingToggleSideEffectFree:
         qdrant_upsert_after_ingest = qdrant_upsert_count[0]
 
         # Sanity: embedding WAS called (confirms embeddings_enabled=True path works).
-        assert embed_count_after_ingest >= 1, (
-            "Expected at least one embed() call during ingest with embeddings_enabled=True"
-        )
+        assert (
+            embed_count_after_ingest >= 1
+        ), "Expected at least one embed() call during ingest with embeddings_enabled=True"
 
         # ── STEP 2: Toggle embeddings_enabled False → True (no new ingest) ────
         # The toggle is a pure settings attribute mutation; there is no background

@@ -98,16 +98,14 @@ class TestDefaultOff:
         await _remote_mcp_flag.load(False)
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.get("/mcp/info")
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["remote_enabled"] is False, (
-            "remote_enabled must be false when RemoteMcpFlag is OFF (ADR-0032 §2.1)"
-        )
+        assert (
+            data["remote_enabled"] is False
+        ), "remote_enabled must be false when RemoteMcpFlag is OFF (ADR-0032 §2.1)"
 
     @pytest.mark.asyncio
     async def test_vault_state_new_row_defaults_remote_mcp_enabled_false(self) -> None:
@@ -139,9 +137,9 @@ class TestDefaultOff:
         assert len(added_objects) == 1
         new_row = added_objects[0]
         # The seeded row must have remote_mcp_enabled=False (fail-closed, ADR-0032 §2.1)
-        assert new_row.remote_mcp_enabled is False, (
-            "Seeded vault_state must have remote_mcp_enabled=False (ADR-0032 §2.1)"
-        )
+        assert (
+            new_row.remote_mcp_enabled is False
+        ), "Seeded vault_state must have remote_mcp_enabled=False (ADR-0032 §2.1)"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -181,9 +179,9 @@ class TestGateOff404:
         assert inner_calls == [], "Sub-app must not be called when gate is OFF"
         start_events = [e for e in send_events if e.get("type") == "http.response.start"]
         assert start_events, "Must have sent a response"
-        assert start_events[0]["status"] == 404, (
-            "Gate OFF must return 404 (not 401) — no info leak (ADR-0032 §2.3)"
-        )
+        assert (
+            start_events[0]["status"] == 404
+        ), "Gate OFF must return 404 (not 401) — no info leak (ADR-0032 §2.3)"
 
     @pytest.mark.asyncio
     async def test_gate_off_valid_bearer_still_404(self) -> None:
@@ -215,9 +213,9 @@ class TestGateOff404:
 
         assert inner_calls == []
         start_events = [e for e in send_events if e.get("type") == "http.response.start"]
-        assert start_events[0]["status"] == 404, (
-            "Gate OFF must return 404 even with a valid bearer (ADR-0032 §2.3)"
-        )
+        assert (
+            start_events[0]["status"] == 404
+        ), "Gate OFF must return 404 even with a valid bearer (ADR-0032 §2.3)"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -484,8 +482,7 @@ class TestPutMcpRemote:
 
             # The in-process flag must now be True
             assert _remote_mcp_flag.is_enabled() is True, (
-                "RemoteMcpFlag must be updated immediately after PUT /mcp/remote "
-                "(ADR-0032 §2.2)"
+                "RemoteMcpFlag must be updated immediately after PUT /mcp/remote " "(ADR-0032 §2.2)"
             )
         finally:
             main_mod.settings.mcp_auth_token = original  # type: ignore[assignment]
@@ -565,9 +562,7 @@ class TestMcpInfoAdr0032:
         from app.main import app
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.get("/mcp/info")
 
         assert resp.status_code == 200
@@ -583,9 +578,7 @@ class TestMcpInfoAdr0032:
         await _remote_mcp_flag.load(False)
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.get("/mcp/info")
 
         assert resp.status_code == 200
@@ -599,17 +592,15 @@ class TestMcpInfoAdr0032:
         from app.main import MCP_MOUNT_PATH, app
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.get("/mcp/info")
 
         assert resp.status_code == 200
         data = resp.json()
         assert "mount_path" in data
-        assert data["mount_path"] == MCP_MOUNT_PATH, (
-            f"mount_path must equal MCP_MOUNT_PATH={MCP_MOUNT_PATH!r} (I6)"
-        )
+        assert (
+            data["mount_path"] == MCP_MOUNT_PATH
+        ), f"mount_path must equal MCP_MOUNT_PATH={MCP_MOUNT_PATH!r} (I6)"
 
     @pytest.mark.asyncio
     async def test_mcp_info_never_leaks_token(self) -> None:
@@ -628,9 +619,9 @@ class TestMcpInfoAdr0032:
             os.environ.pop("MCP_AUTH_TOKEN", None)
 
         assert resp.status_code == 200
-        assert sentinel not in resp.text, (
-            "MCP_AUTH_TOKEN must NEVER appear in /mcp/info response (ADR-0032 §2.5 / I6)"
-        )
+        assert (
+            sentinel not in resp.text
+        ), "MCP_AUTH_TOKEN must NEVER appear in /mcp/info response (ADR-0032 §2.5 / I6)"
 
     @pytest.mark.asyncio
     async def test_mcp_info_token_configured_false_when_no_token(self) -> None:
@@ -686,9 +677,7 @@ class TestMcpInfoAdr0032:
         from app.main import app
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.get("/mcp/info")
 
         data = resp.json()
@@ -719,9 +708,9 @@ class TestFlagPersistence:
         with patch("app.main.get_session", return_value=db_ctx):
             await _load_remote_mcp_flag()
 
-        assert _remote_mcp_flag.is_enabled() is True, (
-            "_load_remote_mcp_flag must update the in-process flag from the DB row (ADR-0032 §2.2)"
-        )
+        assert (
+            _remote_mcp_flag.is_enabled() is True
+        ), "_load_remote_mcp_flag must update the in-process flag from the DB row (ADR-0032 §2.2)"
 
         # Clean up
         await _remote_mcp_flag.load(False)
@@ -755,9 +744,9 @@ class TestFlagPersistence:
         with patch("app.main.get_session", return_value=db_ctx):
             await _load_remote_mcp_flag()
 
-        assert _remote_mcp_flag.is_enabled() is False, (
-            "Missing vault_state row must default to False (fail-closed)"
-        )
+        assert (
+            _remote_mcp_flag.is_enabled() is False
+        ), "Missing vault_state row must default to False (fail-closed)"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -781,15 +770,13 @@ class TestNoRemount:
         flag = RemoteMcpFlag()
         # The flag must have no attributes referencing an ASGI app or session manager.
         for attr in vars(flag):
-            assert "app" not in attr.lower(), (
-                f"RemoteMcpFlag.{attr} looks like an ASGI app reference — must be flag-only"
-            )
-            assert "session" not in attr.lower(), (
-                f"RemoteMcpFlag.{attr} looks like a session manager reference"
-            )
-            assert "mount" not in attr.lower(), (
-                f"RemoteMcpFlag.{attr} looks like a mount reference"
-            )
+            assert (
+                "app" not in attr.lower()
+            ), f"RemoteMcpFlag.{attr} looks like an ASGI app reference — must be flag-only"
+            assert (
+                "session" not in attr.lower()
+            ), f"RemoteMcpFlag.{attr} looks like a session manager reference"
+            assert "mount" not in attr.lower(), f"RemoteMcpFlag.{attr} looks like a mount reference"
 
     @pytest.mark.asyncio
     async def test_flag_toggle_does_not_call_lifespan(self) -> None:
@@ -831,9 +818,9 @@ class TestMcpMountPathConstant:
         from app.main import MCP_MOUNT_PATH
 
         assert isinstance(MCP_MOUNT_PATH, str)
-        assert MCP_MOUNT_PATH == "/mcp/server", (
-            "MCP_MOUNT_PATH must be '/mcp/server' (ADR-0032 / ADR-0029)"
-        )
+        assert (
+            MCP_MOUNT_PATH == "/mcp/server"
+        ), "MCP_MOUNT_PATH must be '/mcp/server' (ADR-0032 / ADR-0029)"
 
     @pytest.mark.asyncio
     async def test_mcp_info_mount_path_equals_constant(self) -> None:
@@ -841,9 +828,7 @@ class TestMcpMountPathConstant:
         from app.main import MCP_MOUNT_PATH, app
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.get("/mcp/info")
 
         assert resp.json()["mount_path"] == MCP_MOUNT_PATH

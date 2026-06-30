@@ -12,7 +12,8 @@ KEY CONTRACTS:
   propose_reviews(...)       — orchestration entry point (called from run_ingest_pipeline):
                                rule-based missing-page/duplicate detection, then
                                _llm_propose_reviews for LLM proposals.
-  sweep_reviews(vault_id)    — auto-resolution sweep: Pass-1 (rule-based) + Pass-2 (conservative LLM).
+  sweep_reviews(vault_id)    — auto-resolution sweep: Pass-1 (rule-based) + Pass-2
+                               (conservative LLM).
   create_page_from_review(item_id) — lazy on-demand Create handler [AI seam for generation].
   list_queue(...)            — paginated read for GET /review/queue.
   skip(item_id)              — status write → skipped.
@@ -58,9 +59,7 @@ logger = logging.getLogger(__name__)
 _VALID_ITEM_TYPES = frozenset(
     {"missing-page", "suggestion", "contradiction", "duplicate", "confirm"}
 )
-_VALID_STATUSES = frozenset(
-    {"pending", "created", "skipped", "deep_researched", "auto_resolved"}
-)
+_VALID_STATUSES = frozenset({"pending", "created", "skipped", "deep_researched", "auto_resolved"})
 _VALID_RESOLUTIONS = frozenset(
     {"created", "skipped", "researched", "rule_resolved", "llm_resolved"}
 )
@@ -185,9 +184,7 @@ async def _llm_propose_reviews(
 
     # ── ONE bounded call, no loop, no retry (I7) ─────────────────────────────────
     try:
-        raw = await asyncio.wait_for(
-            _chat_collect(provider, instruction), timeout=timeout_s
-        )
+        raw = await asyncio.wait_for(_chat_collect(provider, instruction), timeout=timeout_s)
     except TimeoutError:
         logger.warning(
             "_llm_propose_reviews: provider call timed out after %.1fs (vault=%s) — "
@@ -300,9 +297,7 @@ async def _llm_sweep_judge(
 
     # ── ONE bounded batched call, no loop (I7) ───────────────────────────────────
     try:
-        raw = await asyncio.wait_for(
-            _chat_collect(provider, instruction), timeout=timeout_s
-        )
+        raw = await asyncio.wait_for(_chat_collect(provider, instruction), timeout=timeout_s)
     except TimeoutError:
         logger.warning(
             "_llm_sweep_judge: provider call timed out after %.1fs (vault=%s) — "
@@ -394,9 +389,7 @@ async def _run_generation(
     # Bounds (I7) from the resolved row.
     max_iter = int(getattr(provider_config_row, "max_iter", None) or 3)
     token_budget = int(getattr(provider_config_row, "token_budget", None) or 60_000)
-    timeout_s = float(getattr(settings, "review_propose_timeout_seconds", 30.0)) * max(
-        1, max_iter
-    )
+    timeout_s = float(getattr(settings, "review_propose_timeout_seconds", 30.0)) * max(1, max_iter)
 
     vault_context = _load_vault_context()
     # The single-page-target prompt is delivered through the source_text channel of the
@@ -434,9 +427,7 @@ async def _run_generation(
         converged = loop_result.converged
         iterations = loop_result.iterations
         # _ensure_source_summary guarantees a valid WikiPage even on non-convergence (§5).
-        pages = _ensure_source_summary(
-            loop_result.pages, loop_result.analysis, origin_source
-        )
+        pages = _ensure_source_summary(loop_result.pages, loop_result.analysis, origin_source)
         wiki_page = pages[0] if pages else None
     except TimeoutError as exc:
         error = exc
@@ -468,9 +459,7 @@ async def _run_generation(
         )
     except Exception as run_exc:  # noqa: BLE001
         # Audit-row write failing must not mask the (success/failure) outcome.
-        logger.warning(
-            "_run_generation: ingest_runs audit write failed (non-fatal): %s", run_exc
-        )
+        logger.warning("_run_generation: ingest_runs audit write failed (non-fatal): %s", run_exc)
 
     logger.info(
         "review_create run: provider=%s route=orchestrated converged=%s tokens=%d "
@@ -496,9 +485,7 @@ async def _run_generation(
     if error is not None:
         raise error
     if wiki_page is None:
-        raise RuntimeError(
-            "orchestrated loop produced no page and no fallback (unexpected — §5)"
-        )
+        raise RuntimeError("orchestrated loop produced no page and no fallback (unexpected — §5)")
     return wiki_page
 
 
@@ -648,19 +635,15 @@ async def propose_reviews(
                     )
                 )
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "propose_reviews: dangling-link detection failed (non-fatal): %s", exc
-        )
+        logger.warning("propose_reviews: dangling-link detection failed (non-fatal): %s", exc)
 
     # ── Rule-based: not-written suggested_pages → missing-page ───────────────
     if analysis is not None:
         written_titles_lc = {(p.title or "").lower().strip() for p in written_pages}
-        for suggested in (analysis.suggested_pages or []):
+        for suggested in analysis.suggested_pages or []:
             if suggested.title.lower().strip() not in written_titles_lc:
                 # Suggested but not written → explicit missing-page signal
-                already = any(
-                    p.proposed_title == suggested.title for p in rule_proposals
-                )
+                already = any(p.proposed_title == suggested.title for p in rule_proposals)
                 if not already:
                     rule_proposals.append(
                         ProposalDTO(
@@ -1040,9 +1023,7 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
             async with get_session() as session:
                 src_row = (
                     await session.execute(
-                        select(Page.file_path).where(
-                            Page.id == str(item.source_page_id)
-                        )
+                        select(Page.file_path).where(Page.id == str(item.source_page_id))
                     )
                 ).scalar_one_or_none()
             origin_source = src_row or f"review:{item_id_str}"
@@ -1081,10 +1062,7 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
         )
         raise HTTPException(
             status_code=502,
-            detail=(
-                f"Page generation failed: {exc}. "
-                "Item left pending — retry or skip."
-            ),
+            detail=(f"Page generation failed: {exc}. " "Item left pending — retry or skip."),
         ) from exc
 
     # ── 5. Write the page via the single incremental seam (I1) ───────────────
@@ -1100,10 +1078,7 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
         )
         raise HTTPException(
             status_code=502,
-            detail=(
-                f"Failed to write page to wiki: {exc}. "
-                "Item left pending — retry or skip."
-            ),
+            detail=(f"Failed to write page to wiki: {exc}. " "Item left pending — retry or skip."),
         ) from exc
 
     # ── 6. Set item to created ─────────────────────────────────────────────────
@@ -1236,9 +1211,7 @@ async def deep_research(
             first_line = item.rationale.splitlines()[0].strip()
             topic = first_line if first_line else f"Review: {item_id}"
         elif item.page_id:
-            pg_row = await session.execute(
-                select(Page).where(Page.id == str(item.page_id))
-            )
+            pg_row = await session.execute(select(Page).where(Page.id == str(item.page_id)))
             pg = pg_row.scalar_one_or_none()
             topic = pg.title if (pg and pg.title) else f"Review: {item_id}"
         else:
@@ -1427,7 +1400,7 @@ def _build_propose_instruction(
         f"# Ingest analysis\n{analysis_json}\n\n"
         f"# Pages written this run\n{pages_digest}\n\n"
         f"# Existing vault page titles\n{titles_block}\n\n"
-        "Return ONLY a JSON object with a single key \"proposals\" whose value is a list of at "
+        'Return ONLY a JSON object with a single key "proposals" whose value is a list of at '
         f"most {max_items} objects. Each object has keys:\n"
         "  type: one of missing-page | suggestion | contradiction | duplicate | confirm\n"
         "  proposed_title: string (the page to create; required for missing-page)\n"
@@ -1514,7 +1487,7 @@ def _build_sweep_instruction(
         "filled). When in doubt, KEEP it pending.\n\n"
         f"# Current vault page titles\n{titles_block}\n\n"
         f"# Review items to judge\n{items_block}\n\n"
-        "Return ONLY a JSON object with a single key \"resolve\" whose value is the list of item "
+        'Return ONLY a JSON object with a single key "resolve" whose value is the list of item '
         "id strings you are confident can be resolved. Resolve NOTHING you are unsure about. "
         f"Keep the output well under {token_budget} tokens. Return no prose, only the JSON object."
     )

@@ -499,7 +499,8 @@ async def test_upload_binary_creates_companion_and_preserves_original(
     from app.upload import _ALLOWED_EXTENSIONS
 
     assert ".pdf" not in _ALLOWED_EXTENSIONS, (
-        ".pdf must NOT be in _ALLOWED_EXTENSIONS — watcher must ignore binaries (ADR-0025 Do-NOT #13)"
+        ".pdf must NOT be in _ALLOWED_EXTENSIONS — watcher must ignore binaries "
+        "(ADR-0025 Do-NOT #13)"
     )
 
 

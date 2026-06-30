@@ -15,6 +15,7 @@ Coverage:
 from __future__ import annotations
 
 import uuid
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -91,9 +92,7 @@ class TestSearchWiki:
         """search_wiki maps retrieve() citations to dicts with relevance_score."""
         from app.mcp.server import search_wiki
 
-        ctx = _fake_ctx(
-            [_fake_citation(page_id=str(uuid.uuid4()), title="Qdrant", score=0.8)]
-        )
+        ctx = _fake_ctx([_fake_citation(page_id=str(uuid.uuid4()), title="Qdrant", score=0.8)])
         with patch("app.mcp.server.retrieve", new_callable=AsyncMock, return_value=ctx):
             results = await search_wiki("qdrant vector database", k=5)
 

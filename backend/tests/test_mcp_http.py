@@ -65,7 +65,7 @@ def _get_tool_names(mcp_instance: FastMCP) -> set[str]:
             # Keys have the form "tool:<name>@<version_or_empty>"
             if key.startswith("tool:"):
                 # Strip "tool:" prefix and "@..." suffix
-                raw = key[len("tool:"):]
+                raw = key[len("tool:") :]
                 tool_name = raw.split("@")[0]
                 names.add(tool_name)
         return names
@@ -145,9 +145,11 @@ class TestBuildHttpMcp:
         http_mcp = build_http_mcp(write_enabled=False)
         assert isinstance(http_mcp, FastMCP)
         names = _get_tool_names(http_mcp)
-        assert names == {"search_wiki", "get_page", "list_pages"}, (
-            f"Expected 3 read-only tools; got {names!r}"
-        )
+        assert names == {
+            "search_wiki",
+            "get_page",
+            "list_pages",
+        }, f"Expected 3 read-only tools; got {names!r}"
 
     def test_read_only_excludes_write_page(self) -> None:
         """write_page must NOT be in the read-only HTTP surface."""
@@ -155,9 +157,9 @@ class TestBuildHttpMcp:
 
         http_mcp = build_http_mcp(write_enabled=False)
         names = _get_tool_names(http_mcp)
-        assert "write_page" not in names, (
-            "write_page must not be registered when write_enabled=False"
-        )
+        assert (
+            "write_page" not in names
+        ), "write_page must not be registered when write_enabled=False"
 
     def test_write_enabled_registers_exactly_4_tools(self) -> None:
         """write_enabled=True → all 4 tools including write_page."""
@@ -192,9 +194,9 @@ class TestBuildHttpMcp:
         build_http_mcp(write_enabled=False)
         build_http_mcp(write_enabled=True)
         names_after = _get_tool_names(stdio_mcp)
-        assert names_before == names_after, (
-            "build_http_mcp() must not alter the stdio mcp tool registry"
-        )
+        assert (
+            names_before == names_after
+        ), "build_http_mcp() must not alter the stdio mcp tool registry"
 
     def test_returns_fastmcp_instance(self) -> None:
         """build_http_mcp() returns a FastMCP instance."""
@@ -218,9 +220,9 @@ class TestStdioMcpUnchanged:
 
         names = _get_tool_names(stdio_mcp)
         for expected in ("search_wiki", "write_page", "get_page", "list_pages"):
-            assert expected in names, (
-                f"Stdio mcp missing tool {expected!r} — build_http_mcp() must not alter it (I6)"
-            )
+            assert (
+                expected in names
+            ), f"Stdio mcp missing tool {expected!r} — build_http_mcp() must not alter it (I6)"
 
     def test_stdio_is_fastmcp_instance(self) -> None:
         from app.mcp.server import mcp as stdio_mcp
@@ -409,9 +411,7 @@ class TestMcpInfoHttpFields:
         from app.main import app
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.get("/mcp/info")
 
         assert resp.status_code == 200
@@ -424,16 +424,14 @@ class TestMcpInfoHttpFields:
         from app.main import app
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.get("/mcp/info")
 
         assert resp.status_code == 200
         data = resp.json()
-        assert "remote_write_enabled" in data, (
-            "GET /mcp/info must include remote_write_enabled (ADR-0029 §2.5)"
-        )
+        assert (
+            "remote_write_enabled" in data
+        ), "GET /mcp/info must include remote_write_enabled (ADR-0029 §2.5)"
         assert isinstance(data["remote_write_enabled"], bool)
 
     @pytest.mark.asyncio
@@ -453,9 +451,9 @@ class TestMcpInfoHttpFields:
 
         assert resp.status_code == 200
         raw_body = resp.text
-        assert "super-secret-do-not-leak" not in raw_body, (
-            "MCP_AUTH_TOKEN must never appear in /mcp/info response (ADR-0029 §2.5)"
-        )
+        assert (
+            "super-secret-do-not-leak" not in raw_body
+        ), "MCP_AUTH_TOKEN must never appear in /mcp/info response (ADR-0029 §2.5)"
 
     @pytest.mark.asyncio
     async def test_mcp_info_http_enabled_always_true_adr0033(self) -> None:
@@ -523,9 +521,9 @@ class TestMcpServerAlwaysMountedAdr0033:
                         follow_redirects=False,
                     )
             # Gate returns 404 (remote disabled) — surface IS mounted but gate rejects.
-            assert resp.status_code == 404, (
-                f"Expected 404 from gate (remote_enabled=OFF), got {resp.status_code}"
-            )
+            assert (
+                resp.status_code == 404
+            ), f"Expected 404 from gate (remote_enabled=OFF), got {resp.status_code}"
         finally:
             if saved is not None:
                 os.environ["MCP_AUTH_TOKEN"] = saved
@@ -558,9 +556,7 @@ class TestWritePageRoutesThroughSharedSeam:
         fake_row.title = "Test"
         fake_row.page_type = "concept"
 
-        with patch(
-            "app.ingest.orchestrator.write_wiki_page", new_callable=AsyncMock
-        ) as mock_wwp:
+        with patch("app.ingest.orchestrator.write_wiki_page", new_callable=AsyncMock) as mock_wwp:
             mock_wwp.return_value = fake_row
             result = await _write_page_body(
                 title="Test",
@@ -598,9 +594,7 @@ class TestWritePageRoutesThroughSharedSeam:
         fake_row.title = "WikiPage"
         fake_row.page_type = "concept"
 
-        with patch(
-            "app.ingest.orchestrator.write_wiki_page", new_callable=AsyncMock
-        ) as mock_wwp:
+        with patch("app.ingest.orchestrator.write_wiki_page", new_callable=AsyncMock) as mock_wwp:
             mock_wwp.return_value = fake_row
             # Call _write_page_body directly (the shared body that both tools call)
             from app.mcp.server import _write_page_body

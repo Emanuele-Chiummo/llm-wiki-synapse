@@ -27,7 +27,6 @@ import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
 
 import app.embeddings as embeddings_mod
 import app.rag.retrieval as retrieval_mod
@@ -81,7 +80,9 @@ def _uid(tag: int) -> str:
 
 async def _setup_sqlite(engine: Any) -> None:
     async with engine.begin() as conn:
-        await conn.execute(sa_text("""
+        await conn.execute(
+            sa_text(
+                """
             CREATE TABLE pages (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -92,8 +93,12 @@ async def _setup_sqlite(engine: Any) -> None:
                 content_hash TEXT NOT NULL DEFAULT '',
                 deleted_at TEXT
             )
-        """))
-        await conn.execute(sa_text("""
+        """
+            )
+        )
+        await conn.execute(
+            sa_text(
+                """
             CREATE TABLE links (
                 id TEXT PRIMARY KEY,
                 source_page_id TEXT NOT NULL,
@@ -101,8 +106,12 @@ async def _setup_sqlite(engine: Any) -> None:
                 target_page_id TEXT,
                 dangling INTEGER NOT NULL DEFAULT 0
             )
-        """))
-        await conn.execute(sa_text("""
+        """
+            )
+        )
+        await conn.execute(
+            sa_text(
+                """
             CREATE TABLE edges (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -110,14 +119,20 @@ async def _setup_sqlite(engine: Any) -> None:
                 target_page_id TEXT NOT NULL,
                 weight REAL NOT NULL
             )
-        """))
-        await conn.execute(sa_text("""
+        """
+            )
+        )
+        await conn.execute(
+            sa_text(
+                """
             CREATE TABLE vault_state (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
                 data_version INTEGER NOT NULL DEFAULT 0
             )
-        """))
+        """
+            )
+        )
 
 
 async def _insert_page(
@@ -130,8 +145,7 @@ async def _insert_page(
 ) -> None:
     await sess.execute(
         sa_text(
-            "INSERT INTO pages (id, vault_id, file_path, title) "
-            "VALUES (:id, :vid, :fp, :title)"
+            "INSERT INTO pages (id, vault_id, file_path, title) " "VALUES (:id, :vid, :fp, :title)"
         ).bindparams(id=page_id, vid=vault_id, fp=file_path, title=title)
     )
 
@@ -173,9 +187,9 @@ def _distinct_markers(text: str) -> set[int]:
 def _assert_citation_authority(ctx: RetrievalContext) -> None:
     """len(citations) == distinct [n] in text, and ns are contiguous from 1."""
     markers = _distinct_markers(ctx.text)
-    assert len(ctx.citations) == len(markers), (
-        f"citations={len(ctx.citations)} markers={sorted(markers)}"
-    )
+    assert len(ctx.citations) == len(
+        markers
+    ), f"citations={len(ctx.citations)} markers={sorted(markers)}"
     ns = [c.n for c in ctx.citations]
     assert ns == list(range(1, len(ns) + 1)), f"ns not contiguous from 1: {ns}"
     assert markers == set(ns)
@@ -263,7 +277,8 @@ async def test_lex1_no_qdrant_call_when_embeddings_disabled(lex_env: _Env) -> No
 
     # Qdrant was not touched.
     assert counting_qdrant.call_count == 0, (
-        f"Qdrant.query_points called {counting_qdrant.call_count} times — should be 0 in lexical mode"
+        f"Qdrant.query_points called {counting_qdrant.call_count} times — "
+        "should be 0 in lexical mode"
     )
     # Embedding client was not called.
     assert embed_calls == [], f"embed() called {embed_calls} times — should be 0 in lexical mode"
@@ -283,7 +298,11 @@ async def test_lex2_title_match_returns_citation(lex_env: _Env) -> None:
     async with lex_env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=2)
         await _insert_page(
-            sess, page_id=p1, vault_id=VAULT, file_path="raw/sources/widget.md", title="Widget Overview"
+            sess,
+            page_id=p1,
+            vault_id=VAULT,
+            file_path="raw/sources/widget.md",
+            title="Widget Overview",
         )
         await sess.commit()
     _write_source(lex_env.vault_root, "raw/sources/widget.md", "Widget body text here.")
@@ -316,7 +335,9 @@ async def test_lex3_no_match_for_unrelated_query(lex_env: _Env) -> None:
     _write_source(lex_env.vault_root, "raw/sources/dog.md", "Dog care body.")
 
     async with lex_env.factory() as sess:
-        ctx = await retrieve("zzz_unrelated_xyz", vault_id=VAULT, context_window=10_000, session=sess)
+        ctx = await retrieve(
+            "zzz_unrelated_xyz", vault_id=VAULT, context_window=10_000, session=sess
+        )
 
     assert ctx.text == ""
     assert ctx.citations == []
@@ -339,21 +360,20 @@ async def test_adr0030_ac7_lexical_k_bounded(lex_env: _Env) -> None:
         for i, pid in enumerate(ids):
             fp = f"raw/sources/pg{i}.md"
             await _insert_page(
-                sess, page_id=pid, vault_id=VAULT, file_path=fp,
-                title=f"Alpha Page {i}"  # ALL titles contain "alpha"
+                sess,
+                page_id=pid,
+                vault_id=VAULT,
+                file_path=fp,
+                title=f"Alpha Page {i}",  # ALL titles contain "alpha"
             )
             _write_source(lex_env.vault_root, fp, f"Content of page {i}.")
         await sess.commit()
 
     async with lex_env.factory() as sess:
-        ctx = await retrieve(
-            "alpha", vault_id=VAULT, context_window=500_000, k=k, session=sess
-        )
+        ctx = await retrieve("alpha", vault_id=VAULT, context_window=500_000, k=k, session=sess)
 
     # MUST return at most k results even though N=30 pages match.
-    assert len(ctx.citations) <= k, (
-        f"Expected ≤{k} citations (k-bounded), got {len(ctx.citations)}"
-    )
+    assert len(ctx.citations) <= k, f"Expected ≤{k} citations (k-bounded), got {len(ctx.citations)}"
     _assert_citation_authority(ctx)
 
 
@@ -369,10 +389,18 @@ async def test_adr0030_ac4_graph_expansion_on_lexical_seeds(lex_env: _Env) -> No
     async with lex_env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         await _insert_page(
-            sess, page_id=seed, vault_id=VAULT, file_path="raw/sources/seed.md", title="Kernel Config"
+            sess,
+            page_id=seed,
+            vault_id=VAULT,
+            file_path="raw/sources/seed.md",
+            title="Kernel Config",
         )
         await _insert_page(
-            sess, page_id=neighbour, vault_id=VAULT, file_path="raw/sources/neigh.md", title="Neighbour Page"
+            sess,
+            page_id=neighbour,
+            vault_id=VAULT,
+            file_path="raw/sources/neigh.md",
+            title="Neighbour Page",
         )
         await _insert_edge(sess, vault_id=VAULT, src=seed, tgt=neighbour, weight=7.0)
         await sess.commit()
@@ -405,9 +433,14 @@ def test_lex4_retrieve_signature_unchanged() -> None:
 
     sig = inspect.signature(retrieve)
     params = list(sig.parameters)
-    assert params == ["query", "vault_id", "context_window", "k", "expansion_depth", "session"], (
-        f"retrieve() signature changed: {params}"
-    )
+    assert params == [
+        "query",
+        "vault_id",
+        "context_window",
+        "k",
+        "expansion_depth",
+        "session",
+    ], f"retrieve() signature changed: {params}"
     # k=8, expansion_depth=2, session=None are the canonical defaults.
     defaults = {
         name: p.default
@@ -461,9 +494,9 @@ async def test_lex5_qdrant_called_when_embeddings_enabled(
     async with factory() as sess:
         await retrieve("q", vault_id=VAULT, context_window=10_000, session=sess)
 
-    assert qdrant.call_count == 1, (
-        f"Qdrant.query_points should be called once in enabled mode, got {qdrant.call_count}"
-    )
+    assert (
+        qdrant.call_count == 1
+    ), f"Qdrant.query_points should be called once in enabled mode, got {qdrant.call_count}"
 
     retrieval_mod.get_qdrant_client = original_get_qdrant  # type: ignore[assignment]
     await engine.dispose()
@@ -485,9 +518,9 @@ async def test_adr0030_ac6_config_embedding_includes_enabled_field(
     from app.main import EmbeddingConfigResponse
 
     fields = EmbeddingConfigResponse.model_fields
-    assert "embeddings_enabled" in fields, (
-        "EmbeddingConfigResponse is missing 'embeddings_enabled' field (ADR-0030 §3)"
-    )
+    assert (
+        "embeddings_enabled" in fields
+    ), "EmbeddingConfigResponse is missing 'embeddings_enabled' field (ADR-0030 §3)"
 
     # Exercise the handler directly.
     monkeypatch.setattr(main_mod.settings, "embeddings_enabled", False)
@@ -535,31 +568,33 @@ async def test_lex_multi_token_higher_score_ranks_first(lex_env: _Env) -> None:
     """
     Pages matching more query tokens rank above those matching fewer (score = term overlap).
     """
-    p_both = _uid(20)   # title matches BOTH tokens
-    p_one = _uid(21)    # title matches only ONE token
+    p_both = _uid(20)  # title matches BOTH tokens
+    p_one = _uid(21)  # title matches only ONE token
     async with lex_env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         await _insert_page(
-            sess, page_id=p_both, vault_id=VAULT, file_path="raw/sources/both.md",
-            title="Alpha Beta Overview"
+            sess,
+            page_id=p_both,
+            vault_id=VAULT,
+            file_path="raw/sources/both.md",
+            title="Alpha Beta Overview",
         )
         await _insert_page(
-            sess, page_id=p_one, vault_id=VAULT, file_path="raw/sources/one.md",
-            title="Alpha Reference"
+            sess,
+            page_id=p_one,
+            vault_id=VAULT,
+            file_path="raw/sources/one.md",
+            title="Alpha Reference",
         )
         await sess.commit()
     _write_source(lex_env.vault_root, "raw/sources/both.md", "Both tokens body.")
     _write_source(lex_env.vault_root, "raw/sources/one.md", "One token body.")
 
     async with lex_env.factory() as sess:
-        ctx = await retrieve(
-            "alpha beta", vault_id=VAULT, context_window=50_000, k=8, session=sess
-        )
+        ctx = await retrieve("alpha beta", vault_id=VAULT, context_window=50_000, k=8, session=sess)
 
     assert len(ctx.citations) == 2
     # p_both (2 token hits) should be cited first (n=1).
-    assert ctx.citations[0].ref.id == p_both, (
-        "Page with more token matches should rank first"
-    )
+    assert ctx.citations[0].ref.id == p_both, "Page with more token matches should rank first"
     assert ctx.citations[0].score >= ctx.citations[1].score
     _assert_citation_authority(ctx)

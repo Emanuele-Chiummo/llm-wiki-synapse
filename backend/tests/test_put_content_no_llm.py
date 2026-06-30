@@ -80,6 +80,7 @@ async def _ingest_wiki_page(
 
 # ── T-PC-P1a/b/c: PUT must not trigger the LLM pipeline ─────────────────────
 
+
 class TestPutPageContentNoLLM:
     """
     Priority-1 load-bearing acceptance test (ADR-0035 gap).
@@ -154,9 +155,7 @@ class TestPutPageContentNoLLM:
         monkeypatch.setattr(orch, "run_ingest_pipeline", run_ingest_pipeline_guard)
 
         # Perform the PUT
-        new_content = (
-            "---\ntype: entity\ntitle: Test Entity\nsources: []\n---\n\nEdited by user.\n"
-        )
+        new_content = "---\ntype: entity\ntitle: Test Entity\nsources: []\n---\n\nEdited by user.\n"
         resp = await api_client.put(
             f"/pages/{page_id}/content",
             json={"content": new_content},
@@ -201,9 +200,7 @@ class TestPutPageContentNoLLM:
         from app.ingest.orchestrator import _load_page
 
         # Set up fixture page FIRST (before patching) so ingest_file runs clean.
-        old_content = (
-            "---\ntype: concept\ntitle: Hash Check\nsources: []\n---\n\nOld content.\n"
-        )
+        old_content = "---\ntype: concept\ntitle: Hash Check\nsources: []\n---\n\nOld content.\n"
         page_id, wiki_file = await _ingest_wiki_page(
             api_env,
             filename="hash_check.md",
@@ -232,16 +229,12 @@ class TestPutPageContentNoLLM:
 
         monkeypatch.setattr(orch, "run_ingest_pipeline", pipeline_spy)
 
-        new_content = (
-            "---\ntype: concept\ntitle: Hash Check\nsources: []\n---\n\nNew content.\n"
-        )
+        new_content = "---\ntype: concept\ntitle: Hash Check\nsources: []\n---\n\nNew content.\n"
         resp = await api_client.put(
             f"/pages/{page_id}/content",
             json={"content": new_content},
         )
-        assert resp.status_code == 200, (
-            f"PUT returned {resp.status_code}: {resp.text}"
-        )
+        assert resp.status_code == 200, f"PUT returned {resp.status_code}: {resp.text}"
 
         # DB row must carry the NEW content hash
         rel_path = str(wiki_file.resolve().relative_to(api_env["vault_root"].resolve()))
@@ -279,9 +272,7 @@ class TestPutPageContentNoLLM:
         import app.ingest.orchestrator as orch
 
         # Set up fixture page FIRST (before patching).
-        old_content = (
-            "---\ntype: entity\ntitle: Run Check\nsources: []\n---\n\nOld.\n"
-        )
+        old_content = "---\ntype: entity\ntitle: Run Check\nsources: []\n---\n\nOld.\n"
         page_id, wiki_file = await _ingest_wiki_page(
             api_env,
             filename="run_check.md",
@@ -312,16 +303,12 @@ class TestPutPageContentNoLLM:
 
         monkeypatch.setattr(orch, "run_ingest_pipeline", pipeline_trap)
 
-        new_content = (
-            "---\ntype: entity\ntitle: Run Check\nsources: []\n---\n\nEdited.\n"
-        )
+        new_content = "---\ntype: entity\ntitle: Run Check\nsources: []\n---\n\nEdited.\n"
         resp = await api_client.put(
             f"/pages/{page_id}/content",
             json={"content": new_content},
         )
-        assert resp.status_code == 200, (
-            f"PUT returned {resp.status_code}: {resp.text}"
-        )
+        assert resp.status_code == 200, f"PUT returned {resp.status_code}: {resp.text}"
 
         assert not write_run_calls, (
             f"BUG: PUT /pages/{{id}}/content created {len(write_run_calls)} ingest_runs "
