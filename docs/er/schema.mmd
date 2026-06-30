@@ -1,4 +1,4 @@
-<!-- Generated: v0.5-F9/F10 | 2026-06-29 — ADR-0025: review_items; ADR-0024: deep_research_runs/sources; ADR-0016: edges.kind; Feature A: pages.pinned -->
+<!-- Generated: v0.5-ADR-0033 | 2026-06-30 — ADR-0033: vault_state +mcp_access_token_hash +mcp_allow_without_token (migration 0012); ADR-0032: +remote_mcp_enabled (migration 0011); ADR-0025: review_items; ADR-0024: deep_research_runs/sources -->
 erDiagram
 
     CONVERSATIONS {
@@ -61,6 +61,9 @@ erDiagram
         uuid id PK "Row identity"
         string vault_id "One row per vault; from VAULT_ID env var"
         int data_version "Monotonic; +1 per successful upsert ingest (AC-F16dv-2/4); FA2 debounce signal"
+        boolean remote_mcp_enabled "Runtime toggle for the remote (HTTP) MCP surface (ADR-0032 §2.1). Default OFF; requires MCP_AUTH_TOKEN to be set before enabling. Persisted here; read into RemoteMcpFlag cache in main.py at startup."
+        string mcp_access_token_hash "Salted PBKDF2-HMAC-SHA256 hash of the UI-set MCP access token (ADR-0033 §2.1). Format: pbkdf2_sha256$<iters>$<salt_b64>$<hash_b64>. NULL = no UI token; env MCP_AUTH_TOKEN is the bootstrap fallback. NEVER stores plaintext. Token shown once at generation time (one-time reveal). DB-hash takes precedence over env bootstrap when set. Migration 0012."
+        boolean mcp_allow_without_token "When ON: PRIVATE sources (loopback/CGNAT/RFC1918/link-local/ULA) may reach /mcp/server without a bearer token (ADR-0033 §2.3). PUBLIC sources (Cloudflare tunnel — CF-Connecting-IP/CF-Ray) are NEVER exempted regardless of this flag (fail-safe by construction). Default false — fail-closed. Migration 0012."
         timestamptz updated_at "Last bump time"
     }
 

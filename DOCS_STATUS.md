@@ -4,6 +4,117 @@
 
 ---
 
+## M5 Post-Phase — ADR-0033 (UI-settable MCP token + allow-without-token) — DOCS GATE: PASS
+
+> Gate run: 2026-06-30
+> Scope: ADR-0033 adds TWO columns to `vault_state` (Alembic **0012** — `mcp_access_token_hash` TEXT nullable + `mcp_allow_without_token` BOOLEAN NOT NULL DEFAULT false) plus a new `PUT /mcp/auth` endpoint and new `GET /mcp/info` fields (`token_source`, `allow_without_token`). Architect confirmed: no C4/topology change (D1 unchanged).
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D2 | `docs/er/schema.mmd` | REGENERATED | `make er` re-run via `.venv/bin/python scripts/generate_er.py`. `VAULT_STATE` entity now carries `mcp_access_token_hash` (string) + `mcp_allow_without_token` (boolean) alongside the ADR-0032 `remote_mcp_enabled`. 12 tables; sanity check passed. **I8 (ER matches live schema) holds** — both migration 0012 columns reflected. Header updated to `v0.5-ADR-0033`. |
+| D4 | `docs/api/openapi.json` | REGENERATED | `make openapi` re-run via `.venv/bin/python scripts/generate_openapi.py`. Includes `PUT /mcp/auth` with `McpAuthRequest` / `McpAuthStateResponse` schemas; `McpInfoResponse` now has `token_source` + `allow_without_token`. 19-endpoint sanity check passed. **No-token-leak check PASS**: no plaintext token, hash, or salt field exposed in any response schema. `generated_token` (one-time reveal slot) present with correct "shown once" description. |
+| D4 | `backend/scripts/generate_openapi.py` | UPDATED | Sanity check extended: `/mcp/auth` added to required-path list (19 paths, was 18); `token_source` + `allow_without_token` asserted in `McpInfoResponse` + `McpAuthStateResponse`; explicit no-leak check for suspicious field names. Script now fails CI if any of these are absent or a secret field appears. |
+| D4 | `backend/scripts/generate_er.py` | UPDATED | Header string updated to `v0.5-ADR-0033` to reflect Alembic 0012 in generated file metadata. |
+| D7 | `docs/adr/README.md` | UP-TO-DATE | ADR-0033 row added (Accepted, 2026-06-30); header date updated to 2026-06-30. ADR-0032 row amended with "superseded in part" pointer to ADR-0033. |
+| D7 | `docs/adr/0029-remote-mcp-over-http.md` | AMENDED | One-line "superseded in part by ADR-0033" note added to the Status line (§2.2 mount-only-when-token-set condition is now allow-aware). |
+| D7 | `docs/adr/0032-remote-mcp-runtime-toggle.md` | AMENDED | One-line "superseded in part by ADR-0033" note added to the Status line (§2.4 token-floor clamp is now allow-aware). |
+| D6b | `docs/DEPLOY.md` | UPDATED | Header updated to `v0.5-ADR-0033 \| 2026-06-30`. §5 section title/intro updated to reference ADR-0033; §5.1 Prerequisites updated (UI-generated token path documented; env bootstrap explained as fallback). New **§5.9** added: UI token management (`PUT /mcp/auth` generate/rotate/clear lifecycle; `MCP_AUTH_TOKEN` bootstrap fallback; `allow_without_token` private-source behavior; Cloudflare tunnel always requires token; `MCP_TRUSTED_PROXIES` XFF trust). §3.2 migration list updated (migrations 0011 + 0012 described). §2.1 env var table: `MCP_TRUSTED_PROXIES` row added. §12 ADR range updated to ADR-0033. |
+| D1/D3 | architecture / sequences | N/A-UNCHANGED | No new container/process/port; no new flow. The new endpoint is inside the existing FastAPI boundary; the gating logic extends the existing `_BearerAuthMiddleware`. |
+
+**No-token-leak verification:**
+
+| Check | Result |
+|-------|--------|
+| `grep -c '"mcp_access_token_hash"' docs/api/openapi.json` | 0 — hash column name not exposed in spec |
+| `McpAuthStateResponse` properties contain no field named `plaintext_token`, `raw_token`, `token_value`, `hash_value`, `salt_value` | PASS — confirmed by automated script check |
+| `McpInfoResponse` properties: same check | PASS |
+| `generated_token` field description contains "ONCE" | PASS — one-time reveal semantics documented |
+
+**I8 invariant check:** `docs/er/schema.mmd` `VAULT_STATE` entity matches `backend/app/models.py` `VaultState` class — `mcp_access_token_hash` + `mcp_allow_without_token` + `remote_mcp_enabled` all present. Migration file `0012_vault_state_mcp_access_token_and_allow.py` confirmed in `backend/alembic/versions/`. I8 holds.
+
+**Verdict: PASS.** D2 regenerated (vault_state +2 cols), D4 regenerated (PUT /mcp/auth + /mcp/info fields, no token leak), D1/D3 unchanged, D7 ADR index + cross-refs updated, D6b DEPLOY updated (§5.9 new, MCP_TRUSTED_PROXIES added). I8 holds.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-30 | ADR-0033 docs gate**
+
+---
+
+## M5 Post-Phase — ADR-0032 (remote-MCP runtime toggle + URL) — DOCS GATE: PASS
+
+> Gate run: 2026-06-29 (orchestrator-completed after the tech-writer agent was interrupted).
+> Scope: ADR-0032 adds the ONE schema change of this batch — a `remote_mcp_enabled` boolean on `vault_state` (Alembic **0011**) — plus `PUT /mcp/remote` and three new `GET /mcp/info` fields (`token_configured`, `remote_enabled`, `mount_path`). Architect confirmed: no C4/topology change (D1 unchanged).
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D2 | `docs/er/schema.mmd` | REGENERATED | `make er` re-run; `vault_state` now carries `remote_mcp_enabled`. 12 tables, sanity check passed. **I8 (ER matches live schema) holds** — migration 0011 applied to the model. |
+| D4 | `docs/api/openapi.json` | REGENERATED | `make openapi` re-run; includes `PUT /mcp/remote` (`McpRemoteStateResponse`) and the 3 new `McpInfoResponse` fields. Valid JSON; 18-endpoint sanity check passed. |
+| D7 | `docs/adr/README.md` | UP-TO-DATE | ADR-0032 row added (Accepted); ADR-0029/0030/0031 flipped Proposed→Accepted (owner decisions landed 2026-06-29). |
+| D6b | `docs/DEPLOY.md` | UP-TO-DATE | Remote MCP section already documents the env floor; runtime toggle is the Settings UI counterpart (clamped off when no token). |
+| D1/D3 | architecture / sequences | N/A-UNCHANGED | No new container/process/port; no new flow. The toggle is a request-gate on the existing ADR-0029 mount. |
+
+**Verdict: PASS.** Verified live: ER + OpenAPI regenerated and grep-confirmed; backend gate transition (404→401) and UI toggle+URL confirmed in Claude preview.
+
+---
+
+## M5 Post-Phase — ADR-0028/0029/0030/0031 (Features A/B/C + bugfix) — DOCS GATE: PASS
+
+> Gate run: 2026-06-29
+> Scope: Four ADRs landed after M5 Phase 5 sign-off: ADR-0028 (relative API base / proxy split — bugfix), ADR-0029 (remote MCP over HTTP), ADR-0030 (embeddings toggle + lexical degrade), ADR-0031 (OpenAI-compatible embeddings adapter).
+> Architect confirmed: NO schema/migration change (D2/ER unchanged); NO C4/topology change (D1 unchanged — the MCP HTTP surface mounts inside the existing FastAPI container, no new process or port).
+> Scope of this gate run: D4 (openapi.json regenerated; mcp-tools.json updated), D7 ADR index (ADR-0028..0031 entries added), D6a USER.md (stale M5 feature table + sources section text), D6b DEPLOY.md (new env vars, stale migration/format/multiformat text), generate_openapi.py sanity checks.
+
+### Per-artifact status (M5 Post-Phase)
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/` (context/container/component) | N/A-UNCHANGED | Architect confirmed: no topology change. `/mcp/server` mounts inside the existing FastAPI container (same process, same port). No new C4 box or arrow. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (no-change) | Architect confirmed: no schema/migration change. ADR-0028/0029/0030/0031 are pure config + in-seam adapters. Last migration remains 0010 (review_items). 12 tables. I8 invariant holds. |
+| D3 | `docs/sequences/` | N/A-UNCHANGED | No new sequence diagrams required. ADR-0028 is transport plumbing; ADR-0029 is a mount point; ADR-0030/0031 are embedding-seam branches. Existing diagrams accurate. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (regenerated) | Regenerated via `make openapi` (backend/.venv/bin/python backend/scripts/generate_openapi.py). Enhanced sanity checks confirm: `embeddings_enabled` in EmbeddingConfigResponse (ADR-0030); `http_enabled` + `remote_write_enabled` in McpInfoResponse (ADR-0029). Valid JSON; 28 paths; version 0.5.0. |
+| D4 | `docs/api/mcp-tools.json` | UP-TO-DATE (amended) | `_transport` note updated: stdio + HTTP (ADR-0029; was "HTTP deferred to v0.4"). `search_wiki` description updated: now routes through `retrieve()` with lexical degrade when `EMBEDDINGS_ENABLED=false` (ADR-0030 §2.6; was "vector lookup only, F5 deferred"). `_schema_version` bumped to v0.5. |
+| D5 | `docs/screens/` | PENDING-LIVE (carry-forward) | No new UI views added by ADR-0028/0029/0030/0031. Pending M5 screenshots carry forward unchanged from Phase 5 gate. |
+| D6a | `docs/USER.md` | UP-TO-DATE (amended) | Version header updated v0.4 → v0.5. Settings table: Embeddings row and API + MCP row updated (no longer "coming in M5"; now describe shipped functionality). Sources section: accepted formats updated (v0.5 multi-format list; was "v0.4 Markdown/text only"). Source Watch section: format list updated. "What is coming" table rewritten as "What shipped in M5 / What is coming in M6" — all M5 features moved to shipped, M6 remainder listed. |
+| D6b | `docs/DEPLOY.md` | UP-TO-DATE (amended) | Version header updated v0.4 → v0.5. §2.1 env var table: 7 new rows added (`EMBEDDINGS_ENABLED`, `EMBEDDING_FORMAT`, `EMBEDDING_API_KEY`, `MCP_AUTH_TOKEN`, `MCP_REMOTE_WRITE_ENABLED`, `BACKEND_PROXY_TARGET`; ADR-0028/0029/0030/0031 cited). §3.2 startup text: migrations updated 0001–0008 → 0001–0010 (added 0009 deep_research, 0010 review_items descriptions). §6.4 import format list: updated from "v0.4 text/MD only" to "v0.5 + F12 binary list". §11.2 EMBEDDING_DIM: added EMBEDDING_FORMAT note for OpenAI-compat endpoints. §11.5 CLI backend: updated from "not yet implemented (M5)" to current v0.5 state. §11.7 415 error: updated accepted format list. §12 References: ADR range updated "through ADR-0020" → "through ADR-0031". |
+| D7 | `docs/adr/README.md` | UP-TO-DATE (amended) | Header updated to include "Features A/B/C post-phase". ADR-0028, ADR-0029, ADR-0030, ADR-0031 rows added to index table with one-line summaries. |
+| D7 | `docs/adr/0028-*.md` through `0031-*.md` | UP-TO-DATE | Files confirmed present (pre-existing from solution-architect). No formatting changes required; content is complete. |
+| generate_openapi.py | `backend/scripts/generate_openapi.py` | UP-TO-DATE (enhanced) | Sanity checks extended: `embeddings_enabled`, `http_enabled`, `remote_write_enabled` now asserted as present in the component schemas. `/mcp/info` and `/config/embedding` added to the required-paths list. Total required paths: 18 (was 16). |
+
+### Three-field verification (ADR-0029 / ADR-0030 confirmation)
+
+| Field | Schema | Line in openapi.json | Confirmed |
+|-------|--------|----------------------|-----------|
+| `embeddings_enabled` | `EmbeddingConfigResponse` | 1837 | YES — bool, description references `EMBEDDINGS_ENABLED` env var |
+| `http_enabled` | `McpInfoResponse` | 2522 | YES — bool, description references `MCP_AUTH_TOKEN` (ADR-0029 §2.2) |
+| `remote_write_enabled` | `McpInfoResponse` | 2527 | YES — bool, description references `MCP_REMOTE_WRITE_ENABLED` (ADR-0029 §2.3) |
+
+All three fields confirmed in the regenerated spec. Sanity check script asserts them and exits non-zero on absence.
+
+### I8 invariant check (ER matches schema)
+
+ADR-0028/0029/0030/0031 make no DB schema change (confirmed by architect). No Alembic migration file for any of these ADRs. `backend/app/models.py` unchanged by this batch. The ER diagram (`docs/er/schema.mmd`, 12 tables) continues to match the live schema. I8 holds.
+
+### DOCS GATE VERDICT — M5 Post-Phase
+
+**PASS**
+
+All D-artifacts are UP-TO-DATE, N/A-unchanged, or carry-forward PENDING-LIVE with valid rationale.
+
+Items confirmed clean (no drift):
+- D2: 12 tables, zero drift — no schema change (architect confirmed)
+- D1: no topology change — HTTP MCP mounts inside existing FastAPI container (architect confirmed)
+- D4 openapi.json: regenerated; three ADR-0029/0030 fields confirmed present; valid JSON; 18 required paths pass sanity checks
+- D4 mcp-tools.json: transport note and search_wiki description updated to reflect ADR-0029 HTTP surface and ADR-0030 lexical degrade routing
+- D6a USER.md: M5 feature table rewritten; sources format list updated; Settings section descriptions updated
+- D6b DEPLOY.md: 7 new env vars documented; migration count corrected; format lists updated; stale version headers fixed
+- D7 ADR README: ADR-0028/0029/0030/0031 indexed with summaries
+
+Carry-forward pending items (unchanged from Phase 5 gate, non-blocking):
+- D5: 9 M5 screenshots PENDING-LIVE (Playwright specs exist; requires live stack)
+- AC-D3-CI-1 (mmdc CI step): GAP-v0.5-3 carry-forward
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-29 | M5 post-phase gate (ADR-0028/0029/0030/0031)**
+
+---
+
 ## M5 — Milestone Docs Roll-up (all 5 phases) — CONSOLIDATED VERDICT: PASS-WITH-PENDING
 
 > Roll-up run: 2026-06-29

@@ -616,7 +616,7 @@
     "/config/embedding": {
       "get": {
         "summary": "Get current embedding configuration",
-        "description": "Returns the active embedding config read from environment variables (EMBEDDING_URL, EMBEDDING_MODEL, EMBEDDING_DIM). Read-only \u2014 edit .env to change. (I9)",
+        "description": "Returns the active embedding config read from environment variables (EMBEDDING_URL, EMBEDDING_MODEL, EMBEDDING_DIM, EMBEDDINGS_ENABLED). Read-only \u2014 edit .env to change. (I9, ADR-0030)",
         "operationId": "get_embedding_config_config_embedding_get",
         "responses": {
           "200": {
@@ -644,6 +644,84 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/McpInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/remote": {
+      "put": {
+        "summary": "Toggle the remote MCP HTTP surface at runtime",
+        "description": "Persists vault_state.remote_mcp_enabled for the active vault and refreshes the in-process RemoteMcpFlag cache immediately (ADR-0032 \u00a72.2/\u00a72.4). Token-floor clamp: if MCP_AUTH_TOKEN is unset and enabled=true, the flag is forced to false and clamped=true is returned (HTTP 200). enabled=false always succeeds. Same-origin / unauthenticated \u2014 consistent with the rest of the REST API (ADR-0028 / ADR-0032 \u00a72.4). F1-MCP-UI (ADR-0032).",
+        "operationId": "put_mcp_remote_mcp_remote_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpRemoteToggleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpRemoteStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/auth": {
+      "put": {
+        "summary": "Set, rotate, or clear the MCP access token + allow-without-token flag",
+        "description": "ADR-0033 \u00a72.5 \u2014 UI-settable MCP token management. rotate_token=true: generate a new token (secrets.token_urlsafe(32)), store its PBKDF2 hash in vault_state, return plaintext ONCE in generated_token. token=<value>: store an explicit token as hash; NOT echoed; generated_token=null. clear_token=true: set hash to NULL (token_source may fall back to env or none). allow_without_token: persist the private-source allow flag. If post-write state has no token AND allow_without_token=false, remote_enabled is clamped OFF (allow-aware clamp \u2014 ADR-0033 \u00a72.4). Same-origin / unauthenticated (consistent with ADR-0032 \u00a72.4). NEVER returns or stores token plaintext (except the one-time generated_token). F1-MCP-UI (ADR-0033).",
+        "operationId": "put_mcp_auth_mcp_auth_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpAuthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpAuthStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1833,13 +1911,19 @@
             "type": "integer",
             "title": "Embedding Dim",
             "description": "Vector dimension (EMBEDDING_DIM env)"
+          },
+          "embeddings_enabled": {
+            "type": "boolean",
+            "title": "Embeddings Enabled",
+            "description": "Whether the embedding data plane is active (EMBEDDINGS_ENABLED env, default true). When false, retrieval degrades to lexical/keyword-only and no embedding service is required at startup (ADR-0030, Feature B). Never exposes the embedding API key."
           }
         },
         "type": "object",
         "required": [
           "embedding_url",
           "embedding_model",
-          "embedding_dim"
+          "embedding_dim",
+          "embeddings_enabled"
         ],
         "title": "EmbeddingConfigResponse"
       },
@@ -2483,6 +2567,112 @@
           "status": "completed"
         }
       },
+      "McpAuthRequest": {
+        "properties": {
+          "rotate_token": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rotate Token",
+            "description": "true \u21d2 generate a new high-entropy token (secrets.token_urlsafe(32)), store its PBKDF2 hash, return plaintext ONCE in generated_token. The plaintext is NEVER stored and NEVER returned again."
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token",
+            "description": "Owner-supplied explicit token; stored as PBKDF2 hash only. generated_token stays null (owner already knows the value). Not echoed in the response."
+          },
+          "clear_token": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clear Token",
+            "description": "true \u21d2 set mcp_access_token_hash = NULL. If this leaves token_configured=false AND allow_without_token=false, remote_enabled is clamped OFF (no usable auth posture)."
+          },
+          "allow_without_token": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Without Token",
+            "description": "Persist the allow-without-token flag (ADR-0033 \u00a72.3). Omit to leave unchanged. true: private sources (loopback/CGNAT/RFC1918/link-local) may connect without a bearer token. PUBLIC sources are NEVER exempted."
+          }
+        },
+        "type": "object",
+        "title": "McpAuthRequest",
+        "description": "Request body for PUT /mcp/auth (ADR-0033 \u00a72.5).\n\nAll fields are optional; omitting a field leaves that aspect unchanged.\nExactly one of rotate_token / token / clear_token should be used per call\n(using multiple is allowed but the last write wins: clear > explicit > rotate).\nallow_without_token can be set independently in the same call."
+      },
+      "McpAuthStateResponse": {
+        "properties": {
+          "token_configured": {
+            "type": "boolean",
+            "title": "Token Configured",
+            "description": "True iff DB hash is set OR MCP_AUTH_TOKEN env bootstrap is set."
+          },
+          "token_source": {
+            "type": "string",
+            "title": "Token Source",
+            "description": "\"db\" | \"env\" | \"none\" \u2014 authoritative token source (ADR-0033 \u00a72.1)."
+          },
+          "allow_without_token": {
+            "type": "boolean",
+            "title": "Allow Without Token",
+            "description": "The persisted allow-without-token flag after this write."
+          },
+          "remote_enabled": {
+            "type": "boolean",
+            "title": "Remote Enabled",
+            "description": "The remote_mcp_enabled flag after any allow-aware clamp."
+          },
+          "mount_path": {
+            "type": "string",
+            "title": "Mount Path",
+            "description": "MCP_MOUNT_PATH constant (I6)."
+          },
+          "generated_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated Token",
+            "description": "Populated ONLY when rotate_token=true \u2014 the plaintext token shown ONCE. null in all other cases. NEVER stored; NEVER returned by subsequent calls."
+          }
+        },
+        "type": "object",
+        "required": [
+          "token_configured",
+          "token_source",
+          "allow_without_token",
+          "remote_enabled",
+          "mount_path"
+        ],
+        "title": "McpAuthStateResponse",
+        "description": "Response body for PUT /mcp/auth (ADR-0033 \u00a72.5).\n\ntoken_configured, token_source, allow_without_token, remote_enabled, mount_path\nalways reflect the post-write state. generated_token is populated ONLY when\nrotate_token=true was set \u2014 shown ONCE, never returned again by any GET/PUT.\nNEVER contains the token, hash, or salt."
+      },
       "McpInfoResponse": {
         "properties": {
           "server_name": {
@@ -2512,6 +2702,41 @@
             "type": "array",
             "title": "Tools",
             "description": "Introspected tool list from the live registry"
+          },
+          "http_enabled": {
+            "type": "boolean",
+            "title": "Http Enabled",
+            "description": "Whether the HTTP MCP surface is compiled in and mounted (ADR-0029 \u00a72.2). Always true (ADR-0033 \u00a72.4 always-mount). The token itself is never returned. Alias: token_configured for backward compat."
+          },
+          "remote_write_enabled": {
+            "type": "boolean",
+            "title": "Remote Write Enabled",
+            "description": "Whether write_page is exposed on the HTTP surface (ADR-0029 \u00a72.3). Reflects MCP_REMOTE_WRITE_ENABLED env var (default false). Only meaningful when remote_enabled is true."
+          },
+          "token_configured": {
+            "type": "boolean",
+            "title": "Token Configured",
+            "description": "True iff a token is configured \u2014 DB hash set OR MCP_AUTH_TOKEN env set (ADR-0033 \u00a72.1 precedence). NEVER contains the token value."
+          },
+          "remote_enabled": {
+            "type": "boolean",
+            "title": "Remote Enabled",
+            "description": "The persisted runtime toggle state from vault_state.remote_mcp_enabled (ADR-0032 \u00a72.1). False by default; can be set via PUT /mcp/remote."
+          },
+          "mount_path": {
+            "type": "string",
+            "title": "Mount Path",
+            "description": "The mount path for the remote MCP HTTP surface (= MCP_MOUNT_PATH constant). UI builds the connection URL as: window.location.origin + mount_path (ADR-0032 \u00a72.5; I6 \u2014 derived from constant, never hardcoded in handler)."
+          },
+          "token_source": {
+            "type": "string",
+            "title": "Token Source",
+            "description": "\"db\" | \"env\" | \"none\" \u2014 which token source is authoritative (ADR-0033 \u00a72.1). \"db\": UI-set token (PBKDF2 hash in vault_state). \"env\": MCP_AUTH_TOKEN env bootstrap. \"none\": no token configured. NEVER the token value, hash, or salt."
+          },
+          "allow_without_token": {
+            "type": "boolean",
+            "title": "Allow Without Token",
+            "description": "Whether token-less access is permitted for PRIVATE sources (loopback/CGNAT/RFC1918/link-local/ULA \u2014 ADR-0033 \u00a72.3). PUBLIC sources (Cloudflare tunnel) are NEVER exempted regardless of this flag."
           }
         },
         "type": "object",
@@ -2520,10 +2745,65 @@
           "transport",
           "entry_point_command",
           "tool_count",
-          "tools"
+          "tools",
+          "http_enabled",
+          "remote_write_enabled",
+          "token_configured",
+          "remote_enabled",
+          "mount_path",
+          "token_source",
+          "allow_without_token"
         ],
         "title": "McpInfoResponse",
-        "description": "Response model for GET /mcp/info (ADR-0027 \u00a72.1)."
+        "description": "Response model for GET /mcp/info (ADR-0027 \u00a72.1; ADR-0029 \u00a72.5; ADR-0032 \u00a72.5; ADR-0033)."
+      },
+      "McpRemoteStateResponse": {
+        "properties": {
+          "remote_enabled": {
+            "type": "boolean",
+            "title": "Remote Enabled",
+            "description": "The resulting persisted runtime flag (post-clamp). False when clamped=true."
+          },
+          "token_configured": {
+            "type": "boolean",
+            "title": "Token Configured",
+            "description": "True iff MCP_AUTH_TOKEN is set (the security floor). NEVER contains the token value."
+          },
+          "mount_path": {
+            "type": "string",
+            "title": "Mount Path",
+            "description": "Mount path for the remote MCP HTTP surface (= MCP_MOUNT_PATH constant; I6)."
+          },
+          "clamped": {
+            "type": "boolean",
+            "title": "Clamped",
+            "description": "True iff the request asked enabled=true but MCP_AUTH_TOKEN is unset \u2014 the flag was forced to false (token-floor clamp, ADR-0032 \u00a72.4)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "remote_enabled",
+          "token_configured",
+          "mount_path",
+          "clamped"
+        ],
+        "title": "McpRemoteStateResponse",
+        "description": "Response model for PUT /mcp/remote (ADR-0032 \u00a72.4).\n\nAlways returned with HTTP 200 (even when clamped \u2014 the posture is reported truthfully).\nThe token itself is NEVER returned (I6)."
+      },
+      "McpRemoteToggleRequest": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Desired runtime state for the remote MCP HTTP surface."
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "McpRemoteToggleRequest",
+        "description": "Request body for PUT /mcp/remote (ADR-0032 \u00a72.4)."
       },
       "McpToolInfo": {
         "properties": {
