@@ -1,0 +1,86 @@
+sequenceDiagram
+    %% <!-- Generated: v0.5 ADR-0036 | 2026-06-30 -->
+    title Wikilink-enrichment post-pass — substitution-apply, bounded, provider-agnostic (ADR-0036)
+    autonumber
+
+    participant O as Orchestrator (run_ingest_pipeline)
+    participant E as enrich_wikilinks (ops/enrich_wikilinks.py)
+    participant PC as resolve_provider_config (I6)
+    participant P as InferenceProvider (Local/API/CLI)
+    participant U as UsageAccumulator (I7)
+    participant PG as Postgres (pages.title index, I1)
+    participant FS as Wiki FS (vault/wiki/, I5)
+    participant GC as GraphCache (graph/cache.py, I2)
+
+    Note over O,E: Fire-and-forget: pages already written; any exception is logged + swallowed (Do-NOT #9, ADR-0036)
+    O-)E: enrich_wikilinks(written_pages, vault_id)
+
+    %% ── Anti-spam gate ────────────────────────────────────────────────────────
+    Note over E: Anti-spam gate (ADR-0036 §4.4): skip if WIKILINK_ENRICH_ENABLED=false OR<br/>candidate_titles < MIN_CANDIDATES threshold (zero cost on trivial runs, I7)
+    alt gate fails: trivial run OR enrichment disabled
+        Note over E: return EnrichResult(skipped=True, substitutions_applied=0, cost_usd=0)
+    end
+
+    %% ── Step 1: Load candidate titles ─────────────────────────────────────────
+    E->>PG: SELECT pages.title WHERE vault_id=<v> AND deleted_at IS NULL LIMIT MAX_CANDIDATES (I1 — bounded indexed read, no vault walk)
+    PG-->>E: candidate_titles[]  (existing page titles only — anti-hallucination anchor)
+
+    %% ── Step 2: Resolve provider (I6) ─────────────────────────────────────────
+    E->>PC: resolve_provider_config("ingest", vault_id)
+    alt no provider configured
+        PC-->>E: ConfigNotFoundError
+        Note over E: return EnrichResult(skipped=True) — never hardcode a fallback (I6)
+    end
+    PC-->>E: provider_config_row
+    E->>E: resolve_provider(provider_config_row) → InferenceProvider
+    E->>U: bind UsageAccumulator to provider (I7)
+
+    %% ── Step 3: ONE bounded provider call ─────────────────────────────────────
+    Note over E: EXACTLY ONE call, no loop, no retry (ADR-0036 §4 / Do-NOT #3, I7)
+    Note over E: Prompt: page bodies (excerpt only) + candidate_titles → return {mention, target_title} list
+    E->>P: chat([{role:user, content: substitution_prompt}], retrieval_context="") via InferenceProvider.chat() (I6)
+    Note over P: asyncio.wait_for(WIKILINK_ENRICH_TIMEOUT_SECONDS) — hard timeout (I7)
+    P-->>E: raw substitution JSON {"substitutions": [{mention, target_title}, ...]}
+    P->>U: add Usage(input_tokens, output_tokens, cost_usd) (I7)
+
+    %% ── Step 4: Validate substitutions ────────────────────────────────────────
+    Note over E: Deterministic validation per substitution (ADR-0036 §5 anti-hallucination, Do-NOT #5):
+    Note over E:   - drop if target_title NOT in candidate_titles (unknown target)
+    Note over E:   - drop if mention NOT found in page body text
+    Note over E:   - drop if mention == target_title AND page is self (self-link)
+    Note over E:   - drop if mention is already inside [[...]] in that page
+    Note over E:   - cap at WIKILINK_ENRICH_MAX_SUBS total (I7)
+    E->>E: _validate_substitutions(raw_subs, candidate_titles, written_pages) → validated[]
+
+    %% ── Step 5: Apply substitutions (single-mention, bodies only) ──────────────
+    loop each validated WikilinkSubstitution (page_id, mention, target_title)
+        Note over E: FIRST occurrence only in body (outside existing [[...]]) — Do-NOT #6 (no spam/double-wrap)
+        E->>FS: read wiki/<file_path> body
+        E->>E: apply: first plain mention → [[target_title|mention]] or [[target_title]]
+        E->>FS: write body via atomic temp + os.replace (I5 — frontmatter preserved byte-for-byte, Do-NOT #4)
+    end
+
+    %% ── Step 6: Re-index modified pages (I1) ──────────────────────────────────
+    Note over E: Only re-index pages that actually had substitutions applied (I1 — targeted, no rescan)
+    loop each modified page
+        E->>PG: persist_metadata(page) — title/type/sources row update
+        E->>PG: upsert_vector(page) — bge-m3 embed (or skip if EMBEDDINGS_ENABLED=false, ADR-0030)
+        E->>PG: parse_wikilinks(body) + persist_links(page_id, links[]) — K5; each new link = a links row = F4 direct ×3 edge term
+        E->>PG: update_index() — regenerate index.md entry (K3)
+    end
+
+    %% ── Step 7: Single data_version bump → debounced GraphCache (I2) ──────────
+    Note over E: ONE bump for the entire pass regardless of how many pages were modified (Do-NOT #8, ADR-0036 §6)
+    E->>PG: bump_version() — data_version += 1 EXACTLY ONCE
+    E->>GC: notify_bump() — triggers debounced FA2 recompute (5s delay, never inline FA2, I2)
+
+    %% ── Step 8: Log cost + anomaly check (I7) ─────────────────────────────────
+    E->>U: finalize → total_tokens, total_cost_usd
+    Note over E: log INFO: vault=<v> subs_applied=N cost_usd=X.XXXX
+    alt total_cost_usd >= $1.00
+        Note over E: log WARNING: COST ANOMALY enrich_wikilinks cost_usd=X — investigate (ADR-0009 / ADR-0036 §4.5)
+    end
+
+    %% ── Return to orchestrator ────────────────────────────────────────────────
+    E-->>O: EnrichResult(substitutions_applied=N, pages_modified=M, cost_usd=X, skipped=False)
+    Note over O: continue to propose_reviews() — proposals now see the enriched link graph (F4 signal restored)
