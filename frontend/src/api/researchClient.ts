@@ -17,7 +17,7 @@ import type {
 import { ApiError } from "./graphClient";
 
 const API_BASE: string =
-  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "http://localhost:8000";
+  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
 
 async function checkResponse(res: Response): Promise<void> {
   if (!res.ok) {

@@ -5,14 +5,14 @@
  * DELETE /pages/{id}                        → CascadeDeleteResult   (single-pass apply)
  *
  * ADR-0026 §6.1 (REST surface). No secrets in this file (CLAUDE.md §12).
- * Base URL from VITE_API_BASE env var (default: http://localhost:8000).
+ * Base URL from VITE_API_BASE env var (default: "" (relative, proxied in dev / same-origin in prod)).
  */
 
 import type { CascadePreviewResponse, CascadeDeleteResult } from "./types";
 import { ApiError } from "./graphClient";
 
 const API_BASE: string =
-  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "http://localhost:8000";
+  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
 
 async function checkResponse(res: Response): Promise<void> {
   if (!res.ok) {

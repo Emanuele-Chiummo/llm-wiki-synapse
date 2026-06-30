@@ -1,5 +1,5 @@
 /**
- * App.tsx — Synapse v0.4 root component.
+ * App.tsx — Synapse v0.5 root component.
  *
  * Renders the 3-panel AppShell (F1 / ADR-0017).
  * All layout, panel management, and routing is delegated to AppShell.
