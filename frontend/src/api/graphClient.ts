@@ -2,7 +2,7 @@
  * graphClient.ts — typed API client for Synapse graph endpoints.
  *
  * Base URL is read from VITE_API_BASE env var (set in .env.local, never committed).
- * Default: http://localhost:8000
+ * Default: "" (relative, proxied in dev / same-origin in prod)
  *
  * No secrets, API keys, or auth tokens live in this file (CLAUDE.md §12).
  *
@@ -15,9 +15,9 @@ import type { CacheStatus, GraphResponse, PageDetail } from "./types";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-/** Backend base URL — configurable via VITE_API_BASE, no trailing slash */
+/** Backend base URL — configurable via VITE_API_BASE, no trailing slash; default: "" (relative, proxied in dev / same-origin in prod) */
 const API_BASE: string =
-  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "http://localhost:8000";
+  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 

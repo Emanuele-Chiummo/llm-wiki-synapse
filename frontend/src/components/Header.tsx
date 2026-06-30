@@ -1,7 +1,7 @@
 /**
  * Header.tsx — top bar: branding + provider-selector (F17).
  *
- * Phase 2 (v0.4): Provider Selector slot wired to real <ProviderSelector/>.
+ * Phase 2 (v0.5): Provider Selector slot wired to real <ProviderSelector/>.
  */
 
 import { ProviderSelector } from "./provider/ProviderSelector";
@@ -50,7 +50,7 @@ export function Header() {
             fontWeight: 400,
           }}
         >
-          v0.4
+          v0.5
         </span>
       </div>
 

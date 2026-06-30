@@ -1,8 +1,8 @@
 {
   "name": "synapse-frontend",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "private": true,
-  "description": "Synapse v0.3 — sigma.js WebGL graph viewer (thin, read-only)",
+  "description": "Synapse v0.5 — feature parity core (Deep Research, Review, Multi-format, Cascade Delete)",
   "type": "module",
   "scripts": {
     "dev": "vite",

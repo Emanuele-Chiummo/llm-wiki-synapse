@@ -2,7 +2,7 @@
  * pagesClient.ts — typed API client for Synapse page-list and status endpoints.
  *
  * Keeps graphClient.ts focused on graph-only concerns (GET /graph, PATCH /position).
- * Base URL from VITE_API_BASE env var (default: http://localhost:8000).
+ * Base URL from VITE_API_BASE env var (default: "" (relative, proxied in dev / same-origin in prod)).
  * No secrets in this file (CLAUDE.md §12).
  */
 
@@ -10,7 +10,7 @@ import type { PageListResponse, StatusResponse } from "./types";
 import { ApiError } from "./graphClient";
 
 const API_BASE: string =
-  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "http://localhost:8000";
+  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
 
 async function checkResponse(res: Response): Promise<void> {
   if (!res.ok) {
