@@ -4,6 +4,140 @@
 
 ---
 
+## ADR-0034 — F9 Review Queue Redesign (Proposal Model + Lazy Create + Sweep) — DOCS GATE: PASS
+
+> Gate run: 2026-06-30
+> Scope: ADR-0034 redesigns the F9 review queue (proposal model, lazy on-demand Create, auto-resolution sweep). Schema change = Alembic **0013** (`review_items` gains six new columns, drops `pre_generated_query`, new `source_page_id`/`created_page_id` FKs to `pages`, `deep_research_run_id` FK to `deep_research_runs`). New REST surface: `/review/queue/{id}/create` alias + `POST /review/queue/sweep`. New env vars in `config.py` (`REVIEW_PROPOSE_*` + `REVIEW_SWEEP_*`). New D3 sequences. USER.md + DEPLOY.md updated. ADR-0025 F9 parts superseded. Screenshots confirmed by frontend-engineer.
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/` (context/container/component) | N/A-UNCHANGED | ADR-0034 §11.3 explicit: no new container or component. `ops/review.py` stays a component inside the FastAPI service. No C4 topology change. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (backend-engineer regenerated via `make er`) | `REVIEW_ITEMS` entity carries the three `pages` FKs (`page_id`, `source_page_id`, `created_page_id`) and the `deep_research_runs` FK (`deep_research_run_id`). New columns `proposed_title`, `proposed_page_type`, `proposed_dir`, `rationale`, `resolution` present. `pre_generated_query` absent (dropped in 0013). I8 holds — ER matches live schema post-migration 0013. See verification §D2 below. |
+| D3 | `docs/sequences/ingest-loop.mmd` | UPDATED | Added `propose_reviews` (anti-spam gate → rule-based → ≤1 bounded LLM call → INSERT review_items) and fire-and-forget `sweep_reviews` (Pass-1 rule + Pass-2 conservative LLM) as post-generation steps. Header updated to `v0.5 ADR-0034 \| 2026-06-30`. |
+| D3 | `docs/sequences/review-create-sweep.mmd` | NEW | New sequence diagram covering the Create action (POST /review/queue/{id}/create → skeleton derivation → bounded run_orchestrated_loop → write_wiki_page → data_version bump → status=created → fire-and-forget sweep), plus Skip, Deep Research, and the manual sweep endpoint. Header: `v0.5 ADR-0034 \| 2026-06-30`. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (backend-engineer regenerated via `make openapi`) | `/review/queue/{item_id}/create` (preferred alias, 201) and `/review/queue/sweep` (200 `SweepResponse`) are present. `ReviewItemResponse` schema carries all ADR-0034 §7.1 fields. See verification §D4 below. |
+| D5 | `docs/screens/review-queue-proposal-cards.png` | CONFIRMED PRESENT | Frontend-engineer committed `review-queue-proposal-cards.png` and `review-queue-adr0034.png`. Both files exist in `docs/screens/`. Embedded in USER.md. |
+| D5 | `docs/screens/review-queue-adr0034.png` | CONFIRMED PRESENT | See above. |
+| D6a | `docs/USER.md` | UPDATED | Added full **Review section** documenting: 5 proposal types (missing-page, suggestion, contradiction, duplicate, confirm), the 3 closed actions (Create / Deep Research / Skip), the Create-is-lazy explanation with note that Approve is renamed to Create (breaking semantics change), the auto-resolution sweep (rule then LLM). Updated nav rail description, Sources section stale note, and M5 feature table row. Header updated to `v0.5 ADR-0034 \| 2026-06-30`. |
+| D6b | `docs/DEPLOY.md` | UPDATED | Migration 0013 documented in §3.2 (additive columns, `pre_generated_query` drop, legacy row left-shift, new sweep index). Eleven new env var rows added to §2.1 table: `REVIEW_PROPOSE_MIN_CHARS`, `REVIEW_PROPOSE_MIN_PAGES`, `REVIEW_PROPOSE_MAX_ITEMS`, `REVIEW_PROPOSE_TOKEN_BUDGET`, `REVIEW_PROPOSE_TIMEOUT_SECONDS`, `REVIEW_SWEEP_MAX_ITEMS`, `REVIEW_SWEEP_LLM_ENABLED`, `REVIEW_SWEEP_LLM_MAX_ITEMS`, `REVIEW_SWEEP_LLM_TOKEN_BUDGET`, `REVIEW_SWEEP_TIMEOUT_SECONDS` (all with defaults from config.py). ADR reference updated to ADR-0034. Header updated. |
+| D7 | `docs/adr/README.md` | UPDATED | ADR-0034 row added (Accepted, 2026-06-30, full summary). ADR-0025 row amended: status shows "F9 parts superseded by ADR-0034". Header updated to ADR-0034. |
+| D7 | `docs/adr/0034-review-queue-proposal-model.md` | UP-TO-DATE (pre-existing — authored by solution-architect) | File present, complete, Accepted status. Formatted by tech-writer. |
+
+### §D2 — ER diagram verification (post-migration 0013)
+
+File: `docs/er/schema.mmd`
+
+`REVIEW_ITEMS` entity inspected. Fields present and matching ADR-0034 §3.1:
+
+| Column | FK target | Present in ER | Notes |
+|--------|-----------|---------------|-------|
+| `page_id` | `pages.id` | YES | Review target (contradiction/duplicate conflicting page) |
+| `source_page_id` | `pages.id` | YES | Provenance: which ingest produced this proposal |
+| `created_page_id` | `pages.id` | YES | Page produced by the Create action |
+| `deep_research_run_id` | `deep_research_runs.id` | YES | Set by Deep-Research action |
+| `proposed_title` | — | YES | Drives rule-based sweep title match |
+| `proposed_page_type` | — | YES | Lazy skeleton PageType inference |
+| `proposed_dir` | — | YES | Display-only; recomputed at Create time |
+| `rationale` | — | YES | Replaces `pre_generated_query` |
+| `resolution` | — | YES | How the item closed (audit) |
+| `pre_generated_query` | — | ABSENT (dropped in 0013) | Correct: dropped per ADR-0034 §3.1 |
+| `item_type` | — | YES | New five-value convention (missing-page etc.) |
+| `status` | — | YES | Extended lifecycle (pending/created/skipped/deep_researched/auto_resolved) |
+
+Three-FK-to-pages check: `page_id`, `source_page_id`, `created_page_id` all present as FK references to `pages.id`. **I8 holds.**
+
+### §D4 — OpenAPI verification (post-make openapi)
+
+File: `docs/api/openapi.json`
+
+| Path | Method | Present | Notes |
+|------|--------|---------|-------|
+| `/review/queue` | GET | YES | ADR-0034 §7 projection description present |
+| `/review/queue/{item_id}/approve` | POST | YES | Now documented as Create semantics (201 response) |
+| `/review/queue/{item_id}/create` | POST | YES | Explicit alias; operationId `create_review_item_review_queue__item_id__create_post` |
+| `/review/queue/{item_id}/skip` | POST | YES | |
+| `/review/queue/{item_id}/deep-research` | POST | YES | Topic derivation from proposed_title/rationale documented |
+| `/review/queue/sweep` | POST | YES | `SweepResponse` schema with `rule_resolved`, `llm_resolved`, `kept` |
+
+`ReviewItemResponse` schema confirmed to carry ADR-0034 §7.1 fields: `proposed_title`, `proposed_page_type`, `proposed_dir`, `rationale`, `source_page_id`, `created_page_id`, `resolution`. **D4 up-to-date.**
+
+### §D5 — Screenshot verification
+
+| Screenshot | File | Status |
+|-----------|------|--------|
+| `review-queue-proposal-cards.png` | `docs/screens/review-queue-proposal-cards.png` | CONFIRMED PRESENT |
+| `review-queue-adr0034.png` | `docs/screens/review-queue-adr0034.png` | CONFIRMED PRESENT |
+
+Both screenshots embedded in `docs/USER.md` Review section. **I8 D5 check: PASS.**
+
+### Invariant compliance check
+
+| Invariant | Status |
+|-----------|--------|
+| **K8** (human curates, LLM maintains) | RESTORED — LLM now proposes; human decides Create/Deep-Research/Skip. Old Approve no-op eliminated. |
+| **I1** (incremental index only) | HOLDS — Create writes through `write_wiki_page` (same seam); sweep uses bounded indexed reads, never vault re-scan. |
+| **I6** (pluggable inference) | HOLDS — all three new LLM call sites route via `resolve_provider_config("ingest")`; no hardcoded backend. 409 on missing provider. |
+| **I7** (loops are bounded) | HOLDS — proposal: anti-spam gate + ≤1 call + `REVIEW_PROPOSE_MAX_ITEMS` cap + timeout; Create: bounded `run_orchestrated_loop`; sweep Pass-2: ≤1 batched call + cap + default-to-keep. |
+| **I8** (docs-as-DoD) | HOLDS — ER regenerated (3 FKs to pages + deep_research_runs FK confirmed); OpenAPI regenerated (`/create` alias + `/sweep` present); D3 updated + new diagram; USER.md + DEPLOY.md updated. |
+| **I2/I4/I5** | UNTOUCHED — sweep never calls FA2; review list virtualized >50 (I4); Create writes valid frontmatter through existing seam (I5). |
+
+### DOCS GATE VERDICT — ADR-0034
+
+**PASS**
+
+All D-artifacts are UP-TO-DATE for the ADR-0034 F9 redesign:
+- D2: `review_items` ER reflects migration 0013 (three FKs to `pages`, `pre_generated_query` absent, all new columns present). I8 holds.
+- D3: `ingest-loop.mmd` updated with propose/sweep steps; `review-create-sweep.mmd` new sequence covering Create / Skip / Deep Research / manual sweep.
+- D4: `openapi.json` includes `/create` alias + `/sweep` endpoint + updated `ReviewItemResponse` schema.
+- D5: Two ADR-0034 screenshots confirmed present in `docs/screens/`.
+- D6a: USER.md has a complete Review section with 5 proposal types, 3 actions, auto-sweep, Create-vs-Approve note, screenshots embedded.
+- D6b: DEPLOY.md documents migration 0013 and all 10 new `REVIEW_PROPOSE_*` / `REVIEW_SWEEP_*` env vars with defaults.
+- D7: ADR-0034 row added to README; ADR-0025 row marked "F9 parts superseded by ADR-0034".
+
+Carry-forward pending items (unchanged, non-blocking):
+- D5: 9 prior M5 captures still PENDING-LIVE (live-stack Playwright session).
+- AC-D3-CI-1 (mmdc CI render step): GAP-v0.5-3 carry-forward to M6.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-30 | ADR-0034 F9 review queue redesign docs gate**
+
+---
+
+## M5 UI Polish Follow-up — Graph, empty states, timeout UX — DOCS NOTE
+
+> Gate run: 2026-06-30
+> Scope: frontend-only completion of the UI polish plan: graph toolbar/search/filter/retry, guided empty states for Sources/Review/Deep Search/Graph, request timeout helper for frontend API calls, responsive section stacking, and backend connection state hardening.
+> Owner: **Codex acting as frontend-engineer** for the modified frontend surfaces, tests, and this docs note.
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1/D2/D3/D4/D7 | architecture / ER / sequences / API / ADR | N/A-UNCHANGED | No backend schema, MCP surface, provider-routing contract, or public API shape changed. Timeout behavior is frontend-only. Graph toolbar is render-only and does not introduce client layout. |
+| D5 | `docs/screens/` | NEEDS-REFRESH | Existing UI screenshots that include Graph, Sources/Ingest, Review, Deep Search, Header/ActivityBar, and mobile layouts are visually stale after this follow-up. Refresh owner: **Codex/frontend-engineer** with QA/Browser/Playwright capture once the live stack is stable. |
+| D6a | `docs/USER.md` | N/A-UNCHANGED | Core user workflows are unchanged; empty states and CTAs guide existing flows. |
+
+**Invariant check:** I2 held (no client-side layout; graph filters/search affect render state only); I3 held (typed selectors retained; no broad store subscriptions added); I4 held (graph overlays and search results are bounded; virtualised lists unchanged); I6/I7 held (provider routing and cost display semantics unchanged).
+
+**Verification target:** `npm run build`, `npm run test`, and Browser desktop/mobile visual checks for Chat, Graph, Sources/Ingest, Review, Deep Search, and Settings.
+
+---
+
+## M5 UI Polish — Frontend workspace shell — DOCS NOTE
+
+> Gate run: 2026-06-30
+> Scope: frontend-only visual/UX hardening of the existing shell: shared theme tokens, header branding, labeled NavRail readability, Chat empty state quick prompts, narrow-viewport Chat behavior, and active-section store coverage.
+> Owner: **Codex acting as frontend-engineer** for the modified UI surface and related tests.
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1/D2/D3/D4/D7 | architecture / ER / sequences / API / ADR | N/A-UNCHANGED | No topology, schema, API, MCP, provider-routing, or architectural contract change. No ADR required; existing ADR-0017/0018/0021 constraints still apply. |
+| D5 | `docs/screens/` | NEEDS-REFRESH | Existing screenshots that include Header/NavRail/Chat empty state are visually stale after this UI polish. Refresh owner: **Codex/frontend-engineer**, with QA/Playwright capture before the next docs gate. |
+| D6a | `docs/USER.md` | N/A-UNCHANGED | No user workflow changed; prompt buttons prefill the existing chat input only. |
+
+**Invariant check:** I2 held (GraphViewer layout untouched); I3 held (no broad store subscription; prompt draft is local Chat state); I4 held (MessageList virtualization unchanged; narrow viewport CSS only); I6/I7 held (provider and budgets untouched).
+
+**Verification:** `npm run build` PASS; targeted Vitest PASS (`activeSection-store`, `i18n-key-parity`, `NavRail`); Browser desktop + 390px viewport visual checks PASS.
+
+---
+
 ## M5 Post-Phase — ADR-0033 (UI-settable MCP token + allow-without-token) — DOCS GATE: PASS
 
 > Gate run: 2026-06-30

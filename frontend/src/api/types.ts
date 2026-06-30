@@ -231,32 +231,85 @@ export interface ResearchStartResponse {
   run_id: string;
 }
 
-// ─── GET /review/queue + POST /review/queue/{id}/… (F9, ADR-0025 §3.5) ────────
+// ─── GET /review/queue + POST /review/queue/{id}/… (F9, ADR-0034 §7.1) ────────
 
+/**
+ * Five proposal types (ADR-0034 §3.1).
+ * Old values (new_page / update_page / deep_research_candidate) are gone.
+ */
 export type ReviewItemType =
-  | "new_page"
-  | "update_page"
-  | "deep_research_candidate";
+  | "missing-page"
+  | "suggestion"
+  | "contradiction"
+  | "duplicate"
+  | "confirm";
 
+/**
+ * Item lifecycle (ADR-0034 §3.1).
+ * "approved" is gone — Create produces "created".
+ */
 export type ReviewItemStatus =
   | "pending"
-  | "approved"
+  | "created"
   | "skipped"
-  | "deep_researched";
+  | "deep_researched"
+  | "auto_resolved";
 
-/** One review_items row as returned by the API (ADR-0025 §3.5, AC-F9-5). */
+/**
+ * One review_items row as returned by the API (ADR-0034 §7.1).
+ *
+ * The item is a PROPOSAL: proposed_title + rationale describe what the LLM
+ * recommends creating or investigating. The Create action lazily generates the
+ * page on-demand (ADR-0034 §5); Deep Research and Skip close without writing.
+ *
+ * page_title is a convenience join from pages.title for the page_id FK (the
+ * conflicting/context page for contradiction/duplicate types).
+ *
+ * pre_generated_query is REMOVED — superseded by rationale + the suggestion type.
+ */
 export interface ReviewItem {
   id: string;
   vault_id: string;
-  page_id: string | null;
-  /** Convenience join from pages.title (AC-F9-5). */
-  page_title: string | null;
+
+  /** Proposal type (ADR-0034 §3.1): missing-page | suggestion | contradiction | duplicate | confirm */
   item_type: ReviewItemType;
+
+  /** Item lifecycle: pending | created | skipped | deep_researched | auto_resolved */
   status: ReviewItemStatus;
-  /** Newline-separated 1–3 follow-up questions; null when generation failed (I7). */
-  pre_generated_query: string | null;
+
+  /** Title the LLM proposes to create (required for missing-page; advisory for others). */
+  proposed_title: string | null;
+
+  /** Inferred PageType for the lazy skeleton: entity | concept | source | synthesis | comparison */
+  proposed_page_type: string | null;
+
+  /** Target wiki/ subdir (display only — recomputed at Create from the final type). */
+  proposed_dir: string | null;
+
+  /** Short human-readable "why this matters" (replaces the old follow-up questions). */
+  rationale: string | null;
+
+  /**
+   * Review TARGET: the existing page a contradiction/duplicate conflicts with,
+   * or the source-context page for a missing-page/suggestion. null when none applies.
+   */
+  page_id: string | null;
+
+  /** Convenience join from pages.title for page_id (UI display). */
+  page_title: string | null;
+
+  /** Provenance: the page whose ingest produced this proposal. */
+  source_page_id: string | null;
+
+  /** Page produced by a successful Create action; null otherwise. */
+  created_page_id: string | null;
+
+  /** How the item closed: created | skipped | researched | rule_resolved | llm_resolved. null while pending. */
+  resolution: string | null;
+
   /** Set when the Deep-Research action fires (AC-F10-5); null otherwise. */
   deep_research_run_id: string | null;
+
   created_at: string;   // ISO-8601
   reviewed_at: string | null;
 }
@@ -272,6 +325,13 @@ export interface ReviewQueueResponse {
 export interface ReviewDeepResearchResponse {
   review_item_id: string;
   run_id: string;
+}
+
+/** 200 response for POST /review/queue/sweep (ADR-0034 §7) */
+export interface ReviewSweepResponse {
+  rule_resolved: number;
+  llm_resolved: number;
+  kept: number;
 }
 
 // ─── POST /pages/{id}/cascade-delete/preview + DELETE /pages/{id} (F13, ADR-0026 §6.1) ──────
