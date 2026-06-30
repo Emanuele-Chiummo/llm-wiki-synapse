@@ -52,6 +52,12 @@ export function groupPagesByType(
     map.set(t, []);
   }
   for (const item of items) {
+    // Skip raw-source tracking rows (raw/sources/*): they are internal I1/retrieval
+    // rows with no title/type and must not appear as a titleless "Other" tree entry.
+    // The wiki tree shows wiki pages only (raw sources live under the Sources view).
+    if (item.file_path?.startsWith("raw/")) {
+      continue;
+    }
     const t = toKnownType(item.type);
     const bucket = map.get(t);
     if (bucket) {

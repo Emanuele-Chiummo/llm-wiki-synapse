@@ -413,7 +413,12 @@ class GraphEngine:
                     "SELECT id, type AS page_type, title, sources, "
                     "       pinned, x AS stored_x, y AS stored_y "
                     "FROM pages "
-                    "WHERE vault_id = :vid AND deleted_at IS NULL"
+                    # Exclude raw-source tracking rows (raw/sources/*): they exist only for
+                    # I1 incremental hashing + Qdrant retrieval and carry no title/type, so
+                    # they must never surface as titleless 'other' graph nodes (the knowledge
+                    # graph is wiki pages only — F4/I2).
+                    "WHERE vault_id = :vid AND deleted_at IS NULL "
+                    "  AND file_path NOT LIKE 'raw/%'"
                 ).bindparams(vid=vault_id)
             )
             nodes = [dict(row._mapping) for row in pages_result]
