@@ -372,6 +372,40 @@ export interface CascadeDeleteResult {
   shared_entity_warnings: string[];
 }
 
+// ─── GET /pages/{id}/content · PUT /pages/{id}/content (Wiki Note Editor) ────
+
+/**
+ * Response from GET /pages/{id}/content.
+ * 404 if the page is unknown, deleted, or the backing file is missing.
+ */
+export interface PageContentResponse {
+  id: string;
+  title: string | null;
+  file_path: string;
+  content: string;
+  content_hash: string;
+  updated_at: string; // ISO-8601
+}
+
+/**
+ * Request body for PUT /pages/{id}/content.
+ * expected_hash: the content_hash from the last GET — used for optimistic-concurrency.
+ * Pass null to skip the hash check (last-write-wins, not recommended).
+ */
+export interface PageContentPutBody {
+  content: string;
+  expected_hash: string | null;
+}
+
+/**
+ * Response from PUT /pages/{id}/content (200 OK).
+ */
+export interface PageContentPutResponse {
+  id: string;
+  content_hash: string;
+  updated_at: string; // ISO-8601
+}
+
 // ─── GET/PUT /import-schedule (ADR-0020 §4.6) ────────────────────────────────
 
 export type ImportFrequency = "15m" | "1h" | "6h" | "daily";

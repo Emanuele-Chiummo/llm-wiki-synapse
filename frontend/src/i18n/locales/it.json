@@ -421,6 +421,18 @@
     "noRawSource": "Nessun file sorgente grezzo da eliminare.",
     "occurrences": "{{n}} occorrenza/e"
   },
+  "noteView": {
+    "selectPagePrompt": "Seleziona una pagina per leggerla o modificarla",
+    "selectPageBody": "Clicca su una pagina nell'albero a sinistra per aprirla qui.",
+    "edit": "Modifica",
+    "save": "Salva",
+    "cancel": "Annulla",
+    "saved": "Salvato",
+    "staleConflict": "La nota è cambiata su disco — ricarica prima di modificare",
+    "reload": "Ricarica",
+    "loadError": "Impossibile caricare il contenuto della pagina",
+    "saving": "Salvataggio…"
+  },
   "common": {
     "loading": "Caricamento…",
     "retry": "Riprova",
