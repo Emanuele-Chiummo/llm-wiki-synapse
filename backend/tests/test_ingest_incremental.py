@@ -221,6 +221,11 @@ async def ingest_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
         Column("id", String(36), primary_key=True),
         Column("vault_id", String, nullable=False, unique=True),
         Column("data_version", Integer, nullable=False, default=0),
+        # ADR-0032 §2.1: remote MCP runtime toggle (default false)
+        Column("remote_mcp_enabled", Integer, nullable=False, server_default=sa_text("0")),
+        # ADR-0033 §2.1/§2.3: UI-settable MCP access token hash + allow-without-token flag
+        Column("mcp_access_token_hash", Text, nullable=True),
+        Column("mcp_allow_without_token", Integer, nullable=False, server_default=sa_text("0")),
         Column("updated_at", Text, nullable=False),
     )
 
@@ -734,6 +739,119 @@ class TestDataVersionMonotonicity:
             f"data_version must not decrease after file deletion (AC-F16dv-4); "
             f"was {v_after_ingest}, got {v_after_delete}"
         )
+
+
+# ── ADR-0030: embeddings toggle — ingest skips vectorize, keeps everything else ──
+
+
+class TestEmbeddingsDisabledIngest:
+    """
+    ADR-0030 §2.2 / I1 — when settings.embeddings_enabled is False, ingest_file() must:
+      - skip the embed call (FakeEmbeddingClient.call_count unchanged)
+      - skip the Qdrant upsert (no upsert_calls, no point created)
+    while STILL:
+      - writing the pages row (Postgres metadata)
+      - appending the K4 log line
+      - bumping data_version (I1 incremental)
+
+    Test IDs: T-EMB-001 .. T-EMB-004
+    """
+
+    async def test_ingest_with_embeddings_off_skips_embed_and_qdrant(
+        self, ingest_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """T-EMB-001: flag off → 0 embed calls AND 0 Qdrant upserts; page row still written."""
+        from app import config as cfg
+        from app.ingest.orchestrator import ingest_file
+
+        monkeypatch.setattr(cfg.settings, "embeddings_enabled", False)
+
+        src = ingest_env["sources_dir"] / "emb_off.md"
+        src.write_text("---\ntype: entity\ntitle: EmbOff\nsources: []\n---\n", encoding="utf-8")
+        rel = str(src.relative_to(ingest_env["vault_root"]))
+
+        embed_before = ingest_env["embedding"].call_count
+        upserts_before = len(ingest_env["qdrant"].upsert_calls)
+
+        result = await ingest_file(src)
+
+        assert result.status == "completed"
+        # Page row is fully indexed in Postgres (metadata persisted).
+        assert await _row_count(ingest_env, rel) == 1, "Page row must be written even when off"
+        # NO embed call.
+        assert ingest_env["embedding"].call_count == embed_before, (
+            "embed() must NOT be called when embeddings_enabled is False "
+            f"(call_count went {embed_before} → {ingest_env['embedding'].call_count})"
+        )
+        # NO Qdrant upsert / no point.
+        assert len(ingest_env["qdrant"].upsert_calls) == upserts_before, (
+            "Qdrant upsert must NOT be called when embeddings_enabled is False"
+        )
+        assert not ingest_env["qdrant"].point_exists(
+            result.page_id
+        ), "No Qdrant point may be created when embeddings_enabled is False"
+
+    async def test_ingest_with_embeddings_off_still_appends_log(
+        self, ingest_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """T-EMB-002: flag off → K4 log line still appended (I1)."""
+        from app import config as cfg
+        from app.ingest.orchestrator import ingest_file
+
+        monkeypatch.setattr(cfg.settings, "embeddings_enabled", False)
+
+        src = ingest_env["sources_dir"] / "emb_off_log.md"
+        src.write_text("---\ntype: concept\ntitle: L2\nsources: []\n---\n", encoding="utf-8")
+
+        lines_before = len(_log_lines(ingest_env))
+        await ingest_file(src)
+        lines_after = _log_lines(ingest_env)
+
+        assert len(lines_after) == lines_before + 1, "log.md must still grow by 1 when off"
+        assert LOG_LINE_PATTERN.match(lines_after[-1]), "log line format unchanged when off"
+
+    async def test_ingest_with_embeddings_off_still_bumps_data_version(
+        self, ingest_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """T-EMB-003: flag off → data_version still bumps +1 (I1 incremental)."""
+        from app import config as cfg
+        from app.ingest.orchestrator import ingest_file
+
+        monkeypatch.setattr(cfg.settings, "embeddings_enabled", False)
+
+        v0 = await _get_data_version(ingest_env)
+        src = ingest_env["sources_dir"] / "emb_off_dv.md"
+        src.write_text("---\ntype: entity\ntitle: DVOff\nsources: []\n---\n", encoding="utf-8")
+        await ingest_file(src)
+        v1 = await _get_data_version(ingest_env)
+
+        assert v1 == v0 + 1, f"data_version must bump even when embeddings off; was {v0}, got {v1}"
+
+    async def test_ingest_with_embeddings_on_still_embeds(
+        self, ingest_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """T-EMB-004: flag on (default) → embed IS called exactly once; behavior unchanged."""
+        from app import config as cfg
+        from app.ingest.orchestrator import ingest_file
+
+        monkeypatch.setattr(cfg.settings, "embeddings_enabled", True)
+
+        src = ingest_env["sources_dir"] / "emb_on.md"
+        src.write_text("---\ntype: entity\ntitle: EmbOn\nsources: []\n---\n", encoding="utf-8")
+
+        embed_before = ingest_env["embedding"].call_count
+        upserts_before = len(ingest_env["qdrant"].upsert_calls)
+        result = await ingest_file(src)
+
+        assert ingest_env["embedding"].call_count == embed_before + 1, (
+            "embed() must be called exactly once when embeddings_enabled is True"
+        )
+        assert len(ingest_env["qdrant"].upsert_calls) == upserts_before + 1, (
+            "Qdrant upsert must be called when embeddings_enabled is True"
+        )
+        assert ingest_env["qdrant"].point_exists(
+            result.page_id
+        ), "Qdrant point must exist when embeddings_enabled is True"
 
 
 # ── AC-WATCH-5: no startup rescan (structural test) ──────────────────────────

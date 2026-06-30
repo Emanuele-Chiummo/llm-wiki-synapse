@@ -53,6 +53,37 @@ class Settings(BaseSettings):
     Read from env — never hardcoded (I9 / CLAUDE.md §12).
     """
 
+    embedding_format: str = "ollama"
+    """
+    Embedding request/response adapter selector (ADR-0031, Feature C).
+    Allowed values: "ollama" (default) | "openai".
+      - "ollama": POST {"model","prompt"} → parse {"embedding":[...]} (current bge-m3 behavior).
+      - "openai": POST {"model","input"} → parse {"data":[{"embedding":[...]}]} for
+        OpenAI-compatible /v1/embeddings endpoints (Gemini, hosted gateways, etc.).
+    Explicit (not auto-detected) by owner decision — deterministic, fail-fast (I9 / I6-spirit).
+    Env var: EMBEDDING_FORMAT.
+    """
+
+    embedding_api_key: str | None = None
+    """
+    SECRET. Optional bearer token for the embedding endpoint (ADR-0031, Feature C).
+    When set, every embedding request carries `Authorization: Bearer <key>` (both formats).
+    When unset (local bge-m3 on the internal network), no auth header is sent (unchanged).
+    Never logged, never returned by GET /config/embedding — env-sourced only.
+    Env var: EMBEDDING_API_KEY.
+    """
+
+    embeddings_enabled: bool = True
+    """
+    Global toggle for the embedding data plane (ADR-0030, Feature B).
+    When True (default): ingest vectorizes pages into Qdrant; retrieval uses Phase-1 dense
+    Qdrant search (bge-m3). When False: ingest skips Qdrant; startup skips
+    ``_validate_embedding_and_collection``; retrieval Phase 1 degrades to a bounded
+    Postgres keyword/title search (``_phase1_lexical_search``). Phases 2–4 (graph-expansion,
+    budget, assembly) are UNCHANGED in both modes. Toggling does NOT trigger a re-scan or
+    bulk re-embed (I1). Env var: EMBEDDINGS_ENABLED.
+    """
+
     # ── Vault ─────────────────────────────────────────────────────────────────
     vault_id: str = "default"
     """Logical vault identifier (one vault in v0.1; supports multi-vault later)."""
@@ -193,6 +224,70 @@ class Settings(BaseSettings):
     Default: "python -m app.mcp.server" — the documented stdio entry point.
     Env var: MCP_ENTRY_COMMAND.
     """
+
+    # ── MCP HTTP remote surface (ADR-0029 §2.2 / §2.3; amended by ADR-0033) ─────
+
+    mcp_auth_token: str | None = None
+    """
+    SECRET. Bootstrap bearer token for the /mcp/server HTTP surface (ADR-0029 §2.2).
+
+    ADR-0033 §2.1 — precedence (most specific wins):
+      1. vault_state.mcp_access_token_hash (UI-set token, PBKDF2 hash) — checked first.
+      2. MCP_AUTH_TOKEN (this var, plaintext env bootstrap) — used iff DB hash is NULL.
+      3. none — no token is configured.
+
+    Existing deployments continue to work unchanged: if MCP_AUTH_TOKEN is set and no
+    DB token has been set via PUT /mcp/auth, this env value is the active token.
+    Never logged, never returned by any API endpoint.
+    Env var: MCP_AUTH_TOKEN.
+    """
+
+    mcp_trusted_proxies: str = ""
+    """
+    Comma-separated list of trusted reverse-proxy IPs or CIDRs (ADR-0033 §2.3).
+
+    When a request's immediate TCP peer (scope["client"][0]) matches one of these
+    entries, the gateway reads the LAST X-Forwarded-For hop as the resolved client IP
+    (the proxy-attested origin). When empty (default) — or when the peer is NOT in
+    this list — X-Forwarded-For is IGNORED entirely (fail-safe against XFF spoofing).
+
+    CF-Connecting-IP / CF-Ray are treated as PUBLIC *signals* regardless of this
+    setting — their presence always forces PUBLIC classification, never grants private
+    access (ADR-0033 §2.3 fail-safe).
+
+    Default: "" (empty) ⇒ trust only the transport peer; XFF ignored.
+    Env var: MCP_TRUSTED_PROXIES
+    Example: "10.0.0.1,172.16.0.0/12"
+    """
+
+    mcp_remote_write_enabled: bool = False
+    """
+    Whether write_page is exposed on the HTTP MCP surface (ADR-0029 §2.3).
+    Default false — read-only by default (defence-in-depth: even a leaked token
+    cannot mutate the vault unless this flag is explicitly set).
+    true  → write_page is included on the HTTP surface (still bearer-gated;
+            still routes through write_wiki_page — ADR-0010 §2).
+    false → only search_wiki, get_page, list_pages are exposed over HTTP.
+    The stdio mcp server ALWAYS has all four tools, regardless of this flag.
+    Env var: MCP_REMOTE_WRITE_ENABLED.
+    """
+
+    @property
+    def mcp_http_enabled(self) -> bool:
+        """
+        True unconditionally (ADR-0033 §2.4 always-mount).
+
+        The MCP HTTP capability is always compiled in. The middleware (_McpGate)
+        is the sole per-request arbiter of reachability; mount condition is no
+        longer "token set." The boolean is retained for backward-compat fields
+        in McpInfoResponse (http_enabled alias).
+        """
+        return True
+
+    @property
+    def mcp_trusted_proxies_list(self) -> list[str]:
+        """Parsed MCP_TRUSTED_PROXIES as a trimmed list (may be empty)."""
+        return [p.strip() for p in self.mcp_trusted_proxies.split(",") if p.strip()]
 
 
 # Module-level singleton — import with `from app.config import settings`

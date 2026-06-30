@@ -10,6 +10,9 @@
  *   ITEM 4 (DEFECT-M4H-005): arrow-key navigation switches active section.
  *   AC-HARD-SET-5: keyboard navigation works.
  *   AC-HARD-SET-6: sub-nav buttons carry aria-current on active item.
+ *   ADR-0032: remote MCP toggle — three states (no-token, token+off, enabled).
+ *   ADR-0033: MCP access sub-block — generate/clear token, one-time reveal, allow-without-token
+ *             switch, posture labels, token never re-shown after dismiss/refetch.
  *
  * Not tested here (Playwright E2E):
  *   - Actual POST/DELETE network calls (mocked at store level here)
@@ -146,10 +149,10 @@ vi.mock("../components/settings/ImportScheduleCard", () => ({
   ImportScheduleCard: () => <div data-testid="import-schedule-card">ImportScheduleCard</div>,
 }));
 
-// ─── Mock providerClient (fetchEmbeddingConfig + fetchMcpInfo) ────────────────
+// ─── Mock providerClient (fetchEmbeddingConfig + fetchMcpInfo + setRemoteMcpEnabled
+//     + setMcpAuth) ─────────────────────────────────────────────────────────────────
 // NOTE: vi.mock is hoisted — no top-level variables may be referenced inside the
-// factory. The 4-tool fixture is inlined here and re-exported as MOCK_MCP_INFO
-// below for use in describe blocks.
+// factory. The 4-tool fixture is inlined here. ADR-0032/0033 fields included in fixture.
 
 vi.mock("../api/providerClient", async (importOriginal) => {
   const orig = await importOriginal<typeof import("../api/providerClient")>();
@@ -159,6 +162,7 @@ vi.mock("../api/providerClient", async (importOriginal) => {
       embedding_url: "http://localhost:11434/api/embeddings",
       embedding_model: "bge-m3",
       embedding_dim: 1024,
+      embeddings_enabled: true,
     }),
     fetchMcpInfo: vi.fn().mockResolvedValue({
       server_name: "synapse",
@@ -187,6 +191,31 @@ vi.mock("../api/providerClient", async (importOriginal) => {
           input_schema: { type: "object", properties: { page_type: {} } },
         },
       ],
+      // ADR-0032 §2.5 fields — default: token configured (db), remote OFF
+      http_enabled: true,
+      remote_write_enabled: false,
+      token_configured: true,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+      // ADR-0033 §2.5 fields — default: db token, allow_without_token off
+      token_source: "db",
+      allow_without_token: false,
+    }),
+    // ADR-0032 §2.4 — default: successful enable
+    setRemoteMcpEnabled: vi.fn().mockResolvedValue({
+      remote_enabled: true,
+      token_configured: true,
+      mount_path: "/mcp/server",
+      clamped: false,
+    }),
+    // ADR-0033 §2.5 — default: rotate_token response with generated_token ONCE
+    setMcpAuth: vi.fn().mockResolvedValue({
+      token_configured: true,
+      token_source: "db",
+      allow_without_token: false,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+      generated_token: "synapse-test-token-abc123xyz",
     }),
   };
 });
@@ -497,11 +526,11 @@ describe("SettingsPanel — Maintenance section", () => {
 // ─── 10. About section renders version info ───────────────────────────────────
 
 describe("SettingsPanel — About section", () => {
-  it("renders the version string 'v0.4'", () => {
+  it("renders the version string 'v0.5'", () => {
     renderPanel();
     const aboutBtn = document.querySelector('[data-settings-section="about"]');
     fireEvent.click(aboutBtn!);
-    expect(screen.getByText("v0.4")).toBeTruthy();
+    expect(screen.getByText("v0.5")).toBeTruthy();
   });
 });
 
@@ -597,5 +626,714 @@ describe("SettingsPanel — API + MCP section renders real panel (ADR-0027)", ()
     });
     // After the real panel loads, "comingSoon" text must not appear
     expect(screen.queryByText("comingSoon")).toBeNull();
+  });
+});
+
+// ─── 12. Remote MCP toggle — ADR-0032 three-state tests ─────────────────────
+
+describe("SettingsPanel — Remote MCP toggle (ADR-0032)", () => {
+  // Helper: navigate to API+MCP section and wait for it to load
+  async function navigateToApiMcpAndWait() {
+    renderPanel();
+    const apiBtn = document.querySelector('[data-settings-section="apiMcp"]');
+    fireEvent.click(apiBtn!);
+    // Wait for the fetch to resolve and tools to appear
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-remote-toggle")).toBeTruthy();
+    });
+  }
+
+  // ── State 1: no token configured — toggle disabled + no-token note ──────────
+
+  describe("State 1: token_configured=false — toggle disabled, no-token note shown", () => {
+    beforeEach(async () => {
+      const { fetchMcpInfo } = await import("../api/providerClient");
+      (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        server_name: "synapse",
+        transport: "stdio",
+        entry_point_command: "python -m app.mcp.server",
+        tool_count: 4,
+        tools: [],
+        http_enabled: false,
+        remote_write_enabled: false,
+        token_configured: false,
+        remote_enabled: false,
+        mount_path: "/mcp/server",
+        token_source: "none",
+        allow_without_token: false,
+      });
+    });
+
+    it("renders the remote toggle in a disabled state when no token is configured", async () => {
+      await navigateToApiMcpAndWait();
+      const toggle = screen.getByTestId("mcp-remote-toggle") as HTMLInputElement;
+      expect(toggle.disabled).toBe(true);
+      expect(toggle.checked).toBe(false);
+    });
+
+    it("shows the no-token note (noTokenNote i18n key) when token is not configured", async () => {
+      await navigateToApiMcpAndWait();
+      // i18n mock returns last key segment: "settings.apiMcp.remote.noTokenNote" → "noTokenNote"
+      expect(screen.getByText("noTokenNote")).toBeTruthy();
+    });
+
+    it("does NOT show the remote URL row when no token is configured", async () => {
+      await navigateToApiMcpAndWait();
+      expect(screen.queryByTestId("mcp-remote-url")).toBeNull();
+    });
+
+    it("does NOT call setRemoteMcpEnabled when the disabled toggle is interacted with", async () => {
+      const { setRemoteMcpEnabled } = await import("../api/providerClient");
+      // Clear any prior calls from other tests in the same module mock
+      (setRemoteMcpEnabled as ReturnType<typeof vi.fn>).mockClear();
+      await navigateToApiMcpAndWait();
+      const toggle = screen.getByTestId("mcp-remote-toggle") as HTMLInputElement;
+      fireEvent.click(toggle);
+      expect(setRemoteMcpEnabled).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── State 2: token set, remote OFF — toggle enabled, off position ────────────
+
+  describe("State 2: token_configured=true, remote_enabled=false — toggle on, off position", () => {
+    it("renders the remote toggle as enabled (not disabled) and unchecked", async () => {
+      await navigateToApiMcpAndWait();
+      const toggle = screen.getByTestId("mcp-remote-toggle") as HTMLInputElement;
+      expect(toggle.disabled).toBe(false);
+      expect(toggle.checked).toBe(false);
+    });
+
+    it("does NOT show the remote URL row when remote is off", async () => {
+      await navigateToApiMcpAndWait();
+      expect(screen.queryByTestId("mcp-remote-url")).toBeNull();
+    });
+
+    it("clicking the toggle calls setRemoteMcpEnabled(true)", async () => {
+      const { setRemoteMcpEnabled } = await import("../api/providerClient");
+      await navigateToApiMcpAndWait();
+      const toggle = screen.getByTestId("mcp-remote-toggle") as HTMLInputElement;
+      fireEvent.click(toggle);
+      await waitFor(() => {
+        expect(setRemoteMcpEnabled).toHaveBeenCalledWith(true);
+      });
+    });
+
+    it("after successful toggle ON, shows the remote URL row with origin + mount_path", async () => {
+      // setRemoteMcpEnabled mock returns remote_enabled:true, mount_path:"/mcp/server"
+      // Use window.location.origin to be compatible with any jsdom port.
+      await navigateToApiMcpAndWait();
+      const toggle = screen.getByTestId("mcp-remote-toggle") as HTMLInputElement;
+      fireEvent.click(toggle);
+      await waitFor(() => {
+        expect(screen.getByTestId("mcp-remote-url")).toBeTruthy();
+      });
+      const urlEl = screen.getByTestId("mcp-remote-url");
+      expect(urlEl.textContent).toBe(`${window.location.origin}/mcp/server`);
+    });
+
+    it("after successful toggle ON, URL never contains a token", async () => {
+      await navigateToApiMcpAndWait();
+      const toggle = screen.getByTestId("mcp-remote-toggle") as HTMLInputElement;
+      fireEvent.click(toggle);
+      await waitFor(() => {
+        expect(screen.getByTestId("mcp-remote-url")).toBeTruthy();
+      });
+      const urlEl = screen.getByTestId("mcp-remote-url");
+      // Ensure no token-like string (long alphanumeric) is in the URL display
+      expect(urlEl.textContent).not.toMatch(/token|bearer|key|secret/i);
+    });
+
+    it("clamped response keeps toggle off and shows no URL", async () => {
+      const { setRemoteMcpEnabled } = await import("../api/providerClient");
+      (setRemoteMcpEnabled as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        remote_enabled: false,
+        token_configured: false,
+        mount_path: "/mcp/server",
+        clamped: true,
+      });
+
+      await navigateToApiMcpAndWait();
+      const toggle = screen.getByTestId("mcp-remote-toggle") as HTMLInputElement;
+      fireEvent.click(toggle);
+
+      // After clamped response, URL row must NOT appear
+      await waitFor(() => {
+        // Give the UI time to process the response
+        expect(screen.queryByTestId("mcp-remote-url")).toBeNull();
+      });
+
+      // Toggle should still be off
+      expect(toggle.checked).toBe(false);
+    });
+  });
+
+  // ── State 3: remote_enabled=true — URL visible, copy button present ──────────
+
+  describe("State 3: remote_enabled=true — URL shown, copy button present", () => {
+    beforeEach(async () => {
+      const { fetchMcpInfo } = await import("../api/providerClient");
+      (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        server_name: "synapse",
+        transport: "stdio",
+        entry_point_command: "python -m app.mcp.server",
+        tool_count: 4,
+        tools: [],
+        http_enabled: true,
+        remote_write_enabled: false,
+        token_configured: true,
+        remote_enabled: true,
+        mount_path: "/mcp/server",
+        token_source: "db",
+        allow_without_token: false,
+      });
+    });
+
+    it("renders the remote URL row immediately when remote_enabled=true on fetch", async () => {
+      await navigateToApiMcpAndWait();
+      expect(screen.getByTestId("mcp-remote-url")).toBeTruthy();
+    });
+
+    it("the URL is window.location.origin + mount_path", async () => {
+      await navigateToApiMcpAndWait();
+      const urlEl = screen.getByTestId("mcp-remote-url");
+      expect(urlEl.textContent).toBe(`${window.location.origin}/mcp/server`);
+    });
+
+    it("renders the URL copy button", async () => {
+      await navigateToApiMcpAndWait();
+      expect(screen.getByTestId("mcp-remote-url-copy")).toBeTruthy();
+    });
+
+    it("renders the remote snippet block", async () => {
+      await navigateToApiMcpAndWait();
+      expect(screen.getByTestId("mcp-remote-snippet")).toBeTruthy();
+    });
+
+    it("the remote snippet contains the full URL", async () => {
+      await navigateToApiMcpAndWait();
+      const snippet = screen.getByTestId("mcp-remote-snippet").textContent ?? "";
+      expect(snippet).toContain(`${window.location.origin}/mcp/server`);
+      expect(() => JSON.parse(snippet)).not.toThrow();
+    });
+
+    it("the toggle is checked when remote_enabled=true", async () => {
+      await navigateToApiMcpAndWait();
+      const toggle = screen.getByTestId("mcp-remote-toggle") as HTMLInputElement;
+      expect(toggle.checked).toBe(true);
+    });
+
+    it("no token value appears anywhere in the rendered output", async () => {
+      await navigateToApiMcpAndWait();
+      // The entire rendered text must not contain anything resembling a token value
+      const body = document.body.textContent ?? "";
+      expect(body).not.toMatch(/MCP_AUTH_TOKEN\s*=\s*\S+/);
+    });
+  });
+});
+
+// ─── 13. Embeddings section — ADR-0030 toggle states ─────────────────────────
+// Covers embeddings_enabled:true (semantic active) and :false (lexical-only).
+// The mock is reconfigured per test via mockResolvedValueOnce to avoid
+// polluting the shared default (embeddings_enabled:true).
+
+describe("SettingsPanel — Embeddings section enabled state (ADR-0030)", () => {
+  function navigateToEmbeddings() {
+    renderPanel();
+    const embBtn = document.querySelector('[data-settings-section="embeddings"]');
+    fireEvent.click(embBtn!);
+  }
+
+  it("shows loading state immediately after navigation (before fetch resolves)", () => {
+    navigateToEmbeddings();
+    // i18n mock returns last key segment; "settings.embeddings.loading" → "loading"
+    expect(screen.getByText("loading")).toBeTruthy();
+  });
+
+  it("when embeddings_enabled=true: renders the semantic-active indicator", async () => {
+    navigateToEmbeddings();
+    await waitFor(() => {
+      expect(screen.getByTestId("embeddings-status-active")).toBeTruthy();
+    });
+    // i18n mock returns "semanticActive" (last segment of settings.embeddings.semanticActive)
+    expect(screen.getByText("semanticActive")).toBeTruthy();
+  });
+
+  it("when embeddings_enabled=true: URL, model, and dim rows are visible", async () => {
+    navigateToEmbeddings();
+    await waitFor(() => {
+      expect(screen.getByTestId("embeddings-status-active")).toBeTruthy();
+    });
+    expect(screen.getByText("http://localhost:11434/api/embeddings")).toBeTruthy();
+    expect(screen.getByText("bge-m3")).toBeTruthy();
+    expect(screen.getByText("1024")).toBeTruthy();
+  });
+
+  it("when embeddings_enabled=true: lexical-only indicator is NOT present", async () => {
+    navigateToEmbeddings();
+    await waitFor(() => {
+      expect(screen.getByTestId("embeddings-status-active")).toBeTruthy();
+    });
+    expect(screen.queryByTestId("embeddings-status-lexical")).toBeNull();
+  });
+});
+
+describe("SettingsPanel — Embeddings section disabled state (ADR-0030)", () => {
+  // Override fetchEmbeddingConfig to return embeddings_enabled:false BEFORE each test
+  // so the mock is in place when renderPanel() mounts and fires the useEffect fetch.
+  beforeEach(async () => {
+    const { fetchEmbeddingConfig } = await import("../api/providerClient");
+    (fetchEmbeddingConfig as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      embedding_url: "http://localhost:11434/api/embeddings",
+      embedding_model: "bge-m3",
+      embedding_dim: 1024,
+      embeddings_enabled: false,
+    });
+  });
+
+  function navigateToEmbeddingsDisabled() {
+    renderPanel();
+    const embBtn = document.querySelector('[data-settings-section="embeddings"]');
+    fireEvent.click(embBtn!);
+  }
+
+  it("when embeddings_enabled=false: renders the lexical-only indicator", async () => {
+    navigateToEmbeddingsDisabled();
+    await waitFor(() => {
+      expect(screen.getByTestId("embeddings-status-lexical")).toBeTruthy();
+    });
+    // i18n mock returns "lexicalOnly" (last segment of settings.embeddings.lexicalOnly)
+    expect(screen.getByText("lexicalOnly")).toBeTruthy();
+  });
+
+  it("when embeddings_enabled=false: renders the lexical-only note", async () => {
+    navigateToEmbeddingsDisabled();
+    await waitFor(() => {
+      expect(screen.getByTestId("embeddings-status-lexical")).toBeTruthy();
+    });
+    // i18n mock returns "lexicalOnlyNote" (last segment)
+    expect(screen.getByText("lexicalOnlyNote")).toBeTruthy();
+  });
+
+  it("when embeddings_enabled=false: semantic-active indicator is NOT present", async () => {
+    navigateToEmbeddingsDisabled();
+    await waitFor(() => {
+      expect(screen.getByTestId("embeddings-status-lexical")).toBeTruthy();
+    });
+    expect(screen.queryByTestId("embeddings-status-active")).toBeNull();
+  });
+
+  it("when embeddings_enabled=false: URL, model, and dim values still render (dimmed)", async () => {
+    navigateToEmbeddingsDisabled();
+    await waitFor(() => {
+      expect(screen.getByTestId("embeddings-status-lexical")).toBeTruthy();
+    });
+    // Values are present but inside a dimmed wrapper — DOM still contains them
+    expect(screen.getByText("http://localhost:11434/api/embeddings")).toBeTruthy();
+    expect(screen.getByText("bge-m3")).toBeTruthy();
+    expect(screen.getByText("1024")).toBeTruthy();
+  });
+});
+
+// ─── 14. MCP Access sub-block — ADR-0033 ────────────────────────────────────
+// Covers: posture labels (db/env/none), generate/rotate, one-time reveal + copy,
+// token NOT re-shown after dismiss or refetch (GET never returns it), clear token,
+// allow-without-token switch + caveat, PUT body shapes, remote toggle aware of allow flag.
+
+describe("SettingsPanel — MCP Access sub-block (ADR-0033)", () => {
+  // Helper: navigate to API+MCP, wait for the access sub-block to appear.
+  async function navigateToApiMcpAndWait() {
+    renderPanel();
+    const apiBtn = document.querySelector('[data-settings-section="apiMcp"]');
+    fireEvent.click(apiBtn!);
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-token-posture")).toBeTruthy();
+    });
+  }
+
+  // ── Posture label: token_source = "db" ───────────────────────────────────────
+
+  it("shows postureDb label when token_source='db' (default fixture)", async () => {
+    await navigateToApiMcpAndWait();
+    // i18n mock returns last segment: "settings.apiMcp.access.postureDb" → "postureDb"
+    expect(screen.getByText("postureDb")).toBeTruthy();
+    expect(screen.queryByText("postureNone")).toBeNull();
+    expect(screen.queryByText("postureEnv")).toBeNull();
+  });
+
+  // ── Posture label: token_source = "env" ──────────────────────────────────────
+
+  it("shows postureEnv label when token_source='env'", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 0,
+      tools: [],
+      http_enabled: true,
+      remote_write_enabled: false,
+      token_configured: true,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+      token_source: "env",
+      allow_without_token: false,
+    });
+    await navigateToApiMcpAndWait();
+    expect(screen.getByText("postureEnv")).toBeTruthy();
+    expect(screen.queryByText("postureDb")).toBeNull();
+  });
+
+  // ── Posture label: token_source = "none" ─────────────────────────────────────
+
+  it("shows postureNone label when token_source='none'", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 0,
+      tools: [],
+      http_enabled: false,
+      remote_write_enabled: false,
+      token_configured: false,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+      token_source: "none",
+      allow_without_token: false,
+    });
+    await navigateToApiMcpAndWait();
+    expect(screen.getByText("postureNone")).toBeTruthy();
+    expect(screen.queryByText("postureDb")).toBeNull();
+    expect(screen.queryByText("postureEnv")).toBeNull();
+  });
+
+  // ── Generate token: button text ───────────────────────────────────────────────
+
+  it("shows 'generateToken' button text when no token is configured", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 0,
+      tools: [],
+      http_enabled: false,
+      remote_write_enabled: false,
+      token_configured: false,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+      token_source: "none",
+      allow_without_token: false,
+    });
+    await navigateToApiMcpAndWait();
+    // i18n mock: "settings.apiMcp.access.generateToken" → "generateToken"
+    expect(screen.getByTestId("mcp-generate-token-btn").textContent).toMatch(/generateToken/i);
+  });
+
+  it("shows 'rotateToken' button text when a token is already configured", async () => {
+    await navigateToApiMcpAndWait();
+    // Default fixture: token_configured=true, token_source="db"
+    expect(screen.getByTestId("mcp-generate-token-btn").textContent).toMatch(/rotateToken/i);
+  });
+
+  // ── Generate/rotate: one-time reveal ─────────────────────────────────────────
+
+  it("clicking generate calls setMcpAuth({rotate_token:true}) and reveals generated_token ONCE", async () => {
+    const { setMcpAuth: mockSetMcpAuth } = await import("../api/providerClient");
+    (mockSetMcpAuth as ReturnType<typeof vi.fn>).mockClear();
+
+    await navigateToApiMcpAndWait();
+    const genBtn = screen.getByTestId("mcp-generate-token-btn");
+    fireEvent.click(genBtn);
+
+    await waitFor(() => {
+      expect(mockSetMcpAuth).toHaveBeenCalledWith({ rotate_token: true });
+    });
+    // The generated token box must appear
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-generated-token")).toBeTruthy();
+    });
+    expect(screen.getByTestId("mcp-generated-token").textContent).toBe("synapse-test-token-abc123xyz");
+  });
+
+  it("generated_token reveal includes a copy button", async () => {
+    await navigateToApiMcpAndWait();
+    fireEvent.click(screen.getByTestId("mcp-generate-token-btn"));
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-copy-generated-token-btn")).toBeTruthy();
+    });
+  });
+
+  it("generated_token reveal includes the one-time warning (revealWarning key)", async () => {
+    await navigateToApiMcpAndWait();
+    fireEvent.click(screen.getByTestId("mcp-generate-token-btn"));
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-generated-token")).toBeTruthy();
+    });
+    // i18n mock: "settings.apiMcp.access.revealWarning" → "revealWarning"
+    expect(screen.getByText("revealWarning")).toBeTruthy();
+  });
+
+  it("token is NOT shown before generate is clicked (not pre-populated)", async () => {
+    await navigateToApiMcpAndWait();
+    // Before any click, the generated-token testid must not be in the DOM
+    expect(screen.queryByTestId("mcp-generated-token")).toBeNull();
+  });
+
+  it("dismissing the reveal hides the generated_token (it is gone from DOM)", async () => {
+    await navigateToApiMcpAndWait();
+    fireEvent.click(screen.getByTestId("mcp-generate-token-btn"));
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-generated-token")).toBeTruthy();
+    });
+
+    // Click dismiss
+    fireEvent.click(screen.getByTestId("mcp-dismiss-generated-token-btn"));
+    // The reveal box must disappear
+    expect(screen.queryByTestId("mcp-generated-token")).toBeNull();
+  });
+
+  it("token is NOT re-shown after dismiss — GET /mcp/info never returns it", async () => {
+    // This test verifies the invariant: a second GET (or a new mount) never re-shows the token.
+    // After dismiss, there is no mcp-generated-token element in the DOM — the panel only
+    // shows token_configured=true and token_source="db", never the plaintext.
+    await navigateToApiMcpAndWait();
+    fireEvent.click(screen.getByTestId("mcp-generate-token-btn"));
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-generated-token")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByTestId("mcp-dismiss-generated-token-btn"));
+    expect(screen.queryByTestId("mcp-generated-token")).toBeNull();
+
+    // The posture label still shows "postureDb" (token_configured=true, token_source="db")
+    // but the plaintext is gone.
+    expect(screen.getByTestId("mcp-token-posture").textContent).toMatch(/postureDb/i);
+  });
+
+  // ── setMcpAuth called with rotate_token=true and NOT with token value ─────────
+
+  it("setMcpAuth response when rotate_token=false has no generated_token — reveal absent", async () => {
+    const { setMcpAuth: mockSetMcpAuth } = await import("../api/providerClient");
+    // Simulate a response without generated_token (e.g. explicit-token set by owner)
+    (mockSetMcpAuth as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      token_configured: true,
+      token_source: "db",
+      allow_without_token: false,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+      generated_token: null,
+    });
+
+    await navigateToApiMcpAndWait();
+    fireEvent.click(screen.getByTestId("mcp-generate-token-btn"));
+    await waitFor(() => {
+      expect(mockSetMcpAuth).toHaveBeenCalled();
+    });
+    // generated_token is null in response — reveal box must NOT appear
+    expect(screen.queryByTestId("mcp-generated-token")).toBeNull();
+  });
+
+  // ── Clear token ───────────────────────────────────────────────────────────────
+
+  it("clear token button is visible when token_configured=true", async () => {
+    await navigateToApiMcpAndWait();
+    // Default fixture: token_configured=true
+    expect(screen.getByTestId("mcp-clear-token-btn")).toBeTruthy();
+  });
+
+  it("clear token button is NOT visible when token_configured=false", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 0,
+      tools: [],
+      http_enabled: false,
+      remote_write_enabled: false,
+      token_configured: false,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+      token_source: "none",
+      allow_without_token: false,
+    });
+    await navigateToApiMcpAndWait();
+    expect(screen.queryByTestId("mcp-clear-token-btn")).toBeNull();
+  });
+
+  it("clicking clear token calls setMcpAuth({clear_token:true})", async () => {
+    const { setMcpAuth: mockSetMcpAuth } = await import("../api/providerClient");
+    (mockSetMcpAuth as ReturnType<typeof vi.fn>).mockClear();
+    // Return a posture reflecting cleared state
+    (mockSetMcpAuth as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      token_configured: false,
+      token_source: "none",
+      allow_without_token: false,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+    });
+
+    await navigateToApiMcpAndWait();
+    fireEvent.click(screen.getByTestId("mcp-clear-token-btn"));
+
+    await waitFor(() => {
+      expect(mockSetMcpAuth).toHaveBeenCalledWith({ clear_token: true });
+    });
+    // After clear, posture should update to postureNone
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-token-posture").textContent).toMatch(/postureNone/i);
+    });
+  });
+
+  // ── Allow without token switch ────────────────────────────────────────────────
+
+  it("renders the allow-without-token switch (data-testid='mcp-allow-without-token')", async () => {
+    await navigateToApiMcpAndWait();
+    expect(screen.getByTestId("mcp-allow-without-token")).toBeTruthy();
+  });
+
+  it("allow-without-token switch is unchecked by default (fixture: allow_without_token=false)", async () => {
+    await navigateToApiMcpAndWait();
+    const toggle = screen.getByTestId("mcp-allow-without-token") as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+  });
+
+  it("allow-without-token switch is checked when fixture sets allow_without_token=true", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 0,
+      tools: [],
+      http_enabled: true,
+      remote_write_enabled: false,
+      token_configured: true,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+      token_source: "db",
+      allow_without_token: true,
+    });
+    await navigateToApiMcpAndWait();
+    const toggle = screen.getByTestId("mcp-allow-without-token") as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+  });
+
+  it("clicking allow-without-token switch calls setMcpAuth with toggled value (false→true)", async () => {
+    const { setMcpAuth: mockSetMcpAuth } = await import("../api/providerClient");
+    (mockSetMcpAuth as ReturnType<typeof vi.fn>).mockClear();
+    (mockSetMcpAuth as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      token_configured: true,
+      token_source: "db",
+      allow_without_token: true,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+    });
+
+    await navigateToApiMcpAndWait();
+    // Default fixture: allow_without_token=false → clicking toggles to true
+    const toggle = screen.getByTestId("mcp-allow-without-token");
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(mockSetMcpAuth).toHaveBeenCalledWith({ allow_without_token: true });
+    });
+  });
+
+  it("clicking allow-without-token switch (true→false) calls setMcpAuth({allow_without_token:false})", async () => {
+    const { fetchMcpInfo, setMcpAuth: mockSetMcpAuth } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 0,
+      tools: [],
+      http_enabled: true,
+      remote_write_enabled: false,
+      token_configured: true,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+      token_source: "db",
+      allow_without_token: true, // starts ON
+    });
+    (mockSetMcpAuth as ReturnType<typeof vi.fn>).mockClear();
+    (mockSetMcpAuth as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      token_configured: true,
+      token_source: "db",
+      allow_without_token: false, // server turns it off
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+    });
+
+    await navigateToApiMcpAndWait();
+    const toggle = screen.getByTestId("mcp-allow-without-token");
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(mockSetMcpAuth).toHaveBeenCalledWith({ allow_without_token: false });
+    });
+  });
+
+  it("the local-only caveat (allowWithoutTokenCaveat key) is always visible for this switch", async () => {
+    await navigateToApiMcpAndWait();
+    // i18n mock returns "allowWithoutTokenCaveat" (last segment)
+    expect(screen.getByTestId("mcp-allow-without-token-caveat")).toBeTruthy();
+    expect(screen.getByText("allowWithoutTokenCaveat")).toBeTruthy();
+  });
+
+  // ── Remote toggle is enabled when allow_without_token=true even with no token ──
+
+  it("remote toggle is enabled when allow_without_token=true and no token", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 0,
+      tools: [],
+      http_enabled: false,
+      remote_write_enabled: false,
+      token_configured: false,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+      token_source: "none",
+      allow_without_token: true, // ADR-0033 §2.4: allow-aware floor
+    });
+    await navigateToApiMcpAndWait();
+    const remoteToggle = screen.getByTestId("mcp-remote-toggle") as HTMLInputElement;
+    // With allow_without_token=true, remote toggle must NOT be disabled
+    expect(remoteToggle.disabled).toBe(false);
+  });
+
+  it("remote toggle is disabled when both token_configured=false AND allow_without_token=false", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 0,
+      tools: [],
+      http_enabled: false,
+      remote_write_enabled: false,
+      token_configured: false,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+      token_source: "none",
+      allow_without_token: false,
+    });
+    await navigateToApiMcpAndWait();
+    const remoteToggle = screen.getByTestId("mcp-remote-toggle") as HTMLInputElement;
+    expect(remoteToggle.disabled).toBe(true);
+  });
+
+  // ── Token value never in the DOM except during one-time reveal ────────────────
+
+  it("no token value appears in the DOM in the default (db) posture (no reveal triggered)", async () => {
+    await navigateToApiMcpAndWait();
+    // The actual token hash or plaintext should never appear; only posture metadata.
+    const body = document.body.textContent ?? "";
+    // Ensure no long hex-like or URL-safe-base64 string (token-shaped) appears in rendered text
+    // (The fixture token "synapse-test-token-abc123xyz" must NOT be present without clicking generate)
+    expect(body).not.toContain("synapse-test-token-abc123xyz");
   });
 });

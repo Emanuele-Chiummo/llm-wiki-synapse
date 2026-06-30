@@ -61,11 +61,52 @@ def main() -> None:
         # F10 deep research
         "/research/start",
         "/research/runs",
+        # F1-MCP-UI (ADR-0027) + Remote MCP (ADR-0029) + MCP auth (ADR-0033)
+        "/mcp/info",
+        "/mcp/auth",
+        # Embeddings config (ADR-0030)
+        "/config/embedding",
     ]:
         assert required_path in paths, f"Missing path {required_path!r} in openapi.json"
+
+    # ADR-0030: embeddings_enabled field in GET /config/embedding (EmbeddingConfigResponse)
+    schemas = schema.get("components", {}).get("schemas", {})
+    emb_schema = schemas.get("EmbeddingConfigResponse", {})
+    emb_props = emb_schema.get("properties", {})
+    assert "embeddings_enabled" in emb_props, \
+        "Missing 'embeddings_enabled' field in EmbeddingConfigResponse schema (ADR-0030)"
+
+    # ADR-0029: http_enabled + remote_write_enabled fields in GET /mcp/info (McpInfoResponse)
+    mcp_schema = schemas.get("McpInfoResponse", {})
+    mcp_props = mcp_schema.get("properties", {})
+    assert "http_enabled" in mcp_props, \
+        "Missing 'http_enabled' field in McpInfoResponse schema (ADR-0029)"
+    assert "remote_write_enabled" in mcp_props, \
+        "Missing 'remote_write_enabled' field in McpInfoResponse schema (ADR-0029)"
+
+    # ADR-0033: token_source + allow_without_token on McpInfoResponse + McpAuthStateResponse
+    assert "token_source" in mcp_props, \
+        "Missing 'token_source' field in McpInfoResponse schema (ADR-0033)"
+    assert "allow_without_token" in mcp_props, \
+        "Missing 'allow_without_token' field in McpInfoResponse schema (ADR-0033)"
+    auth_resp_schema = schemas.get("McpAuthStateResponse", {})
+    auth_resp_props = auth_resp_schema.get("properties", {})
+    assert "token_source" in auth_resp_props, \
+        "Missing 'token_source' field in McpAuthStateResponse schema (ADR-0033)"
+    assert "allow_without_token" in auth_resp_props, \
+        "Missing 'allow_without_token' field in McpAuthStateResponse schema (ADR-0033)"
+    # CRITICAL: no raw token/hash/salt field exposed
+    for field_name in ["plaintext_token", "raw_token", "token_value", "hash_value", "salt_value"]:
+        assert field_name not in auth_resp_props, \
+            f"SECURITY: token/hash/salt field {field_name!r} must not appear in McpAuthStateResponse"
+        assert field_name not in mcp_props, \
+            f"SECURITY: token/hash/salt field {field_name!r} must not appear in McpInfoResponse"
+
     print(
-        "Sanity check passed: all 16 required endpoints present "
-        "(including /review/queue, /research/start, /search, /ingest/upload)"
+        "Sanity check passed: all 19 required endpoints present; "
+        "embeddings_enabled, http_enabled, remote_write_enabled confirmed (ADR-0029, ADR-0030); "
+        "token_source, allow_without_token confirmed in McpInfoResponse + McpAuthStateResponse "
+        "(ADR-0033); no token/hash/salt field exposed (no-leak check PASS)"
     )
 
 

@@ -25,6 +25,9 @@ Endpoints:
   POST /import-schedule/run-now — trigger one bounded scan immediately (Feature S)
   GET  /config/embedding        — current embedding config (EMBEDDING_URL/MODEL/DIM env vars)
   GET  /mcp/info                — read-only MCP server introspection (F1-MCP-UI, ADR-0027)
+  PUT  /mcp/remote              — runtime toggle for remote MCP HTTP surface (ADR-0032)
+  PUT  /mcp/auth                — set/rotate/clear MCP token + allow-without-token flag (ADR-0033)
+  /mcp/server                  — FastMCP Streamable-HTTP; always-mounted (ADR-0033 §2.4)
   POST /research/start          — start a bounded deep-research run; 202 {run_id} (F10, ADR-0024)
   GET  /research/runs           — paginated deep-research run list (F10)
   GET  /research/runs/{id}      — deep-research run detail + sources (F10)
@@ -50,7 +53,12 @@ OpenAPI: auto-served at /openapi.json; `make openapi` snapshots to docs/api/open
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
+import hmac
+import ipaddress
 import logging
+import secrets
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -64,6 +72,8 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.engine import CursorResult
+from starlette.responses import Response as StarletteResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.chat.stream import ChatStreamError, run_chat_stream
 from app.config import settings
@@ -74,6 +84,7 @@ from app.graph.engine import GraphEngine
 from app.import_scheduler import ImportScheduler, load_schedule, upsert_schedule
 from app.ingest.orchestrator import IngestResult, ingest_file
 from app.ingest.schemas import Message
+from app.mcp.server import build_http_mcp
 from app.mcp.server import mcp as _mcp_server
 from app.models import (
     ChatMessage,
@@ -99,6 +110,477 @@ _import_scheduler: ImportScheduler | None = None
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+# ── MCP mount-path constant (ADR-0032 I6; retained ADR-0033) ─────────────────
+# Single source of truth: used by the mount, the middleware gate, and /mcp/info.
+# Never duplicate this literal elsewhere (I6).
+MCP_MOUNT_PATH: str = "/mcp/server"
+
+# ── Private CIDR ranges for source classification (ADR-0033 §2.3) ─────────────
+# Named constant (I6 — no scattered literals). Used by _classify_source() to
+# determine if a request is PRIVATE (eligible for allow-without-token) or PUBLIC
+# (always requires a token regardless of allow_without_token flag).
+#
+# A request is PRIVATE only when BOTH:
+#   (a) no CF-Connecting-IP / CF-Ray header is present, AND
+#   (b) the resolved source IP falls in one of these ranges.
+#
+# Fail-safe: when uncertain (unresolvable IP, parse error, etc.) → PUBLIC.
+MCP_PRIVATE_CIDRS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = (
+    ipaddress.IPv4Network("127.0.0.0/8"),       # loopback IPv4
+    ipaddress.IPv6Network("::1/128"),            # loopback IPv6
+    ipaddress.IPv4Network("100.64.0.0/10"),      # Tailscale CGNAT (RFC6598)
+    ipaddress.IPv4Network("10.0.0.0/8"),         # RFC1918
+    ipaddress.IPv4Network("172.16.0.0/12"),      # RFC1918
+    ipaddress.IPv4Network("192.168.0.0/16"),     # RFC1918
+    ipaddress.IPv4Network("169.254.0.0/16"),     # link-local IPv4
+    ipaddress.IPv6Network("fe80::/10"),          # link-local IPv6
+    ipaddress.IPv6Network("fc00::/7"),           # ULA (unique-local) IPv6
+)
+
+
+def _ip_is_private(ip_str: str) -> bool:
+    """
+    Return True iff the given IP string falls in MCP_PRIVATE_CIDRS.
+
+    Fail-safe: parse errors or unexpected types return False (treated as PUBLIC).
+    """
+    try:
+        addr = ipaddress.ip_address(ip_str)
+        return any(addr in net for net in MCP_PRIVATE_CIDRS)
+    except (ValueError, TypeError):
+        return False  # unknown → PUBLIC (fail-safe)
+
+
+def _resolve_source_ip(scope: Scope) -> str | None:
+    """
+    Resolve the effective client IP for source classification (ADR-0033 §2.3).
+
+    Trust model:
+    1. Default: use scope["client"][0] (transport peer — the actual TCP peer ASGI
+       reports). Never trusts X-Forwarded-For by default.
+    2. If the transport peer is in MCP_TRUSTED_PROXIES (settings.mcp_trusted_proxies_list),
+       read the LAST X-Forwarded-For entry appended by that proxy (proxy-attested client).
+       "Last" means rightmost non-empty hop after stripping the proxy's own append
+       — practically the last comma-separated IP in the XFF chain NOT added by the proxy.
+    3. On any parse failure → return None (caller treats as PUBLIC — fail-safe).
+
+    CF-Connecting-IP / CF-Ray are intentionally NOT used for IP resolution here
+    (they are PUBLIC *signals* handled separately in _classify_source).
+    """
+    try:
+        peer_ip: str = scope["client"][0]
+    except (KeyError, TypeError, IndexError):
+        return None  # no transport peer → PUBLIC (fail-safe)
+
+    trusted = settings.mcp_trusted_proxies_list
+    if not trusted:
+        return peer_ip  # default: trust only the transport peer
+
+    # Check if peer is trusted
+    peer_is_trusted = False
+    for cidr_or_ip in trusted:
+        try:
+            network = ipaddress.ip_network(cidr_or_ip.strip(), strict=False)
+            if ipaddress.ip_address(peer_ip) in network:
+                peer_is_trusted = True
+                break
+        except (ValueError, TypeError):
+            continue
+
+    if not peer_is_trusted:
+        return peer_ip  # peer not trusted → use peer IP as-is
+
+    # Peer is trusted: extract the last XFF hop (proxy-attested client).
+    headers: dict[bytes, bytes] = dict(scope.get("headers", []))
+    xff: bytes = headers.get(b"x-forwarded-for", b"")
+    if not xff:
+        return peer_ip  # no XFF header from trusted proxy → use peer
+
+    hops = [h.strip() for h in xff.decode("utf-8", errors="replace").split(",")]
+    hops = [h for h in hops if h]
+    if not hops:
+        return peer_ip
+
+    # Take the LAST hop (rightmost) — the proxy-attested client IP.
+    # The leftmost is client-controlled; the rightmost is the most recently appended.
+    return hops[-1]
+
+
+def _classify_source(scope: Scope) -> bool:
+    """
+    Classify whether the MCP request is from a PUBLIC or PRIVATE source.
+
+    Returns True if PUBLIC (token ALWAYS required regardless of allow_without_token),
+    False if PRIVATE (token-less access may be permitted when allow_without_token=ON).
+
+    PUBLIC conditions (ANY of the following):
+      (a) CF-Connecting-IP or CF-Ray header is present (Cloudflare tunnel signal).
+      (b) The resolved source IP is not in MCP_PRIVATE_CIDRS.
+      (c) The source IP cannot be resolved (fail-safe).
+
+    PRIVATE requires BOTH:
+      (a) No CF-Connecting-IP / CF-Ray header, AND
+      (b) Resolved source IP is in MCP_PRIVATE_CIDRS.
+
+    Security notes:
+    - CF-Connecting-IP / CF-Ray are PUBLIC signals, never trust grants. Their presence
+      can only *restrict* (force PUBLIC), never *relax* auth. An attacker forging these
+      headers only makes their own request more restricted.
+    - XFF is only honoured when the transport peer is in MCP_TRUSTED_PROXIES (see
+      _resolve_source_ip). An untrusted peer forging XFF is classified by peer IP.
+    - Fail-safe: uncertain → PUBLIC (require token).
+    """
+    headers: dict[bytes, bytes] = dict(scope.get("headers", []))
+
+    # Check for Cloudflare edge headers (PUBLIC signal — fail-safe: presence → PUBLIC)
+    if b"cf-connecting-ip" in headers or b"cf-ray" in headers:
+        return True  # PUBLIC
+
+    # Resolve source IP
+    source_ip = _resolve_source_ip(scope)
+    if source_ip is None:
+        return True  # cannot resolve → PUBLIC (fail-safe)
+
+    # Private CIDR check
+    if _ip_is_private(source_ip):
+        return False  # PRIVATE
+
+    return True  # public IP → PUBLIC
+
+
+# ── Token hashing helpers (ADR-0033 §2.1 — stdlib only, no new deps) ─────────
+# Format: pbkdf2_sha256$<iterations>$<salt_b64>$<hash_b64>
+# - PBKDF2-HMAC-SHA256 with 260_000 iterations (NIST 2023 recommendation floor).
+# - 16-byte random salt (secrets.token_bytes).
+# - Constant-time verification via hmac.compare_digest.
+# NEVER log or return any component of this string.
+
+_PBKDF2_ITERS: int = 260_000
+_PBKDF2_ALGO: str = "sha256"
+_HASH_PREFIX: str = "pbkdf2_sha256"
+
+
+def _hash_token(plaintext: str) -> str:
+    """
+    Hash a plaintext MCP token for DB storage (ADR-0033 §2.1).
+
+    Returns a self-describing string:
+        pbkdf2_sha256$<iterations>$<salt_b64>$<hash_b64>
+
+    NEVER call this in a log statement or return it in an API response.
+    """
+    salt: bytes = secrets.token_bytes(16)
+    dk: bytes = hashlib.pbkdf2_hmac(_PBKDF2_ALGO, plaintext.encode(), salt, _PBKDF2_ITERS)
+    salt_b64: str = base64.b64encode(salt).decode("ascii")
+    hash_b64: str = base64.b64encode(dk).decode("ascii")
+    return f"{_HASH_PREFIX}${_PBKDF2_ITERS}${salt_b64}${hash_b64}"
+
+
+def _verify_token(plaintext: str, stored_hash: str) -> bool:
+    """
+    Constant-time verification of a plaintext token against a stored PBKDF2 hash.
+
+    Returns True iff the plaintext hashes to the same digest as stored_hash.
+    Returns False on any parse/format error (fail-closed).
+    NEVER log the plaintext, stored_hash, or any intermediate value.
+    """
+    try:
+        parts = stored_hash.split("$")
+        if len(parts) != 4 or parts[0] != _HASH_PREFIX:
+            return False
+        iters = int(parts[1])
+        salt = base64.b64decode(parts[2])
+        expected = base64.b64decode(parts[3])
+    except (ValueError, TypeError, Exception):
+        return False
+
+    # Recompute PBKDF2 with the stored salt and iteration count.
+    dk: bytes = hashlib.pbkdf2_hmac(_PBKDF2_ALGO, plaintext.encode(), salt, iters)
+    # Constant-time comparison (hmac.compare_digest handles length differences safely).
+    return hmac.compare_digest(dk, expected)
+
+
+# ── Token source resolver (ADR-0033 §2.1 — precedence: DB → env → none) ──────
+
+_TokenSource = Literal["db", "env", "none"]
+
+
+def _resolve_token_source(db_hash: str | None) -> _TokenSource:
+    """
+    Determine which token is authoritative (ADR-0033 §2.1 precedence).
+
+    DB hash set → "db"; else env token set → "env"; else → "none".
+    """
+    if db_hash is not None:
+        return "db"
+    if settings.mcp_auth_token:
+        return "env"
+    return "none"
+
+
+def _token_configured(db_hash: str | None) -> bool:
+    """True iff a token is available (DB hash or env bootstrap)."""
+    return _resolve_token_source(db_hash) != "none"
+
+
+# ── In-process caches for ADR-0033 DB-backed flags ────────────────────────────
+
+# RemoteMcpFlag: in-process cache for vault_state.remote_mcp_enabled (ADR-0032 §2.2).
+# Loaded from vault_state at startup; refreshed on PUT /mcp/remote.
+
+
+class RemoteMcpFlag:
+    """
+    In-process cache for vault_state.remote_mcp_enabled (ADR-0032 §2.2).
+
+    The DB column is the source of truth; this holder is a process cache of it.
+    Single-process deployment: in-memory cache and DB never diverge because
+    PUT /mcp/remote writes both atomically and there is no external writer.
+    """
+
+    def __init__(self) -> None:
+        self._enabled: bool = False
+        self._lock: asyncio.Lock = asyncio.Lock()
+
+    def is_enabled(self) -> bool:
+        """Return the cached runtime flag value (O(1), no I/O)."""
+        return self._enabled
+
+    async def load(self, enabled: bool) -> None:
+        """Set the cached value (called at startup from the DB row)."""
+        async with self._lock:
+            self._enabled = enabled
+
+    async def set(self, enabled: bool) -> None:
+        """Update the cached value (called by PUT /mcp/remote after DB write)."""
+        async with self._lock:
+            self._enabled = enabled
+
+
+class _McpAuthCache:
+    """
+    In-process cache for vault_state.mcp_access_token_hash and
+    vault_state.mcp_allow_without_token (ADR-0033 §2.1/§2.3).
+
+    Loaded from vault_state at startup (alongside RemoteMcpFlag).
+    Refreshed on PUT /mcp/auth writes.
+    The middleware reads both O(1) per request (no DB round-trip).
+    NEVER exposes the hash string to callers — only boolean-derived values.
+    """
+
+    def __init__(self) -> None:
+        # _hash is the stored PBKDF2 string; None = no DB token.
+        # It is private and NEVER returned or logged by any method.
+        self._hash: str | None = None
+        self._allow_without_token: bool = False
+        self._lock: asyncio.Lock = asyncio.Lock()
+
+    def get_hash(self) -> str | None:
+        """Return the stored hash (needed only for verification — keep internal)."""
+        return self._hash
+
+    def allow_without_token(self) -> bool:
+        """Return the persisted allow-without-token flag value."""
+        return self._allow_without_token
+
+    async def load(self, hash_value: str | None, allow: bool) -> None:
+        """Load from DB at startup."""
+        async with self._lock:
+            self._hash = hash_value
+            self._allow_without_token = allow
+
+    async def set_hash(self, hash_value: str | None) -> None:
+        """Update the cached hash (after DB write)."""
+        async with self._lock:
+            self._hash = hash_value
+
+    async def set_allow(self, allow: bool) -> None:
+        """Update the cached allow flag (after DB write)."""
+        async with self._lock:
+            self._allow_without_token = allow
+
+
+# Module-level singletons — initialised in lifespan.
+_remote_mcp_flag: RemoteMcpFlag = RemoteMcpFlag()
+_mcp_auth_cache: _McpAuthCache = _McpAuthCache()
+
+# ── MCP HTTP surface (ADR-0033 §2.4 — always-mount) ──────────────────────────
+# Built unconditionally at module load (ADR-0033 §2.4: mount condition is no longer
+# "token set"). The _McpGate middleware is the sole per-request arbiter.
+# _http_mcp_asgi_app lifespan MUST be chained into the FastAPI lifespan (FastMCP
+# session manager). The sub-app is always started/stopped once (no remount —
+# ADR-0032 §2.3 stands).
+_http_mcp_asgi_app: ASGIApp | None = None
+
+_http_mcp_instance = build_http_mcp(write_enabled=settings.mcp_remote_write_enabled)
+_http_mcp_asgi_app = _http_mcp_instance.http_app()
+logger.info(
+    "MCP HTTP surface always-mounted (ADR-0033 §2.4): %s, write_enabled=%s",
+    MCP_MOUNT_PATH,
+    settings.mcp_remote_write_enabled,
+)
+
+
+# ── MCP access gate middleware (ADR-0033 §2.4 — replaces _BearerAuthMiddleware) ─
+# Implements the full decision table from ADR-0033 §2.4.
+# Wraps ONLY the /mcp/server sub-app; the REST API is unaffected.
+#
+# Decision table (HTTP scope, remote_enabled = ADR-0032 flag):
+#   remote_enabled OFF        → 404 (any source, any token, any bearer)
+#   ON + valid bearer         → PASS
+#   ON + PRIVATE + tok + !allow + no/bad bearer → 401
+#   ON + PRIVATE + tok + allow + no bearer      → PASS
+#   ON + PRIVATE + !tok + allow + no bearer     → PASS
+#   ON + PRIVATE + !tok + !allow + no bearer    → 404 (surface closed)
+#   ON + PUBLIC  + tok + no/bad bearer          → 401
+#   ON + PUBLIC  + !tok + any                   → 404
+#
+# Lifespan/WS scopes: always pass through (session manager stability — ADR-0032 §2.3).
+# Bearer verification: DB-hash (PBKDF2 constant-time) → env-bootstrap (hmac.compare_digest).
+
+
+class _BearerAuthMiddleware:
+    """
+    MCP access gate — ADR-0033 §2.4 decision table.
+
+    Formerly a static-token-only guard (ADR-0029/0032); now source-aware with
+    allow-without-token support. Renamed conceptually the "MCP access gate" but
+    the class is kept as _BearerAuthMiddleware for test-import compatibility.
+
+    Parameters
+    ----------
+    app : ASGIApp
+        The wrapped FastMCP sub-app.
+    token : str
+        The BOOTSTRAP plaintext env token (MCP_AUTH_TOKEN); used only when the DB
+        hash cache holds None. May be empty string when unset (never compared then).
+    flag : RemoteMcpFlag
+        In-process cache of remote_mcp_enabled.
+    auth_cache : _McpAuthCache
+        In-process cache of mcp_access_token_hash + mcp_allow_without_token.
+    """
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        token: str,
+        flag: RemoteMcpFlag,
+        auth_cache: _McpAuthCache | None = None,
+    ) -> None:
+        self._app = app
+        self._token = token  # env bootstrap (plaintext; may be "")
+        self._flag = flag
+        self._auth_cache: _McpAuthCache = auth_cache if auth_cache is not None else _McpAuthCache()
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        # Pass lifespan/WS through immediately (ADR-0032 §2.3 — session manager stability).
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+
+        # ── Step 1: remote_enabled flag (ADR-0032 floor) ──────────────────────
+        # OFF → 404 regardless of everything else.
+        if not self._flag.is_enabled():
+            await self._respond_404(scope, receive, send)
+            return
+
+        # ── Step 2: bearer extraction ──────────────────────────────────────────
+        headers: dict[bytes, bytes] = dict(scope.get("headers", []))
+        auth_header: bytes = headers.get(b"authorization", b"")
+        bearer_presented: str | None = None
+        if auth_header.lower().startswith(b"bearer "):
+            bearer_presented = auth_header[len(b"bearer "):].decode("utf-8", errors="replace")
+
+        # ── Step 3: verify bearer if presented ────────────────────────────────
+        # A valid token always passes (regardless of source/allow flag).
+        db_hash = self._auth_cache.get_hash()
+        env_token = self._token  # env bootstrap (may be "")
+        tok_configured = _token_configured(db_hash)
+        tok_source = _resolve_token_source(db_hash)
+
+        if bearer_presented is not None:
+            bearer_ok = self._verify_bearer(bearer_presented, db_hash, env_token, tok_source)
+            if bearer_ok:
+                await self._app(scope, receive, send)
+                return
+
+        # ── Step 4: source classification ──────────────────────────────────────
+        is_public = _classify_source(scope)
+        allow = self._auth_cache.allow_without_token()
+
+        # ── Step 5: apply decision table ───────────────────────────────────────
+        if is_public:
+            # PUBLIC source: token ALWAYS required (ADR-0033 §2.3).
+            if tok_configured:
+                await self._respond_401(scope, receive, send)
+            else:
+                await self._respond_404(scope, receive, send)
+            return
+
+        # PRIVATE source:
+        if tok_configured:
+            if allow:
+                # Token configured + allow ON + private + no bearer → PASS
+                await self._app(scope, receive, send)
+                return
+            else:
+                # Token configured + allow OFF + private + no/bad bearer → 401
+                await self._respond_401(scope, receive, send)
+                return
+        else:
+            # No token configured at all
+            if allow:
+                # No token + allow ON + private → PASS (open on private)
+                await self._app(scope, receive, send)
+                return
+            else:
+                # No token + allow OFF → 404 (surface closed — no way to authenticate)
+                await self._respond_404(scope, receive, send)
+                return
+
+    def _verify_bearer(
+        self,
+        candidate: str,
+        db_hash: str | None,
+        env_token: str,
+        tok_source: _TokenSource,
+    ) -> bool:
+        """
+        Verify the presented bearer against the authoritative token.
+
+        Precedence (ADR-0033 §2.1):
+          1. DB hash → PBKDF2 verify (constant-time).
+          2. Env bootstrap → hmac.compare_digest (plaintext compare, constant-time).
+          3. No token → always False.
+
+        NEVER log candidate, db_hash, or env_token.
+        """
+        if tok_source == "db" and db_hash is not None:
+            return _verify_token(candidate, db_hash)
+        if tok_source == "env" and env_token:
+            return hmac.compare_digest(candidate, env_token)
+        return False
+
+    @staticmethod
+    async def _respond_404(scope: Scope, receive: Receive, send: Send) -> None:
+        response = StarletteResponse(
+            content='{"detail":"Not Found"}',
+            status_code=404,
+            media_type="application/json",
+        )
+        await response(scope, receive, send)
+
+    @staticmethod
+    async def _respond_401(scope: Scope, receive: Receive, send: Send) -> None:
+        response = StarletteResponse(
+            content='{"detail":"Unauthorized"}',
+            status_code=401,
+            media_type="application/json",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        await response(scope, receive, send)
+
+
 # ── Startup timestamp ──────────────────────────────────────────────────────────
 _started_at: datetime = datetime.now(UTC)
 
@@ -107,11 +589,15 @@ _started_at: datetime = datetime.now(UTC)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     FastAPI lifespan: startup → yield → shutdown.
 
     Ordered startup sequence per v0.1-architecture §2.5 + v0.3 graph cache + M4-EXT scheduler.
+    ADR-0029: if the MCP HTTP surface is enabled, the FastMCP sub-app's lifespan context
+    (which starts/stops the StreamableHTTP session manager) is entered here to guarantee
+    that MCP sessions are properly initialised before serving requests and torn down on
+    shutdown. FastAPI does NOT forward lifespan events to mounted sub-apps automatically.
     """
     global _started_at, _graph_cache, _import_scheduler
     _started_at = datetime.now(UTC)
@@ -119,11 +605,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     # 1. Vault skeleton (K1, I5, AC-K7-1)
     bootstrap_vault()
 
-    # 2. Seed vault_state (ADR-0005, AC-F16dv-1)
+    # 2. Seed vault_state (ADR-0005, AC-F16dv-1) + load runtime caches (ADR-0032/0033)
     await _seed_vault_state()
+    await _load_remote_mcp_flag()
+    await _load_mcp_auth_cache()
 
-    # 3. Validate EMBEDDING_DIM vs live bge-m3 + ensure collection (ADR-0004)
-    await _validate_embedding_and_collection()
+    # 3. Validate EMBEDDING_DIM vs live bge-m3 + ensure collection (ADR-0004).
+    #    Skipped when EMBEDDINGS_ENABLED=false (ADR-0030 §2.5) so the app boots
+    #    with no embedding service reachable — startup must not fail in lexical mode.
+    if settings.embeddings_enabled:
+        await _validate_embedding_and_collection()
+    else:
+        logger.info(
+            "EMBEDDINGS_ENABLED=false — skipping embedding probe and collection "
+            "validation (ADR-0030 §2.5). Retrieval will use lexical degrade (Feature B)."
+        )
 
     # 4. Start watcher (I1)
     loop = asyncio.get_running_loop()
@@ -142,7 +638,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     _import_scheduler.start()
     logger.info("ImportScheduler started")
 
-    yield
+    # 7. Chain MCP HTTP sub-app lifespan (ADR-0029 §5 / FastMCP lifespan note).
+    #    The StarletteWithLifespan returned by http_app() has its own lifespan that
+    #    starts the StreamableHTTP session manager.  Starlette does NOT forward lifespan
+    #    to mounted sub-apps; we must enter it manually here.
+    if _http_mcp_asgi_app is not None:
+        mcp_sub = _http_mcp_asgi_app
+        # StarletteWithLifespan exposes .lifespan (= .router.lifespan_context).
+        mcp_lifespan = getattr(mcp_sub, "lifespan", None)
+        if mcp_lifespan is not None and callable(mcp_lifespan):
+            async with mcp_lifespan(mcp_sub):
+                logger.info("MCP HTTP session manager started (ADR-0029)")
+                yield
+                logger.info("MCP HTTP session manager stopping (ADR-0029)")
+        else:
+            # Fallback: no lifespan property — just yield (defensive)
+            logger.warning("MCP HTTP sub-app has no .lifespan; session manager may not start")
+            yield
+    else:
+        yield
 
     # ── Shutdown ───────────────────────────────────────────────────────────────
     if _import_scheduler is not None:
@@ -187,6 +701,22 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Graph-Cache"],  # so the viewer can read cache hit/miss (ADR-0014)
 )
+
+# ── MCP HTTP mount (ADR-0033 §2.4 — always-mount; gate is the sole arbiter) ──
+# Mounted at MCP_MOUNT_PATH — always, regardless of token configuration.
+# The _BearerAuthMiddleware (now the full MCP access gate) is applied ONLY to
+# this sub-app (scoped; REST API unaffected).
+# The gate carries _remote_mcp_flag, _mcp_auth_cache, and the env bootstrap token.
+# No remount on flag changes (ADR-0032 §2.3 — session manager stable).
+if _http_mcp_asgi_app is not None:
+    _guarded_mcp_app = _BearerAuthMiddleware(
+        _http_mcp_asgi_app,
+        settings.mcp_auth_token or "",
+        _remote_mcp_flag,
+        _mcp_auth_cache,
+    )
+    app.mount(MCP_MOUNT_PATH, _guarded_mcp_app)
+    logger.info("MCP HTTP surface mounted at %s (ADR-0033 §2.4 always-mount)", MCP_MOUNT_PATH)
 
 
 # ── Pydantic response models ───────────────────────────────────────────────────
@@ -1561,6 +2091,14 @@ class EmbeddingConfigResponse(BaseModel):
     embedding_url: str = Field(description="HTTP endpoint for embeddings (EMBEDDING_URL env)")
     embedding_model: str = Field(description="Model name for embeddings (EMBEDDING_MODEL env)")
     embedding_dim: int = Field(description="Vector dimension (EMBEDDING_DIM env)")
+    embeddings_enabled: bool = Field(
+        description=(
+            "Whether the embedding data plane is active (EMBEDDINGS_ENABLED env, "
+            "default true). When false, retrieval degrades to lexical/keyword-only "
+            "and no embedding service is required at startup (ADR-0030, Feature B). "
+            "Never exposes the embedding API key."
+        )
+    )
 
 
 @app.get(
@@ -1569,15 +2107,17 @@ class EmbeddingConfigResponse(BaseModel):
     summary="Get current embedding configuration",
     description=(
         "Returns the active embedding config read from environment variables "
-        "(EMBEDDING_URL, EMBEDDING_MODEL, EMBEDDING_DIM). Read-only — edit .env to change. (I9)"
+        "(EMBEDDING_URL, EMBEDDING_MODEL, EMBEDDING_DIM, EMBEDDINGS_ENABLED). "
+        "Read-only — edit .env to change. (I9, ADR-0030)"
     ),
 )
 async def get_embedding_config() -> EmbeddingConfigResponse:
-    """Return current embedding settings (F17 / I9)."""
+    """Return current embedding settings including enabled/disabled state (F17 / I9 / ADR-0030)."""
     return EmbeddingConfigResponse(
         embedding_url=settings.embedding_url,
         embedding_model=settings.embedding_model,
         embedding_dim=settings.embedding_dim,
+        embeddings_enabled=settings.embeddings_enabled,
     )
 
 
@@ -1595,7 +2135,7 @@ class McpToolInfo(BaseModel):
 
 
 class McpInfoResponse(BaseModel):
-    """Response model for GET /mcp/info (ADR-0027 §2.1)."""
+    """Response model for GET /mcp/info (ADR-0027 §2.1; ADR-0029 §2.5; ADR-0032 §2.5; ADR-0033)."""
 
     server_name: str = Field(
         description="MCP server name, derived from the live FastMCP object (I6)"
@@ -1608,6 +2148,58 @@ class McpInfoResponse(BaseModel):
     )
     tool_count: int = Field(description="Number of tools currently registered in the server")
     tools: list[McpToolInfo] = Field(description="Introspected tool list from the live registry")
+    # ADR-0029 §2.5 additions — remote posture, no token ever returned
+    http_enabled: bool = Field(
+        description=(
+            "Whether the HTTP MCP surface is compiled in and mounted (ADR-0029 §2.2). "
+            "Always true (ADR-0033 §2.4 always-mount). The token itself is never returned. "
+            "Alias: token_configured for backward compat."
+        )
+    )
+    remote_write_enabled: bool = Field(
+        description=(
+            "Whether write_page is exposed on the HTTP surface (ADR-0029 §2.3). "
+            "Reflects MCP_REMOTE_WRITE_ENABLED env var (default false). "
+            "Only meaningful when remote_enabled is true."
+        )
+    )
+    # ADR-0032 §2.5 additions — runtime toggle posture; token NEVER returned
+    token_configured: bool = Field(
+        description=(
+            "True iff a token is configured — DB hash set OR MCP_AUTH_TOKEN env set "
+            "(ADR-0033 §2.1 precedence). NEVER contains the token value."
+        )
+    )
+    remote_enabled: bool = Field(
+        description=(
+            "The persisted runtime toggle state from vault_state.remote_mcp_enabled "
+            "(ADR-0032 §2.1). False by default; can be set via PUT /mcp/remote."
+        )
+    )
+    mount_path: str = Field(
+        description=(
+            "The mount path for the remote MCP HTTP surface (= MCP_MOUNT_PATH constant). "
+            "UI builds the connection URL as: window.location.origin + mount_path "
+            "(ADR-0032 §2.5; I6 — derived from constant, never hardcoded in handler)."
+        )
+    )
+    # ADR-0033 §2.5 additions — token source + allow flag; no token/hash/salt ever returned
+    token_source: str = Field(
+        description=(
+            '"db" | "env" | "none" — which token source is authoritative (ADR-0033 §2.1). '
+            '"db": UI-set token (PBKDF2 hash in vault_state). '
+            '"env": MCP_AUTH_TOKEN env bootstrap. '
+            '"none": no token configured. '
+            "NEVER the token value, hash, or salt."
+        )
+    )
+    allow_without_token: bool = Field(
+        description=(
+            "Whether token-less access is permitted for PRIVATE sources "
+            "(loopback/CGNAT/RFC1918/link-local/ULA — ADR-0033 §2.3). "
+            "PUBLIC sources (Cloudflare tunnel) are NEVER exempted regardless of this flag."
+        )
+    )
 
 
 @app.get(
@@ -1643,12 +2235,340 @@ async def get_mcp_info() -> McpInfoResponse:
         for t in raw_tools
     ]
 
+    # ADR-0033 §2.5: resolve token source from in-process cache.
+    # NEVER return token/hash/salt — only boolean-derived values.
+    db_hash = _mcp_auth_cache.get_hash()
+    tok_source = _resolve_token_source(db_hash)
+    tok_configured = _token_configured(db_hash)
+
     return McpInfoResponse(
         server_name=_mcp_server.name,
         transport=settings.mcp_transport,
         entry_point_command=settings.mcp_entry_command,
         tool_count=len(tools),
         tools=tools,
+        # ADR-0029 §2.5 — always-mount (ADR-0033 §2.4); token NEVER returned
+        http_enabled=True,  # always-mount (ADR-0033 §2.4)
+        remote_write_enabled=settings.mcp_remote_write_enabled,
+        # ADR-0032 §2.5 — runtime toggle posture
+        token_configured=tok_configured,
+        remote_enabled=_remote_mcp_flag.is_enabled(),
+        mount_path=MCP_MOUNT_PATH,
+        # ADR-0033 §2.5 — token source + allow flag; NEVER the token/hash/salt
+        token_source=tok_source,
+        allow_without_token=_mcp_auth_cache.allow_without_token(),
+    )
+
+
+# ── PUT /mcp/remote — runtime toggle for remote MCP HTTP surface (ADR-0032 §2.4) ──
+
+
+class McpRemoteToggleRequest(BaseModel):
+    """Request body for PUT /mcp/remote (ADR-0032 §2.4)."""
+
+    enabled: bool = Field(description="Desired runtime state for the remote MCP HTTP surface.")
+
+
+class McpRemoteStateResponse(BaseModel):
+    """
+    Response model for PUT /mcp/remote (ADR-0032 §2.4).
+
+    Always returned with HTTP 200 (even when clamped — the posture is reported truthfully).
+    The token itself is NEVER returned (I6).
+    """
+
+    remote_enabled: bool = Field(
+        description=(
+            "The resulting persisted runtime flag (post-clamp). "
+            "False when clamped=true."
+        )
+    )
+    token_configured: bool = Field(
+        description=(
+            "True iff MCP_AUTH_TOKEN is set (the security floor). "
+            "NEVER contains the token value."
+        )
+    )
+    mount_path: str = Field(
+        description="Mount path for the remote MCP HTTP surface (= MCP_MOUNT_PATH constant; I6)."
+    )
+    clamped: bool = Field(
+        description=(
+            "True iff the request asked enabled=true but MCP_AUTH_TOKEN is unset — "
+            "the flag was forced to false (token-floor clamp, ADR-0032 §2.4)."
+        )
+    )
+
+
+@app.put(
+    "/mcp/remote",
+    response_model=McpRemoteStateResponse,
+    summary="Toggle the remote MCP HTTP surface at runtime",
+    description=(
+        "Persists vault_state.remote_mcp_enabled for the active vault and refreshes the "
+        "in-process RemoteMcpFlag cache immediately (ADR-0032 §2.2/§2.4). "
+        "Token-floor clamp: if MCP_AUTH_TOKEN is unset and enabled=true, the flag is "
+        "forced to false and clamped=true is returned (HTTP 200). "
+        "enabled=false always succeeds. "
+        "Same-origin / unauthenticated — consistent with the rest of the REST API "
+        "(ADR-0028 / ADR-0032 §2.4). "
+        "F1-MCP-UI (ADR-0032)."
+    ),
+)
+async def put_mcp_remote(body: McpRemoteToggleRequest) -> McpRemoteStateResponse:
+    """
+    PUT /mcp/remote — persist the runtime MCP toggle (ADR-0032 §2.4; amended by ADR-0033 §2.4/§2.5).
+
+    Allow-aware clamp (ADR-0033 §2.4): enabling is permitted when EITHER
+    ``token_configured OR allow_without_token``. Without either, enabling remote is
+    pointless (the surface 404s for everyone), so we clamp to OFF.
+    On success: write vault_state, refresh RemoteMcpFlag cache.
+    No MCP tool is invoked; no second writer is introduced (I9).
+    """
+    db_hash = _mcp_auth_cache.get_hash()
+    tok_configured: bool = _token_configured(db_hash)
+    allow: bool = _mcp_auth_cache.allow_without_token()
+    clamped: bool = False
+    desired: bool = body.enabled
+
+    # Allow-aware clamp (ADR-0033 §2.4): cannot enable without token OR allow.
+    if desired and not tok_configured and not allow:
+        desired = False
+        clamped = True
+
+    # Persist to vault_state (DB is source of truth — ADR-0032 §2.1).
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is None:
+            # Should not happen (seeded at startup), but be defensive.
+            state = VaultState(
+                vault_id=settings.vault_id,
+                data_version=0,
+                remote_mcp_enabled=desired,
+                updated_at=datetime.now(UTC),
+            )
+            session.add(state)
+        else:
+            state.remote_mcp_enabled = desired
+            state.updated_at = datetime.now(UTC)
+
+    # Refresh the in-process cache immediately (ADR-0032 §2.2).
+    await _remote_mcp_flag.set(desired)
+
+    logger.info(
+        "PUT /mcp/remote: enabled=%s clamped=%s tok_configured=%s allow=%s (ADR-0032/0033)",
+        desired,
+        clamped,
+        tok_configured,
+        allow,
+    )
+
+    return McpRemoteStateResponse(
+        remote_enabled=desired,
+        token_configured=tok_configured,
+        mount_path=MCP_MOUNT_PATH,
+        clamped=clamped,
+    )
+
+
+# ── PUT /mcp/auth — set/rotate/clear token + allow flag (ADR-0033 §2.5) ──────
+
+
+class McpAuthRequest(BaseModel):
+    """
+    Request body for PUT /mcp/auth (ADR-0033 §2.5).
+
+    All fields are optional; omitting a field leaves that aspect unchanged.
+    Exactly one of rotate_token / token / clear_token should be used per call
+    (using multiple is allowed but the last write wins: clear > explicit > rotate).
+    allow_without_token can be set independently in the same call.
+    """
+
+    rotate_token: bool | None = Field(
+        default=None,
+        description=(
+            "true ⇒ generate a new high-entropy token (secrets.token_urlsafe(32)), "
+            "store its PBKDF2 hash, return plaintext ONCE in generated_token. "
+            "The plaintext is NEVER stored and NEVER returned again."
+        ),
+    )
+    token: str | None = Field(
+        default=None,
+        description=(
+            "Owner-supplied explicit token; stored as PBKDF2 hash only. "
+            "generated_token stays null (owner already knows the value). "
+            "Not echoed in the response."
+        ),
+    )
+    clear_token: bool | None = Field(
+        default=None,
+        description=(
+            "true ⇒ set mcp_access_token_hash = NULL. "
+            "If this leaves token_configured=false AND allow_without_token=false, "
+            "remote_enabled is clamped OFF (no usable auth posture)."
+        ),
+    )
+    allow_without_token: bool | None = Field(
+        default=None,
+        description=(
+            "Persist the allow-without-token flag (ADR-0033 §2.3). "
+            "Omit to leave unchanged. "
+            "true: private sources (loopback/CGNAT/RFC1918/link-local) may connect "
+            "without a bearer token. PUBLIC sources are NEVER exempted."
+        ),
+    )
+
+
+class McpAuthStateResponse(BaseModel):
+    """
+    Response body for PUT /mcp/auth (ADR-0033 §2.5).
+
+    token_configured, token_source, allow_without_token, remote_enabled, mount_path
+    always reflect the post-write state. generated_token is populated ONLY when
+    rotate_token=true was set — shown ONCE, never returned again by any GET/PUT.
+    NEVER contains the token, hash, or salt.
+    """
+
+    token_configured: bool = Field(
+        description="True iff DB hash is set OR MCP_AUTH_TOKEN env bootstrap is set."
+    )
+    token_source: str = Field(
+        description='"db" | "env" | "none" — authoritative token source (ADR-0033 §2.1).'
+    )
+    allow_without_token: bool = Field(
+        description="The persisted allow-without-token flag after this write."
+    )
+    remote_enabled: bool = Field(
+        description="The remote_mcp_enabled flag after any allow-aware clamp."
+    )
+    mount_path: str = Field(description="MCP_MOUNT_PATH constant (I6).")
+    generated_token: str | None = Field(
+        default=None,
+        description=(
+            "Populated ONLY when rotate_token=true — the plaintext token shown ONCE. "
+            "null in all other cases. NEVER stored; NEVER returned by subsequent calls."
+        ),
+    )
+
+
+@app.put(
+    "/mcp/auth",
+    response_model=McpAuthStateResponse,
+    summary="Set, rotate, or clear the MCP access token + allow-without-token flag",
+    description=(
+        "ADR-0033 §2.5 — UI-settable MCP token management. "
+        "rotate_token=true: generate a new token (secrets.token_urlsafe(32)), store its "
+        "PBKDF2 hash in vault_state, return plaintext ONCE in generated_token. "
+        "token=<value>: store an explicit token as hash; NOT echoed; generated_token=null. "
+        "clear_token=true: set hash to NULL (token_source may fall back to env or none). "
+        "allow_without_token: persist the private-source allow flag. "
+        "If post-write state has no token AND allow_without_token=false, remote_enabled "
+        "is clamped OFF (allow-aware clamp — ADR-0033 §2.4). "
+        "Same-origin / unauthenticated (consistent with ADR-0032 §2.4). "
+        "NEVER returns or stores token plaintext (except the one-time generated_token). "
+        "F1-MCP-UI (ADR-0033)."
+    ),
+)
+async def put_mcp_auth(body: McpAuthRequest) -> McpAuthStateResponse:
+    """
+    PUT /mcp/auth — UI-settable MCP token management (ADR-0033 §2.5).
+
+    Applies changes in this order:
+      1. clear_token (if true) → set hash NULL.
+      2. token (if set) → hash and persist.
+      3. rotate_token (if true) → generate, hash, persist, capture plaintext.
+      4. allow_without_token (if set) → persist.
+      5. Apply allow-aware clamp to remote_enabled (§2.4).
+      6. Refresh in-process caches.
+      7. Return McpAuthStateResponse (no plaintext except generated_token).
+
+    No MCP tool is invoked; no second writer is introduced (I9).
+    """
+    generated_token: str | None = None
+
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is None:
+            # Should not happen (seeded at startup), but be defensive.
+            state = VaultState(
+                vault_id=settings.vault_id,
+                data_version=0,
+                remote_mcp_enabled=False,
+                mcp_access_token_hash=None,
+                mcp_allow_without_token=False,
+                updated_at=datetime.now(UTC),
+            )
+            session.add(state)
+
+        # 1. clear_token
+        if body.clear_token:
+            state.mcp_access_token_hash = None
+
+        # 2. explicit token
+        if body.token is not None:
+            state.mcp_access_token_hash = _hash_token(body.token)
+            # Do NOT echo body.token in logs or response.
+
+        # 3. rotate_token (takes precedence over explicit token if both are set)
+        if body.rotate_token:
+            new_plaintext = secrets.token_urlsafe(32)
+            state.mcp_access_token_hash = _hash_token(new_plaintext)
+            # Capture plaintext for the one-time response; NEVER persist it.
+            generated_token = new_plaintext
+            # Immediately discard from local scope after assigning to response var;
+            # new_plaintext goes out of scope here.
+
+        # 4. allow_without_token
+        if body.allow_without_token is not None:
+            state.mcp_allow_without_token = body.allow_without_token
+
+        # 5. Allow-aware clamp on remote_enabled (ADR-0033 §2.4).
+        new_hash = state.mcp_access_token_hash
+        new_allow = state.mcp_allow_without_token
+        tok_configured_post = _token_configured(new_hash)
+        if state.remote_mcp_enabled and not tok_configured_post and not new_allow:
+            state.remote_mcp_enabled = False
+            logger.info(
+                "PUT /mcp/auth: remote_enabled clamped OFF "
+                "(no token AND allow=false, ADR-0033 §2.4)"
+            )
+
+        state.updated_at = datetime.now(UTC)
+
+        # Capture final values for cache update (inside session scope).
+        final_hash = state.mcp_access_token_hash
+        final_allow = state.mcp_allow_without_token
+        final_remote = state.remote_mcp_enabled
+
+    # 6. Refresh in-process caches (outside session — DB write committed).
+    await _mcp_auth_cache.set_hash(final_hash)
+    await _mcp_auth_cache.set_allow(final_allow)
+    await _remote_mcp_flag.set(final_remote)
+
+    # 7. Derive response values (NEVER return hash, plaintext, or salt).
+    tok_source = _resolve_token_source(final_hash)
+    tok_configured = _token_configured(final_hash)
+
+    logger.info(
+        "PUT /mcp/auth: token_source=%s allow_without_token=%s remote_enabled=%s (ADR-0033)",
+        tok_source,
+        final_allow,
+        final_remote,
+    )
+
+    return McpAuthStateResponse(
+        token_configured=tok_configured,
+        token_source=tok_source,
+        allow_without_token=final_allow,
+        remote_enabled=final_remote,
+        mount_path=MCP_MOUNT_PATH,
+        generated_token=generated_token,
     )
 
 
@@ -2924,6 +3844,8 @@ async def _seed_vault_state() -> None:
     Insert vault_state row for VAULT_ID with data_version=0 if absent (ADR-0005, AQ-4).
 
     Idempotent — safe to call on every restart.
+    New rows receive remote_mcp_enabled=False (ADR-0032 §2.1 — default OFF) and
+    mcp_access_token_hash=None + mcp_allow_without_token=False (ADR-0033 §3 — fail-closed).
     """
     async with get_session() as session:
         row = await session.execute(
@@ -2933,12 +3855,68 @@ async def _seed_vault_state() -> None:
             state = VaultState(
                 vault_id=settings.vault_id,
                 data_version=0,
+                remote_mcp_enabled=False,
+                mcp_access_token_hash=None,
+                mcp_allow_without_token=False,
                 updated_at=datetime.now(UTC),
             )
             session.add(state)
             logger.info("vault_state seeded for vault_id=%r", settings.vault_id)
         else:
             logger.info("vault_state already exists for vault_id=%r — no change", settings.vault_id)
+
+
+async def _load_remote_mcp_flag() -> None:
+    """
+    Load vault_state.remote_mcp_enabled into _remote_mcp_flag at startup (ADR-0032 §2.2).
+
+    Called once in lifespan after _seed_vault_state().  The DB column is the source of
+    truth; this populates the in-process cache so the middleware can read it in O(1)
+    without a DB round-trip on each MCP request.
+    """
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        enabled: bool = state.remote_mcp_enabled if state is not None else False
+    await _remote_mcp_flag.load(enabled)
+    logger.info(
+        "RemoteMcpFlag loaded from DB: remote_mcp_enabled=%s (ADR-0032 §2.2)", enabled
+    )
+
+
+async def _load_mcp_auth_cache() -> None:
+    """
+    Load vault_state.mcp_access_token_hash and mcp_allow_without_token into
+    _mcp_auth_cache at startup (ADR-0033 §2.1/§2.3).
+
+    Called once in lifespan after _seed_vault_state().  Mirrors the RemoteMcpFlag
+    pattern (ADR-0032 §2.2): DB is source of truth; in-process cache is O(1) per
+    request.  NEVER logs the hash value.
+    """
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is not None:
+            # Use getattr with defaults for columns that may not exist on old DB schemas
+            # (before migration 0012 is applied). Fail-closed defaults.
+            hash_val: str | None = getattr(state, "mcp_access_token_hash", None)
+            allow_val: bool = getattr(state, "mcp_allow_without_token", False)
+        else:
+            hash_val = None
+            allow_val = False
+
+    await _mcp_auth_cache.load(hash_val, allow_val)
+    tok_src = _resolve_token_source(hash_val)
+    logger.info(
+        "McpAuthCache loaded from DB: token_source=%s allow_without_token=%s (ADR-0033)",
+        tok_src,
+        allow_val,
+        # NEVER log hash_val
+    )
 
 
 async def _validate_embedding_and_collection() -> None:

@@ -12,7 +12,7 @@
     "deepSearch": "Deep Search",
     "settings": "Settings",
     "chatComingSoon": "Phase 3",
-    "comingSoon": "Coming in M5"
+    "comingSoon": "Coming soon"
   },
   "ingest": {
     "title": "Ingest Activity",
@@ -132,12 +132,15 @@
       "dimLabel": "Vector dimensions",
       "envNote": "Read-only — configured via environment variables (EMBEDDING_URL, EMBEDDING_MODEL, EMBEDDING_DIM). Edit your .env or docker-compose.yml to change.",
       "loading": "Loading embedding config…",
-      "error": "Could not load embedding config. Is the backend running?"
+      "error": "Could not load embedding config. Is the backend running?",
+      "semanticActive": "Semantic search active",
+      "lexicalOnly": "Semantic search OFF — lexical-only mode",
+      "lexicalOnlyNote": "Retrieval is running keyword-only (title + body match). Controlled by the EMBEDDINGS_ENABLED environment variable. URL, model, and dimensions below are informational only in this mode."
     },
     "apiMcp": {
       "title": "API + MCP",
       "desc": "Expose Synapse to your own tools through the local HTTP API, and optionally through the bundled MCP server for agent clients.",
-      "connectionTitle": "Connection",
+      "connectionTitle": "Connection (stdio)",
       "transportLabel": "Transport",
       "entryPointLabel": "Entry-point command",
       "copySnippet": "Copy Claude Desktop config",
@@ -146,7 +149,30 @@
       "paramCount": "{{count}} param",
       "paramCount_plural": "{{count}} params",
       "loading": "Loading MCP server info…",
-      "error": "Could not load MCP server info. Is the backend running?"
+      "error": "Could not load MCP server info. Is the backend running?",
+      "access": {
+        "title": "Access",
+        "postureNone": "No token configured",
+        "postureDb": "Token active (set from UI)",
+        "postureEnv": "Token active (from environment)",
+        "generateToken": "Generate token",
+        "rotateToken": "Rotate token",
+        "clearToken": "Clear token",
+        "revealWarning": "Copy now — this token will not be shown again.",
+        "dismissToken": "I have copied it",
+        "allowWithoutTokenLabel": "Allow access without a token",
+        "allowWithoutTokenCaveat": "Token-less access applies only to private sources (loopback, LAN, Tailscale). Public access via Cloudflare tunnel always requires a token — this is enforced server-side and cannot be bypassed."
+      },
+      "remote": {
+        "title": "Remote (claude.ai)",
+        "enabledLabel": "Enable remote MCP endpoint",
+        "noTokenNote": "Generate a token or enable token-less access above to enable remote access.",
+        "urlLabel": "Connection URL",
+        "readOnlyBadge": "read-only",
+        "readWriteBadge": "read + write",
+        "snippetLabel": "claude.ai / HTTP client config",
+        "copySnippet": "Copy remote config"
+      }
     },
     "output": {
       "title": "Output Preferences",
@@ -158,7 +184,7 @@
     "interface": {
       "title": "Interface",
       "desc": "Display and layout preferences.",
-      "comingSoon": "Theme and density options — coming in M5."
+      "comingSoon": "Theme and density options — coming soon."
     },
     "maintenance": {
       "title": "Maintenance",
@@ -166,7 +192,7 @@
       "duplicates": "Detect duplicate entities / concepts",
       "duplicatesDesc": "Asks the LLM to scan all entity / concept pages and group ones that likely refer to the same topic under different names (English vs Italian, plural vs singular, abbreviation vs full form). You confirm each group before merging.",
       "duplicatesScan": "Scan for duplicates",
-      "duplicatesComingSoon": "Duplicate detection — coming in M5.",
+      "duplicatesComingSoon": "Duplicate detection — coming soon.",
       "dangerZone": "Danger Zone",
       "reset": "Reset settings",
       "resetDesc": "Clears all locally stored settings and panel layout.",
@@ -227,7 +253,7 @@
     "stop": "Stop",
     "regenerate": "Regenerate",
     "saveToWiki": "Save to wiki",
-    "saveToWikiComingSoon": "Save to wiki — coming in M5",
+    "saveToWikiComingSoon": "Save to wiki",
     "saveToWikiSaving": "Saving…",
     "saveToWikiSaved": "Saved: {{title}}",
     "saveToWikiError": "Save failed",
@@ -318,6 +344,7 @@
     "vault": "Vault",
     "dataVersion": "Version",
     "close": "Close",
+    "copy": "Copy",
     "unknown": "Unknown"
   }
 }

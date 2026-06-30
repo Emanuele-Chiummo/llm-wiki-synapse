@@ -36,6 +36,10 @@ services:
     environment:
       # Point at the local qdrant container instead of host.docker.internal:6333
       QDRANT_URL: http://qdrant:6333
+      # ── Remote MCP (Feature A, optional in dev) ────────────────────────────────────
+      # Leave both unset to disable HTTP MCP in dev, or set them to test remote MCP locally.
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
+      MCP_REMOTE_WRITE_ENABLED: ${MCP_REMOTE_WRITE_ENABLED:-false}
     volumes:
       # Live-mount the source over the image copy so edits reload without a rebuild.
       # Only app/ (+ alembic/scripts) — NOT the whole backend/ (avoids overlaying the
@@ -62,7 +66,10 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_BASE: http://synapse-backend:8000
+      # Browser base stays relative ("") so requests go same-origin to the Vite dev server,
+      # which forwards them to the backend via the Docker network (synapse-backend:8000).
+      # Do NOT set VITE_API_BASE — it must remain unset so the browser base is relative.
+      BACKEND_PROXY_TARGET: http://synapse-backend:8000
     # --host binds Vite to 0.0.0.0 so the port is reachable from the host browser.
     command: sh -c "npm ci --prefer-offline && npm run dev -- --host"
     depends_on:

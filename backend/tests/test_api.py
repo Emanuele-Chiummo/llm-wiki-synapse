@@ -175,6 +175,11 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
         Column("id", String(36), primary_key=True),
         Column("vault_id", String, nullable=False, unique=True),
         Column("data_version", Integer, nullable=False, default=0),
+        # ADR-0032 §2.1: remote MCP runtime toggle (default false)
+        Column("remote_mcp_enabled", Integer, nullable=False, server_default=sa_text("0")),
+        # ADR-0033 §2.1/§2.3: UI-settable MCP access token hash + allow-without-token flag
+        Column("mcp_access_token_hash", Text, nullable=True),
+        Column("mcp_allow_without_token", Integer, nullable=False, server_default=sa_text("0")),
         Column("updated_at", Text, nullable=False),
     )
     # Retrieval needs edges + links tables (ADR-0022 §2.2 phase 2 — BFS expansion).

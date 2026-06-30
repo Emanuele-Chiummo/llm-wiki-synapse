@@ -12,6 +12,9 @@ The four phases, in order (ADR-0022 §2.2):
   1. Vector search   — embed query via ``get_embedding_client()`` (bge-m3), dense top-k over
                        the existing ``synapse_pages`` collection. Point id == ``pages.id``
                        (ADR-0002). Score = cosine similarity. Dense-only (AQ-v0.5-1).
+                       **When ``settings.embeddings_enabled`` is False** (ADR-0030, Feature B),
+                       Phase 1 is replaced by ``_phase1_lexical_search`` — a k-bounded
+                       Postgres keyword/title ILIKE search. Phases 2–4 are UNCHANGED.
   2. Graph-expansion — BFS over the ``edges`` table (the F4 4-signal output) from the seed
                        pages, ``expansion_depth`` ≤ 2 (HARD cap), ordered by edge ``weight``
                        DESC; also follows resolved ``links.target_page_id``. Reads ``edges``
@@ -31,6 +34,13 @@ The four phases, in order (ADR-0022 §2.2):
 Bounding (I7): ``k`` (default 8), ``expansion_depth`` (default 2, hard max 2), and the char
 budget are all explicit caps. The BFS is depth-bounded, not open-ended. No phase loops on a
 provider; there is no inference call in ``retrieve()`` at all.
+
+ADR-0030 lexical degrade (Feature B):
+When ``EMBEDDINGS_ENABLED=false``, ``_phase1_lexical_search`` replaces the Qdrant vector
+call. It runs a Postgres title ``ILIKE``-based prefilter capped to ``k`` rows — never loads
+every page body (I7). Phase ``"vector"`` labels are preserved on lexical candidates so the
+caller receives a structurally identical ``RetrievalContext`` (shared contract). Neither
+the embedding client nor Qdrant is contacted when embeddings are disabled (ADR-0030 §2.3).
 """
 
 from __future__ import annotations
@@ -170,8 +180,16 @@ async def retrieve(
     budget_tokens = int(max(context_window, 1) * _RETRIEVAL_BUDGET_FRACTION)
     budget_chars = budget_tokens * _CHARS_PER_TOKEN
 
-    # ── Phase 1: vector search (I9 — Qdrant + bge-m3, dense-only) ──────────────
-    vector_candidates = await _phase1_vector_search(query, k=k)
+    # ── Phase 1: vector search OR lexical degrade (ADR-0030, Feature B) ────────
+    # When embeddings are enabled (default): dense top-k via Qdrant + bge-m3 (I9).
+    # When disabled: bounded Postgres keyword/title search — no embedding client or
+    # Qdrant call is made (ADR-0030 §2.3, §2.5). Phases 2–4 are UNCHANGED either way.
+    if settings.embeddings_enabled:
+        vector_candidates = await _phase1_vector_search(query, k=k)
+    else:
+        vector_candidates = await _phase1_lexical_search(
+            query, vault_id=vault_id, k=k, session=session
+        )
 
     # ── Phase 2: graph-expansion (I2 — read edges + resolved links, NOT FA2) ──
     seed_ids = [c.page_id for c in vector_candidates]
@@ -188,11 +206,13 @@ async def retrieve(
 
     approx_tokens = len(text) // _CHARS_PER_TOKEN
 
+    phase1_mode = "vector" if settings.embeddings_enabled else "lexical"
     logger.info(
-        "retrieve: vault=%r query_len=%d vector_hits=%d expansions=%d "
+        "retrieve: vault=%r query_len=%d phase1=%s phase1_hits=%d expansions=%d "
         "citations=%d approx_tokens=%d/%d data_version=%d",
         vault_id,
         len(query),
+        phase1_mode,
         len(vector_candidates),
         len(expansion_candidates),
         len(citations),
@@ -245,6 +265,90 @@ async def _phase1_vector_search(query: str, *, k: int) -> list[_Candidate]:
         seen.add(pid)
         candidates.append(_Candidate(page_id=pid, score=float(point.score), phase="vector"))
     return candidates
+
+
+# ── Phase 1 (lexical degrade) — Postgres keyword/title search ──────────────────
+
+
+async def _phase1_lexical_search(
+    query: str,
+    *,
+    vault_id: str,
+    k: int,
+    session: AsyncSession | None,
+) -> list[_Candidate]:
+    """
+    Lexical degrade for Phase 1 when ``EMBEDDINGS_ENABLED=false`` (ADR-0030 §2.3, Feature B).
+
+    Tokenizes *query* (lowercase, split on non-alphanumeric) then runs a case-insensitive
+    ``lower(title) LIKE '%token%'`` prefilter capped to *k* rows (portable: works in both
+    Postgres production and SQLite tests). Each token generates one predicate combined with
+    OR — so any title containing any query token is a candidate. Rows are ordered by the
+    number of matching tokens (computed deterministically server-side via a CASE SUM) and
+    then by title.
+
+    Bounding guarantee (I7): the query carries an explicit ``LIMIT :k`` — it NEVER loads
+    every page body. Only the ``id`` column is fetched here; the assembler (Phase 4) already
+    reads source-file bodies for the final candidates — no second walk (I1).
+
+    The resulting candidates carry ``phase="vector"`` to preserve the structurally identical
+    ``RetrievalContext`` contract expected by callers (shared contract — signature unchanged).
+    Score = term-overlap count (0.0–1.0 normalised by token count); deterministic.
+
+    Returns at most *k* ``_Candidate`` objects, never raises on empty query or no matches.
+    """
+    if k <= 0:
+        return []
+
+    # Tokenise: lowercase, split on non-alphanumeric (mirrors _SLUG_RE spirit, no dep).
+    raw_tokens = re.split(r"[^a-z0-9]+", query.lower())
+    tokens = [t for t in raw_tokens if t]  # drop empties from leading/trailing splits
+    if not tokens:
+        return []
+
+    # Build per-token case-insensitive LIKE predicates with bound params.
+    # Tokens are already lowercased; we compare against lower(title) so this is portable
+    # across both Postgres (production) and SQLite (unit tests).  Never interpolate user
+    # input — it travels as bound params :tok0/:tok1/… .
+    # E.g. "foo bar" → "lower(title) LIKE :tok0 OR lower(title) LIKE :tok1"
+    ilike_parts = " OR ".join(f"lower(title) LIKE :tok{i}" for i in range(len(tokens)))
+    tok_binds = {f"tok{i}": f"%{tok}%" for i, tok in enumerate(tokens)}
+
+    # Score = sum of per-token hits (each CASE returns 1 when lower(title) contains the token).
+    score_parts = " + ".join(
+        f"CASE WHEN lower(title) LIKE :tok{i} THEN 1 ELSE 0 END" for i in range(len(tokens))
+    )
+
+    binds: dict[str, object] = {"vid": vault_id, "lim": k}
+    binds.update(tok_binds)
+
+    # S608 suppressed: only app-generated bind placeholders are interpolated; user input
+    # travels as bound params via :tok0/:tok1/… — no SQL-injection vector.
+    select_clause = f"SELECT id, ({score_parts}) AS match_score FROM pages"  # noqa: S608
+    where_clause = f"WHERE vault_id = :vid AND deleted_at IS NULL AND ({ilike_parts})"
+    sql = f"{select_clause} {where_clause} ORDER BY match_score DESC, title ASC LIMIT :lim"
+
+    async def _run(sess: AsyncSession) -> list[_Candidate]:
+        result = await sess.execute(sa_text(sql).bindparams(**binds))
+        candidates: list[_Candidate] = []
+        seen: set[str] = set()
+        n_tokens = max(len(tokens), 1)
+        for row in result:
+            m = row._mapping
+            pid = str(m["id"])
+            if pid in seen:
+                continue
+            seen.add(pid)
+            # Normalise raw count to [0, 1] so scores are comparable to cosine range.
+            normalised_score = float(m["match_score"]) / n_tokens
+            # Phase label is "vector" to preserve the shared-contract RetrievalContext shape.
+            candidates.append(_Candidate(page_id=pid, score=normalised_score, phase="vector"))
+        return candidates
+
+    if session is not None:
+        return await _run(session)
+    async with get_session() as sess:
+        return await _run(sess)
 
 
 # ── Phase 2 — graph-expansion ───────────────────────────────────────────────────

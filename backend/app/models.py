@@ -5,6 +5,9 @@ Tables defined here:
   - pages             : one row per source file; soft-deletable (ADR-0005).
                         v0.3: adds pages.x / pages.y (FA2 layout coords, ADR-0013 / AQ-6).
   - vault_state       : one row per vault; holds the monotonic data_version (ADR-0005).
+                        v0.5-ADR-0032: adds remote_mcp_enabled (Alembic migration 0011).
+                        v0.5-ADR-0033: adds mcp_access_token_hash + mcp_allow_without_token
+                        (Alembic migration 0012).
   - provider_config   : F17 backend selection per scope (global|vault|operation) (ADR-0008).
   - ingest_runs       : per-run cost/convergence audit ledger (I7, ADR-0008 §4).
   - links             : K5 wikilink edges; source_page_id → target_title (dangling until resolved).
@@ -33,6 +36,13 @@ v0.5-F10: deep_research_runs + deep_research_sources added in Alembic migration 
 (ADR-0024 §7 — F10 Deep Research loop).
 
 v0.5-F9: review_items added in Alembic migration 0010 (ADR-0025 §3.1 — F9 HITL review queue).
+
+v0.5-ADR-0032: vault_state.remote_mcp_enabled added in Alembic migration 0011 (ADR-0032 §2.1 —
+    persisted runtime toggle for the remote MCP HTTP surface; default OFF).
+
+v0.5-ADR-0033: vault_state.mcp_access_token_hash + vault_state.mcp_allow_without_token added
+    in Alembic migration 0012 (ADR-0033 §2.1/§2.3 — UI-settable token as salted PBKDF2 hash;
+    allow-without-token flag for private-source access; both default fail-closed).
 
 Run `make er` to regenerate docs/er/schema.mmd from this file (I8).
 """
@@ -246,6 +256,47 @@ class VaultState(Base):
         default=0,
         server_default=sa_text("0"),
         comment="Monotonic; +1 per successful upsert ingest (AC-F16dv-2/4); FA2 debounce signal",
+    )
+
+    remote_mcp_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_text("false"),
+        comment=(
+            "Runtime toggle for the remote (HTTP) MCP surface (ADR-0032 §2.1). "
+            "Default OFF; requires MCP_AUTH_TOKEN to be set before enabling. "
+            "Persisted here; read into RemoteMcpFlag cache in main.py at startup."
+        ),
+    )
+
+    # ── ADR-0033: UI-settable MCP access token (hashed) + allow-without-token flag ─
+    mcp_access_token_hash: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+        comment=(
+            "Salted PBKDF2-HMAC-SHA256 hash of the UI-set MCP access token (ADR-0033 §2.1). "
+            "Format: pbkdf2_sha256$<iters>$<salt_b64>$<hash_b64>. "
+            "NULL = no UI token; env MCP_AUTH_TOKEN is the bootstrap fallback. "
+            "NEVER stores plaintext. Token shown once at generation time (one-time reveal). "
+            "DB-hash takes precedence over env bootstrap when set. "
+            "Migration 0012."
+        ),
+    )
+
+    mcp_allow_without_token: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_text("false"),
+        comment=(
+            "When ON: PRIVATE sources (loopback/CGNAT/RFC1918/link-local/ULA) may reach "
+            "/mcp/server without a bearer token (ADR-0033 §2.3). "
+            "PUBLIC sources (Cloudflare tunnel — CF-Connecting-IP/CF-Ray) are NEVER "
+            "exempted regardless of this flag (fail-safe by construction). "
+            "Default false — fail-closed. Migration 0012."
+        ),
     )
 
     updated_at: Mapped[datetime] = mapped_column(
