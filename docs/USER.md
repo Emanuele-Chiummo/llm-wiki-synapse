@@ -532,12 +532,47 @@ The following features shipped in v0.5 (M5):
 | OpenAI-compatible embeddings adapter | `EMBEDDING_FORMAT=openai` for hosted endpoints |
 | MCP server configuration panel (Settings > API + MCP) | Displays connection details, tools, and Claude Desktop snippet |
 
+---
+
+## Install as an app (PWA)
+
+Synapse ships as a Progressive Web App (F15 / AC-F15-1). Once the built frontend is
+served over HTTPS (or localhost), any modern browser will offer a "Install" / "Add to
+Home Screen" prompt.
+
+**How to install:**
+
+1. Open Synapse in Chrome, Edge, or Safari (iOS 16.4+).
+2. Look for the install icon in the browser's address bar (Chrome/Edge) or tap
+   "Share > Add to Home Screen" (Safari / iOS).
+3. Accept the prompt. Synapse opens in standalone window mode with no browser chrome.
+
+**Offline behaviour:**
+
+- The app shell (HTML, JavaScript, CSS, icons) is cached by a Workbox service worker
+  and loads instantly even when the backend is unreachable.
+- All backend API calls (`/pages`, `/graph`, `/chat`, `/search`, etc.) are
+  **always network-first** — they are never served from the service worker cache.
+  If the backend is offline, those calls fail fast with a network error (no stale
+  data is ever returned). This preserves the `dataVersion` freshness model (I1).
+
+**Notes:**
+
+- The service worker is registered in production builds only. `npm run dev` (Vite HMR)
+  does **not** activate it, so development is unaffected.
+- To uninstall: use the browser's "Manage apps" / site settings to remove the app.
+- The Tauri v2 desktop wrapper (AC-F15-2) ships later in v0.6 and provides the same
+  offline shell as a native window without an external browser.
+
+---
+
 The following features are planned for v0.6 (M6) and are NOT present in v0.5:
 
 | Feature | Sprint |
 |---------|--------|
 | Chrome MV3 web clipper | M6 |
-| PWA and Tauri v2 desktop packaging | M6 |
+| PWA (manifest + service worker — offline shell) | M6 (AC-F15-1, done) |
+| Tauri v2 desktop wrapper | M6 (AC-F15-2) |
 | Lint-fix loop | M6 |
 | MkDocs documentation site | M6 |
 | Multi-format ingest: images, audio/video (via unstructured) | M6 |
