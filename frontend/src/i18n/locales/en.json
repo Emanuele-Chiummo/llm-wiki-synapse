@@ -421,6 +421,18 @@
     "noRawSource": "No raw source file to delete.",
     "occurrences": "{{n}} occurrence(s)"
   },
+  "noteView": {
+    "selectPagePrompt": "Select a page to read or edit",
+    "selectPageBody": "Click any page in the tree on the left to open it here.",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "Saved",
+    "staleConflict": "This note changed on disk — reload before editing",
+    "reload": "Reload",
+    "loadError": "Could not load page content",
+    "saving": "Saving…"
+  },
   "common": {
     "loading": "Loading…",
     "retry": "Retry",

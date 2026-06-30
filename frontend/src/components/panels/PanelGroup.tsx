@@ -14,7 +14,7 @@ import { useCallback, useState, type CSSProperties } from "react";
 import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 import type { Layout } from "react-resizable-panels";
 import { NavTree } from "../nav/NavTree";
-import { GraphPanel } from "../center/GraphPanel";
+import { NoteView } from "../wiki/NoteView";
 import { PreviewPanel } from "../preview/PreviewPanel";
 import { ScenarioTemplates } from "../common/ScenarioTemplates";
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
@@ -201,7 +201,7 @@ export function PanelGroup() {
         style={SEPARATOR_STYLE}
       />
 
-      {/* Center panel — GraphPanel */}
+      {/* Center panel — NoteView (wiki pages section; graph section is in SectionRouter) */}
       <Panel
         id={PANEL_CENTER}
         defaultSize="56%"
@@ -214,7 +214,7 @@ export function PanelGroup() {
           minWidth: 0,
         }}
       >
-        <GraphPanel />
+        <NoteView />
       </Panel>
 
       <Separator
