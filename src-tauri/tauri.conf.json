@@ -1,0 +1,62 @@
+{
+  "productName": "Synapse",
+  "version": "0.6.0",
+  "identifier": "ai.synapse.app",
+  "build": {
+    "beforeBuildCommand": "npm --prefix ../frontend run build",
+    "beforeDevCommand": "npm --prefix ../frontend run dev",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../frontend/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Synapse",
+        "label": "main",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "deb",
+      "appimage",
+      "dmg",
+      "msi",
+      "nsis"
+    ],
+    "deb": {
+      "dependsOn": [
+        "libwebkit2gtk-4.1",
+        "libappindicator3",
+        "librsvg2"
+      ]
+    },
+    "nsis": {
+      "installerIcon": null,
+      "installerHeaderIcon": null,
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": null
+    },
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": ""
+    },
+    "resources": [],
+    "windows": [
+      {
+        "skipWebpack": true
+      }
+    ]
+  }
+}

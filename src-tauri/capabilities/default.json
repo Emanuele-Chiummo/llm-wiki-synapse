@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "identifier": "default",
+  "description": "Default capability set for Synapse desktop app",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:window:allow-inner-size",
+    "core:window:allow-is-minimized",
+    "core:window:allow-is-maximized",
+    "core:window:allow-maximize",
+    "core:window:allow-minimize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-unminimize",
+    "core:app:allow-app-hide",
+    "core:app:allow-app-show",
+    "core:app:allow-version"
+  ]
+}

@@ -1,0 +1,41 @@
+[package]
+name = "synapse"
+version = "0.6.0"
+description = "Synapse — self-hosting AI wiki from raw documents"
+authors = ["Emanuele Chiummo <emanuelechiummo@outlook.it>"]
+edition = "2021"
+rust-version = "1.70"
+license = "MIT"
+
+[lib]
+name = "synapse_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "synapse"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [
+    "protocol-asset",
+    "compression",
+    "image-ico",
+    "image-png",
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = 3
+strip = true
