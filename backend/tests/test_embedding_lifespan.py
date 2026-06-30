@@ -107,6 +107,13 @@ class TestEmbeddingStartupToggle:
                 # The lifespan has completed startup; no request needed.
                 pass
 
+        # Reset module-level _graph_cache to None so subsequent tests that patch
+        # GraphCache.get_graph() at the class level work correctly.  The lifespan
+        # exit path calls stop_background_loop() on the mock but does NOT restore
+        # the singleton to None, leaving a non-awaitable MagicMock in place that
+        # breaks test_graph_api.py::TestGraphResponseSchema (shared-state defect).
+        main_mod._graph_cache = None  # type: ignore[attr-defined]
+
         assert called == [], (
             "_validate_embedding_and_collection must NOT be called when embeddings_enabled=False "
             "(ADR-0030 B-AC-1)"
@@ -160,6 +167,9 @@ class TestEmbeddingStartupToggle:
 
             async with lifespan(app):
                 pass
+
+        # Reset module-level _graph_cache to None (see first test for full explanation).
+        main_mod._graph_cache = None  # type: ignore[attr-defined]
 
         assert called == ["validate_called"], (
             "_validate_embedding_and_collection must be called when embeddings_enabled=True "
