@@ -11,14 +11,14 @@ KEY CONTRACTS:
   enqueue_review(...)        — pure DB write for one proposal row; no provider call.
   propose_reviews(...)       — orchestration entry point (called from run_ingest_pipeline):
                                rule-based missing-page/duplicate detection, then
-                               _llm_propose_reviews stub for LLM proposals [AI seam].
-  sweep_reviews(vault_id)    — auto-resolution sweep: Pass-1 (rule-based) + Pass-2 (LLM stub).
+                               _llm_propose_reviews for LLM proposals.
+  sweep_reviews(vault_id)    — auto-resolution sweep: Pass-1 (rule-based) + Pass-2 (conservative LLM).
   create_page_from_review(item_id) — lazy on-demand Create handler [AI seam for generation].
   list_queue(...)            — paginated read for GET /review/queue.
   skip(item_id)              — status write → skipped.
   deep_research(item_id)     — delegates to F10; stores run_id.
 
-STUB SEAMS (to be filled by ai-agent-engineer — ADR-0034 §11.2):
+AI SEAMS (implemented — ADR-0034 §11.2):
   _llm_propose_reviews(...)  — single bounded InferenceProvider call for LLM proposals.
   _llm_sweep_judge(...)      — single bounded conservative LLM pass for sweep Pass-2.
   _run_generation(...)       — bounded run_orchestrated_loop invocation for Create.
@@ -27,7 +27,7 @@ I7 CONTRACT (fire-and-forget wrappers in orchestrator — not here):
   propose_reviews() and sweep_reviews() NEVER raise into the ingest critical path.
   The orchestrator wraps them in try/except (Do-NOT #5, ADR-0034 §10).
 
-I6 CONTRACT (all LLM calls go through the stubs which must use resolve_provider_config):
+I6 CONTRACT (all LLM calls route through resolve_provider_config — no hardcoded backend):
   No isinstance / provider_type / class-name branching anywhere in this module.
 """
 
@@ -100,7 +100,7 @@ class SweepResult:
     kept: int
 
 
-# ── Proposal DTO (for the LLM stub contract) ──────────────────────────────────
+# ── Proposal DTO (LLM call contract — ADR-0034 §4.3) ────────────────────────
 
 
 @dataclass
@@ -119,7 +119,7 @@ class ProposalDTO:
     target_page_title: str | None = None  # resolved to page_id at enqueue time
 
 
-# ── AI seam stubs (to be filled by ai-agent-engineer) ────────────────────────
+# ── AI seam implementations (ADR-0034 §11.2) ─────────────────────────────────
 
 
 async def _llm_propose_reviews(
@@ -130,9 +130,9 @@ async def _llm_propose_reviews(
     existing_titles: list[str],
 ) -> list[ProposalDTO]:
     """
-    TODO[ai-agent-engineer] ADR-0034 §4.3 — single bounded provider call.
+    Single bounded provider call (ADR-0034 §4.3, implemented).
 
-    Make AT MOST ONE InferenceProvider call (operation "ingest", resolved via
+    Makes AT MOST ONE InferenceProvider call (operation "ingest", resolved via
     resolve_provider_config("ingest", vault_id) — I6) that, given:
       - analysis (topics, entities, suggested_pages, summary)
       - a compact digest of the written pages (title + short excerpt)
@@ -230,9 +230,9 @@ async def _llm_sweep_judge(
     existing_titles: list[str | None],
 ) -> set[str]:
     """
-    TODO[ai-agent-engineer] ADR-0034 §6.3 — conservative bounded LLM pass, default-to-keep.
+    Conservative bounded LLM pass, default-to-keep (ADR-0034 §6.3, implemented).
 
-    Make AT MOST ONE InferenceProvider call (operation "ingest", resolved via
+    Makes AT MOST ONE InferenceProvider call (operation "ingest", resolved via
     resolve_provider_config("ingest", vault_id) — I6) batching the candidate_items
     (capped at REVIEW_SWEEP_LLM_MAX_ITEMS). Given each item's rationale/proposed_title
     and the current vault existing_titles list (+ for contradictions: the conflicting
@@ -346,9 +346,9 @@ async def _run_generation(
     provider_config_row: object,
 ) -> WikiPage:
     """
-    TODO[ai-agent-engineer] ADR-0034 §5 — bounded run_orchestrated_loop on-demand.
+    Bounded run_orchestrated_loop on-demand for lazy Create (ADR-0034 §5, implemented).
 
-    Run the bounded orchestrated loop (ingest/loop.py::run_orchestrated_loop) with a
+    Runs the bounded orchestrated loop (ingest/loop.py::run_orchestrated_loop) with a
     single-page-target prompt: "generate the wiki page titled <proposed_title> of type
     <resolved_type>, grounded in the vault context + the proposal rationale."
 
@@ -463,6 +463,8 @@ async def _run_generation(
             cost_anomaly=cost_anomaly,
             started_at=started_at,
             finished_at=finished_at,
+            pages_created=1 if (error is None and wiki_page is not None) else 0,
+            error_message=(str(error) or error.__class__.__name__) if error is not None else None,
         )
     except Exception as run_exc:  # noqa: BLE001
         # Audit-row write failing must not mask the (success/failure) outcome.
@@ -585,11 +587,11 @@ async def propose_reviews(
       Detects dangling wikilinks and not-written suggested_pages → emits missing-page
       proposals directly. No provider call, no cost.
 
-    Pass 2 — LLM stub (1 bounded call, I6/I7):
+    Pass 2 — LLM call (1 bounded call, I6/I7):
       Anti-spam gate first (ADR-0034 §4.2): only runs if generation was substantial
       OR there is at least one dangling-link signal.
-      Calls _llm_propose_reviews stub (to be filled by ai-agent-engineer).
-      On gate failure or stub failure → zero LLM proposals (rule-based only).
+      Calls _llm_propose_reviews (implemented, ADR-0034 §4.3).
+      On gate failure or provider failure → zero LLM proposals (rule-based only).
 
     Total proposals are capped at _PROPOSE_MAX_ITEMS across both passes.
     """
@@ -693,7 +695,7 @@ async def propose_reviews(
         )
     )
 
-    # ── LLM stub call (only if gate passes) ──────────────────────────────────
+    # ── LLM call (only if gate passes) ───────────────────────────────────────
     llm_proposals: list[ProposalDTO] = []
     if spam_gate_passes:
         try:
@@ -722,7 +724,7 @@ async def propose_reviews(
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
-                "propose_reviews: LLM proposal stub failed (non-fatal): %s — "
+                "propose_reviews: LLM proposal call failed (non-fatal): %s — "
                 "emitting rule-based proposals only",
                 exc,
             )
@@ -822,7 +824,7 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
       Resolves matches → status=auto_resolved, resolution=rule_resolved.
       contradiction / suggestion / confirm are NEVER touched by Pass 1 (Do-NOT #7).
 
-    Pass 2 — conservative LLM stub (optional — ADR-0034 §6.3):
+    Pass 2 — conservative LLM sweep (optional — ADR-0034 §6.3):
       Batches the remaining pending items and calls _llm_sweep_judge.
       default-to-keep: any parse error / timeout / provider failure → keep all pending.
       confirm items are NEVER auto-resolved (Do-NOT #7).
@@ -878,7 +880,7 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
     except Exception as exc:  # noqa: BLE001
         logger.warning("sweep_reviews: Pass-1 failed (non-fatal): %s", exc)
 
-    # ── Pass 2: conservative LLM stub ─────────────────────────────────────────
+    # ── Pass 2: conservative LLM sweep ───────────────────────────────────────
     sweep_llm_enabled = bool(getattr(settings, "review_sweep_llm_enabled", True))
     if sweep_llm_enabled:
         try:
@@ -914,7 +916,7 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
                         ).scalars()
                     )
 
-                # Default-to-keep: stub returns set() until ai-agent-engineer fills it
+                # Default-to-keep: _llm_sweep_judge returns set() on any failure (I7)
                 ids_to_resolve = await _llm_sweep_judge(
                     vault_id=vault_id,
                     candidate_items=remaining,
@@ -927,7 +929,7 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
                         # Safety: never auto-resolve confirm (Do-NOT #7)
                         if item.item_type == "confirm":
                             logger.warning(
-                                "sweep_reviews: LLM stub tried to resolve a 'confirm' item "
+                                "sweep_reviews: LLM sweep tried to resolve a 'confirm' item "
                                 "%s — blocked (Do-NOT #7)",
                                 item_id_str,
                             )
@@ -975,7 +977,7 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
     Flow:
       1. Load the review item (404 if absent; 409 if status != 'pending').
       2. Resolve the ingest provider (409 if none configured — I6).
-      3. Call _run_generation stub (NotImplementedError → 502, item stays pending).
+      3. Call _run_generation (NotImplementedError → 502, item stays pending).
       4. Write the produced WikiPage via write_wiki_page (I1 — one data_version bump).
       5. Set status=created, resolution=created, created_page_id, reviewed_at, reviewed_by.
       6. Fire-and-forget sweep so sibling proposals that this page satisfies are closed.
@@ -1049,7 +1051,7 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
     else:
         origin_source = f"review:{item_id_str}"
 
-    # ── 4. Run generation stub (AI seam — raises NotImplementedError → 502) ──
+    # ── 4. Run generation (AI seam — NotImplementedError propagates as 502) ───
     try:
         wiki_page = await _run_generation(
             vault_id=vault_id,
@@ -1061,13 +1063,13 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
         )
     except NotImplementedError as nie:
         logger.warning(
-            "create_page_from_review: generation stub not implemented (AI seam pending): %s",
+            "create_page_from_review: _run_generation raised NotImplementedError (ADR-0034 §5): %s",
             nie,
         )
         raise HTTPException(
             status_code=502,
             detail=(
-                "Page generation is not yet implemented (AI seam pending ADR-0034 §5). "
+                "Page generation raised NotImplementedError (ADR-0034 §5). "
                 "Item left pending — retry or skip."
             ),
         ) from nie

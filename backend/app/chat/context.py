@@ -33,10 +33,22 @@ _CONTEXT_HEADER_FRACTION = 0.20
 # to stay dependency-free; this is a SAFETY cap, not exact accounting). ~4 chars/token.
 _CHARS_PER_TOKEN = 4
 
+# Provider-agnostic answer/citation contract (BUG A3). Retrieved context blocks are presented
+# as "[n] <title>" by the assembler (rag/retrieval.py); the model MUST echo those exact bare
+# [n] markers so the frontend's decorateCitations.ts can resolve them. Small local models tend
+# to invent variants like "[[8] Title]" or numbers beyond the provided set — these instructions
+# forbid that explicitly.
 _SYSTEM_PREAMBLE = (
     "You are Synapse, an assistant grounded in a self-organising knowledge-base ('vault'). "
     "Use the vault context below to answer when relevant. If the context does not cover the "
-    "question, answer from general knowledge and say so briefly. Be concise."
+    "question, answer from general knowledge and say so briefly. Be concise.\n\n"
+    "Citations: when a statement is supported by a retrieved context block, cite it with a "
+    "bare bracketed number matching that block's index, exactly like [1] or [2]. "
+    "Use ONLY the [n] numbers that appear in the provided context — never invent an index that "
+    "is not shown. Never write the source title inside the marker and never use double brackets: "
+    "write [3], NOT [[3]], NOT [[3] Title], NOT [3: Title]. "
+    "Place each marker immediately after the sentence or clause it supports. "
+    "If nothing in the context supports a statement, add no citation marker for it."
 )
 
 
