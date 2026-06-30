@@ -71,6 +71,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ANN", "S"]
+# Cross-module pytest fixture reuse: importing a fixture and using it as a test
+# parameter is the documented pytest pattern but trips F811 (param shadows import).
+"tests/test_review_ai_adr0034.py" = ["ANN", "S", "F811"]
 "scripts/*" = ["ANN", "S", "E501"]  # scripts are not production code — relax annotations and line length
 
 [tool.ruff.lint.flake8-bugbear]

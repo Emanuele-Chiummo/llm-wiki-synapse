@@ -1207,8 +1207,8 @@
     },
     "/review/queue": {
       "get": {
-        "summary": "List HITL review queue items",
-        "description": "F9 HITL Review Queue (ADR-0025 \u00a73.5, AC-F9-3). Returns paginated review_items for a vault, ordered created_at ASC. limit: default 50, max 200 (I7 \u2014 bounded page size). offset: >=0. vault_id: required filter. page_title is a convenience join from pages.title for the UI list (AC-F9-5).",
+        "summary": "List HITL review queue proposals",
+        "description": "F9 HITL Review Queue (ADR-0034 \u00a77). Returns paginated review_items for a vault, ordered created_at ASC. Each item is a PROPOSAL (missing-page|suggestion|contradiction|duplicate|confirm). limit: default 50, max 200 (I7 \u2014 bounded page size). offset: >=0. vault_id: required filter. page_title is a convenience join from pages.title for the page_id FK (UI display).",
         "operationId": "list_review_queue_review_queue_get",
         "parameters": [
           {
@@ -1252,7 +1252,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Paginated review queue",
+            "description": "Paginated review proposals",
             "content": {
               "application/json": {
                 "schema": {
@@ -1269,8 +1269,8 @@
     },
     "/review/queue/{item_id}/approve": {
       "post": {
-        "summary": "Approve a review item (status write only)",
-        "description": "F9 HITL Review Queue \u2014 approve action (ADR-0025 \u00a73.5, AC-F9-3). Sets status=approved, reviewed_at=now(). Does NOT re-trigger ingest or rescan the vault (AC-F9-6, I1). 404 if item_id is unknown.",
+        "summary": "Create: lazy on-demand page generation from a proposal",
+        "description": "F9 HITL Review Queue \u2014 Create action (ADR-0034 \u00a75; path kept for backward stability). Runs the bounded orchestrated loop targeting the proposed page, writes it through write_wiki_page (I1 \u2014 one data_version bump), sets status=created + created_page_id. 409 if item is not pending or no ingest provider is configured (I6 \u2014 never hardcode). 502 if generation fails; item is left pending \u2014 retry or skip. 404 if item_id is unknown. Prefer the /create alias (explicit verb) for new clients (ADR-0034 \u00a79 risk 6).",
         "operationId": "approve_review_item_review_queue__item_id__approve_post",
         "parameters": [
           {
@@ -1285,8 +1285,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Item approved",
+          "201": {
+            "description": "Page created; item status=created",
             "content": {
               "application/json": {
                 "schema": {
@@ -1297,6 +1297,62 @@
           },
           "404": {
             "description": "Review item not found"
+          },
+          "409": {
+            "description": "Item not pending, or no ingest provider configured (I6)"
+          },
+          "502": {
+            "description": "Generation failed; item left pending"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/queue/{item_id}/create": {
+      "post": {
+        "summary": "Create: lazy on-demand page generation from a proposal (explicit verb)",
+        "description": "F9 HITL Review Queue \u2014 Create action (ADR-0034 \u00a75 \u2014 preferred explicit alias). Identical to POST /review/queue/{id}/approve. Runs the bounded orchestrated loop targeting the proposed page, writes it through write_wiki_page (I1 \u2014 one data_version bump), sets status=created + created_page_id. 409 if item is not pending or no ingest provider is configured (I6). 502 if generation fails; item is left pending. 404 if item_id is unknown.",
+        "operationId": "create_review_item_review_queue__item_id__create_post",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Page created; item status=created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewItemResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review item not found"
+          },
+          "409": {
+            "description": "Item not pending, or no ingest provider configured (I6)"
+          },
+          "502": {
+            "description": "Generation failed; item left pending"
           },
           "422": {
             "description": "Validation Error",
@@ -1313,8 +1369,8 @@
     },
     "/review/queue/{item_id}/skip": {
       "post": {
-        "summary": "Skip a review item",
-        "description": "F9 HITL Review Queue \u2014 skip action (ADR-0025 \u00a73.5, AC-F9-3). Sets status=skipped, reviewed_at=now(). 404 if item_id is unknown.",
+        "summary": "Skip a review proposal",
+        "description": "F9 HITL Review Queue \u2014 skip action (ADR-0034 \u00a77). Sets status=skipped, resolution=skipped, reviewed_at=now(). 404 if item_id is unknown.",
         "operationId": "skip_review_item_review_queue__item_id__skip_post",
         "parameters": [
           {
@@ -1357,8 +1413,8 @@
     },
     "/review/queue/{item_id}/deep-research": {
       "post": {
-        "summary": "Trigger deep research for a review item",
-        "description": "F9 HITL Review Queue \u2014 deep-research action (ADR-0025 \u00a73.5, AC-F9-3, AC-F10-5). Sets status=deep_researched; delegates to POST /research/start (F10) with the item's pre_generated_query (first line) or the page topic as the research topic. Stores the returned run_id in review_items.deep_research_run_id (AC-F10-5). Returns 202 {review_item_id, run_id} immediately (fire-and-poll). 503 if SEARXNG_URL is unset (inherits F10's guard, I9). 404 if item_id is unknown.",
+        "summary": "Trigger deep research for a review proposal",
+        "description": "F9 HITL Review Queue \u2014 deep-research action (ADR-0034 \u00a77, AC-F9-3, AC-F10-5). Sets status=deep_researched, resolution=researched; delegates to F10 with the item's proposed_title \u2192 rationale (first line) \u2192 page.title as the research topic. (pre_generated_query is DROPPED in ADR-0034; topic derivation updated.) Stores the returned run_id in review_items.deep_research_run_id (AC-F10-5). Returns 202 {review_item_id, run_id} immediately (fire-and-poll). 503 if SEARXNG_URL is unset (inherits F10's guard, I9). 404 if item_id is unknown.",
         "operationId": "deep_research_review_item_review_queue__item_id__deep_research_post",
         "parameters": [
           {
@@ -1398,6 +1454,41 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/review/queue/sweep": {
+      "post": {
+        "summary": "Manual auto-resolution sweep of pending review proposals",
+        "description": "F9 HITL Review Queue \u2014 manual sweep trigger (ADR-0034 \u00a76). Runs Pass-1 (rule-based title-match for missing-page/duplicate) and Pass-2 (conservative bounded LLM judgment). Bounded; idempotent; never fails (returns partial results on error). vault_id: required. Auto-triggered after each orchestrated ingest run and after a successful Create. confirm items are NEVER auto-resolved (Do-NOT #7, ADR-0034 \u00a710).",
+        "operationId": "sweep_review_queue_review_queue_sweep_post",
+        "parameters": [
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Vault scope (required)",
+              "title": "Vault Id"
+            },
+            "description": "Vault scope (required)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sweep complete; counts of resolved and kept items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSweepResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (missing vault_id)"
           }
         }
       }
@@ -3568,7 +3659,7 @@
           "run_id"
         ],
         "title": "ReviewDeepResearchResponse",
-        "description": "202 response for POST /review/queue/{id}/deep-research (ADR-0025 \u00a73.5).",
+        "description": "202 response for POST /review/queue/{id}/deep-research (ADR-0034 \u00a77).",
         "example": {
           "review_item_id": "00000000-0000-0000-0000-000000000001",
           "run_id": "00000000-0000-0000-0000-000000000002"
@@ -3585,6 +3676,64 @@
             "type": "string",
             "title": "Vault Id"
           },
+          "item_type": {
+            "type": "string",
+            "title": "Item Type",
+            "description": "missing-page | suggestion | contradiction | duplicate | confirm"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "pending | created | skipped | deep_researched | auto_resolved"
+          },
+          "proposed_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Title",
+            "description": "Title the LLM proposes to create; drives lazy skeleton (ADR-0034 \u00a75.2)"
+          },
+          "proposed_page_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Page Type",
+            "description": "entity|concept|source|synthesis|comparison; NULL \u2192 heuristic at Create"
+          },
+          "proposed_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Dir",
+            "description": "Target wiki/ subdir (display only; recomputed at Create \u2014 ADR-0034 \u00a75.2)"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale",
+            "description": "Why this matters; used as topic hint for Deep Research (ADR-0034 \u00a73.1)"
+          },
           "page_id": {
             "anyOf": [
               {
@@ -3595,7 +3744,8 @@
                 "type": "null"
               }
             ],
-            "title": "Page Id"
+            "title": "Page Id",
+            "description": "Review TARGET: conflicting/context existing page FK (ADR-0034 \u00a73.1)"
           },
           "page_title": {
             "anyOf": [
@@ -3607,19 +3757,35 @@
               }
             ],
             "title": "Page Title",
-            "description": "Convenience join from pages.title (AC-F9-5)"
+            "description": "Convenience join from pages.title for page_id (UI display)"
           },
-          "item_type": {
-            "type": "string",
-            "title": "Item Type",
-            "description": "new_page | update_page | deep_research_candidate"
+          "source_page_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Page Id",
+            "description": "Provenance: page whose ingest produced this proposal (ADR-0034 \u00a73.1)"
           },
-          "status": {
-            "type": "string",
-            "title": "Status",
-            "description": "pending | approved | skipped | deep_researched"
+          "created_page_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created Page Id",
+            "description": "Page produced by a successful Create action (ADR-0034 \u00a75); null otherwise"
           },
-          "pre_generated_query": {
+          "resolution": {
             "anyOf": [
               {
                 "type": "string"
@@ -3628,8 +3794,8 @@
                 "type": "null"
               }
             ],
-            "title": "Pre Generated Query",
-            "description": "Newline-sep 1\u20133 follow-up questions; null when call failed/timed out"
+            "title": "Resolution",
+            "description": "created|skipped|researched|rule_resolved|llm_resolved; null while pending"
           },
           "deep_research_run_id": {
             "anyOf": [
@@ -3642,7 +3808,7 @@
               }
             ],
             "title": "Deep Research Run Id",
-            "description": "FK \u2192 deep_research_runs.id; set when Deep-Research action fires (AC-F10-5)"
+            "description": "FK \u2192 deep_research_runs.id; set when Deep-Research fires (AC-F10-5)"
           },
           "created_at": {
             "type": "string",
@@ -3671,7 +3837,7 @@
           "created_at"
         ],
         "title": "ReviewItemResponse",
-        "description": "API response shape for one review_items row (ADR-0025 \u00a73.5).\n\npage_title is a convenience join from the pages table for the UI list (AC-F9-5).\ndeep_research_run_id is None while the Deep-Research action has not been taken."
+        "description": "API response shape for one review_items row (ADR-0034 \u00a77.1).\n\nProjection carries the full proposal model: type, proposed_title, proposed_page_type,\nproposed_dir, rationale, and the three page FK fields (page_id/source_page_id/created_page_id).\npage_title is a convenience join from pages.title for the page_id FK (UI display).\nresolution records how the item was closed (null while pending)."
       },
       "ReviewQueueResponse": {
         "properties": {
@@ -3703,7 +3869,34 @@
           "offset"
         ],
         "title": "ReviewQueueResponse",
-        "description": "Paginated response for GET /review/queue (ADR-0025 \u00a73.5)."
+        "description": "Paginated response for GET /review/queue (ADR-0034 \u00a77)."
+      },
+      "ReviewSweepResponse": {
+        "properties": {
+          "rule_resolved": {
+            "type": "integer",
+            "title": "Rule Resolved",
+            "description": "Items closed by rule-based Pass-1"
+          },
+          "llm_resolved": {
+            "type": "integer",
+            "title": "Llm Resolved",
+            "description": "Items closed by conservative LLM Pass-2"
+          },
+          "kept": {
+            "type": "integer",
+            "title": "Kept",
+            "description": "Items that remain pending after the sweep"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rule_resolved",
+          "llm_resolved",
+          "kept"
+        ],
+        "title": "ReviewSweepResponse",
+        "description": "200 response for POST /review/queue/sweep (ADR-0034 \u00a77)."
       },
       "RunNowResponse": {
         "properties": {

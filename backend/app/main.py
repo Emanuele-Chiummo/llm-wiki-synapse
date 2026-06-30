@@ -31,10 +31,12 @@ Endpoints:
   POST /research/start          — start a bounded deep-research run; 202 {run_id} (F10, ADR-0024)
   GET  /research/runs           — paginated deep-research run list (F10)
   GET  /research/runs/{id}      — deep-research run detail + sources (F10)
-  GET  /review/queue            — paginated HITL review queue (F9, ADR-0025)
-  POST /review/queue/{id}/approve — set status=approved; status write only (F9)
-  POST /review/queue/{id}/skip    — set status=skipped (F9)
+  GET  /review/queue            — paginated HITL review queue (F9, ADR-0034)
+  POST /review/queue/{id}/approve  — Create: lazy on-demand page generation; 201 (F9, ADR-0034)
+  POST /review/queue/{id}/create   — alias for approve/Create (preferred explicit verb)
+  POST /review/queue/{id}/skip     — set status=skipped (F9)
   POST /review/queue/{id}/deep-research — delegate to F10; 202 {review_item_id, run_id} (F9)
+  POST /review/queue/sweep         — manual auto-resolution sweep trigger (F9, ADR-0034 §6)
   POST /pages/{id}/cascade-delete/preview — dry-run plan; read-only; 200 (F13, ADR-0026)
   DELETE /pages/{id}               — cascade-delete; single-pass; 200 (F13, ADR-0026)
 
@@ -3473,7 +3475,7 @@ async def get_research_run(run_id: uuid.UUID) -> ResearchRunDetail:
     )
 
 
-# ── F9 Review Queue REST (ADR-0025 §3.5, AC-F9-3) ─────────────────────────────
+# ── F9 Review Queue REST (ADR-0034 §7 — proposal model redesign) ─────────────
 
 # Maximum page size for GET /review/queue (I7 — bounded list)
 _REVIEW_QUEUE_MAX_LIMIT: int = 200
@@ -3481,27 +3483,61 @@ _REVIEW_QUEUE_MAX_LIMIT: int = 200
 
 class ReviewItemResponse(BaseModel):
     """
-    API response shape for one review_items row (ADR-0025 §3.5).
+    API response shape for one review_items row (ADR-0034 §7.1).
 
-    page_title is a convenience join from the pages table for the UI list (AC-F9-5).
-    deep_research_run_id is None while the Deep-Research action has not been taken.
+    Projection carries the full proposal model: type, proposed_title, proposed_page_type,
+    proposed_dir, rationale, and the three page FK fields (page_id/source_page_id/created_page_id).
+    page_title is a convenience join from pages.title for the page_id FK (UI display).
+    resolution records how the item was closed (null while pending).
     """
 
     id: uuid.UUID
     vault_id: str
-    page_id: uuid.UUID | None = None
-    page_title: str | None = Field(
-        default=None, description="Convenience join from pages.title (AC-F9-5)"
+    item_type: str = Field(
+        description="missing-page | suggestion | contradiction | duplicate | confirm"
     )
-    item_type: str = Field(description="new_page | update_page | deep_research_candidate")
-    status: str = Field(description="pending | approved | skipped | deep_researched")
-    pre_generated_query: str | None = Field(
+    status: str = Field(
+        description="pending | created | skipped | deep_researched | auto_resolved"
+    )
+    proposed_title: str | None = Field(
         default=None,
-        description="Newline-sep 1–3 follow-up questions; null when call failed/timed out",
+        description="Title the LLM proposes to create; drives lazy skeleton (ADR-0034 §5.2)",
+    )
+    proposed_page_type: str | None = Field(
+        default=None,
+        description="entity|concept|source|synthesis|comparison; NULL → heuristic at Create",
+    )
+    proposed_dir: str | None = Field(
+        default=None,
+        description="Target wiki/ subdir (display only; recomputed at Create — ADR-0034 §5.2)",
+    )
+    rationale: str | None = Field(
+        default=None,
+        description="Why this matters; used as topic hint for Deep Research (ADR-0034 §3.1)",
+    )
+    page_id: uuid.UUID | None = Field(
+        default=None,
+        description="Review TARGET: conflicting/context existing page FK (ADR-0034 §3.1)",
+    )
+    page_title: str | None = Field(
+        default=None,
+        description="Convenience join from pages.title for page_id (UI display)",
+    )
+    source_page_id: uuid.UUID | None = Field(
+        default=None,
+        description="Provenance: page whose ingest produced this proposal (ADR-0034 §3.1)",
+    )
+    created_page_id: uuid.UUID | None = Field(
+        default=None,
+        description="Page produced by a successful Create action (ADR-0034 §5); null otherwise",
+    )
+    resolution: str | None = Field(
+        default=None,
+        description="created|skipped|researched|rule_resolved|llm_resolved; null while pending",
     )
     deep_research_run_id: uuid.UUID | None = Field(
         default=None,
-        description="FK → deep_research_runs.id; set when Deep-Research action fires (AC-F10-5)",
+        description="FK → deep_research_runs.id; set when Deep-Research fires (AC-F10-5)",
     )
     created_at: datetime
     reviewed_at: datetime | None = None
@@ -3510,7 +3546,7 @@ class ReviewItemResponse(BaseModel):
 
 
 class ReviewQueueResponse(BaseModel):
-    """Paginated response for GET /review/queue (ADR-0025 §3.5)."""
+    """Paginated response for GET /review/queue (ADR-0034 §7)."""
 
     items: list[ReviewItemResponse]
     total: int
@@ -3519,7 +3555,7 @@ class ReviewQueueResponse(BaseModel):
 
 
 class ReviewDeepResearchResponse(BaseModel):
-    """202 response for POST /review/queue/{id}/deep-research (ADR-0025 §3.5)."""
+    """202 response for POST /review/queue/{id}/deep-research (ADR-0034 §7)."""
 
     review_item_id: uuid.UUID
     run_id: uuid.UUID
@@ -3532,6 +3568,14 @@ class ReviewDeepResearchResponse(BaseModel):
             }
         }
     }
+
+
+class ReviewSweepResponse(BaseModel):
+    """200 response for POST /review/queue/sweep (ADR-0034 §7)."""
+
+    rule_resolved: int = Field(description="Items closed by rule-based Pass-1")
+    llm_resolved: int = Field(description="Items closed by conservative LLM Pass-2")
+    kept: int = Field(description="Items that remain pending after the sweep")
 
 
 def _review_item_to_response(item: ReviewItem, page_title: str | None = None) -> ReviewItemResponse:
@@ -3549,11 +3593,17 @@ def _review_item_to_response(item: ReviewItem, page_title: str | None = None) ->
     return ReviewItemResponse(
         id=_to_uuid(item.id) or uuid.UUID(int=0),
         vault_id=item.vault_id,
-        page_id=_to_uuid(item.page_id),
-        page_title=page_title,
         item_type=item.item_type,
         status=item.status,
-        pre_generated_query=item.pre_generated_query,
+        proposed_title=item.proposed_title,
+        proposed_page_type=item.proposed_page_type,
+        proposed_dir=item.proposed_dir,
+        rationale=item.rationale,
+        page_id=_to_uuid(item.page_id),
+        page_title=page_title,
+        source_page_id=_to_uuid(item.source_page_id),
+        created_page_id=_to_uuid(item.created_page_id),
+        resolution=item.resolution,
         deep_research_run_id=_to_uuid(item.deep_research_run_id),
         created_at=item.created_at,
         reviewed_at=item.reviewed_at,
@@ -3563,16 +3613,17 @@ def _review_item_to_response(item: ReviewItem, page_title: str | None = None) ->
 @app.get(
     "/review/queue",
     response_model=ReviewQueueResponse,
-    summary="List HITL review queue items",
+    summary="List HITL review queue proposals",
     description=(
-        "F9 HITL Review Queue (ADR-0025 §3.5, AC-F9-3). "
+        "F9 HITL Review Queue (ADR-0034 §7). "
         "Returns paginated review_items for a vault, ordered created_at ASC. "
+        "Each item is a PROPOSAL (missing-page|suggestion|contradiction|duplicate|confirm). "
         "limit: default 50, max 200 (I7 — bounded page size). offset: >=0. "
         "vault_id: required filter. "
-        "page_title is a convenience join from pages.title for the UI list (AC-F9-5)."
+        "page_title is a convenience join from pages.title for the page_id FK (UI display)."
     ),
     responses={
-        200: {"description": "Paginated review queue"},
+        200: {"description": "Paginated review proposals"},
         422: {"description": "Validation error (limit out of range, missing vault_id)"},
     },
 )
@@ -3587,17 +3638,17 @@ async def list_review_queue(
     offset: int = Query(default=0, ge=0, description="Row offset for pagination"),
 ) -> ReviewQueueResponse:
     """
-    GET /review/queue — paginated HITL review queue (ADR-0025 §3.5, AC-F9-3).
+    GET /review/queue — paginated HITL review proposals (ADR-0034 §7).
 
-    READ-ONLY — no data_version bump, no ingest triggered (AC-F9-6).
-    limit capped at 200 (I7 — bounded page size, ADR-0025 §3.5).
-    page_title is loaded via a JOIN on pages.title (AC-F9-5).
+    READ-ONLY — no data_version bump, no ingest triggered.
+    limit capped at 200 (I7 — bounded page size, ADR-0034 §7).
+    page_title is loaded via a JOIN on pages.title for the page_id FK.
     """
     from app.ops.review import list_queue
 
     queue_page = await list_queue(vault_id, limit=limit, offset=offset)
 
-    # Load page_title for each item (convenience join, AC-F9-5)
+    # Load page_title for items that have a page_id (convenience join)
     page_ids = [str(it.page_id) for it in queue_page.items if it.page_id is not None]
     page_titles: dict[str, str | None] = {}
     if page_ids:
@@ -3624,36 +3675,82 @@ async def list_review_queue(
     )
 
 
+async def _create_review_item_handler(item_id: uuid.UUID) -> ReviewItemResponse:
+    """
+    Shared Create handler for both /approve and /create routes (ADR-0034 §5).
+
+    Runs the bounded orchestrated loop to generate the page on-demand (lazy — ADR-0034 §2),
+    writes it through write_wiki_page (I1 — one data_version bump), and returns 201.
+
+    409 if item not pending or no ingest provider configured (I6).
+    502 if generation fails; item left pending (§5.3).
+    404 if item not found.
+    """
+    from app.ops.review import create_page_from_review
+
+    item = await create_page_from_review(item_id)
+    return _review_item_to_response(item)
+
+
 @app.post(
     "/review/queue/{item_id}/approve",
     response_model=ReviewItemResponse,
-    summary="Approve a review item (status write only)",
+    status_code=201,
+    summary="Create: lazy on-demand page generation from a proposal",
     description=(
-        "F9 HITL Review Queue — approve action (ADR-0025 §3.5, AC-F9-3). "
-        "Sets status=approved, reviewed_at=now(). "
-        "Does NOT re-trigger ingest or rescan the vault (AC-F9-6, I1). "
-        "404 if item_id is unknown."
+        "F9 HITL Review Queue — Create action (ADR-0034 §5; path kept for backward stability). "
+        "Runs the bounded orchestrated loop targeting the proposed page, writes it through "
+        "write_wiki_page (I1 — one data_version bump), sets status=created + created_page_id. "
+        "409 if item is not pending or no ingest provider is configured (I6 — never hardcode). "
+        "502 if generation fails; item is left pending — retry or skip. "
+        "404 if item_id is unknown. "
+        "Prefer the /create alias (explicit verb) for new clients (ADR-0034 §9 risk 6)."
     ),
     responses={
-        200: {"description": "Item approved"},
+        201: {"description": "Page created; item status=created"},
         404: {"description": "Review item not found"},
+        409: {"description": "Item not pending, or no ingest provider configured (I6)"},
+        502: {"description": "Generation failed; item left pending"},
     },
 )
 async def approve_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
-    """POST /review/queue/{id}/approve — status write only (AC-F9-6, I1)."""
-    from app.ops.review import approve
+    """POST /review/queue/{id}/approve — Create alias for backward compatibility (ADR-0034 §5)."""
+    return await _create_review_item_handler(item_id)
 
-    item = await approve(item_id)
-    return _review_item_to_response(item)
+
+@app.post(
+    "/review/queue/{item_id}/create",
+    response_model=ReviewItemResponse,
+    status_code=201,
+    summary="Create: lazy on-demand page generation from a proposal (explicit verb)",
+    description=(
+        "F9 HITL Review Queue — Create action (ADR-0034 §5 — preferred explicit alias). "
+        "Identical to POST /review/queue/{id}/approve. "
+        "Runs the bounded orchestrated loop targeting the proposed page, writes it through "
+        "write_wiki_page (I1 — one data_version bump), sets status=created + created_page_id. "
+        "409 if item is not pending or no ingest provider is configured (I6). "
+        "502 if generation fails; item is left pending. "
+        "404 if item_id is unknown."
+    ),
+    responses={
+        201: {"description": "Page created; item status=created"},
+        404: {"description": "Review item not found"},
+        409: {"description": "Item not pending, or no ingest provider configured (I6)"},
+        502: {"description": "Generation failed; item left pending"},
+    },
+)
+async def create_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
+    """POST /review/queue/{id}/create — lazy on-demand Create (ADR-0034 §5 preferred verb)."""
+    return await _create_review_item_handler(item_id)
 
 
 @app.post(
     "/review/queue/{item_id}/skip",
     response_model=ReviewItemResponse,
-    summary="Skip a review item",
+    summary="Skip a review proposal",
     description=(
-        "F9 HITL Review Queue — skip action (ADR-0025 §3.5, AC-F9-3). "
-        "Sets status=skipped, reviewed_at=now(). "
+        "F9 HITL Review Queue — skip action (ADR-0034 §7). "
+        "Sets status=skipped, resolution=skipped, reviewed_at=now(). "
         "404 if item_id is unknown."
     ),
     responses={
@@ -3662,7 +3759,7 @@ async def approve_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
     },
 )
 async def skip_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
-    """POST /review/queue/{id}/skip — status write (ADR-0025 §3.5)."""
+    """POST /review/queue/{id}/skip — status write (ADR-0034 §7)."""
     from app.ops.review import skip
 
     item = await skip(item_id)
@@ -3673,11 +3770,12 @@ async def skip_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
     "/review/queue/{item_id}/deep-research",
     response_model=ReviewDeepResearchResponse,
     status_code=202,
-    summary="Trigger deep research for a review item",
+    summary="Trigger deep research for a review proposal",
     description=(
-        "F9 HITL Review Queue — deep-research action (ADR-0025 §3.5, AC-F9-3, AC-F10-5). "
-        "Sets status=deep_researched; delegates to POST /research/start (F10) with the item's "
-        "pre_generated_query (first line) or the page topic as the research topic. "
+        "F9 HITL Review Queue — deep-research action (ADR-0034 §7, AC-F9-3, AC-F10-5). "
+        "Sets status=deep_researched, resolution=researched; delegates to F10 with the item's "
+        "proposed_title → rationale (first line) → page.title as the research topic. "
+        "(pre_generated_query is DROPPED in ADR-0034; topic derivation updated.) "
         "Stores the returned run_id in review_items.deep_research_run_id (AC-F10-5). "
         "Returns 202 {review_item_id, run_id} immediately (fire-and-poll). "
         "503 if SEARXNG_URL is unset (inherits F10's guard, I9). "
@@ -3692,13 +3790,45 @@ async def skip_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
     },
 )
 async def deep_research_review_item(item_id: uuid.UUID) -> ReviewDeepResearchResponse:
-    """POST /review/queue/{id}/deep-research — delegate to F10 (ADR-0025 §3.5, AC-F10-5)."""
+    """POST /review/queue/{id}/deep-research — delegate to F10 (ADR-0034 §7, AC-F10-5)."""
     from app.ops.review import deep_research as _deep_research_op
 
     result = await _deep_research_op(item_id)
     return ReviewDeepResearchResponse(
         review_item_id=result.review_item_id,
         run_id=result.run_id,
+    )
+
+
+@app.post(
+    "/review/queue/sweep",
+    response_model=ReviewSweepResponse,
+    summary="Manual auto-resolution sweep of pending review proposals",
+    description=(
+        "F9 HITL Review Queue — manual sweep trigger (ADR-0034 §6). "
+        "Runs Pass-1 (rule-based title-match for missing-page/duplicate) and "
+        "Pass-2 (conservative bounded LLM judgment). "
+        "Bounded; idempotent; never fails (returns partial results on error). "
+        "vault_id: required. "
+        "Auto-triggered after each orchestrated ingest run and after a successful Create. "
+        "confirm items are NEVER auto-resolved (Do-NOT #7, ADR-0034 §10)."
+    ),
+    responses={
+        200: {"description": "Sweep complete; counts of resolved and kept items"},
+        422: {"description": "Validation error (missing vault_id)"},
+    },
+)
+async def sweep_review_queue(
+    vault_id: str = Query(..., description="Vault scope (required)"),
+) -> ReviewSweepResponse:
+    """POST /review/queue/sweep — manual auto-resolution sweep (ADR-0034 §6)."""
+    from app.ops.review import sweep_reviews
+
+    result = await sweep_reviews(vault_id)
+    return ReviewSweepResponse(
+        rule_resolved=result.rule_resolved,
+        llm_resolved=result.llm_resolved,
+        kept=result.kept,
     )
 
 

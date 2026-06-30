@@ -1,6 +1,6 @@
 # Synapse User Guide
 
-<!-- Generated: v0.5 M5 post-phase | 2026-06-29 -->
+<!-- Generated: v0.5 ADR-0034 | 2026-06-30 -->
 
 > Version: v0.5 (M5 — "Feature parity core")
 > Language toggle: English / Italian available in Settings.
@@ -61,8 +61,8 @@ The rail contains five interactive items from top to bottom:
 | **Graph** | Full-bleed sigma knowledge graph |
 | **Settings** (pinned at bottom) | LLM providers, context window, language, maintenance |
 
-The Review and Deep Research sections are available in M5 via the rail (added when their
-logic shipped). Lint is planned for M6 and does not appear in the M5 rail.
+The nav rail also carries **Review** and **Deep Research** sections (shipped in v0.5).
+Lint is planned for M6 and does not appear in the v0.5 rail.
 
 The vault name, data version, and active provider appear in the status bar at the
 bottom of every section.
@@ -160,8 +160,9 @@ cost breakdown).
 active provider. On success a toast confirms the run started and the list refreshes.
 The list polls automatically while any run has status Running.
 
-Note: the review queue for approving or rejecting AI-generated pages is coming in the
-next sprint (M5).
+After each ingest run the backend runs a proposal stage and emits review items for
+genuinely useful follow-up work (missing pages, research gaps, contradictions). Visit
+the **Review** section in the nav rail to act on them.
 
 ---
 
@@ -346,6 +347,90 @@ the new nodes appear.
 
 ---
 
+### Review section
+
+The Review section (nav label: **Review**) shows the HITL (human-in-the-loop)
+proposal queue that Synapse builds after each ingest run. This is where the AI
+proposes follow-up work and you decide what to act on (K8: the LLM proposes,
+you curate).
+
+![Review queue with proposal cards](screens/review-queue-proposal-cards.png)
+
+#### How proposals are generated
+
+After each orchestrated ingest run, Synapse runs a single bounded proposal call
+(fire-and-forget — the pages are already written and this step never blocks or fails
+ingest). An anti-spam gate suppresses the call on trivial runs: the call only fires
+when the run wrote substantial content (at least 10 000 characters or at least 4 pages)
+or when concrete signals exist (dangling wikilinks, analysis-proposed pages that were
+not written). Rule-based proposals (missing pages, duplicates) are emitted without any
+LLM call; the single LLM call is reserved for the harder suggestion / contradiction /
+confirm judgments.
+
+Each proposal becomes one card in the Review section. The list is paginated and
+virtualized for large queues.
+
+#### Five proposal types
+
+| Type | What it means | Typical action |
+|------|---------------|---------------|
+| `missing-page` | A referenced entity or concept has no wiki page yet. Synapse suggests creating one. | **Create** to generate the page on demand, or **Skip** if the entity is not worth a page. |
+| `suggestion` | A research gap or follow-up the AI thinks would strengthen the vault. | **Deep Research** to run a web-search loop, **Skip**, or act manually in Obsidian. |
+| `contradiction` | The AI detected a conflict between the new content and an existing wiki page. | **Create** a resolution page, **Deep Research** for more context, or **Skip** to ignore. |
+| `duplicate` | The proposed title may collide with an existing page (possible merge candidate). | Review the existing page; **Skip** if they cover distinct topics. |
+| `confirm` | The AI wants explicit human confirmation before acting on a finding. | **Create** if confirmed, otherwise **Skip**. The sweep never auto-resolves `confirm` items. |
+
+#### The three actions
+
+Each proposal card offers exactly three buttons (no other actions are available):
+
+- **Create** — generates the proposed wiki page on demand. Clicking Create runs the
+  bounded orchestrated loop targeting that single page (same AI logic as a normal
+  ingest run). The page is written through the same incremental write seam as all other
+  pages: one `data_version` bump, one entry in `log.md`, one node in the graph. A
+  spinner is shown while generation runs (this takes a few seconds and uses the active
+  provider, with cost logged in the Sources run history). On completion the proposal
+  card moves to "created" status and the graph refreshes automatically. If generation
+  fails, the item remains `pending` so you can retry or skip.
+
+  **Note:** Create replaces the old "Approve" verb from the previous review model. In
+  the earlier design, "Approve" was a no-op (the page had already been created). Now
+  the page is generated only when you click Create — the AI proposes, you curate (K8).
+
+- **Deep Research** — delegates to the Deep Research loop (F10): Synapse runs a
+  multi-query SearXNG web-search cycle, synthesizes the findings, and auto-ingests
+  the synthesis as a new wiki page. The proposal topic is derived from the card's
+  `proposed_title` or `rationale`. The item moves to `deep_researched` status and a
+  link to the research run appears in the Sources section.
+
+- **Skip** — closes the proposal without any action. The item moves to `skipped`
+  status and disappears from the pending queue. Skipping is reversible only by
+  re-ingesting the source.
+
+#### Auto-resolution sweep
+
+After each ingest run (and after each Create action) Synapse runs an auto-resolution
+sweep to close proposals that are no longer relevant:
+
+- **Rule-based pass (no AI cost):** if a `missing-page` or `duplicate` proposal's
+  `proposed_title` now matches an existing wiki page title, the item is automatically
+  closed (`auto_resolved`). As your wiki grows, these proposals resolve themselves.
+
+- **Conservative LLM pass (optional, bounded):** a single batched call (capped at 8
+  items, off-by-default for zero-cost operation — see `REVIEW_SWEEP_LLM_ENABLED`) may
+  resolve `suggestion` or `contradiction` items where the LLM judges the concern no
+  longer applies. The prompt biases toward keeping items pending on any uncertainty.
+  `confirm` items are **never** auto-resolved — they always require human action.
+
+You can also trigger the sweep manually with **POST /review/queue/sweep** (useful after
+bulk edits in Obsidian).
+
+#### Screenshots
+
+![Review queue ADR-0034 proposal cards](screens/review-queue-adr0034.png)
+
+---
+
 ## Opening the wiki in Obsidian
 
 The `vault/wiki/` folder is a valid Obsidian vault. Open it directly in Obsidian:
@@ -379,7 +464,7 @@ The following features shipped in v0.5 (M5):
 |---------|-------|
 | 4-phase RAG retrieval with `[n]` inline citations in chat | Phases 1–4: dense seed → graph-expand → budget → assembly |
 | Save-to-wiki from chat | Button active; routes through `POST /ingest/from-text` |
-| Async HITL review queue (approve / skip / deep-research AI-generated pages) | Settings > Review; `/review/queue` REST endpoints |
+| Async HITL review queue — proposal model with lazy on-demand Create (ADR-0034) | Review section; `/review/queue` REST endpoints; five proposal types (missing-page, suggestion, contradiction, duplicate, confirm); Create / Deep Research / Skip actions; auto-resolution sweep |
 | Deep Research loop (web search via SearXNG, auto-ingest) | `/research/start` REST; bounded `max_iter` + `max_queries_per_iter` |
 | Multi-format ingest: PDF, DOCX, PPTX, XLSX | F12; images/AV are placeholder (M6) |
 | Cascade deletion (delete a source and clean up all derived pages) | Mandatory dry-run preview before destructive apply |

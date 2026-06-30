@@ -1,19 +1,23 @@
 /**
  * ReviewQueueView.test.tsx — vitest + React Testing Library tests for F9 Review Queue UI.
  *
- * Covers:
+ * Covers (ADR-0034 §7.1 proposal model):
  *   - Renders header and empty state
- *   - Renders item rows with page_title, item_type badge, pre_generated_query
- *   - Approve action button fires store.approve, item leaves list
+ *   - Renders item rows with type badge, proposed_title, rationale
+ *   - Shows conflict page (page_title) for contradiction / duplicate types
+ *   - Create action button fires store.create; shows spinner while in-flight
+ *   - 502 from Create shows retry-or-skip hint; item stays in list
  *   - Skip action button fires store.skip, item leaves list
  *   - Deep-Research action fires store.deepResearch; on success shows run_id banner
  *   - 503 banner shows when deepResearchError is set
+ *   - Sweep result banner appears after sweep
  *   - Error state rendered when list fetch fails
  *   - Load more button present when items < total
  *
  * All network calls are mocked. Store is reset between tests.
  * INVARIANT I3: store selectors are the API; no direct state mutation in tests.
  * INVARIANT I4: virtualization is present (component uses TanStack Virtual).
+ * pre_generated_query is GONE — items now carry proposed_title + rationale.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -49,9 +53,10 @@ vi.mock("@tanstack/react-virtual", () => ({
 
 vi.mock("../api/reviewClient", () => ({
   fetchReviewQueue: vi.fn().mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 }),
-  approveReviewItem: vi.fn(),
+  createReviewItem: vi.fn(),
   skipReviewItem: vi.fn(),
   deepResearchReviewItem: vi.fn(),
+  sweepReviewQueue: vi.fn(),
 }));
 
 import * as reviewClient from "../api/reviewClient";
@@ -60,27 +65,38 @@ import * as reviewClient from "../api/reviewClient";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, params?: Record<string, unknown>) => {
       const map: Record<string, string> = {
         "review.title": "Review Queue",
-        "review.hint": "Pages recently generated.",
-        "review.empty": "No pending items.",
+        "review.hint": "AI proposals.",
+        "review.empty": "No pending proposals.",
         "review.loadMore": "Load more",
         "review.refresh": "Refresh",
-        "review.approve": "Approve",
+        "review.create": "Create",
+        "review.creating": "Creating…",
+        "review.createFailed": "Page generation failed — retry or skip.",
         "review.skip": "Skip",
         "review.deepResearch": "Deep Research",
         "review.deepResearchStarted": "Deep research run started.",
         "review.viewRun": "View run",
         "review.searxngUnavailable": "Deep research unavailable: SEARXNG_URL not configured.",
-        "review.noPage": "(no linked page)",
-        "review.noQuery": "No suggested query generated",
-        "review.itemType.new_page": "New page",
-        "review.itemType.update_page": "Updated",
-        "review.itemType.deep_research_candidate": "Research candidate",
+        "review.noTitle": "(no proposed title)",
+        "review.noRationale": "No rationale provided",
+        "review.conflictsWith": "Conflicts with",
+        "review.sweep": "Clean up resolved",
+        "review.sweepHelp": "Run auto-resolution sweep.",
+        "review.sweepResult": `Sweep complete: ${String(params?.rule ?? 0)} rule-resolved, ${String(params?.llm ?? 0)} LLM-resolved, ${String(params?.kept ?? 0)} kept pending.`,
+        "review.itemType.missing-page": "Missing page",
+        "review.itemType.suggestion": "Suggestion",
+        "review.itemType.contradiction": "Contradiction",
+        "review.itemType.duplicate": "Duplicate",
+        "review.itemType.confirm": "Confirm",
+        "review.pageType.concept": "concept",
+        "review.pageType.entity": "entity",
         "common.loading": "Loading…",
         "common.retry": "Retry",
         "common.close": "Close",
+        "nav.review": "Review",
       };
       return map[key] ?? key;
     },
@@ -105,11 +121,17 @@ function makeItem(id: string, overrides: Partial<ReviewItem> = {}): ReviewItem {
   return {
     id,
     vault_id: "default",
-    page_id: `page-${id}`,
-    page_title: `Page ${id}`,
-    item_type: "new_page",
+    item_type: "missing-page",
     status: "pending",
-    pre_generated_query: "What is the key concept?",
+    proposed_title: `Proposed Page ${id}`,
+    proposed_page_type: "concept",
+    proposed_dir: "concepts",
+    rationale: `Rationale for item ${id}.`,
+    page_id: null,
+    page_title: null,
+    source_page_id: null,
+    created_page_id: null,
+    resolution: null,
     deep_research_run_id: null,
     created_at: new Date().toISOString(),
     reviewed_at: null,
@@ -126,8 +148,10 @@ function resetStore(overrides: Partial<ReturnType<typeof useReviewStore.getState
     error: null,
     actionInFlight: {},
     actionError: {},
+    createGenerationError: {},
     lastDeepResearch: null,
     deepResearchError: null,
+    lastSweepResult: null,
     ...overrides,
   });
 }
@@ -148,7 +172,6 @@ beforeEach(() => {
 describe("ReviewQueueView — rendering", () => {
   it("renders the header with title", async () => {
     render(<ReviewQueueView />);
-    // getByText throws if not found — existence is implicitly asserted
     expect(screen.getByText("Review Queue")).toBeTruthy();
   });
 
@@ -157,10 +180,10 @@ describe("ReviewQueueView — rendering", () => {
     await waitFor(() => {
       expect(screen.getByTestId("review-empty")).toBeTruthy();
     });
-    expect(screen.getByText("No pending items.")).toBeTruthy();
+    expect(screen.getByText("No pending proposals.")).toBeTruthy();
   });
 
-  it("renders item rows with page_title and action buttons", async () => {
+  it("renders item rows with proposed_title and action buttons", async () => {
     const items = [makeItem("1"), makeItem("2")];
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items,
@@ -173,12 +196,12 @@ describe("ReviewQueueView — rendering", () => {
     await waitFor(() => {
       expect(screen.getAllByTestId("review-item-row")).toHaveLength(2);
     });
-    expect(screen.getByText("Page 1")).toBeTruthy();
-    expect(screen.getByText("Page 2")).toBeTruthy();
+    expect(screen.getByText("Proposed Page 1")).toBeTruthy();
+    expect(screen.getByText("Proposed Page 2")).toBeTruthy();
   });
 
-  it("renders pre_generated_query first line", async () => {
-    const items = [makeItem("1", { pre_generated_query: "First question?\nSecond question?" })];
+  it("renders rationale text for items", async () => {
+    const items = [makeItem("1", { rationale: "This concept is referenced but missing." })];
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items,
       total: 1,
@@ -187,12 +210,12 @@ describe("ReviewQueueView — rendering", () => {
     });
     render(<ReviewQueueView />);
     await waitFor(() => {
-      expect(screen.getByText("First question?")).toBeTruthy();
+      expect(screen.getByText("This concept is referenced but missing.")).toBeTruthy();
     });
   });
 
-  it("renders 'no query' placeholder when pre_generated_query is null", async () => {
-    const items = [makeItem("1", { pre_generated_query: null })];
+  it("renders 'no rationale' placeholder when rationale is null", async () => {
+    const items = [makeItem("1", { rationale: null })];
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items,
       total: 1,
@@ -201,20 +224,84 @@ describe("ReviewQueueView — rendering", () => {
     });
     render(<ReviewQueueView />);
     await waitFor(() => {
-      expect(screen.getByText("No suggested query generated")).toBeTruthy();
+      expect(screen.getByText("No rationale provided")).toBeTruthy();
     });
   });
 
-  it("renders item type badge for new_page", async () => {
+  it("renders type badge for missing-page", async () => {
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
-      items: [makeItem("1")],
+      items: [makeItem("1", { item_type: "missing-page" })],
       total: 1,
       limit: 50,
       offset: 0,
     });
     render(<ReviewQueueView />);
     await waitFor(() => {
-      expect(screen.getByText("New page")).toBeTruthy();
+      expect(screen.getByText("Missing page")).toBeTruthy();
+    });
+  });
+
+  it("renders type badge for contradiction", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("1", { item_type: "contradiction" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      expect(screen.getByText("Contradiction")).toBeTruthy();
+    });
+  });
+
+  it("renders conflict page_title for contradiction type", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [
+        makeItem("1", {
+          item_type: "contradiction",
+          page_id: "page-x",
+          page_title: "Existing Conflicting Page",
+        }),
+      ],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      // "Conflicts with" is split across text nodes (label + colon + <em>),
+      // so match by regex on the parent element's full text content.
+      expect(screen.getByText(/Conflicts with/i)).toBeTruthy();
+      expect(screen.getByText("Existing Conflicting Page")).toBeTruthy();
+    });
+  });
+
+  it("does NOT render conflict row for missing-page type even with page_title set", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("1", { item_type: "missing-page", page_title: "Some Page" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-item-row")).toHaveLength(1);
+    });
+    // "Conflicts with" should NOT appear for missing-page
+    expect(screen.queryByText("Conflicts with")).toBeNull();
+  });
+
+  it("renders proposed_page_type chip when present", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("1", { proposed_page_type: "entity" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      // The chip shows the i18n key review.pageType.entity = "entity"
+      expect(screen.getByText("entity")).toBeTruthy();
     });
   });
 
@@ -254,37 +341,66 @@ describe("ReviewQueueView — rendering", () => {
   });
 });
 
-// ─── Approve action ───────────────────────────────────────────────────────────
+// ─── Create action ────────────────────────────────────────────────────────────
 
-describe("ReviewQueueView — approve action", () => {
-  it("calls approveReviewItem and item leaves the list", async () => {
+describe("ReviewQueueView — Create action (ADR-0034 §5)", () => {
+  it("calls createReviewItem and item leaves the list on 201", async () => {
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items: [makeItem("1"), makeItem("2")],
       total: 2,
       limit: 50,
       offset: 0,
     });
-    vi.mocked(reviewClient.approveReviewItem).mockResolvedValueOnce(
-      makeItem("1", { status: "approved" }),
+    vi.mocked(reviewClient.createReviewItem).mockResolvedValueOnce(
+      makeItem("1", { status: "created" }),
     );
 
     render(<ReviewQueueView />);
 
     await waitFor(() => {
-      expect(screen.getAllByTestId("review-action-approve")).toHaveLength(2);
+      expect(screen.getAllByTestId("review-action-create")).toHaveLength(2);
     });
 
-    fireEvent.click(screen.getAllByTestId("review-action-approve")[0]!);
+    fireEvent.click(screen.getAllByTestId("review-action-create")[0]!);
 
     await waitFor(() => {
-      expect(reviewClient.approveReviewItem).toHaveBeenCalledWith("1");
+      expect(reviewClient.createReviewItem).toHaveBeenCalledWith("1");
     });
 
     await waitFor(() => {
       expect(screen.getAllByTestId("review-item-row")).toHaveLength(1);
-      expect(screen.queryByText("Page 1")).toBeNull();
-      expect(screen.getByText("Page 2")).toBeTruthy();
+      expect(screen.queryByText("Proposed Page 1")).toBeNull();
+      expect(screen.getByText("Proposed Page 2")).toBeTruthy();
     });
+  });
+
+  it("shows retry-or-skip hint on 502 and keeps item in list", async () => {
+    const { ApiError } = await import("../api/graphClient");
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("1")],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    vi.mocked(reviewClient.createReviewItem).mockRejectedValueOnce(
+      new ApiError(502, "502 page generation failed; item left pending — retry or skip"),
+    );
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-action-create")).toHaveLength(1);
+    });
+
+    fireEvent.click(screen.getAllByTestId("review-action-create")[0]!);
+
+    await waitFor(() => {
+      // Retry-or-skip hint appears
+      expect(screen.getByText("Page generation failed — retry or skip.")).toBeTruthy();
+    });
+
+    // Item STAYS in the list (item left pending — ADR-0034 §5.3)
+    expect(screen.getByTestId("review-item-row")).toBeTruthy();
   });
 });
 
@@ -316,7 +432,7 @@ describe("ReviewQueueView — skip action", () => {
 
     await waitFor(() => {
       expect(screen.getAllByTestId("review-item-row")).toHaveLength(1);
-      expect(screen.queryByText("Page A")).toBeNull();
+      expect(screen.queryByText("Proposed Page A")).toBeNull();
     });
   });
 });
@@ -377,6 +493,23 @@ describe("ReviewQueueView — deep-research action", () => {
   });
 });
 
+// ─── Sweep result banner ──────────────────────────────────────────────────────
+
+describe("ReviewQueueView — sweep result banner", () => {
+  it("shows sweep result banner when lastSweepResult is set", async () => {
+    resetStore({
+      lastSweepResult: { rule_resolved: 2, llm_resolved: 1, kept: 3 },
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-sweep-result")).toBeTruthy();
+      expect(screen.getByText(/rule-resolved/)).toBeTruthy();
+    });
+  });
+});
+
 // ─── 503 error handling ───────────────────────────────────────────────────────
 
 describe("ReviewQueueView — 503 SEARXNG unavailable", () => {
@@ -406,7 +539,6 @@ describe("ReviewQueueView — 503 SEARXNG unavailable", () => {
       expect(screen.getByTestId("review-searxng-error")).toBeTruthy();
     });
 
-    // Close button is the button inside the banner
     const closeBtns = screen.getAllByText("Close");
     fireEvent.click(closeBtns[0]!);
 

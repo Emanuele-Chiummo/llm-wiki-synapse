@@ -17,8 +17,9 @@ Tables defined here:
   - import_schedules  : M4-EXT scheduled folder import config + last-run status (ADR-0020 §4.1).
   - deep_research_runs    : v0.5 F10 per-run audit ledger for deep research (ADR-0024 §7.1).
   - deep_research_sources : v0.5 F10 per-source child rows (ADR-0024 §7.2).
-  - review_items      : v0.5 F9 HITL review queue; one row per post-ingest review event
-                        (ADR-0025 §3.1); Alembic migration 0010.
+  - review_items      : v0.5 F9 HITL review queue; redesigned in ADR-0034.
+                        Alembic migration 0010 (original); migration 0013 (redesign).
+                        Now stores PROPOSALS (5 types) with lazy on-demand Create.
 
 provider_config + ingest_runs added in v0.2 (ADR-0008). links added in v0.2 (ADR-0008 §5).
 All three new tables ship in a single Alembic migration 0002 (one schema-change event).
@@ -36,6 +37,12 @@ v0.5-F10: deep_research_runs + deep_research_sources added in Alembic migration 
 (ADR-0024 §7 — F10 Deep Research loop).
 
 v0.5-F9: review_items added in Alembic migration 0010 (ADR-0025 §3.1 — F9 HITL review queue).
+
+v0.5-ADR-0034: review_items redesigned in Alembic migration 0013 (ADR-0034 — proposal model).
+    Added: source_page_id, proposed_title, proposed_page_type, proposed_dir, rationale,
+    resolution, created_page_id. Dropped: pre_generated_query. Extended item_type to 5 values
+    (missing-page|suggestion|contradiction|duplicate|confirm); extended status to include
+    created|auto_resolved. Added ix_review_items_vault_proposed_title index.
 
 v0.5-ADR-0032: vault_state.remote_mcp_enabled added in Alembic migration 0011 (ADR-0032 §2.1 —
     persisted runtime toggle for the remote MCP HTTP surface; default OFF).
@@ -1266,20 +1273,65 @@ class DeepResearchSource(Base):
 
 class ReviewItem(Base):
     """
-    v0.5 F9 HITL review queue — one row per post-ingest review event (ADR-0025 §3.1).
+    v0.5 F9 HITL review queue — redesigned in ADR-0034 (Alembic migration 0013).
 
-    vault_id is the existing String identifier (no vaults table — AQ-v0.5-6, ADR-0025 §3.1).
-    page_id is a nullable FK → pages.id; NULL for page-less items (future gap/contradiction items).
-    item_type enum: new_page | update_page | deep_research_candidate.
-    status enum: pending | approved | skipped | deep_researched. Defaults 'pending'.
-    pre_generated_query: newline-separated 1–3 questions; NULL on failure/timeout (I7, AC-F9-4).
-    deep_research_run_id: FK → deep_research_runs.id; set when the Deep-Research action fires
-                          (AC-F10-5); NULL otherwise.
+    PROPOSAL MODEL (ADR-0034 §3):
+    Rows are PROPOSALS for follow-up work, not confirmations of auto-created pages.
+    Pages are created on-demand only when the human takes the Create action (§5).
 
-    Index (vault_id, status, created_at): optimises the paginated pending-queue read
-    (WHERE vault_id=? AND status='pending' ORDER BY created_at).
+    vault_id: String identifier (no FK, no vaults table — AQ-v0.5-6).
 
-    The table is an event log — no per-page uniqueness constraint (ADR-0025 §3.1 note).
+    item_type enum-by-convention (5 values, ADR-0034 §3.1):
+      missing-page   — a referenced-but-absent page the LLM found via dangling wikilink
+      suggestion     — a research gap / follow-up the LLM identified
+      contradiction  — a conflict with existing wiki content
+      duplicate      — a possible name-collision with an existing page
+      confirm        — the LLM wants human confirmation before proceeding
+
+    status lifecycle (ADR-0034 §3.1):
+      pending        — awaiting human action (initial state)
+      created        — Create action ran; page written via write_wiki_page (§5)
+      skipped        — human chose Skip
+      deep_researched— human chose Deep Research; deep_research_run_id is set
+      auto_resolved  — sweep auto-closed the item (Pass-1 or Pass-2)
+
+    page_id (RE-DOCUMENTED, same column):
+      The review TARGET: existing page in conflict (contradiction/duplicate) or
+      the source-context page (missing-page/suggestion). NULL when none applies.
+
+    source_page_id:
+      The page WHOSE INGEST produced this proposal (provenance). Distinct from page_id.
+
+    proposed_title:
+      The title the LLM proposes to create. Required for missing-page; advisory for others.
+      Drives the lazy skeleton (§5.2) and rule-based sweep title match (§6.2).
+
+    proposed_page_type:
+      Inferred PageType (entity|concept|source|synthesis|comparison). NULL → heuristic at
+      Create time (§5.2). `source` is never a valid Create target.
+
+    proposed_dir:
+      Target wiki/ subdir derived from proposed_page_type (display only; recomputed at Create).
+
+    rationale:
+      Short human-readable "why this matters". Replaces the old per-page questions.
+      For `suggestion`: the gap/follow-up; for `contradiction`: conflict description.
+
+    resolution:
+      How the item closed: created|skipped|researched|rule_resolved|llm_resolved.
+      NULL while pending.
+
+    created_page_id:
+      FK → pages.id; the page a successful Create produced. NULL otherwise.
+
+    deep_research_run_id:
+      FK → deep_research_runs.id; set when the Deep-Research action fires (AC-F10-5).
+
+    Indexes:
+      ix_review_items_vault_status_created: (vault_id, status, created_at) — paginated queue.
+      ix_review_items_vault_proposed_title: (vault_id, proposed_title) — sweep title lookup.
+
+    Event log — no per-page uniqueness constraint (ADR-0034 §3.2 / ADR-0025 §3.1 note).
     UUID type follows deep_research_runs pattern: UUID(as_uuid=True).with_variant(String(36)).
     """
 
@@ -1298,17 +1350,7 @@ class ReviewItem(Base):
         nullable=False,
         comment=(
             "Logical vault identifier — existing String (no FK, no vaults table). "
-            "AQ-v0.5-6; ADR-0025 §3.1"
-        ),
-    )
-
-    page_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
-        ForeignKey("pages.id"),
-        nullable=True,
-        comment=(
-            "FK → pages.id; the wiki page being reviewed. "
-            "NULL for page-less items (future gap/contradiction items)."
+            "AQ-v0.5-6; ADR-0034 §3.1"
         ),
     )
 
@@ -1316,8 +1358,10 @@ class ReviewItem(Base):
         Text,
         nullable=False,
         comment=(
-            "new_page | update_page | deep_research_candidate. "
-            "Enum-by-convention (CHECK constraint); sub-kinds are payload, not column values."
+            "Proposal type (ADR-0034 §3.1 enum-by-convention, no DB CHECK): "
+            "missing-page | suggestion | contradiction | duplicate | confirm. "
+            "Old values (new_page/update_page/deep_research_candidate) are obsolete after "
+            "migration 0013 left-shifts them to skipped."
         ),
     )
 
@@ -1326,28 +1370,117 @@ class ReviewItem(Base):
         nullable=False,
         default="pending",
         server_default=sa_text("'pending'"),
-        comment="pending | approved | skipped | deep_researched. Defaults 'pending'.",
-    )
-
-    pre_generated_query: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True,
         comment=(
-            "Newline-separated 1–3 follow-up research questions from the bounded provider call. "
-            "NULL when the call failed/timed out or no provider is configured (I7, AC-F9-4)."
+            "Lifecycle (ADR-0034 §3.1): "
+            "pending | created | skipped | deep_researched | auto_resolved. "
+            "Defaults 'pending'. (approved is gone; Create produces created.)"
         ),
     )
 
+    # ── Review target: the existing page in conflict or source context ────────
+    page_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        ForeignKey("pages.id"),
+        nullable=True,
+        comment=(
+            "FK → pages.id; the review TARGET: existing page a contradiction/duplicate "
+            "conflicts with, or source-context page for missing-page/suggestion. "
+            "NULL when none applies. (ADR-0034 §3.1 — re-documented column)"
+        ),
+    )
+
+    # ── Provenance: the page whose ingest produced this proposal ─────────────
+    source_page_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        ForeignKey("pages.id"),
+        nullable=True,
+        comment=(
+            "FK → pages.id; the page WHOSE INGEST produced this proposal (provenance). "
+            "Distinct from page_id (the conflicting/target page). "
+            "Lets the UI show 'proposed while ingesting X'. ADR-0034 §3.1 ADD."
+        ),
+    )
+
+    # ── Lazy Create skeleton ──────────────────────────────────────────────────
+    proposed_title: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "The title the LLM proposes to create "
+            "(required for missing-page; advisory for others). "
+            "Drives the lazy skeleton (ADR-0034 §5.2) and "
+            "rule-based sweep title match (§6.2). ADR-0034 §3.1 ADD."
+        ),
+    )
+
+    proposed_page_type: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Inferred PageType for the lazy skeleton: entity|concept|source|synthesis|comparison. "
+            "NULL → heuristic applied at Create time (ADR-0034 §5.2). "
+            "source is never a valid Create target. ADR-0034 §3.1 ADD."
+        ),
+    )
+
+    proposed_dir: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Target wiki/ subdir derived from proposed_page_type (DISPLAY ONLY). "
+            "Recomputed from the final type at Create time — "
+            "never trusted blindly (ADR-0034 §5.2). ADR-0034 §3.1 ADD."
+        ),
+    )
+
+    # ── Human-readable rationale (replaces pre_generated_query) ──────────────
+    rationale: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Short human-readable 'why this matters' (ADR-0034 §3.1 ADD). "
+            "Replaces the old per-page follow-up questions (pre_generated_query is DROPPED). "
+            "For suggestion: the gap/follow-up; for contradiction: the conflict description; "
+            "for confirm: what needs confirming. Used as the topic hint for Deep Research."
+        ),
+    )
+
+    # ── Terminal audit ────────────────────────────────────────────────────────
+    resolution: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "How the item closed (ADR-0034 §3.1 ADD): "
+            "created | skipped | researched | rule_resolved | llm_resolved. "
+            "NULL while pending. Complements status (status records *what* happened; "
+            "resolution records *how* it was resolved)."
+        ),
+    )
+
+    # ── Created page (lazy Create output) ────────────────────────────────────
+    created_page_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        ForeignKey("pages.id"),
+        nullable=True,
+        comment=(
+            "FK → pages.id; the page a successful Create action produced (ADR-0034 §5). "
+            "NULL while status != 'created'. Distinct from page_id and source_page_id. "
+            "ADR-0034 §3.1 ADD."
+        ),
+    )
+
+    # ── Deep Research link ────────────────────────────────────────────────────
     deep_research_run_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True).with_variant(String(36), "sqlite"),
         ForeignKey("deep_research_runs.id"),
         nullable=True,
         comment=(
             "FK → deep_research_runs.id; set when the Deep-Research action fires (AC-F10-5). "
-            "NULL while status != 'deep_researched'."
+            "NULL while status != 'deep_researched'. Unchanged from ADR-0025."
         ),
     )
 
+    # ── Timestamps ────────────────────────────────────────────────────────────
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
@@ -1358,13 +1491,19 @@ class ReviewItem(Base):
     reviewed_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,
-        comment="Set on approve/skip/deep-research; NULL while pending.",
+        comment=(
+            "Set on any terminal action "
+            "(Create/Skip/Deep-Research/auto-resolve); NULL while pending."
+        ),
     )
 
     reviewed_by: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
-        comment="Free-text actor (e.g. 'web-ui'); NULL while pending. Audit-only in M5.",
+        comment=(
+            "'web-ui' for human actions; 'auto-sweep' for the sweep (ADR-0034 §6.2/§6.3). "
+            "NULL while pending."
+        ),
     )
 
     __table_args__ = (
@@ -1375,10 +1514,17 @@ class ReviewItem(Base):
             "status",
             "created_at",
         ),
+        # Rule-based sweep title match + duplicate-collision lookup (ADR-0034 §3.1 / §6.2)
+        Index(
+            "ix_review_items_vault_proposed_title",
+            "vault_id",
+            "proposed_title",
+        ),
     )
 
     def __repr__(self) -> str:
         return (
             f"<ReviewItem id={self.id} type={self.item_type!r} "
-            f"status={self.status!r} vault={self.vault_id!r}>"
+            f"status={self.status!r} vault={self.vault_id!r} "
+            f"title={self.proposed_title!r}>"
         )

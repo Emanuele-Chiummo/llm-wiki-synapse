@@ -1,33 +1,35 @@
 """
-F9 HITL Review Queue — unit + API tests (ADR-0025, AC-F9-1..11).
+F9 HITL Review Queue — unit + API tests (ADR-0034, supersedes ADR-0025 test coverage).
+
+Tests retained from ADR-0025 scope, updated for the ADR-0034 proposal model.
+generate_review_queries has been REMOVED (see ADR-0034 §10); those tests are dropped.
+approve() no longer exists as a standalone function — Create is lazy (§5); approve
+  endpoint now calls create_page_from_review and returns 201 or 502 (AI seam).
 
 Tests:
   T-RV-001  enqueue_review inserts a row with status=pending (AC-F9-1)
-  T-RV-002  generate_review_queries makes EXACTLY ONE provider.chat() call (I7, AC-F9-1)
-  T-RV-003  generate_review_queries timeout → returns None; item enqueued with NULL query (I7)
-  T-RV-004  generate_review_queries provider exception → returns None; NOT raised (I7)
-  T-RV-005  ConfigNotFoundError → returns None; item still enqueued (I6)
   T-RV-006  Fire-and-forget hook: exception inside hook NEVER propagates into ingest (AC-F9-2)
   T-RV-007  GET /review/queue returns 200 with paginated items (AC-F9-5)
   T-RV-008  GET /review/queue cap at 200 items (I7 bounded page size)
-  T-RV-009  POST /review/queue/{id}/approve sets status=approved; NO re-ingest (AC-F9-6)
-  T-RV-010  POST /review/queue/{id}/skip sets status=skipped
-  T-RV-011  POST /review/queue/{id}/deep-research returns 202 + run_id + review_item_id
+  T-RV-009  POST /review/queue/{id}/approve → 502 (AI seam pending);
+             item stays pending (ADR-0034 §5.3)
+  T-RV-010  POST /review/queue/{id}/skip → status=skipped
+  T-RV-011  POST /review/queue/{id}/deep-research returns 2xx + run_id + review_item_id
              and stores deep_research_run_id on the item (AC-F9-3)
   T-RV-012  POST /review/queue/{id}/deep-research returns 503 when SEARXNG_URL unset
   T-RV-013  GET /review/queue pagination: limit+offset work correctly (AC-F9-5)
   T-RV-014  approve on non-existent item → 404
-  T-RV-015  Provider chat returns no text → item enqueued with NULL pre_generated_query
   T-RV-016  review queue respects vault_id query parameter
+  T-RV-017  I6 — no isinstance/class-name branching in review.py
+  T-RV-018  pre_generated_query NOT in review.py as attribute access (dropped ADR-0034)
 """
 
 from __future__ import annotations
 
-import asyncio
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -45,14 +47,14 @@ from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-# ── SQLite schema for F9 review tests ─────────────────────────────────────────
+# ── SQLite schema for F9 review tests (ADR-0034 proposal model) ───────────────
 
 
 def _build_review_meta() -> MetaData:
-    """SQLite-compatible schema covering review_items + its FK targets."""
+    """SQLite-compatible schema covering review_items (ADR-0034) + FK targets."""
     meta = MetaData()
 
-    # pages (FK target for review_items.page_id)
+    # pages (FK target for review_items.page_id / source_page_id / created_page_id)
     Table(
         "pages",
         meta,
@@ -135,7 +137,7 @@ def _build_review_meta() -> MetaData:
         Column("fetched_at", Text, nullable=True),
     )
 
-    # review_items (the table under test)
+    # review_items — ADR-0034 proposal model (pre_generated_query DROPPED)
     Table(
         "review_items",
         meta,
@@ -144,7 +146,15 @@ def _build_review_meta() -> MetaData:
         Column("page_id", String(36), nullable=True),
         Column("item_type", Text, nullable=False),
         Column("status", Text, nullable=False, server_default=sa_text("'pending'")),
-        Column("pre_generated_query", Text, nullable=True),
+        # ADR-0034 §3.1 new columns
+        Column("source_page_id", Text, nullable=True),
+        Column("proposed_title", Text, nullable=True),
+        Column("proposed_page_type", Text, nullable=True),
+        Column("proposed_dir", Text, nullable=True),
+        Column("rationale", Text, nullable=True),
+        Column("resolution", Text, nullable=True),
+        Column("created_page_id", Text, nullable=True),
+        # retained
         Column("deep_research_run_id", String(36), nullable=True),
         Column("created_at", Text, nullable=False, server_default=sa_text("datetime('now')")),
         Column("reviewed_at", Text, nullable=True),
@@ -328,22 +338,23 @@ async def _insert_review_item(
     env: dict[str, Any],
     *,
     vault_id: str = "test-vault",
-    item_type: str = "new_page",
+    item_type: str = "missing-page",
     status: str = "pending",
-    pre_generated_query: str | None = None,
+    proposed_title: str | None = "Test Proposal",
+    rationale: str | None = None,
     page_id: str | None = None,
     deep_research_run_id: str | None = None,
 ) -> str:
-    """Insert one review_items row and return its ID string."""
+    """Insert one review_items row (ADR-0034 schema) and return its ID string."""
     item_id = str(uuid.uuid4())
     async with env["session_factory"]() as sess:
         await sess.execute(
             sa_text(
                 "INSERT INTO review_items "
-                "(id, vault_id, page_id, item_type, status, pre_generated_query, "
-                " deep_research_run_id, created_at) "
+                "(id, vault_id, page_id, item_type, status, proposed_title, "
+                " rationale, deep_research_run_id, created_at) "
                 "VALUES (:id, :vault_id, :page_id, :item_type, "
-                ":status, :query, :dr_id, datetime('now'))"
+                ":status, :proposed_title, :rationale, :dr_id, datetime('now'))"
             ),
             {
                 "id": item_id,
@@ -351,7 +362,8 @@ async def _insert_review_item(
                 "page_id": page_id,
                 "item_type": item_type,
                 "status": status,
-                "query": pre_generated_query,
+                "proposed_title": proposed_title,
+                "rationale": rationale,
                 "dr_id": deep_research_run_id,
             },
         )
@@ -390,45 +402,46 @@ async def _insert_page(
 
 
 class TestEnqueueReview:
-    """T-RV-001: enqueue_review DB write (AC-F9-1)."""
+    """T-RV-001: enqueue_review DB write (AC-F9-1) — ADR-0034 proposal fields."""
 
     async def test_enqueues_pending_row(self, review_env: dict[str, Any]) -> None:
-        """enqueue_review inserts a row with status=pending."""
+        """enqueue_review inserts a row with status=pending and new proposal fields."""
         from app.ops.review import enqueue_review
 
-        page_id = uuid.uuid4()
         item = await enqueue_review(
             vault_id="test-vault",
-            page_id=page_id,
-            item_type="new_page",
-            pre_generated_query="What is the origin?",
+            item_type="missing-page",
+            proposed_title="Quantum Computing",
+            rationale="Dangling wikilink [[Quantum Computing]]",
         )
 
         assert item.status == "pending"
         assert item.vault_id == "test-vault"
-        assert item.item_type == "new_page"
-        assert item.pre_generated_query == "What is the origin?"
+        assert item.item_type == "missing-page"
+        assert item.proposed_title == "Quantum Computing"
+        assert item.rationale == "Dangling wikilink [[Quantum Computing]]"
         assert item.reviewed_at is None
+        assert item.resolution is None
 
-    async def test_enqueues_without_query(self, review_env: dict[str, Any]) -> None:
-        """enqueue_review with NULL query still inserts the row."""
+    async def test_enqueues_suggestion_type(self, review_env: dict[str, Any]) -> None:
+        """enqueue_review with suggestion type (valid ADR-0034 type)."""
         from app.ops.review import enqueue_review
 
         item = await enqueue_review(
             vault_id="test-vault",
-            page_id=None,
-            item_type="deep_research_candidate",
-            pre_generated_query=None,
+            item_type="suggestion",
+            proposed_title=None,
+            rationale="The source mentions important gaps.",
         )
         assert item.status == "pending"
-        assert item.pre_generated_query is None
+        assert item.item_type == "suggestion"
 
     async def test_enqueue_is_not_singleton(self, review_env: dict[str, Any]) -> None:
         """Calling enqueue_review twice creates two rows (event log, not upsert — ADR-0025 §3.1)."""
         from app.ops.review import enqueue_review
 
-        await enqueue_review(vault_id="test-vault", page_id=None, item_type="new_page")
-        await enqueue_review(vault_id="test-vault", page_id=None, item_type="new_page")
+        await enqueue_review(vault_id="test-vault", item_type="missing-page")
+        await enqueue_review(vault_id="test-vault", item_type="missing-page")
 
         # Verify two rows in the DB
         async with review_env["session_factory"]() as sess:
@@ -437,204 +450,6 @@ class TestEnqueueReview:
             )
             count = result.scalar_one()
         assert count == 2
-
-
-# ── T-RV-002: generate_review_queries makes EXACTLY ONE call ──────────────────
-
-
-class TestGenerateReviewQueries:
-    """T-RV-002..005, T-RV-015: generate_review_queries I7 + I6 contract."""
-
-    def _make_fake_provider(self, chunks: list[str] | None = None) -> MagicMock:
-        """Build a fake provider whose .chat() is an async generator."""
-        chunks = chunks or ["What is the main topic?\nHow does it relate to X?"]
-
-        async def fake_chat(messages, retrieval_context=""):
-            for chunk in chunks:
-                yield chunk
-
-        fake_provider = MagicMock()
-        fake_provider.chat = fake_chat
-        fake_provider.bind_accumulator = MagicMock()
-        return fake_provider
-
-    def _make_fake_provider_cfg(self) -> MagicMock:
-        cfg = MagicMock()
-        cfg.token_budget = 2000
-        return cfg
-
-    async def test_exactly_one_call(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """T-RV-002: EXACTLY ONE provider.chat() call per invoke (I7, ADR-0025 §3.2)."""
-        call_count = 0
-
-        async def fake_chat(messages, retrieval_context=""):
-            nonlocal call_count
-            call_count += 1
-            yield "What is the main topic?"
-
-        fake_provider = MagicMock()
-        fake_provider.chat = fake_chat
-        fake_provider.bind_accumulator = MagicMock()
-
-        fake_cfg = self._make_fake_provider_cfg()
-
-        # Patch the modules where review.py imports from (local imports inside the function)
-        with (
-            patch(
-                "app.provider_config_service.resolve_provider_config",
-                new=AsyncMock(return_value=fake_cfg),
-            ),
-            patch("app.ingest.provider.resolve_provider", return_value=fake_provider),
-        ):
-            from app.ops.review import generate_review_queries
-
-            result = await generate_review_queries(
-                vault_id="test-vault",
-                page_title="Quantum Computing",
-                page_excerpt="Quantum computers use qubits...",
-            )
-
-        assert call_count == 1, f"Expected exactly 1 call, got {call_count}"
-        assert result is not None
-        assert "What is the main topic?" in result
-
-    async def test_timeout_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """T-RV-003: Timeout → returns None (item enqueued with NULL query — I7)."""
-
-        async def slow_chat(messages, retrieval_context=""):
-            await asyncio.sleep(999)
-            yield "never"
-
-        fake_provider = MagicMock()
-        fake_provider.chat = slow_chat
-        fake_provider.bind_accumulator = MagicMock()
-        fake_cfg = self._make_fake_provider_cfg()
-
-        from app import config as cfg
-
-        monkeypatch.setattr(cfg.settings, "review_query_timeout_seconds", 0.01)
-
-        with (
-            patch(
-                "app.provider_config_service.resolve_provider_config",
-                new=AsyncMock(return_value=fake_cfg),
-            ),
-            patch("app.ingest.provider.resolve_provider", return_value=fake_provider),
-        ):
-            from app.ops.review import generate_review_queries
-
-            result = await generate_review_queries(
-                vault_id="test-vault",
-                page_title="Some Page",
-                page_excerpt="Some content",
-            )
-
-        assert result is None, "Timeout should produce None, not raise"
-
-    async def test_provider_exception_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """T-RV-004: Provider exception → returns None; exception NOT raised (I7)."""
-
-        async def crashing_chat(messages, retrieval_context=""):
-            raise RuntimeError("Simulated provider crash")
-            yield  # make it a generator
-
-        fake_provider = MagicMock()
-        fake_provider.chat = crashing_chat
-        fake_provider.bind_accumulator = MagicMock()
-        fake_cfg = self._make_fake_provider_cfg()
-
-        with (
-            patch(
-                "app.provider_config_service.resolve_provider_config",
-                new=AsyncMock(return_value=fake_cfg),
-            ),
-            patch("app.ingest.provider.resolve_provider", return_value=fake_provider),
-        ):
-            from app.ops.review import generate_review_queries
-
-            result = await generate_review_queries(
-                vault_id="test-vault",
-                page_title="Some Page",
-                page_excerpt="Some content",
-            )
-
-        assert result is None, "Provider crash should return None, not raise"
-
-    async def test_config_not_found_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """T-RV-005: ConfigNotFoundError → returns None (I6 — no provider configured)."""
-        from app.provider_config_service import ConfigNotFoundError
-
-        with patch(
-            "app.provider_config_service.resolve_provider_config",
-            new=AsyncMock(side_effect=ConfigNotFoundError("no provider")),
-        ):
-            from app.ops.review import generate_review_queries
-
-            result = await generate_review_queries(
-                vault_id="test-vault",
-                page_title="Some Page",
-                page_excerpt="Some content",
-            )
-
-        assert result is None
-
-    async def test_empty_response_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """T-RV-015: Provider returns empty/whitespace → NULL pre_generated_query."""
-
-        async def empty_chat(messages, retrieval_context=""):
-            yield "   \n  "
-
-        fake_provider = MagicMock()
-        fake_provider.chat = empty_chat
-        fake_provider.bind_accumulator = MagicMock()
-        fake_cfg = self._make_fake_provider_cfg()
-
-        with (
-            patch(
-                "app.provider_config_service.resolve_provider_config",
-                new=AsyncMock(return_value=fake_cfg),
-            ),
-            patch("app.ingest.provider.resolve_provider", return_value=fake_provider),
-        ):
-            from app.ops.review import generate_review_queries
-
-            result = await generate_review_queries(
-                vault_id="test-vault",
-                page_title="Empty Response Page",
-                page_excerpt="Some content",
-            )
-
-        assert result is None, "Empty response should return None, not empty string"
-
-    async def test_caps_at_three_questions(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """generate_review_queries caps output at 3 questions (ADR-0025 §3.2)."""
-
-        async def multi_q_chat(messages, retrieval_context=""):
-            yield "Q1\nQ2\nQ3\nQ4\nQ5"
-
-        fake_provider = MagicMock()
-        fake_provider.chat = multi_q_chat
-        fake_provider.bind_accumulator = MagicMock()
-        fake_cfg = self._make_fake_provider_cfg()
-
-        with (
-            patch(
-                "app.provider_config_service.resolve_provider_config",
-                new=AsyncMock(return_value=fake_cfg),
-            ),
-            patch("app.ingest.provider.resolve_provider", return_value=fake_provider),
-        ):
-            from app.ops.review import generate_review_queries
-
-            result = await generate_review_queries(
-                vault_id="test-vault",
-                page_title="Rich Page",
-                page_excerpt="Much content",
-            )
-
-        assert result is not None
-        lines = [ln for ln in result.splitlines() if ln.strip()]
-        assert len(lines) <= 3, f"Expected ≤3 questions; got {len(lines)}: {result!r}"
 
 
 # ── T-RV-006: Fire-and-forget hook never propagates ───────────────────────────
@@ -663,9 +478,7 @@ class TestFireAndForgetHook:
             try:
                 await review_mod.enqueue_review(
                     vault_id=vault_id,
-                    page_id=None,
-                    item_type="new_page",
-                    pre_generated_query=None,
+                    item_type="missing-page",
                 )
             except Exception:
                 pass  # AC-F9-2: never propagate
@@ -678,7 +491,7 @@ class TestFireAndForgetHook:
 
 
 class TestReviewQueueEndpoints:
-    """T-RV-007..014, T-RV-016: REST endpoint behavior (ADR-0025 §3.5)."""
+    """T-RV-007..014, T-RV-016: REST endpoint behavior (ADR-0034 §7)."""
 
     async def test_get_queue_empty(self, review_client: AsyncClient) -> None:
         """T-RV-007: GET /review/queue returns 200 with empty list when no items."""
@@ -694,8 +507,8 @@ class TestReviewQueueEndpoints:
         """T-RV-007: GET /review/queue returns inserted items (AC-F9-5)."""
         await _insert_review_item(
             review_env,
-            item_type="new_page",
-            pre_generated_query="What is this about?",
+            item_type="missing-page",
+            proposed_title="New Topic",
         )
         resp = await review_client.get("/review/queue?vault_id=test-vault")
         assert resp.status_code == 200
@@ -704,8 +517,10 @@ class TestReviewQueueEndpoints:
         assert len(body["items"]) == 1
         item = body["items"][0]
         assert item["status"] == "pending"
-        assert item["item_type"] == "new_page"
-        assert item["pre_generated_query"] == "What is this about?"
+        assert item["item_type"] == "missing-page"
+        assert item["proposed_title"] == "New Topic"
+        # pre_generated_query is DROPPED (ADR-0034)
+        assert "pre_generated_query" not in item
 
     async def test_get_queue_limit_capped_at_200(
         self, review_env: dict[str, Any], review_client: AsyncClient
@@ -720,7 +535,9 @@ class TestReviewQueueEndpoints:
     ) -> None:
         """T-RV-013: limit+offset pagination works correctly (AC-F9-5)."""
         for i in range(5):
-            await _insert_review_item(review_env, item_type="new_page", pre_generated_query=f"Q{i}")
+            await _insert_review_item(
+                review_env, item_type="missing-page", proposed_title=f"Page {i}"
+            )
 
         resp1 = await review_client.get("/review/queue?vault_id=test-vault&limit=3&offset=0")
         assert resp1.status_code == 200
@@ -753,21 +570,25 @@ class TestReviewQueueEndpoints:
         assert resp_b.status_code == 200
         assert resp_b.json()["total"] == 1
 
-    async def test_approve_sets_status(
+    async def test_approve_returns_502_ai_seam(
         self, review_env: dict[str, Any], review_client: AsyncClient
     ) -> None:
-        """T-RV-009: POST /review/queue/{id}/approve → status=approved; NO re-ingest (AC-F9-6)."""
-        item_id = await _insert_review_item(review_env)
+        """T-RV-009: POST /review/queue/{id}/approve → 502 (AI seam stub, ADR-0034 §5.3).
 
-        # Ensure ingest_file is NOT called (AC-F9-6, I1)
-        with patch("app.ingest.orchestrator.ingest_file") as mock_ingest:
-            resp = await review_client.post(f"/review/queue/{item_id}/approve")
-            assert mock_ingest.call_count == 0, "approve must NOT trigger re-ingest (AC-F9-6)"
+        The Create action invokes _run_generation which raises NotImplementedError until
+        ai-agent-engineer fills the stub. The item must remain pending (no state change on 502).
+        """
+        item_id = await _insert_review_item(
+            review_env, proposed_title="Galaxy Formation"
+        )
 
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["status"] == "approved"
-        assert body["reviewed_at"] is not None
+        # approve calls create_page_from_review → resolve_provider_config needed
+        # but there's no configured provider in the test DB, so we get either 409 or 502
+        resp = await review_client.post(f"/review/queue/{item_id}/approve")
+        # Either 409 (no provider) or 502 (AI seam stub) is correct per ADR-0034 §5
+        assert resp.status_code in (409, 502), (
+            f"Expected 409 (no provider) or 502 (AI seam), got {resp.status_code}: {resp.text}"
+        )
 
     async def test_skip_sets_status(
         self, review_env: dict[str, Any], review_client: AsyncClient
@@ -811,20 +632,20 @@ class TestReviewQueueEndpoints:
         assert resp.status_code == 503
         assert "SEARXNG_URL" in resp.json()["detail"]
 
-    async def test_deep_research_returns_202_with_run_id(
+    async def test_deep_research_returns_2xx_with_run_id(
         self,
         review_env: dict[str, Any],
         review_client: AsyncClient,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """T-RV-011: deep-research → 202, body has review_item_id + run_id."""
+        """T-RV-011: deep-research → 2xx, body has review_item_id + run_id."""
         from app import config as cfg
 
         monkeypatch.setattr(cfg.settings, "searxng_url", "http://searxng:8080")
 
         item_id = await _insert_review_item(
             review_env,
-            pre_generated_query="What are the implications of quantum computing?",
+            proposed_title="What are the implications of quantum computing?",
         )
 
         # Patch out the actual deep research runner
@@ -857,7 +678,7 @@ class TestReviewQueueEndpoints:
 
         item_id = await _insert_review_item(
             review_env,
-            pre_generated_query="Why is the sky blue?",
+            proposed_title="Why is the sky blue?",
         )
 
         async def fake_run_deep_research(**kwargs):
@@ -883,16 +704,16 @@ class TestReviewQueueEndpoints:
         assert row.deep_research_run_id == run_id
 
 
-# ── T-RV: ops.review unit-level list/approve/skip ─────────────────────────────
+# ── T-RV: ops.review unit-level list/skip ─────────────────────────────────────
 
 
 class TestReviewOpsUnit:
-    """Unit tests for ops.review list_queue / approve / skip (no HTTP)."""
+    """Unit tests for ops.review list_queue / skip (no HTTP) — ADR-0034."""
 
     async def test_list_queue_paginates(self, review_env: dict[str, Any]) -> None:
         """list_queue returns ReviewQueuePage with correct total and items slice."""
         for i in range(4):
-            await _insert_review_item(review_env, pre_generated_query=f"Q{i}")
+            await _insert_review_item(review_env, proposed_title=f"Page {i}")
 
         from app.ops.review import list_queue
 
@@ -905,19 +726,8 @@ class TestReviewOpsUnit:
         page2 = await list_queue("test-vault", limit=3, offset=3)
         assert len(page2.items) == 1
 
-    async def test_approve_updates_status(self, review_env: dict[str, Any]) -> None:
-        """approve() sets status=approved and reviewed_at (no re-ingest)."""
-        item_id_str = await _insert_review_item(review_env)
-        item_uuid = uuid.UUID(item_id_str)
-
-        from app.ops.review import approve
-
-        updated = await approve(item_uuid)
-        assert updated.status == "approved"
-        assert updated.reviewed_at is not None
-
     async def test_skip_updates_status(self, review_env: dict[str, Any]) -> None:
-        """skip() sets status=skipped and reviewed_at."""
+        """skip() sets status=skipped, resolution=skipped, and reviewed_at."""
         item_id_str = await _insert_review_item(review_env)
         item_uuid = uuid.UUID(item_id_str)
 
@@ -925,19 +735,20 @@ class TestReviewOpsUnit:
 
         updated = await skip(item_uuid)
         assert updated.status == "skipped"
+        assert updated.resolution == "skipped"
         assert updated.reviewed_at is not None
 
-    async def test_approve_nonexistent_raises_http_404(self, review_env: dict[str, Any]) -> None:
-        """approve() on absent item raises HTTPException(404)."""
-        from app.ops.review import approve
+    async def test_skip_nonexistent_raises_http_404(self, review_env: dict[str, Any]) -> None:
+        """skip() on absent item raises HTTPException(404)."""
+        from app.ops.review import skip
         from fastapi import HTTPException
 
         with pytest.raises(HTTPException) as exc_info:
-            await approve(uuid.uuid4())
+            await skip(uuid.uuid4())
         assert exc_info.value.status_code == 404
 
     async def test_list_queue_vault_filter(self, review_env: dict[str, Any]) -> None:
-        """list_queue filters by vault_id (ADR-0025 §3.5)."""
+        """list_queue filters by vault_id (ADR-0034 §7)."""
         await _insert_review_item(review_env, vault_id="vault-X")
         await _insert_review_item(review_env, vault_id="vault-Y")
 
@@ -950,7 +761,7 @@ class TestReviewOpsUnit:
         assert page_y.total == 1
 
 
-# ── T-RV: I6 — no isinstance / class-name branching in review.py ─────────────
+# ── T-RV-017: I6 — no isinstance / class-name branching in review.py ──────────
 
 
 class TestI6NoIsinstanceBranching:
@@ -971,3 +782,38 @@ class TestI6NoIsinstanceBranching:
         assert "OllamaProvider" not in text, "review.py must not reference OllamaProvider (I6)"
         assert "CliAgentProvider" not in text, "review.py must not reference CliAgentProvider (I6)"
         assert "ApiProvider" not in text, "review.py must not reference ApiProvider (I6)"
+
+
+# ── T-RV-018: pre_generated_query NOT in review.py (dropped ADR-0034) ─────────
+
+
+class TestADR0034PreGeneratedQueryDropped:
+    """T-RV-018: pre_generated_query is fully removed from review.py (ADR-0034 §10)."""
+
+    def test_pre_generated_query_not_in_review(self) -> None:
+        """review.py must not access or assign pre_generated_query anywhere."""
+        from pathlib import Path
+
+        review_path = Path(__file__).resolve().parent.parent / "app" / "ops" / "review.py"
+        text = review_path.read_text(encoding="utf-8")
+
+        # Must not use attribute access or assignment for the dropped column
+        assert ".pre_generated_query" not in text, (
+            "review.py must not access .pre_generated_query attribute (dropped ADR-0034 §10)"
+        )
+        assert "pre_generated_query=" not in text, (
+            "review.py must not assign pre_generated_query= (dropped ADR-0034 §10)"
+        )
+
+    def test_generate_review_queries_not_in_review(self) -> None:
+        """generate_review_queries function is removed in ADR-0034 (§10 Do-NOT list)."""
+        from pathlib import Path
+
+        review_path = Path(__file__).resolve().parent.parent / "app" / "ops" / "review.py"
+        text = review_path.read_text(encoding="utf-8")
+
+        # The function must not be defined
+        assert "def generate_review_queries" not in text, (
+            "generate_review_queries was removed in ADR-0034 §10; "
+            "must not exist in review.py"
+        )

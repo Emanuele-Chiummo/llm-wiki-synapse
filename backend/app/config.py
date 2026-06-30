@@ -180,6 +180,79 @@ class Settings(BaseSettings):
     Env var: REVIEW_QUERY_TOKEN_BUDGET.
     """
 
+    # ── F9 redesign: proposal model bounds (ADR-0034 §4/§6, [AI] §11.2) ──────────
+    # All three new LLM call sites (proposal emission, sweep Pass-2, on-demand Create)
+    # are bounded by these + the resolved provider row's max_iter/token_budget (I7).
+
+    review_propose_min_chars: int = 10_000
+    """
+    Anti-spam gate (ADR-0034 §4.2): the proposal LLM call runs only if the total written
+    content is at least this many characters (one of several OR'd gate conditions). Below the
+    gate (and absent any dangling-link / not-written-suggested signal) → zero proposals, zero
+    cost. Env var: REVIEW_PROPOSE_MIN_CHARS.
+    """
+
+    review_propose_min_pages: int = 4
+    """
+    Anti-spam gate (ADR-0034 §4.2): the proposal LLM call runs if at least this many pages were
+    written in the run (OR'd with the char / dangling-link / suggested-page conditions).
+    Env var: REVIEW_PROPOSE_MIN_PAGES.
+    """
+
+    review_propose_max_items: int = 8
+    """
+    Hard cap on proposals emitted per ingest run (ADR-0034 §4.3, Do-NOT #9). The single LLM
+    proposal call's output is truncated to this many items — never an unbounded enqueue.
+    Env var: REVIEW_PROPOSE_MAX_ITEMS.
+    """
+
+    review_propose_token_budget: int = 4_000
+    """
+    Fallback token budget for the single proposal call (ADR-0034 §4.3, I7) when the resolved
+    provider row carries none. Small: a compact analysis digest + ≤8 proposals fits comfortably.
+    Env var: REVIEW_PROPOSE_TOKEN_BUDGET.
+    """
+
+    review_propose_timeout_seconds: float = 30.0
+    """
+    Timeout (seconds) wrapping the single proposal provider call (ADR-0034 §4.3, I7).
+    On timeout → emit only the rule-based proposals (degrade, never fail ingest).
+    Env var: REVIEW_PROPOSE_TIMEOUT_SECONDS.
+    """
+
+    review_sweep_max_items: int = 200
+    """
+    Max pending missing-page/duplicate items processed by the sweep Pass-1 rule pass per run
+    (ADR-0034 §6.2, I7 — bounded indexed read, no vault re-scan).
+    Env var: REVIEW_SWEEP_MAX_ITEMS.
+    """
+
+    review_sweep_llm_enabled: bool = True
+    """
+    Gate for the sweep Pass-2 conservative LLM judgment (ADR-0034 §6.3). Default on (a single
+    bounded call). Set false for zero-cost operation: Pass-1 still runs; Pass-2 returns set()
+    (keep all pending). Env var: REVIEW_SWEEP_LLM_ENABLED.
+    """
+
+    review_sweep_llm_max_items: int = 8
+    """
+    Cap on the number of candidate items batched into the single sweep Pass-2 LLM call
+    (ADR-0034 §6.3, Do-NOT #9). Env var: REVIEW_SWEEP_LLM_MAX_ITEMS.
+    """
+
+    review_sweep_llm_token_budget: int = 4_000
+    """
+    Fallback token budget for the single sweep Pass-2 call (ADR-0034 §6.3, I7) when the resolved
+    provider row carries none. Env var: REVIEW_SWEEP_LLM_TOKEN_BUDGET.
+    """
+
+    review_sweep_timeout_seconds: float = 30.0
+    """
+    Timeout (seconds) wrapping the single sweep Pass-2 provider call (ADR-0034 §6.3, I7).
+    On timeout / ambiguity → keep ALL pending (default-to-keep, Do-NOT #7).
+    Env var: REVIEW_SWEEP_TIMEOUT_SECONDS.
+    """
+
     # ── F12: Multi-format ingest (ADR-0025 §4.1) ─────────────────────────────────
 
     extract_max_chars: int = 2_000_000

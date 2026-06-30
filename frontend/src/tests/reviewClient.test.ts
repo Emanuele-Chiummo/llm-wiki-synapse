@@ -1,40 +1,51 @@
 /**
- * reviewClient.test.ts — unit tests for the F9 review API client.
+ * reviewClient.test.ts — unit tests for the F9 review API client (ADR-0034 §7).
  *
  * Covers:
  *   - fetchReviewQueue: builds correct URL with vaultId, limit, offset
- *   - approveReviewItem: POST to correct endpoint
+ *   - createReviewItem: POST to /review/queue/{id}/create (preferred alias, ADR-0034 §7)
  *   - skipReviewItem: POST to correct endpoint
  *   - deepResearchReviewItem: POST to correct endpoint, returns 202 body
+ *   - sweepReviewQueue: POST to /review/queue/sweep
  *   - Error handling: non-ok response throws ApiError with status
+ *   - 409 / 502 handling for Create (ADR-0034 §5.3)
  *
  * Mocks global fetch via vi.stubGlobal.
+ * pre_generated_query is GONE — items now carry proposed_title + rationale.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   fetchReviewQueue,
-  approveReviewItem,
+  createReviewItem,
   skipReviewItem,
   deepResearchReviewItem,
+  sweepReviewQueue,
 } from "../api/reviewClient";
 import type { ReviewItem, ReviewQueueResponse, ReviewDeepResearchResponse } from "../api/types";
 import { ApiError } from "../api/graphClient";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeItem(id: string): ReviewItem {
+function makeItem(id: string, overrides: Partial<ReviewItem> = {}): ReviewItem {
   return {
     id,
     vault_id: "default",
-    page_id: `page-${id}`,
-    page_title: `Page ${id}`,
-    item_type: "new_page",
+    item_type: "missing-page",
     status: "pending",
-    pre_generated_query: "Why?",
+    proposed_title: `Proposed Page ${id}`,
+    proposed_page_type: "concept",
+    proposed_dir: "concepts",
+    rationale: "This page is referenced but does not exist.",
+    page_id: null,
+    page_title: null,
+    source_page_id: null,
+    created_page_id: null,
+    resolution: null,
     deep_research_run_id: null,
     created_at: new Date().toISOString(),
     reviewed_at: null,
+    ...overrides,
   };
 }
 
@@ -42,7 +53,7 @@ function mockFetch(body: unknown, status = 200) {
   return vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
     status,
-    statusText: status === 200 ? "OK" : "Error",
+    statusText: status === 200 ? "OK" : status === 201 ? "Created" : "Error",
     json: () => Promise.resolve(body),
   });
 }
@@ -93,31 +104,63 @@ describe("reviewClient — fetchReviewQueue", () => {
 
     await expect(fetchReviewQueue({ vaultId: "default" })).rejects.toBeInstanceOf(ApiError);
   });
-});
 
-// ─── approveReviewItem ────────────────────────────────────────────────────────
-
-describe("reviewClient — approveReviewItem", () => {
-  it("POSTs to /review/queue/{id}/approve", async () => {
-    const item = makeItem("abc");
-    const fetchMock = mockFetch(item);
+  it("returned items carry the ADR-0034 §7.1 projection (no pre_generated_query)", async () => {
+    const item = makeItem("1");
+    const fetchMock = mockFetch({ items: [item], total: 1, limit: 50, offset: 0 });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await approveReviewItem("abc");
+    const result = await fetchReviewQueue({ vaultId: "default" });
+    const first = result.items[0]!;
+    expect(first.proposed_title).toBe("Proposed Page 1");
+    expect(first.rationale).toBeTruthy();
+    expect("pre_generated_query" in first).toBe(false);
+  });
+});
+
+// ─── createReviewItem ─────────────────────────────────────────────────────────
+
+describe("reviewClient — createReviewItem", () => {
+  it("POSTs to /review/queue/{id}/create (preferred alias — ADR-0034 §7)", async () => {
+    const item = makeItem("abc", { status: "created" });
+    const fetchMock = mockFetch(item, 201);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createReviewItem("abc");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, { method: string }];
-    expect(url).toContain("/review/queue/abc/approve");
+    expect(url).toContain("/review/queue/abc/create");
     expect(init.method).toBe("POST");
     expect(result.id).toBe("abc");
+    expect(result.status).toBe("created");
   });
 
-  it("throws ApiError on 404", async () => {
+  it("throws ApiError with status 409 when item not pending or no provider (ADR-0034 §5.3)", async () => {
+    const fetchMock = mockFetch({ detail: "item is not pending" }, 409);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(createReviewItem("abc")).rejects.toBeInstanceOf(ApiError);
+    await expect(createReviewItem("abc")).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("throws ApiError with status 502 when generation fails; item stays pending (ADR-0034 §5.3)", async () => {
+    const fetchMock = mockFetch(
+      { detail: "page generation failed; item left pending — retry or skip" },
+      502,
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(createReviewItem("abc")).rejects.toBeInstanceOf(ApiError);
+    await expect(createReviewItem("abc")).rejects.toMatchObject({ status: 502 });
+  });
+
+  it("throws ApiError on 404 (item not found)", async () => {
     const fetchMock = mockFetch({ detail: "Review item not found" }, 404);
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(approveReviewItem("missing")).rejects.toBeInstanceOf(ApiError);
-    await expect(approveReviewItem("missing")).rejects.toMatchObject({ status: 404 });
+    await expect(createReviewItem("missing")).rejects.toBeInstanceOf(ApiError);
+    await expect(createReviewItem("missing")).rejects.toMatchObject({ status: 404 });
   });
 });
 
@@ -125,7 +168,7 @@ describe("reviewClient — approveReviewItem", () => {
 
 describe("reviewClient — skipReviewItem", () => {
   it("POSTs to /review/queue/{id}/skip", async () => {
-    const item = makeItem("xyz");
+    const item = makeItem("xyz", { status: "skipped" });
     const fetchMock = mockFetch(item);
     vi.stubGlobal("fetch", fetchMock);
 
@@ -135,6 +178,7 @@ describe("reviewClient — skipReviewItem", () => {
     expect(url).toContain("/review/queue/xyz/skip");
     expect(init.method).toBe("POST");
     expect(result.id).toBe("xyz");
+    expect(result.status).toBe("skipped");
   });
 });
 
@@ -167,5 +211,26 @@ describe("reviewClient — deepResearchReviewItem", () => {
 
     await expect(deepResearchReviewItem("item-1")).rejects.toBeInstanceOf(ApiError);
     await expect(deepResearchReviewItem("item-1")).rejects.toMatchObject({ status: 503 });
+  });
+});
+
+// ─── sweepReviewQueue ─────────────────────────────────────────────────────────
+
+describe("reviewClient — sweepReviewQueue", () => {
+  it("POSTs to /review/queue/sweep with vault_id param", async () => {
+    const sweepResp = { rule_resolved: 2, llm_resolved: 0, kept: 3 };
+    const fetchMock = mockFetch(sweepResp);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await sweepReviewQueue("default");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, { method: string }];
+    expect(url).toContain("/review/queue/sweep");
+    expect(url).toContain("vault_id=default");
+    expect(init.method).toBe("POST");
+    expect(result.rule_resolved).toBe(2);
+    expect(result.llm_resolved).toBe(0);
+    expect(result.kept).toBe(3);
   });
 });

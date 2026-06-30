@@ -1,24 +1,30 @@
 /**
- * ReviewQueueView.tsx — F9 HITL Review Queue section (ADR-0025 §3.6, AC-F9-5).
+ * ReviewQueueView.tsx — F9 HITL Review Queue section (ADR-0034 §7.1).
  *
  * Layout:
- *   - Header with title + total count badge
+ *   - Header with title + pending count badge + sweep button
  *   - 503 SEARXNG banner when deep-research is unavailable (I9)
  *   - Last deep-research success banner with run_id + jump link
- *   - Pending items list (TanStack Virtual when > 50 rows — I4)
- *   - Per-item: page_title, item_type badge, pre_generated_query, created_at
- *   - Per-item actions: Approve · Skip · Deep-Research
+ *   - Last sweep result banner (rule_resolved + llm_resolved counts)
+ *   - Pending items list (TanStack Virtual — always virtualised for I4)
+ *   - Per-item PROPOSAL card:
+ *       type badge (5 types from ADR-0034 §3.1)
+ *       proposed_title (bold)
+ *       proposed_page_type chip (when present)
+ *       rationale text ("why this matters")
+ *       conflicting page_title link (contradiction / duplicate types only)
+ *   - Per-item actions: Create (spinner during LLM generation) · Skip · Deep-Research
+ *   - 502 Create failure handled as retry-or-skip hint (item stays pending)
+ *   - 409 Create failure (no provider / not pending) as generic per-item error
  *   - Empty state and error state
  *
  * INVARIANT I3: Zustand selectors + shallow equality. No store subscriptions
  *   that trigger on unrelated state.
- * INVARIANT I4: list virtualised with TanStack Virtual; virtualization kicks in
- *   always (the virtualiser manages this efficiently regardless of list size).
+ * INVARIANT I4: list virtualised with TanStack Virtual; always on for the full list.
  * INVARIANT I6: Deep-Research action delegates to POST /review/queue/{id}/deep-research
  *   which in turn delegates to POST /research/start — no hardcoded provider (I6).
- * INVARIANT I7: approve / skip do NOT re-trigger ingest (AC-F9-6, I1).
- *
- * AC-F9-5: separate from the M4 Ingest Activity View (AC-F9-7).
+ * INVARIANT I7: create / skip do NOT re-trigger ingest (AC-F9-6, I1).
+ *               Create DOES run a bounded LLM loop server-side (ADR-0034 §5).
  */
 
 import { useEffect, useRef, useCallback, type CSSProperties } from "react";
@@ -33,29 +39,46 @@ import {
   selectReviewError,
   selectReviewActionInFlight,
   selectReviewActionError,
+  selectCreateGenerationError,
   selectLastDeepResearch,
   selectDeepResearchError,
+  selectLastSweepResult,
   selectFetchFreshReview,
   selectFetchMoreReview,
-  selectApprove,
+  selectCreate,
   selectSkip,
   selectDeepResearch,
+  selectSweep,
   selectClearDeepResearchError,
   selectClearLastDeepResearch,
+  selectClearLastSweepResult,
+  selectClearCreateGenerationError,
 } from "../../store/reviewStore";
 import { useGraphStore, selectVaultId, selectSetActiveSection } from "../../store/graphStore";
+import { EmptyState } from "../common/EmptyState";
 import type { ReviewItem } from "../../api/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ROW_HEIGHT = 108;
+/**
+ * Row height must cover: type badge + title row, proposed_page_type chip + rationale,
+ * optional conflict row, action row. 132px gives comfortable padding.
+ */
+const ROW_HEIGHT = 132;
 
-// ─── Item type badge ──────────────────────────────────────────────────────────
+// ─── Proposal type badge ──────────────────────────────────────────────────────
 
+/**
+ * Five proposal types from ADR-0034 §3.1.
+ * Colors chosen for semantic meaning: green=create, yellow=investigate, red=conflict,
+ * purple=merge, blue=confirm.
+ */
 const ITEM_TYPE_COLORS: Record<string, { color: string; bg: string }> = {
-  new_page:                { color: "#3fb950", bg: "#3fb95022" },
-  update_page:             { color: "#d29922", bg: "#d2992222" },
-  deep_research_candidate: { color: "#58a6ff", bg: "#58a6ff22" },
+  "missing-page":  { color: "#3fb950", bg: "#3fb95022" },
+  suggestion:      { color: "#d29922", bg: "#d2992222" },
+  contradiction:   { color: "#f85149", bg: "#f8514922" },
+  duplicate:       { color: "#bc8cff", bg: "#bc8cff22" },
+  confirm:         { color: "#58a6ff", bg: "#58a6ff22" },
 };
 
 interface ItemTypeBadgeProps {
@@ -65,6 +88,7 @@ interface ItemTypeBadgeProps {
 
 function ItemTypeBadge({ itemType, t }: ItemTypeBadgeProps) {
   const { color, bg } = ITEM_TYPE_COLORS[itemType] ?? { color: "#8b949e", bg: "#8b949e22" };
+  // i18n key: review.itemType.missing-page etc.
   const label = t(`review.itemType.${itemType}`);
   return (
     <span
@@ -80,6 +104,39 @@ function ItemTypeBadge({ itemType, t }: ItemTypeBadgeProps) {
         padding: "1px 6px",
         whiteSpace: "nowrap",
         userSelect: "none",
+        flexShrink: 0,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+// ─── Page type chip ───────────────────────────────────────────────────────────
+
+interface PageTypeChipProps {
+  pageType: string;
+  t: (key: string) => string;
+}
+
+function PageTypeChip({ pageType, t }: PageTypeChipProps) {
+  // i18n key: review.pageType.entity etc.
+  const label = t(`review.pageType.${pageType}`) ?? pageType;
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        fontSize: 9,
+        fontWeight: 500,
+        color: "#8b949e",
+        background: "#21262d",
+        border: "1px solid #30363d",
+        borderRadius: 4,
+        padding: "0 5px",
+        whiteSpace: "nowrap",
+        userSelect: "none",
+        flexShrink: 0,
       }}
     >
       {label}
@@ -93,34 +150,56 @@ interface ActionButtonProps {
   label: string;
   onClick: () => void;
   disabled: boolean;
-  variant: "approve" | "skip" | "deep-research";
+  loading?: boolean;
+  variant: "create" | "skip" | "deep-research";
 }
 
-function ActionButton({ label, onClick, disabled, variant }: ActionButtonProps) {
-  const COLORS: Record<string, { border: string; color: string; hoverBg: string }> = {
-    approve:        { border: "#3fb950", color: "#3fb950", hoverBg: "#3fb95015" },
-    skip:           { border: "#484f58", color: "#8b949e", hoverBg: "#21262d" },
-    "deep-research": { border: "#58a6ff", color: "#58a6ff", hoverBg: "#58a6ff15" },
+function ActionButton({ label, onClick, disabled, loading, variant }: ActionButtonProps) {
+  const COLORS: Record<string, { border: string; color: string }> = {
+    create:           { border: "#3fb950", color: "#3fb950" },
+    skip:             { border: "#484f58", color: "#8b949e" },
+    "deep-research":  { border: "#58a6ff", color: "#58a6ff" },
   };
-  const { border, color } = COLORS[variant] ?? (COLORS["skip"] as { border: string; color: string; hoverBg: string });
+  const fallback = { border: "#484f58", color: "#8b949e" };
+  const { border, color } = COLORS[variant] ?? fallback;
+  const isDisabled = disabled || loading;
   return (
     <button
       onClick={onClick}
-      disabled={disabled}
+      disabled={isDisabled}
       aria-label={label}
+      aria-busy={loading}
       data-testid={`review-action-${variant}`}
       style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
         padding: "3px 10px",
         fontSize: 11,
         fontWeight: 600,
-        border: `1px solid ${disabled ? "#21262d" : border}`,
+        border: `1px solid ${isDisabled ? "#21262d" : border}`,
         borderRadius: 5,
         background: "transparent",
-        color: disabled ? "#484f58" : color,
-        cursor: disabled ? "not-allowed" : "pointer",
+        color: isDisabled ? "#484f58" : color,
+        cursor: isDisabled ? "not-allowed" : "pointer",
         whiteSpace: "nowrap",
+        transition: "opacity 0.1s",
       }}
     >
+      {loading && (
+        <span
+          aria-hidden="true"
+          style={{
+            display: "inline-block",
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            border: "1.5px solid currentColor",
+            borderTopColor: "transparent",
+            animation: "syn-spin 0.7s linear infinite",
+          }}
+        />
+      )}
       {label}
     </button>
   );
@@ -131,11 +210,13 @@ function ActionButton({ label, onClick, disabled, variant }: ActionButtonProps) 
 interface ReviewRowProps {
   item: ReviewItem;
   style: CSSProperties;
-  inFlight: "approve" | "skip" | "deep-research" | null | undefined;
+  inFlight: "create" | "skip" | "deep-research" | null | undefined;
   actionError: string | null | undefined;
-  onApprove: (id: string) => void;
+  generationError: string | null | undefined;
+  onCreate: (id: string) => void;
   onSkip: (id: string) => void;
   onDeepResearch: (id: string) => void;
+  onDismissGenerationError: (id: string) => void;
   t: (key: string) => string;
   lang: string;
 }
@@ -145,13 +226,16 @@ function ReviewRow({
   style,
   inFlight,
   actionError,
-  onApprove,
+  generationError,
+  onCreate,
   onSkip,
   onDeepResearch,
+  onDismissGenerationError,
   t,
   lang,
 }: ReviewRowProps) {
-  const isDisabled = inFlight !== null && inFlight !== undefined;
+  const isAnyInFlight = inFlight !== null && inFlight !== undefined;
+  const isCreating = inFlight === "create";
 
   const relativeTime = (() => {
     try {
@@ -167,9 +251,10 @@ function ReviewRow({
     }
   })();
 
-  const queryPreview = item.pre_generated_query
-    ? item.pre_generated_query.split("\n")[0]?.slice(0, 120) ?? null
-    : null;
+  // Show conflict page for contradiction + duplicate types
+  const showConflictPage =
+    (item.item_type === "contradiction" || item.item_type === "duplicate") &&
+    item.page_title !== null;
 
   return (
     <div
@@ -182,13 +267,17 @@ function ReviewRow({
         borderBottom: "1px solid #21262d",
         display: "flex",
         flexDirection: "column",
-        gap: 4,
+        gap: 3,
         boxSizing: "border-box",
+        background: generationError ? "#1a0f0f" : undefined,
       }}
     >
-      {/* Row 1: type badge + page title + timestamp */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {/* Row 1: type badge + proposed_title + timestamp */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
         <ItemTypeBadge itemType={item.item_type} t={t} />
+        {item.proposed_page_type && (
+          <PageTypeChip pageType={item.proposed_page_type} t={t} />
+        )}
         <span
           style={{
             fontSize: 12,
@@ -198,10 +287,11 @@ function ReviewRow({
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            minWidth: 0,
           }}
-          title={item.page_title ?? item.page_id ?? ""}
+          title={item.proposed_title ?? item.page_title ?? ""}
         >
-          {item.page_title ?? item.page_id ?? t("review.noPage")}
+          {item.proposed_title ?? item.page_title ?? t("review.noTitle")}
         </span>
         <span
           style={{ fontSize: 10, color: "#484f58", flexShrink: 0 }}
@@ -211,38 +301,86 @@ function ReviewRow({
         </span>
       </div>
 
-      {/* Row 2: pre-generated query (first line) or placeholder */}
+      {/* Row 2: rationale (why this matters) */}
       <div
         style={{
           fontSize: 11,
-          color: queryPreview ? "#8b949e" : "#30363d",
-          fontStyle: queryPreview ? "normal" : "italic",
+          color: item.rationale ? "#8b949e" : "#30363d",
+          fontStyle: item.rationale ? "normal" : "italic",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
-          flex: 1,
         }}
-        title={item.pre_generated_query ?? ""}
+        title={item.rationale ?? ""}
       >
-        {queryPreview ?? t("review.noQuery")}
+        {item.rationale ?? t("review.noRationale")}
       </div>
 
-      {/* Row 3: action buttons + per-item error */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {/* Row 3: conflict page (contradiction / duplicate) */}
+      {showConflictPage && (
+        <div
+          style={{
+            fontSize: 10,
+            color: "#bc8cff",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={item.page_title ?? ""}
+        >
+          {t("review.conflictsWith")}: <em>{item.page_title}</em>
+        </div>
+      )}
+
+      {/* Row 4: 502 generation error — retry-or-skip hint */}
+      {generationError && (
+        <div
+          role="alert"
+          style={{
+            fontSize: 10,
+            color: "#f85149",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+            {t("review.createFailed")}
+          </span>
+          <button
+            onClick={() => onDismissGenerationError(item.id)}
+            style={{
+              fontSize: 10,
+              color: "#484f58",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+              flexShrink: 0,
+            }}
+            aria-label={t("common.close")}
+          >
+            {t("common.close")}
+          </button>
+        </div>
+      )}
+
+      {/* Row 5: action buttons + per-item non-502 error */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
         <ActionButton
-          label={
-            inFlight === "approve" ? t("common.loading") : t("review.approve")
-          }
-          onClick={() => onApprove(item.id)}
-          disabled={isDisabled}
-          variant="approve"
+          label={isCreating ? t("review.creating") : t("review.create")}
+          onClick={() => onCreate(item.id)}
+          disabled={isAnyInFlight}
+          loading={isCreating}
+          variant="create"
         />
         <ActionButton
-          label={
-            inFlight === "skip" ? t("common.loading") : t("review.skip")
-          }
+          label={inFlight === "skip" ? t("common.loading") : t("review.skip")}
           onClick={() => onSkip(item.id)}
-          disabled={isDisabled}
+          disabled={isAnyInFlight}
           variant="skip"
         />
         <ActionButton
@@ -252,11 +390,11 @@ function ReviewRow({
               : t("review.deepResearch")
           }
           onClick={() => onDeepResearch(item.id)}
-          disabled={isDisabled}
+          disabled={isAnyInFlight}
           variant="deep-research"
         />
 
-        {actionError && (
+        {actionError && !generationError && (
           <span
             role="alert"
             style={{ fontSize: 10, color: "#f85149", marginLeft: 4 }}
@@ -273,22 +411,26 @@ function ReviewRow({
 
 interface ReviewItemListProps {
   vaultId: string;
+  onOpenSources: () => void;
 }
 
-function ReviewItemList({ vaultId }: ReviewItemListProps) {
+function ReviewItemList({ vaultId, onOpenSources }: ReviewItemListProps) {
   const { t, i18n } = useTranslation();
   const items = useReviewStore(useShallow(selectReviewItems));
   const total = useReviewStore(selectReviewTotal);
   const loading = useReviewStore(selectReviewLoading);
   const actionInFlight = useReviewStore(useShallow(selectReviewActionInFlight));
   const actionError = useReviewStore(useShallow(selectReviewActionError));
+  const generationError = useReviewStore(useShallow(selectCreateGenerationError));
   const fetchMore = useReviewStore(selectFetchMoreReview);
-  const approve = useReviewStore(selectApprove);
+  const create = useReviewStore(selectCreate);
   const skip = useReviewStore(selectSkip);
   const deepResearch = useReviewStore(selectDeepResearch);
+  const clearGenerationError = useReviewStore(selectClearCreateGenerationError);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Always virtualise — the virtualiser is efficient regardless of list size (I4).
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollRef.current,
@@ -296,9 +438,9 @@ function ReviewItemList({ vaultId }: ReviewItemListProps) {
     overscan: 5,
   });
 
-  const handleApprove = useCallback(
-    (id: string) => { void approve(id); },
-    [approve],
+  const handleCreate = useCallback(
+    (id: string) => { void create(id); },
+    [create],
   );
   const handleSkip = useCallback(
     (id: string) => { void skip(id); },
@@ -308,23 +450,21 @@ function ReviewItemList({ vaultId }: ReviewItemListProps) {
     (id: string) => { void deepResearch(id); },
     [deepResearch],
   );
+  const handleDismissGenerationError = useCallback(
+    (id: string) => { clearGenerationError(id); },
+    [clearGenerationError],
+  );
 
   if (items.length === 0 && !loading) {
     return (
-      <div
-        data-testid="review-empty"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100%",
-          color: "#484f58",
-          fontSize: 13,
-          padding: 24,
-          textAlign: "center",
-        }}
-      >
-        {t("review.empty")}
+      <div style={{ display: "flex", height: "100%", padding: 16 }}>
+        <EmptyState
+          testId="review-empty"
+          eyebrow={t("nav.review")}
+          title={t("review.empty")}
+          body={t("review.emptyBody")}
+          actions={[{ label: t("review.openSources"), onClick: onOpenSources, variant: "primary" }]}
+        />
       </div>
     );
   }
@@ -350,9 +490,11 @@ function ReviewItemList({ vaultId }: ReviewItemListProps) {
               style={{ position: "absolute", top: vRow.start, width: "100%" }}
               inFlight={actionInFlight[item.id]}
               actionError={actionError[item.id]}
-              onApprove={handleApprove}
+              generationError={generationError[item.id]}
+              onCreate={handleCreate}
               onSkip={handleSkip}
               onDeepResearch={handleDeepResearch}
+              onDismissGenerationError={handleDismissGenerationError}
               t={t}
               lang={i18n.language}
             />
@@ -400,8 +542,11 @@ export function ReviewQueueView() {
   const error = useReviewStore(selectReviewError);
   const deepResearchError = useReviewStore(selectDeepResearchError);
   const lastDeepResearch = useReviewStore(selectLastDeepResearch);
+  const lastSweepResult = useReviewStore(selectLastSweepResult);
   const clearDeepResearchError = useReviewStore(selectClearDeepResearchError);
   const clearLastDeepResearch = useReviewStore(selectClearLastDeepResearch);
+  const clearLastSweepResult = useReviewStore(selectClearLastSweepResult);
+  const sweep = useReviewStore(selectSweep);
 
   const effectiveVaultId = vaultId ?? "default";
 
@@ -417,6 +562,14 @@ export function ReviewQueueView() {
     setActiveSection("deep-search");
   }, [clearLastDeepResearch, setActiveSection]);
 
+  const handleOpenSources = useCallback(() => {
+    setActiveSection("ingest");
+  }, [setActiveSection]);
+
+  const handleSweep = useCallback(() => {
+    void sweep(effectiveVaultId);
+  }, [sweep, effectiveVaultId]);
+
   return (
     <div
       data-testid="review-queue-view"
@@ -430,6 +583,9 @@ export function ReviewQueueView() {
         background: "#0d1117",
       }}
     >
+      {/* Spinner keyframe — injected once as a style tag */}
+      <style>{`@keyframes syn-spin { to { transform: rotate(360deg); } }`}</style>
+
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div
         style={{
@@ -474,6 +630,26 @@ export function ReviewQueueView() {
             </span>
           )}
         </h2>
+
+        {/* Sweep button — clean up auto-resolved proposals (ADR-0034 §6) */}
+        <button
+          onClick={handleSweep}
+          disabled={loading}
+          aria-label={t("review.sweep")}
+          data-testid="review-sweep-btn"
+          style={{
+            padding: "4px 10px",
+            fontSize: 11,
+            border: "1px solid #21262d",
+            borderRadius: 5,
+            background: "transparent",
+            color: loading ? "#484f58" : "#8b949e",
+            cursor: loading ? "wait" : "pointer",
+          }}
+          title={t("review.sweepHelp")}
+        >
+          {t("review.sweep")}
+        </button>
 
         {/* Refresh button */}
         <button
@@ -554,7 +730,7 @@ export function ReviewQueueView() {
                 color: "#8b949e",
               }}
             >
-              run:{lastDeepResearch.runId.slice(0, 8)}…
+              run:{lastDeepResearch.runId.slice(0, 8)}&hellip;
             </span>
           </span>
           <button
@@ -584,7 +760,45 @@ export function ReviewQueueView() {
             }}
             aria-label={t("common.close")}
           >
-            ✕
+            &times;
+          </button>
+        </div>
+      )}
+
+      {/* ── Sweep result banner (ADR-0034 §6) ──────────────────────────────── */}
+      {lastSweepResult && (
+        <div
+          data-testid="review-sweep-result"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 16px",
+            borderBottom: "1px solid #58a6ff33",
+            background: "#0d1624",
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ fontSize: 12, color: "#58a6ff", flex: 1 }}>
+            {t("review.sweepResult", {
+              rule: lastSweepResult.rule_resolved,
+              llm: lastSweepResult.llm_resolved,
+              kept: lastSweepResult.kept,
+            })}
+          </span>
+          <button
+            onClick={clearLastSweepResult}
+            style={{
+              fontSize: 11,
+              color: "#484f58",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+            }}
+            aria-label={t("common.close")}
+          >
+            &times;
           </button>
         </div>
       )}
@@ -642,7 +856,7 @@ export function ReviewQueueView() {
 
       {/* ── Virtualised item list (I4) ───────────────────────────────────── */}
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-        <ReviewItemList vaultId={effectiveVaultId} />
+        <ReviewItemList vaultId={effectiveVaultId} onOpenSources={handleOpenSources} />
       </div>
     </div>
   );

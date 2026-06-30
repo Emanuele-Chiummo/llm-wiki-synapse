@@ -1,6 +1,6 @@
 # Synapse Deployment Guide
 
-<!-- Generated: v0.5-ADR-0033 | 2026-06-30 -->
+<!-- Generated: v0.5-ADR-0034 | 2026-06-30 -->
 
 > Target: TrueNAS SCALE 25.10 "Goldeye" + Docker Compose
 > Version: v0.5 — covers the shipped M5 feature set (M4 features + Deep Research, Review
@@ -99,6 +99,16 @@ cp .env.example .env
 | `MCP_REMOTE_WRITE_ENABLED` | `false` | No | When `true`, the `write_page` tool is also exposed on the HTTP MCP surface (still bearer-gated by `MCP_AUTH_TOKEN`). Default `false`: only `search_wiki`, `get_page`, `list_pages` are reachable remotely. The stdio path always has all four tools regardless of this setting. (ADR-0029 §2.3) |
 | `MCP_TRUSTED_PROXIES` | *(empty)* | No | Comma-separated list of trusted reverse-proxy IP addresses (e.g. `127.0.0.1,::1`). When set, the `X-Forwarded-For` header from listed IPs is honoured to determine the real client IP for the allow-without-token public/private classification. Leave empty (the default) unless you run a local reverse proxy in front of Synapse. The Cloudflare header check (`CF-Connecting-IP`/`CF-Ray`) is independent of this setting. (ADR-0033) |
 | `BACKEND_PROXY_TARGET` | `http://localhost:8000` | No | **Dev only (Vite proxy, server-side).** The URL the Vite dev server proxies API calls to. Set to `http://synapse-backend:8000` in `docker-compose.dev.yml` so the Vite process (inside the container) can reach the backend over the Docker network. This variable is intentionally NOT prefixed `VITE_` — it is never inlined into the browser bundle. Browser clients always use a relative base (`""`) by default. (ADR-0028) |
+| `REVIEW_PROPOSE_MIN_CHARS` | `10000` | No | Anti-spam gate (ADR-0034 §4.2): the proposal LLM call runs only if the total written content from an ingest run is at least this many characters (one of several OR'd gate conditions). Below the gate (and absent other signals) → zero proposals, zero LLM cost. (I7) |
+| `REVIEW_PROPOSE_MIN_PAGES` | `4` | No | Anti-spam gate (ADR-0034 §4.2): the proposal LLM call runs if at least this many pages were written in the run (OR'd with the char / dangling-link / suggested-page conditions). (I7) |
+| `REVIEW_PROPOSE_MAX_ITEMS` | `8` | No | Hard cap on proposals emitted per ingest run (ADR-0034 §4.3). The single LLM proposal call's output is truncated to this count — never an unbounded enqueue. (I7) |
+| `REVIEW_PROPOSE_TOKEN_BUDGET` | `4000` | No | Fallback token budget for the single proposal provider call (ADR-0034 §4.3). Used when the resolved `provider_config` row carries no budget. Small: a compact analysis digest plus up to 8 proposals fits comfortably. (I7) |
+| `REVIEW_PROPOSE_TIMEOUT_SECONDS` | `30.0` | No | Timeout wrapping the single proposal provider call (ADR-0034 §4.3). On timeout → emit only rule-based proposals (degrade safely; never fail ingest). (I7) |
+| `REVIEW_SWEEP_MAX_ITEMS` | `200` | No | Cap on the number of pending `missing-page`/`duplicate` items processed by the rule-based sweep pass per run (ADR-0034 §6.2). Bounded indexed read; no vault re-scan (I1/I7). |
+| `REVIEW_SWEEP_LLM_ENABLED` | `true` | No | Gate for the sweep Pass-2 conservative LLM judgment (ADR-0034 §6.3). Default on (a single bounded call). Set `false` for zero-cost operation: Pass-1 still runs; Pass-2 returns keep-all. (I7) |
+| `REVIEW_SWEEP_LLM_MAX_ITEMS` | `8` | No | Cap on the number of candidate items batched into the single sweep Pass-2 LLM call (ADR-0034 §6.3). Items beyond the cap remain pending until the next sweep. (I7) |
+| `REVIEW_SWEEP_LLM_TOKEN_BUDGET` | `4000` | No | Fallback token budget for the single sweep Pass-2 provider call (ADR-0034 §6.3). Used when the resolved `provider_config` row carries no budget. (I7) |
+| `REVIEW_SWEEP_TIMEOUT_SECONDS` | `30.0` | No | Timeout wrapping the sweep Pass-2 provider call (ADR-0034 §6.3). On timeout or any ambiguity → keep ALL items pending (default-to-keep bias). `confirm` items are never auto-resolved regardless. (I7) |
 
 ### 2.2 Example .env for TrueNAS Docker deployment
 
@@ -182,6 +192,12 @@ Migration 0010 creates `review_items` (F9, ADR-0025).
 Migration 0011 adds `vault_state.remote_mcp_enabled` (ADR-0032 §3).
 Migration 0012 adds `vault_state.mcp_access_token_hash` and `vault_state.mcp_allow_without_token`
 (ADR-0033 §2.1/§2.3 — UI-settable token as salted PBKDF2 hash; allow-without-token flag).
+Migration 0013 rewrites `review_items` for the ADR-0034 proposal model: adds six new columns
+(`source_page_id`, `proposed_title`, `proposed_page_type`, `proposed_dir`, `rationale`,
+`resolution`, `created_page_id`), drops `pre_generated_query`, extends `status` with the new
+lifecycle values (`created`, `auto_resolved`), and left-shifts any legacy `new_page`/`approved`
+rows to `skipped` (they reference auto-created pages that already exist and are obsolete under
+the proposal model). Adds index `ix_review_items_vault_proposed_title` for the rule-based sweep.
 All tables are empty on first run and are populated through normal use.
 
 ### 3.3 Verify the backend is up
@@ -734,5 +750,5 @@ the extension and the acceptance list explicitly.
 - `CLAUDE.md` — project context, invariants (I1–I9), and feature inventory
 - `docs/er/schema.mmd` — ER diagram (auto-generated by `make er`)
 - `docs/api/openapi.json` — API reference (auto-generated by `make openapi`)
-- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0033; index in `docs/adr/README.md`)
+- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0034; index in `docs/adr/README.md`)
 - `docs/USER.md` — end-user guide
