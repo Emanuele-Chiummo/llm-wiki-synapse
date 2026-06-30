@@ -300,6 +300,46 @@ class Settings(BaseSettings):
     Env var: WIKILINK_ENRICH_TIMEOUT_SECONDS.
     """
 
+    # ── F11: Web clipper ingress (ADR-0038) ──────────────────────────────────────
+
+    clip_enabled: bool = False
+    """
+    Master gate for the POST /clip ingress endpoint (F11, ADR-0038).
+    Default OFF — must be explicitly enabled. When OFF the endpoint returns 503.
+    Set CLIP_ENABLED=true to open the ingress (still requires CLIP_TOKEN).
+    Env var: CLIP_ENABLED.
+    """
+
+    clip_token: str | None = None
+    """
+    SECRET. Bearer token required on every POST /clip request (F11, ADR-0038 §2.1).
+    Compared constant-time (hmac.compare_digest). Missing/invalid → 401.
+    NEVER logged. Set CLIP_TOKEN to a high-entropy random string.
+    Env var: CLIP_TOKEN.
+    """
+
+    clip_allowed_origins: str = ""
+    """
+    Comma-separated allowlist of permitted request Origins (F11, ADR-0038 §2.2).
+    Each entry is an exact origin string (scheme+host, no path/query).
+    Example: "chrome-extension://abcdefghijklmnopqrstuvwxyz,http://127.0.0.1:5173"
+    Empty string means only loopback/localhost requests are allowed (implicit).
+    Env var: CLIP_ALLOWED_ORIGINS.
+    """
+
+    clip_max_body_bytes: int = 2 * 1024 * 1024  # 2 MB
+    """
+    Maximum allowed body size for POST /clip (F11, ADR-0038 §2.3, I7).
+    Requests with Content-Length or accumulated body exceeding this value → 413.
+    Default 2 MB — generous for any realistic Markdown clip.
+    Env var: CLIP_MAX_BODY_BYTES.
+    """
+
+    @property
+    def clip_allowed_origins_list(self) -> list[str]:
+        """CLIP_ALLOWED_ORIGINS as a trimmed list (may be empty)."""
+        return [o.strip() for o in self.clip_allowed_origins.split(",") if o.strip()]
+
     # ── K2: Lint-fix loop (ADR-0037 §4) ──────────────────────────────────────────
     # The K2 lint scan is a BOUNDED, HUMAN-GATED health check of the wiki. The single
     # semantic provider call (missing-xref / contradiction / stale-claim / missing-page)
