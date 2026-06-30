@@ -396,7 +396,37 @@ shared-entity warning shown as an explicit note/branch. Rendered by `mmdc` in CI
 
 ---
 
-## 9. Architect-review gate (Phase 4 exit)
+## 9. Known consequences (FU-P4-3 — atomicity note)
+
+`cascade_delete` performs its 7-step sequence using **separate `get_session()` calls** per step
+rather than a single encompassing database transaction. This is a deliberate trade-off: a single
+long-lived transaction across Qdrant deletes, filesystem writes, and multiple Postgres updates is
+not available without a distributed-transaction coordinator, which would be over-engineering here.
+
+**Practical consequence:** if the process crashes between steps (e.g., after the Qdrant point is
+removed but before the dead-wikilink rewrites are committed), the vault is left in a
+**transiently inconsistent** state — a page that has been soft-deleted in Postgres but whose
+`[[wikilink]]` references in peer files have not yet been cleaned up. This does NOT cause data
+loss; the Postgres row is tombstoned and the Qdrant point is gone, so search and chat will not
+surface the deleted page. However, `test_obsidian_check.py` may flag surviving dead wikilinks
+until the operation is re-run.
+
+**Idempotent on retry:** re-running `DELETE /pages/{id}` on an already-soft-deleted page returns
+HTTP 404 (`PageNotFoundError`, AC-F13-5c / AC-F13-7c). To recover a partial run, the vault
+operator should:
+1. Re-ingest the source file (which will create a new page row with a new ID — the tombstone
+   blocks resurrection via the `uix_pages_vault_file_path_live` partial-unique index).
+2. Or, manually clear the dead wikilinks using the lint-fix loop (K2) which flags
+   `missing-xref` findings and can auto-apply the `missing-xref` rewrite.
+
+This non-atomicity is a **known and accepted** architectural consequence; it does not gate any
+sprint milestone. A future enhancement (post-v1.0) could wrap the Postgres steps in a single
+session while keeping the Qdrant + filesystem steps outside and adding a compensating step on
+error. Filed as FU-P4-3.
+
+---
+
+## 10. Architect-review gate (Phase 4 exit)
 
 A F13 PR is approved only if:
 

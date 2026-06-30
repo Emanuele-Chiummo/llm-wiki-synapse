@@ -1621,16 +1621,23 @@ with PM approval) before Phase 1 exits.
 
 ---
 
-## Sprint 6 — v0.6 — M6 "Shippable" — BACKLOG (not yet started)
+## Sprint 6 — v0.6 — M6 "Shippable"
 
-| Feature ID | Description | Notes |
-|------------|-------------|-------|
-| F2 | purpose.md injection as provider context | |
-| F11 | Chrome MV3 web clipper | |
-| F15 (rest) | PWA + Tauri v2, CI/CD | |
-| K2 (lint op) | Lint-fix loop | |
-| D1–D7 | All docs artifacts complete and consistent | Final gate |
-| MkDocs | Optional docs site | v0.6 optional |
+**Sprint status: CODE-COMPLETE — PENDING EC-M6-HCP (human checkpoint required before v1.0.0 tag)**
+Branch: `sprint/v0.6`. Status tracker: `docs/sprints/v0.6-m6-status.md`. Scope: `docs/sprints/v0.6-scope.md`.
+Baseline at cut: backend 926 pytest / frontend 621 vitest. Now: **backend 968 / frontend 711**, all green.
+
+| Feature ID | Description | Status | Key commits |
+|------------|-------------|--------|-------------|
+| **K2** (lint backend) | `ops/lint.py` bounded HITL loop + 6 `/lint/*` endpoints + migration 0014 + ADR-0037 + `lint-fix.mmd` | **done** — pytest 946 green; I6/I7/I1 static tests | `745600f` |
+| **K2** (lint UI) | `LintView` + `lintStore` + `lintClient` + nav slot + i18n EN/IT | **done** — vitest 680 green; tsc+eslint clean | `ac90d35` |
+| **F11** (web clipper) | MV3 `extension/` (Readability+Turndown) + hardened `POST /clip` + ADR-0038 + `web-clip.mmd` | **done** — pytest 968 green; 22 security tests (401/403/413/safe-join) | `7c91354` |
+| **F15** (CI gate) | Tests run in CI; `sprint/**` trigger; pinned ruff/black; mmdc check | **done** — ruff/black clean tree-wide; pins 0.15.20/24.1.0 | `8bbd2a9` |
+| **F15** (PWA) | Web manifest + offline app-shell service worker (API NetworkOnly) | **done** — vite build emits sw.js; vitest 711 green | `cc365f6` |
+| **F15** (Tauri v2) | `src-tauri/` scaffold + tag-only multi-OS CI build + ADR-0039 | **done** — cargo resolves; config valid; native build CI-only | `f68b2ad` |
+| **F2** (purpose.md context) | `vault/purpose.md` injected into ingest prompts (`orchestrator.py:961`) and chat context (`context.py:86`) | **done** (pre-existing, verified) — `test_chat::test_includes_purpose_and_overview` green | (pre-existing) |
+| **D1–D7** (docs gate) | All docs artifacts complete and consistent | **PASS-PENDING-D5/HCP** — D5 screenshots deferred to live-stack HCP session | this gate |
+| **MkDocs** | Optional docs site | **not started** — explicitly optional per scope §2; no code impact |  |
 
 ---
 

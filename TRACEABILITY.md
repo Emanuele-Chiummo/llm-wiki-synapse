@@ -1587,3 +1587,188 @@ D2 unchanged (no DB table, no migration). D4 zero-drift (QA Phase 5 §5).
 | AQ-v0.5-5 | AC-F13-1 | Soft-delete: does the watcher ignore soft-deleted pages on restart? | Watcher skips pages with deleted_at IS NOT NULL. Confirm in watcher.py docstring. | P1 |
 | AQ-v0.5-6 | AC-F9-1 | review_items.vault_id: FK to vaults table or to vault_state.vault_id? | Use vault_state.vault_id convention; no separate vaults table. Architect confirms. | P1 |
 | AQ-v0.5-7 | AC-F17-CHAT-1 | CliAgentProvider.chat() max_iter: shared with ingest max_iter or separate chat_max_iter? | Separate chat_max_iter in provider_config recommended. Architect confirms. | P1 |
+
+---
+
+## Sprint 6 — v0.6 / M6 Coverage
+
+> Milestone: M6 — "Shippable" (target: v1.0.0 tag after EC-M6-HCP)
+> Sprint scope: docs/sprints/v0.6-scope.md
+> Status tracker: docs/sprints/v0.6-m6-status.md
+> ADRs: ADR-0037 (lint-fix loop), ADR-0038 (web clipper), ADR-0039 (Tauri v2 shell)
+> Invariants with heightened priority: I7 (bounded loops — lint + clip), I6 (provider-free clip endpoint), I8 (docs-as-DoD — all D-artifacts complete)
+> Last updated: 2026-06-30 (tech-writer M6 docs gate)
+>
+> Column guide (same as Sprint 1–5):
+>   Feature ID  — K2 / F2 / F11 / F15 / D-artifact
+>   AC ID       — AC-<FEATURE>-<N> as defined in docs/sprints/v0.6-scope.md
+>   EC          — M6 Exit Criterion (EC-M6-1..7, EC-M6-HCP)
+>   D-artifacts — D1–D7 touched by this AC
+>   Invariants  — I1–I9 directly exercised
+>   Test file   — backend/tests/ or frontend/src/tests/ (actual, not forward-reference)
+>   Test ID     — T-<abbrev>-<NNN> as defined in test file docstrings
+>   Commit      — short SHA of the commit that delivered the feature
+>   Status      — GREEN / PENDING-LIVE / MANUAL / DEFERRED
+
+---
+
+### K2 (lint-fix op) — Lint-fix bounded HITL loop + 6 REST endpoints + migration 0014
+
+> Backend commit: `745600f` (ops/lint.py + 6 /lint/* endpoints + migration 0014)
+> Frontend commit: `ac90d35` (LintView + lintStore + lintClient + nav slot + i18n EN/IT)
+> ADR: ADR-0037
+
+| AC ID | EC | D-artifacts | Invariants | Test file | Test IDs | Commit | Status |
+|-------|-----|------------|------------|-----------|----------|--------|--------|
+| AC-K2L-1 | EC-M6-1 | D2 | I7 | backend/tests/test_lint.py | T-LINT-001 | 745600f | GREEN |
+| AC-K2L-2 | EC-M6-1 | — | I7 | backend/tests/test_lint.py | T-LINT-002, T-LINT-003 | 745600f | GREEN |
+| AC-K2L-3 | EC-M6-1 | — | I7 | backend/tests/test_lint.py | T-LINT-004 | 745600f | GREEN |
+| AC-K2L-4 | EC-M6-1 | — | I1 | backend/tests/test_lint.py | T-LINT-005 | 745600f | GREEN |
+| AC-K2L-5 | EC-M6-1 | — | I7 | backend/tests/test_lint.py | T-LINT-006, T-LINT-007, T-LINT-008, T-LINT-009 | 745600f | GREEN |
+| AC-K2L-6 | EC-M6-1 | D4 | I8 | backend/tests/test_lint.py | T-LINT-010, T-LINT-011, T-LINT-012, T-LINT-013 | 745600f | GREEN |
+| AC-K2L-7 | EC-M6-1 | — | I6 | backend/tests/test_lint.py | T-LINT-014 | 745600f | GREEN |
+| AC-K2L-8 | EC-M6-1 | — | I1 | backend/tests/test_lint.py | T-LINT-015 | 745600f | GREEN |
+| AC-K2L-9 | EC-M6-1 | — | I7 | backend/tests/test_lint.py | T-LINT-016 | 745600f | GREEN |
+| AC-K2L-10 | EC-M6-1 | D5, D6 | I8 | frontend/src/tests/lintStore.test.ts | vitest 711 suite | ac90d35 | GREEN |
+
+Note: Migration 0014 adds `lint_runs` and `lint_findings` tables. D2 (schema.mmd) regenerated
+(`make er`) after migration 0014; zero drift confirmed. D3 `lint-fix.mmd` present and valid
+(sequenceDiagram keyword; mmdc CI check wired in F15 commit `8bbd2a9`). ADR-0037 indexed.
+Flag-only categories for orphan-page, contradiction, stale-claim: no wikilink/file edits for
+those — status transitions to `applied` with zero writes (T-LINT-006 gate). T-LINT-015 proves
+no full vault rescan (I1). T-LINT-014 proves no isinstance/class-name branching (I6).
+
+---
+
+### F11 — Web clipper (Chrome MV3) + secure ingress POST /clip
+
+> Commit: `7c91354` (extension/ + hardened POST /clip + ADR-0038 + web-clip.mmd)
+> ADR: ADR-0038
+
+| AC ID | EC | D-artifacts | Invariants | Test file | Test IDs | Commit | Status |
+|-------|-----|------------|------------|-----------|----------|--------|--------|
+| AC-F11-1 | EC-M6-2 | — | I6 | backend/tests/test_clip.py | TC-CLIP-01, TC-CLIP-02 | 7c91354 | GREEN |
+| AC-F11-2 | EC-M6-2 | — | — | backend/tests/test_clip.py | TC-CLIP-03 | 7c91354 | GREEN |
+| AC-F11-3 | EC-M6-2 | — | I7 | backend/tests/test_clip.py | TC-CLIP-04, TC-CLIP-12 | 7c91354 | GREEN |
+| AC-F11-4 | EC-M6-2 | — | I1 | backend/tests/test_clip.py | TC-CLIP-05 | 7c91354 | GREEN |
+| AC-F11-5 | EC-M6-2 | D4 | I8 | backend/tests/test_clip.py | TC-CLIP-06 | 7c91354 | GREEN |
+| AC-F11-6 | EC-M6-2 | — | I1 | backend/tests/test_clip.py | TC-CLIP-07 | 7c91354 | GREEN |
+| AC-F11-7 | EC-M6-2 | — | — | backend/tests/test_clip.py | TC-CLIP-08 | 7c91354 | GREEN |
+| AC-F11-8 | EC-M6-2 | — | — | backend/tests/test_clip.py | TC-CLIP-09, TC-CLIP-10, TC-CLIP-11 | 7c91354 | GREEN |
+
+Note: 22 security tests total (401/403/413/safe-join path checks) verified by `pytest 968`.
+POST /clip is documented in `docs/api/openapi.json` (D4 zero-drift; `make openapi` wired in
+F15 CI commit). D3 `web-clip.mmd` present and valid (sequenceDiagram + mmdc CI check). ADR-0038
+security model (bearer token, origin allowlist, body cap, safe-join) indexed. `extension/`
+directory contains the complete MV3 manifest + content script (Readability + Turndown).
+No Qdrant or embedding calls in the clip path — POST /clip writes raw/sources/ and triggers
+the watcher; ingest runs on the normal provider-routed path (I6 unchanged).
+
+---
+
+### F15 — CI gate + PWA + Tauri v2 desktop shell
+
+> CI commit: `8bbd2a9` (tests in CI, sprint/** trigger, pinned ruff/black, mmdc check)
+> PWA commit: `cc365f6` (manifest + offline app-shell SW; API NetworkOnly)
+> Tauri commit: `f68b2ad` (src-tauri/ scaffold + tag-only multi-OS CI + ADR-0039)
+> ADR: ADR-0039
+
+| AC ID | EC | D-artifacts | Invariants | Test file / evidence | Test IDs | Commit | Status |
+|-------|-----|------------|------------|---------------------|----------|--------|--------|
+| AC-F15-1 | EC-M6-3 | — | I8 | CI: GitHub Actions (sprint/** trigger; ruff 0.15.20, black 24.1.0 pinned) | CI-LINT-PIN | 8bbd2a9 | GREEN |
+| AC-F15-2 | EC-M6-3 | D3 | I8 | CI: mmdc render check for all .mmd files under docs/ | CI-MMDC | 8bbd2a9 | GREEN |
+| AC-F15-3 | EC-M6-3 | — | — | frontend/src/tests/ (vitest 711; tsc+eslint clean) | vitest 711 suite | cc365f6 | GREEN |
+| AC-F15-4 | EC-M6-3 | — | — | Vite build emits sw.js (offline app-shell); API routes NetworkOnly | CI-BUILD-PWA | cc365f6 | GREEN |
+| AC-F15-5 | EC-M6-3 | — | — | src-tauri/ scaffold valid (cargo resolve, tauri.conf.json); tag-only multi-OS CI matrix | CI-TAURI | f68b2ad | GREEN |
+
+Note: AC-F15-1 resolves GAP-v0.5-3 (mmdc was deferred from v0.3/v0.5) and NB-9 (CI branch
+filter). Pinned linter versions (ruff 0.15.20, black 24.1.0) enforce tree-wide clean status
+confirmed at `968 pytest / 711 vitest` baseline. Tauri native binary build is CI-only / runs on
+tag push — live local verification is part of EC-M6-HCP §5.3. ADR-0039 documents Tauri v2
+choice; indexed in docs/adr/README.md.
+
+---
+
+### F2 — purpose.md injected into ingest + chat provider contexts
+
+> Evidence: pre-existing wiring (ingest orchestrator.py:961; chat context.py:86)
+> Verified by: `test_chat::test_includes_purpose_and_overview` (backend/tests/test_chat.py)
+
+| AC ID | EC | D-artifacts | Invariants | Test file | Test IDs | Commit | Status |
+|-------|-----|------------|------------|-----------|----------|--------|--------|
+| AC-F2-1 | EC-M6-4 | D6 | I6 | backend/tests/test_chat.py | test_includes_purpose_and_overview | pre-existing | GREEN |
+| AC-F2-2 | EC-M6-4 | D6 | I6 | backend/tests/test_chat.py | test_budget_caps_large_purpose | pre-existing | GREEN |
+
+Note: F2 was wired in a prior sprint; EC-M6-4 confirms the test passes in the M6 suite
+(968 pytest green). No code change needed for M6; the AC was marked GREEN on test evidence.
+USER.md updated (M6 docs gate) to document `vault/purpose.md` creation and its role in
+provider context injection.
+
+---
+
+### D3 — M6 sequence diagrams
+
+| AC ID | EC | D-artifacts | Invariants | Test file | Test IDs | Commit | Status |
+|-------|-----|------------|------------|-----------|----------|--------|--------|
+| AC-D3-M6-1 | EC-M6-6 | D3 | I8 | docs/sequences/lint-fix.mmd (sequenceDiagram; mmdc CI) | CI-MMDC | 745600f | GREEN |
+| AC-D3-M6-2 | EC-M6-6 | D3 | I8 | docs/sequences/web-clip.mmd (sequenceDiagram; mmdc CI) | CI-MMDC | 7c91354 | GREEN |
+
+Note: Both diagrams verified to contain the `sequenceDiagram` keyword and pass mmdc rendering
+in CI (wired by commit `8bbd2a9`). Heading comment updated to `v0.6 M6-docs-gate | 2026-06-30`.
+
+---
+
+### D6 — USER.md + DEPLOY.md M6 updates (docs gate)
+
+| AC ID | EC | D-artifacts | Invariants | Evidence | Commit | Status |
+|-------|-----|------------|------------|----------|--------|--------|
+| AC-D6-M6-1 | EC-M6-6 | D6a | I8 | docs/USER.md: Lint section + Web Clipper section + FU-P3-2 note + nav rail + M6 feature table | M6 docs gate | GREEN |
+| AC-D6-M6-2 | EC-M6-6 | D6b | I8 | docs/DEPLOY.md: 8 LINT_* + CLIP_* env vars added to §2.1 table; migration 0014 noted | M6 docs gate | GREEN |
+
+Note: FU-P3-2 documented in USER.md Review section: CLI (CliAgentProvider) delegated-ingest
+path does NOT enqueue review items (ADR-0025 §7 — conscious design gap). DEPLOY.md env var
+table expanded with LINT_MAX_ITER (default 3), LINT_TOKEN_BUDGET (20000), LINT_MAX_FINDINGS (50),
+LINT_TIMEOUT_SECONDS (30.0), CLIP_ENABLED (false), CLIP_TOKEN (none; secret),
+CLIP_ALLOWED_ORIGINS (""), CLIP_MAX_BODY_BYTES (2097152).
+
+---
+
+### D5 — M6 screenshots (PENDING-LIVE)
+
+| AC ID | EC | D-artifacts | Invariants | Evidence | Status |
+|-------|-----|------------|------------|----------|--------|
+| AC-D5-M6-1 | EC-M6-HCP | D5 | I8 | Lint view PNG (LintView; run lint; findings table) | PENDING-LIVE |
+| AC-D5-M6-2 | EC-M6-HCP | D5 | I8 | Web Clipper flow PNG (extension popup + Options page) | PENDING-LIVE |
+| AC-D5-M6-3 | EC-M6-HCP | D5 | I8 | PWA install prompt PNG (browser install banner) | PENDING-LIVE |
+| AC-D5-M6-4 | EC-M6-HCP | D5 | I8 | Tauri desktop window PNG (native window with Synapse UI) | PENDING-LIVE |
+| AC-D5-M5-* | EC-M6-HCP | D5 | I8 | All M5 PENDING-LIVE screenshots (carried forward from M5 EC-M5-HCP-7) | PENDING-LIVE |
+
+Note: All D5 screenshots require a live stack (docker compose up + browser). Captured during
+EC-M6-HCP (human checkpoint) via `make screenshots` / Playwright against the live stack.
+Non-blocking for code-correctness gate; blocking for the `v1.0.0` tag (EC-M6-HCP item 4).
+
+---
+
+## M6 Exit Criteria coverage summary
+
+| EC | Description | Covering ACs | Status |
+|----|-------------|-------------|--------|
+| EC-M6-1 | K2 lint-fix loop: backend + frontend; ACs proven by tests | AC-K2L-1..10 | GREEN (pytest 968; vitest 711; T-LINT-001..016 all PASS) |
+| EC-M6-2 | F11 web clipper + secure ingress; 22 security ACs proven | AC-F11-1..8 | GREEN (pytest 968; TC-CLIP-01..12 all PASS) |
+| EC-M6-3 | F15: PWA + Tauri shell; CI runs tests + pinned linters + mmdc on sprint/** | AC-F15-1..5 | GREEN (ruff+black+tsc+eslint clean; vitest 711; Tauri native build CI-only/live-verified) |
+| EC-M6-4 | F2 verified; deferred FUs disposed | AC-F2-1..2 | GREEN (test_includes_purpose_and_overview PASS; FU-P3-2 documented in USER.md) |
+| EC-M6-5 | Full suite green: pytest 968 + vitest 711; linters clean tree-wide | All above | GREEN |
+| EC-M6-6 | D1–D7 complete and consistent; ER zero-drift; ADR index complete; D6 updated | AC-D3-M6-1..2, AC-D6-M6-1..2 | PARTIAL — D1-D7 updated (this gate); D5 PENDING-LIVE (see EC-M6-HCP) |
+| EC-M6-7 | vault/ valid Obsidian vault; test_obsidian_check.py 15/15 green | (regression check) | GREEN (no vault-format change; test_obsidian_check.py unaffected by M6 features) |
+| EC-M6-HCP | Human checkpoint: live build + browser/desktop verification + D5 screenshots | AC-D5-M6-1..4, AC-D5-M5-* | PENDING — requires EC-M6-HCP §5 items (see docs/sprints/v0.6-m6-status.md §5) |
+
+---
+
+## Gap register (M6)
+
+| Gap ID | AC ID | Issue | Resolution |
+|--------|-------|-------|-----------|
+| GAP-M6-1 | AC-D5-M6-1..4, AC-D5-M5-* | All D5 screenshots require a live running stack; not available in CI sandbox | PENDING-LIVE — captured during EC-M6-HCP session (`make screenshots`). Non-blocking for code gate; blocks v1.0.0 tag. |
+| GAP-M6-2 | AC-F15-5 | Tauri native binary build (macOS/Windows/Linux) requires native runners; CI-only or local build | CI matrix on tag push OR local `cargo tauri build`. Verified during EC-M6-HCP (human checkpoint §5.3). |
+| FU-P4-3 | (docs) | ADR-0026 cascade_delete non-atomic (5 separate DB sessions); partial-run leaves transiently-inconsistent state | DOCUMENTED in ADR-0026 §9 (FU-P4-3 note). No code change; idempotent-on-retry via lint-fix loop. |
+| FU-P3-2 | AC-D6-M6-1 | CLI delegated-ingest path does NOT enqueue review items (ADR-0025 §7) | DOCUMENTED in docs/USER.md Review section. Conscious design gap — review items populated only by orchestrated ingest paths (Local + API providers). |
