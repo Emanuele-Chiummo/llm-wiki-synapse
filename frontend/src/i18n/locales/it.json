@@ -12,7 +12,7 @@
     "deepSearch": "Ricerca Profonda",
     "settings": "Impostazioni",
     "chatComingSoon": "Fase 3",
-    "comingSoon": "Disponibile in M5"
+    "comingSoon": "Prossimamente"
   },
   "ingest": {
     "title": "Attività di importazione",
@@ -132,12 +132,15 @@
       "dimLabel": "Dimensioni vettore",
       "envNote": "Sola lettura — configurato tramite variabili d'ambiente (EMBEDDING_URL, EMBEDDING_MODEL, EMBEDDING_DIM). Modifica .env o docker-compose.yml per cambiare.",
       "loading": "Caricamento configurazione embedding…",
-      "error": "Impossibile caricare la configurazione embedding. Il backend è in esecuzione?"
+      "error": "Impossibile caricare la configurazione embedding. Il backend è in esecuzione?",
+      "semanticActive": "Ricerca semantica attiva",
+      "lexicalOnly": "Ricerca semantica DISATTIVATA — modalità solo lessicale",
+      "lexicalOnlyNote": "Il recupero usa solo parole chiave (corrispondenza su titolo e corpo). Controllato dalla variabile d'ambiente EMBEDDINGS_ENABLED. URL, modello e dimensioni sotto sono puramente informativi in questa modalità."
     },
     "apiMcp": {
       "title": "API + MCP",
       "desc": "Esponi Synapse ai tuoi strumenti tramite l'API HTTP locale e il server MCP bundled per client agentivi.",
-      "connectionTitle": "Connessione",
+      "connectionTitle": "Connessione (stdio)",
       "transportLabel": "Trasporto",
       "entryPointLabel": "Comando di avvio",
       "copySnippet": "Copia config Claude Desktop",
@@ -146,7 +149,30 @@
       "paramCount": "{{count}} param",
       "paramCount_plural": "{{count}} param",
       "loading": "Caricamento info server MCP…",
-      "error": "Impossibile caricare le info del server MCP. Il backend è in esecuzione?"
+      "error": "Impossibile caricare le info del server MCP. Il backend è in esecuzione?",
+      "access": {
+        "title": "Accesso",
+        "postureNone": "Nessun token configurato",
+        "postureDb": "Token attivo (impostato dall'interfaccia)",
+        "postureEnv": "Token attivo (da variabile d'ambiente)",
+        "generateToken": "Genera token",
+        "rotateToken": "Ruota token",
+        "clearToken": "Rimuovi token",
+        "revealWarning": "Copialo ora — non sarà più mostrato.",
+        "dismissToken": "Ho copiato il token",
+        "allowWithoutTokenLabel": "Consenti accesso senza token",
+        "allowWithoutTokenCaveat": "L'accesso senza token vale solo per sorgenti private (loopback, LAN, Tailscale). L'accesso pubblico tramite tunnel Cloudflare richiede sempre un token — questa regola è applicata dal server e non può essere aggirata."
+      },
+      "remote": {
+        "title": "Remoto (claude.ai)",
+        "enabledLabel": "Abilita endpoint MCP remoto",
+        "noTokenNote": "Genera un token o abilita l'accesso senza token in alto per abilitare l'accesso remoto.",
+        "urlLabel": "URL di connessione",
+        "readOnlyBadge": "sola lettura",
+        "readWriteBadge": "lettura + scrittura",
+        "snippetLabel": "Config claude.ai / client HTTP",
+        "copySnippet": "Copia config remota"
+      }
     },
     "output": {
       "title": "Preferenze Output",
@@ -158,7 +184,7 @@
     "interface": {
       "title": "Interfaccia",
       "desc": "Preferenze di visualizzazione e layout.",
-      "comingSoon": "Opzioni tema e densità — disponibili in M5."
+      "comingSoon": "Opzioni tema e densità — prossimamente."
     },
     "maintenance": {
       "title": "Manutenzione",
@@ -166,7 +192,7 @@
       "duplicates": "Rileva entità / concetti duplicati",
       "duplicatesDesc": "Chiede all'LLM di scansionare tutte le pagine entità/concetto e raggruppare quelle che probabilmente si riferiscono allo stesso argomento con nomi diversi. Confermi ogni gruppo prima dell'unione.",
       "duplicatesScan": "Scansiona duplicati",
-      "duplicatesComingSoon": "Rilevamento duplicati — disponibile in M5.",
+      "duplicatesComingSoon": "Rilevamento duplicati — prossimamente.",
       "dangerZone": "Zona Pericolosa",
       "reset": "Ripristina impostazioni",
       "resetDesc": "Cancella tutte le impostazioni locali e il layout pannelli.",
@@ -227,7 +253,7 @@
     "stop": "Interrompi",
     "regenerate": "Rigenera",
     "saveToWiki": "Salva nel wiki",
-    "saveToWikiComingSoon": "Salva nel wiki — disponibile in M5",
+    "saveToWikiComingSoon": "Salva nel wiki",
     "saveToWikiSaving": "Salvataggio…",
     "saveToWikiSaved": "Salvato: {{title}}",
     "saveToWikiError": "Salvataggio fallito",
@@ -318,6 +344,7 @@
     "vault": "Vault",
     "dataVersion": "Versione",
     "close": "Chiudi",
+    "copy": "Copia",
     "unknown": "Sconosciuto"
   }
 }

@@ -58,14 +58,20 @@ class EmbeddingError(RuntimeError):
 
 class HttpEmbeddingClient(EmbeddingClient):
     """
-    Calls the bge-m3 model via the Ollama-compatible embedding endpoint at EMBEDDING_URL.
+    Calls the embedding model at EMBEDDING_URL via a config-driven request adapter (I9).
 
-    The request format is Ollama's POST /api/embeddings:
-        {"model": "<embedding_model>", "prompt": "<text>"}
+    A single seam, two request/response shapes selected by EMBEDDING_FORMAT (ADR-0031):
 
-    The response is expected to contain {"embedding": [<floats>]}.
+      - "ollama" (default): POST {"model": "<model>", "prompt": "<text>"}
+        → parse {"embedding": [<floats>]}    (current bge-m3 behavior, unchanged).
+      - "openai": POST {"model": "<model>", "input": "<text>"}
+        → parse {"data": [{"embedding": [<floats>]}]}    (OpenAI-compatible /v1/embeddings).
 
-    All config (URL, model name) comes from Settings — no hardcoded values (ADR-0004, I9).
+    When EMBEDDING_API_KEY is set, every request carries `Authorization: Bearer <key>`
+    (both formats). The key is a secret: never logged.
+
+    All config (URL, model, format, key) comes from Settings — no hardcoded values
+    (ADR-0004, ADR-0031, I9 / I6-spirit).
     """
 
     def __init__(
@@ -73,19 +79,61 @@ class HttpEmbeddingClient(EmbeddingClient):
         *,
         embedding_url: str | None = None,
         model: str | None = None,
+        embedding_format: str | None = None,
+        api_key: str | None = None,
         timeout: float = 30.0,
     ) -> None:
         self._url = (embedding_url or settings.embedding_url).rstrip("/")
         self._model = model or settings.embedding_model
+        # `or` is safe: format is never an empty string (validated default "ollama").
+        self._format = (embedding_format or settings.embedding_format).lower()
+        # `is None` check, NOT `or`: an explicitly-passed empty key should stay falsy/unset,
+        # but we must not let a constructor None override a settings-provided key.
+        self._api_key = api_key if api_key is not None else settings.embedding_api_key
         self._timeout = timeout
 
+    def _headers(self) -> dict[str, str]:
+        """Build request headers; add bearer auth only when a key is configured.
+
+        The key is never logged here or anywhere else (ADR-0031 §2.2).
+        """
+        if self._api_key:
+            return {"Authorization": f"Bearer {self._api_key}"}
+        return {}
+
+    def _build_body(self, text: str) -> dict[str, str]:
+        """Build the request body for the configured format (ADR-0031 §2.3)."""
+        if self._format == "openai":
+            return {"model": self._model, "input": text}
+        return {"model": self._model, "prompt": text}
+
+    def _parse_response(self, payload: object) -> list[float]:
+        """Extract the embedding vector per the configured format (ADR-0031 §2.3).
+
+        Raises EmbeddingError on a missing/empty/malformed vector — same error path and
+        shape as the historical ollama guard (no silent empty vector).
+        """
+        if self._format == "openai":
+            data = payload.get("data") if isinstance(payload, dict) else None
+            if isinstance(data, list) and data and isinstance(data[0], dict):
+                vector = data[0].get("embedding")
+            else:
+                vector = None
+        else:
+            vector = payload.get("embedding") if isinstance(payload, dict) else None
+
+        if not isinstance(vector, list) or not vector:
+            raise EmbeddingError(f"Embedding service returned unexpected payload: {payload!r}")
+        return vector
+
     async def embed(self, text: str) -> list[float]:
-        """Fetch embedding vector for *text* from the bge-m3 service (I9)."""
+        """Fetch embedding vector for *text* from the embedding service (I9)."""
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             try:
                 resp = await client.post(
                     self._url,
-                    json={"model": self._model, "prompt": text},
+                    json=self._build_body(text),
+                    headers=self._headers(),
                 )
                 resp.raise_for_status()
             except httpx.HTTPError as exc:
@@ -93,11 +141,7 @@ class HttpEmbeddingClient(EmbeddingClient):
                     f"Embedding service at {self._url} returned an error: {exc}"
                 ) from exc
 
-        payload = resp.json()
-        vector: list[float] | None = payload.get("embedding")
-        if not isinstance(vector, list) or not vector:
-            raise EmbeddingError(f"Embedding service returned unexpected payload: {payload!r}")
-        return vector
+        return self._parse_response(resp.json())
 
     async def probe_dimension(self) -> int:
         """

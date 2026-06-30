@@ -46,7 +46,16 @@ import {
 } from "../../store/providerStore";
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
 import type { CreateProviderConfigBody } from "../../api/types";
-import { fetchEmbeddingConfig, fetchMcpInfo, type EmbeddingConfig, type McpInfoResponse } from "../../api/providerClient";
+import {
+  fetchEmbeddingConfig,
+  fetchMcpInfo,
+  setRemoteMcpEnabled,
+  setMcpAuth,
+  type EmbeddingConfig,
+  type McpInfoResponse,
+  type McpRemoteStateResponse,
+  type McpAuthResponse,
+} from "../../api/providerClient";
 
 // ─── Settings section type ────────────────────────────────────────────────────
 
@@ -558,6 +567,8 @@ function SectionLlmModels() {
 }
 
 // ─── Section: Embeddings ──────────────────────────────────────────────────────
+// ADR-0030: embeddings_enabled is a read-only ENV flag — NOT an interactive toggle.
+// When off, semantic (Qdrant) search degrades to lexical-only (Postgres keyword).
 
 function SectionEmbeddings() {
   const { t } = useTranslation();
@@ -567,8 +578,8 @@ function SectionEmbeddings() {
   useEffect(() => {
     const ac = new AbortController();
     fetchEmbeddingConfig(ac.signal)
-      .then((data) => { setCfg(data); })
-      .catch(() => { setErr(true); });
+      .then((data) => { setCfg(data); setErr(false); })
+      .catch((e: unknown) => { if (!(e instanceof Error) || e.name !== "AbortError") setErr(true); });
     return () => { ac.abort(); };
   }, []);
 
@@ -579,12 +590,69 @@ function SectionEmbeddings() {
         <p style={{ fontSize: 12, color: "#f85149", margin: "8px 0" }}>{t("settings.embeddings.error")}</p>
       ) : cfg === null ? (
         <p style={{ fontSize: 12, color: "#6e7681", margin: "8px 0" }}>{t("settings.embeddings.loading")}</p>
-      ) : (
+      ) : cfg.embeddings_enabled ? (
+        /* ── ENABLED: semantic search active ── */
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div
+            data-testid="embeddings-status-active"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 10px",
+              background: "#0f2a1a",
+              border: "1px solid #238636",
+              borderRadius: 6,
+              fontSize: 12,
+              color: "#3fb950",
+              fontWeight: 600,
+            }}
+          >
+            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "#3fb950", flexShrink: 0, display: "inline-block" }} />
+            {t("settings.embeddings.semanticActive")}
+          </div>
           <EmbedRow label={t("settings.embeddings.urlLabel")} value={cfg.embedding_url} mono />
           <EmbedRow label={t("settings.embeddings.modelLabel")} value={cfg.embedding_model} mono />
           <EmbedRow label={t("settings.embeddings.dimLabel")} value={String(cfg.embedding_dim)} />
           <p style={{ fontSize: 11, color: "#484f58", margin: "4px 0 0", lineHeight: 1.5 }}>
+            {t("settings.embeddings.envNote")}
+          </p>
+        </div>
+      ) : (
+        /* ── DISABLED: lexical-only degrade (ADR-0030 §2.3) ── */
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div
+            data-testid="embeddings-status-lexical"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 10px",
+              background: "#2d1f0e",
+              border: "1px solid #9e6a03",
+              borderRadius: 6,
+              fontSize: 12,
+              color: "#e3b341",
+              fontWeight: 600,
+            }}
+          >
+            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "#e3b341", flexShrink: 0, display: "inline-block" }} />
+            {t("settings.embeddings.lexicalOnly")}
+          </div>
+          <p style={{ fontSize: 12, color: "#8b949e", margin: 0, lineHeight: 1.6 }}>
+            {t("settings.embeddings.lexicalOnlyNote")}
+          </p>
+          {/* URL / model / dim shown dimmed — informational only in lexical mode */}
+          <div style={{ opacity: 0.45 }}>
+            <EmbedRow label={t("settings.embeddings.urlLabel")} value={cfg.embedding_url} mono />
+            <div style={{ marginTop: 10 }}>
+              <EmbedRow label={t("settings.embeddings.modelLabel")} value={cfg.embedding_model} mono />
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <EmbedRow label={t("settings.embeddings.dimLabel")} value={String(cfg.embedding_dim)} />
+            </div>
+          </div>
+          <p style={{ fontSize: 11, color: "#484f58", margin: 0, lineHeight: 1.5 }}>
             {t("settings.embeddings.envNote")}
           </p>
         </div>
@@ -628,10 +696,47 @@ function SectionSourceWatch() {
 }
 
 // ─── Section: API + MCP ───────────────────────────────────────────────────────
-// ADR-0027 §2.4: read-only panel, mirrors SectionEmbeddings (fetch-on-mount,
-// local useState + AbortController, degraded state on failure).
-// I3: single fetch on mount; no Zustand store.
-// I9: display only — no tool invocation, no config-write.
+// ADR-0027 §2.4 (read-only panel) + ADR-0032 (scoped exception: remote toggle).
+// I3: single fetch on mount; no Zustand store; toggle = one fetch/PUT, local state only.
+// I9: display only except for the one config-write control (PUT /mcp/remote — ADR-0032 §2.6).
+
+/**
+ * Build a Claude Desktop MCP JSON snippet from the live API payload (ADR-0027 §2.4).
+ * entry_point_command is tokenised: argv[0] = command, rest = args.
+ * Server is keyed by server_name — nothing is hardcoded (I6).
+ */
+function buildClaudeDesktopSnippet(mcpInfo: McpInfoResponse): string {
+  const tokens = mcpInfo.entry_point_command.trim().split(/\s+/);
+  const command = tokens[0] ?? "";
+  const args = tokens.slice(1);
+  const payload = {
+    mcpServers: {
+      [mcpInfo.server_name]: {
+        command,
+        args,
+      },
+    },
+  };
+  return JSON.stringify(payload, null, 2);
+}
+
+/**
+ * Build the claude.ai remote-MCP connection snippet (ADR-0032 §2.7).
+ * Shows the URL and instructions — mirrors the Desktop snippet style.
+ * The token is NEVER included (ADR-0032 §2.5).
+ * url = window.location.origin + info.mount_path (I6 — no host hardcoded).
+ */
+function buildRemoteMcpSnippet(remoteUrl: string): string {
+  const payload = {
+    mcpServers: {
+      synapse_remote: {
+        type: "http",
+        url: remoteUrl,
+      },
+    },
+  };
+  return JSON.stringify(payload, null, 2);
+}
 
 function SectionApiMcp() {
   const { t } = useTranslation();
@@ -639,33 +744,51 @@ function SectionApiMcp() {
   const [err, setErr] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Remote toggle local state — derives from info on fetch; updated from PUT response (I3).
+  // Separate from `info` so we can update the toggle state without re-fetching all fields.
+  const [remoteEnabled, setRemoteEnabled] = useState(false);
+  const [tokenConfigured, setTokenConfigured] = useState(false);
+  const [tokenSource, setTokenSource] = useState<"db" | "env" | "none">("none");
+  const [allowWithoutToken, setAllowWithoutToken] = useState(false);
+  const [mountPath, setMountPath] = useState("/mcp/server");
+  const [remoteWrite, setRemoteWrite] = useState(false);
+  const [toggleBusy, setToggleBusy] = useState(false);
+  const [copiedRemote, setCopiedRemote] = useState(false);
+  const [copiedRemoteSnippet, setCopiedRemoteSnippet] = useState(false);
+
+  // ADR-0033: one-time generated token reveal (local state only — never persisted, I3).
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+  const [copiedGenToken, setCopiedGenToken] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
+
   useEffect(() => {
     const ac = new AbortController();
     fetchMcpInfo(ac.signal)
-      .then((data) => { setInfo(data); })
-      .catch(() => { setErr(true); });
+      .then((data) => {
+        setInfo(data);
+        setErr(false);
+        // Seed local state from fetched posture (ADR-0032 §2.7, ADR-0033 §2.5).
+        setRemoteEnabled(data.remote_enabled);
+        setTokenConfigured(data.token_configured);
+        setTokenSource(data.token_source);
+        setAllowWithoutToken(data.allow_without_token);
+        setMountPath(data.mount_path);
+        setRemoteWrite(data.remote_write_enabled);
+      })
+      .catch((e: unknown) => {
+        if (!(e instanceof Error) || e.name !== "AbortError") setErr(true);
+      });
     return () => { ac.abort(); };
   }, []);
 
-  /**
-   * Build a Claude Desktop MCP JSON snippet from the live API payload (ADR-0027 §2.4).
-   * entry_point_command is tokenised: argv[0] = command, rest = args.
-   * Server is keyed by server_name — nothing is hardcoded (I6).
-   */
-  function buildClaudeDesktopSnippet(mcpInfo: McpInfoResponse): string {
-    const tokens = mcpInfo.entry_point_command.trim().split(/\s+/);
-    const command = tokens[0] ?? "";
-    const args = tokens.slice(1);
-    const payload = {
-      mcpServers: {
-        [mcpInfo.server_name]: {
-          command,
-          args,
-        },
-      },
-    };
-    return JSON.stringify(payload, null, 2);
-  }
+  /** Sync all local posture state from a PUT /mcp/auth response (ADR-0033 §2.5). */
+  const applyAuthResponse = (resp: McpAuthResponse) => {
+    setTokenConfigured(resp.token_configured);
+    setTokenSource(resp.token_source);
+    setAllowWithoutToken(resp.allow_without_token);
+    setRemoteEnabled(resp.remote_enabled);
+    setMountPath(resp.mount_path);
+  };
 
   const handleCopy = () => {
     if (!info) return;
@@ -675,6 +798,128 @@ function SectionApiMcp() {
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => { /* clipboard unavailable */ });
   };
+
+  /**
+   * Handle the remote toggle flip (ADR-0032 §2.4 / §2.7).
+   * Calls PUT /mcp/remote, then applies the server response to local state.
+   * If clamped=true, the server refused to enable — keep off and the UI shows the no-token note.
+   * Guard: remote can be enabled when token_configured OR allow_without_token (ADR-0033 §2.4).
+   * I3: a single fetch/PUT on interaction; no Zustand store.
+   */
+  const handleRemoteToggle = async () => {
+    const canEnable = tokenConfigured || allowWithoutToken;
+    if (toggleBusy || !canEnable) return;
+    const next = !remoteEnabled;
+    setToggleBusy(true);
+    try {
+      const resp: McpRemoteStateResponse = await setRemoteMcpEnabled(next);
+      setRemoteEnabled(resp.remote_enabled);
+      setTokenConfigured(resp.token_configured);
+      setMountPath(resp.mount_path);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+      // On network error, do not flip the toggle — keep existing posture.
+    } finally {
+      setToggleBusy(false);
+    }
+  };
+
+  /**
+   * Generate a new token (ADR-0033 §2.5 rotate_token).
+   * The server returns generated_token ONCE — we hold it in local state for the reveal box.
+   * It is never written to any store or localStorage (I3).
+   */
+  const handleGenerateToken = async () => {
+    if (authBusy) return;
+    setAuthBusy(true);
+    setGeneratedToken(null); // clear any prior reveal before the call
+    try {
+      const resp = await setMcpAuth({ rotate_token: true });
+      applyAuthResponse(resp);
+      if (resp.generated_token) {
+        setGeneratedToken(resp.generated_token);
+      }
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  /**
+   * Clear the stored token (ADR-0033 §2.5 clear_token).
+   * After this, the surface falls back to env bootstrap or "no token" posture.
+   */
+  const handleClearToken = async () => {
+    if (authBusy) return;
+    setAuthBusy(true);
+    setGeneratedToken(null);
+    try {
+      const resp = await setMcpAuth({ clear_token: true });
+      applyAuthResponse(resp);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  /**
+   * Toggle the "allow without token" flag (ADR-0033 §2.3).
+   * The server applies the allow-aware clamp on remote_enabled; we reflect the result.
+   */
+  const handleAllowWithoutTokenToggle = async () => {
+    if (authBusy) return;
+    setAuthBusy(true);
+    try {
+      const resp = await setMcpAuth({ allow_without_token: !allowWithoutToken });
+      applyAuthResponse(resp);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleDismissGeneratedToken = () => {
+    setGeneratedToken(null);
+  };
+
+  const handleCopyGeneratedToken = () => {
+    if (!generatedToken) return;
+    navigator.clipboard.writeText(generatedToken).then(() => {
+      setCopiedGenToken(true);
+      setTimeout(() => setCopiedGenToken(false), 2000);
+    }).catch(() => { /* clipboard unavailable */ });
+  };
+
+  const remoteUrl = `${window.location.origin}${mountPath}`;
+
+  const handleCopyRemoteUrl = () => {
+    navigator.clipboard.writeText(remoteUrl).then(() => {
+      setCopiedRemote(true);
+      setTimeout(() => setCopiedRemote(false), 2000);
+    }).catch(() => { /* clipboard unavailable */ });
+  };
+
+  const handleCopyRemoteSnippet = () => {
+    const snippet = buildRemoteMcpSnippet(remoteUrl);
+    navigator.clipboard.writeText(snippet).then(() => {
+      setCopiedRemoteSnippet(true);
+      setTimeout(() => setCopiedRemoteSnippet(false), 2000);
+    }).catch(() => { /* clipboard unavailable */ });
+  };
+
+  // Derived: whether the remote toggle can be enabled.
+  // ADR-0033 §2.4: remote can be ON when token_configured OR allow_without_token.
+  const canEnableRemote = tokenConfigured || allowWithoutToken;
+
+  // Derived: human-readable token posture label (ADR-0033 §2.5, i18n).
+  const tokenPostureKey = !tokenConfigured
+    ? "settings.apiMcp.access.postureNone"
+    : tokenSource === "db"
+    ? "settings.apiMcp.access.postureDb"
+    : "settings.apiMcp.access.postureEnv";
 
   return (
     <div>
@@ -691,7 +936,410 @@ function SectionApiMcp() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-          {/* Connection sub-section */}
+          {/* ── Access sub-block — ADR-0033 §2.6 ── */}
+          <div>
+            <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              {t("settings.apiMcp.access.title")}
+            </p>
+
+            {/* Token posture row */}
+            <div
+              style={{
+                padding: "10px 14px",
+                background: "#161b22",
+                border: "1px solid #21262d",
+                borderRadius: 8,
+                marginBottom: 10,
+              }}
+            >
+              {/* Posture label */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: tokenConfigured ? "#3fb950" : "#484f58",
+                    flexShrink: 0,
+                    display: "inline-block",
+                  }}
+                />
+                <span
+                  data-testid="mcp-token-posture"
+                  style={{ fontSize: 12, fontWeight: 600, color: tokenConfigured ? "#3fb950" : "#484f58" }}
+                >
+                  {t(tokenPostureKey)}
+                </span>
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  data-testid="mcp-generate-token-btn"
+                  onClick={() => { void handleGenerateToken(); }}
+                  disabled={authBusy}
+                  style={{
+                    ...BTN_PRIMARY,
+                    opacity: authBusy ? 0.4 : 1,
+                    cursor: authBusy ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {authBusy
+                    ? "…"
+                    : tokenConfigured
+                    ? t("settings.apiMcp.access.rotateToken")
+                    : t("settings.apiMcp.access.generateToken")}
+                </button>
+                {tokenConfigured && (
+                  <button
+                    data-testid="mcp-clear-token-btn"
+                    onClick={() => { void handleClearToken(); }}
+                    disabled={authBusy}
+                    style={{
+                      padding: "6px 14px",
+                      border: "1px solid #f8514933",
+                      borderRadius: 6,
+                      background: "transparent",
+                      color: "#f85149",
+                      fontSize: 12,
+                      cursor: authBusy ? "not-allowed" : "pointer",
+                      fontWeight: 500,
+                      opacity: authBusy ? 0.4 : 1,
+                    }}
+                  >
+                    {t("settings.apiMcp.access.clearToken")}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* One-time token reveal — shown ONLY immediately after rotate_token (ADR-0033 §2.1) */}
+            {generatedToken !== null && (
+              <div
+                style={{
+                  padding: "12px 14px",
+                  background: "#0f2a1a",
+                  border: "1px solid #238636",
+                  borderRadius: 8,
+                  marginBottom: 10,
+                }}
+              >
+                <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "#3fb950" }}>
+                  {t("settings.apiMcp.access.revealWarning")}
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span
+                    data-testid="mcp-generated-token"
+                    style={{
+                      flex: 1,
+                      fontFamily: "monospace",
+                      fontSize: 12,
+                      color: "#e6edf3",
+                      padding: "6px 10px",
+                      background: "#0d1117",
+                      border: "1px solid #238636",
+                      borderRadius: 4,
+                      wordBreak: "break-all",
+                      userSelect: "all",
+                    }}
+                  >
+                    {generatedToken}
+                  </span>
+                  <button
+                    data-testid="mcp-copy-generated-token-btn"
+                    onClick={handleCopyGeneratedToken}
+                    style={{
+                      padding: "6px 12px",
+                      border: "1px solid #238636",
+                      borderRadius: 4,
+                      background: copiedGenToken ? "#238636" : "transparent",
+                      color: copiedGenToken ? "#fff" : "#3fb950",
+                      fontSize: 11,
+                      cursor: "pointer",
+                      flexShrink: 0,
+                      transition: "background 0.15s, color 0.15s",
+                    }}
+                  >
+                    {copiedGenToken ? t("settings.apiMcp.copied") : t("common.copy")}
+                  </button>
+                </div>
+                <button
+                  data-testid="mcp-dismiss-generated-token-btn"
+                  onClick={handleDismissGeneratedToken}
+                  style={{
+                    marginTop: 8,
+                    padding: "4px 10px",
+                    border: "1px solid #21262d",
+                    borderRadius: 4,
+                    background: "transparent",
+                    color: "#6e7681",
+                    fontSize: 11,
+                    cursor: "pointer",
+                  }}
+                >
+                  {t("settings.apiMcp.access.dismissToken")}
+                </button>
+              </div>
+            )}
+
+            {/* "Allow without token" switch — ADR-0033 §2.3 */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                padding: "10px 14px",
+                background: "#161b22",
+                border: `1px solid ${allowWithoutToken ? "#9e6a03" : "#21262d"}`,
+                borderRadius: 8,
+                opacity: authBusy ? 0.6 : 1,
+                transition: "border-color 0.15s, opacity 0.15s",
+              }}
+            >
+              <label
+                style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", userSelect: "none", flex: 1 }}
+              >
+                <span style={{ position: "relative", display: "inline-block", width: 36, height: 20, flexShrink: 0, marginTop: 1 }}>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    aria-label={t("settings.apiMcp.access.allowWithoutTokenLabel")}
+                    data-testid="mcp-allow-without-token"
+                    checked={allowWithoutToken}
+                    disabled={authBusy}
+                    onChange={() => { void handleAllowWithoutTokenToggle(); }}
+                    style={{ position: "absolute", opacity: 0, width: 0, height: 0 }}
+                  />
+                  {/* Track */}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      display: "block",
+                      width: 36,
+                      height: 20,
+                      borderRadius: 10,
+                      background: allowWithoutToken ? "#9e6a03" : "#21262d",
+                      border: `1px solid ${allowWithoutToken ? "#e3b341" : "#484f58"}`,
+                      transition: "background 0.15s, border-color 0.15s",
+                    }}
+                  />
+                  {/* Thumb */}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      top: 3,
+                      left: allowWithoutToken ? 19 : 3,
+                      width: 14,
+                      height: 14,
+                      borderRadius: "50%",
+                      background: allowWithoutToken ? "#e3b341" : "#6e7681",
+                      transition: "left 0.15s, background 0.15s",
+                    }}
+                  />
+                </span>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: allowWithoutToken ? "#e3b341" : "#8b949e" }}>
+                    {t("settings.apiMcp.access.allowWithoutTokenLabel")}
+                  </span>
+                  {/* Security caveat — always visible for this switch (ADR-0033 §2.3) */}
+                  <p
+                    data-testid="mcp-allow-without-token-caveat"
+                    style={{ margin: "4px 0 0", fontSize: 11, color: "#9e6a03", lineHeight: 1.5 }}
+                  >
+                    {t("settings.apiMcp.access.allowWithoutTokenCaveat")}
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* ── Remote (claude.ai) sub-section — ADR-0032 §2.7 ── */}
+          <div>
+            <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              {t("settings.apiMcp.remote.title")}
+            </p>
+
+            {/* Toggle row */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 14px",
+                background: "#161b22",
+                border: `1px solid ${remoteEnabled ? "#1f6feb" : "#21262d"}`,
+                borderRadius: 8,
+                marginBottom: 10,
+                opacity: toggleBusy ? 0.6 : 1,
+                transition: "border-color 0.15s, opacity 0.15s",
+              }}
+            >
+              {/* Checkbox-based toggle switch — accessible (ADR-0032 §2.7) */}
+              <label
+                style={{ display: "flex", alignItems: "center", gap: 10, cursor: canEnableRemote ? "pointer" : "not-allowed", userSelect: "none", flex: 1 }}
+                title={canEnableRemote ? undefined : t("settings.apiMcp.remote.noTokenNote")}
+              >
+                <span style={{ position: "relative", display: "inline-block", width: 36, height: 20, flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    aria-label={t("settings.apiMcp.remote.enabledLabel")}
+                    data-testid="mcp-remote-toggle"
+                    checked={remoteEnabled}
+                    disabled={!canEnableRemote || toggleBusy}
+                    onChange={() => { void handleRemoteToggle(); }}
+                    style={{ position: "absolute", opacity: 0, width: 0, height: 0 }}
+                  />
+                  {/* Track */}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      display: "block",
+                      width: 36,
+                      height: 20,
+                      borderRadius: 10,
+                      background: remoteEnabled ? "#1f6feb" : "#21262d",
+                      border: `1px solid ${remoteEnabled ? "#1f6feb" : "#484f58"}`,
+                      transition: "background 0.15s, border-color 0.15s",
+                    }}
+                  />
+                  {/* Thumb */}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      top: 3,
+                      left: remoteEnabled ? 19 : 3,
+                      width: 14,
+                      height: 14,
+                      borderRadius: "50%",
+                      background: remoteEnabled ? "#fff" : "#6e7681",
+                      transition: "left 0.15s, background 0.15s",
+                    }}
+                  />
+                </span>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: remoteEnabled ? "#e6edf3" : "#8b949e" }}>
+                    {t("settings.apiMcp.remote.enabledLabel")}
+                  </span>
+                  {/* No-token note rendered inline when neither token nor allow is configured */}
+                  {!canEnableRemote && (
+                    <p style={{ margin: "3px 0 0", fontSize: 11, color: "#9e6a03", lineHeight: 1.5 }}>
+                      {t("settings.apiMcp.remote.noTokenNote")}
+                    </p>
+                  )}
+                </div>
+              </label>
+
+              {/* read-only / read-write badge — visible only when enabled */}
+              {remoteEnabled && (
+                <span
+                  style={{
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                    background: remoteWrite ? "#1b2d1b" : "#21262d",
+                    color: remoteWrite ? "#3fb950" : "#8b949e",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    letterSpacing: "0.04em",
+                    flexShrink: 0,
+                  }}
+                >
+                  {remoteWrite ? t("settings.apiMcp.remote.readWriteBadge") : t("settings.apiMcp.remote.readOnlyBadge")}
+                </span>
+              )}
+            </div>
+
+            {/* URL row — shown only when enabled (ADR-0032 §2.7 state 3) */}
+            {remoteEnabled && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+                <div>
+                  <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681" }}>
+                    {t("settings.apiMcp.remote.urlLabel")}
+                  </p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span
+                      data-testid="mcp-remote-url"
+                      style={{
+                        flex: 1,
+                        fontFamily: "monospace",
+                        fontSize: 12,
+                        color: "#58a6ff",
+                        padding: "5px 8px",
+                        background: "#0d1117",
+                        border: "1px solid #1f6feb44",
+                        borderRadius: 4,
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      {remoteUrl}
+                    </span>
+                    <button
+                      data-testid="mcp-remote-url-copy"
+                      onClick={handleCopyRemoteUrl}
+                      style={{
+                        padding: "5px 10px",
+                        border: "1px solid #21262d",
+                        borderRadius: 4,
+                        background: copiedRemote ? "#1b2d1b" : "transparent",
+                        color: copiedRemote ? "#3fb950" : "#6e7681",
+                        fontSize: 11,
+                        cursor: "pointer",
+                        flexShrink: 0,
+                        transition: "background 0.15s, color 0.15s",
+                      }}
+                    >
+                      {copiedRemote ? t("settings.apiMcp.copied") : t("common.copy")}
+                    </button>
+                  </div>
+                </div>
+
+                {/* claude.ai remote-MCP connection snippet — mirrors Desktop snippet style (ADR-0032 §2.7) */}
+                <div>
+                  <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681" }}>
+                    {t("settings.apiMcp.remote.snippetLabel")}
+                  </p>
+                  <div
+                    data-testid="mcp-remote-snippet"
+                    style={{
+                      fontFamily: "monospace",
+                      fontSize: 11,
+                      background: "#0d1117",
+                      border: "1px solid #21262d",
+                      borderRadius: 6,
+                      padding: "10px 12px",
+                      color: "#8b949e",
+                      whiteSpace: "pre",
+                      overflowX: "auto",
+                      marginBottom: 6,
+                    }}
+                  >
+                    {buildRemoteMcpSnippet(remoteUrl)}
+                  </div>
+                  <button
+                    data-testid="mcp-remote-snippet-copy"
+                    onClick={handleCopyRemoteSnippet}
+                    style={{
+                      padding: "5px 12px",
+                      border: "1px solid #21262d",
+                      borderRadius: 6,
+                      background: copiedRemoteSnippet ? "#1b2d1b" : "transparent",
+                      color: copiedRemoteSnippet ? "#3fb950" : "#6e7681",
+                      fontSize: 11,
+                      cursor: "pointer",
+                      transition: "background 0.15s, color 0.15s",
+                    }}
+                  >
+                    {copiedRemoteSnippet ? t("settings.apiMcp.copied") : t("settings.apiMcp.remote.copySnippet")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Connection sub-section (stdio — read-only, ADR-0027) ── */}
           <div>
             <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               {t("settings.apiMcp.connectionTitle")}
@@ -739,7 +1387,7 @@ function SectionApiMcp() {
             </div>
           </div>
 
-          {/* Tools sub-section — rendered from info.tools, nothing hardcoded (I6/I9) */}
+          {/* ── Tools sub-section — rendered from info.tools, nothing hardcoded (I6/I9) ── */}
           <div>
             <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               {t("settings.apiMcp.toolsTitle")}
@@ -968,11 +1616,11 @@ function SectionAbout() {
 
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 16px", fontSize: 12, marginBottom: 24 }}>
         <span style={{ color: "#484f58" }}>{t("settings.about.version")}</span>
-        <span style={{ color: "#e6edf3", fontFamily: "monospace" }}>v0.4</span>
+        <span style={{ color: "#e6edf3", fontFamily: "monospace" }}>v0.5</span>
         <span style={{ color: "#484f58" }}>{t("settings.about.sprint")}</span>
-        <span style={{ color: "#e6edf3", fontFamily: "monospace" }}>sprint/v0.4</span>
+        <span style={{ color: "#e6edf3", fontFamily: "monospace" }}>sprint/v0.5</span>
         <span style={{ color: "#484f58" }}>{t("settings.about.milestone")}</span>
-        <span style={{ color: "#e6edf3", fontFamily: "monospace" }}>M4 — Usable &amp; Fluid</span>
+        <span style={{ color: "#e6edf3", fontFamily: "monospace" }}>M5 — Feature parity core</span>
       </div>
 
       <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#484f58" }}>

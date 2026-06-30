@@ -66,7 +66,7 @@ def _nullable_marker(col: object) -> str:  # type: ignore[type-arg]
 def generate_mermaid_er() -> str:
     from datetime import date
 
-    header = f"<!-- Generated: v0.5-F9/F10 | {date.today().isoformat()} — ADR-0025: review_items; ADR-0024: deep_research_runs/sources; ADR-0016: edges.kind; Feature A: pages.pinned -->"
+    header = f"<!-- Generated: v0.5-ADR-0033 | {date.today().isoformat()} — ADR-0033: vault_state +mcp_access_token_hash +mcp_allow_without_token (migration 0012); ADR-0032: +remote_mcp_enabled (migration 0011); ADR-0025: review_items; ADR-0024: deep_research_runs/sources -->"
     lines = [header, "erDiagram", ""]
 
     for table in Base.metadata.sorted_tables:

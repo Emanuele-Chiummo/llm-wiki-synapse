@@ -2,7 +2,8 @@
 Synapse MCP server (FastMCP, stdio transport — ADR-0010 §1).
 
 Exposes four tools to CliAgentProvider and to any external MCP client (e.g. Claude Desktop):
-    search_wiki   — vector search via Qdrant + bge-m3 (I9)
+    search_wiki   — search via the shared 4-phase retrieval path (degrades to lexical when
+                    embeddings are off — ADR-0030 §2.6; no duplicated lexical branch, I9)
     write_page    — validate → slug → write → persist (I1, I5); reuses write_wiki_page
     get_page      — return a page's full content and frontmatter by title
     list_pages    — list live pages with optional type filter
@@ -10,7 +11,11 @@ Exposes four tools to CliAgentProvider and to any external MCP client (e.g. Clau
 All four tools honour the shared-write-path contract (ADR-0010 §2):
     write_page calls the same write_wiki_page() primitive the orchestrator uses.
 
-Transport: stdio in v0.2 (AQ-v0.2-6). HTTP is deferred to v0.4.
+Transport: stdio (ADR-0010 §1). HTTP surface optionally mounted into FastAPI at /mcp/server
+when MCP_AUTH_TOKEN is set (ADR-0029). The HTTP surface is built by build_http_mcp() which
+creates a *separate* FastMCP instance that re-registers only the desired tools from the
+shared tool-body functions below — so the stdio `mcp` always keeps all four tools.
+
 Run entry point: `python -m app.mcp.server`
 
 The `mcp` object is the FastMCP server instance; it is imported by orchestrator._delegate_ingest
@@ -27,15 +32,15 @@ from typing import Any
 from fastmcp import FastMCP
 
 from app.config import settings
-from app.embeddings import get_embedding_client
 from app.ingest.loop import validate_pages
 from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
-from app.qdrant_client import get_qdrant_client
+from app.rag.retrieval import retrieve
 
 logger = logging.getLogger(__name__)
 
 # ── FastMCP server instance ────────────────────────────────────────────────────
-# stdio transport (ADR-0010 §1); HTTP is `mcp.run(transport="sse")` if needed later.
+# stdio transport (ADR-0010 §1). NEVER modify tool registrations here — the stdio
+# server always exposes all four tools (I6, test_four_tools_registered).
 mcp = FastMCP(
     name="synapse",
     instructions=(
@@ -59,16 +64,24 @@ class PageRef:
     relevance_score: float = 0.0
 
 
-# ── Tool: search_wiki ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Shared tool-body functions (DRY — used by both the stdio `mcp` and the HTTP
+# FastMCP instance returned by build_http_mcp()).  All business logic lives here;
+# the @mcp.tool() / @http_mcp.tool() decorators below are thin wrappers.
+# ─────────────────────────────────────────────────────────────────────────────
 
 
-@mcp.tool()
-async def search_wiki(query: str, k: int = 5) -> list[dict[str, Any]]:
+async def _search_wiki_body(query: str, k: int = 5) -> list[dict[str, Any]]:
     """
-    Semantic search over the Synapse wiki using bge-m3 embeddings and Qdrant (I9).
+    Search the Synapse wiki via the SHARED retrieval path (F5, ADR-0022 / ADR-0030 §2.6).
 
-    This is a simple vector lookup, NOT the full 4-phase RAG pipeline (F5, deferred to v0.5).
-    Returns up to *k* results sorted by cosine similarity score (normalised to [0,1]).
+    Routes through ``rag.retrieval.retrieve()`` — the single 4-phase pipeline used by
+    ``/search`` and ``/chat`` — rather than calling the embedding client / Qdrant directly.
+    This means it degrades automatically: when ``EMBEDDINGS_ENABLED=false`` (ADR-0030),
+    ``retrieve()`` internally swaps dense Phase 1 for a Postgres lexical match, so this tool
+    returns keyword hits instead of erroring. No lexical branch is duplicated here (I9).
+
+    Returns up to *k* results derived from the retrieval citations, ranked by score.
 
     Args:
         query: Natural-language search query.
@@ -82,52 +95,37 @@ async def search_wiki(query: str, k: int = 5) -> list[dict[str, Any]]:
     if k > 50:
         k = 50
 
-    # Embed the query using the existing bge-m3 client (I9 — no new service).
-    client = get_embedding_client()
-    try:
-        vector = await client.embed(query)
-    except Exception as exc:  # noqa: BLE001
-        logger.error("search_wiki: embedding failed: %s", exc)
-        return []
+    from app.chat.context import DEFAULT_CONTEXT_WINDOW
 
-    # Search Qdrant (I9 — reuse synapse_pages collection, ADR-0002).
-    # The Qdrant Python client ≥ 1.10 removed .search() in favour of .query_points()
-    # which returns a QueryResponse with a .points list of ScoredPoint objects.
-    qdrant = get_qdrant_client()
     try:
-        query_response = await qdrant.query_points(
-            collection_name=settings.qdrant_collection,
-            query=vector,
-            limit=k,
-            with_payload=True,
+        ctx = await retrieve(
+            query,
+            vault_id=settings.vault_id,
+            context_window=DEFAULT_CONTEXT_WINDOW,
+            k=k,
         )
-        hits = query_response.points
     except Exception as exc:  # noqa: BLE001
-        logger.error("search_wiki: Qdrant search failed: %s", exc)
+        logger.error("search_wiki: retrieve() failed: %s", exc)
         return []
 
+    # Map citations → PageRef descriptors, highest score first, capped at k.
+    ordered = sorted(ctx.citations, key=lambda c: c.score, reverse=True)
     results: list[dict[str, Any]] = []
-    for hit in hits:
-        payload = hit.payload or {}
-        # Qdrant cosine scores are already in [-1, 1]; normalise to [0, 1].
-        score = float(hit.score)
-        normalised = max(0.0, min(1.0, (score + 1.0) / 2.0))
+    for cit in ordered[:k]:
         results.append(
             {
-                "id": str(hit.id),
-                "title": payload.get("title"),
-                "type": payload.get("type"),
-                "relevance_score": round(normalised, 4),
+                "id": cit.ref.id,
+                "title": cit.ref.title,
+                # PageRef carries no page_type; the retrieval layer is the source of truth
+                # for citable refs. Type is left None (consumers treat it as optional).
+                "type": None,
+                "relevance_score": round(float(cit.score), 4),
             }
         )
     return results
 
 
-# ── Tool: write_page ──────────────────────────────────────────────────────────
-
-
-@mcp.tool()
-async def write_page(
+async def _write_page_body(
     title: str,
     content: str,
     frontmatter: dict[str, Any],
@@ -204,11 +202,7 @@ async def write_page(
     }
 
 
-# ── Tool: get_page ────────────────────────────────────────────────────────────
-
-
-@mcp.tool()
-async def get_page(title: str) -> dict[str, Any]:
+async def _get_page_body(title: str) -> dict[str, Any]:
     """
     Retrieve a live wiki page by title.
 
@@ -265,11 +259,7 @@ async def get_page(title: str) -> dict[str, Any]:
     }
 
 
-# ── Tool: list_pages ──────────────────────────────────────────────────────────
-
-
-@mcp.tool()
-async def list_pages(type: str | None = None) -> list[dict[str, Any]]:
+async def _list_pages_body(type: str | None = None) -> list[dict[str, Any]]:
     """
     List live wiki pages, optionally filtered by page type.
 
@@ -310,6 +300,106 @@ async def list_pages(type: str | None = None) -> list[dict[str, Any]]:
     ]
 
 
+# ── Tool: search_wiki (stdio mcp) ─────────────────────────────────────────────
+
+
+@mcp.tool()
+async def search_wiki(query: str, k: int = 5) -> list[dict[str, Any]]:
+    """
+    Search the Synapse wiki via the SHARED retrieval path (F5, ADR-0022 / ADR-0030 §2.6).
+
+    Routes through ``rag.retrieval.retrieve()`` — the single 4-phase pipeline used by
+    ``/search`` and ``/chat`` — rather than calling the embedding client / Qdrant directly.
+    This means it degrades automatically: when ``EMBEDDINGS_ENABLED=false`` (ADR-0030),
+    ``retrieve()`` internally swaps dense Phase 1 for a Postgres lexical match, so this tool
+    returns keyword hits instead of erroring. No lexical branch is duplicated here (I9).
+
+    Returns up to *k* results derived from the retrieval citations, ranked by score.
+
+    Args:
+        query: Natural-language search query.
+        k:     Maximum number of results to return (default 5).
+
+    Returns:
+        list of {id, title, type, relevance_score}.
+    """
+    return await _search_wiki_body(query, k)
+
+
+# ── Tool: write_page (stdio mcp) ─────────────────────────────────────────────
+
+
+@mcp.tool()
+async def write_page(
+    title: str,
+    content: str,
+    frontmatter: dict[str, Any],
+    origin_source: str = "",
+) -> dict[str, Any]:
+    """
+    Create or update a wiki page through the Synapse ingest seam (I1, I5, ADR-0010 §2).
+
+    Validates frontmatter (type, title, sources[], lang) before writing. Returns a
+    structured error dict (not an exception) on missing/invalid fields so the CLI agent
+    can retry without crashing (AC-MCP-3).
+
+    The page is written via write_wiki_page() — the SAME primitive the orchestrated loop
+    uses — so K5 wikilink parsing, K3 index update, Qdrant upsert, and log append all run
+    identically (ADR-0010 §2, single write path).
+
+    Args:
+        title:         Page title (non-empty).
+        content:       Markdown body WITHOUT a frontmatter block.
+        frontmatter:   Dict with at least {type, title, sources, lang}.
+        origin_source: Optional origin path injected into sources[] for F3 traceability.
+
+    Returns:
+        {"id", "title", "type", "relevance_score": 0.0} on success.
+        {"error": "<message>"} on validation failure.
+    """
+    return await _write_page_body(title, content, frontmatter, origin_source)
+
+
+# ── Tool: get_page (stdio mcp) ────────────────────────────────────────────────
+
+
+@mcp.tool()
+async def get_page(title: str) -> dict[str, Any]:
+    """
+    Retrieve a live wiki page by title.
+
+    Returns {title, type, content, frontmatter} on success, or {"error": "..."} if the
+    page is not found or has been soft-deleted.
+
+    Args:
+        title: Exact page title (case-sensitive).
+
+    Returns:
+        {title, type, content, frontmatter} or {"error": "<message>"}.
+    """
+    return await _get_page_body(title)
+
+
+# ── Tool: list_pages (stdio mcp) ──────────────────────────────────────────────
+
+
+@mcp.tool()
+async def list_pages(type: str | None = None) -> list[dict[str, Any]]:
+    """
+    List live wiki pages, optionally filtered by page type.
+
+    Excludes soft-deleted pages (deleted_at IS NOT NULL). Results are sorted by title.
+
+    Args:
+        type: Optional page type filter (entity/concept/source/synthesis/comparison).
+              Passing None returns all live pages.
+
+    Returns:
+        list of {id, title, type, relevance_score: 0.0}.
+    """
+    return await _list_pages_body(type)
+
+
 # ── Internal validation helper ────────────────────────────────────────────────
 
 
@@ -339,6 +429,134 @@ def _validate_frontmatter_dict(fm: dict[str, Any]) -> str | None:
         )
 
     return None
+
+
+# ── HTTP MCP factory (ADR-0029 §2.3) ──────────────────────────────────────────
+
+
+def build_http_mcp(*, write_enabled: bool) -> FastMCP:
+    """
+    Build a FastMCP instance for the /mcp/server HTTP surface (ADR-0029 §2.3).
+
+    Returns a *separate* FastMCP instance that registers ONLY the read-only tools
+    (search_wiki, get_page, list_pages) by default, plus write_page iff write_enabled.
+    All tool bodies delegate to the SAME underlying ``_*_body`` functions used by the
+    stdio ``mcp`` — DRY, single write path enforced (ADR-0010 §2, I1/I5).
+
+    The stdio ``mcp`` module-level object is NEVER modified by this function.
+
+    Args:
+        write_enabled: If True, write_page is also registered on the HTTP surface.
+
+    Returns:
+        A configured FastMCP instance ready for ``http_app()`` mounting.
+    """
+    http_mcp = FastMCP(
+        name="synapse-http",
+        instructions=(
+            "Synapse remote wiki tools (HTTP/Streamable-HTTP, ADR-0029). "
+            "Use search_wiki to find relevant pages. "
+            "Use get_page / list_pages for read access. "
+            + (
+                "Use write_page to create or update wiki pages "
+                "(validation + frontmatter enforced). "
+                if write_enabled
+                else ""
+            )
+        ),
+    )
+
+    # ── Read-only tools (always present on the HTTP surface) ──────────────────
+
+    @http_mcp.tool()
+    async def search_wiki(query: str, k: int = 5) -> list[dict[str, Any]]:  # noqa: F811
+        """
+        Search the Synapse wiki via the SHARED retrieval path (F5, ADR-0022 / ADR-0030 §2.6).
+
+        Routes through ``rag.retrieval.retrieve()`` — the single 4-phase pipeline used by
+        ``/search`` and ``/chat`` — rather than calling the embedding client / Qdrant directly.
+        This means it degrades automatically: when ``EMBEDDINGS_ENABLED=false`` (ADR-0030),
+        ``retrieve()`` internally swaps dense Phase 1 for a Postgres lexical match, so this tool
+        returns keyword hits instead of erroring. No lexical branch is duplicated here (I9).
+
+        Returns up to *k* results derived from the retrieval citations, ranked by score.
+
+        Args:
+            query: Natural-language search query.
+            k:     Maximum number of results to return (default 5).
+
+        Returns:
+            list of {id, title, type, relevance_score}.
+        """
+        return await _search_wiki_body(query, k)
+
+    @http_mcp.tool()
+    async def get_page(title: str) -> dict[str, Any]:  # noqa: F811
+        """
+        Retrieve a live wiki page by title.
+
+        Returns {title, type, content, frontmatter} on success, or {"error": "..."} if the
+        page is not found or has been soft-deleted.
+
+        Args:
+            title: Exact page title (case-sensitive).
+
+        Returns:
+            {title, type, content, frontmatter} or {"error": "<message>"}.
+        """
+        return await _get_page_body(title)
+
+    @http_mcp.tool()
+    async def list_pages(type: str | None = None) -> list[dict[str, Any]]:  # noqa: F811
+        """
+        List live wiki pages, optionally filtered by page type.
+
+        Excludes soft-deleted pages (deleted_at IS NOT NULL). Results are sorted by title.
+
+        Args:
+            type: Optional page type filter (entity/concept/source/synthesis/comparison).
+                  Passing None returns all live pages.
+
+        Returns:
+            list of {id, title, type, relevance_score: 0.0}.
+        """
+        return await _list_pages_body(type)
+
+    # ── write_page — only when explicitly opted-in (ADR-0029 §2.3) ───────────
+
+    if write_enabled:
+
+        @http_mcp.tool()
+        async def write_page(  # noqa: F811
+            title: str,
+            content: str,
+            frontmatter: dict[str, Any],
+            origin_source: str = "",
+        ) -> dict[str, Any]:
+            """
+            Create or update a wiki page through the Synapse ingest seam (I1, I5, ADR-0010 §2).
+
+            Validates frontmatter (type, title, sources[], lang) before writing. Returns a
+            structured error dict (not an exception) on missing/invalid fields so the CLI agent
+            can retry without crashing (AC-MCP-3).
+
+            The page is written via write_wiki_page() — the SAME primitive the orchestrated loop
+            uses — so K5 wikilink parsing, K3 index update, Qdrant upsert, and log append all run
+            identically (ADR-0010 §2, single write path).
+
+            Args:
+                title:         Page title (non-empty).
+                content:       Markdown body WITHOUT a frontmatter block.
+                frontmatter:   Dict with at least {type, title, sources, lang}.
+                origin_source: Optional origin path injected into sources[] for F3 traceability.
+
+            Returns:
+                {"id", "title", "type", "relevance_score": 0.0} on success.
+                {"error": "<message>"} on validation failure.
+            """
+            return await _write_page_body(title, content, frontmatter, origin_source)
+
+    return http_mcp
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

@@ -835,7 +835,22 @@ async def upsert_vector(
 
     Point id == page_id (ADR-0002).
     Payload = {file_path, title, type} (AC-QD-2).
+
+    When ``settings.embeddings_enabled`` is False (ADR-0030 §2.2) this returns early WITHOUT
+    embedding or upserting: no EmbeddingClient call, no Qdrant point. Every other ingest step
+    (Postgres metadata, K5 wikilinks, K4 log, dataVersion bump) still runs in the caller, so
+    the page stays fully indexed in Postgres and ingest remains a single incremental pass (I1).
+    Toggling the flag never triggers a bulk re-embed.
     """
+    if not settings.embeddings_enabled:
+        logger.info(
+            "upsert_vector: embeddings disabled (EMBEDDINGS_ENABLED=false) — "
+            "skipping embed + Qdrant upsert for page_id=%s (file_path=%s)",
+            page_id,
+            file_path,
+        )
+        return
+
     client = get_embedding_client()
     vector = await client.embed(text)
     await upsert_point(

@@ -62,76 +62,94 @@ class TestMcpServerDefinition:
 # ── search_wiki ────────────────────────────────────────────────────────────────
 
 
+def _fake_ctx(citations: list[Any]) -> MagicMock:
+    """Build a RetrievalContext-shaped stub with the given citations list."""
+    ctx = MagicMock()
+    ctx.citations = citations
+    return ctx
+
+
+def _fake_citation(*, page_id: str, title: str, score: float) -> MagicMock:
+    """Build a Citation-shaped stub (has .ref.id, .ref.title, .score)."""
+    cit = MagicMock()
+    cit.ref = MagicMock()
+    cit.ref.id = page_id
+    cit.ref.title = title
+    cit.score = score
+    return cit
+
+
 class TestSearchWiki:
+    """
+    search_wiki routes through the SHARED retrieval path (ADR-0030 §2.6) — it no longer
+    embeds / queries Qdrant directly. These tests patch app.mcp.server.retrieve, which is the
+    single function that internally degrades to lexical when embeddings are off.
+    """
+
     @pytest.mark.asyncio
     async def test_returns_list_with_scores(self) -> None:
-        """search_wiki returns a list of dicts with relevance_score ∈ [0, 1]."""
-        from app.embeddings import FakeEmbeddingClient, set_embedding_client
+        """search_wiki maps retrieve() citations to dicts with relevance_score."""
         from app.mcp.server import search_wiki
 
-        fake_emb = FakeEmbeddingClient(dim=4)
-        set_embedding_client(fake_emb)
-
-        # Build fake Qdrant query_points result (Qdrant client ≥ 1.10 uses query_points).
-        fake_hit = MagicMock()
-        fake_hit.id = str(uuid.uuid4())
-        fake_hit.score = 0.8  # raw cosine score
-        fake_hit.payload = {"title": "Qdrant", "type": "concept"}
-
-        fake_response = MagicMock()
-        fake_response.points = [fake_hit]
-
-        fake_qdrant = MagicMock()
-        fake_qdrant.query_points = AsyncMock(return_value=fake_response)
-
-        with patch("app.mcp.server.get_qdrant_client", return_value=fake_qdrant):
+        ctx = _fake_ctx(
+            [_fake_citation(page_id=str(uuid.uuid4()), title="Qdrant", score=0.8)]
+        )
+        with patch("app.mcp.server.retrieve", new_callable=AsyncMock, return_value=ctx):
             results = await search_wiki("qdrant vector database", k=5)
 
         assert isinstance(results, list)
         assert len(results) == 1
         r = results[0]
         assert "relevance_score" in r
-        assert 0.0 <= r["relevance_score"] <= 1.0
+        assert r["relevance_score"] == 0.8
         assert r["title"] == "Qdrant"
 
     @pytest.mark.asyncio
-    async def test_returns_empty_list_on_qdrant_error(self) -> None:
-        """search_wiki returns [] on Qdrant failure (no exception propagates)."""
-        from app.embeddings import FakeEmbeddingClient, set_embedding_client
+    async def test_degrades_without_error_when_retrieve_returns_lexical(self) -> None:
+        """
+        ADR-0030: when embeddings are off, retrieve() degrades to lexical and still returns
+        ranked refs. search_wiki must surface them (no error, no empty-on-failure path).
+        """
         from app.mcp.server import search_wiki
 
-        fake_emb = FakeEmbeddingClient(dim=4)
-        set_embedding_client(fake_emb)
+        ctx = _fake_ctx(
+            [
+                _fake_citation(page_id=str(uuid.uuid4()), title="Lexical Hit A", score=3.0),
+                _fake_citation(page_id=str(uuid.uuid4()), title="Lexical Hit B", score=1.0),
+            ]
+        )
+        with patch("app.mcp.server.retrieve", new_callable=AsyncMock, return_value=ctx):
+            results = await search_wiki("keyword", k=5)
 
-        fake_qdrant = MagicMock()
-        fake_qdrant.query_points = AsyncMock(side_effect=ConnectionError("qdrant down"))
+        assert [r["title"] for r in results] == ["Lexical Hit A", "Lexical Hit B"]
+        # Ranked highest-score-first.
+        assert results[0]["relevance_score"] >= results[1]["relevance_score"]
 
-        with patch("app.mcp.server.get_qdrant_client", return_value=fake_qdrant):
+    @pytest.mark.asyncio
+    async def test_returns_empty_list_on_retrieve_error(self) -> None:
+        """search_wiki returns [] if the shared retrieval path raises (no exception)."""
+        from app.mcp.server import search_wiki
+
+        with patch(
+            "app.mcp.server.retrieve",
+            new_callable=AsyncMock,
+            side_effect=ConnectionError("backend down"),
+        ):
             results = await search_wiki("anything")
 
         assert results == []
 
     @pytest.mark.asyncio
     async def test_k_clamped_to_maximum(self) -> None:
-        """k > 50 is clamped to 50."""
-        from app.embeddings import FakeEmbeddingClient, set_embedding_client
+        """k > 50 is clamped to 50 before being passed to retrieve()."""
         from app.mcp.server import search_wiki
 
-        fake_emb = FakeEmbeddingClient(dim=4)
-        set_embedding_client(fake_emb)
-
-        fake_response = MagicMock()
-        fake_response.points = []
-
-        fake_qdrant = MagicMock()
-        fake_qdrant.query_points = AsyncMock(return_value=fake_response)
-
-        with patch("app.mcp.server.get_qdrant_client", return_value=fake_qdrant):
+        with patch(
+            "app.mcp.server.retrieve", new_callable=AsyncMock, return_value=_fake_ctx([])
+        ) as mock_retrieve:
             await search_wiki("query", k=1000)
 
-        # The limit passed to Qdrant must be ≤ 50
-        call_kwargs = fake_qdrant.query_points.call_args
-        assert call_kwargs.kwargs["limit"] <= 50
+        assert mock_retrieve.call_args.kwargs["k"] <= 50
 
 
 # ── write_page ────────────────────────────────────────────────────────────────

@@ -64,6 +64,15 @@ const MOCK_RESPONSE: McpInfoResponse = {
       },
     },
   ],
+  // ADR-0032 §2.5 fields
+  http_enabled: true,
+  remote_write_enabled: false,
+  token_configured: true,
+  remote_enabled: false,
+  mount_path: "/mcp/server",
+  // ADR-0033 §2.5 fields
+  token_source: "db" as const,
+  allow_without_token: false,
 };
 
 // ─── fetch mock helpers ────────────────────────────────────────────────────────
