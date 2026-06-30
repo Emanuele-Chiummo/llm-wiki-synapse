@@ -245,9 +245,7 @@ async def test_bearer_header_absent_when_no_key(monkeypatch: pytest.MonkeyPatch)
 @pytest.mark.asyncio
 async def test_probe_dimension_openai(monkeypatch: pytest.MonkeyPatch) -> None:
     capture = _Capture()
-    _install_mock_transport(
-        monkeypatch, capture, {"data": [{"embedding": [0.0] * 1024}]}
-    )
+    _install_mock_transport(monkeypatch, capture, {"data": [{"embedding": [0.0] * 1024}]})
 
     client = HttpEmbeddingClient(
         embedding_url="http://embed.test/v1/embeddings", embedding_format="openai"
@@ -339,9 +337,9 @@ async def test_gap_emb_key_leak_api_key_not_in_config_response() -> None:
         "GET /config/embedding response must not include 'embedding_api_key' field "
         "(ADR-0031 C-AC-6)"
     )
-    assert "api_key" not in data, (
-        "GET /config/embedding response must not include 'api_key' field (ADR-0031 C-AC-6)"
-    )
+    assert (
+        "api_key" not in data
+    ), "GET /config/embedding response must not include 'api_key' field (ADR-0031 C-AC-6)"
 
 
 # ── GAP-EMB-ABC-SIG (ADR-0031 C-AC-5) ────────────────────────────────────────
@@ -355,14 +353,15 @@ def test_gap_emb_abc_sig_embed_is_abstract() -> None:
     """
     method = EmbeddingClient.embed
     # Confirm it is marked abstract.
-    assert getattr(method, "__isabstractmethod__", False), (
-        "EmbeddingClient.embed must be abstract (ADR-0031 C-AC-5)"
-    )
+    assert getattr(
+        method, "__isabstractmethod__", False
+    ), "EmbeddingClient.embed must be abstract (ADR-0031 C-AC-5)"
     sig = inspect.signature(method)
     params = list(sig.parameters)
-    assert params == ["self", "text"], (
-        f"EmbeddingClient.embed signature must be (self, text); got {params}"
-    )
+    assert params == [
+        "self",
+        "text",
+    ], f"EmbeddingClient.embed signature must be (self, text); got {params}"
 
 
 def test_gap_emb_abc_sig_probe_dimension_is_abstract() -> None:
@@ -371,14 +370,14 @@ def test_gap_emb_abc_sig_probe_dimension_is_abstract() -> None:
     method with the exact signature (self) -> int.
     """
     method = EmbeddingClient.probe_dimension
-    assert getattr(method, "__isabstractmethod__", False), (
-        "EmbeddingClient.probe_dimension must be abstract (ADR-0031 C-AC-5)"
-    )
+    assert getattr(
+        method, "__isabstractmethod__", False
+    ), "EmbeddingClient.probe_dimension must be abstract (ADR-0031 C-AC-5)"
     sig = inspect.signature(method)
     params = list(sig.parameters)
-    assert params == ["self"], (
-        f"EmbeddingClient.probe_dimension signature must be (self); got {params}"
-    )
+    assert params == [
+        "self"
+    ], f"EmbeddingClient.probe_dimension signature must be (self); got {params}"
 
 
 def test_gap_emb_abc_sig_get_embedding_client_factory() -> None:
@@ -391,9 +390,7 @@ def test_gap_emb_abc_sig_get_embedding_client_factory() -> None:
     sig = inspect.signature(get_embedding_client)
     params = list(sig.parameters)
     # No parameters — the factory is a zero-arg call.
-    assert params == [], (
-        f"get_embedding_client() must take no parameters; got {params}"
-    )
+    assert params == [], f"get_embedding_client() must take no parameters; got {params}"
 
 
 def test_gap_emb_abc_sig_set_embedding_client_factory() -> None:
@@ -405,6 +402,6 @@ def test_gap_emb_abc_sig_set_embedding_client_factory() -> None:
 
     sig = inspect.signature(set_embedding_client)
     params = list(sig.parameters)
-    assert params == ["client"], (
-        f"set_embedding_client() must take exactly one parameter 'client'; got {params}"
-    )
+    assert params == [
+        "client"
+    ], f"set_embedding_client() must take exactly one parameter 'client'; got {params}"

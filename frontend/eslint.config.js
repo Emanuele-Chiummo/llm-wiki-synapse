@@ -74,6 +74,7 @@ export default [
         ecmaVersion: 2022,
         sourceType: "module",
         ecmaFeatures: { jsx: true },
+        project: "./tsconfig.json",
       },
       // Browser + browser-specific globals for source files
       globals: {

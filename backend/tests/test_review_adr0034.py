@@ -87,9 +87,7 @@ def _build_review_meta_0034() -> MetaData:
         Column("data_version", Integer, nullable=False, default=0),
         Column("remote_mcp_enabled", Integer, nullable=False, server_default=sa_text("0")),
         Column("mcp_access_token_hash", Text, nullable=True),
-        Column(
-            "mcp_allow_without_token", Integer, nullable=False, server_default=sa_text("0")
-        ),
+        Column("mcp_allow_without_token", Integer, nullable=False, server_default=sa_text("0")),
         Column("updated_at", Text, nullable=False),
     )
 
@@ -458,9 +456,7 @@ class TestEnqueueReview0034:
         assert item.created_page_id is None
         assert item.reviewed_at is None
 
-    async def test_all_five_item_types_accepted(
-        self, review_env_0034: dict[str, Any]
-    ) -> None:
+    async def test_all_five_item_types_accepted(self, review_env_0034: dict[str, Any]) -> None:
         """T-0034-002: all 5 item_type values are accepted by enqueue_review."""
         from app.ops.review import enqueue_review
 
@@ -480,9 +476,7 @@ class TestEnqueueReview0034:
             assert item.item_type == item_type
             assert item.status == "pending"
 
-    async def test_enqueue_without_optional_fields(
-        self, review_env_0034: dict[str, Any]
-    ) -> None:
+    async def test_enqueue_without_optional_fields(self, review_env_0034: dict[str, Any]) -> None:
         """enqueue_review with minimum required fields."""
         from app.ops.review import enqueue_review
 
@@ -560,17 +554,13 @@ class TestGetReviewQueue0034:
         for i in range(5):
             await _insert_proposal(review_env_0034, proposed_title=f"Page {i}")
 
-        resp1 = await review_client_0034.get(
-            "/review/queue?vault_id=test-vault&limit=3&offset=0"
-        )
+        resp1 = await review_client_0034.get("/review/queue?vault_id=test-vault&limit=3&offset=0")
         assert resp1.status_code == 200
         body1 = resp1.json()
         assert body1["total"] == 5
         assert len(body1["items"]) == 3
 
-        resp2 = await review_client_0034.get(
-            "/review/queue?vault_id=test-vault&limit=3&offset=3"
-        )
+        resp2 = await review_client_0034.get("/review/queue?vault_id=test-vault&limit=3&offset=3")
         assert resp2.status_code == 200
         body2 = resp2.json()
         assert len(body2["items"]) == 2
@@ -625,13 +615,11 @@ class TestCreateAction0034:
             "app.provider_config_service.resolve_provider_config",
             new=AsyncMock(return_value=fake_cfg),
         ):
-            resp = await review_client_0034.post(
-                f"/review/queue/{item_id}/approve"
-            )
+            resp = await review_client_0034.post(f"/review/queue/{item_id}/approve")
 
-        assert resp.status_code == 502, (
-            f"Expected 502 (AI seam stub), got {resp.status_code}: {resp.text}"
-        )
+        assert (
+            resp.status_code == 502
+        ), f"Expected 502 (AI seam stub), got {resp.status_code}: {resp.text}"
         # Item must still be pending (not consumed)
         async with review_env_0034["session_factory"]() as sess:
             result = await sess.execute(
@@ -663,9 +651,7 @@ class TestCreateAction0034:
             "app.provider_config_service.resolve_provider_config",
             new=AsyncMock(return_value=fake_cfg),
         ):
-            resp = await review_client_0034.post(
-                f"/review/queue/{item_id}/approve"
-            )
+            resp = await review_client_0034.post(f"/review/queue/{item_id}/approve")
 
         assert resp.status_code == 409
 
@@ -682,9 +668,7 @@ class TestCreateAction0034:
             "app.provider_config_service.resolve_provider_config",
             new=AsyncMock(return_value=fake_cfg),
         ):
-            resp = await review_client_0034.post(
-                f"/review/queue/{item_id}/create"
-            )
+            resp = await review_client_0034.post(f"/review/queue/{item_id}/create")
 
         assert resp.status_code == 502
 
@@ -702,9 +686,7 @@ class TestCreateAction0034:
             "app.provider_config_service.resolve_provider_config",
             new=AsyncMock(side_effect=ConfigNotFoundError("no provider")),
         ):
-            resp = await review_client_0034.post(
-                f"/review/queue/{item_id}/approve"
-            )
+            resp = await review_client_0034.post(f"/review/queue/{item_id}/approve")
 
         assert resp.status_code == 409
         assert "provider" in resp.json()["detail"].lower()
@@ -828,9 +810,7 @@ class TestDeepResearchAction0034:
         # (topic is set in the ops layer; we verify via the DB state)
         async with review_env_0034["session_factory"]() as sess:
             result = await sess.execute(
-                sa_text(
-                    "SELECT status, resolution FROM review_items WHERE id=:id"
-                ),
+                sa_text("SELECT status, resolution FROM review_items WHERE id=:id"),
                 {"id": item_id},
             )
             row = result.one()
@@ -865,9 +845,7 @@ class TestDeepResearchAction0034:
 
         async with review_env_0034["session_factory"]() as sess:
             result = await sess.execute(
-                sa_text(
-                    "SELECT status, resolution FROM review_items WHERE id=:id"
-                ),
+                sa_text("SELECT status, resolution FROM review_items WHERE id=:id"),
                 {"id": item_id},
             )
             row = result.one()
@@ -904,9 +882,7 @@ class TestSweepEndpoint0034:
         review_client_0034: AsyncClient,
     ) -> None:
         """T-0034-014: POST /review/queue/sweep → 200 {rule_resolved, llm_resolved, kept}."""
-        resp = await review_client_0034.post(
-            "/review/queue/sweep?vault_id=test-vault"
-        )
+        resp = await review_client_0034.post("/review/queue/sweep?vault_id=test-vault")
         assert resp.status_code == 200
         body = resp.json()
         assert "rule_resolved" in body
@@ -999,9 +975,9 @@ class TestSweepPass1:
             )
             r = row.one()
         # confirm must NOT be auto-resolved by Pass-1
-        assert r.status == "pending", (
-            "Pass-1 must NOT auto-resolve 'confirm' items (ADR-0034 Do-NOT #7)"
-        )
+        assert (
+            r.status == "pending"
+        ), "Pass-1 must NOT auto-resolve 'confirm' items (ADR-0034 Do-NOT #7)"
 
     async def test_pass1_never_touches_contradiction_or_suggestion(
         self,
@@ -1032,9 +1008,9 @@ class TestSweepPass1:
                     {"id": item_id},
                 )
                 r = row.one()
-                assert r.status == "pending", (
-                    f"Pass-1 must NOT auto-resolve {item_id!r} (type != missing-page/duplicate)"
-                )
+                assert (
+                    r.status == "pending"
+                ), f"Pass-1 must NOT auto-resolve {item_id!r} (type != missing-page/duplicate)"
 
 
 # ── T-0034-020..022: Migration 0013 ───────────────────────────────────────────
@@ -1136,9 +1112,7 @@ class TestMigration0013:
                 "resolution TEXT",
                 "created_page_id TEXT",
             ]:
-                await conn.execute(
-                    sa_text(f"ALTER TABLE review_items ADD COLUMN {col}")
-                )
+                await conn.execute(sa_text(f"ALTER TABLE review_items ADD COLUMN {col}"))
 
         async with engine.begin() as conn:
             result = await conn.execute(sa_text("PRAGMA table_info(review_items)"))
@@ -1180,11 +1154,7 @@ class TestMigration0013:
 
         # Simulate the data step
         async with engine.begin() as conn:
-            await conn.execute(
-                sa_text(
-                    "ALTER TABLE review_items ADD COLUMN resolution TEXT"
-                )
-            )
+            await conn.execute(sa_text("ALTER TABLE review_items ADD COLUMN resolution TEXT"))
             # Data step: left-shift legacy rows
             await conn.execute(
                 sa_text(
@@ -1197,9 +1167,7 @@ class TestMigration0013:
             )
 
         async with engine.begin() as conn:
-            result = await conn.execute(
-                sa_text("SELECT status, resolution FROM review_items")
-            )
+            result = await conn.execute(sa_text("SELECT status, resolution FROM review_items"))
             rows = result.fetchall()
 
         assert len(rows) == 4
@@ -1222,9 +1190,7 @@ class TestMigration0013:
                 "resolution TEXT",
                 "created_page_id TEXT",
             ]:
-                await conn.execute(
-                    sa_text(f"ALTER TABLE review_items ADD COLUMN {col}")
-                )
+                await conn.execute(sa_text(f"ALTER TABLE review_items ADD COLUMN {col}"))
 
         # SQLite doesn't support DROP COLUMN before 3.35, so we check the schema
         # by verifying upgrade succeeded (the downgrade SQL is correct and tested)
@@ -1330,9 +1296,9 @@ class TestI6Compliance0034:
         review_path = Path(__file__).resolve().parent.parent / "app" / "ops" / "review.py"
         text = review_path.read_text(encoding="utf-8")
 
-        assert "isinstance(provider" not in text, (
-            "review.py must not use isinstance(provider, ...) for routing (I6)"
-        )
+        assert (
+            "isinstance(provider" not in text
+        ), "review.py must not use isinstance(provider, ...) for routing (I6)"
         assert "OllamaProvider" not in text, "review.py must not reference OllamaProvider (I6)"
         assert "CliAgentProvider" not in text, "review.py must not reference CliAgentProvider (I6)"
         assert "ApiProvider" not in text, "review.py must not reference ApiProvider (I6)"
@@ -1353,9 +1319,9 @@ class TestI6Compliance0034:
             "it must not be accessed as an attribute in ops/review.py"
         )
         # Should not appear as an ORM column reference
-        assert "pre_generated_query=" not in text, (
-            "pre_generated_query= must not appear as an ORM assignment in ops/review.py"
-        )
+        assert (
+            "pre_generated_query=" not in text
+        ), "pre_generated_query= must not appear as an ORM assignment in ops/review.py"
 
 
 # ── Backward compatibility: old test_review.py subset still expected to pass ──
@@ -1369,14 +1335,13 @@ class TestBackwardCompatSkip:
 
     @pytest.mark.skip(
         reason=(
-            "generate_review_queries removed in ADR-0034; "
-            "superseded by propose_reviews stubs"
+            "generate_review_queries removed in ADR-0034; " "superseded by propose_reviews stubs"
         )
     )
     async def test_generate_review_queries_removed(self) -> None:
         """generate_review_queries no longer exists in ops/review.py (ADR-0034)."""
         from app.ops import review
 
-        assert not hasattr(review, "generate_review_queries"), (
-            "generate_review_queries was removed in ADR-0034 §4"
-        )
+        assert not hasattr(
+            review, "generate_review_queries"
+        ), "generate_review_queries was removed in ADR-0034 §4"

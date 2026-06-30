@@ -95,9 +95,7 @@ class TestGetPageContent:
     ) -> None:
         """T-PC-001: GET /pages/{id}/content returns 200 and the raw markdown."""
         md_content = "---\ntype: entity\ntitle: Alpha\nsources: []\n---\n\nAlpha body.\n"
-        page_id, src = await _ingest_source_page(
-            api_env, filename="alpha.md", content=md_content
-        )
+        page_id, src = await _ingest_source_page(api_env, filename="alpha.md", content=md_content)
 
         resp = await api_client.get(f"/pages/{page_id}/content")
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
@@ -114,9 +112,7 @@ class TestGetPageContent:
     ) -> None:
         """T-PC-001b: returned content_hash equals sha256 of file bytes (matches watcher)."""
         md_content = "---\ntype: concept\ntitle: Beta\nsources: []\n---\n\nBeta body.\n"
-        page_id, src = await _ingest_source_page(
-            api_env, filename="beta.md", content=md_content
-        )
+        page_id, src = await _ingest_source_page(api_env, filename="beta.md", content=md_content)
 
         resp = await api_client.get(f"/pages/{page_id}/content")
         assert resp.status_code == 200
@@ -146,17 +142,15 @@ class TestGetPageContent:
         src.unlink()
 
         resp = await api_client.get(f"/pages/{page_id}/content")
-        assert resp.status_code == 410, (
-            f"Expected 410 (file gone) but got {resp.status_code}: {resp.text}"
-        )
+        assert (
+            resp.status_code == 410
+        ), f"Expected 410 (file gone) but got {resp.status_code}: {resp.text}"
         detail = resp.json()["detail"].lower()
-        assert "not present" in detail or "missing" in detail, (
-            f"410 detail should mention file missing; got: {detail!r}"
-        )
+        assert (
+            "not present" in detail or "missing" in detail
+        ), f"410 detail should mention file missing; got: {detail!r}"
 
-    def test_resolve_page_path_rejects_traversal(
-        self, api_env: dict[str, Any]
-    ) -> None:
+    def test_resolve_page_path_rejects_traversal(self, api_env: dict[str, Any]) -> None:
         """
         T-PC-004: _resolve_page_path raises HTTPException 400 for paths that escape the
         vault root. Tests the guard directly without a DB round-trip.
@@ -172,16 +166,12 @@ class TestGetPageContent:
         for evil in traversal_cases:
             try:
                 main_module._resolve_page_path(evil)
-                raise AssertionError(
-                    f"Expected HTTPException for {evil!r} but none was raised"
-                )
+                raise AssertionError(f"Expected HTTPException for {evil!r} but none was raised")
             except HTTPException as exc:
-                assert exc.status_code == 400, (
-                    f"Expected 400 for {evil!r}, got {exc.status_code}"
-                )
-                assert "traversal" in exc.detail.lower(), (
-                    f"Expected 'traversal' in detail for {evil!r}; got: {exc.detail!r}"
-                )
+                assert exc.status_code == 400, f"Expected 400 for {evil!r}, got {exc.status_code}"
+                assert (
+                    "traversal" in exc.detail.lower()
+                ), f"Expected 'traversal' in detail for {evil!r}; got: {exc.detail!r}"
 
 
 # ── T-PC-005..012: PUT /pages/{id}/content ────────────────────────────────────
@@ -217,9 +207,9 @@ class TestPutPageContent:
 
         # Verify the file on disk was actually updated
         on_disk = wiki_file.read_text(encoding="utf-8")
-        assert on_disk == new_content, (
-            f"File on disk does not match PUT body: {on_disk!r} != {new_content!r}"
-        )
+        assert (
+            on_disk == new_content
+        ), f"File on disk does not match PUT body: {on_disk!r} != {new_content!r}"
 
     async def test_put_inline_reindex_updates_db_row(
         self, api_client: AsyncClient, api_env: dict[str, Any]
@@ -243,9 +233,7 @@ class TestPutPageContent:
         assert resp.status_code == 200
 
         # Confirm the row in Postgres has the new hash
-        rel_path = str(
-            wiki_file.resolve().relative_to(api_env["vault_root"].resolve())
-        )
+        rel_path = str(wiki_file.resolve().relative_to(api_env["vault_root"].resolve()))
         db_page = await _load_page(rel_path)
         assert db_page is not None, "Page row must still exist after PUT"
         expected_hash = _sha256(new_content.encode("utf-8"))
@@ -273,9 +261,9 @@ class TestPutPageContent:
         assert resp.status_code == 200
 
         on_disk = wiki_file.read_text(encoding="utf-8")
-        assert on_disk.endswith("\n"), (
-            f"PUT must enforce trailing newline; file ends with: {on_disk[-20:]!r}"
-        )
+        assert on_disk.endswith(
+            "\n"
+        ), f"PUT must enforce trailing newline; file ends with: {on_disk[-20:]!r}"
 
     async def test_put_409_on_stale_expected_hash(
         self, api_client: AsyncClient, api_env: dict[str, Any]
@@ -296,36 +284,32 @@ class TestPutPageContent:
                 "expected_hash": stale_hash,
             },
         )
-        assert resp.status_code == 409, (
-            f"Stale expected_hash must return 409; got {resp.status_code}: {resp.text}"
-        )
+        assert (
+            resp.status_code == 409
+        ), f"Stale expected_hash must return 409; got {resp.status_code}: {resp.text}"
         detail = resp.json()["detail"]
-        assert "hash" in detail.lower() or "mismatch" in detail.lower(), (
-            f"409 detail should mention hash mismatch; got: {detail!r}"
-        )
+        assert (
+            "hash" in detail.lower() or "mismatch" in detail.lower()
+        ), f"409 detail should mention hash mismatch; got: {detail!r}"
 
     async def test_put_succeeds_with_correct_expected_hash(
         self, api_client: AsyncClient, api_env: dict[str, Any]
     ) -> None:
         """T-PC-007b: PUT succeeds when expected_hash matches the current file."""
-        original_content = (
-            "---\ntype: entity\ntitle: Correct Hash\nsources: []\n---\n\nBody.\n"
-        )
+        original_content = "---\ntype: entity\ntitle: Correct Hash\nsources: []\n---\n\nBody.\n"
         page_id, wiki_file = await _ingest_wiki_entity(
             api_env, filename="correct_hash.md", content=original_content
         )
 
         correct_hash = _sha256(original_content.encode("utf-8"))
-        new_content = (
-            "---\ntype: entity\ntitle: Correct Hash\nsources: []\n---\n\nUpdated.\n"
-        )
+        new_content = "---\ntype: entity\ntitle: Correct Hash\nsources: []\n---\n\nUpdated.\n"
         resp = await api_client.put(
             f"/pages/{page_id}/content",
             json={"content": new_content, "expected_hash": correct_hash},
         )
-        assert resp.status_code == 200, (
-            f"PUT with correct expected_hash must return 200; got {resp.status_code}: {resp.text}"
-        )
+        assert (
+            resp.status_code == 200
+        ), f"PUT with correct expected_hash must return 200; got {resp.status_code}: {resp.text}"
 
     async def test_put_404_unknown_page(
         self, api_client: AsyncClient, api_env: dict[str, Any]
@@ -378,9 +362,9 @@ class TestPutPageContent:
             f"/pages/{page_id}/content",
             json={"content": oversized},
         )
-        assert resp.status_code == 413, (
-            f"Oversized body must return 413; got {resp.status_code}: {resp.text}"
-        )
+        assert (
+            resp.status_code == 413
+        ), f"Oversized body must return 413; got {resp.status_code}: {resp.text}"
 
     async def test_put_422_invalid_yaml_frontmatter(
         self, api_client: AsyncClient, api_env: dict[str, Any]
@@ -398,13 +382,13 @@ class TestPutPageContent:
             f"/pages/{page_id}/content",
             json={"content": broken_content},
         )
-        assert resp.status_code == 422, (
-            f"Invalid YAML frontmatter must return 422; got {resp.status_code}: {resp.text}"
-        )
+        assert (
+            resp.status_code == 422
+        ), f"Invalid YAML frontmatter must return 422; got {resp.status_code}: {resp.text}"
         detail = resp.json()["detail"].lower()
-        assert "frontmatter" in detail or "yaml" in detail or "parse" in detail, (
-            f"422 detail should mention frontmatter or YAML; got: {detail!r}"
-        )
+        assert (
+            "frontmatter" in detail or "yaml" in detail or "parse" in detail
+        ), f"422 detail should mention frontmatter or YAML; got: {detail!r}"
 
     def test_resolve_wiki_page_path_rejects_traversal_and_non_wiki(
         self, api_env: dict[str, Any]
@@ -429,6 +413,6 @@ class TestPutPageContent:
             main_module._resolve_wiki_page_path("raw/sources/foo.md")
             raise AssertionError("Expected HTTPException for non-wiki path but none raised")
         except HTTPException as exc:
-            assert exc.status_code == 403, (
-                f"Expected 403 for raw/sources path, got {exc.status_code}"
-            )
+            assert (
+                exc.status_code == 403
+            ), f"Expected 403 for raw/sources path, got {exc.status_code}"

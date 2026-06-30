@@ -115,9 +115,7 @@ class _MarkdownHandler(FileSystemEventHandler):
         existing = self._pending.pop(path, None)
         if existing is not None:
             existing.cancel()
-        self._pending[path] = self._loop.call_later(
-            _DEBOUNCE_SECONDS, self._fire, path, action
-        )
+        self._pending[path] = self._loop.call_later(_DEBOUNCE_SECONDS, self._fire, path, action)
 
     def _fire(self, path: str, action: str) -> None:
         """Quiet period elapsed — launch the coalesced ingest/delete once per path."""

@@ -336,12 +336,12 @@ async def test_write_ingest_run_records_converged_false(monkeypatch: pytest.Monk
     )
 
     run = captured["run"]
-    assert run.status == "converged_false", (
-        f"Non-converged run must get status='converged_false'; got {run.status!r}"
-    )
-    assert run.error_message is None, (
-        f"Non-converged run must NOT have error_message set; got {run.error_message!r}"
-    )
+    assert (
+        run.status == "converged_false"
+    ), f"Non-converged run must get status='converged_false'; got {run.status!r}"
+    assert (
+        run.error_message is None
+    ), f"Non-converged run must NOT have error_message set; got {run.error_message!r}"
     assert run.pages_created == 0
     assert run.converged is False
 

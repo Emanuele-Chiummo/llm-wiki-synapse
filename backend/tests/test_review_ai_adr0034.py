@@ -57,9 +57,7 @@ def _make_chat_provider(response: str, *, sleep_forever: bool = False) -> Any:
     provider = MagicMock()
     provider._chat_calls = [0]
 
-    async def mock_chat(
-        *, messages: list[Any], retrieval_context: str = ""
-    ) -> AsyncIterator[str]:
+    async def mock_chat(*, messages: list[Any], retrieval_context: str = "") -> AsyncIterator[str]:
         provider._chat_calls[0] += 1
 
         async def _gen() -> AsyncIterator[str]:
@@ -169,8 +167,7 @@ class TestProposeBounded:
         from app.ops import review as review_mod
 
         provider = _make_chat_provider(
-            '{"proposals": [{"type": "suggestion", "proposed_title": "X", '
-            '"rationale": "gap"}]}'
+            '{"proposals": [{"type": "suggestion", "proposed_title": "X", ' '"rationale": "gap"}]}'
         )
         with _patch_resolve(provider):
             out = await review_mod._llm_propose_reviews(
@@ -183,9 +180,7 @@ class TestProposeBounded:
         assert len(out) == 1
         assert out[0].item_type == "suggestion"
 
-    async def test_propose_caps_output(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_propose_caps_output(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """T-AI-003: output is truncated to REVIEW_PROPOSE_MAX_ITEMS (Do-NOT #9)."""
         from app import config as cfg
         from app.ops import review as review_mod
@@ -208,9 +203,7 @@ class TestProposeBounded:
             )
         assert len(out) == 3, "must truncate to REVIEW_PROPOSE_MAX_ITEMS"
 
-    async def test_propose_degrades_on_timeout(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_propose_degrades_on_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """T-AI-004: a timed-out provider call → [] (degrade, never raise)."""
         from app import config as cfg
         from app.ops import review as review_mod
@@ -286,9 +279,7 @@ class TestCreateGeneration:
 
         provider = MagicMock()
         provider.bind_accumulator = MagicMock()
-        provider.capabilities = MagicMock(
-            return_value=MagicMock(name="prov", mode="local")
-        )
+        provider.capabilities = MagicMock(return_value=MagicMock(name="prov", mode="local"))
         provider.analyze = AsyncMock(return_value=analysis)
         provider.generate = AsyncMock(return_value=[wiki_page])
 
@@ -340,9 +331,7 @@ class TestCreateGeneration:
 
         provider = MagicMock()
         provider.bind_accumulator = MagicMock()
-        provider.capabilities = MagicMock(
-            return_value=MagicMock(name="prov", mode="local")
-        )
+        provider.capabilities = MagicMock(return_value=MagicMock(name="prov", mode="local"))
         provider.analyze = AsyncMock(side_effect=RuntimeError("provider exploded"))
 
         write_called = {"n": 0}
@@ -418,9 +407,7 @@ class TestSweepJudge:
         missing_id = items[1].id
 
         # Model maliciously returns BOTH ids.
-        provider = _make_chat_provider(
-            f'{{"resolve": ["{confirm_id}", "{missing_id}"]}}'
-        )
+        provider = _make_chat_provider(f'{{"resolve": ["{confirm_id}", "{missing_id}"]}}')
         with _patch_resolve(provider):
             out = await review_mod._llm_sweep_judge(
                 vault_id="test-vault",
@@ -430,9 +417,7 @@ class TestSweepJudge:
         assert confirm_id not in out, "confirm must NEVER be auto-resolved (Do-NOT #7)"
         assert missing_id in out, "the confident missing-page id may be resolved"
 
-    async def test_disabled_returns_empty(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_disabled_returns_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """T-AI-010: REVIEW_SWEEP_LLM_ENABLED=false → set() without any provider call."""
         from app import config as cfg
         from app.ops import review as review_mod
@@ -475,27 +460,14 @@ class TestCreatePageTypeHeuristic:
         from app.ops.review import _resolve_create_page_type
 
         # Explicit valid type honored.
-        assert (
-            _resolve_create_page_type("Anything", "comparison", None)
-            == PageType.COMPARISON
-        )
+        assert _resolve_create_page_type("Anything", "comparison", None) == PageType.COMPARISON
         # 'source' explicit → dropped to heuristic (never returns SOURCE).
-        assert (
-            _resolve_create_page_type("Some Document", "source", None) != PageType.SOURCE
-        )
+        assert _resolve_create_page_type("Some Document", "source", None) != PageType.SOURCE
         # Comparison cue.
-        assert (
-            _resolve_create_page_type("Docker vs Podman", None, None)
-            == PageType.COMPARISON
-        )
+        assert _resolve_create_page_type("Docker vs Podman", None, None) == PageType.COMPARISON
         # Synthesis cue.
-        assert (
-            _resolve_create_page_type("Overview of Containers", None, None)
-            == PageType.SYNTHESIS
-        )
+        assert _resolve_create_page_type("Overview of Containers", None, None) == PageType.SYNTHESIS
         # Proper-noun entity shape.
-        assert (
-            _resolve_create_page_type("Linus Torvalds", None, None) == PageType.ENTITY
-        )
+        assert _resolve_create_page_type("Linus Torvalds", None, None) == PageType.ENTITY
         # Default → concept.
         assert _resolve_create_page_type("entropy", None, None) == PageType.CONCEPT

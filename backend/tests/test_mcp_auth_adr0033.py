@@ -579,9 +579,7 @@ class TestPublicAlwaysRequiresToken:
             headers=[(b"cf-ray", b"abc123-LHR")],
         )
         status = await _call_gate(mw, scope)
-        assert status == 401, (
-            "CRITICAL: CF-Ray must force PUBLIC → 401; got {status}"
-        )
+        assert status == 401, "CRITICAL: CF-Ray must force PUBLIC → 401; got {status}"
 
     @pytest.mark.asyncio
     async def test_public_peer_no_cf_header_no_token_gets_404(self) -> None:
@@ -601,9 +599,9 @@ class TestPublicAlwaysRequiresToken:
         finally:
             main_mod.settings.mcp_auth_token = original  # type: ignore[assignment]
 
-        assert status == 404, (
-            "CRITICAL: Public peer + allow_without_token=ON + no token must be 404; got {status}"
-        )
+        assert (
+            status == 404
+        ), "CRITICAL: Public peer + allow_without_token=ON + no token must be 404; got {status}"
 
     @pytest.mark.asyncio
     async def test_public_peer_with_token_gets_401_not_pass(self) -> None:
@@ -617,9 +615,7 @@ class TestPublicAlwaysRequiresToken:
         )
         scope = _make_scope("1.2.3.4")  # public
         status = await _call_gate(mw, scope)
-        assert status == 401, (
-            "CRITICAL: Public source must never PASS without bearer; got {status}"
-        )
+        assert status == 401, "CRITICAL: Public source must never PASS without bearer; got {status}"
 
     @pytest.mark.asyncio
     async def test_forging_cf_header_only_restricts_never_grants(self) -> None:
@@ -642,9 +638,10 @@ class TestPublicAlwaysRequiresToken:
         )
         status = await _call_gate(mw, scope)
         # Must be 401 (PUBLIC → token required) NOT -1 (PASS as private)
-        assert status in (401, 404), (
-            "CRITICAL: Forged CF header must RESTRICT not grant; got {status}"
-        )
+        assert status in (
+            401,
+            404,
+        ), "CRITICAL: Forged CF header must RESTRICT not grant; got {status}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -680,9 +677,9 @@ class TestXffSpoofDefence:
         finally:
             main_mod.settings.mcp_trusted_proxies = original  # type: ignore[assignment]
 
-        assert status == 401, (
-            "XFF spoof from untrusted peer must be classified by peer IP → 401; got {status}"
-        )
+        assert (
+            status == 401
+        ), "XFF spoof from untrusted peer must be classified by peer IP → 401; got {status}"
 
     def test_resolve_source_ip_uses_peer_when_no_trusted_proxies(self) -> None:
         """_resolve_source_ip returns peer IP when MCP_TRUSTED_PROXIES is empty."""
@@ -759,9 +756,9 @@ class TestEnvBootstrapPrecedence:
         finally:
             main_mod.settings.mcp_auth_token = original  # type: ignore[assignment]
 
-        assert status_env == 401, (
-            f"Env token must not authenticate when DB hash is set; got {status_env}"
-        )
+        assert (
+            status_env == 401
+        ), f"Env token must not authenticate when DB hash is set; got {status_env}"
         assert status_db == -1, f"DB token must authenticate; got {status_db}"
 
 
@@ -785,16 +782,14 @@ class TestPutMcpAuth:
             patch("app.main.app.router.lifespan_context", _noop_lifespan),
             patch("app.main.get_session", return_value=db_ctx),
         ):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.put("/mcp/auth", json={"rotate_token": True})
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data.get("generated_token") is not None, (
-            "rotate_token=true must return generated_token"
-        )
+        assert (
+            data.get("generated_token") is not None
+        ), "rotate_token=true must return generated_token"
         assert isinstance(data["generated_token"], str)
         assert len(data["generated_token"]) > 0
 
@@ -811,16 +806,14 @@ class TestPutMcpAuth:
             patch("app.main.app.router.lifespan_context", _noop_lifespan),
             patch("app.main.get_session", return_value=db_ctx),
         ):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.put("/mcp/auth", json={"token": sentinel})
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data.get("generated_token") is None, (
-            "explicit token= must not populate generated_token"
-        )
+        assert (
+            data.get("generated_token") is None
+        ), "explicit token= must not populate generated_token"
         assert sentinel not in resp.text, "Explicit token must NEVER be echoed in response"
 
     @pytest.mark.asyncio
@@ -835,16 +828,17 @@ class TestPutMcpAuth:
             patch("app.main.app.router.lifespan_context", _noop_lifespan),
             patch("app.main.get_session", return_value=db_ctx),
         ):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.put("/mcp/auth", json={"allow_without_token": True})
 
         assert resp.status_code == 200
         data = resp.json()
         required_fields = (
-            "token_configured", "token_source", "allow_without_token",
-            "remote_enabled", "mount_path",
+            "token_configured",
+            "token_source",
+            "allow_without_token",
+            "remote_enabled",
+            "mount_path",
         )
         for field in required_fields:
             assert field in data, f"Field {field!r} missing from PUT /mcp/auth response"
@@ -866,9 +860,7 @@ class TestPutMcpAuth:
             patch("app.main.app.router.lifespan_context", _noop_lifespan),
             patch("app.main.get_session", return_value=db_ctx),
         ):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.put("/mcp/auth", json={"rotate_token": True})
 
         assert resp.status_code == 200
@@ -918,9 +910,9 @@ class TestAllowAwareClamp:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["clamped"] is False, (
-            "allow_without_token=ON must allow enabling remote even without a token"
-        )
+        assert (
+            data["clamped"] is False
+        ), "allow_without_token=ON must allow enabling remote even without a token"
         assert data["remote_enabled"] is True
 
     @pytest.mark.asyncio
@@ -972,9 +964,7 @@ class TestMcpInfoAdr0033:
         from app.main import app
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.get("/mcp/info")
 
         assert resp.status_code == 200
@@ -987,9 +977,7 @@ class TestMcpInfoAdr0033:
         from app.main import app
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.get("/mcp/info")
 
         assert resp.status_code == 200
@@ -1025,16 +1013,14 @@ class TestMcpInfoAdr0033:
         from app.main import app
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
-            ) as ac:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 resp = await ac.get("/mcp/info")
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["http_enabled"] is True, (
-            "http_enabled must be True (always-mount, ADR-0033 §2.4)"
-        )
+        assert (
+            data["http_enabled"] is True
+        ), "http_enabled must be True (always-mount, ADR-0033 §2.4)"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1122,9 +1108,9 @@ class TestPrivateCidrsConstant:
         from app.main import MCP_PRIVATE_CIDRS
 
         ts = ipaddress.ip_address("100.100.100.100")
-        assert any(ts in net for net in MCP_PRIVATE_CIDRS), (
-            "100.100.100.100 must be in MCP_PRIVATE_CIDRS"
-        )
+        assert any(
+            ts in net for net in MCP_PRIVATE_CIDRS
+        ), "100.100.100.100 must be in MCP_PRIVATE_CIDRS"
 
     def test_rfc1918_covered(self) -> None:
         import ipaddress
@@ -1133,9 +1119,9 @@ class TestPrivateCidrsConstant:
 
         for ip in ("10.0.0.1", "172.16.0.1", "192.168.1.1"):
             addr = ipaddress.ip_address(ip)
-            assert any(addr in net for net in MCP_PRIVATE_CIDRS), (
-                f"{ip} must be in MCP_PRIVATE_CIDRS"
-            )
+            assert any(
+                addr in net for net in MCP_PRIVATE_CIDRS
+            ), f"{ip} must be in MCP_PRIVATE_CIDRS"
 
     def test_public_ip_not_covered(self) -> None:
         import ipaddress
@@ -1143,6 +1129,6 @@ class TestPrivateCidrsConstant:
         from app.main import MCP_PRIVATE_CIDRS
 
         pub = ipaddress.ip_address("8.8.8.8")
-        assert not any(pub in net for net in MCP_PRIVATE_CIDRS), (
-            "8.8.8.8 must NOT be in MCP_PRIVATE_CIDRS"
-        )
+        assert not any(
+            pub in net for net in MCP_PRIVATE_CIDRS
+        ), "8.8.8.8 must NOT be in MCP_PRIVATE_CIDRS"

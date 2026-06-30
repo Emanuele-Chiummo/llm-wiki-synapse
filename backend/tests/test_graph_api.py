@@ -94,7 +94,9 @@ async def graph_app(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClie
         poolclass=StaticPool,
     )
     async with engine_db.begin() as conn:
-        await conn.execute(sa_text("""
+        await conn.execute(
+            sa_text(
+                """
             CREATE TABLE pages (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -112,8 +114,12 @@ async def graph_app(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClie
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
-        """))
-        await conn.execute(sa_text("""
+        """
+            )
+        )
+        await conn.execute(
+            sa_text(
+                """
             CREATE TABLE vault_state (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL UNIQUE,
@@ -123,7 +129,9 @@ async def graph_app(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClie
                 mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
-        """))
+        """
+            )
+        )
         await conn.execute(
             sa_text(
                 "INSERT INTO vault_state (id, vault_id, data_version, updated_at) "
