@@ -1,6 +1,6 @@
 # Synapse User Guide
 
-<!-- Generated: v0.5 ADR-0034 | 2026-06-30 -->
+<!-- Generated: v0.5 ADR-0036 | 2026-06-30 -->
 
 > Version: v0.5 (M5 — "Feature parity core")
 > Language toggle: English / Italian available in Settings.
@@ -72,25 +72,84 @@ bottom of every section.
 ### Wiki section
 
 The Wiki section (nav label: **Wiki**) has the classic three-panel layout: a page tree
-on the left, the knowledge graph in the center, and a metadata inspector on the right.
+on the left, a note reader/editor in the center, and a metadata inspector on the right.
 Left and right panels can be collapsed by clicking the chevron button on their inner
 edge; click the chevron again to expand.
 
 ![3-panel with selected node](screens/shell-3panel-selected.png)
 
 **Left panel — page tree.** Wiki pages grouped by type (concept, entity, source,
-synthesis, comparison). Click any row to select that page and load its metadata in
-the right panel. Click the `‹` chevron on the right edge of the left panel to collapse
-it and reclaim screen space.
+synthesis, comparison). Click any row to select that page: its content loads in the
+center panel and its metadata loads in the right panel. Click the `‹` chevron on the
+right edge of the left panel to collapse it and reclaim screen space.
 
-**Center panel — graph.** The same sigma viewer as the Graph section, embedded here
-for context. Node size reflects the number of structural connections a page has.
-Colors identify page types (CVD-safe palette; legend shown bottom-left).
+**Center panel — note reader/editor (NoteView).** Shows the raw markdown of the
+selected wiki page (including YAML frontmatter) in a read-only view by default.
+Click **Edit** (top-right of the panel) to switch to the CodeMirror 6 editor.
+When you are done editing, click **Save** to write the changes back. The backend
+applies an optimistic-lock check: if another process (or you in a second tab) changed
+the file since you opened it, you will see a "content changed on disk — please reload"
+message and the save will be rejected to prevent data loss. Reload the page to get the
+latest content and try again.
+
+Saving re-indexes the page inline (links, embeddings, graph) without rescanning the
+vault (I1). One graph version bump fires the debounced graph recompute so the Graph
+section updates automatically within a few seconds.
+
+> Note: the full-bleed knowledge graph used to appear in the center panel of the Wiki
+> section. As of v0.5, the graph lives exclusively in the dedicated **Graph** section
+> (nav label: **Graph**). The Wiki section center panel is now the note editor.
 
 **Right panel — inspector.** Shows the selected page's frontmatter (title, type,
-sources), its relationships (pages it links to and pages that link back to it), and
-a read-only content preview. Click the `›` chevron on the left edge of the right panel
-to collapse it.
+sources) and its relationships (pages it links to and pages that link back to it).
+Click the `›` chevron on the left edge of the right panel to collapse it.
+
+---
+
+### Reading and editing wiki notes
+
+Synapse lets you read and edit any `wiki/` page directly in the browser using the
+CodeMirror 6 editor, without leaving the app.
+
+**To read a note:**
+
+1. Navigate to the **Wiki** section using the nav rail.
+2. Click any page in the left-panel tree. The page's raw markdown (including YAML
+   frontmatter and `[[wikilinks]]`) appears in the center panel.
+
+**To edit a note:**
+
+1. Select a page in the tree (center panel shows its content).
+2. Click **Edit** (top-right corner of the center panel). The panel switches to
+   CodeMirror 6 editor mode.
+3. Make your changes. The editor supports syntax highlighting for Markdown and YAML.
+4. Click **Save** when you are done.
+
+**What happens on Save:**
+
+- The backend writes the file atomically (temp file + rename — no partial writes).
+- YAML frontmatter is validated before writing: if the frontmatter is malformed, the
+  save is rejected with a 422 error and the file on disk is NOT changed.
+- The backend re-indexes the page inline: wikilinks are re-parsed, embeddings updated,
+  and the graph version is bumped — all for this single page, with no full rescan (I1).
+- The Graph section updates automatically (debounced, within about 5 seconds).
+
+**If the note changed on disk while you were editing:**
+
+You will see a "reload required" message (HTTP 409). This means someone else (or a
+background ingest run) updated the same file since you opened it. Click **Reload** in
+the center panel to fetch the latest content. Your unsaved edits will be lost — copy
+them to a clipboard before reloading if needed.
+
+**Important constraints:**
+
+- You can only edit pages inside `vault/wiki/`. Raw source files in `vault/raw/sources/`
+  are read-only in the editor (the backend returns 403 for those paths — K1 vault layer
+  separation).
+- The maximum editable page size is 4 MB (`MAX_PAGE_CONTENT_BYTES`). Files larger than
+  this are displayed read-only with a size warning.
+- The graph is not in the Wiki section center panel. Use the **Graph** section (nav rail)
+  to view the full-bleed sigma knowledge graph.
 
 ---
 

@@ -4,6 +4,74 @@
 
 ---
 
+## v0.5 Hardening — ADR-0035 + ADR-0036 + Bug Fixes + Wiki Notes UI — DOCS GATE: PASS
+
+> Gate run: 2026-06-30
+> Scope: Four changes landed this hardening increment:
+> (1) ADR-0035: GET/PUT /pages/{id}/content — wiki page read/edit with optimistic lock, inline re-index (I1), atomic write (I5).
+> (2) ADR-0036: wikilink-enrichment post-pass — bounded provider call returning {mention, target_title} substitutions applied deterministically into page bodies (F4 direct link x3 signal restored).
+> (3) Bug fixes: OllamaProvider options.num_ctx; ingest_runs pages_created/status/error_message persist; chat preamble bare [n] citation markers.
+> (4) Frontend: Wiki section center panel replaced from graph viewer to NoteView (CodeMirror 6 reader/editor); Graph section unchanged.
+> Schema changes: NONE (ADR-0035 and ADR-0036 are both migration-free). ER unchanged.
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/` | N/A-UNCHANGED | No new container or component. NoteView is inside the existing Wiki/Pages section. GET/PUT /pages/{id}/content is an endpoint on the existing FastAPI service. No C4 topology change. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (no-change) | ADR-0035 migration-free (no `content` column; reuses `content_hash`). ADR-0036 migration-free (no new columns). Bug fixes reused existing columns (`pages_created`, `status`, `error_message`) that already existed in the schema (Alembic 0006, ADR-0018). ER unchanged; last header: `v0.5-ADR-0033`. I8 holds. |
+| D3 | `docs/sequences/wikilink-enrichment.mmd` | NEW — created this gate | New sequence diagram for ADR-0036 post-pass: anti-spam gate → resolve provider (I6) → ONE bounded provider.chat call (I7) → deterministic validate+apply single-mention (I5) → reindex per modified page (I1) → single data_version bump → GraphCache debounce (I2). Header: `v0.5 ADR-0036 | 2026-06-30`. |
+| D3 | `docs/sequences/ingest-loop.mmd` | UP-TO-DATE (no change needed) | Already updated at ADR-0034 gate to show propose_reviews + sweep. ADR-0036 enrichment step detail lives in the new dedicated diagram. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (description corrected) | GET/PUT /pages/{id}/content endpoints confirmed present. `info.description` was stale ("M5 Phase 1") — corrected to "M5 hardening (v0.5)" with explicit ADR-0035 callout. |
+| D5 | `docs/screens/` | PENDING-LIVE (carry-forward) | NoteView is new UI; no Playwright spec yet for `wiki-note-read.png` / `wiki-note-edit.png`. Non-blocking; add to M5 screenshot session. |
+| D6a | `docs/USER.md` | UPDATED | Header updated. Wiki section center panel description corrected (NoteView, not graph). New "Reading and editing wiki notes" section added with read/edit/save flow, optimistic-lock behavior, and constraints. |
+| D6b | `docs/DEPLOY.md` | DRIFT-MINOR | WIKILINK_ENRICH_* env vars (ENABLED, MAX_CANDIDATES, MAX_SUBS, TIMEOUT_SECONDS) not yet in §2.1 env table. To be added in next deploy-docs pass. Non-blocking. |
+| D7 | `docs/adr/README.md` | UPDATED | ADR-0034 row moved to correct numerical position (was incorrectly after 0036; now before 0035). Header updated to reflect ADR-0034/0035/0036. |
+| D7 | `docs/adr/0035-page-content-read-edit-endpoints.md` | UP-TO-DATE | File present and complete. |
+| D7 | `docs/adr/0036-wikilink-enrichment-post-pass.md` | UP-TO-DATE | File present and complete. |
+
+### Docstring corrections — backend/app/ops/review.py
+
+Three private functions had "TODO[ai-agent-engineer]" / "STUB SEAMS" wording even though all three are fully implemented. Module docstring was also stale. Corrections (doc-only, zero logic touched):
+
+| Symbol | Old wording | New wording |
+|--------|------------|------------|
+| Module docstring | `STUB SEAMS (to be filled by ai-agent-engineer)` | `AI SEAMS (implemented — ADR-0034 §11.2)` |
+| `_llm_propose_reviews` | `TODO[ai-agent-engineer] ADR-0034 §4.3 — single bounded provider call.` | `Single bounded provider call (ADR-0034 §4.3, implemented).` |
+| `_llm_sweep_judge` | `TODO[ai-agent-engineer] ADR-0034 §6.3 — conservative bounded LLM pass, default-to-keep.` | `Conservative bounded LLM pass, default-to-keep (ADR-0034 §6.3, implemented).` |
+| `_run_generation` | `TODO[ai-agent-engineer] ADR-0034 §5 — bounded run_orchestrated_loop on-demand.` | `Bounded run_orchestrated_loop on-demand for lazy Create (ADR-0034 §5, implemented).` |
+
+### Context budget alignment (Task E)
+
+Verified `frontend/src/store/settingsStore.ts` `computeBudgetSplit()`:
+- history: 60%, retrieved: 20%, system: 5%, generation: 15%
+
+CLAUDE.md §4b F14 and docs/USER.md Settings > General both say "60/20/5/15". **Exact match — no correction needed.**
+
+Also confirmed `backend/app/rag/retrieval.py` uses `_RETRIEVAL_BUDGET_FRACTION = 0.20` (the 20% retrieved slice) and `_CHARS_PER_TOKEN = 4` (char/4 approximation). The audit's "~50/5/15 in CHARACTERS" claim refers to the upstream reference (nashsu/llm_wiki), not Synapse. Synapse's split is percentages, not hardcoded character counts.
+
+### F5 4-phase retrieval alignment (Task E)
+
+Verified `backend/app/rag/retrieval.py` implements all four phases as documented:
+1. Dense bge-m3 top-k (or lexical ILIKE fallback per ADR-0030)
+2. BFS graph-expansion over `edges` table, depth <= 2 (hard cap)
+3. Token budget = 20% of context window via char/4
+4. Server-side assembly with [n] markers; overflow = drop lowest-ranked
+
+**Docs are accurate. No correction needed.**
+
+### ER verdict (Task G)
+
+ADR-0035: migration-free (no new columns). ADR-0036: migration-free (config.py only). Bug fixes: reused existing columns from Alembic 0006.
+
+**ER unchanged. `docs/er/schema.mmd` current. `make er` not required.**
+
+### DOCS GATE VERDICT — v0.5 Hardening
+
+**PASS** (two non-blocking carry-forward items: DEPLOY.md WIKILINK_ENRICH_* env vars; NoteView screenshots)
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-06-30 | v0.5 hardening docs gate**
+
+---
+
 ## ADR-0034 — F9 Review Queue Redesign (Proposal Model + Lazy Create + Sweep) — DOCS GATE: PASS
 
 > Gate run: 2026-06-30
