@@ -1,9 +1,97 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
+
+/**
+ * API path prefixes that MUST bypass the service worker cache (NetworkOnly).
+ * Any request whose URL pathname starts with one of these is never served
+ * from cache — data freshness is mandatory (I1 dataVersion model).
+ *
+ * Keeps in sync with the dev-proxy block below: every proxied path is also
+ * listed here so the SW never intercepts it.
+ */
+const API_PREFIXES = [
+  `/graph`,
+  `/pages`,
+  `/status`,
+  `/ingest`,
+  `/provider`,
+  `/conversations`,
+  `/chat`,
+  `/import-schedule`,
+  `/config`,
+  `/mcp`,
+  `/research`,
+  `/review`,
+  `/search`,
+  `/lint`,
+  `/clip`,
+  `/api`,
+];
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      // "generateSW" lets Workbox generate the SW from our config.
+      // The plugin writes sw.js + workbox-*.js into dist/ at build time.
+      strategies: "generateSW",
+
+      // The SW file name that will be emitted and registered.
+      filename: "sw.js",
+
+      // Register the SW automatically from the generated registerSW shim.
+      // We gate actual registration to production in main.tsx (see below).
+      registerType: "autoUpdate",
+
+      // Include the generated registerSW helper so main.tsx can import it.
+      injectRegister: null, // we handle registration ourselves in main.tsx
+
+      // Manifest is served from public/manifest.webmanifest directly; we
+      // do NOT ask the plugin to inject/generate one (avoids duplicate).
+      manifest: false,
+      manifestFilename: "manifest.webmanifest",
+
+      workbox: {
+        // --- Precache: the built static shell (JS/CSS/HTML/icons) --------
+        // globPatterns covers the emitted assets in dist/.
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+
+        // Navigation fallback: when the user navigates to any path that
+        // is NOT an API path and is NOT a precached file, serve index.html
+        // from cache (offline shell).  The denylist excludes all API paths
+        // so deep-links into the API never get the HTML fallback.
+        navigateFallback: "index.html",
+        navigateFallbackDenylist: API_PREFIXES.map(
+          (p) => new RegExp(`^${p.replace("/", "\\/")}(\\/|$)`),
+        ),
+
+        // --- Runtime caching -----------------------------------------------
+        runtimeCaching: [
+          // API calls — NetworkOnly: never cache; always go to the network.
+          // This protects the dataVersion / I1 invariant (no stale data).
+          // We use a RegExp (not a closure) so Workbox can serialise it into
+          // the generated SW without losing the variable reference.
+          {
+            // Matches any URL whose pathname starts with one of the API prefixes.
+            urlPattern: new RegExp(
+              `^(${API_PREFIXES.map((p) => p.replace("/", "\\/")).join("|")})(\\/|$)`,
+            ),
+            handler: "NetworkOnly" as const,
+          },
+        ],
+
+        // Skip waiting and claim clients immediately on SW update so the
+        // user always runs the latest shell.
+        skipWaiting: true,
+        clientsClaim: true,
+
+        // Keep the SW source map for debugging; minify for production.
+        sourcemap: false,
+      },
+    }),
+  ],
   server: {
     port: 5173,
     proxy: {
