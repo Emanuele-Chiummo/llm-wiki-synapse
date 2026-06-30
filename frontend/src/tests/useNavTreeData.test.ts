@@ -62,6 +62,19 @@ describe("groupPagesByType", () => {
     expect(grouped.get("other")?.length).toBe(2); // null + "garbage"
   });
 
+  it("excludes raw-source tracking rows (raw/sources/*) from the tree", () => {
+    const rawRow: PageListItem = {
+      ...makePage("raw1", null, "Raw Tracking Row"),
+      file_path: "raw/sources/raw1.md",
+    };
+    const grouped = groupPagesByType([...PAGES, rawRow]);
+    // The raw row would otherwise land in "other" (type null); it must be dropped,
+    // so the "other" bucket still holds only the two genuine unknown-type wiki pages.
+    expect(grouped.get("other")?.length).toBe(2);
+    const allIds = [...grouped.values()].flat().map((p) => p.id);
+    expect(allIds).not.toContain("raw1");
+  });
+
   it("omits empty buckets", () => {
     const only = [makePage("x1", "concept")];
     const grouped = groupPagesByType(only);
