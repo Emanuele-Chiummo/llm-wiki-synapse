@@ -433,6 +433,39 @@
     "loadError": "Could not load page content",
     "saving": "Saving…"
   },
+  "lint": {
+    "title": "Lint",
+    "hint": "Wiki health findings — fix or acknowledge each finding.",
+    "runLint": "Run Lint",
+    "runLintHelp": "Run a bounded lint scan: structural checks + semantic review. Produces findings only — fixes are human-gated.",
+    "scanning": "Scanning…",
+    "refresh": "Refresh",
+    "empty": "No open findings. Run a lint scan to check wiki health.",
+    "emptyBody": "Lint checks for orphan pages, missing cross-references, contradictions, stale claims, and missing pages. Click \"Run Lint\" to start.",
+    "loadMore": "Load more",
+    "fix": "Fix",
+    "fixing": "Fixing…",
+    "acknowledge": "Acknowledge",
+    "dismiss": "Dismiss",
+    "cost": "Cost",
+    "findings": "Findings",
+    "iterations": "Iterations",
+    "flagOnly": "Flag-only — no file write on apply",
+    "noTarget": "(unknown page)",
+    "toastError": "Lint scan failed: {{detail}}",
+    "runStatus": {
+      "running": "Running",
+      "completed": "Completed",
+      "error": "Error"
+    },
+    "category": {
+      "orphan-page": "Orphan page",
+      "missing-xref": "Missing xref",
+      "contradiction": "Contradiction",
+      "stale-claim": "Stale claim",
+      "missing-page": "Missing page"
+    }
+  },
   "common": {
     "loading": "Loading…",
     "retry": "Retry",

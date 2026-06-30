@@ -438,3 +438,103 @@ export interface ImportSchedulePutResponse extends ImportSchedule {
   dir_ok: boolean;
   dir_message: string | null;
 }
+
+// ─── POST /lint/scan + GET /lint/runs + GET /lint/findings (K2, ADR-0037 §6) ──
+
+/** Lint finding categories (ADR-0037 §6). */
+export type LintCategory =
+  | "orphan-page"
+  | "missing-xref"
+  | "contradiction"
+  | "stale-claim"
+  | "missing-page";
+
+/** Finding lifecycle. */
+export type LintFindingStatus = "open" | "applied" | "dismissed";
+
+/** Severity levels. */
+export type LintSeverity = "info" | "warning" | "error";
+
+/** Lint run status. */
+export type LintRunStatus = "running" | "completed" | "error";
+
+/**
+ * Categories that are FLAG-ONLY: the apply endpoint acknowledges but does not
+ * rewrite any wiki file. The UI should label the action "Acknowledge" instead of
+ * "Fix" and show no file-write expectation.
+ */
+export const LINT_FLAG_ONLY_CATEGORIES = new Set<LintCategory>([
+  "orphan-page",
+  "contradiction",
+  "stale-claim",
+]);
+
+/**
+ * One lint_findings row (ADR-0037 §6).
+ * proposed_action is null for flag-only categories.
+ */
+export interface LintFinding {
+  id: string;
+  lint_run_id: string;
+  vault_id: string;
+  category: LintCategory;
+  severity: LintSeverity;
+  target_page_id: string | null;
+  target_title: string | null;
+  description: string;
+  proposed_action: string | null;
+  status: LintFindingStatus;
+  resolution_note: string | null;
+  created_at: string;         // ISO-8601
+  reviewed_at: string | null; // ISO-8601
+}
+
+/** Paginated response from GET /lint/findings. */
+export interface LintFindingListResponse {
+  items: LintFinding[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/**
+ * One lint_runs row (ADR-0037 §6).
+ */
+export interface LintRun {
+  id: string;
+  vault_id: string;
+  status: LintRunStatus;
+  max_iter: number;
+  token_budget: number;
+  iterations_used: number;
+  findings_count: number;
+  total_cost_usd: number;
+  started_at: string;          // ISO-8601
+  completed_at: string | null; // ISO-8601
+  error_message: string | null;
+  created_at: string;          // ISO-8601
+}
+
+/** Paginated response from GET /lint/runs. */
+export interface LintRunListResponse {
+  items: LintRun[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/**
+ * Response from POST /lint/scan (ADR-0037 §6).
+ * Returns the run row AND its findings in one call.
+ */
+export interface LintScanResponse {
+  run: LintRun;
+  findings: LintFinding[];
+}
+
+/** Request body for POST /lint/scan. */
+export interface LintScanRequest {
+  vault_id: string;
+  max_iter?: number | null;
+  token_budget?: number | null;
+}
