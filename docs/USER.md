@@ -1,8 +1,8 @@
 # Synapse User Guide
 
-<!-- Generated: v0.5 ADR-0036 | 2026-06-30 -->
+<!-- Generated: v0.6 M6-docs-gate | 2026-06-30 -->
 
-> Version: v0.5 (M5 — "Feature parity core")
+> Version: v0.6 (M6 — "Shippable")
 > Language toggle: English / Italian available in Settings.
 
 ---
@@ -51,7 +51,7 @@ The leftmost strip is approximately 72 px wide. Each item shows an icon and a
 persistent text label below it. The active section is highlighted with a rounded
 rectangle that encloses both icon and label.
 
-The rail contains five interactive items from top to bottom:
+The rail contains items from top to bottom:
 
 | Label | Section |
 |-------|---------|
@@ -59,10 +59,12 @@ The rail contains five interactive items from top to bottom:
 | **Wiki** | File tree + knowledge graph + page inspector |
 | **Sources** | Ingest activity history, upload zone, Run Ingest button |
 | **Graph** | Full-bleed sigma knowledge graph |
+| **Review** | HITL proposal queue — act on AI-proposed follow-up work |
+| **Deep Research** | Web-search loop via SearXNG — synthesize and auto-ingest |
+| **Lint** | Bounded wiki health check — flag and fix structural issues |
 | **Settings** (pinned at bottom) | LLM providers, context window, language, maintenance |
 
-The nav rail also carries **Review** and **Deep Research** sections (shipped in v0.5).
-Lint is planned for M6 and does not appear in the v0.5 rail.
+The nav rail also carries **Review**, **Deep Research**, and **Lint** sections (Review and Deep Research shipped in v0.5; Lint shipped in v0.6).
 
 The vault name, data version, and active provider appear in the status bar at the
 bottom of every section.
@@ -484,9 +486,88 @@ sweep to close proposals that are no longer relevant:
 You can also trigger the sweep manually with **POST /review/queue/sweep** (useful after
 bulk edits in Obsidian).
 
+> **Note — CLI provider and the review queue (ADR-0025 §7):** when the active provider is
+> **CLI** (`CliAgentProvider`), the entire ingest is delegated to the claude-agent-sdk agent
+> loop, which writes pages autonomously using in-process MCP tools. In this delegated path,
+> the post-ingest proposal stage does **not** run, so no review items are enqueued after a
+> CLI-provider ingest. This is a conscious design gap: the review queue is populated only by
+> the orchestrated ingest loop (API and Local providers). If you rely on the review queue for
+> follow-up curation, use the API or Local provider for ingest and reserve the CLI provider
+> for tasks where you want fully autonomous page creation.
+
 #### Screenshots
 
 ![Review queue ADR-0034 proposal cards](screens/review-queue-adr0034.png)
+
+---
+
+### Lint section
+
+The Lint section (nav label: **Lint**) runs a bounded health check of the wiki (K2, ADR-0037). Unlike ingest, lint never modifies pages autonomously: every finding requires an explicit human action before any change is applied.
+
+**Running a lint scan:**
+
+1. Navigate to **Lint** in the nav rail.
+2. Click **Run Lint**. The backend starts a new scan (bounded by `LINT_MAX_ITER` iterations and `LINT_TOKEN_BUDGET` tokens). A spinner appears while the scan runs.
+3. When the scan completes, findings are grouped by category in the panel below. The cost line shows the provider cost for any semantic calls made (Local Ollama runs show `$0.0000`).
+
+**Finding categories:**
+
+| Category | What it flags | Action available |
+|----------|--------------|-----------------|
+| `orphan-page` | A wiki page with no incoming wikilinks (structurally isolated) | Acknowledge only — flag-only per ADR-0037; no automatic edit |
+| `contradiction` | The AI detected conflicting claims between two wiki pages | Acknowledge only — flag-only; resolve manually in the editor or via Deep Research |
+| `stale-claim` | A claim in a wiki page may be outdated based on newer ingested content | Acknowledge only — flag-only; review and update manually |
+| `missing-xref` | A wiki page mentions a concept that has a dedicated page but no `[[wikilink]]` | **Apply** to insert the missing wikilink, or Dismiss |
+
+**Apply vs Acknowledge:**
+
+- **Apply** — available only for `missing-xref` findings. Clicking Apply writes the suggested `[[wikilink]]` into the body of the referencing page (targeted edit, no vault rescan — I1). The edit is written through the same incremental seam as all other page writes: one `data_version` bump, one entry in `log.md`, graph refresh within about 5 seconds.
+- **Acknowledge** — used for the three flag-only categories (`orphan-page`, `contradiction`, `stale-claim`). These categories surface observations for human judgment but the Lint section will never edit human-curated content on their behalf (K8). Acknowledging moves the finding to `acknowledged` status and removes it from the active list.
+- **Dismiss** — discards a finding without action (works on any category).
+
+The human gate is intentional: scan findings are never auto-applied across a run. You must call **Apply** (or **Acknowledge**) per finding to close it. This keeps the AI in a propose-only role and the human in control of actual content changes (K8).
+
+**Empty state:** when the wiki has no findings, the panel shows "Wiki is healthy — no findings." The Run Lint button remains available to trigger a fresh scan at any time.
+
+---
+
+### Web Clipper section
+
+The Synapse web clipper is a Chrome MV3 browser extension (F11, ADR-0038). It lets you clip any web page directly into your vault from the browser, without leaving the page you are reading.
+
+**Installing the extension:**
+
+The extension source lives under `extension/` in the repository. To install it:
+
+1. Open Chrome and navigate to `chrome://extensions/`.
+2. Enable **Developer mode** (toggle in the top-right corner).
+3. Click **Load unpacked** and select the `extension/` directory from the repository root.
+4. The Synapse icon appears in the browser toolbar.
+
+**Configuring the extension (required before first use):**
+
+1. Click the Synapse icon and select **Options** (or right-click the icon and choose **Extension options**).
+2. Set the **Base URL** to your Synapse backend: `http://localhost:8000` for local development, or your Cloudflare Tunnel URL for remote access (e.g. `https://synapse.yourdomain.com`).
+3. Set the **Token** to the value of your `CLIP_TOKEN` environment variable (the bearer token you set when deploying the backend).
+4. Click **Save**.
+
+The operator must also ensure the backend is configured with `CLIP_ENABLED=true` and `CLIP_TOKEN` set to the same value, and that `CLIP_ALLOWED_ORIGINS` includes your Chrome extension's origin ID (shown in `chrome://extensions/` as the extension's ID, prefixed with `chrome-extension://`).
+
+**Clipping a page:**
+
+1. Navigate to any web page you want to add to your vault.
+2. Click the Synapse extension icon in the toolbar.
+3. The popup shows the page title, URL, and a Markdown preview (converted from the page's main content via Mozilla Readability + Turndown).
+4. Optionally edit the title or select a target vault from the dropdown.
+5. Click **Clip**. The extension posts the Markdown to `POST /clip`, which writes it to `vault/raw/sources/` and triggers the normal watcher-based ingest pipeline (I1/K1). No second ingest path is introduced.
+6. A confirmation toast appears in the popup. The page appears in the Sources section of the Synapse UI within about 15–30 seconds (same timing as any other ingest).
+
+**Security notes:**
+
+- Every clip request requires the bearer token. Requests without a valid token receive 401.
+- The body is capped at 2 MB (configurable via `CLIP_MAX_BODY_BYTES`). Oversized payloads receive 413.
+- The backend validates the request Origin against `CLIP_ALLOWED_ORIGINS` and writes only inside `vault/raw/sources/` (path-safe join). The design is the intentional inverse of the reference app's unauthenticated, unvalidated clip server (see ADR-0038 for the security rationale).
 
 ---
 
@@ -515,7 +596,7 @@ The status bar at the bottom of every section shows:
 
 ---
 
-## What shipped in M5 and what is coming in M6
+## What shipped in M5 and M6
 
 The following features shipped in v0.5 (M5):
 
@@ -564,15 +645,13 @@ Home Screen" prompt.
 - The Tauri v2 desktop wrapper (AC-F15-2) ships later in v0.6 and provides the same
   offline shell as a native window without an external browser.
 
----
+The following features also shipped in v0.6 (M6):
 
-The following features are planned for v0.6 (M6) and are NOT present in v0.5:
-
-| Feature | Sprint |
-|---------|--------|
-| Chrome MV3 web clipper | M6 |
-| PWA (manifest + service worker — offline shell) | M6 (AC-F15-1, done) |
-| Tauri v2 desktop wrapper | M6 (AC-F15-2) |
-| Lint-fix loop | M6 |
-| MkDocs documentation site | M6 |
-| Multi-format ingest: images, audio/video (via unstructured) | M6 |
+| Feature | Notes |
+|---------|-------|
+| Lint-fix loop (K2) | Bounded human-gated wiki health check; six `/lint/*` endpoints; `LINT_*` env vars |
+| Chrome MV3 web clipper (F11) | Clips web pages → `vault/raw/sources/` via secure `POST /clip`; `CLIP_*` env vars |
+| PWA — manifest + offline service worker (F15) | Install Synapse as an app from any modern browser |
+| Tauri v2 desktop shell (F15) | Native desktop app for macOS, Windows, and Linux (binaries on GitHub Releases) |
+| CI gate (F15) | Tests, pinned linters, and mmdc Mermaid render check on every `sprint/**` push |
+| purpose.md injection verified (F2) | `vault/purpose.md` confirmed injected into ingest and chat provider contexts |
