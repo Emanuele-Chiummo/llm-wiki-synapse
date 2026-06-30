@@ -24,6 +24,21 @@ erDiagram
         timestamptz updated_at "Updated on every PUT or scan completion"
     }
 
+    LINT_RUNS {
+        uuid id PK "Run identity"
+        string vault_id "Scope — string, no vaults table (AQ-v0.5-6, ADR-0037 §3.1)"
+        string status "running | completed | error. Defaults 'running'; terminal write always in finally (never left 'running' on fall-through — ADR-0037 §4)."
+        int max_iter "Iteration cap FROZEN at INSERT from POST body → LINT_MAX_ITER default (I7)"
+        int token_budget "Token budget FROZEN at INSERT from POST body → LINT_TOKEN_BUDGET default (I7)"
+        int iterations_used "Semantic rounds consumed (0..max_iter); 0 for deterministic-only scans"
+        int findings_count "Number of findings emitted by this scan (capped at LINT_MAX_FINDINGS)"
+        decimal total_cost_usd "I7 cost ledger; 0.0000 for local/cli (ADR-0009); $1 anomaly threshold"
+        timestamptz started_at "Run start time"
+        timestamptz completed_at "NULL while running; set in finally block (mirrors deep_research_runs)"
+        string error_message "Populated only on status='error'; NULL otherwise"
+        timestamptz created_at "Row creation time (mirrors deep_research_runs/review_items)"
+    }
+
     PAGES {
         uuid id PK "Page identity; also the Qdrant point id (ADR-0002)"
         string vault_id "Logical vault identifier — from VAULT_ID env var"
@@ -125,6 +140,22 @@ erDiagram
         string alias "The |alias part of [[Target|alias]], if present (K5)"
         boolean dangling "True when target_page_id is unresolved (AC-K5-5); warn-not-error path"
         timestamptz created_at "Row creation time"
+    }
+
+    LINT_FINDINGS {
+        uuid id PK "Finding identity"
+        uuid lint_run_id FK "FK → lint_runs.id (ON DELETE CASCADE)"
+        string vault_id "Denormalised vault scope (matches the run's vault; AQ-v0.5-6)"
+        string category "Finding category (ADR-0037 §3.1 enum-by-convention, no DB CHECK): orphan-page | missing-xref | contradiction | stale-claim | missing-page."
+        string severity "info | warning | error (advisory; display ordering). ADR-0037 §3.1."
+        uuid target_page_id FK "FK → pages.id; the page the finding is about. NULL when none applies (e.g. a missing-page finding about a not-yet-existing title). ADR-0037 §3.1."
+        string target_title "The page title the finding concerns (missing-page: title to create; missing-xref: the existing page that should be linked). ADR-0037 §3.1."
+        string description "Human-readable 'what is wrong' (ADR-0037 §3.1)."
+        string proposed_action "Human-readable description of the fix apply_lint_fix would attempt. NULL for flag-only findings (contradiction/stale-claim/orphan). ADR-0037 §3.1/§5."
+        string status "open | applied | dismissed. Defaults 'open' (ADR-0037 §3.1)."
+        string resolution_note "How the finding was resolved (apply outcome / dismiss reason). NULL while open."
+        timestamptz created_at "Row creation time"
+        timestamptz reviewed_at "Set on apply/dismiss; NULL while open."
     }
 
     MESSAGES {

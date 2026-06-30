@@ -20,6 +20,9 @@ Tables defined here:
   - review_items      : v0.5 F9 HITL review queue; redesigned in ADR-0034.
                         Alembic migration 0010 (original); migration 0013 (redesign).
                         Now stores PROPOSALS (5 types) with lazy on-demand Create.
+  - lint_runs         : v0.6 K2 lint-fix loop per-run audit ledger (ADR-0037 §3).
+  - lint_findings     : v0.6 K2 lint-fix proposals (orphan/missing-xref/contradiction/
+                        stale-claim/missing-page); human-gated apply (ADR-0037 §3).
 
 provider_config + ingest_runs added in v0.2 (ADR-0008). links added in v0.2 (ADR-0008 §5).
 All three new tables ship in a single Alembic migration 0002 (one schema-change event).
@@ -37,6 +40,12 @@ v0.5-F10: deep_research_runs + deep_research_sources added in Alembic migration 
 (ADR-0024 §7 — F10 Deep Research loop).
 
 v0.5-F9: review_items added in Alembic migration 0010 (ADR-0025 §3.1 — F9 HITL review queue).
+
+v0.6-K2: lint_runs + lint_findings added in Alembic migration 0014 (ADR-0037 — K2 lint-fix
+    loop). lint_runs mirrors deep_research_runs (id, vault_id, status, total_cost_usd,
+    error_message, created_at + bounds frozen at INSERT); lint_findings mirrors review_items
+    (id, lint_run_id FK, category, severity, target_page_id FK → pages, description,
+    proposed_action, status[open|applied|dismissed], created_at).
 
 v0.5-ADR-0034: review_items redesigned in Alembic migration 0013 (ADR-0034 — proposal model).
     Added: source_page_id, proposed_title, proposed_page_type, proposed_dir, rationale,
@@ -1527,4 +1536,283 @@ class ReviewItem(Base):
             f"<ReviewItem id={self.id} type={self.item_type!r} "
             f"status={self.status!r} vault={self.vault_id!r} "
             f"title={self.proposed_title!r}>"
+        )
+
+
+class LintRun(Base):
+    """
+    v0.6 K2 lint-fix loop — one row per run_lint_scan() call (ADR-0037 §3, Alembic 0014).
+
+    The lint scan is the third Karpathy core operation (Ingest · Query · Lint): a periodic,
+    BOUNDED, HUMAN-GATED health check of the wiki. The scan PRODUCES findings (proposals); it
+    NEVER auto-applies fixes (the human gate is apply_lint_fix — ADR-0037 §5).
+
+    Bounds (max_iter, token_budget) are FROZEN at INSERT and never re-read mid-loop (I7),
+    mirroring deep_research_runs. status defaults to 'running'; terminal values: completed |
+    error. Never left 'running' on loop fall-through (terminal write always in finally).
+    total_cost_usd: 0.0000 for local/cli (ADR-0009 convention); $1 anomaly threshold (I7).
+
+    vault_id: String identifier (no FK, no vaults table — AQ-v0.5-6).
+    UUID type follows deep_research_runs pattern: UUID(as_uuid=True).with_variant(String(36)).
+    Index: (vault_id, created_at DESC) mirrors deep_research_runs / ingest_runs.
+    """
+
+    __tablename__ = "lint_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Run identity",
+    )
+
+    vault_id: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment="Scope — string, no vaults table (AQ-v0.5-6, ADR-0037 §3.1)",
+    )
+
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="running",
+        server_default=sa_text("'running'"),
+        comment=(
+            "running | completed | error. Defaults 'running'; terminal write always in finally "
+            "(never left 'running' on fall-through — ADR-0037 §4)."
+        ),
+    )
+
+    max_iter: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="Iteration cap FROZEN at INSERT from POST body → LINT_MAX_ITER default (I7)",
+    )
+
+    token_budget: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="Token budget FROZEN at INSERT from POST body → LINT_TOKEN_BUDGET default (I7)",
+    )
+
+    iterations_used: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="Semantic rounds consumed (0..max_iter); 0 for deterministic-only scans",
+    )
+
+    findings_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="Number of findings emitted by this scan (capped at LINT_MAX_FINDINGS)",
+    )
+
+    total_cost_usd: Mapped[float] = mapped_column(
+        Numeric(10, 4),
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment="I7 cost ledger; 0.0000 for local/cli (ADR-0009); $1 anomaly threshold",
+    )
+
+    started_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Run start time",
+    )
+
+    completed_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        comment="NULL while running; set in finally block (mirrors deep_research_runs)",
+    )
+
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Populated only on status='error'; NULL otherwise",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time (mirrors deep_research_runs/review_items)",
+    )
+
+    # Relationships
+    findings: Mapped[list[LintFinding]] = relationship(
+        "LintFinding",
+        back_populates="run",
+        cascade="all, delete-orphan",
+        lazy="raise",
+    )
+
+    __table_args__ = (
+        # Paginated list query: (vault_id, created_at DESC) mirrors deep_research_runs
+        Index("ix_lint_runs_vault_created", "vault_id", "created_at"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<LintRun id={self.id} status={self.status!r} "
+            f"vault={self.vault_id!r} findings={self.findings_count}>"
+        )
+
+
+class LintFinding(Base):
+    """
+    v0.6 K2 lint finding — one PROPOSAL produced by a lint scan (ADR-0037 §3, Alembic 0014).
+
+    Mirrors review_items semantics: a finding is a PROPOSAL the human reviews; it is NEVER
+    auto-applied (the human gate is apply_lint_fix — ADR-0037 §5).
+
+    category enum-by-convention (5 values, ADR-0037 §3.1, no DB CHECK):
+      orphan-page    — graph in-degree 0 (deterministic via the graph engine; flag-only fix)
+      missing-xref   — a page that should link to an existing page but does not (LLM;
+                       apply reuses the wikilink-enrichment seam — ADR-0036)
+      contradiction  — conflicting claims across pages (LLM; flag-only)
+      stale-claim    — superseded information (LLM; flag-only)
+      missing-page   — a concept mentioned but with no page (LLM; apply delegates to the
+                       lazy-generation seam used by review.create_page_from_review — ADR-0034)
+
+    severity enum-by-convention: info | warning | error (advisory; display ordering).
+
+    status lifecycle (ADR-0037 §3.1):
+      open      — awaiting human action (initial state)
+      applied   — apply_lint_fix ran a safe/bounded fix (ADR-0037 §5)
+      dismissed — human chose to dismiss (status change only)
+
+    target_page_id: FK → pages.id; the page the finding is about (orphan/missing-xref/stale).
+      NULL when none applies (e.g. a missing-page finding about a not-yet-existing title).
+    proposed_action: human-readable description of the fix apply_lint_fix would attempt.
+
+    vault_id: String identifier (no FK, no vaults table — AQ-v0.5-6).
+    UUID type follows review_items / deep_research_runs pattern.
+    """
+
+    __tablename__ = "lint_findings"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Finding identity",
+    )
+
+    lint_run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        ForeignKey("lint_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="FK → lint_runs.id (ON DELETE CASCADE)",
+    )
+
+    vault_id: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment="Denormalised vault scope (matches the run's vault; AQ-v0.5-6)",
+    )
+
+    category: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment=(
+            "Finding category (ADR-0037 §3.1 enum-by-convention, no DB CHECK): "
+            "orphan-page | missing-xref | contradiction | stale-claim | missing-page."
+        ),
+    )
+
+    severity: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="warning",
+        server_default=sa_text("'warning'"),
+        comment="info | warning | error (advisory; display ordering). ADR-0037 §3.1.",
+    )
+
+    target_page_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        ForeignKey("pages.id"),
+        nullable=True,
+        comment=(
+            "FK → pages.id; the page the finding is about. NULL when none applies "
+            "(e.g. a missing-page finding about a not-yet-existing title). ADR-0037 §3.1."
+        ),
+    )
+
+    target_title: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "The page title the finding concerns (missing-page: title to create; "
+            "missing-xref: the existing page that should be linked). ADR-0037 §3.1."
+        ),
+    )
+
+    description: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Human-readable 'what is wrong' (ADR-0037 §3.1).",
+    )
+
+    proposed_action: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Human-readable description of the fix apply_lint_fix would attempt. "
+            "NULL for flag-only findings (contradiction/stale-claim/orphan). ADR-0037 §3.1/§5."
+        ),
+    )
+
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="open",
+        server_default=sa_text("'open'"),
+        comment="open | applied | dismissed. Defaults 'open' (ADR-0037 §3.1).",
+    )
+
+    resolution_note: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="How the finding was resolved (apply outcome / dismiss reason). NULL while open.",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time",
+    )
+
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        comment="Set on apply/dismiss; NULL while open.",
+    )
+
+    # Relationship back to the run
+    run: Mapped[LintRun] = relationship(
+        "LintRun",
+        back_populates="findings",
+        lazy="raise",
+    )
+
+    __table_args__ = (
+        # Paginated read: WHERE vault_id=? AND status=? ORDER BY created_at
+        Index("ix_lint_findings_vault_status_created", "vault_id", "status", "created_at"),
+        Index("ix_lint_findings_run_id", "lint_run_id"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<LintFinding id={self.id} category={self.category!r} "
+            f"status={self.status!r} vault={self.vault_id!r}>"
         )
