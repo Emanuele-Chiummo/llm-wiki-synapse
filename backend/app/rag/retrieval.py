@@ -425,7 +425,15 @@ async def _expand_frontier(
     # S608 is suppressed: only app-generated bind-name placeholders (":f0,:f1,…") are
     # interpolated — the frontier ids travel as bound params, never as SQL text, so this is
     # not a user-input injection vector. Same justification for link_sql / page_sql below.
-    in_clause = f"(source_page_id IN ({placeholders}) OR target_page_id IN ({placeholders}))"
+    # Cast UUID columns to text so the string-typed frontier binds compare cleanly: asyncpg
+    # sends the placeholders as VARCHAR and Postgres has no implicit `uuid = varchar` operator
+    # (else: UndefinedFunctionError). CAST(... AS TEXT) is portable — equivalent to ::text on
+    # Postgres and valid on SQLite (tests), unlike the Postgres-only ::text shorthand. The
+    # frontier is small (k * fan-out), so the lost index use on edges/links is immaterial here.
+    in_clause = (
+        f"(CAST(source_page_id AS TEXT) IN ({placeholders}) "
+        f"OR CAST(target_page_id AS TEXT) IN ({placeholders}))"
+    )
     edge_sql = (
         f"SELECT source_page_id, target_page_id, weight FROM edges "  # noqa: S608
         f"WHERE vault_id = :vid AND {in_clause} ORDER BY weight DESC"
@@ -645,9 +653,12 @@ async def _load_page_meta(
 
     async def _run(sess: AsyncSession) -> dict[str, dict[str, Any]]:
         # S608 suppressed: app-generated bind placeholders (":p0,:p1,…") only — ids are bound.
+        # CAST(id AS TEXT) — page_ids arrive as strings; without the cast Postgres rejects
+        # `uuid = varchar` (UndefinedFunctionError). CAST is portable (Postgres + SQLite),
+        # unlike Postgres-only ::text. Same fix as _expand_frontier.
         page_sql = (
             f"SELECT id, title, file_path FROM pages "  # noqa: S608
-            f"WHERE deleted_at IS NULL AND id IN ({placeholders})"
+            f"WHERE deleted_at IS NULL AND CAST(id AS TEXT) IN ({placeholders})"
         )
         result = await sess.execute(sa_text(page_sql).bindparams(**binds))
         out: dict[str, dict[str, Any]] = {}
