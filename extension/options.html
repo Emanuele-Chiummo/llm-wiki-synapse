@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Synapse Clipper — Settings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      max-width: 500px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background: #0d1117;
+      color: #c9d1d9;
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: #8b949e;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="url"] {
+      width: 100%;
+      padding: 8px 10px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    input[type="url"]:focus {
+      outline: none;
+      border-color: #58a6ff;
+      box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+    }
+
+    .hint {
+      font-size: 11px;
+      color: #6e7681;
+      margin-top: 4px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    button {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid;
+    }
+
+    #saveBtn {
+      background: #238636;
+      border-color: #2ea043;
+      color: #f0f6fc;
+    }
+
+    #saveBtn:hover { background: #2ea043; }
+
+    #testBtn {
+      background: #21262d;
+      border-color: #30363d;
+      color: #c9d1d9;
+    }
+
+    #testBtn:hover { background: #30363d; }
+
+    #statusMsg {
+      margin-top: 12px;
+      font-size: 12px;
+      min-height: 18px;
+    }
+
+    #statusMsg.ok  { color: #3fb950; }
+    #statusMsg.err { color: #f85149; }
+    #statusMsg.inf { color: #8b949e; }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 24px 0 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .security-note {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-left: 3px solid #58a6ff;
+      border-radius: 0 6px 6px 0;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: #8b949e;
+      margin-top: 16px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <h1>Synapse Clipper — Settings</h1>
+
+  <p class="section-title">Connection</p>
+
+  <div class="field">
+    <label for="baseURL">Synapse Base URL</label>
+    <input type="url" id="baseURL" placeholder="http://localhost:8000" />
+    <div class="hint">
+      URL of your Synapse FastAPI service (no trailing slash).
+      Example: <code>http://localhost:8000</code> or your Tailscale hostname.
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="clipToken">Clip Token (CLIP_TOKEN)</label>
+    <input type="password" id="clipToken" placeholder="Paste your CLIP_TOKEN here" />
+    <div class="hint">
+      The token configured via <code>CLIP_TOKEN</code> in your Synapse environment.
+      Stored encrypted by Chrome. Never shown in full after saving.
+    </div>
+  </div>
+
+  <p class="section-title">Extension Identity</p>
+
+  <div class="field">
+    <label>Your Extension ID (read-only)</label>
+    <input type="text" id="extensionId" readonly />
+    <div class="hint">
+      Add <code>chrome-extension://&lt;this-id&gt;</code> to the <code>CLIP_ALLOWED_ORIGINS</code>
+      env var in your Synapse configuration so the server accepts requests from this extension.
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="saveBtn">Save Settings</button>
+    <button id="testBtn">Test Connection</button>
+  </div>
+
+  <div id="statusMsg" class="inf"></div>
+
+  <div class="security-note">
+    <strong>Security reminder:</strong> Keep <code>CLIP_TOKEN</code> private —
+    anyone with the token can write files to your Synapse vault.
+    Use a long random string (32+ chars). Rotate via your environment and restart Synapse.
+    The server validates Origin, body size, and path safety independently of this token.
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

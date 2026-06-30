@@ -66,6 +66,8 @@ def main() -> None:
         "/mcp/auth",
         # Embeddings config (ADR-0030)
         "/config/embedding",
+        # F11 Web Clipper ingress (ADR-0038)
+        "/clip",
     ]:
         assert required_path in paths, f"Missing path {required_path!r} in openapi.json"
 
@@ -103,7 +105,7 @@ def main() -> None:
             f"SECURITY: token/hash/salt field {field_name!r} must not appear in McpInfoResponse"
 
     print(
-        "Sanity check passed: all 19 required endpoints present; "
+        "Sanity check passed: all 20 required endpoints present (incl. /clip — ADR-0038); "
         "embeddings_enabled, http_enabled, remote_write_enabled confirmed (ADR-0029, ADR-0030); "
         "token_source, allow_without_token confirmed in McpInfoResponse + McpAuthStateResponse "
         "(ADR-0033); no token/hash/salt field exposed (no-leak check PASS)"

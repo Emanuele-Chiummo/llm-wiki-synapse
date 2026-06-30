@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Synapse",
-    "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8].",
-    "version": "0.5.0"
+    "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8]. POST /clip: Chrome MV3 web clipper ingress \u2014 token-gated, origin-checked, body-capped, safe-joined (F11, ADR-0038).",
+    "version": "0.6.0"
   },
   "paths": {
     "/status": {
@@ -1966,6 +1966,60 @@
           }
         }
       }
+    },
+    "/clip": {
+      "post": {
+        "summary": "Chrome MV3 web clipper ingress \u2014 secure clip receiver (F11, ADR-0038)",
+        "description": "F11 Web Clipper ingress (ADR-0038). Accepts already-converted Markdown from the Chrome MV3 extension, writes it atomically to vault/raw/sources/, then the EXISTING watcher ingests it asynchronously (I1/I5/K1 \u2014 no new ingest path). \n\nSecurity (ADR-0038 \u00a72 \u2014 explicitly addresses llm_wiki audit S-1..S-6): (a) CLIP_ENABLED must be true, else 503; (b) CLIP_TOKEN bearer required \u2014 constant-time compare, reject 401 on missing/invalid; (c) Origin/Host allowlist checked server-side BEFORE processing (chrome-extension://<id> + loopback + CLIP_ALLOWED_ORIGINS), reject 403 \u2014 CORS alone does not block simple POST drive-by writes; (d) body capped at CLIP_MAX_BODY_BYTES \u2192 413; (e) filename derived from title, sanitized, safe-joined under vault/raw/sources/, containment-verified \u2014 caller never supplies a base path \u2192 400 on traversal; (f) atomic write via temp+replace (I5). \n\nIdempotency (I1): watcher's mtime/SHA gate deduplicates re-clips of unchanged content. No second HTTP server. No 0.0.0.0 bind. NEVER stores or logs the token.",
+        "operationId": "clip_ingest_clip_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "File saved; watcher ingests asynchronously",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Path traversal rejected or unsafe filename"
+          },
+          "401": {
+            "description": "Missing or invalid CLIP_TOKEN"
+          },
+          "403": {
+            "description": "Origin not in allowlist"
+          },
+          "413": {
+            "description": "Body exceeds CLIP_MAX_BODY_BYTES"
+          },
+          "503": {
+            "description": "CLIP_ENABLED is false \u2014 clipper ingress is disabled"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2309,6 +2363,84 @@
         ],
         "title": "ChatRequest",
         "description": "Request body for POST /chat/stream (ADR-0019 \u00a72.2).\n\nThe server NEVER accepts provider_type / model_id (I6 / Do-NOT #4): the backend resolves\n`resolve_provider_config(\"chat\", vault_id)`. `operation` is fixed to \"chat\" so the same\nabstraction can route ingest-vs-chat differently."
+      },
+      "ClipRequest": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Url",
+            "description": "Source URL of the clipped page"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "Article title (used for the filename)",
+            "default": ""
+          },
+          "markdown": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Markdown",
+            "description": "Article body as Markdown"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "Optional source hint for the YAML frontmatter sources[] field. Defaults to the url when omitted."
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "markdown"
+        ],
+        "title": "ClipRequest",
+        "description": "Request body for POST /clip (F11, ADR-0038).\n\nSent by the Chrome MV3 extension after converting the article to Markdown\nvia Readability + Turndown. The extension owns the conversion; the server\nonly validates, sanitizes, and stores.",
+        "example": {
+          "markdown": "# Example Article\n\nArticle body...",
+          "title": "Example Article",
+          "url": "https://example.com/article"
+        }
+      },
+      "ClipResponse": {
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "title": "File Path",
+            "description": "Saved path relative to vault_root, e.g. \"raw/sources/Example-Article.md\""
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "\"queued\" \u2014 file saved to raw/sources/; watcher ingests asynchronously."
+          },
+          "overwritten": {
+            "type": "boolean",
+            "title": "Overwritten",
+            "description": "True if a same-named file already existed and was replaced on disk"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_path",
+          "status",
+          "overwritten"
+        ],
+        "title": "ClipResponse",
+        "description": "202 response body for POST /clip (F11, ADR-0038).",
+        "example": {
+          "file_path": "raw/sources/Example-Article.md",
+          "overwritten": false,
+          "status": "queued"
+        }
       },
       "ConversationCreate": {
         "properties": {
