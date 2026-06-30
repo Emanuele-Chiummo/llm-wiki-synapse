@@ -106,7 +106,11 @@ class CascadeResult:
     wikilinks_cleaned: int  # total [[Target]] spans neutralised
     index_entry_removed: bool
     shared_entity_warnings: list[str]
-    files_written: int  # MUST equal len(plan.wikilinks_to_rewrite) (AC-F13-4a)
+    files_written: int  # <= len(plan.wikilinks_to_rewrite) (AC-F13-4a; FU-P4-4)
+    # Upper bound, not strict equality: the plan lists every page whose BODY had
+    # >0 occurrences at plan time, but a rewrite is skipped (no increment) when the
+    # body is unchanged at apply time (TOCTOU / occurrence counted only outside the
+    # body) or a write fails. Equals len(...) on the happy path; fewer otherwise.
     data_version_after: int
 
 
