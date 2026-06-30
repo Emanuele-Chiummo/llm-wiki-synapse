@@ -227,7 +227,59 @@ jobs:
           echo "All Mermaid diagrams are valid."
 
   # ──────────────────────────────────────────────────────────────────────
-  # (Future) Stage 6: Integration tests (optional, manual trigger)
+  # Stage 6: Tauri v2 desktop app build (tag-only; informational)
+  # Builds OS-specific native binaries: .deb/.AppImage (Linux), .dmg (macOS),
+  # .msi/.nsis (Windows). Runs on version tags (v0.6+) to validate the desktop
+  # shell; does not block merge (continue-on-error: true).
+  # ──────────────────────────────────────────────────────────────────────
+  tauri-build:
+    name: Tauri v2 Desktop Bundles
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+    if: startsWith(github.ref, 'refs/tags/v')
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux WebKit dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build Tauri app
+        working-directory: frontend
+        run: npm run tauri build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: synapse-${{ matrix.os }}
+          path: src-tauri/target/release/bundle/
+          retention-days: 7
+          if-no-files-found: warn
+
+  # ──────────────────────────────────────────────────────────────────────
+  # (Future) Stage 7: Integration tests (optional, manual trigger)
   # Requires live Qdrant, Ollama, PostgreSQL on TrueNAS.
   # Gated behind a condition (allow-failure in v0.1).
   # ──────────────────────────────────────────────────────────────────────

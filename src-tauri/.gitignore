@@ -1,0 +1,13 @@
+# Rust build artifacts
+target/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Tauri-specific
+tauri.conf.json.bak
