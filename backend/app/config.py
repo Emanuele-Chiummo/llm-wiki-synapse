@@ -300,6 +300,41 @@ class Settings(BaseSettings):
     Env var: WIKILINK_ENRICH_TIMEOUT_SECONDS.
     """
 
+    # ── K2: Lint-fix loop (ADR-0037 §4) ──────────────────────────────────────────
+    # The K2 lint scan is a BOUNDED, HUMAN-GATED health check of the wiki. The single
+    # semantic provider call (missing-xref / contradiction / stale-claim / missing-page)
+    # is bounded by these + the resolved provider row's token_budget (I7). Deterministic
+    # checks (orphan-page via the graph engine) make NO provider call.
+
+    lint_max_iter: int = 3
+    """
+    Iteration cap for the bounded lint scan loop (ADR-0037 §4, I7). The loop is structurally
+    capped at ``for n in range(1, LINT_MAX_ITER + 1)`` AND a token_budget gate at the top of
+    each round. A caller may override (bounded 1..10) via POST /lint/scan; the value is FROZEN
+    on the lint_runs row at INSERT and never re-read mid-loop. Env var: LINT_MAX_ITER.
+    """
+
+    lint_token_budget: int = 20_000
+    """
+    Token budget for one lint scan run (ADR-0037 §4, I7). The semantic provider call(s) stop
+    when ``accumulator.total_tokens >= token_budget``. Caller-overridable (bounded 1_000..
+    1_000_000); FROZEN on the lint_runs row at INSERT. Env var: LINT_TOKEN_BUDGET.
+    """
+
+    lint_max_findings: int = 50
+    """
+    Hard cap on findings emitted per lint run (ADR-0037 §4, Do-NOT — never an unbounded
+    enqueue). Deterministic + semantic findings are merged and truncated to this many.
+    Env var: LINT_MAX_FINDINGS.
+    """
+
+    lint_timeout_seconds: float = 30.0
+    """
+    Timeout (seconds) wrapping each semantic lint provider call (ADR-0037 §4, I7). On timeout →
+    emit only the deterministic findings (degrade, never fail the scan). Env var:
+    LINT_TIMEOUT_SECONDS.
+    """
+
     # ── F12: Multi-format ingest (ADR-0025 §4.1) ─────────────────────────────────
 
     extract_max_chars: int = 2_000_000

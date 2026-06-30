@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Synapse",
-    "description": "Self-organising wiki backend \u2014 M5 hardening (v0.5). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). GET /pages/{id}/content: read wiki page markdown + content_hash (ADR-0035). PUT /pages/{id}/content: atomic compare-and-swap edit with inline re-index (ADR-0035; 409 stale-hash, 413 oversize, 422 invalid-frontmatter, 403 non-wiki path). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8].",
+    "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8].",
     "version": "0.5.0"
   },
   "paths": {
@@ -217,7 +217,7 @@
       },
       "put": {
         "summary": "Overwrite the markdown content of a wiki page",
-        "description": "Atomically overwrites the markdown file for *page_id* with the supplied content. Only edits pages inside vault/wiki/ \u2014 raw/sources/ files are rejected with 403 (K1 vault layer separation). Write is done via a temp-file + os.replace so a crash mid-write does not corrupt the vault. A trailing newline is enforced (Obsidian / git convention, I5). \n\nValidation (ADR-0035): (a) body > 4 MB \u2192 413; (b) YAML frontmatter must parse cleanly \u2192 422 (protects Obsidian vault validity, I5). \n\nOptimistic concurrency: when *expected_hash* is supplied and does not match the current sha256 of the on-disk file, 409 Conflict is returned \u2014 the caller should reload the page and present the diff to the user before retrying. \n\nRe-indexing (I1/ADR-0035): the watcher observes vault/raw/sources/ only, NOT vault/wiki/. Therefore this endpoint calls ingest_file() INLINE after writing so the Postgres row (content_hash, updated_at, wikilinks) and Qdrant point are updated synchronously before the response is returned. ingest_file() is the single incremental update primitive: it recomputes the hash, upserts the page row, updates wikilinks, re-embeds into Qdrant, and bumps data_version ONCE so the debounced GraphCache recompute fires. Its mtime-then-hash gate skips the embed step when the content is identical (idempotent). This is a single-page update, never a full rescan (I1). (F1-content-write, I1, I5, ADR-0035)",
+        "description": "Atomically overwrites the markdown file for *page_id* with the supplied content. Only edits pages inside vault/wiki/ \u2014 raw/sources/ files are rejected with 403 (K1 vault layer separation). Write is done via a temp-file + os.replace so a crash mid-write does not corrupt the vault. A trailing newline is enforced (Obsidian / git convention, I5). \n\nValidation (ADR-0035): (a) body > 4 MB \u2192 413; (b) YAML frontmatter must parse cleanly \u2192 422 (protects Obsidian vault validity, I5). \n\nOptimistic concurrency: when *expected_hash* is supplied and does not match the current sha256 of the on-disk file, 409 Conflict is returned \u2014 the caller should reload the page and present the diff to the user before retrying. \n\nRe-indexing (I1/ADR-0035): the watcher observes vault/raw/sources/ only, NOT vault/wiki/. Therefore this endpoint calls reindex_wiki_page_body() INLINE after writing so the Postgres row (content_hash, updated_at, wikilinks) and Qdrant point are updated synchronously before the response is returned. reindex_wiki_page_body() is the purpose-built single-page re-index primitive (ADR-0036 \u00a72.1): it updates content_hash, re-embeds the body into Qdrant, re-derives K5 wikilinks, and bumps data_version ONCE so the debounced GraphCache recompute fires (I2). It does NOT invoke the LLM analyze\u2192generate pipeline \u2014 preserving the user's exact edit (I5). This is a single-page update, never a full rescan (I1). (F1-content-write, I1, I5, ADR-0035)",
         "operationId": "put_page_content_pages__page_id__content_put",
         "parameters": [
           {
@@ -1603,6 +1603,326 @@
         }
       }
     },
+    "/lint/scan": {
+      "post": {
+        "summary": "Run a bounded lint scan (K2 \u2014 produces findings, never auto-fixes)",
+        "description": "K2 Lint-fix loop (ADR-0037). Runs a BOUNDED, HUMAN-GATED health check of the wiki: deterministic structural checks (orphan-page via the graph/links read, no LLM) plus a bounded semantic pass (missing-xref | contradiction | stale-claim | missing-page) that rides the resolved ingest provider (I6 \u2014 never hardcoded). Bounds: max_iter (1..10) + token_budget (1k..1M) FROZEN on the lint_runs row (I7); findings capped at LINT_MAX_FINDINGS; total_cost_usd logged. Produces FINDINGS only \u2014 applying a fix requires the explicit human gate (POST /lint/findings/{id}/apply). Returns the run row + its findings.",
+        "operationId": "lint_scan_lint_scan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LintScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Scan complete; run + findings returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintScanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (max_iter/token_budget out of range)"
+          }
+        }
+      }
+    },
+    "/lint/runs": {
+      "get": {
+        "summary": "List lint scan run history",
+        "description": "Paginated, created_at DESC list of lint_runs rows (ADR-0037 \u00a76). limit: 1..100 default 20; offset: >=0 default 0; vault_id: optional filter. Mirrors GET /research/runs.",
+        "operationId": "list_lint_runs_endpoint_lint_runs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Max rows (1..100)",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Max rows (1..100)"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Row offset (>=0)",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Row offset (>=0)"
+          },
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional vault_id filter",
+              "title": "Vault Id"
+            },
+            "description": "Optional vault_id filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated lint run list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintRunListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (limit/offset out of range)"
+          }
+        }
+      }
+    },
+    "/lint/runs/{run_id}": {
+      "get": {
+        "summary": "Get a lint scan run by id",
+        "description": "Returns one lint_runs row (ADR-0037 \u00a76). 404 if unknown run_id.",
+        "operationId": "get_lint_run_lint_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lint run detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintRunResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No lint run with this id"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lint/findings": {
+      "get": {
+        "summary": "List lint findings",
+        "description": "Paginated, created_at ASC list of lint_findings rows (ADR-0037 \u00a76). vault_id: required. status: optional filter (open|applied|dismissed; default open). limit: default 50, max 200 (I7 \u2014 bounded page size). offset: >=0.",
+        "operationId": "list_lint_findings_endpoint_lint_findings_get",
+        "parameters": [
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Vault scope (required)",
+              "title": "Vault Id"
+            },
+            "description": "Vault scope (required)"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "open | applied | dismissed; null/omit for all statuses",
+              "default": "open",
+              "title": "Status"
+            },
+            "description": "open | applied | dismissed; null/omit for all statuses"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Max rows (1..200); I7 cap",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Max rows (1..200); I7 cap"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Row offset for pagination",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Row offset for pagination"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated lint findings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintFindingListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (limit out of range, missing vault_id)"
+          }
+        }
+      }
+    },
+    "/lint/findings/{finding_id}/apply": {
+      "post": {
+        "summary": "Apply a lint fix (HUMAN GATE)",
+        "description": "K2 Lint-fix loop \u2014 human-gated apply (ADR-0037 \u00a75). Applies ONLY safe/bounded fixes; bumps data_version at most ONCE per applied fix (I1); NEVER full-rescans. missing-xref \u2192 reuses the wikilink-enrichment seam (adds the [[link]] into the page body, I5). missing-page \u2192 delegates to the lazy-generation seam (bounded orchestrated loop, one data_version bump). orphan-page / contradiction / stale-claim are FLAG-ONLY: apply records acknowledgement (status=applied) but performs no automatic edit. 409 if the finding is not open or no ingest provider is configured (I6). 502 if a bounded fix fails; finding left open. 404 if finding_id is unknown.",
+        "operationId": "apply_lint_finding_lint_findings__finding_id__apply_post",
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Finding Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fix applied (or finding acknowledged for flag-only categories)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintFindingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lint finding not found"
+          },
+          "409": {
+            "description": "Finding not open, or no ingest provider configured (I6)"
+          },
+          "502": {
+            "description": "Bounded fix failed; finding left open"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lint/findings/{finding_id}/dismiss": {
+      "post": {
+        "summary": "Dismiss a lint finding",
+        "description": "K2 Lint-fix loop \u2014 dismiss action (ADR-0037 \u00a75). Sets status=dismissed, reviewed_at=now(). No edit, no data_version bump. 404 if finding_id is unknown.",
+        "operationId": "dismiss_lint_finding_endpoint_lint_findings__finding_id__dismiss_post",
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Finding Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Finding dismissed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintFindingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lint finding not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/pages/{page_id}/cascade-delete/preview": {
       "post": {
         "summary": "Dry-run preview of cascade delete (read-only)",
@@ -2767,6 +3087,338 @@
           "page_id": "00000000-0000-0000-0000-000000000001",
           "status": "completed"
         }
+      },
+      "LintFindingListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LintFindingResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "LintFindingListResponse",
+        "description": "Paginated list response for GET /lint/findings (ADR-0037 \u00a76)."
+      },
+      "LintFindingResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "lint_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Lint Run Id"
+          },
+          "vault_id": {
+            "type": "string",
+            "title": "Vault Id"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "description": "orphan-page | missing-xref | contradiction | stale-claim | missing-page"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity",
+            "description": "info | warning | error"
+          },
+          "target_page_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Page Id"
+          },
+          "target_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "proposed_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Action",
+            "description": "Fix apply_lint_fix would attempt; null for flag-only findings"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "open | applied | dismissed"
+          },
+          "resolution_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Note"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "lint_run_id",
+          "vault_id",
+          "category",
+          "severity",
+          "description",
+          "status",
+          "created_at"
+        ],
+        "title": "LintFindingResponse",
+        "description": "API response shape for one lint_findings row (ADR-0037 \u00a76)."
+      },
+      "LintRunListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LintRunResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "LintRunListResponse",
+        "description": "Paginated list response for GET /lint/runs (ADR-0037 \u00a76)."
+      },
+      "LintRunResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "vault_id": {
+            "type": "string",
+            "title": "Vault Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "running | completed | error"
+          },
+          "max_iter": {
+            "type": "integer",
+            "title": "Max Iter"
+          },
+          "token_budget": {
+            "type": "integer",
+            "title": "Token Budget"
+          },
+          "iterations_used": {
+            "type": "integer",
+            "title": "Iterations Used"
+          },
+          "findings_count": {
+            "type": "integer",
+            "title": "Findings Count"
+          },
+          "total_cost_usd": {
+            "type": "number",
+            "title": "Total Cost Usd"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "vault_id",
+          "status",
+          "max_iter",
+          "token_budget",
+          "iterations_used",
+          "findings_count",
+          "total_cost_usd",
+          "started_at",
+          "created_at"
+        ],
+        "title": "LintRunResponse",
+        "description": "API response shape for one lint_runs row (ADR-0037 \u00a76)."
+      },
+      "LintScanRequest": {
+        "properties": {
+          "vault_id": {
+            "type": "string",
+            "title": "Vault Id",
+            "description": "Vault scope for the scan"
+          },
+          "max_iter": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Iter",
+            "description": "Max semantic rounds (1..10); null \u2192 LINT_MAX_ITER default"
+          },
+          "token_budget": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000000.0,
+                "minimum": 1000.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Budget",
+            "description": "Token budget (1_000..1_000_000); null \u2192 LINT_TOKEN_BUDGET default"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vault_id"
+        ],
+        "title": "LintScanRequest",
+        "description": "Request body for POST /lint/scan (ADR-0037 \u00a76).\n\nmax_iter and token_budget are optional \u2014 env defaults (LINT_MAX_ITER / LINT_TOKEN_BUDGET)\napply when omitted. Both are FROZEN onto the lint_runs row before the scan runs (I7).\nServer-side validators cap the range so callers cannot request an unbounded run (I7).",
+        "example": {
+          "max_iter": 3,
+          "token_budget": 20000,
+          "vault_id": "default"
+        }
+      },
+      "LintScanResponse": {
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/LintRunResponse"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/LintFindingResponse"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run",
+          "findings"
+        ],
+        "title": "LintScanResponse",
+        "description": "200 response for POST /lint/scan (ADR-0037 \u00a76): the run + its findings."
       },
       "McpAuthRequest": {
         "properties": {
