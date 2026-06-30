@@ -40,6 +40,7 @@ Factored helpers that v0.2's orchestrated loop will reuse as primitives:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -339,69 +340,129 @@ async def run_ingest_pipeline(
     analysis: Analysis | None = None
     iterations = 0
     delegated_pages_written = 0
+    converged = False
+    route: Literal["orchestrated", "delegated"] = "orchestrated"
 
     # ── ROUTE: the single capability check (I6) ──────────────────────────────
-    if caps.supports_agentic_loop:
-        route: Literal["orchestrated", "delegated"] = "delegated"
-        converged, delegated_pages_written = await _delegate_ingest(
-            provider=provider,
-            source_text=source_text,
-            origin_source=origin_source,
-        )
-    else:
-        route = "orchestrated"
-        loop_result = await _run_orchestrated(
-            provider=provider,
-            accumulator=accumulator,
-            source_text=source_text,
-            origin_source=origin_source,
-            config_row=provider_config_row,
-        )
-        pages = loop_result.pages
-        analysis = loop_result.analysis
-        iterations = loop_result.iterations
-        converged = loop_result.converged
-        # Guarantee a source-summary page (F3) even if the provider omitted it.
-        pages = _ensure_source_summary(pages, analysis, origin_source)
-        written_pages: list[Page] = []
-        for page in pages:
-            written_page = await write_wiki_page(None, page, origin_source)
-            written_pages.append(written_page)
-        await _update_overview(analysis, origin_source)
-
-        # ── F9 post-write hook: propose_reviews + sweep_reviews (ADR-0034 §4/§6) ─
-        # Fire-and-forget: NEVER raises into the ingest critical path (Do-NOT #5, ADR-0034 §10).
-        # Replaces _enqueue_review_items from ADR-0025. Runs only on the orchestrated branch
-        # (delegated/CLI path is a reserved follow-up — ADR-0034 §9 risk 1).
-        try:
-            from app.ops.review import propose_reviews as _propose_reviews
-
-            await _propose_reviews(
-                vault_id=settings.vault_id,
-                analysis=analysis,
-                written_pages=written_pages,
+    # Wrapped so a route failure still persists an ingest_runs row with status="failed" and the
+    # error_message + accumulated cost (BUG A2 / I7), then re-raises so the REST/watcher caller
+    # surfaces the error unchanged.
+    try:
+        if caps.supports_agentic_loop:
+            route = "delegated"
+            converged, delegated_pages_written = await _delegate_ingest(
+                provider=provider,
+                source_text=source_text,
                 origin_source=origin_source,
             )
-        except Exception as _f9_exc:  # noqa: BLE001
-            # Intentionally swallowed: pages are written; queue is advisory (Do-NOT #5).
-            logger.warning(
-                "run_ingest_pipeline: F9 propose_reviews hook failed (non-fatal): %s",
-                _f9_exc,
+        else:
+            # route is already "orchestrated" (default above) — explicit for readers.
+            route = "orchestrated"
+            loop_result = await _run_orchestrated(
+                provider=provider,
+                accumulator=accumulator,
+                source_text=source_text,
+                origin_source=origin_source,
+                config_row=provider_config_row,
             )
+            pages = loop_result.pages
+            analysis = loop_result.analysis
+            iterations = loop_result.iterations
+            converged = loop_result.converged
+            # Guarantee a source-summary page (F3) even if the provider omitted it.
+            pages = _ensure_source_summary(pages, analysis, origin_source)
+            written_pages: list[Page] = []
+            for page in pages:
+                written_page = await write_wiki_page(None, page, origin_source)
+                written_pages.append(written_page)
+            await _update_overview(analysis, origin_source)
 
-        # Sweep: auto-resolve stale missing-page/duplicate proposals now that the wiki grew.
-        # Also fire-and-forget; never fails ingest.
-        try:
-            from app.ops.review import sweep_reviews as _sweep_reviews_post
+            # ── F4 post-write hook: wikilink enrichment (ADR-0036) ───────────────────
+            # Runs BEFORE propose_reviews (so proposals see the enriched link graph) and AFTER
+            # all pages are written (so every just-written title is linkable). Fire-and-forget:
+            # NEVER raises into the ingest critical path — pages are already written and valid
+            # (ADR-0036 §4 / Do-NOT #9). Restores the F4 "direct link ×3" signal.
+            try:
+                from app.ops.enrich_wikilinks import enrich_wikilinks as _enrich_wikilinks
 
-            await _sweep_reviews_post(settings.vault_id)
-        except Exception as _sweep_exc:  # noqa: BLE001
-            logger.warning(
-                "run_ingest_pipeline: F9 sweep_reviews hook failed (non-fatal): %s",
-                _sweep_exc,
-            )
+                _enrich = await _enrich_wikilinks(written_pages, settings.vault_id)
+                logger.info(
+                    "run_ingest_pipeline: wikilink enrichment pages=%d links=%d cost_usd=%.4f%s",
+                    _enrich.pages_enriched,
+                    _enrich.links_added,
+                    _enrich.total_cost_usd,
+                    f" (skipped: {_enrich.skipped_reason})" if _enrich.skipped_reason else "",
+                )
+            except Exception as _enrich_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: wikilink enrichment hook failed (non-fatal): %s",
+                    _enrich_exc,
+                )
+
+            # ── F9 post-write hook: propose_reviews + sweep_reviews (ADR-0034 §4/§6) ─
+            # Fire-and-forget: NEVER raises into the ingest critical path (Do-NOT #5, ADR-0034 §10).
+            # Replaces _enqueue_review_items from ADR-0025. Runs only on the orchestrated branch
+            # (delegated/CLI path is a reserved follow-up — ADR-0034 §9 risk 1).
+            try:
+                from app.ops.review import propose_reviews as _propose_reviews
+
+                await _propose_reviews(
+                    vault_id=settings.vault_id,
+                    analysis=analysis,
+                    written_pages=written_pages,
+                    origin_source=origin_source,
+                )
+            except Exception as _f9_exc:  # noqa: BLE001
+                # Intentionally swallowed: pages are written; queue is advisory (Do-NOT #5).
+                logger.warning(
+                    "run_ingest_pipeline: F9 propose_reviews hook failed (non-fatal): %s",
+                    _f9_exc,
+                )
+
+            # Sweep: auto-resolve stale missing-page/duplicate proposals now that the wiki grew.
+            # Also fire-and-forget; never fails ingest.
+            try:
+                from app.ops.review import sweep_reviews as _sweep_reviews_post
+
+                await _sweep_reviews_post(settings.vault_id)
+            except Exception as _sweep_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: F9 sweep_reviews hook failed (non-fatal): %s",
+                    _sweep_exc,
+                )
+    except Exception as exc:
+        # Persist a failed-run row (I7 ledger stays truthful: cost incurred before the failure is
+        # still recorded) then re-raise so the caller's error handling is unchanged.
+        finished_at = datetime.now(UTC)
+        await _write_ingest_run(
+            page_id=None,
+            provider_name=caps.name,
+            provider_type=caps.mode,
+            model_id=str(getattr(provider_config_row, "model_id", "")),
+            route=route,
+            max_iter_used=iterations,
+            total_tokens=accumulator.total_tokens,
+            total_cost_usd=round(accumulator.total_cost_usd, 4),
+            converged=False,
+            cost_anomaly=round(accumulator.total_cost_usd, 4) > COST_ANOMALY_THRESHOLD_USD,
+            started_at=started_at,
+            finished_at=finished_at,
+            pages_created=0,
+            error_message=str(exc) or exc.__class__.__name__,
+        )
+        logger.warning(
+            "ingest_run FAILED provider=%s origin=%s error=%s",
+            caps.name,
+            origin_source,
+            exc,
+        )
+        raise
 
     finished_at = datetime.now(UTC)
+
+    # Actual pages persisted this run (BUG A2): the orchestrated branch writes len(pages)
+    # (post source-summary guarantee); the delegated branch reports its own count.
+    pages_written = delegated_pages_written if caps.supports_agentic_loop else len(pages)
 
     # ── Finalize accumulator → ingest_runs row (I7, ADR-0008 §4) ──────────────
     total_tokens = accumulator.total_tokens
@@ -421,6 +482,7 @@ async def run_ingest_pipeline(
         cost_anomaly=cost_anomaly,
         started_at=started_at,
         finished_at=finished_at,
+        pages_created=pages_written,
     )
 
     # Structured log line for live tail (ADR-0008 §4).
@@ -447,7 +509,7 @@ async def run_ingest_pipeline(
 
     return IngestRunResult(
         route=route,
-        pages_written=delegated_pages_written if caps.supports_agentic_loop else len(pages),
+        pages_written=pages_written,
         total_tokens=total_tokens,
         total_cost_usd=total_cost_usd,
         converged=converged,
@@ -617,9 +679,34 @@ async def write_wiki_page(
     rel_path = f"wiki/{subdir}/{slug}.md"
     abs_path = settings.vault_root / subdir_path(subdir) / f"{slug}.md"
 
+    # Reuse the existing LIVE page's id when this slug already exists — e.g. the same entity is
+    # (re-)generated from a second source, or the same source is re-ingested. persist_metadata
+    # keys on page.id, so a fresh uuid4() would always take the INSERT branch and violate the
+    # (vault_id, file_path) "_live" unique constraint. Mirrors the watcher/file path which reuses
+    # existing.id. deleted_at IS NULL → only adopt a live row's id (a soft-deleted same-path row
+    # does not collide with the partial _live index; it resurrects only on the file-ingest path).
+    async with get_session() as _id_sess:
+        existing_page = (
+            await _id_sess.execute(
+                select(Page).where(
+                    Page.vault_id == settings.vault_id,
+                    Page.file_path == rel_path,
+                    Page.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+    page_id = existing_page.id if existing_page is not None else uuid.uuid4()
+
     sources = list(page.frontmatter.sources)
     if origin_source and origin_source not in sources:
         sources.append(origin_source)
+    # Preserve provenance across re-generation: union with the prior row's sources so a page
+    # supported by multiple sources keeps all of them (drives F13 shared-entity detection, and
+    # avoids silently dropping sources on the UPDATE branch of persist_metadata).
+    if existing_page is not None and existing_page.sources:
+        for _prior_source in existing_page.sources:
+            if _prior_source not in sources:
+                sources.append(_prior_source)
 
     # Build the .md file: frontmatter block + body (ADR-0011).
     fm_dump = page.frontmatter.model_dump()
@@ -627,10 +714,14 @@ async def write_wiki_page(
     fm_dump["type"] = page_type  # serialize enum as its string value for Obsidian (I5)
     post = frontmatter.Post(page.content, **fm_dump)
     serialized = frontmatter.dumps(post)
+    # content_hash MUST hash the exact bytes written to disk (serialized + trailing newline), NOT
+    # `serialized` alone — otherwise the stored hash never matches the file and every on-disk hash
+    # comparison (GET/PUT /pages/{id}/content optimistic-lock, ADR-0035) sees a spurious mismatch.
+    # reindex_wiki_page_body() already hashes the full file bytes; mirror it here.
+    file_text = serialized + "\n"
     abs_path.parent.mkdir(parents=True, exist_ok=True)
-    abs_path.write_text(serialized + "\n", encoding="utf-8")
+    abs_path.write_text(file_text, encoding="utf-8")
 
-    page_id = uuid.uuid4()
     await persist_metadata(
         page_id=page_id,
         vault_id=settings.vault_id,
@@ -638,7 +729,7 @@ async def write_wiki_page(
         title=page.title,
         page_type=page_type,
         sources=sources,
-        content_hash=_sha256(serialized.encode("utf-8")),
+        content_hash=_sha256(file_text.encode("utf-8")),
         source_mtime_ns=0,
     )
     await upsert_vector(
@@ -676,6 +767,84 @@ async def write_wiki_page(
 def subdir_path(subdir: str) -> Path:
     """vault/wiki/<subdir> relative segment for the writer."""
     return Path("wiki") / subdir
+
+
+async def reindex_wiki_page_body(
+    *,
+    page: Page,
+    new_file_text: str,
+    body_for_embedding: str,
+    bump: bool = True,
+) -> None:
+    """
+    Atomically rewrite an already-existing wiki page file with *new_file_text* and re-index it
+    INCREMENTALLY (I1) — the shared single-page re-index primitive (ADR-0035 / ADR-0036 §2.1 §7).
+
+    This is the seam that wikilink enrichment (ADR-0036) and any in-place body edit reuse so the
+    re-index logic lives in exactly one place. It:
+      1. writes the new bytes atomically (temp file + os.replace — crash-safe, no partial file),
+      2. refreshes ``pages.content_hash`` via ``persist_metadata`` (metadata unchanged: title/type/
+         sources are preserved from the existing row — enrichment never touches frontmatter, I5),
+      3. re-embeds the body into Qdrant (``upsert_vector``),
+      4. re-derives the K5 ``links`` rows from the new body (``parse_wikilinks``/``persist_links``);
+         this is where the new ``[[wikilinks]]`` become F4 *direct link ×3* edges,
+      5. optionally bumps ``data_version`` ONCE (``bump=True``). When enriching a batch, the caller
+         passes ``bump=False`` per page and bumps once for the whole pass (I1 — one version bump).
+
+    Only THIS page is touched (no rescan, no vault walk — I1). ``index.md`` is NOT regenerated here
+    (the link targets already exist; the catalogue is unchanged by adding an inline link). The
+    caller is responsible for the single ``bump_version()`` when batching with ``bump=False``.
+    """
+    import os
+    import tempfile
+
+    abs_path = (settings.vault_root / page.file_path).resolve()
+    new_bytes = new_file_text.encode("utf-8")
+
+    def _atomic_write() -> None:
+        tmp_fd, tmp_name = tempfile.mkstemp(dir=str(abs_path.parent), suffix=".enrich_tmp")
+        try:
+            os.write(tmp_fd, new_bytes)
+            os.close(tmp_fd)
+            Path(tmp_name).replace(abs_path)
+        except Exception:
+            try:
+                os.close(tmp_fd)
+            except OSError:
+                pass
+            Path(tmp_name).unlink(missing_ok=True)
+            raise
+
+    await asyncio.get_event_loop().run_in_executor(None, _atomic_write)
+
+    # Refresh content_hash; preserve existing metadata verbatim (frontmatter untouched, I5).
+    await persist_metadata(
+        page_id=page.id,
+        vault_id=page.vault_id,
+        file_path=page.file_path,
+        title=page.title,
+        page_type=page.page_type,
+        sources=page.sources,
+        content_hash=_sha256(new_bytes),
+        source_mtime_ns=page.source_mtime_ns or 0,
+    )
+    await upsert_vector(
+        page_id=page.id,
+        text=body_for_embedding,
+        file_path=page.file_path,
+        title=page.title,
+        page_type=page.page_type,
+    )
+
+    # K5: re-derive wikilinks from the new body (the new [[links]] land in `links` → F4 ×3 signal).
+    from app.wiki.links import parse_wikilinks, persist_links
+
+    parsed = parse_wikilinks(body_for_embedding)
+    async with get_session() as wl_sess:
+        await persist_links(wl_sess, page.id, parsed)
+
+    if bump:
+        await bump_version()
 
 
 def _ensure_source_summary(
@@ -718,6 +887,26 @@ async def _update_overview(analysis: Analysis | None, origin_source: str) -> Non
         f.write(line)
 
 
+def _derive_run_status(*, converged: bool, error_message: str | None) -> str:
+    """
+    Map a finished run to its lifecycle status (BUG A2, ADR-0018 §7).
+
+    Returns one of:
+      • "failed"          — the run raised/errored (error_message is set).
+      • "converged_false" — the loop ran but never produced a valid batch (max_iter / budget).
+      • "completed"       — the run converged successfully.
+
+    Note: the IngestRun.status column comment uses "converged_false" (not "non-converged") as the
+    canonical non-convergence value; we keep that exact token so the REST view and any historical
+    backfill agree.
+    """
+    if error_message is not None:
+        return "failed"
+    if not converged:
+        return "converged_false"
+    return "completed"
+
+
 async def _write_ingest_run(
     *,
     page_id: uuid.UUID | None,
@@ -732,8 +921,17 @@ async def _write_ingest_run(
     cost_anomaly: bool,
     started_at: datetime,
     finished_at: datetime,
+    pages_created: int,
+    error_message: str | None = None,
 ) -> None:
-    """Persist one ingest_runs row — the cost-audit system of record (I7, ADR-0008 §4)."""
+    """
+    Persist one ingest_runs row — the cost-audit system of record (I7, ADR-0008 §4).
+
+    Sets pages_created/status/error_message from the actual run outcome (BUG A2): previously
+    these defaulted to 0/"completed"/NULL regardless of reality, so successful multi-page runs
+    and failed/non-converged runs were indistinguishable in the REST view (ADR-0018 §7).
+    """
+    status = _derive_run_status(converged=converged, error_message=error_message)
     async with get_session() as session:
         session.add(
             IngestRun(
@@ -751,6 +949,9 @@ async def _write_ingest_run(
                 cost_anomaly=cost_anomaly,
                 started_at=started_at,
                 finished_at=finished_at,
+                pages_created=pages_created,
+                status=status,
+                error_message=error_message,
             )
         )
 

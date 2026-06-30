@@ -44,6 +44,33 @@ logger = logging.getLogger(__name__)
 _OLLAMA_URL_ENV = "OLLAMA_URL"
 _DEFAULT_MAX_CONTEXT = 8192
 
+# ── num_ctx derivation (BUG A1) ──────────────────────────────────────────────────
+# Ollama defaults options.num_ctx to 4096 and SILENTLY truncates anything longer — long
+# sources + vault context + retry augmentation get cut, causing non-convergence on small
+# models. We therefore pass an explicit options.num_ctx derived from the configured context
+# window. These are named bounds, not magic literals scattered around.
+#
+#   _NUM_CTX_FLOOR   — never request less than this (keeps room for source + context + retries).
+#   _NUM_CTX_DEFAULT — used when the provider_config gives no usable context/budget hint.
+#   _NUM_CTX_CEILING — clamp so a misconfigured huge budget cannot blow out VRAM (RTX 3060, 12GB).
+_NUM_CTX_FLOOR = 8192
+_NUM_CTX_DEFAULT = 32768
+_NUM_CTX_CEILING = 131072
+
+
+def _derive_num_ctx(config: ProviderSettings) -> int:
+    """
+    Derive Ollama ``options.num_ctx`` from the provider config (BUG A1).
+
+    Prefers the configured ``token_budget`` (the orchestrated-loop context window the user
+    actually selected, e.g. 60000). Falls back to ``_NUM_CTX_DEFAULT`` when unset/non-positive,
+    then clamps into ``[_NUM_CTX_FLOOR, _NUM_CTX_CEILING]`` so we never under-provision (the
+    4096 truncation bug) nor over-provision past the model ceiling.
+    """
+    configured = int(getattr(config, "token_budget", 0) or 0)
+    n = configured if configured > 0 else _NUM_CTX_DEFAULT
+    return max(_NUM_CTX_FLOOR, min(n, _NUM_CTX_CEILING))
+
 
 class OllamaProvider(InferenceProvider):
     """Local Ollama backend using /api/chat with format=json (orchestrated route)."""
@@ -58,6 +85,9 @@ class OllamaProvider(InferenceProvider):
             )
         self._model = config.model_id  # from provider_config — never hardcoded (I6)
         self._timeout = config.timeout
+        # Explicit context window for every Ollama call (BUG A1) — derived from config,
+        # NOT Ollama's silent 4096 default. Shared by analyze()/generate()/chat().
+        self._num_ctx = _derive_num_ctx(config)
 
     # ── Capabilities ─────────────────────────────────────────────────────────────
 
@@ -110,6 +140,8 @@ class OllamaProvider(InferenceProvider):
             "model": self._model,  # from provider_config — never hardcoded (I6)
             "stream": True,
             "messages": ollama_messages,
+            # Explicit context window (BUG A1) — without this Ollama truncates to 4096.
+            "options": {"num_ctx": self._num_ctx},
         }
 
         in_tok = 0
@@ -150,6 +182,9 @@ class OllamaProvider(InferenceProvider):
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
+            # Explicit context window (BUG A1) — applies to analyze() and generate(); without
+            # this Ollama silently caps context at 4096 and truncates long sources + retries.
+            "options": {"num_ctx": self._num_ctx},
         }
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             resp = await client.post(f"{self._base_url}/api/chat", json=body)

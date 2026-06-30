@@ -253,6 +253,53 @@ class Settings(BaseSettings):
     Env var: REVIEW_SWEEP_TIMEOUT_SECONDS.
     """
 
+    # ── F4: wikilink-enrichment post-pass bounds (ADR-0036, [AI] §9) ─────────────
+    # The once-per-run enrichment call is bounded by these + the resolved provider row's
+    # token_budget (I7). Substitution-apply (R1): the LLM returns {mention, target_title}
+    # pairs; code validates + applies them single-mention into page BODIES only (I5).
+
+    wikilink_enrich_enabled: bool = True
+    """
+    Master gate for the wikilink-enrichment post-pass (ADR-0036 §4). Default on (one bounded
+    call per orchestrated ingest run). Set false for zero-cost ingest: pages are still written
+    and indexed; no enrichment call is made. Env var: WIKILINK_ENRICH_ENABLED.
+    """
+
+    wikilink_enrich_min_chars: int = 200
+    """
+    Anti-spam / cost gate (ADR-0036 §2.1 step 2): the enrichment LLM call runs only if the
+    combined body length of the written pages is at least this many characters. Below the gate
+    → zero substitutions, zero cost, zero LLM call. Env var: WIKILINK_ENRICH_MIN_CHARS.
+    """
+
+    wikilink_enrich_max_candidates: int = 500
+    """
+    Cap on the existing-page-title candidate list sent to the model (ADR-0036 §4, I7). Bounds
+    the prompt size; when the vault exceeds this, the most-recent titles are kept (best-effort,
+    §6 risk 2). Env var: WIKILINK_ENRICH_MAX_CANDIDATES.
+    """
+
+    wikilink_enrich_max_subs: int = 100
+    """
+    Hard cap on applied substitutions per run (ADR-0036 §4, Do-NOT #3/#6). The single LLM call's
+    substitution list is truncated to this many — never an unbounded edit set.
+    Env var: WIKILINK_ENRICH_MAX_SUBS.
+    """
+
+    wikilink_enrich_token_budget: int = 4_000
+    """
+    Fallback token budget for the single enrichment call (ADR-0036 §4, I7) when the resolved
+    provider row carries none. Small: a compact body digest + a short substitution list fits.
+    Env var: WIKILINK_ENRICH_TOKEN_BUDGET.
+    """
+
+    wikilink_enrich_timeout_seconds: float = 30.0
+    """
+    Timeout (seconds) wrapping the single enrichment provider call (ADR-0036 §4, I7).
+    On timeout → apply zero substitutions (degrade, never fail ingest).
+    Env var: WIKILINK_ENRICH_TIMEOUT_SECONDS.
+    """
+
     # ── F12: Multi-format ingest (ADR-0025 §4.1) ─────────────────────────────────
 
     extract_max_chars: int = 2_000_000
