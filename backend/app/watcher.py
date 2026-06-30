@@ -40,6 +40,13 @@ from app.config import settings
 # Import lazily to avoid circular imports at module load; accessed only in _is_text_file().
 logger = logging.getLogger(__name__)
 
+# Per-path debounce window. A single save commonly emits a burst of FS events
+# (create + several modifies; Docker bind-mounts on macOS amplify this), and an
+# atomic-rename save adds a moved event. Without coalescing, each event launched a
+# separate ingest → concurrent runs racing on uix_pages_vault_file_path_live (I1).
+# Each event re-arms the timer; exactly one ingest fires after the quiet period.
+_DEBOUNCE_SECONDS = float(os.environ.get("WATCH_DEBOUNCE_SECONDS", "1.5"))
+
 # ── Event handler ──────────────────────────────────────────────────────────────
 
 
@@ -55,23 +62,35 @@ class _MarkdownHandler(FileSystemEventHandler):
     def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
         super().__init__()
         self._loop = loop
+        # All three maps are touched ONLY on the loop thread (watchdog callbacks hop
+        # over via call_soon_threadsafe → _arm), so no lock is needed.
+        # path → pending debounce timer (collapses a same-burst event storm).
+        self._pending: dict[str, asyncio.TimerHandle] = {}
+        # paths with an ingest/delete currently executing (in-flight guard).
+        self._inflight: set[str] = set()
+        # path → latest action that arrived WHILE an ingest was in-flight; replayed
+        # exactly once when that ingest finishes. macOS↔Docker bind-mounts deliver
+        # fsnotify events in waves seconds apart — beyond the debounce window but
+        # during the (slow, provider-bound) ingest. Without this guard each wave
+        # started a concurrent run racing on uix_pages_vault_file_path_live (I1).
+        self._dirty: dict[str, str] = {}
 
     # ── watchdog callbacks (called from watchdog thread) ──────────────────────
 
     def on_created(self, event: FileSystemEvent) -> None:
         src = str(event.src_path)
         if not event.is_directory and _is_text_file(src):
-            self._schedule(self._on_ingest(src))
+            self._debounce(src, "ingest")
 
     def on_modified(self, event: FileSystemEvent) -> None:
         src = str(event.src_path)
         if not event.is_directory and _is_text_file(src):
-            self._schedule(self._on_ingest(src))
+            self._debounce(src, "ingest")
 
     def on_deleted(self, event: FileSystemEvent) -> None:
         src = str(event.src_path)
         if not event.is_directory and _is_text_file(src):
-            self._schedule(self._on_delete(src))
+            self._debounce(src, "delete")
 
     def on_moved(self, event: FileSystemEvent) -> None:
         """Handle atomic-rename saves (many editors use rename-on-save)."""
@@ -81,9 +100,48 @@ class _MarkdownHandler(FileSystemEventHandler):
         dst = str(event.dest_path)
         src = str(event.src_path)
         if _is_text_file(dst):
-            self._schedule(self._on_ingest(dst))
+            self._debounce(dst, "ingest")
         if _is_text_file(src):
-            self._schedule(self._on_delete(src))
+            self._debounce(src, "delete")
+
+    # ── Per-path debounce (coalesces FS event bursts into one action) ─────────
+
+    def _debounce(self, path: str, action: str) -> None:
+        """Re-arm the per-path timer (from watchdog thread → hop to loop thread)."""
+        self._loop.call_soon_threadsafe(self._arm, path, action)
+
+    def _arm(self, path: str, action: str) -> None:
+        """Cancel any pending timer for *path* and schedule the latest action."""
+        existing = self._pending.pop(path, None)
+        if existing is not None:
+            existing.cancel()
+        self._pending[path] = self._loop.call_later(
+            _DEBOUNCE_SECONDS, self._fire, path, action
+        )
+
+    def _fire(self, path: str, action: str) -> None:
+        """Quiet period elapsed — launch the coalesced ingest/delete once per path."""
+        self._pending.pop(path, None)
+        if path in self._inflight:
+            # An ingest for this path is still running; remember the latest action
+            # and replay it exactly once when that run finishes (coalesced trailing).
+            self._dirty[path] = action
+            return
+        self._inflight.add(path)
+        self._loop.create_task(self._run(path, action))
+
+    async def _run(self, path: str, action: str) -> None:
+        """Execute one action, then replay a single trailing action if one queued."""
+        try:
+            if action == "delete":
+                await self._on_delete(path)
+            else:
+                await self._on_ingest(path)
+        finally:
+            self._inflight.discard(path)
+            queued = self._dirty.pop(path, None)
+            if queued is not None:
+                self._arm(path, queued)
 
     # ── Async delegates ────────────────────────────────────────────────────────
 
@@ -115,12 +173,6 @@ class _MarkdownHandler(FileSystemEventHandler):
             logger.info("watcher: deleted %s", src_path)
         except Exception:  # noqa: BLE001
             logger.exception("watcher: delete error for %s", src_path)
-
-    def _schedule(self, coro: object) -> None:
-        """Thread-safely schedule a coroutine on the asyncio event loop."""
-        import asyncio as _asyncio
-
-        _asyncio.run_coroutine_threadsafe(coro, self._loop)  # type: ignore[arg-type]
 
 
 # ── Observer lifecycle ─────────────────────────────────────────────────────────
