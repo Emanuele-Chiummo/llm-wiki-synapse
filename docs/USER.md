@@ -1,8 +1,8 @@
 # Synapse User Guide
 
-<!-- Generated: v0.4 M4-HARD | 2026-06-29 -->
+<!-- Generated: v0.5 M5 post-phase | 2026-06-29 -->
 
-> Version: v0.4 (M4 — "Usable & fluid")
+> Version: v0.5 (M5 — "Feature parity core")
 > Language toggle: English / Italian available in Settings.
 
 ---
@@ -61,8 +61,8 @@ The rail contains five interactive items from top to bottom:
 | **Graph** | Full-bleed sigma knowledge graph |
 | **Settings** (pinned at bottom) | LLM providers, context window, language, maintenance |
 
-The Search, Lint, Review, and Deep Search sections are coming in M5; they do not appear
-in the M4 rail.
+The Review and Deep Research sections are available in M5 via the rail (added when their
+logic shipped). Lint is planned for M6 and does not appear in the M5 rail.
 
 The vault name, data version, and active provider appear in the status bar at the
 bottom of every section.
@@ -132,9 +132,10 @@ The top of the Sources section contains a drag-and-drop upload zone.
   click **Browse** to open a file picker.
 - Synapse saves the file to `vault/raw/sources/` and the watcher ingests it
   asynchronously. A new run row appears in the list within about 15–30 seconds.
-- **Accepted formats in v0.4:** Markdown and plain text only. Uploading a PDF, DOCX, or
-  other binary format returns a clear error explaining that multi-format ingest (F12) is
-  coming in M5.
+- **Accepted formats in v0.5:** Markdown, plain text (`.md`, `.txt`, `.markdown`), PDF,
+  DOCX, PPTX, and XLSX. Binary files are automatically converted to a companion
+  `.extracted.md` file for ingest (F12, ADR-0025); the original binary is stored in
+  `vault/raw/sources/`. Images and audio/video are not yet supported (planned for M6).
 - **Size limit:** 25 MB per file (configurable by the operator via `MAX_UPLOAD_BYTES`).
   Larger files are rejected with a message before any data is saved.
 - If you upload a file whose name already exists in `vault/raw/sources/`, the existing
@@ -181,8 +182,8 @@ build in real time. A **Stop** button interrupts a stream in progress.
 
 When the response is complete, two buttons appear under the assistant message:
 - **Regenerate** — re-sends your last message and replaces the previous reply.
-- **Save to wiki** — disabled in v0.4; becomes active in M5 when the full retrieval
-  pipeline ships.
+- **Save to wiki** — active in v0.5; creates a new wiki page from the conversation
+  turn via `POST /ingest/from-text` (F6, ADR-0019 §2.7).
 
 **Reasoning (`<think>`) blocks.** If the model produces a `<think>…</think>` section
 (for example when using a reasoning-capable model), it is shown in a collapsible
@@ -211,11 +212,11 @@ The nine sections are:
 |---------|----------|
 | **General** | Context window size and token-budget bar chart |
 | **LLM Models** | Add, view, and delete inference provider configurations |
-| **Embeddings** | Vector embeddings configuration (coming in M5) |
+| **Embeddings** | Vector embeddings on/off toggle; enabled/disabled state; lexical-only notice when off |
 | **Source Watch** | Automatic folder import (scheduled scan) |
-| **API + MCP** | MCP server configuration (coming in M5) |
+| **API + MCP** | MCP server connection details; tool list; Claude Desktop snippet |
 | **Output** | Conversation history length; language toggle |
-| **Interface** | UI preferences (coming in M5) |
+| **Interface** | UI preferences (coming in M6) |
 | **Maintenance** | Reset settings |
 | **About** | Version and build information |
 
@@ -287,9 +288,9 @@ identical files are skipped). Actual ingest runs for those files appear in the S
 section with their normal status and cost.
 
 **Important constraints:**
-- Only Markdown and plain-text files (`.md`, `.txt`, `.markdown`) are imported in v0.4.
-  Other file types in the scanned folder are silently skipped; they will be supported
-  when multi-format ingest (F12) ships in M5.
+- As of v0.5, Markdown, plain text, PDF, DOCX, PPTX, and XLSX files are imported (F12).
+  Binary files are converted to a companion `.extracted.md` before ingest. Images and
+  audio/video files in the scanned folder are silently skipped (planned for M6).
 - The scan is non-recursive: only files directly inside the configured folder are
   imported, not files in sub-folders.
 - Each scan copies at most 200 files and runs for at most 60 seconds (both limits are
@@ -336,8 +337,8 @@ trigger a run manually with the **Run Ingest** button in the Sources section.
 mounted folder on a regular schedule. Any new or changed documents are imported
 automatically without manual action (see the Source Watch sub-section above).
 
-Supported formats in v0.4: plain text and Markdown only. PDF, DOCX, images, and
-audio/video are coming in M5 (F12).
+Supported formats in v0.5: Markdown, plain text, PDF, DOCX, PPTX, and XLSX (F12).
+Images and audio/video are planned for M6.
 
 After ingest, the Sources section shows a Running row that changes to Completed once
 the AI has finished generating wiki pages. Switch to the Graph or Wiki section to see
@@ -370,22 +371,29 @@ The status bar at the bottom of every section shows:
 
 ---
 
-## What is coming in M5 and M6
+## What shipped in M5 and what is coming in M6
 
-The following features are planned for the next sprints and are NOT present in v0.4:
+The following features shipped in v0.5 (M5):
+
+| Feature | Notes |
+|---------|-------|
+| 4-phase RAG retrieval with `[n]` inline citations in chat | Phases 1–4: dense seed → graph-expand → budget → assembly |
+| Save-to-wiki from chat | Button active; routes through `POST /ingest/from-text` |
+| Async HITL review queue (approve / skip / deep-research AI-generated pages) | Settings > Review; `/review/queue` REST endpoints |
+| Deep Research loop (web search via SearXNG, auto-ingest) | `/research/start` REST; bounded `max_iter` + `max_queries_per_iter` |
+| Multi-format ingest: PDF, DOCX, PPTX, XLSX | F12; images/AV are placeholder (M6) |
+| Cascade deletion (delete a source and clean up all derived pages) | Mandatory dry-run preview before destructive apply |
+| Embeddings on/off toggle + lexical fallback | `EMBEDDINGS_ENABLED=false` starts without Qdrant/bge-m3 |
+| Remote MCP over HTTP at `/mcp/server` | Requires `MCP_AUTH_TOKEN`; read-only by default |
+| OpenAI-compatible embeddings adapter | `EMBEDDING_FORMAT=openai` for hosted endpoints |
+| MCP server configuration panel (Settings > API + MCP) | Displays connection details, tools, and Claude Desktop snippet |
+
+The following features are planned for v0.6 (M6) and are NOT present in v0.5:
 
 | Feature | Sprint |
 |---------|--------|
-| 4-phase RAG retrieval with `[n]` inline citations in chat | M5 |
-| Save-to-wiki from chat (button present but disabled) | M5 |
-| Async HITL review queue (approve / skip / deep-research AI-generated pages) | M5 |
-| Deep Research loop (web search via SearXNG, auto-ingest) | M5 |
-| Multi-format ingest: PDF, DOCX, PPTX, XLSX, images, audio/video | M5 |
-| Cascade deletion (delete a source and clean up all derived pages) | M5 |
-| Search, Lint, and Review nav rail items (functional logic ships in M5) | M5 |
-| Vector embeddings configuration UI | M5 |
-| MCP server configuration UI | M5 |
 | Chrome MV3 web clipper | M6 |
 | PWA and Tauri v2 desktop packaging | M6 |
 | Lint-fix loop | M6 |
 | MkDocs documentation site | M6 |
+| Multi-format ingest: images, audio/video (via unstructured) | M6 |

@@ -1,13 +1,13 @@
 {
-  "_schema_version": "v0.2",
-  "_generated": "2026-06-28",
-  "_transport": "stdio (v0.2, AQ-v0.2-6); HTTP deferred to v0.4",
-  "_server": "backend/app/mcp/server.py (FastMCP)",
-  "_contract_ref": "v0.2-architecture.md §6, ADR-0010",
+  "_schema_version": "v0.5",
+  "_generated": "2026-06-29",
+  "_transport": "stdio (ADR-0010 entry point: python -m app.mcp.server) + HTTP Streamable at /mcp/server when MCP_AUTH_TOKEN is set (ADR-0029). Distinct surfaces: stdio used by CliAgentProvider (F17); HTTP used by remote clients (claude.ai). See docs/api/openapi.json GET /mcp/info for live transport/http_enabled state.",
+  "_server": "backend/app/mcp/server.py (FastMCP synapse). Mounted into FastAPI app at /mcp/server for HTTP (ADR-0029). Introspected by GET /mcp/info (ADR-0027).",
+  "_contract_ref": "ADR-0010 (transport + write path), ADR-0027 (introspection), ADR-0029 (HTTP mount + auth + remote_write_enabled)",
   "tools": [
     {
       "name": "search_wiki",
-      "description": "Semantic search over the Synapse wiki using bge-m3 embeddings and Qdrant (I9). Vector lookup only — NOT the full 4-phase RAG pipeline (F5, deferred to v0.5). Returns up to k results sorted by cosine similarity score normalised to [0,1].",
+      "description": "Search the Synapse wiki. Routes through the same retrieve() pipeline as /search (ADR-0022 + ADR-0030): dense bge-m3/Qdrant Phase 1 when EMBEDDINGS_ENABLED=true (default), or lexical Postgres ILIKE Phase 1 when EMBEDDINGS_ENABLED=false (ADR-0030 §2.3). Graph-expansion Phase 2, token-budget Phase 3, and context-assembly Phase 4 run in both modes. Returns up to k results sorted by relevance score. When exposed over the HTTP surface (ADR-0029, MCP_REMOTE_WRITE_ENABLED irrelevant for reads), this tool is always available to remote clients.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -39,7 +39,7 @@
         },
         "description": "Empty list on Qdrant/embedding error (no exception propagated)."
       },
-      "invariants": ["I9 — reuses Qdrant + bge-m3 (no new search service)"]
+      "invariants": ["I9 — reuses retrieve() + Qdrant/bge-m3 or Postgres (no new search engine); I7 — single bounded pass; degrade when EMBEDDINGS_ENABLED=false (ADR-0030)"]
     },
     {
       "name": "write_page",
