@@ -765,6 +765,46 @@ class PageListResponse(BaseModel):
     offset: int
 
 
+class PageContentResponse(BaseModel):
+    """Response for GET /pages/{id}/content (F1-content-read)."""
+
+    id: uuid.UUID
+    title: str | None
+    file_path: str
+    content: str
+    content_hash: str
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PageContentPutRequest(BaseModel):
+    """Request body for PUT /pages/{id}/content (F1-content-write, ADR-0035)."""
+
+    content: str = Field(..., min_length=1, description="Full UTF-8 markdown content to write")
+    expected_hash: str | None = Field(
+        default=None,
+        description=(
+            "Optimistic concurrency guard — sha256 hex of the content the client last read. "
+            "When provided and it does NOT match the current on-disk hash, 409 is returned "
+            "so the editor can warn about a stale edit."
+        ),
+    )
+
+
+# Maximum body size for PUT /pages/{id}/content (ADR-0035). 4 MB covers any realistic
+# markdown page; larger bodies are rejected with 413 before any disk write.
+_MAX_PAGE_CONTENT_BYTES = 4 * 1024 * 1024  # 4 MB
+
+
+class PageContentPutResponse(BaseModel):
+    """Response for PUT /pages/{id}/content (F1-content-write)."""
+
+    id: uuid.UUID
+    content_hash: str
+    updated_at: datetime
+
+
 class IngestTriggerRequest(BaseModel):
     file_path: str = Field(..., description="Relative path under vault/raw/sources/")
 
@@ -1422,6 +1462,320 @@ async def get_page(page_id: uuid.UUID) -> PageResponse:
         raise HTTPException(status_code=404, detail=f"Page {page_id} not found")
 
     return _page_to_response(page)
+
+
+# ── GET /pages/{id}/content ────────────────────────────────────────────────────
+
+
+def _resolve_page_path(file_path: str) -> Path:
+    """
+    Resolve a page's file_path (relative to vault_root) to an absolute Path.
+
+    Raises HTTPException 400 if the resolved path escapes the vault root (path
+    traversal guard). The check uses Path.resolve() so symlinks and ``..`` components
+    cannot be used to escape. Used by GET /pages/{id}/content.
+    """
+    vault_root = settings.vault_root.resolve()
+    candidate = (vault_root / file_path).resolve()
+    try:
+        candidate.relative_to(vault_root)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Path {file_path!r} resolves outside the vault root — "
+                "path traversal rejected."
+            ),
+        ) from exc
+    return candidate
+
+
+def _resolve_wiki_page_path(file_path: str) -> Path:
+    """
+    Resolve a page's file_path for editing (PUT /pages/{id}/content, ADR-0035).
+
+    Two-level guard (ADR-0035):
+      1. Traversal: resolved path must stay inside vault_root → 400.
+      2. Wiki-only: PUT only touches vault/wiki/ pages (never raw/sources/) → 403.
+         Attempting to overwrite a sources file via this endpoint is rejected to prevent
+         inadvertent replacement of immutable raw inputs (K1 vault layer separation, I5).
+
+    Returns the absolute resolved Path on success.
+    """
+    abs_path = _resolve_page_path(file_path)  # raises 400 on traversal
+    wiki_root = settings.vault_root.resolve() / "wiki"
+    try:
+        abs_path.relative_to(wiki_root)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Path {file_path!r} is not inside vault/wiki/. "
+                "PUT /pages/{{id}}/content only edits wiki pages, "
+                "not raw/sources/ files (K1 layer separation)."
+            ),
+        ) from exc
+    return abs_path
+
+
+@app.get(
+    "/pages/{page_id}/content",
+    response_model=PageContentResponse,
+    summary="Read raw markdown content of a wiki page",
+    description=(
+        "Returns the raw UTF-8 markdown (including YAML frontmatter) for the page "
+        "identified by *page_id*. The content is read directly from the vault filesystem; "
+        "no caching layer is applied so callers always get the latest committed bytes. "
+        "404 if the page row is unknown or soft-deleted; 410 if the row exists but the "
+        "file is absent on disk (watcher has not yet re-indexed a deletion in flight); "
+        "400 on path-traversal attempt. (F1-content-read, I1, I5)"
+    ),
+    responses={
+        200: {"description": "Page content returned"},
+        400: {"description": "Path traversal rejected"},
+        404: {"description": "Page not found in index"},
+        410: {"description": "Page row exists but file missing on disk"},
+    },
+)
+async def get_page_content(page_id: uuid.UUID) -> PageContentResponse:
+    async with get_session() as session:
+        row = await session.execute(
+            select(Page).where(
+                Page.id == page_id,
+                Page.vault_id == settings.vault_id,
+                Page.deleted_at.is_(None),
+            )
+        )
+        page = row.scalar_one_or_none()
+
+    if page is None:
+        raise HTTPException(status_code=404, detail=f"Page {page_id} not found")
+
+    abs_path = _resolve_page_path(page.file_path)
+
+    if not abs_path.exists():
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                f"Page {page_id} row exists (file_path={page.file_path!r}) "
+                "but the file is not present on disk. "
+                "The watcher will remove the row when the deletion event is processed."
+            ),
+        )
+
+    raw_bytes = await asyncio.get_event_loop().run_in_executor(None, abs_path.read_bytes)
+    content = raw_bytes.decode("utf-8", errors="replace")
+
+    # content_hash is the optimistic-lock token (ADR-0035): it MUST hash the exact bytes returned
+    # here, so PUT's on-disk comparison succeeds iff the file is unchanged between GET and PUT.
+    # We recompute from the file bytes rather than returning page.content_hash, which can lag the
+    # file (the DB row reflects the last index, not necessarily the current disk state).
+    content_hash = hashlib.sha256(raw_bytes).hexdigest()
+
+    return PageContentResponse(
+        id=page.id,
+        title=page.title,
+        file_path=page.file_path,
+        content=content,
+        content_hash=content_hash,
+        updated_at=page.updated_at,
+    )
+
+
+# ── PUT /pages/{id}/content ────────────────────────────────────────────────────
+
+
+@app.put(
+    "/pages/{page_id}/content",
+    response_model=PageContentPutResponse,
+    summary="Overwrite the markdown content of a wiki page",
+    description=(
+        "Atomically overwrites the markdown file for *page_id* with the supplied content. "
+        "Only edits pages inside vault/wiki/ — raw/sources/ files are rejected with 403 "
+        "(K1 vault layer separation). "
+        "Write is done via a temp-file + os.replace so a crash mid-write does not corrupt "
+        "the vault. A trailing newline is enforced (Obsidian / git convention, I5). "
+        "\n\n"
+        "Validation (ADR-0035): "
+        "(a) body > 4 MB → 413; "
+        "(b) YAML frontmatter must parse cleanly → 422 (protects Obsidian vault validity, I5). "
+        "\n\n"
+        "Optimistic concurrency: when *expected_hash* is supplied and does not match the "
+        "current sha256 of the on-disk file, 409 Conflict is returned — the caller should "
+        "reload the page and present the diff to the user before retrying. "
+        "\n\n"
+        "Re-indexing (I1/ADR-0035): the watcher observes vault/raw/sources/ only, NOT "
+        "vault/wiki/. Therefore this endpoint calls reindex_wiki_page_body() INLINE after "
+        "writing so the Postgres row (content_hash, updated_at, wikilinks) and Qdrant point "
+        "are updated synchronously before the response is returned. reindex_wiki_page_body() "
+        "is the purpose-built single-page re-index primitive (ADR-0036 §2.1): it updates "
+        "content_hash, re-embeds the body into Qdrant, re-derives K5 wikilinks, and bumps "
+        "data_version ONCE so the debounced GraphCache recompute fires (I2). It does NOT "
+        "invoke the LLM analyze→generate pipeline — preserving the user's exact edit (I5). "
+        "This is a single-page update, never a full rescan (I1). "
+        "(F1-content-write, I1, I5, ADR-0035)"
+    ),
+    responses={
+        200: {"description": "Content written; new hash returned"},
+        400: {"description": "Path traversal rejected"},
+        403: {"description": "Path is not inside vault/wiki/ (K1 layer separation)"},
+        404: {"description": "Page not found"},
+        409: {"description": "Stale expected_hash — content was modified since last read"},
+        410: {"description": "Page row exists but file missing (cannot overwrite)"},
+        413: {"description": "Content body exceeds _MAX_PAGE_CONTENT_BYTES (4 MB)"},
+        422: {"description": "YAML frontmatter is invalid — Obsidian vault would break (I5)"},
+    },
+)
+async def put_page_content(
+    page_id: uuid.UUID,
+    body: PageContentPutRequest,
+) -> PageContentPutResponse:
+    import tempfile
+
+    # ── Body size guard (ADR-0035, I7) ───────────────────────────────────────
+    if len(body.content.encode("utf-8")) > _MAX_PAGE_CONTENT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"Content body exceeds the maximum allowed size of "
+                f"{_MAX_PAGE_CONTENT_BYTES // (1024 * 1024)} MB."
+            ),
+        )
+
+    # ── YAML frontmatter validation (ADR-0035, I5) ────────────────────────────
+    # Reject content that python-frontmatter cannot parse to protect Obsidian
+    # vault validity (I5). An absent frontmatter block is NOT an error (K6 — tolerant).
+    try:
+        import frontmatter as _fm
+
+        _fm.loads(body.content)
+    except Exception as _fm_exc:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"YAML frontmatter parse error: {_fm_exc}. "
+                "Fix the frontmatter before writing (Obsidian vault validity, I5)."
+            ),
+        ) from _fm_exc
+
+    async with get_session() as session:
+        row = await session.execute(
+            select(Page).where(
+                Page.id == page_id,
+                Page.vault_id == settings.vault_id,
+                Page.deleted_at.is_(None),
+            )
+        )
+        page = row.scalar_one_or_none()
+
+    if page is None:
+        raise HTTPException(status_code=404, detail=f"Page {page_id} not found")
+
+    # ── Path safety + wiki-only guard (ADR-0035) ──────────────────────────────
+    abs_path = _resolve_wiki_page_path(page.file_path)
+
+    if not abs_path.exists():
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                f"Page {page_id} row exists (file_path={page.file_path!r}) "
+                "but the file is not present on disk."
+            ),
+        )
+
+    # ── Optimistic concurrency check ──────────────────────────────────────────
+    if body.expected_hash is not None:
+        on_disk_bytes = await asyncio.get_event_loop().run_in_executor(
+            None, abs_path.read_bytes
+        )
+        on_disk_hash = hashlib.sha256(on_disk_bytes).hexdigest()
+        if on_disk_hash != body.expected_hash:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Content hash mismatch: expected {body.expected_hash!r} but the "
+                    f"current on-disk hash is {on_disk_hash!r}. "
+                    "The page was modified since you last read it. "
+                    "Reload the page before retrying."
+                ),
+            )
+
+    # ── Enforce trailing newline (Obsidian / git convention, I5) ─────────────
+    new_content = body.content if body.content.endswith("\n") else body.content + "\n"
+    new_bytes = new_content.encode("utf-8")
+    new_hash = hashlib.sha256(new_bytes).hexdigest()
+
+    # ── Atomic write: tmp file in same dir + os.replace (Path.replace) ───────
+    def _write() -> None:
+        tmp_fd, tmp_name = tempfile.mkstemp(
+            dir=str(abs_path.parent),
+            suffix=".content_tmp",
+        )
+        try:
+            import os
+
+            os.write(tmp_fd, new_bytes)
+            os.close(tmp_fd)
+            Path(tmp_name).replace(abs_path)
+        except Exception:  # noqa: BLE001
+            try:
+                os.close(tmp_fd)
+            except Exception:  # noqa: BLE001, S110
+                pass
+            try:
+                Path(tmp_name).unlink(missing_ok=True)
+            except Exception:  # noqa: BLE001, S110
+                pass
+            raise
+
+    await asyncio.get_event_loop().run_in_executor(None, _write)
+
+    # ── Inline incremental re-index (I1, ADR-0035) ───────────────────────────
+    # The watcher observes vault/raw/sources/ ONLY — not vault/wiki/. We use the
+    # purpose-built reindex_wiki_page_body() primitive here (ADR-0035 / ADR-0036 §2.1):
+    #   - atomic-write the new bytes (already done above via _write)
+    #   - refreshes content_hash in Postgres (preserve existing title/type/sources — I5)
+    #   - re-embeds the body into Qdrant (bge-m3) — skipped when embeddings disabled
+    #   - re-derives K5 wikilinks from the new body (→ F4 direct-link ×3 edges)
+    #   - bumps data_version ONCE → GraphCache debounce fires → FA2 recomputes (I2)
+    # This satisfies I1 (single-page incremental update) and I2 (data_version bump,
+    # no inline FA2). Do NOT use ingest_file() here: ingest_file() calls
+    # _resolve_ingest_provider_config() and, when a provider is configured, invokes
+    # run_ingest_pipeline() (analyze→generate loop) on the wiki content — which would
+    # regenerate and overwrite the user's manual edit (data-loss bug, ADR-0035 gap).
+    # reindex_wiki_page_body() skips the provider entirely (it is a pure re-index
+    # primitive, not a content-generation primitive). Do NOT add a watcher for wiki/
+    # (rejected in ADR-0026 §5).
+    # Extract the body (sans frontmatter) for embedding and wikilink parsing.
+    # _fm.loads() already ran above for validation; re-run cheaply for body extraction.
+    import frontmatter as _fm_body  # noqa: PLC0415
+
+    from app.ingest.orchestrator import reindex_wiki_page_body  # noqa: PLC0415
+
+    _doc = _fm_body.loads(new_content)
+    body_for_embedding = _doc.content  # the markdown body without the YAML block
+
+    await reindex_wiki_page_body(
+        page=page,
+        new_file_text=new_content,
+        body_for_embedding=body_for_embedding,
+        bump=True,
+    )
+
+    # ── Return updated_at from the freshly committed row ─────────────────────
+    async with get_session() as session:
+        row2 = await session.execute(
+            select(Page).where(Page.id == page_id)
+        )
+        updated_page = row2.scalar_one_or_none()
+
+    updated_at = updated_page.updated_at if updated_page is not None else datetime.now(UTC)
+
+    return PageContentPutResponse(
+        id=page_id,
+        content_hash=new_hash,
+        updated_at=updated_at,
+    )
 
 
 # ── PATCH /pages/{id}/position ────────────────────────────────────────────────
