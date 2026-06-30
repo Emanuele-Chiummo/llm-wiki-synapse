@@ -433,6 +433,39 @@
     "loadError": "Impossibile caricare il contenuto della pagina",
     "saving": "Salvataggio…"
   },
+  "lint": {
+    "title": "Lint",
+    "hint": "Rilevazioni di salute del wiki — correggi o prendi nota di ciascuna.",
+    "runLint": "Avvia Lint",
+    "runLintHelp": "Avvia una scansione lint limitata: controlli strutturali + revisione semantica. Produce solo rilevazioni — le correzioni richiedono approvazione umana.",
+    "scanning": "Scansione…",
+    "refresh": "Aggiorna",
+    "empty": "Nessuna rilevazione aperta. Avvia una scansione lint per controllare la salute del wiki.",
+    "emptyBody": "Lint verifica pagine orfane, riferimenti incrociati mancanti, contraddizioni, affermazioni obsolete e pagine mancanti. Clicca \"Avvia Lint\" per iniziare.",
+    "loadMore": "Carica altri",
+    "fix": "Correggi",
+    "fixing": "Correzione…",
+    "acknowledge": "Prendi nota",
+    "dismiss": "Ignora",
+    "cost": "Costo",
+    "findings": "Rilevazioni",
+    "iterations": "Iterazioni",
+    "flagOnly": "Solo segnalazione — nessuna scrittura su file all'applicazione",
+    "noTarget": "(pagina sconosciuta)",
+    "toastError": "Scansione lint fallita: {{detail}}",
+    "runStatus": {
+      "running": "In esecuzione",
+      "completed": "Completata",
+      "error": "Errore"
+    },
+    "category": {
+      "orphan-page": "Pagina orfana",
+      "missing-xref": "Xref mancante",
+      "contradiction": "Contraddizione",
+      "stale-claim": "Affermazione obsoleta",
+      "missing-page": "Pagina mancante"
+    }
+  },
   "common": {
     "loading": "Caricamento…",
     "retry": "Riprova",
