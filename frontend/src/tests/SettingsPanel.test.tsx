@@ -1,8 +1,8 @@
 /**
- * SettingsPanel.test.tsx — vitest unit tests for the M4-HARD + M5 settings panel.
+ * SettingsPanel.test.tsx — vitest unit tests for the M4-HARD + M5 + M6 settings panel.
  *
  * Covers:
- *   AC-HARD-SET-1/2: 9 sub-nav items render; clicking each switches the right pane.
+ *   AC-HARD-SET-1/2: 11 sub-nav items render; clicking each switches the right pane.
  *   AC-HARD-SET-3/4: placeholder sections (Interface) render ComingSoonBadge.
  *   AC-F1-MCP-UI-3/4/5/6: SectionApiMcp renders connection + tools from mock payload.
  *   AC-HARD-PROV-1/2: provider list renders; ADD form toggles on button click.
@@ -13,6 +13,10 @@
  *   ADR-0032: remote MCP toggle — three states (no-token, token+off, enabled).
  *   ADR-0033: MCP access sub-block — generate/clear token, one-time reveal, allow-without-token
  *             switch, posture labels, token never re-shown after dismiss/refetch.
+ *   ADR-0040: Web Clipper section — generate/rotate/clear token, one-time reveal, enable toggle,
+ *             allowed origins PUT, clip endpoint URL display.
+ *   ADR-0041: Web Search section — URL/categories/max_queries fields call PUT, source badge,
+ *             clear button, SearXNG-only note.
  *
  * Not tested here (Playwright E2E):
  *   - Actual POST/DELETE network calls (mocked at store level here)
@@ -150,9 +154,10 @@ vi.mock("../components/settings/ImportScheduleCard", () => ({
 }));
 
 // ─── Mock providerClient (fetchEmbeddingConfig + fetchMcpInfo + setRemoteMcpEnabled
-//     + setMcpAuth) ─────────────────────────────────────────────────────────────────
+//     + setMcpAuth + fetchClipConfig + setClipConfig + fetchWebSearchConfig
+//     + setWebSearchConfig) ──────────────────────────────────────────────────────────
 // NOTE: vi.mock is hoisted — no top-level variables may be referenced inside the
-// factory. The 4-tool fixture is inlined here. ADR-0032/0033 fields included in fixture.
+// factory. The 4-tool fixture is inlined here. ADR-0032/0033/0040/0041 fields included.
 
 vi.mock("../api/providerClient", async (importOriginal) => {
   const orig = await importOriginal<typeof import("../api/providerClient")>();
@@ -217,6 +222,39 @@ vi.mock("../api/providerClient", async (importOriginal) => {
       mount_path: "/mcp/server",
       generated_token: "synapse-test-token-abc123xyz",
     }),
+    // ADR-0040 — Web Clipper default: token configured (db), enabled, no extra origins
+    fetchClipConfig: vi.fn().mockResolvedValue({
+      enabled: true,
+      token_configured: true,
+      token_source: "db",
+      allowed_origins: [],
+      max_body_bytes: 1048576,
+    }),
+    // ADR-0040 — default: rotate_token response with generated_token ONCE
+    setClipConfig: vi.fn().mockResolvedValue({
+      enabled: true,
+      token_configured: true,
+      token_source: "db",
+      allowed_origins: [],
+      max_body_bytes: 1048576,
+      generated_token: "clip-test-token-xyz789abc",
+    }),
+    // ADR-0041 — Web Search default: configured with env URL
+    fetchWebSearchConfig: vi.fn().mockResolvedValue({
+      configured: true,
+      url: "http://searxng:8080",
+      categories: ["general"],
+      max_queries: 3,
+      source: "env",
+    }),
+    // ADR-0041 — default: post-write posture (same shape)
+    setWebSearchConfig: vi.fn().mockResolvedValue({
+      configured: true,
+      url: "http://searxng:8080",
+      categories: ["general"],
+      max_queries: 3,
+      source: "db",
+    }),
   };
 });
 
@@ -226,9 +264,9 @@ function renderPanel() {
   return render(<SettingsPanel />);
 }
 
-// ─── 1. All 9 sub-nav items render ───────────────────────────────────────────
+// ─── 1. All 11 sub-nav items render ──────────────────────────────────────────
 
-describe("SettingsPanel — 9 sub-nav items (AC-HARD-SET-1/3)", () => {
+describe("SettingsPanel — 11 sub-nav items (AC-HARD-SET-1/3)", () => {
   beforeEach(() => {
     renderPanel();
   });
@@ -240,18 +278,20 @@ describe("SettingsPanel — 9 sub-nav items (AC-HARD-SET-1/3)", () => {
     "llmModels",
     "embeddings",
     "sourceWatch",
+    "webSearch",
     "apiMcp",
+    "webClipper",
     "output",
     "interface",
     "maintenance",
     "about",
   ] as const;
 
-  it("renders exactly 9 section buttons in the left nav aside", () => {
+  it("renders exactly 11 section buttons in the left nav aside", () => {
     const aside = document.querySelector("aside");
     expect(aside).not.toBeNull();
     const buttons = aside!.querySelectorAll("button");
-    expect(buttons).toHaveLength(9);
+    expect(buttons).toHaveLength(11);
   });
 
   EXPECTED_SECTION_IDS.forEach((sectionId) => {
@@ -457,8 +497,8 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
   it("ArrowDown cycles past 'about' (last) back to 'general' (first)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Navigate to "about" (index 8) — 8 ArrowDown presses from "general"
-    for (let i = 0; i < 8; i++) {
+    // Navigate to "about" (index 10) — 10 ArrowDown presses from "general"
+    for (let i = 0; i < 10; i++) {
       fireEvent.keyDown(aside, { key: "ArrowDown" });
     }
     expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
@@ -468,7 +508,7 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     expect(document.querySelector('[data-settings-section="general"]')?.getAttribute("aria-current")).toBe("true");
   });
 
-  it("ArrowUp from 'general' (index 0) wraps to 'about' (index 8)", () => {
+  it("ArrowUp from 'general' (index 0) wraps to 'about' (index 10)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "ArrowUp" });
@@ -486,7 +526,7 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     expect(document.querySelector('[data-settings-section="general"]')?.getAttribute("aria-current")).toBe("true");
   });
 
-  it("End key moves focus to 'about' (index 8)", () => {
+  it("End key moves focus to 'about' (index 10)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "End" });
@@ -1335,5 +1375,334 @@ describe("SettingsPanel — MCP Access sub-block (ADR-0033)", () => {
     // Ensure no long hex-like or URL-safe-base64 string (token-shaped) appears in rendered text
     // (The fixture token "synapse-test-token-abc123xyz" must NOT be present without clicking generate)
     expect(body).not.toContain("synapse-test-token-abc123xyz");
+  });
+});
+
+// ─── 15. Web Clipper section — ADR-0040 ──────────────────────────────────────
+// Covers: enable toggle calls PUT set_enabled; generate/rotate/clear token mirrors
+// SectionApiMcp UX; one-time reveal; clear hides posture; clip URL display; origins PUT.
+
+describe("SettingsPanel — Web Clipper section (ADR-0040)", () => {
+  async function navigateToClipperAndWait() {
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="webClipper"]');
+    fireEvent.click(btn!);
+    await waitFor(() => {
+      expect(screen.getByTestId("clip-token-posture")).toBeTruthy();
+    });
+  }
+
+  it("shows loading state immediately after navigation (before fetch resolves)", () => {
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="webClipper"]');
+    fireEvent.click(btn!);
+    // i18n mock: "settings.webClipper.loading" → "loading"
+    expect(screen.getByText("loading")).toBeTruthy();
+  });
+
+  it("shows postureDb label when token_source='db' (default fixture)", async () => {
+    await navigateToClipperAndWait();
+    // i18n mock: "settings.webClipper.postureDb" → "postureDb"
+    expect(screen.getByText("postureDb")).toBeTruthy();
+  });
+
+  it("shows postureNone label when token_source='none'", async () => {
+    const { fetchClipConfig } = await import("../api/providerClient");
+    (fetchClipConfig as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      enabled: false,
+      token_configured: false,
+      token_source: "none",
+      allowed_origins: [],
+      max_body_bytes: 1048576,
+    });
+    await navigateToClipperAndWait();
+    expect(screen.getByText("postureNone")).toBeTruthy();
+    expect(screen.queryByText("postureDb")).toBeNull();
+  });
+
+  it("shows 'generateToken' button text when no token configured", async () => {
+    const { fetchClipConfig } = await import("../api/providerClient");
+    (fetchClipConfig as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      enabled: false,
+      token_configured: false,
+      token_source: "none",
+      allowed_origins: [],
+      max_body_bytes: 1048576,
+    });
+    await navigateToClipperAndWait();
+    expect(screen.getByTestId("clip-generate-token-btn").textContent).toMatch(/generateToken/i);
+  });
+
+  it("shows 'rotateToken' button text when a token is already configured", async () => {
+    await navigateToClipperAndWait();
+    // Default fixture: token_configured=true
+    expect(screen.getByTestId("clip-generate-token-btn").textContent).toMatch(/rotateToken/i);
+  });
+
+  it("clicking generate calls setClipConfig({rotate_token:true}) and reveals generated_token ONCE", async () => {
+    const { setClipConfig: mockSetClipConfig } = await import("../api/providerClient");
+    (mockSetClipConfig as ReturnType<typeof vi.fn>).mockClear();
+
+    await navigateToClipperAndWait();
+    fireEvent.click(screen.getByTestId("clip-generate-token-btn"));
+
+    await waitFor(() => {
+      expect(mockSetClipConfig).toHaveBeenCalledWith({ rotate_token: true });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("clip-generated-token")).toBeTruthy();
+    });
+    expect(screen.getByTestId("clip-generated-token").textContent).toBe("clip-test-token-xyz789abc");
+  });
+
+  it("generated token reveal includes a copy button", async () => {
+    await navigateToClipperAndWait();
+    fireEvent.click(screen.getByTestId("clip-generate-token-btn"));
+    await waitFor(() => {
+      expect(screen.getByTestId("clip-copy-generated-token-btn")).toBeTruthy();
+    });
+  });
+
+  it("generated token reveal includes the one-time warning (revealWarning key)", async () => {
+    await navigateToClipperAndWait();
+    fireEvent.click(screen.getByTestId("clip-generate-token-btn"));
+    await waitFor(() => {
+      expect(screen.getByTestId("clip-generated-token")).toBeTruthy();
+    });
+    // i18n mock: "settings.webClipper.revealWarning" → "revealWarning"
+    expect(screen.getByText("revealWarning")).toBeTruthy();
+  });
+
+  it("dismissing the reveal hides the generated token (gone from DOM)", async () => {
+    await navigateToClipperAndWait();
+    fireEvent.click(screen.getByTestId("clip-generate-token-btn"));
+    await waitFor(() => {
+      expect(screen.getByTestId("clip-generated-token")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByTestId("clip-dismiss-generated-token-btn"));
+    expect(screen.queryByTestId("clip-generated-token")).toBeNull();
+  });
+
+  it("token is NOT shown before generate is clicked", async () => {
+    await navigateToClipperAndWait();
+    expect(screen.queryByTestId("clip-generated-token")).toBeNull();
+  });
+
+  it("clear token button visible when token_configured=true", async () => {
+    await navigateToClipperAndWait();
+    expect(screen.getByTestId("clip-clear-token-btn")).toBeTruthy();
+  });
+
+  it("clear token button NOT visible when token_configured=false", async () => {
+    const { fetchClipConfig } = await import("../api/providerClient");
+    (fetchClipConfig as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      enabled: true,
+      token_configured: false,
+      token_source: "none",
+      allowed_origins: [],
+      max_body_bytes: 1048576,
+    });
+    await navigateToClipperAndWait();
+    expect(screen.queryByTestId("clip-clear-token-btn")).toBeNull();
+  });
+
+  it("clicking clear token calls setClipConfig({clear_token:true}) and updates posture to postureNone", async () => {
+    const { setClipConfig: mockSetClipConfig } = await import("../api/providerClient");
+    (mockSetClipConfig as ReturnType<typeof vi.fn>).mockClear();
+    (mockSetClipConfig as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      enabled: true,
+      token_configured: false,
+      token_source: "none",
+      allowed_origins: [],
+      max_body_bytes: 1048576,
+    });
+
+    await navigateToClipperAndWait();
+    fireEvent.click(screen.getByTestId("clip-clear-token-btn"));
+
+    await waitFor(() => {
+      expect(mockSetClipConfig).toHaveBeenCalledWith({ clear_token: true });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("clip-token-posture").textContent).toMatch(/postureNone/i);
+    });
+  });
+
+  it("enable toggle calls setClipConfig({set_enabled:false}) when currently enabled", async () => {
+    const { setClipConfig: mockSetClipConfig } = await import("../api/providerClient");
+    (mockSetClipConfig as ReturnType<typeof vi.fn>).mockClear();
+    (mockSetClipConfig as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      enabled: false,
+      token_configured: true,
+      token_source: "db",
+      allowed_origins: [],
+      max_body_bytes: 1048576,
+    });
+
+    await navigateToClipperAndWait();
+    // Default fixture: enabled=true — clicking toggles to false
+    const toggle = screen.getByTestId("clip-enabled-toggle");
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(mockSetClipConfig).toHaveBeenCalledWith({ set_enabled: false });
+    });
+  });
+
+  it("clip endpoint URL is window.location.origin + /clip", async () => {
+    await navigateToClipperAndWait();
+    const urlEl = screen.getByTestId("clip-endpoint-url");
+    expect(urlEl.textContent).toBe(`${window.location.origin}/clip`);
+  });
+
+  it("no token value appears in DOM without clicking generate", async () => {
+    await navigateToClipperAndWait();
+    const body = document.body.textContent ?? "";
+    expect(body).not.toContain("clip-test-token-xyz789abc");
+  });
+});
+
+// ─── 16. Web Search section — ADR-0041 ───────────────────────────────────────
+// Covers: source badge renders; URL/categories/max_queries fields call PUT;
+// clear button calls PUT {clear:true}; SearXNG-only note present; URL validation.
+
+describe("SettingsPanel — Web Search section (ADR-0041)", () => {
+  async function navigateToWebSearchAndWait() {
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="webSearch"]');
+    fireEvent.click(btn!);
+    await waitFor(() => {
+      expect(screen.getByTestId("web-search-configured-badge")).toBeTruthy();
+    });
+  }
+
+  it("shows loading state immediately after navigation (before fetch resolves)", () => {
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="webSearch"]');
+    fireEvent.click(btn!);
+    // i18n mock: "settings.webSearch.loading" → "loading"
+    expect(screen.getByText("loading")).toBeTruthy();
+  });
+
+  it("renders 'configuredBadge' when configured=true (default fixture)", async () => {
+    await navigateToWebSearchAndWait();
+    // i18n mock: "settings.webSearch.configuredBadge" → "configuredBadge"
+    expect(screen.getByText("configuredBadge")).toBeTruthy();
+  });
+
+  it("renders 'notConfiguredBadge' when configured=false", async () => {
+    const { fetchWebSearchConfig } = await import("../api/providerClient");
+    (fetchWebSearchConfig as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      configured: false,
+      url: null,
+      categories: [],
+      max_queries: 3,
+      source: "none",
+    });
+    await navigateToWebSearchAndWait();
+    expect(screen.getByText("notConfiguredBadge")).toBeTruthy();
+    expect(screen.queryByText("configuredBadge")).toBeNull();
+  });
+
+  it("renders the source badge with the source value from fixture", async () => {
+    await navigateToWebSearchAndWait();
+    const badge = screen.getByTestId("web-search-source-badge");
+    // i18n mock returns interpolated key last-segment: "sourceBadge" (interpolation ignored)
+    expect(badge).toBeTruthy();
+  });
+
+  it("URL input is pre-filled from fetched config", async () => {
+    await navigateToWebSearchAndWait();
+    const input = screen.getByTestId("web-search-url-input") as HTMLInputElement;
+    expect(input.value).toBe("http://searxng:8080");
+  });
+
+  it("clicking Save URL calls setWebSearchConfig with {set_url: value}", async () => {
+    const { setWebSearchConfig: mockSetWebSearch } = await import("../api/providerClient");
+    (mockSetWebSearch as ReturnType<typeof vi.fn>).mockClear();
+
+    await navigateToWebSearchAndWait();
+    const input = screen.getByTestId("web-search-url-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "http://mysearxng:8888" } });
+
+    fireEvent.click(screen.getByTestId("web-search-url-save"));
+
+    await waitFor(() => {
+      expect(mockSetWebSearch).toHaveBeenCalledWith({ set_url: "http://mysearxng:8888" });
+    });
+  });
+
+  it("categories input pre-filled from fetched config", async () => {
+    await navigateToWebSearchAndWait();
+    const input = screen.getByTestId("web-search-categories-input") as HTMLInputElement;
+    expect(input.value).toBe("general");
+  });
+
+  it("clicking Save categories calls setWebSearchConfig with {set_categories: value}", async () => {
+    const { setWebSearchConfig: mockSetWebSearch } = await import("../api/providerClient");
+    (mockSetWebSearch as ReturnType<typeof vi.fn>).mockClear();
+
+    await navigateToWebSearchAndWait();
+    const input = screen.getByTestId("web-search-categories-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "general,news" } });
+
+    fireEvent.click(screen.getByTestId("web-search-categories-save"));
+
+    await waitFor(() => {
+      expect(mockSetWebSearch).toHaveBeenCalledWith({ set_categories: "general,news" });
+    });
+  });
+
+  it("max_queries input pre-filled from fetched config", async () => {
+    await navigateToWebSearchAndWait();
+    const input = screen.getByTestId("web-search-max-queries-input") as HTMLInputElement;
+    expect(Number(input.value)).toBe(3);
+  });
+
+  it("clicking Save max_queries calls setWebSearchConfig with {set_max_queries: value}", async () => {
+    const { setWebSearchConfig: mockSetWebSearch } = await import("../api/providerClient");
+    (mockSetWebSearch as ReturnType<typeof vi.fn>).mockClear();
+
+    await navigateToWebSearchAndWait();
+    const input = screen.getByTestId("web-search-max-queries-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "5" } });
+
+    fireEvent.click(screen.getByTestId("web-search-max-queries-save"));
+
+    await waitFor(() => {
+      expect(mockSetWebSearch).toHaveBeenCalledWith({ set_max_queries: 5 });
+    });
+  });
+
+  it("clicking Clear all calls setWebSearchConfig with {clear: true}", async () => {
+    const { setWebSearchConfig: mockSetWebSearch } = await import("../api/providerClient");
+    (mockSetWebSearch as ReturnType<typeof vi.fn>).mockClear();
+
+    await navigateToWebSearchAndWait();
+    fireEvent.click(screen.getByTestId("web-search-clear-btn"));
+
+    await waitFor(() => {
+      expect(mockSetWebSearch).toHaveBeenCalledWith({ clear: true });
+    });
+  });
+
+  it("shows an error state when fetchWebSearchConfig rejects", async () => {
+    const { fetchWebSearchConfig } = await import("../api/providerClient");
+    (fetchWebSearchConfig as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("network error"));
+
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="webSearch"]');
+    fireEvent.click(btn!);
+
+    await waitFor(() => {
+      // i18n mock: "settings.webSearch.error" → "error"
+      expect(screen.getByText("error")).toBeTruthy();
+    });
+  });
+
+  it("shows SearXNG-only note (I9) on the web search section", async () => {
+    await navigateToWebSearchAndWait();
+    // i18n mock: "settings.webSearch.searxngOnly" → "searxngOnly"
+    expect(screen.getByText("searxngOnly")).toBeTruthy();
   });
 });

@@ -51,11 +51,16 @@ import {
   fetchMcpInfo,
   setRemoteMcpEnabled,
   setMcpAuth,
+  fetchClipConfig,
+  setClipConfig,
+  fetchWebSearchConfig,
+  setWebSearchConfig,
   type EmbeddingConfig,
   type McpInfoResponse,
   type McpRemoteStateResponse,
   type McpAuthResponse,
 } from "../../api/providerClient";
+import type { ClipConfigResponse, ClipConfigStateResponse, WebSearchConfigResponse } from "../../api/types";
 
 // ─── Settings section type ────────────────────────────────────────────────────
 
@@ -64,7 +69,9 @@ type SettingsSection =
   | "llmModels"
   | "embeddings"
   | "sourceWatch"
+  | "webSearch"
   | "apiMcp"
+  | "webClipper"
   | "output"
   | "interface"
   | "maintenance"
@@ -165,12 +172,32 @@ function IconInfo() {
   );
 }
 
+function IconClip() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+    </svg>
+  );
+}
+
+function IconSearch() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="8"/>
+      <path d="m21 21-4.35-4.35"/>
+    </svg>
+  );
+}
+
 const NAV_ITEMS: NavItem[] = [
   { id: "general",     labelKey: "settings.nav.general",     icon: <IconSliders /> },
   { id: "llmModels",   labelKey: "settings.nav.llmModels",   icon: <IconCpu /> },
   { id: "embeddings",  labelKey: "settings.nav.embeddings",  icon: <IconDatabase /> },
   { id: "sourceWatch", labelKey: "settings.nav.sourceWatch", icon: <IconFolder /> },
+  { id: "webSearch",   labelKey: "settings.nav.webSearch",   icon: <IconSearch /> },
   { id: "apiMcp",      labelKey: "settings.nav.apiMcp",      icon: <IconServer /> },
+  { id: "webClipper",  labelKey: "settings.nav.webClipper",  icon: <IconClip /> },
   { id: "output",      labelKey: "settings.nav.output",      icon: <IconType /> },
   { id: "interface",   labelKey: "settings.nav.interface",   icon: <IconMonitor /> },
   { id: "maintenance", labelKey: "settings.nav.maintenance", icon: <IconWrench /> },
@@ -296,7 +323,9 @@ export function SettingsPanel() {
         {activeSection === "llmModels" && <SectionLlmModels />}
         {activeSection === "embeddings" && <SectionEmbeddings />}
         {activeSection === "sourceWatch" && <SectionSourceWatch />}
+        {activeSection === "webSearch" && <SectionWebSearch />}
         {activeSection === "apiMcp" && <SectionApiMcp />}
+        {activeSection === "webClipper" && <SectionWebClipper />}
         {activeSection === "output" && <SectionOutput />}
         {activeSection === "interface" && <SectionInterface />}
         {activeSection === "maintenance" && <SectionMaintenance />}
@@ -691,6 +720,300 @@ function SectionSourceWatch() {
     <div>
       <SectionHeader title={t("settings.nav.sourceWatch")} desc={t("settings.import.title")} />
       <ImportScheduleCard />
+    </div>
+  );
+}
+
+// ─── Section: Web Search ─────────────────────────────────────────────────────
+// ADR-0041: SearXNG is the ONLY web-search backend (I9). No provider field.
+// I3: single fetch on mount; PUT on each user action; local state only — no Zustand store.
+
+function SectionWebSearch() {
+  const { t } = useTranslation();
+  const [cfg, setCfg] = useState<WebSearchConfigResponse | null>(null);
+  const [err, setErr] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // Field local states — seeded from fetch on mount, then updated from PUT responses.
+  const [urlInput, setUrlInput] = useState("");
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const [categoriesInput, setCategoriesInput] = useState("");
+  const [maxQueriesInput, setMaxQueriesInput] = useState<number>(3);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    fetchWebSearchConfig(ac.signal)
+      .then((data) => {
+        setCfg(data);
+        setErr(false);
+        setUrlInput(data.url ?? "");
+        setCategoriesInput(data.categories.join(","));
+        setMaxQueriesInput(data.max_queries);
+      })
+      .catch((e: unknown) => {
+        if (!(e instanceof Error) || e.name !== "AbortError") setErr(true);
+      });
+    return () => { ac.abort(); };
+  }, []);
+
+  /** Apply response from any PUT /web-search/config to local state (I3). */
+  const applyResponse = (resp: WebSearchConfigResponse) => {
+    setCfg(resp);
+    setUrlInput(resp.url ?? "");
+    setCategoriesInput(resp.categories.join(","));
+    setMaxQueriesInput(resp.max_queries);
+    setUrlError(null);
+  };
+
+  /** Validate a URL string: must be http or https. */
+  const validateUrl = (raw: string): boolean => {
+    if (raw.trim() === "") return true; // empty = clear = valid
+    try {
+      const u = new URL(raw.trim());
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
+  const handleSaveUrl = async () => {
+    if (busy) return;
+    const raw = urlInput.trim();
+    if (raw !== "" && !validateUrl(raw)) {
+      setUrlError(t("settings.webSearch.urlValidationError"));
+      return;
+    }
+    setUrlError(null);
+    setBusy(true);
+    try {
+      const resp = await setWebSearchConfig({ set_url: raw === "" ? null : raw });
+      applyResponse(resp);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveCategories = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const resp = await setWebSearchConfig({ set_categories: categoriesInput });
+      applyResponse(resp);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveMaxQueries = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const resp = await setWebSearchConfig({ set_max_queries: maxQueriesInput });
+      applyResponse(resp);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleClear = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const resp = await setWebSearchConfig({ clear: true });
+      applyResponse(resp);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <SectionHeader title={t("settings.nav.webSearch")} desc={t("settings.webSearch.desc")} />
+
+      {/* SearXNG-only notice (I9) */}
+      <div style={{
+        marginBottom: 20,
+        padding: "8px 12px",
+        background: "#161b22",
+        border: "1px solid #21262d",
+        borderRadius: 6,
+        fontSize: 11,
+        color: "#6e7681",
+        lineHeight: 1.5,
+      }}>
+        {t("settings.webSearch.searxngOnly")}
+      </div>
+
+      {err ? (
+        <p style={{ fontSize: 12, color: "#f85149", margin: "8px 0" }}>{t("settings.webSearch.error")}</p>
+      ) : cfg === null ? (
+        <p style={{ fontSize: 12, color: "#6e7681", margin: "8px 0" }}>{t("settings.webSearch.loading")}</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* Status / source badge row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              data-testid="web-search-configured-badge"
+              style={{
+                padding: "2px 8px",
+                borderRadius: 4,
+                background: cfg.configured ? "#0f2a1a" : "#2d1b1b",
+                border: `1px solid ${cfg.configured ? "#238636" : "#f8514933"}`,
+                color: cfg.configured ? "#3fb950" : "#f85149",
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            >
+              {cfg.configured ? t("settings.webSearch.configuredBadge") : t("settings.webSearch.notConfiguredBadge")}
+            </span>
+            <span
+              data-testid="web-search-source-badge"
+              style={{
+                padding: "2px 8px",
+                borderRadius: 4,
+                background: "#21262d",
+                color: "#8b949e",
+                fontSize: 11,
+              }}
+            >
+              {t("settings.webSearch.sourceBadge", { source: cfg.source })}
+            </span>
+          </div>
+
+          {/* URL field */}
+          <div>
+            <Field label={t("settings.webSearch.urlLabel")}>
+              <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+                {t("settings.webSearch.urlHelp")}
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="text"
+                  data-testid="web-search-url-input"
+                  value={urlInput}
+                  onChange={(e) => { setUrlInput(e.target.value); setUrlError(null); }}
+                  placeholder={t("settings.webSearch.urlPlaceholder")}
+                  style={{ ...INPUT_STYLE, flex: 1 }}
+                />
+                <button
+                  data-testid="web-search-url-save"
+                  onClick={() => { void handleSaveUrl(); }}
+                  disabled={busy}
+                  style={{
+                    ...BTN_PRIMARY,
+                    opacity: busy ? 0.4 : 1,
+                    cursor: busy ? "not-allowed" : "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  {busy ? "…" : t("settings.webSearch.urlSave")}
+                </button>
+              </div>
+              {urlError && (
+                <p style={{ margin: "4px 0 0", fontSize: 11, color: "#f85149" }}>{urlError}</p>
+              )}
+            </Field>
+          </div>
+
+          {/* Categories field */}
+          <div>
+            <Field label={t("settings.webSearch.categoriesLabel")}>
+              <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+                {t("settings.webSearch.categoriesHelp")}
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="text"
+                  data-testid="web-search-categories-input"
+                  value={categoriesInput}
+                  onChange={(e) => setCategoriesInput(e.target.value)}
+                  placeholder={t("settings.webSearch.categoriesPlaceholder")}
+                  style={{ ...INPUT_STYLE, flex: 1 }}
+                />
+                <button
+                  data-testid="web-search-categories-save"
+                  onClick={() => { void handleSaveCategories(); }}
+                  disabled={busy}
+                  style={{
+                    ...BTN_PRIMARY,
+                    opacity: busy ? 0.4 : 1,
+                    cursor: busy ? "not-allowed" : "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  {busy ? "…" : t("settings.webSearch.categoriesSave")}
+                </button>
+              </div>
+            </Field>
+          </div>
+
+          {/* Max queries field */}
+          <div>
+            <Field label={t("settings.webSearch.maxQueriesLabel")}>
+              <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+                {t("settings.webSearch.maxQueriesHelp")}
+              </p>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="number"
+                  data-testid="web-search-max-queries-input"
+                  value={maxQueriesInput}
+                  min={1}
+                  max={50}
+                  onChange={(e) => setMaxQueriesInput(Number(e.target.value))}
+                  style={{ ...INPUT_STYLE, width: 80 }}
+                />
+                <button
+                  data-testid="web-search-max-queries-save"
+                  onClick={() => { void handleSaveMaxQueries(); }}
+                  disabled={busy}
+                  style={{
+                    ...BTN_PRIMARY,
+                    opacity: busy ? 0.4 : 1,
+                    cursor: busy ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {busy ? "…" : t("settings.webSearch.maxQueriesSave")}
+                </button>
+              </div>
+            </Field>
+          </div>
+
+          {/* Clear all DB overrides */}
+          <div style={{ paddingTop: 8, borderTop: "1px solid #21262d" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+              {t("settings.webSearch.clearHelp")}
+            </p>
+            <button
+              data-testid="web-search-clear-btn"
+              onClick={() => { void handleClear(); }}
+              disabled={busy}
+              style={{
+                padding: "6px 14px",
+                border: "1px solid #f8514933",
+                borderRadius: 6,
+                background: "transparent",
+                color: "#f85149",
+                fontSize: 12,
+                cursor: busy ? "not-allowed" : "pointer",
+                fontWeight: 500,
+                opacity: busy ? 0.4 : 1,
+              }}
+            >
+              {t("settings.webSearch.clearButton")}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1439,6 +1762,498 @@ function SectionApiMcp() {
             </div>
           </div>
 
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Section: Web Clipper ────────────────────────────────────────────────────
+// ADR-0040: mirrors SectionApiMcp token UX exactly — generate/rotate/clear with
+// one-time reveal box, enable toggle, allowed-origins input.
+// I3: single fetch on mount; PUT on each user action; local state only — no Zustand store.
+// Token value NEVER shown except the one-time generated_token on rotate.
+
+function SectionWebClipper() {
+  const { t } = useTranslation();
+  const [cfg, setCfg] = useState<ClipConfigResponse | null>(null);
+  const [err, setErr] = useState(false);
+
+  // Local state seeded from fetch; updated from every PUT response (I3).
+  const [enabled, setEnabled] = useState(false);
+  const [tokenConfigured, setTokenConfigured] = useState(false);
+  const [tokenSource, setTokenSource] = useState<"db" | "env" | "none">("none");
+  const [allowedOrigins, setAllowedOrigins] = useState<string[]>([]);
+  const [originsInput, setOriginsInput] = useState("");
+  const [maxBodyBytes, setMaxBodyBytes] = useState(0);
+
+  // One-time generated token reveal (I3 — never persisted, never in store).
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+  const [copiedGenToken, setCopiedGenToken] = useState(false);
+
+  const [authBusy, setAuthBusy] = useState(false);
+  const [enableBusy, setEnableBusy] = useState(false);
+  const [originsBusy, setOriginsBusy] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    fetchClipConfig(ac.signal)
+      .then((data) => {
+        setCfg(data);
+        setErr(false);
+        setEnabled(data.enabled);
+        setTokenConfigured(data.token_configured);
+        setTokenSource(data.token_source);
+        setAllowedOrigins(data.allowed_origins);
+        setOriginsInput(data.allowed_origins.join(", "));
+        setMaxBodyBytes(data.max_body_bytes);
+      })
+      .catch((e: unknown) => {
+        if (!(e instanceof Error) || e.name !== "AbortError") setErr(true);
+      });
+    return () => { ac.abort(); };
+  }, []);
+
+  /** Apply posture from any PUT /clip/config response to local state (I3). */
+  const applyClipResponse = (resp: ClipConfigStateResponse) => {
+    setEnabled(resp.enabled);
+    setTokenConfigured(resp.token_configured);
+    setTokenSource(resp.token_source);
+    setAllowedOrigins(resp.allowed_origins);
+    setOriginsInput(resp.allowed_origins.join(", "));
+    setMaxBodyBytes(resp.max_body_bytes);
+  };
+
+  /** Toggle the clip ingress enabled flag (PUT set_enabled). */
+  const handleEnableToggle = async () => {
+    if (enableBusy) return;
+    setEnableBusy(true);
+    try {
+      const resp = await setClipConfig({ set_enabled: !enabled });
+      applyClipResponse(resp);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    } finally {
+      setEnableBusy(false);
+    }
+  };
+
+  /**
+   * Generate / rotate the clip token (ADR-0040 rotate_token).
+   * generated_token returned ONCE — held in local state for reveal box.
+   * Never written to any store or localStorage (I3).
+   */
+  const handleGenerateToken = async () => {
+    if (authBusy) return;
+    setAuthBusy(true);
+    setGeneratedToken(null); // clear any prior reveal before the call
+    try {
+      const resp = await setClipConfig({ rotate_token: true });
+      applyClipResponse(resp);
+      if (resp.generated_token) {
+        setGeneratedToken(resp.generated_token);
+      }
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  /**
+   * Clear the stored clip token (ADR-0040 clear_token).
+   * Falls back to env bootstrap or "no token" posture.
+   */
+  const handleClearToken = async () => {
+    if (authBusy) return;
+    setAuthBusy(true);
+    setGeneratedToken(null);
+    try {
+      const resp = await setClipConfig({ clear_token: true });
+      applyClipResponse(resp);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  /** Save the allowed-origins field (PUT set_allowed_origins). */
+  const handleSaveOrigins = async () => {
+    if (originsBusy) return;
+    setOriginsBusy(true);
+    try {
+      const resp = await setClipConfig({ set_allowed_origins: originsInput });
+      applyClipResponse(resp);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    } finally {
+      setOriginsBusy(false);
+    }
+  };
+
+  const handleDismissGeneratedToken = () => {
+    setGeneratedToken(null);
+  };
+
+  const handleCopyGeneratedToken = () => {
+    if (!generatedToken) return;
+    navigator.clipboard.writeText(generatedToken).then(() => {
+      setCopiedGenToken(true);
+      setTimeout(() => setCopiedGenToken(false), 2000);
+    }).catch(() => { /* clipboard unavailable */ });
+  };
+
+  const clipUrl = `${window.location.origin}/clip`;
+
+  const handleCopyClipUrl = () => {
+    navigator.clipboard.writeText(clipUrl).then(() => {
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2000);
+    }).catch(() => { /* clipboard unavailable */ });
+  };
+
+  // Derived: human-readable token posture label (mirrors SectionApiMcp pattern).
+  const tokenPostureKey = !tokenConfigured
+    ? "settings.webClipper.postureNone"
+    : tokenSource === "db"
+    ? "settings.webClipper.postureDb"
+    : "settings.webClipper.postureEnv";
+
+  return (
+    <div>
+      <SectionHeader title={t("settings.nav.webClipper")} desc={t("settings.webClipper.desc")} />
+
+      {err ? (
+        <p style={{ fontSize: 12, color: "#f85149", margin: "8px 0" }}>{t("settings.webClipper.error")}</p>
+      ) : cfg === null ? (
+        <p style={{ fontSize: 12, color: "#6e7681", margin: "8px 0" }}>{t("settings.webClipper.loading")}</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+          {/* ── Enable toggle ── */}
+          <div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 14px",
+                background: "#161b22",
+                border: `1px solid ${enabled ? "#1f6feb" : "#21262d"}`,
+                borderRadius: 8,
+                opacity: enableBusy ? 0.6 : 1,
+                transition: "border-color 0.15s, opacity 0.15s",
+              }}
+            >
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none", flex: 1 }}>
+                <span style={{ position: "relative", display: "inline-block", width: 36, height: 20, flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    aria-label={t("settings.webClipper.enabledLabel")}
+                    data-testid="clip-enabled-toggle"
+                    checked={enabled}
+                    disabled={enableBusy}
+                    onChange={() => { void handleEnableToggle(); }}
+                    style={{ position: "absolute", opacity: 0, width: 0, height: 0 }}
+                  />
+                  {/* Track */}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      display: "block",
+                      width: 36,
+                      height: 20,
+                      borderRadius: 10,
+                      background: enabled ? "#1f6feb" : "#21262d",
+                      border: `1px solid ${enabled ? "#1f6feb" : "#484f58"}`,
+                      transition: "background 0.15s, border-color 0.15s",
+                    }}
+                  />
+                  {/* Thumb */}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      top: 3,
+                      left: enabled ? 19 : 3,
+                      width: 14,
+                      height: 14,
+                      borderRadius: "50%",
+                      background: enabled ? "#fff" : "#6e7681",
+                      transition: "left 0.15s, background 0.15s",
+                    }}
+                  />
+                </span>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: enabled ? "#e6edf3" : "#8b949e" }}>
+                    {t("settings.webClipper.enabledLabel")}
+                  </span>
+                  <p style={{ margin: "3px 0 0", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+                    {t("settings.webClipper.enabledHelp")}
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* ── Token sub-block (mirrors SectionApiMcp Access sub-block) ── */}
+          <div>
+            <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              {t("settings.webClipper.tokenTitle")}
+            </p>
+
+            {/* Token posture row */}
+            <div
+              style={{
+                padding: "10px 14px",
+                background: "#161b22",
+                border: "1px solid #21262d",
+                borderRadius: 8,
+                marginBottom: 10,
+              }}
+            >
+              {/* Posture label */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: tokenConfigured ? "#3fb950" : "#484f58",
+                    flexShrink: 0,
+                    display: "inline-block",
+                  }}
+                />
+                <span
+                  data-testid="clip-token-posture"
+                  style={{ fontSize: 12, fontWeight: 600, color: tokenConfigured ? "#3fb950" : "#484f58" }}
+                >
+                  {t(tokenPostureKey)}
+                </span>
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  data-testid="clip-generate-token-btn"
+                  onClick={() => { void handleGenerateToken(); }}
+                  disabled={authBusy}
+                  style={{
+                    ...BTN_PRIMARY,
+                    opacity: authBusy ? 0.4 : 1,
+                    cursor: authBusy ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {authBusy
+                    ? "…"
+                    : tokenConfigured
+                    ? t("settings.webClipper.rotateToken")
+                    : t("settings.webClipper.generateToken")}
+                </button>
+                {tokenConfigured && (
+                  <button
+                    data-testid="clip-clear-token-btn"
+                    onClick={() => { void handleClearToken(); }}
+                    disabled={authBusy}
+                    style={{
+                      padding: "6px 14px",
+                      border: "1px solid #f8514933",
+                      borderRadius: 6,
+                      background: "transparent",
+                      color: "#f85149",
+                      fontSize: 12,
+                      cursor: authBusy ? "not-allowed" : "pointer",
+                      fontWeight: 500,
+                      opacity: authBusy ? 0.4 : 1,
+                    }}
+                  >
+                    {t("settings.webClipper.clearToken")}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* One-time token reveal — shown ONLY immediately after rotate_token */}
+            {generatedToken !== null && (
+              <div
+                style={{
+                  padding: "12px 14px",
+                  background: "#0f2a1a",
+                  border: "1px solid #238636",
+                  borderRadius: 8,
+                  marginBottom: 10,
+                }}
+              >
+                <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "#3fb950" }}>
+                  {t("settings.webClipper.revealWarning")}
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span
+                    data-testid="clip-generated-token"
+                    style={{
+                      flex: 1,
+                      fontFamily: "monospace",
+                      fontSize: 12,
+                      color: "#e6edf3",
+                      padding: "6px 10px",
+                      background: "#0d1117",
+                      border: "1px solid #238636",
+                      borderRadius: 4,
+                      wordBreak: "break-all",
+                      userSelect: "all",
+                    }}
+                  >
+                    {generatedToken}
+                  </span>
+                  <button
+                    data-testid="clip-copy-generated-token-btn"
+                    onClick={handleCopyGeneratedToken}
+                    style={{
+                      padding: "6px 12px",
+                      border: "1px solid #238636",
+                      borderRadius: 4,
+                      background: copiedGenToken ? "#238636" : "transparent",
+                      color: copiedGenToken ? "#fff" : "#3fb950",
+                      fontSize: 11,
+                      cursor: "pointer",
+                      flexShrink: 0,
+                      transition: "background 0.15s, color 0.15s",
+                    }}
+                  >
+                    {copiedGenToken ? t("settings.webClipper.copied") : t("common.copy")}
+                  </button>
+                </div>
+                <button
+                  data-testid="clip-dismiss-generated-token-btn"
+                  onClick={handleDismissGeneratedToken}
+                  style={{
+                    marginTop: 8,
+                    padding: "4px 10px",
+                    border: "1px solid #21262d",
+                    borderRadius: 4,
+                    background: "transparent",
+                    color: "#6e7681",
+                    fontSize: 11,
+                    cursor: "pointer",
+                  }}
+                >
+                  {t("settings.webClipper.dismissToken")}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ── Allowed origins field ── */}
+          <div>
+            <Field label={t("settings.webClipper.originsLabel")}>
+              <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+                {t("settings.webClipper.originsHelp")}
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="text"
+                  data-testid="clip-origins-input"
+                  value={originsInput}
+                  onChange={(e) => setOriginsInput(e.target.value)}
+                  placeholder={t("settings.webClipper.originsPlaceholder")}
+                  style={{ ...INPUT_STYLE, flex: 1 }}
+                />
+                <button
+                  data-testid="clip-origins-save"
+                  onClick={() => { void handleSaveOrigins(); }}
+                  disabled={originsBusy}
+                  style={{
+                    ...BTN_PRIMARY,
+                    opacity: originsBusy ? 0.4 : 1,
+                    cursor: originsBusy ? "not-allowed" : "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  {originsBusy ? "…" : t("settings.webClipper.originsSave")}
+                </button>
+              </div>
+              {/* Show the current allowed origins list read-only when non-empty */}
+              {allowedOrigins.length > 0 && (
+                <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {allowedOrigins.map((o) => (
+                    <span
+                      key={o}
+                      data-testid={`clip-origin-tag-${o}`}
+                      style={{
+                        padding: "2px 8px",
+                        borderRadius: 4,
+                        background: "#21262d",
+                        color: "#8b949e",
+                        fontSize: 11,
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      {o}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </Field>
+          </div>
+
+          {/* ── Clip endpoint URL (read-only — paste into extension Options) ── */}
+          <div>
+            <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 600, color: "#8b949e" }}>
+              {t("settings.webClipper.extensionUrlLabel")}
+            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span
+                data-testid="clip-endpoint-url"
+                style={{
+                  flex: 1,
+                  fontFamily: "monospace",
+                  fontSize: 12,
+                  color: "#58a6ff",
+                  padding: "5px 8px",
+                  background: "#0d1117",
+                  border: "1px solid #1f6feb44",
+                  borderRadius: 4,
+                  wordBreak: "break-all",
+                }}
+              >
+                {clipUrl}
+              </span>
+              <button
+                data-testid="clip-endpoint-url-copy"
+                onClick={handleCopyClipUrl}
+                style={{
+                  padding: "5px 10px",
+                  border: "1px solid #21262d",
+                  borderRadius: 4,
+                  background: copiedUrl ? "#1b2d1b" : "transparent",
+                  color: copiedUrl ? "#3fb950" : "#6e7681",
+                  fontSize: 11,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                  transition: "background 0.15s, color 0.15s",
+                }}
+              >
+                {copiedUrl ? t("settings.webClipper.copied") : t("common.copy")}
+              </button>
+            </div>
+            <p style={{ margin: "6px 0 0", fontSize: 11, color: "#484f58", lineHeight: 1.5 }}>
+              {t("settings.webClipper.extensionHint")}
+            </p>
+          </div>
+
+          {/* Max body bytes (read-only — env var, not runtime-settable) */}
+          {maxBodyBytes > 0 && (
+            <div>
+              <EmbedRow
+                label={t("settings.webClipper.maxBodyLabel")}
+                value={t("settings.webClipper.maxBodyBytes", { bytes: maxBodyBytes })}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

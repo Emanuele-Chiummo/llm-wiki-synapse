@@ -16,6 +16,12 @@ import type {
   ProviderConfigListResponse,
   ProviderConfigItem,
   CreateProviderConfigBody,
+  ClipConfigResponse,
+  ClipConfigRequest,
+  ClipConfigStateResponse,
+  WebSearchConfigResponse,
+  WebSearchConfigRequest,
+  WebSearchConfigStateResponse,
 } from "./types";
 import { ApiError } from "./graphClient";
 
@@ -306,4 +312,88 @@ export async function setMcpAuth(
   });
   await checkResponse(res);
   return (await res.json()) as McpAuthResponse;
+}
+
+// ─── Web Clipper config (F11, ADR-0040) ──────────────────────────────────────
+
+/**
+ * Fetch current web clipper ingress posture.
+ * GET /clip/config — ADR-0040 §2.3.
+ * Returns posture-only: enabled, token_configured, token_source, allowed_origins,
+ * max_body_bytes. Token value NEVER returned.
+ * I3: single fetch on mount; no Zustand store.
+ */
+export async function fetchClipConfig(
+  signal?: AbortSignal,
+): Promise<ClipConfigResponse> {
+  const url = `${API_BASE}/clip/config`;
+  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as ClipConfigResponse;
+}
+
+/**
+ * Set, rotate, or clear the clip ingress token + enabled/origins (ADR-0040 §2.4).
+ * PUT /clip/config — body: ClipConfigRequest.
+ *
+ * Returns authoritative posture after write. If rotate_token=true, generated_token
+ * contains the plaintext exactly ONCE — caller must display and discard (never store).
+ *
+ * I3: single fetch/PUT per user interaction; no Zustand store churn.
+ */
+export async function setClipConfig(
+  body: ClipConfigRequest,
+  signal?: AbortSignal,
+): Promise<ClipConfigStateResponse> {
+  const url = `${API_BASE}/clip/config`;
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as ClipConfigStateResponse;
+}
+
+// ─── Web Search config (F10, ADR-0041) ───────────────────────────────────────
+
+/**
+ * Fetch current SearXNG web-search posture.
+ * GET /web-search/config — ADR-0041 §2.3.
+ * The URL is NOT a secret and IS returned in full (unlike clip/mcp tokens).
+ * SearXNG is the ONLY supported web-search backend (I9).
+ * I3: single fetch on mount; no Zustand store.
+ */
+export async function fetchWebSearchConfig(
+  signal?: AbortSignal,
+): Promise<WebSearchConfigResponse> {
+  const url = `${API_BASE}/web-search/config`;
+  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as WebSearchConfigResponse;
+}
+
+/**
+ * Set or clear the SearXNG web-search configuration (ADR-0041 §2.4).
+ * PUT /web-search/config — body: WebSearchConfigRequest.
+ *
+ * No provider field — SearXNG is the ONLY web-search backend (I9).
+ * Returns authoritative posture after write.
+ *
+ * I3: single fetch/PUT per user interaction; no Zustand store churn.
+ */
+export async function setWebSearchConfig(
+  body: WebSearchConfigRequest,
+  signal?: AbortSignal,
+): Promise<WebSearchConfigStateResponse> {
+  const url = `${API_BASE}/web-search/config`;
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as WebSearchConfigStateResponse;
 }
