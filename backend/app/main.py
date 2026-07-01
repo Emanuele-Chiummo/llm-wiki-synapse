@@ -5,6 +5,7 @@ Endpoints:
   GET  /status                — vault_id, data_version, started_at, uptime
   GET  /pages                 — paginated list of live pages
   GET  /pages/{id}            — single page by UUID
+  GET  /pages/{id}/related    — top-N related pages by 4-signal edge weight (reuses edges; I1/I2)
   POST /ingest/trigger        — sync ingest; HTTP 202 (typed IngestTriggerResponse, AC-D4u)
   POST /ingest/upload         — multipart file upload → ingest; 202 (ADR-0020 Feature U + F12)
   POST /ingest/from-text      — inline text → raw/sources/ + ingest; 202 (ADR-0019 §2.7)
@@ -85,6 +86,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
+from sqlalchemy import text as sa_text
 from sqlalchemy.engine import CursorResult
 from starlette.responses import Response as StarletteResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -988,7 +990,14 @@ class PageListResponse(BaseModel):
 
 
 class PageContentResponse(BaseModel):
-    """Response for GET /pages/{id}/content (F1-content-read)."""
+    """
+    Response for GET /pages/{id}/content (F1-content-read).
+
+    Additive extension (backward-compatible): page_type (serialised as "type") and
+    sources are included so the reader can render a type badge and sources list without
+    a second call to GET /pages/{id}.  Both fields are nullable (NULL when absent from
+    YAML frontmatter).  tags is intentionally absent — no tags column exists on Page.
+    """
 
     id: uuid.UUID
     title: str | None
@@ -996,8 +1005,15 @@ class PageContentResponse(BaseModel):
     content: str
     content_hash: str
     updated_at: datetime
+    # Frontmatter fields (additive — backward-compatible)
+    page_type: str | None = Field(
+        None, serialization_alias="type", description="Frontmatter 'type'; NULL if absent (K6)"
+    )
+    sources: list[str] | None = Field(
+        None, description="Frontmatter 'sources[]'; NULL if absent (K6)"
+    )
 
-    model_config = {"from_attributes": True}
+    model_config = {"populate_by_name": True, "from_attributes": True}
 
 
 class PageContentPutRequest(BaseModel):
@@ -1686,6 +1702,193 @@ async def get_page(page_id: uuid.UUID) -> PageResponse:
     return _page_to_response(page)
 
 
+# ── GET /pages/{id}/related ────────────────────────────────────────────────────
+
+_RELATED_MAX_LIMIT = 50  # hard cap: never return more than this many related pages
+
+
+class RelatedPageItem(BaseModel):
+    """
+    One entry in the GET /pages/{id}/related response.
+
+    score is the stored 4-signal edge weight (ADR-0012):
+      3·direct_link_count + 4·shared_source_count + 1.5·adamic_adar + 1·same_type
+    Reuses the persisted edges table — no recompute (I1/I2).
+    """
+
+    page_id: uuid.UUID = Field(..., description="UUID of the related page")
+    title: str | None = Field(None, description="YAML frontmatter title; NULL if absent")
+    type: str | None = Field(None, description="YAML frontmatter type; NULL if absent")
+    score: float = Field(..., description="4-signal edge weight (higher = more related)")
+
+
+class RelatedPagesResponse(BaseModel):
+    """Response for GET /pages/{id}/related."""
+
+    items: list[RelatedPageItem]
+    total: int = Field(..., description="Total related pages found (before limit)")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "items": [
+                    {
+                        "page_id": "00000000-0000-0000-0000-000000000002",
+                        "title": "Beta Concept",
+                        "type": "concept",
+                        "score": 11.5,
+                    }
+                ],
+                "total": 1,
+            }
+        }
+    }
+
+
+@app.get(
+    "/pages/{page_id}/related",
+    response_model=RelatedPagesResponse,
+    summary="Top-N related pages ranked by 4-signal edge weight",
+    description=(
+        "Returns the top *limit* pages most related to *page_id*, ranked by the stored "
+        "4-signal edge weight (direct ×3, source-overlap ×4, Adamic-Adar ×1.5, "
+        "type-affinity ×1 — ADR-0012). "
+        "Reads the persisted *edges* table directly: no graph recompute, no FA2 (I1/I2). "
+        "Empty list (200) if the page has no edges yet. "
+        "404 if the page is unknown or soft-deleted. "
+        "limit is capped at 50; default 10."
+    ),
+    responses={
+        200: {"description": "Related pages list (may be empty if no edges yet)"},
+        404: {"description": "Page not found"},
+        422: {"description": "Invalid page_id UUID or limit out of range"},
+    },
+)
+async def get_related_pages(
+    page_id: uuid.UUID,
+    limit: int = Query(default=10, ge=1, le=_RELATED_MAX_LIMIT, description="Max results (1–50)"),
+) -> RelatedPagesResponse:
+    """
+    GET /pages/{page_id}/related — top-N related pages from the persisted edges table.
+
+    I1/I2 compliance: reads edges + pages tables only. Never triggers a graph recompute.
+    Edges are stored canonically (smaller UUID first) but are undirected, so we match
+    both endpoints. Raw SQL used for the dual-endpoint join to guarantee identical
+    behaviour on SQLite (tests) and Postgres (production).
+    CAST(… AS TEXT) used for UUID columns for cross-DB portability (memory note:
+    raw-sql-sqlite-tests-vs-postgres-runtime).
+    """
+    # On Postgres, UUID columns are native (UUID type) and comparisons are type-safe;
+    # the text cast still works correctly.  On SQLite (tests), SQLAlchemy stores UUID
+    # columns as 32-char hex strings (no hyphens), while str(uuid.UUID(...)) produces
+    # the hyphenated form.  REPLACE(..., '-', '') on both sides normalises the comparison
+    # to format-agnostic hex matching — portable across both engines (memory note:
+    # raw-sql-sqlite-tests-vs-postgres-runtime).
+    pid_str = str(page_id)  # standard hyphenated form, e.g. "abc-..."; stripped in SQL
+    vault = settings.vault_id
+
+    async with get_session() as session:
+        # 1. Verify the page exists and is live (ORM — clean, portable)
+        page_row = await session.execute(
+            select(Page).where(
+                Page.id == page_id,
+                Page.vault_id == vault,
+                Page.deleted_at.is_(None),
+            )
+        )
+        page = page_row.scalar_one_or_none()
+        if page is None:
+            raise HTTPException(status_code=404, detail=f"Page {page_id} not found")
+
+        # 2. Query edges — undirected, so match either endpoint.
+        #    UNION ALL of two directional selects is the simplest portable pattern:
+        #    one leg where we are the source, one where we are the target.
+        #    REPLACE(CAST(col AS TEXT), '-', '') strips hyphens from both UUID columns
+        #    and the parameter so the comparison is format-agnostic on SQLite (test)
+        #    and Postgres (production).  The neighbour_id is returned as-cast (no
+        #    strip needed — uuid.UUID() handles both formats).
+        neighbours_sql = sa_text(
+            """
+            SELECT e.weight,
+                   CAST(p.id AS TEXT)  AS neighbour_id,
+                   p.title             AS neighbour_title,
+                   p.type              AS neighbour_type
+            FROM edges e
+            JOIN pages p
+              ON REPLACE(CAST(e.target_page_id AS TEXT), '-', '')
+               = REPLACE(CAST(p.id            AS TEXT), '-', '')
+             AND p.deleted_at IS NULL
+            WHERE e.vault_id = :vault_id
+              AND REPLACE(CAST(e.source_page_id AS TEXT), '-', '')
+                = REPLACE(:page_id, '-', '')
+
+            UNION ALL
+
+            SELECT e.weight,
+                   CAST(p.id AS TEXT)  AS neighbour_id,
+                   p.title             AS neighbour_title,
+                   p.type              AS neighbour_type
+            FROM edges e
+            JOIN pages p
+              ON REPLACE(CAST(e.source_page_id AS TEXT), '-', '')
+               = REPLACE(CAST(p.id            AS TEXT), '-', '')
+             AND p.deleted_at IS NULL
+            WHERE e.vault_id = :vault_id
+              AND REPLACE(CAST(e.target_page_id AS TEXT), '-', '')
+                = REPLACE(:page_id, '-', '')
+
+            ORDER BY weight DESC
+            LIMIT :lim
+            """
+        ).bindparams(vault_id=vault, page_id=pid_str, lim=limit)
+
+        result = await session.execute(neighbours_sql)
+        rows = result.all()
+
+        # 3. Count total related (before limit) — same UNION, wrapped in COUNT
+        count_sql = sa_text(
+            """
+            SELECT COUNT(*) FROM (
+                SELECT 1
+                FROM edges e
+                JOIN pages p
+                  ON REPLACE(CAST(e.target_page_id AS TEXT), '-', '')
+                   = REPLACE(CAST(p.id            AS TEXT), '-', '')
+                 AND p.deleted_at IS NULL
+                WHERE e.vault_id = :vault_id
+                  AND REPLACE(CAST(e.source_page_id AS TEXT), '-', '')
+                    = REPLACE(:page_id, '-', '')
+
+                UNION ALL
+
+                SELECT 1
+                FROM edges e
+                JOIN pages p
+                  ON REPLACE(CAST(e.source_page_id AS TEXT), '-', '')
+                   = REPLACE(CAST(p.id            AS TEXT), '-', '')
+                 AND p.deleted_at IS NULL
+                WHERE e.vault_id = :vault_id
+                  AND REPLACE(CAST(e.target_page_id AS TEXT), '-', '')
+                    = REPLACE(:page_id, '-', '')
+            ) AS _related
+            """
+        ).bindparams(vault_id=vault, page_id=pid_str)
+
+        total_result = await session.execute(count_sql)
+        total: int = total_result.scalar_one()
+
+    items = [
+        RelatedPageItem(
+            page_id=uuid.UUID(row.neighbour_id),
+            title=row.neighbour_title,
+            type=row.neighbour_type,
+            score=row.weight,
+        )
+        for row in rows
+    ]
+    return RelatedPagesResponse(items=items, total=total)
+
+
 # ── GET /pages/{id}/content ────────────────────────────────────────────────────
 
 
@@ -1800,6 +2003,8 @@ async def get_page_content(page_id: uuid.UUID) -> PageContentResponse:
         content=content,
         content_hash=content_hash,
         updated_at=page.updated_at,
+        page_type=page.page_type,
+        sources=page.sources,
     )
 
 
