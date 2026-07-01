@@ -993,10 +993,11 @@ class PageContentResponse(BaseModel):
     """
     Response for GET /pages/{id}/content (F1-content-read).
 
-    Additive extension (backward-compatible): page_type (serialised as "type") and
-    sources are included so the reader can render a type badge and sources list without
-    a second call to GET /pages/{id}.  Both fields are nullable (NULL when absent from
-    YAML frontmatter).  tags is intentionally absent — no tags column exists on Page.
+    Additive extension (backward-compatible): page_type (serialised as "type"), sources, and
+    tags are included so the reader can render a type badge, sources list, and navigation
+    tags without a second call to GET /pages/{id}.  All three are nullable (NULL when absent
+    from YAML frontmatter).  tags is the K6 navigation list (nashsu/llm_wiki parity), mirroring
+    the sources column.
     """
 
     id: uuid.UUID
@@ -1011,6 +1012,9 @@ class PageContentResponse(BaseModel):
     )
     sources: list[str] | None = Field(
         None, description="Frontmatter 'sources[]'; NULL if absent (K6)"
+    )
+    tags: list[str] | None = Field(
+        None, description="Frontmatter 'tags[]' navigation tags; NULL if absent (K6)"
     )
 
     model_config = {"populate_by_name": True, "from_attributes": True}
@@ -2005,6 +2009,7 @@ async def get_page_content(page_id: uuid.UUID) -> PageContentResponse:
         updated_at=page.updated_at,
         page_type=page.page_type,
         sources=page.sources,
+        tags=page.tags,
     )
 
 

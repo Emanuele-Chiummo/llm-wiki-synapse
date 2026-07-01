@@ -411,7 +411,9 @@ class CliAgentProvider(InferenceProvider):
             async with ClaudeSDKClient(options=options) as client:
                 await client.query(
                     "Ingest the following source into the wiki. Classify it, create schema-valid "
-                    "pages via write_page, and link related pages. Source:\n\n" + source_text
+                    "pages via write_page, assign each page 3-6 concise, lowercase, reusable "
+                    "frontmatter `tags` for navigation, and link related pages. Source:\n\n"
+                    + source_text
                 )
                 async for message in client.receive_response():
                     pages_written += _count_write_page_calls(message)

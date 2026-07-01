@@ -148,7 +148,9 @@ async def _write_page_body(
                        block or a leading `---` fence. Frontmatter fields go in the
                        `frontmatter` argument. A stray leading block is stripped
                        defensively, but relying on that is a contract violation.
-        frontmatter:   Dict with at least {type, title, sources, lang}.
+        frontmatter:   Dict with at least {type, title, sources, lang}. SHOULD also
+                       include `tags`: 3–6 concise, lowercase, reusable navigation tags
+                       (list[str]); they are trimmed/deduped/capped to 12 automatically.
         origin_source: Optional origin path injected into sources[] for F3 traceability.
 
     Returns:
@@ -356,7 +358,9 @@ async def write_page(
                        block or a leading `---` fence. Frontmatter fields go in the
                        `frontmatter` argument. A stray leading block is stripped
                        defensively, but relying on that is a contract violation.
-        frontmatter:   Dict with at least {type, title, sources, lang}.
+        frontmatter:   Dict with at least {type, title, sources, lang}. SHOULD also
+                       include `tags`: 3–6 concise, lowercase, reusable navigation tags
+                       (list[str]); they are trimmed/deduped/capped to 12 automatically.
         origin_source: Optional origin path injected into sources[] for F3 traceability.
 
     Returns:
@@ -556,7 +560,9 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
                        block or a leading `---` fence. Frontmatter fields go in the
                        `frontmatter` argument. A stray leading block is stripped
                        defensively, but relying on that is a contract violation.
-                frontmatter:   Dict with at least {type, title, sources, lang}.
+                frontmatter:   Dict with at least {type, title, sources, lang}. SHOULD
+                       also include `tags`: 3–6 concise, lowercase, reusable navigation
+                       tags (list[str]); trimmed/deduped/capped to 12 automatically.
                 origin_source: Optional origin path injected into sources[] for F3 traceability.
 
             Returns:
@@ -622,6 +628,8 @@ def build_sdk_mcp_server() -> Any:
         "write_page",
         "Create or update a wiki page through the Synapse ingest seam (I1/I5, ADR-0010 §2). "
         "Validates frontmatter (type, title, sources[], lang) before writing. "
+        "Include 3–6 concise, lowercase, reusable `tags` (list[str]) in the frontmatter for "
+        "navigation (auto trimmed/deduped/capped to 12). "
         "content MUST be the markdown body ONLY — do NOT include a YAML frontmatter block "
         "or a leading `---` fence; frontmatter fields go in the `frontmatter` argument.",
         {"title": str, "content": str, "frontmatter": dict, "origin_source": str},
