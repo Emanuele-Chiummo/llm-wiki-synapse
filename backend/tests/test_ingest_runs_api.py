@@ -87,6 +87,10 @@ def _build_sqlite_meta() -> MetaData:
         Column("clip_enabled_db", Integer, nullable=True),
         Column("clip_access_token", Text, nullable=True),
         Column("clip_allowed_origins_db", Text, nullable=True),
+        # ADR-0041 §3: SearXNG web-search runtime config (NULL = not set in DB; env fallback)
+        Column("searxng_url_db", Text, nullable=True),
+        Column("searxng_categories_db", Text, nullable=True),
+        Column("searxng_max_queries_db", Integer, nullable=True),
         Column("updated_at", Text, nullable=False),
     )
 
