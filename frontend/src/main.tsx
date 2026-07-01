@@ -7,6 +7,8 @@
 
 import React from "react";
 import { createRoot } from "react-dom/client";
+// Global light design tokens (--syn-* CSS variables) — must load before the tree renders.
+import "./styles/theme.css";
 // i18next must be initialised before the React tree renders (F16 / ADR-0018 §6)
 import "./i18n";
 import App from "./App";

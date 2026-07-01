@@ -75,7 +75,7 @@ export interface PageDetail {
 // ─── GET /pages ──────────────────────────────────────────────────────────────
 
 /** Canonical page types matching the knowledge graph legend */
-export type PageType = "concept" | "entity" | "source" | "synthesis" | "comparison";
+export type PageType = "concept" | "entity" | "source" | "synthesis" | "comparison" | "query";
 
 /** Single item in the GET /pages list response */
 export interface PageListItem {

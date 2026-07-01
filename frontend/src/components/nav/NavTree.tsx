@@ -6,6 +6,10 @@
  * the same flat virtualizer index — no nested virtualizers.
  *
  * INVARIANT I3: subscribes to graphStore only via typed selectors + useShallow.
+ *
+ * Light design (llm_wiki parity): white/--syn-bg-soft background, --syn-text labels,
+ * per-type colored dots from --syn-type-* tokens, selected row = --syn-accent-soft bg
+ * + --syn-accent text.
  */
 
 import { useRef, type CSSProperties } from "react";
@@ -20,24 +24,30 @@ import {
 import { useNavTreeData } from "./useNavTreeData";
 import type { TreeRow, KnownType } from "./useNavTreeData";
 
-// ─── Colour palette (mirrors graph legend / CVD-safe) ─────────────────────────
+// ─── Colour palette — consumed from CSS custom properties (theme.css) ─────────
+// Values reference --syn-type-* so they inherit light/dark theme automatically.
+// We use inline CSS strings; the actual color is resolved by the browser at paint time.
 
 const TYPE_COLOR: Record<KnownType, string> = {
-  concept: "#58a6ff",
-  entity: "#3fb950",
-  source: "#ffa657",
-  synthesis: "#d2a8ff",
-  comparison: "#f2cc60",
-  other: "#8b949e",
+  overview:   "var(--syn-type-overview)",
+  concept:    "var(--syn-type-concept)",
+  entity:     "var(--syn-type-entity)",
+  source:     "var(--syn-type-source)",
+  synthesis:  "var(--syn-type-synthesis)",
+  comparison: "var(--syn-type-comparison)",
+  query:      "var(--syn-type-query)",
+  other:      "var(--syn-type-other)",
 };
 
 const TYPE_LABEL: Record<KnownType, string> = {
-  concept: "Concepts",
-  entity: "Entities",
-  source: "Sources",
-  synthesis: "Synthesis",
+  overview:   "Overview",
+  concept:    "Concepts",
+  entity:     "Entities",
+  source:     "Sources",
+  synthesis:  "Synthesis",
   comparison: "Comparisons",
-  other: "Other",
+  query:      "Queries",
+  other:      "Other",
 };
 
 // ─── Row heights (px) ─────────────────────────────────────────────────────────
@@ -179,7 +189,7 @@ function GroupHeader({ row, style, onToggle }: GroupHeaderProps) {
         cursor: "pointer",
         textAlign: "left",
         gap: 6,
-        color: "#8b949e",
+        color: "var(--syn-text-muted)",
         fontSize: 11,
         fontWeight: 600,
         letterSpacing: "0.04em",
@@ -191,7 +201,7 @@ function GroupHeader({ row, style, onToggle }: GroupHeaderProps) {
       onClick={onToggle}
       data-type={row.type}
     >
-      {/* Colour dot */}
+      {/* Colour dot — uses per-type CSS variable */}
       <span
         aria-hidden="true"
         style={{
@@ -211,8 +221,9 @@ function GroupHeader({ row, style, onToggle }: GroupHeaderProps) {
         aria-hidden="true"
         style={{
           fontSize: 10,
-          color: "#484f58",
-          background: "#21262d",
+          color: "var(--syn-text-dim)",
+          background: "var(--syn-surface-sunken)",
+          border: "1px solid var(--syn-border-subtle)",
           borderRadius: 10,
           padding: "1px 5px",
           flexShrink: 0,
@@ -225,6 +236,7 @@ function GroupHeader({ row, style, onToggle }: GroupHeaderProps) {
         aria-hidden="true"
         style={{
           fontSize: 10,
+          color: "var(--syn-text-dim)",
           transform: ariaExpanded ? "rotate(0deg)" : "rotate(-90deg)",
           transition: "transform 0.15s ease",
           flexShrink: 0,
@@ -257,14 +269,14 @@ function PageRow({ row, selected, style, onClick }: PageRowProps) {
         height: PAGE_ROW_HEIGHT,
         padding: "0 8px 0 20px",
         border: "none",
-        background: selected ? "#1f2937" : "transparent",
+        // llm_wiki style: accent-soft bg + accent text when selected; transparent otherwise
+        background: selected ? "var(--syn-accent-soft)" : "transparent",
         cursor: "pointer",
         textAlign: "left",
         gap: 6,
-        color: selected ? "#e6edf3" : "#8b949e",
+        color: selected ? "var(--syn-accent)" : "var(--syn-text-muted)",
         fontSize: 13,
-        outline: selected ? `1px solid ${color}` : "none",
-        outlineOffset: -1,
+        outline: "none",
         borderRadius: 4,
         transition: "background 0.1s ease, color 0.1s ease",
       }}
@@ -283,7 +295,7 @@ function PageRow({ row, selected, style, onClick }: PageRowProps) {
           borderRadius: "50%",
           background: color,
           flexShrink: 0,
-          opacity: selected ? 1 : 0.6,
+          opacity: selected ? 1 : 0.7,
         }}
       />
       {/* Title */}

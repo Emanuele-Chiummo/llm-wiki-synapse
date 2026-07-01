@@ -8,6 +8,9 @@
  *
  * Layout: left 22% | separator | center 56% | separator | right 22%
  * Collapse: chevron buttons on the outer edges of each side panel.
+ *
+ * Light design: var(--syn-bg-soft) side panels, var(--syn-bg) center,
+ * var(--syn-border) separators and collapse button borders.
  */
 
 import { useCallback, useState, type CSSProperties } from "react";
@@ -61,7 +64,7 @@ function loadLayout(): Layout {
 const SEPARATOR_STYLE: CSSProperties = {
   width: 4,
   flexShrink: 0,
-  background: "#21262d",
+  background: "var(--syn-border)",
   cursor: "col-resize",
   transition: "background 0.12s ease",
 };
@@ -92,10 +95,10 @@ function CollapseButton({
         zIndex: 10,
         width: 16,
         height: 32,
-        border: "1px solid #21262d",
+        border: "1px solid var(--syn-border)",
         borderRadius: direction === "left" ? "0 4px 4px 0" : "4px 0 0 4px",
-        background: "#161b22",
-        color: "#484f58",
+        background: "var(--syn-bg)",
+        color: "var(--syn-text-dim)",
         cursor: "pointer",
         display: "flex",
         alignItems: "center",
@@ -106,12 +109,12 @@ function CollapseButton({
         transition: "color 0.1s ease, background 0.1s ease",
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.color = "#8b949e";
-        (e.currentTarget as HTMLButtonElement).style.background = "#1f2937";
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-muted)";
+        (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface-hover)";
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.color = "#484f58";
-        (e.currentTarget as HTMLButtonElement).style.background = "#161b22";
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-dim)";
+        (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-bg)";
       }}
     >
       {pointsRight ? "›" : "‹"}
@@ -180,7 +183,7 @@ export function PanelGroup() {
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          background: "#161b22",
+          background: "var(--syn-bg-soft)",
           minWidth: 0,
         }}
       >
@@ -210,7 +213,7 @@ export function PanelGroup() {
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          background: "#0d1117",
+          background: "var(--syn-bg)",
           minWidth: 0,
         }}
       >
@@ -237,7 +240,7 @@ export function PanelGroup() {
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          background: "#161b22",
+          background: "var(--syn-bg-soft)",
           minWidth: 0,
         }}
       >

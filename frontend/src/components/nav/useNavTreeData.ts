@@ -4,6 +4,13 @@
  * INVARIANT I4: produces a flat array for a single useVirtualizer, so the whole
  * tree (any depth) is one virtualizer pass — no DOM nodes beyond the visible window.
  * INVARIANT I3: does not subscribe to the graph store; pure data hook.
+ *
+ * Section policy (llm_wiki parity):
+ *   - Every STANDARD section (overview, concept, entity, source, synthesis, comparison,
+ *     query) is always shown with its count, even when 0.
+ *   - The "other" bucket is shown ONLY when non-empty.
+ *   - Overview is a singleton page; its section always shows (count 0 until the backend
+ *     surfaces overview.md with type "overview" in GET /pages — see flag below).
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -12,21 +19,36 @@ import type { PageListItem, PageType } from "../../api/types";
 
 // ─── Tree row model (ADR-0017 §3) ─────────────────────────────────────────────
 
-export type KnownType = PageType | "other";
+export type KnownType = PageType | "overview" | "other";
 
 export type TreeRow =
   | { kind: "group"; type: KnownType; count: number; collapsed: boolean }
   | { kind: "page"; id: string; title: string; type: KnownType };
 
-// Canonical ordering matches legend + graph palette
+// Canonical ordering — matches llm_wiki section order.
+// "overview" first (singleton entry-point), then concepts → entities → sources →
+// synthesis → comparisons → queries; "other" is last and only shown when non-empty.
 const TYPE_ORDER: KnownType[] = [
+  "overview",
   "concept",
   "entity",
   "source",
   "synthesis",
   "comparison",
+  "query",
   "other",
 ];
+
+// Standard sections that must ALWAYS appear (even at count 0).
+const ALWAYS_SHOW = new Set<KnownType>([
+  "overview",
+  "concept",
+  "entity",
+  "source",
+  "synthesis",
+  "comparison",
+  "query",
+]);
 
 function toKnownType(raw: string | null): KnownType {
   if (
@@ -34,7 +56,9 @@ function toKnownType(raw: string | null): KnownType {
     raw === "entity" ||
     raw === "source" ||
     raw === "synthesis" ||
-    raw === "comparison"
+    raw === "comparison" ||
+    raw === "query" ||
+    raw === "overview"
   ) {
     return raw;
   }
@@ -43,14 +67,20 @@ function toKnownType(raw: string | null): KnownType {
 
 /**
  * Group a flat page list into a Map<KnownType, PageListItem[]> preserving TYPE_ORDER.
+ *
+ * Standard sections (ALWAYS_SHOW) are pre-seeded with empty arrays so they always
+ * appear in the tree at count 0.  The "other" bucket is retained only when non-empty.
  */
 export function groupPagesByType(
   items: PageListItem[],
 ): Map<KnownType, PageListItem[]> {
   const map = new Map<KnownType, PageListItem[]>();
+
+  // Pre-seed every position in TYPE_ORDER so iteration order is guaranteed.
   for (const t of TYPE_ORDER) {
     map.set(t, []);
   }
+
   for (const item of items) {
     // Skip raw-source tracking rows (raw/sources/*): they are internal I1/retrieval
     // rows with no title/type and must not appear as a titleless "Other" tree entry.
@@ -64,12 +94,15 @@ export function groupPagesByType(
       bucket.push(item);
     }
   }
-  // Remove empty buckets so the tree is clean
+
+  // Remove empty buckets ONLY for "other" (non-standard section).
+  // Standard sections stay at count 0 so they always render.
   for (const t of TYPE_ORDER) {
-    if (map.get(t)?.length === 0) {
+    if (!ALWAYS_SHOW.has(t) && map.get(t)?.length === 0) {
       map.delete(t);
     }
   }
+
   return map;
 }
 

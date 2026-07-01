@@ -36,8 +36,8 @@ export function AppShell() {
         width: "100vw",
         height: "100vh",
         overflow: "hidden",
-        background: "#0d1117",
-        color: "#e6edf3",
+        background: "var(--syn-bg)",
+        color: "var(--syn-text)",
         fontFamily:
           "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
       }}

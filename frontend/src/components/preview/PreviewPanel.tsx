@@ -8,6 +8,8 @@
  * v0.5 (F13): delete affordance added to the header — opens CascadeDeleteModal.
  *
  * INVARIANT I3: subscribes via typed selectors + useShallow for collections.
+ *
+ * All colors use --syn-* CSS variables (no hardcoded dark hex).
  */
 
 import { useMemo, useState, useCallback } from "react";
@@ -22,19 +24,11 @@ import {
 import type { GraphNode, GraphEdge, CascadeDeleteResult } from "../../api/types";
 import { CascadeDeleteModal } from "../wiki/CascadeDeleteModal";
 
-// ─── Type colour palette (mirrors NavTree) ────────────────────────────────────
+// ─── Type colour helper (uses --syn-type-* tokens) ───────────────────────────
 
-const TYPE_COLOR: Record<string, string> = {
-  concept: "#58a6ff",
-  entity: "#3fb950",
-  source: "#ffa657",
-  synthesis: "#d2a8ff",
-  comparison: "#f2cc60",
-  other: "#8b949e",
-};
-
-function typeColor(type: string | null): string {
-  return TYPE_COLOR[type ?? "other"] ?? "#8b949e";
+function typeColorVar(type: string | null): string {
+  const t = type ?? "other";
+  return `var(--syn-type-${t}, var(--syn-type-other))`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -92,7 +86,7 @@ export function PreviewPanel() {
           alignItems: "center",
           justifyContent: "center",
           height: "100%",
-          color: "#484f58",
+          color: "var(--syn-text-dim)",
           fontSize: 13,
           padding: 16,
           textAlign: "center",
@@ -112,7 +106,7 @@ export function PreviewPanel() {
 
   // ── Populated state ────────────────────────────────────────────────────────
 
-  const color = typeColor(selectedNode.type);
+  const colorVar = typeColorVar(selectedNode.type);
 
   return (
     <div
@@ -123,6 +117,7 @@ export function PreviewPanel() {
         flexDirection: "column",
         height: "100%",
         overflow: "hidden",
+        background: "var(--syn-bg)",
       }}
     >
       {/* Header */}
@@ -130,8 +125,9 @@ export function PreviewPanel() {
         className="preview-panel__header"
         style={{
           padding: "12px 16px",
-          borderBottom: "1px solid #21262d",
+          borderBottom: "1px solid var(--syn-border)",
           flexShrink: 0,
+          background: "var(--syn-bg-soft)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -143,10 +139,10 @@ export function PreviewPanel() {
               fontWeight: 600,
               letterSpacing: "0.04em",
               textTransform: "uppercase",
-              color,
-              background: `${color}1a`,
-              border: `1px solid ${color}4d`,
-              borderRadius: 4,
+              color: colorVar,
+              background: `color-mix(in srgb, ${colorVar} 10%, var(--syn-bg) 90%)`,
+              border: `1px solid color-mix(in srgb, ${colorVar} 30%, transparent 70%)`,
+              borderRadius: "var(--syn-radius-sm)",
               padding: "1px 6px",
             }}
           >
@@ -159,25 +155,17 @@ export function PreviewPanel() {
             data-testid="preview-panel-delete-btn"
             aria-label={t("cascadeDelete.deleteButton")}
             title={t("cascadeDelete.deleteButton")}
+            className="syn-toolbar-button"
             style={{
               marginLeft: "auto",
-              background: "none",
-              border: "1px solid #30363d",
-              borderRadius: 4,
-              color: "#8b949e",
-              cursor: "pointer",
-              fontSize: 11,
-              padding: "2px 8px",
-              lineHeight: 1.6,
-              transition: "color 0.1s, border-color 0.1s",
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.color = "#f85149";
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "#f85149";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-red)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "color-mix(in srgb, var(--syn-red) 40%, var(--syn-border) 60%)";
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.color = "#8b949e";
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "#30363d";
+              (e.currentTarget as HTMLButtonElement).style.color = "";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "";
             }}
           >
             {t("cascadeDelete.deleteButton")}
@@ -189,7 +177,7 @@ export function PreviewPanel() {
             margin: 0,
             fontSize: 15,
             fontWeight: 600,
-            color: "#e6edf3",
+            color: "var(--syn-text)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -229,7 +217,7 @@ export function PreviewPanel() {
               fontWeight: 600,
               letterSpacing: "0.04em",
               textTransform: "uppercase",
-              color: "#484f58",
+              color: "var(--syn-text-dim)",
             }}
           >
             Metadata
@@ -243,11 +231,11 @@ export function PreviewPanel() {
               fontSize: 12,
             }}
           >
-            <dt style={{ color: "#8b949e" }}>ID</dt>
+            <dt style={{ color: "var(--syn-text-muted)" }}>ID</dt>
             <dd
               style={{
                 margin: 0,
-                color: "#6e7681",
+                color: "var(--syn-text-dim)",
                 fontFamily: "monospace",
                 fontSize: 11,
                 overflow: "hidden",
@@ -258,10 +246,10 @@ export function PreviewPanel() {
             >
               {selectedNode.id}
             </dd>
-            <dt style={{ color: "#8b949e" }}>Degree</dt>
-            <dd style={{ margin: 0, color: "#e6edf3" }}>{incidentEdges.length}</dd>
-            <dt style={{ color: "#8b949e" }}>Position</dt>
-            <dd style={{ margin: 0, color: "#6e7681", fontFamily: "monospace", fontSize: 11 }}>
+            <dt style={{ color: "var(--syn-text-muted)" }}>Degree</dt>
+            <dd style={{ margin: 0, color: "var(--syn-text)" }}>{incidentEdges.length}</dd>
+            <dt style={{ color: "var(--syn-text-muted)" }}>Position</dt>
+            <dd style={{ margin: 0, color: "var(--syn-text-dim)", fontFamily: "monospace", fontSize: 11 }}>
               {selectedNode.x.toFixed(2)}, {selectedNode.y.toFixed(2)}
             </dd>
           </dl>
@@ -281,7 +269,7 @@ export function PreviewPanel() {
                 fontWeight: 600,
                 letterSpacing: "0.04em",
                 textTransform: "uppercase",
-                color: "#484f58",
+                color: "var(--syn-text-dim)",
               }}
             >
               Relationships ({incidentEdges.length})
@@ -300,7 +288,7 @@ export function PreviewPanel() {
                 const isSource = edge.source === selectedNodeId;
                 const otherId = isSource ? edge.target : edge.source;
                 const other = nodeById.get(otherId);
-                const otherColor = typeColor(other?.type ?? null);
+                const otherColorVar = typeColorVar(other?.type ?? null);
 
                 return (
                   <li
@@ -310,7 +298,7 @@ export function PreviewPanel() {
                       alignItems: "center",
                       gap: 6,
                       fontSize: 12,
-                      color: "#8b949e",
+                      color: "var(--syn-text-muted)",
                     }}
                   >
                     {/* Direction arrow */}
@@ -327,7 +315,7 @@ export function PreviewPanel() {
                         width: 6,
                         height: 6,
                         borderRadius: "50%",
-                        background: otherColor,
+                        background: otherColorVar,
                         flexShrink: 0,
                       }}
                     />
@@ -338,7 +326,7 @@ export function PreviewPanel() {
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
-                        color: "#c9d1d9",
+                        color: "var(--syn-text)",
                       }}
                     >
                       {other?.title ?? otherId}
@@ -348,8 +336,9 @@ export function PreviewPanel() {
                       aria-label={`weight ${edge.weight.toFixed(1)}`}
                       style={{
                         fontSize: 10,
-                        color: "#484f58",
-                        background: "#21262d",
+                        color: "var(--syn-text-dim)",
+                        background: "var(--syn-surface-sunken)",
+                        border: "1px solid var(--syn-border-subtle)",
                         borderRadius: 8,
                         padding: "1px 5px",
                         flexShrink: 0,
@@ -370,7 +359,7 @@ export function PreviewPanel() {
           style={{
             marginTop: 20,
             fontSize: 11,
-            color: "#30363d",
+            color: "var(--syn-border)",
             fontStyle: "italic",
             userSelect: "none",
           }}

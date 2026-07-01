@@ -29,21 +29,20 @@
  *   resolves the title to a node id via graphStore.nodes, and calls selectPage().
  *   If no match, shows a "page not found" toast.
  *
- * Type badge / metadata row (phase 1):
- *   The type badge prefers data.type from the GET /content response (more reliable)
- *   and falls back to the graph node type when the content response is absent or has
- *   no type field. The sources list is rendered when data.sources is non-empty.
+ * Card header (light design):
+ *   In READ mode, a .syn-card block at the top displays: page title, type badge pill
+ *   (colored by --syn-type-*), updated date, tag chips (.syn-chip), a "Sources (N)"
+ *   section listing source chips, and the RelatedPanel as a "Related (N)" section.
+ *   This matches the llm_wiki light reader card layout.
  *
  * Related panel (phase 2, this sprint):
- *   Below the markdown body in READ mode a "Related (N)" collapsible section shows
- *   up to 10 related pages ranked by 4-signal edge weight. Each row is clickable
- *   via the same selectPage() mechanism used by wikilinks. The panel is hidden when
- *   total === 0.
+ *   Inside the card header a "Related (N)" section shows up to 10 related pages
+ *   ranked by 4-signal edge weight. Each row is clickable via the same selectPage()
+ *   mechanism used by wikilinks. The panel is hidden when total === 0.
  *
  * SEAM for future tags phase:
- *   The META_ROW_STYLE div contains a {/* SEAM: <TagChips page={data} /> *} comment.
- *   A Related-panel seam comment sits below the markdown body area. Do NOT build
- *   tags or a second related widget here — use those comments as insertion points.
+ *   The card header contains a SEAM comment for future TagChips.
+ *   Do NOT build tags or a second related widget here — use that comment as an insertion point.
  */
 
 import {
@@ -98,7 +97,7 @@ const MarkdownBody = memo(function MarkdownBody({ html, onBodyClick }: MarkdownB
       style={{
         flex: "1 1 0",
         overflowY: "auto",
-        padding: "16px 20px",
+        padding: "20px 24px",
         minHeight: 0,
       }}
     />
@@ -107,7 +106,7 @@ const MarkdownBody = memo(function MarkdownBody({ html, onBodyClick }: MarkdownB
 
 // ─── Related panel ────────────────────────────────────────────────────────────
 //
-// Rendered below the markdown body in READ mode only.
+// Rendered inside the card header in READ mode.
 // items come from GET /pages/{id}/related (fetched once per selection, I3).
 
 interface RelatedPanelProps {
@@ -160,15 +159,12 @@ const RelatedPanel = memo(function RelatedPanel({
               onClick={() => onSelect(item.page_id)}
               style={RELATED_ITEM_STYLE}
             >
+              <span style={RELATED_ITEM_ARROW_STYLE} aria-hidden="true">↗</span>
               <span style={RELATED_ITEM_TITLE_STYLE}>{item.title}</span>
               {item.type && (
                 <span
-                  style={{
-                    ...TYPE_BADGE_BASE,
-                    ...(TYPE_BADGE_COLORS[item.type] ?? TYPE_BADGE_COLORS["__default__"]),
-                    fontSize: 10,
-                    padding: "0px 6px",
-                  }}
+                  className="syn-chip"
+                  style={typeChipStyle(item.type)}
                 >
                   {item.type}
                 </span>
@@ -227,15 +223,13 @@ export function NoteView() {
   const renderedHtml = useMemo(() => {
     if (state.phase !== "ready" || !state.data) return "";
     // Strip the leading YAML frontmatter block(s) so raw `type:`/`sources:` YAML never
-    // renders as body text; type/sources are surfaced via the metadata row instead.
+    // renders as body text; type/sources are surfaced via the card header instead.
     return renderMarkdown(stripLeadingFrontmatter(state.data.content));
   }, [state.phase, state.data]);
 
-  // ── Effective page type (Task B) ──────────────────────────────────────────
+  // ── Effective page type ────────────────────────────────────────────────────
   // Prefer the content response type (authoritative, comes from the DB row).
   // Fall back to the graph node type only when the content response has no type field.
-  // This is more robust: the graph may lag behind the content endpoint by one
-  // dataVersion tick.
   const effectiveType: string | null = useMemo(() => {
     if (state.data?.type != null) return state.data.type;
     if (!selectedNodeId) return null;
@@ -464,51 +458,169 @@ export function NoteView() {
   const { data } = state;
   const isStale = state.errorMessage === "stale";
 
-  // Non-empty sources list from the content response (Task B).
+  // Non-empty sources list from the content response.
   const sources =
     data.sources && data.sources.length > 0 ? data.sources : null;
 
   // Non-empty tags list from the content response (tags phase).
   const tags = data.tags && data.tags.length > 0 ? data.tags : null;
 
+  // Format the updated date for display (date only, locale-aware).
+  const updatedLabel = data.updated_at
+    ? new Date(data.updated_at).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : null;
+
   return (
     <div data-testid="note-view" style={ROOT_STYLE}>
-      {/* ── Toolbar ── */}
-      <div style={TOOLBAR_STYLE}>
-        <h2 style={TITLE_STYLE} title={data.file_path}>
-          {data.title ?? data.file_path}
-        </h2>
+      {/* ── Stale conflict banner ── */}
+      {isStale && (
+        <div
+          role="alert"
+          style={{
+            padding: "8px 20px",
+            background: "color-mix(in srgb, var(--syn-red) 8%, var(--syn-bg) 92%)",
+            borderBottom: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
+            color: "var(--syn-red)",
+            fontSize: 13,
+            flexShrink: 0,
+          }}
+        >
+          {t("noteView.staleConflict")}
+        </div>
+      )}
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-          {isStale && (
-            <button
-              type="button"
-              data-testid="note-reload-btn"
-              onClick={handleReload}
-              style={BTN_SECONDARY}
-            >
-              {t("noteView.reload")}
-            </button>
-          )}
+      {/* ── Scroll area wraps card header + body + related (read mode only) ── */}
+      {mode === "read" ? (
+        <div style={SCROLL_AREA_STYLE}>
+          {/* ── Card header (llm_wiki light reader layout) ── */}
+          <div style={CARD_OUTER_STYLE}>
+            <div className="syn-card" style={CARD_INNER_STYLE}>
+              {/* Title row + edit/reload buttons */}
+              <div style={CARD_TITLE_ROW_STYLE}>
+                <h2 style={TITLE_STYLE} title={data.file_path}>
+                  {data.title ?? data.file_path}
+                </h2>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                  {isStale && (
+                    <button
+                      type="button"
+                      data-testid="note-reload-btn"
+                      onClick={handleReload}
+                      className="syn-button syn-button--secondary"
+                    >
+                      {t("noteView.reload")}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    data-testid="note-edit-btn"
+                    onClick={handleEdit}
+                    className="syn-button syn-button--primary"
+                  >
+                    {t("noteView.edit")}
+                  </button>
+                </div>
+              </div>
 
-          {mode === "read" && (
-            <button
-              type="button"
-              data-testid="note-edit-btn"
-              onClick={handleEdit}
-              style={BTN_PRIMARY}
-            >
-              {t("noteView.edit")}
-            </button>
-          )}
+              {/* Badge + date row */}
+              {(effectiveType || updatedLabel) && (
+                <div style={CARD_BADGE_ROW_STYLE}>
+                  {effectiveType && (
+                    <span
+                      data-testid="note-type-badge"
+                      style={typeBadgeStyle(effectiveType)}
+                    >
+                      {effectiveType}
+                    </span>
+                  )}
+                  {updatedLabel && (
+                    <span style={DATE_LABEL_STYLE}>{updatedLabel}</span>
+                  )}
+                </div>
+              )}
 
-          {mode === "edit" && (
-            <>
+              {/* ── Metadata row (type + sources + tags) ── */}
+              {/* SEAM: <TagChips page={data} /> goes here (future tags phase). */}
+              {(effectiveType || sources || tags) && (
+                <div data-testid="note-meta-row" style={META_ROW_STYLE}>
+                  {/* Tag chips */}
+                  {tags &&
+                    tags.map((tag) => (
+                      <span key={tag} data-testid="note-tag-chip" className="syn-chip">
+                        #{tag}
+                      </span>
+                    ))}
+                </div>
+              )}
+
+              {/* Sources subsection */}
+              {sources && (
+                <div style={SOURCES_SECTION_STYLE}>
+                  <span style={CARD_SECTION_LABEL_STYLE}>
+                    {t("noteView.sources")} ({sources.length})
+                  </span>
+                  {/* Single wrapper carries the data-testid so tests can assert textContent
+                      contains all source paths (mirrors original single-span contract). */}
+                  <div
+                    data-testid="note-sources"
+                    style={SOURCES_CHIPS_ROW_STYLE}
+                  >
+                    {sources.map((src) => (
+                      <span
+                        key={src}
+                        className="syn-chip"
+                        title={src}
+                        style={SOURCE_CHIP_STYLE}
+                      >
+                        {src}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Related subsection — inside card, below sources */}
+              <RelatedPanel
+                items={relatedState.items}
+                total={relatedState.total}
+                loading={relatedState.phase === "loading"}
+                error={relatedState.phase === "error"}
+                onSelect={handleRelatedSelect}
+              />
+            </div>
+          </div>
+
+          {/* ── Markdown body — light prose ── */}
+          <MarkdownBody html={renderedHtml} onBodyClick={handleWikilinkClick} />
+        </div>
+      ) : (
+        /* ── Edit mode ── */
+        <div style={EDIT_CONTAINER_STYLE}>
+          {/* Edit toolbar */}
+          <div style={EDIT_TOOLBAR_STYLE}>
+            <h2 style={EDIT_TITLE_STYLE} title={data.file_path}>
+              {data.title ?? data.file_path}
+            </h2>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+              {isStale && (
+                <button
+                  type="button"
+                  data-testid="note-reload-btn"
+                  onClick={handleReload}
+                  className="syn-button syn-button--secondary"
+                >
+                  {t("noteView.reload")}
+                </button>
+              )}
               <button
                 type="button"
                 data-testid="note-cancel-btn"
                 onClick={handleCancel}
-                style={BTN_SECONDARY}
+                className="syn-button syn-button--secondary"
                 disabled={isSaving}
               >
                 {t("noteView.cancel")}
@@ -517,85 +629,18 @@ export function NoteView() {
                 type="button"
                 data-testid="note-save-btn"
                 onClick={() => void handleSave()}
-                style={BTN_PRIMARY}
+                className="syn-button syn-button--primary"
                 disabled={isSaving}
               >
                 {isSaving ? t("noteView.saving") : t("noteView.save")}
               </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ── Stale conflict banner ── */}
-      {isStale && (
-        <div
-          role="alert"
-          style={{
-            padding: "8px 20px",
-            background: "#1a0f0f",
-            borderBottom: "1px solid #f8514933",
-            color: "#f85149",
-            fontSize: 13,
-          }}
-        >
-          {t("noteView.staleConflict")}
-        </div>
-      )}
-
-      {/* ── Page metadata row ── */}
-      {/* Type badge: prefers data.type from the content response (Task B).
-          Falls back to the graph node type (already set in effectiveType).
-          Sources row: shown when data.sources is non-empty (Task B).
-          SEAM: <TagChips page={data} /> goes here (future tags phase). */}
-      {(effectiveType || sources || tags) && (
-        <div data-testid="note-meta-row" style={META_ROW_STYLE}>
-          {effectiveType && (
-            <span
-              data-testid="note-type-badge"
-              style={{
-                ...TYPE_BADGE_BASE,
-                ...(TYPE_BADGE_COLORS[effectiveType] ?? TYPE_BADGE_COLORS["__default__"]),
-              }}
-            >
-              {effectiveType}
-            </span>
-          )}
-          {sources && (
-            <span data-testid="note-sources" style={SOURCES_STYLE}>
-              {t("noteView.sources")}: {sources.join(", ")}
-            </span>
-          )}
-          {tags &&
-            tags.map((tag) => (
-              <span key={tag} data-testid="note-tag-chip" style={TAG_CHIP_STYLE}>
-                #{tag}
-              </span>
-            ))}
-        </div>
-      )}
-
-      {/* ── Content area + related panel ── */}
-      {mode === "read" ? (
-        /* Scroll wrapper: the markdown body and related panel scroll together. */
-        <div style={SCROLL_AREA_STYLE}>
-          <MarkdownBody html={renderedHtml} onBodyClick={handleWikilinkClick} />
-
-          {/* ── Related pages panel (Task C) ── */}
-          {/* SEAM: a second "in-page links" widget could sit here in a future phase. */}
-          <RelatedPanel
-            items={relatedState.items}
-            total={relatedState.total}
-            loading={relatedState.phase === "loading"}
-            error={relatedState.phase === "error"}
-            onSelect={handleRelatedSelect}
+            </div>
+          </div>
+          <CodeMirrorEditor
+            initialContent={data.content}
+            handleRef={editorHandleRef}
           />
         </div>
-      ) : (
-        <CodeMirrorEditor
-          initialContent={data.content}
-          handleRef={editorHandleRef}
-        />
       )}
     </div>
   );
@@ -608,52 +653,7 @@ const ROOT_STYLE: CSSProperties = {
   flexDirection: "column",
   height: "100%",
   overflow: "hidden",
-  background: "#0d1117",
-};
-
-const TOOLBAR_STYLE: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  padding: "10px 16px",
-  borderBottom: "1px solid #21262d",
-  gap: 12,
-  flexShrink: 0,
-  minHeight: 48,
-};
-
-const TITLE_STYLE: CSSProperties = {
-  flex: 1,
-  margin: 0,
-  fontSize: 15,
-  fontWeight: 600,
-  color: "#e6edf3",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-
-const BTN_BASE: CSSProperties = {
-  padding: "4px 12px",
-  fontSize: 13,
-  borderRadius: 5,
-  border: "1px solid",
-  cursor: "pointer",
-  fontWeight: 500,
-  lineHeight: "20px",
-};
-
-const BTN_PRIMARY: CSSProperties = {
-  ...BTN_BASE,
-  background: "#238636",
-  borderColor: "#2ea043",
-  color: "#ffffff",
-};
-
-const BTN_SECONDARY: CSSProperties = {
-  ...BTN_BASE,
-  background: "transparent",
-  borderColor: "#30363d",
-  color: "#8b949e",
+  background: "var(--syn-bg)",
 };
 
 const LOADING_STYLE: CSSProperties = {
@@ -662,7 +662,7 @@ const LOADING_STYLE: CSSProperties = {
   justifyContent: "center",
   gap: 10,
   height: "100%",
-  color: "#8b949e",
+  color: "var(--syn-text-muted)",
   fontSize: 14,
 };
 
@@ -671,12 +671,12 @@ const SPINNER_STYLE: CSSProperties = {
   width: 16,
   height: 16,
   borderRadius: "50%",
-  border: "2px solid #30363d",
-  borderTopColor: "#58a6ff",
+  border: "2px solid var(--syn-border)",
+  borderTopColor: "var(--syn-accent)",
   animation: "spin 0.8s linear infinite",
 };
 
-// The scroll area wraps the markdown body + related panel so they scroll together.
+// The scroll area wraps the card header + markdown body in read mode.
 const SCROLL_AREA_STYLE: CSSProperties = {
   flex: "1 1 0",
   overflowY: "auto",
@@ -685,68 +685,126 @@ const SCROLL_AREA_STYLE: CSSProperties = {
   minHeight: 0,
 };
 
-// ─── Metadata row styles ──────────────────────────────────────────────────────
+// ─── Card header layout ───────────────────────────────────────────────────────
+
+const CARD_OUTER_STYLE: CSSProperties = {
+  padding: "16px 16px 0",
+  flexShrink: 0,
+};
+
+const CARD_INNER_STYLE: CSSProperties = {
+  padding: "16px 20px 12px",
+};
+
+const CARD_TITLE_ROW_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 12,
+  marginBottom: 10,
+};
+
+const TITLE_STYLE: CSSProperties = {
+  flex: 1,
+  margin: 0,
+  fontSize: 17,
+  fontWeight: 700,
+  color: "var(--syn-text)",
+  lineHeight: 1.3,
+  wordBreak: "break-word",
+};
+
+const CARD_BADGE_ROW_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  marginBottom: 8,
+  flexWrap: "wrap",
+};
+
+const DATE_LABEL_STYLE: CSSProperties = {
+  fontSize: 12,
+  color: "var(--syn-text-dim)",
+};
+
+// ─── Metadata row (tags / sources) ────────────────────────────────────────────
 
 const META_ROW_STYLE: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
-  padding: "4px 20px 6px",
-  borderBottom: "1px solid #21262d",
-  flexShrink: 0,
-  minHeight: 30,
+  gap: 6,
+  flexWrap: "wrap",
+  marginBottom: 8,
+};
+
+const SOURCES_SECTION_STYLE: CSSProperties = {
+  marginBottom: 8,
+};
+
+const CARD_SECTION_LABEL_STYLE: CSSProperties = {
+  display: "block",
+  fontSize: 11,
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  color: "var(--syn-text-muted)",
+  marginBottom: 6,
+};
+
+const SOURCES_CHIPS_ROW_STYLE: CSSProperties = {
+  display: "flex",
+  gap: 6,
   flexWrap: "wrap",
 };
 
-// Tag chips (tags phase) — sit alongside the type badge in the metadata row.
-const TAG_CHIP_STYLE: CSSProperties = {
-  display: "inline-block",
-  fontSize: 11,
-  color: "#79c0ff",
-  background: "#132132",
-  border: "1px solid #1f3350",
-  borderRadius: 10,
-  padding: "1px 8px",
-  whiteSpace: "nowrap",
+const SOURCE_CHIP_STYLE: CSSProperties = {
+  maxWidth: 260,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
+
+// ─── Type badge (pill, colored by --syn-type-*) ────────────────────────────────
 
 const TYPE_BADGE_BASE: CSSProperties = {
   display: "inline-block",
-  padding: "1px 8px",
-  borderRadius: 10,
+  padding: "2px 10px",
+  borderRadius: "var(--syn-radius-pill)",
   fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: "0.03em",
+  fontWeight: 700,
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
   border: "1px solid",
   flexShrink: 0,
 };
 
-/** Badge color map by page type. Falls back to __default__ for unknown types. */
-const TYPE_BADGE_COLORS: Record<string, CSSProperties> = {
-  entity:      { background: "rgba(56,139,253,0.15)",  borderColor: "#388bfd55", color: "#79c0ff" },
-  concept:     { background: "rgba(63,185,80,0.12)",   borderColor: "#3fb95044", color: "#56d364" },
-  source:      { background: "rgba(242,204,96,0.13)",  borderColor: "#f2cc6044", color: "#e3b341" },
-  synthesis:   { background: "rgba(210,153,255,0.13)", borderColor: "#d2a8ff44", color: "#d2a8ff" },
-  comparison:  { background: "rgba(248,81,73,0.12)",   borderColor: "#f8514933", color: "#ff7b72" },
-  __default__: { background: "rgba(139,148,158,0.12)", borderColor: "#8b949e33", color: "#8b949e" },
-};
+/** Returns an inline style object for the type badge, referencing --syn-type-* tokens. */
+function typeBadgeStyle(type: string): CSSProperties {
+  const varName = `--syn-type-${type}`;
+  return {
+    ...TYPE_BADGE_BASE,
+    color: `var(${varName}, var(--syn-type-other))`,
+    borderColor: `color-mix(in srgb, var(${varName}, var(--syn-type-other)) 35%, transparent 65%)`,
+    background: `color-mix(in srgb, var(${varName}, var(--syn-type-other)) 10%, var(--syn-bg) 90%)`,
+  };
+}
 
-const SOURCES_STYLE: CSSProperties = {
-  fontSize: 11,
-  color: "#8b949e",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-  maxWidth: "60%",
-};
+/** Returns an inline style object for a related-item type chip. */
+function typeChipStyle(type: string): CSSProperties {
+  const varName = `--syn-type-${type}`;
+  return {
+    color: `var(${varName}, var(--syn-type-other))`,
+    borderColor: `color-mix(in srgb, var(${varName}, var(--syn-type-other)) 35%, transparent 65%)`,
+    background: `color-mix(in srgb, var(${varName}, var(--syn-type-other)) 8%, var(--syn-bg) 92%)`,
+    fontSize: 10,
+    padding: "0px 6px",
+  };
+}
 
 // ─── Related panel styles ─────────────────────────────────────────────────────
 
 const RELATED_PANEL_STYLE: CSSProperties = {
-  borderTop: "1px solid #21262d",
-  padding: "10px 20px 14px",
-  flexShrink: 0,
+  borderTop: "1px solid var(--syn-border-subtle)",
+  paddingTop: 10,
+  marginTop: 4,
 };
 
 const RELATED_HEADER_STYLE: CSSProperties = {
@@ -760,12 +818,12 @@ const RELATED_HEADER_LABEL_STYLE: CSSProperties = {
   fontWeight: 600,
   textTransform: "uppercase",
   letterSpacing: "0.05em",
-  color: "#8b949e",
+  color: "var(--syn-text-muted)",
 };
 
 const RELATED_MUTED_STYLE: CSSProperties = {
   fontSize: 12,
-  color: "#8b949e",
+  color: "var(--syn-text-dim)",
 };
 
 const RELATED_LIST_STYLE: CSSProperties = {
@@ -778,16 +836,22 @@ const RELATED_ITEM_STYLE: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 8,
-  padding: "4px 8px",
-  borderRadius: 5,
+  padding: "4px 6px",
+  borderRadius: "var(--syn-radius-sm)",
   background: "transparent",
   border: "none",
   cursor: "pointer",
   textAlign: "left",
   width: "100%",
-  color: "#e6edf3",
+  color: "var(--syn-text)",
   fontSize: 13,
   transition: "background 0.1s",
+};
+
+const RELATED_ITEM_ARROW_STYLE: CSSProperties = {
+  fontSize: 11,
+  color: "var(--syn-text-dim)",
+  flexShrink: 0,
 };
 
 const RELATED_ITEM_TITLE_STYLE: CSSProperties = {
@@ -795,5 +859,37 @@ const RELATED_ITEM_TITLE_STYLE: CSSProperties = {
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
-  color: "#58a6ff",
+  color: "var(--syn-accent)",
+};
+
+// ─── Edit mode container ──────────────────────────────────────────────────────
+
+const EDIT_CONTAINER_STYLE: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  flex: "1 1 0",
+  overflow: "hidden",
+  minHeight: 0,
+};
+
+const EDIT_TOOLBAR_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  padding: "10px 16px",
+  borderBottom: "1px solid var(--syn-border)",
+  gap: 12,
+  flexShrink: 0,
+  minHeight: 48,
+  background: "var(--syn-bg-soft)",
+};
+
+const EDIT_TITLE_STYLE: CSSProperties = {
+  flex: 1,
+  margin: 0,
+  fontSize: 15,
+  fontWeight: 600,
+  color: "var(--syn-text)",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };

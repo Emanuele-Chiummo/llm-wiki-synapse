@@ -1,0 +1,398 @@
+/*
+ * theme.css — Synapse LIGHT design system, matched to the nashsu/llm_wiki reference.
+ *
+ * Single source of truth for colors/typography/spacing. Components consume the --syn-*
+ * CSS variables (never hardcoded hex). Flipping these values re-themes the whole app.
+ * Imported globally from main.tsx.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ── Surfaces (llm_wiki light: white content, very-light panels) ── */
+  --syn-bg: #ffffff;            /* app / content background */
+  --syn-bg-soft: #f6f7f9;       /* side panels / tree background */
+  --syn-surface: #ffffff;       /* cards */
+  --syn-surface-raised: #ffffff;
+  --syn-surface-hover: #f0f2f5; /* hover / subtle fill (chips) */
+  --syn-surface-sunken: #f6f8fa;/* code blocks, table header */
+
+  /* ── Borders ── */
+  --syn-border: #e2e5ea;
+  --syn-border-subtle: #eceef1;
+
+  /* ── Text ── */
+  --syn-text: #1f2328;          /* primary near-black */
+  --syn-text-muted: #59636e;
+  --syn-text-dim: #8b949e;
+
+  /* ── Accent (blue links / active) ── */
+  --syn-accent: #2563eb;
+  --syn-accent-strong: #1d4ed8;
+  --syn-accent-soft: #eaf1fe;   /* active/hover tint */
+
+  /* ── Semantic ── */
+  --syn-green: #1a7f37;
+  --syn-amber: #9a6700;
+  --syn-red: #cf222e;
+
+  /* ── Per-type colors (tree icons, badges, graph legend) ── */
+  --syn-type-concept: #8250df;    /* purple */
+  --syn-type-entity: #2563eb;     /* blue */
+  --syn-type-source: #e16f24;     /* orange */
+  --syn-type-synthesis: #cf222e;  /* red */
+  --syn-type-comparison: #1a7f37; /* green */
+  --syn-type-query: #16a34a;      /* green */
+  --syn-type-overview: #b8860b;   /* amber */
+  --syn-type-other: #6e7781;
+
+  /* ── Radii / shadow ── */
+  --syn-radius-sm: 6px;
+  --syn-radius-md: 8px;
+  --syn-radius-lg: 12px;
+  --syn-radius-pill: 999px;
+  --syn-shadow-soft: 0 1px 2px rgba(31, 35, 40, 0.06), 0 1px 3px rgba(31, 35, 40, 0.08);
+  --syn-shadow-pop: 0 8px 24px rgba(31, 35, 40, 0.12);
+
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: var(--syn-bg);
+}
+
+body {
+  overflow: hidden;
+  color: var(--syn-text);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--syn-accent) 70%, white 30%);
+  outline-offset: 2px;
+}
+
+* {
+  scrollbar-color: #c7ccd4 transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c7ccd4;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── Reusable component primitives (llm_wiki-styled) ─────────────────────── */
+
+.nav-rail__item:hover {
+  background: var(--syn-surface-hover) !important;
+  color: var(--syn-text) !important;
+}
+
+.syn-quick-prompt:hover {
+  border-color: color-mix(in srgb, var(--syn-accent) 45%, var(--syn-border) 55%) !important;
+  background: var(--syn-accent-soft) !important;
+  color: var(--syn-text) !important;
+}
+
+.syn-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 12px;
+  border-radius: var(--syn-radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.syn-button--primary {
+  border: 1px solid var(--syn-accent-strong);
+  background: var(--syn-accent);
+  color: #ffffff;
+}
+
+.syn-button--secondary {
+  border: 1px solid var(--syn-border);
+  background: var(--syn-surface);
+  color: var(--syn-text-muted);
+}
+
+.syn-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Rounded pill chip (tags, type badges) — llm_wiki style */
+.syn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: var(--syn-radius-pill);
+  border: 1px solid var(--syn-border);
+  background: var(--syn-surface-hover);
+  color: var(--syn-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Elevated card (reader header, panels) */
+.syn-card {
+  background: var(--syn-surface);
+  border: 1px solid var(--syn-border);
+  border-radius: var(--syn-radius-lg);
+  box-shadow: var(--syn-shadow-soft);
+}
+
+.syn-empty-state {
+  width: min(460px, calc(100% - 32px));
+  margin: auto;
+  padding: 24px;
+  border: 1px solid var(--syn-border-subtle);
+  border-radius: var(--syn-radius-md);
+  background: var(--syn-bg-soft);
+  color: var(--syn-text);
+  text-align: center;
+}
+
+.syn-empty-state__eyebrow {
+  margin-bottom: 8px;
+  color: var(--syn-accent);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.syn-empty-state__title {
+  color: var(--syn-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.syn-empty-state__body {
+  margin: 8px 0 0;
+  color: var(--syn-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.syn-empty-state__content {
+  margin-top: 14px;
+}
+
+.syn-empty-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.syn-section-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--syn-radius-sm);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.syn-section-notice--info {
+  border: 1px solid color-mix(in srgb, var(--syn-accent) 30%, white 70%);
+  background: var(--syn-accent-soft);
+  color: var(--syn-accent-strong);
+}
+
+.syn-section-notice--success {
+  border: 1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%);
+  background: color-mix(in srgb, var(--syn-green) 8%, white 92%);
+  color: var(--syn-green);
+}
+
+.syn-section-notice--warning {
+  border: 1px solid color-mix(in srgb, var(--syn-amber) 30%, white 70%);
+  background: color-mix(in srgb, var(--syn-amber) 8%, white 92%);
+  color: var(--syn-amber);
+}
+
+.syn-section-notice--danger {
+  border: 1px solid color-mix(in srgb, var(--syn-red) 30%, white 70%);
+  background: color-mix(in srgb, var(--syn-red) 8%, white 92%);
+  color: var(--syn-red);
+}
+
+.syn-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--syn-border);
+  border-radius: var(--syn-radius-sm);
+  background: var(--syn-surface);
+  color: var(--syn-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.syn-toolbar-button[aria-pressed="true"],
+.syn-toolbar-button:hover {
+  border-color: color-mix(in srgb, var(--syn-accent) 45%, var(--syn-border) 55%);
+  color: var(--syn-accent-strong);
+  background: var(--syn-accent-soft);
+}
+
+@media (max-width: 720px) {
+  .chat-section__conversations {
+    display: none !important;
+  }
+
+  .chat-empty-prompts {
+    grid-template-columns: 1fr !important;
+  }
+
+  .chat-empty-state {
+    padding: 20px 16px !important;
+  }
+
+  .app-header__brand {
+    max-width: 220px;
+  }
+
+  .syn-empty-state {
+    width: calc(100% - 24px);
+    padding: 18px;
+  }
+
+  .syn-button {
+    min-width: 0;
+  }
+
+  .settings-panel__content {
+    padding: 22px 18px !important;
+    max-width: none !important;
+  }
+
+  .settings-panel {
+    flex-direction: column !important;
+  }
+
+  .settings-panel__nav {
+    width: 100% !important;
+    max-height: 168px;
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 4px;
+    padding: 8px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--syn-border-subtle);
+  }
+
+  .settings-panel__nav p {
+    display: none;
+  }
+
+  .settings-panel__nav button {
+    width: auto !important;
+    flex: 0 0 auto;
+    border-left: 0 !important;
+    border-radius: var(--syn-radius-sm) !important;
+    padding: 7px 10px !important;
+  }
+
+  .settings-info-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .settings-mcp-tool-row {
+    grid-template-columns: 1fr !important;
+    align-items: start !important;
+  }
+
+  .settings-mcp-tool-row span {
+    width: auto !important;
+    max-width: 100%;
+    white-space: normal !important;
+  }
+
+  .deep-search-view {
+    flex-direction: column !important;
+  }
+
+  .ingest-section {
+    flex-direction: column !important;
+  }
+
+  .ingest-section__detail {
+    width: 100% !important;
+    height: 34%;
+    min-height: 190px;
+    border-left: 0 !important;
+    border-top: 1px solid var(--syn-border-subtle);
+  }
+
+  .deep-search-view__detail {
+    width: 100% !important;
+    height: 38%;
+    min-height: 220px;
+    border-left: 0 !important;
+    border-top: 1px solid var(--syn-border-subtle);
+  }
+
+  .graph-toolbar {
+    left: 10px !important;
+    right: 10px !important;
+    top: 10px !important;
+  }
+
+  .graph-toolbar__row {
+    flex-wrap: wrap;
+  }
+
+  .graph-toolbar__search {
+    flex-basis: 100%;
+  }
+}
