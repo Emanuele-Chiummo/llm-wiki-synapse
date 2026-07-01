@@ -19,7 +19,9 @@ Invariants honoured:
   I6  — zero InferenceProvider calls in this module; ingest_file handles provider routing.
   I7  — bounded listing (SOURCES_LIST_MAX entries), bounded text preview (SOURCES_TEXT_MAX_CHARS),
         bounded raw bytes (SOURCES_RAW_MAX_BYTES), hard 413 for oversize raw;
-        ingest-all capped at SOURCES_INGEST_ALL_MAX files; serial execution (one at a time).
+        ingest-all capped at SOURCES_INGEST_ALL_MAX files; BOUNDED-concurrent execution
+        (SOURCES_INGEST_ALL_CONCURRENCY workers, default 3 — same cap as Deep Research;
+        never unbounded).
 """
 
 from __future__ import annotations
@@ -70,6 +72,12 @@ SOURCES_RAW_MAX_BYTES: int = int(os.environ.get("SOURCES_RAW_MAX_BYTES", str(50 
 # Reuses import_scan_max_files (200) by default; override via SOURCES_INGEST_ALL_MAX.
 SOURCES_INGEST_ALL_MAX: int = int(
     os.environ.get("SOURCES_INGEST_ALL_MAX", str(settings.import_scan_max_files))
+)
+
+# Number of files ingested CONCURRENTLY by the ingest-all driver (I7 — BOUNDED, never unbounded).
+# Default 3 mirrors the Deep Research concurrency cap. Clamped to >=1. Set to 1 for serial.
+SOURCES_INGEST_ALL_CONCURRENCY: int = max(
+    1, int(os.environ.get("SOURCES_INGEST_ALL_CONCURRENCY", "3"))
 )
 
 # ── Ingest-all single-flight state ────────────────────────────────────────────
@@ -765,8 +773,10 @@ async def delete_source(
     status_code=202,
     summary="Index all pre-existing files in vault/raw/sources/",
     description=(
-        "Enumerates vault/raw/sources/ recursively and starts a SERIAL background driver that "
-        "calls ingest_file() on each supported file ONE AT A TIME (I7 — no concurrent LLM ingests). "
+        "Enumerates vault/raw/sources/ recursively and starts a background driver that "
+        "calls ingest_file() on each supported file with a BOUNDED worker pool "
+        "(SOURCES_INGEST_ALL_CONCURRENCY, default 3 — same cap as Deep Research; I7, never "
+        "unbounded). "
         "Each file's mtime-then-hash gate skips already-indexed files cheaply (idempotent; I1). "
         "Supported extensions: same allow-list as the watcher (_UPLOAD_ACCEPTED from upload.py). "
         f"Capped at SOURCES_INGEST_ALL_MAX (default={SOURCES_INGEST_ALL_MAX}) files (I7); "
@@ -789,7 +799,8 @@ async def ingest_all() -> IngestAllResponse:
 
     I1: reuses ingest_file incremental gate (mtime-then-hash) — idempotent, no rescan.
     I6: zero InferenceProvider calls in this layer; ingest_file handles routing.
-    I7: bounded by SOURCES_INGEST_ALL_MAX; serial (one file at a time in the driver).
+    I7: bounded by SOURCES_INGEST_ALL_MAX; bounded-concurrent driver
+        (SOURCES_INGEST_ALL_CONCURRENCY workers, default 3 — never unbounded).
     ADR-0006: explicit user action — NOT the startup-rescan anti-pattern.
     Single-flight: 409 if already running.
     """
@@ -891,40 +902,66 @@ def _collect_ingest_all_candidates(sources_dir: Path, max_files: int) -> list[Pa
 
 async def _ingest_all_driver(candidates: list[Path]) -> None:
     """
-    Serial driver: await ingest_file() on each candidate path, ONE AT A TIME.
+    Bounded-concurrency driver: ingest_file() over all candidates with a fixed worker pool.
 
-    CRITICAL INVARIANT (I7): files are processed sequentially, never concurrently.
-    This prevents N concurrent LLM ingest runs which would cause resource/cost explosion.
+    CRITICAL INVARIANT (I7): concurrency is BOUNDED at SOURCES_INGEST_ALL_CONCURRENCY
+    (default 3, same cap as Deep Research) — never unbounded. A fixed set of workers pulls
+    from a shared index, so at most N files are in flight at once regardless of batch size.
+    This keeps the original guard's intent (no resource/cost explosion) while cutting wall-clock
+    ~Nx. Concurrency is safe: per-page DB writes are keyed by (vault_id, file_path) — distinct
+    per source; bump_version uses an atomic SQL increment; append_log is single-line append-mode;
+    index.md/overview.md regen rebuild full valid content (last-writer-wins, self-healing).
+
     Each call goes through the mtime-then-hash gate — unchanged files are skipped cheaply.
     A per-file try/except ensures one bad file does not abort the whole run.
+    `_ingest_all_done` is incremented from the single asyncio event loop (no await between
+    read and write) so the counter stays consistent without an explicit lock.
     The module-level single-flight flag is cleared in the finally block.
     """
     global _ingest_all_running, _ingest_all_done
 
+    workers = min(SOURCES_INGEST_ALL_CONCURRENCY, len(candidates))
+
     try:
         from app.ingest.orchestrator import ingest_file
 
-        for path in candidates:
-            try:
-                result = await ingest_file(str(path))
-                logger.info(
-                    "ingest-all: %s path=%s",
-                    result.status,
-                    path,
-                )
-            except FileNotFoundError:
-                logger.debug("ingest-all: file vanished before ingest %s — skipping", path)
-            except Exception:  # noqa: BLE001
-                logger.exception("ingest-all: ingest error for %s — continuing", path)
-            finally:
-                _ingest_all_done += 1
+        # Shared cursor into the candidate list; each worker claims the next index.
+        # Safe without a lock: index mutation happens between awaits on a single event loop.
+        cursor = 0
+
+        async def _worker(worker_id: int) -> None:
+            global _ingest_all_done
+            nonlocal cursor
+            while True:
+                if cursor >= len(candidates):
+                    return
+                idx = cursor
+                cursor += 1
+                path = candidates[idx]
+                try:
+                    result = await ingest_file(str(path))
+                    logger.info(
+                        "ingest-all[w%d]: %s path=%s",
+                        worker_id,
+                        result.status,
+                        path,
+                    )
+                except FileNotFoundError:
+                    logger.debug("ingest-all: file vanished before ingest %s — skipping", path)
+                except Exception:  # noqa: BLE001
+                    logger.exception("ingest-all: ingest error for %s — continuing", path)
+                finally:
+                    _ingest_all_done += 1
+
+        await asyncio.gather(*(_worker(i) for i in range(workers)))
 
     finally:
         _ingest_all_running = False
         logger.info(
-            "ingest-all: driver finished — processed %d / %d files",
+            "ingest-all: driver finished — processed %d / %d files (concurrency=%d)",
             _ingest_all_done,
             len(candidates),
+            workers,
         )
 
 
