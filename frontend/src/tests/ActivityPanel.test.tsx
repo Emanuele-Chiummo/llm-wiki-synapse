@@ -163,6 +163,12 @@ vi.mock("../store/activityStore", () => {
       total: mockActivityState.snapshot?.total ?? 0,
     }),
     useActivityTasks: () => mockActivityState.snapshot?.tasks ?? [],
+    useActivityBatch: () => {
+      const b = mockActivityState.snapshot?.batch;
+      return b
+        ? { running: b.running, done: b.done, total: b.total, eta_seconds: b.eta_seconds ?? null }
+        : null;
+    },
     selectStartPolling: (s: ActivityStore) => s.startPolling,
     selectCancelRun: (s: ActivityStore) => s.cancelRun,
     selectRetryRun: (s: ActivityStore) => s.retryRun,

@@ -198,6 +198,27 @@ export function useActivityTasks(): QueueTask[] {
   return useActivityStore(useShallow((s) => s.snapshot?.tasks ?? []));
 }
 
+/** Hook: whole-batch progress ("index all") — shallow equality (I3). Null when no batch. */
+export function useActivityBatch(): {
+  running: boolean;
+  done: number;
+  total: number;
+  eta_seconds: number | null;
+} | null {
+  return useActivityStore(
+    useShallow((s) => {
+      const b = s.snapshot?.batch;
+      if (!b) return null;
+      return {
+        running: b.running,
+        done: b.done,
+        total: b.total,
+        eta_seconds: b.eta_seconds ?? null,
+      };
+    }),
+  );
+}
+
 /** Hook: stable scalar fields from snapshot — avoids re-render on tasks change. */
 export function useActivityCounts(): {
   paused: boolean;

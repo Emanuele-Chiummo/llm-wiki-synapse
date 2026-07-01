@@ -655,6 +655,7 @@
     "emptyQueue": "Queue is empty",
     "etaLeft": "~{{eta}} left",
     "elapsed": "Elapsed",
+    "batchIndexing": "Indexing {{done}}/{{total}}",
     "phase": {
       "analyzing": "analyzing",
       "validating": "validating",

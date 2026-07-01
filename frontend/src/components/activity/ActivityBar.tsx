@@ -30,6 +30,7 @@ import {
   RotateCcw,
   PauseCircle,
   PlayCircle,
+  Layers,
 } from "lucide-react";
 
 // ─── Module-level reduced-motion detection (mirrors GraphViewer pattern) ───────
@@ -46,6 +47,7 @@ import {
   useActivityStore,
   useActivityCounts,
   useActivityTasks,
+  useActivityBatch,
   selectStartPolling,
   selectCancelRun,
   selectRetryRun,
@@ -96,10 +98,15 @@ export function formatDuration(s: number | null | undefined): string {
   if (s == null || s < 0) return "";
   const secs = Math.round(s);
   if (secs < 60) return `${secs}s`;
-  const m = Math.floor(secs / 60);
-  const rem = secs % 60;
-  if (rem === 0) return `${m}m`;
-  return `${m}m ${rem}s`;
+  if (secs < 3600) {
+    const m = Math.floor(secs / 60);
+    const rem = secs % 60;
+    return rem === 0 ? `${m}m` : `${m}m ${rem}s`;
+  }
+  // ≥ 1h → "Xh Ym" (drop seconds at this scale)
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
 function progressPercent(
@@ -417,6 +424,7 @@ export function ActivityBar() {
   // Queue store
   const counts = useActivityCounts();
   const tasks = useActivityTasks();
+  const batch = useActivityBatch();
   const cancellingIds = useActivityStore((s) => s.cancellingIds);
   const startPolling = useActivityStore(selectStartPolling);
   const cancelRun = useActivityStore(selectCancelRun);
@@ -579,6 +587,52 @@ export function ActivityBar() {
               </button>
             )}
           </div>
+
+          {/* Batch progress ("Index all") — whole-batch done/total + total ETA */}
+          {batch && batch.total > 0 && (batch.running || batch.done < batch.total) && (
+            <div
+              data-testid="activity-batch"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                padding: "6px 8px",
+                borderRadius: 4,
+                background: "color-mix(in srgb, var(--syn-accent) 8%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--syn-accent) 25%, transparent)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Layers size={12} style={{ color: "var(--syn-accent)", flexShrink: 0 }} />
+                <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: "var(--syn-text)" }}>
+                  {t("activity.batchIndexing", { done: batch.done, total: batch.total })}
+                </span>
+                {batch.eta_seconds != null && batch.eta_seconds > 0 && (
+                  <span style={{ fontSize: 10, color: "var(--syn-text-dim)", whiteSpace: "nowrap" }}>
+                    {t("activity.etaLeft", { eta: formatDuration(batch.eta_seconds) })}
+                  </span>
+                )}
+              </div>
+              <div
+                style={{
+                  height: 4,
+                  borderRadius: 2,
+                  background: "var(--syn-border)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${Math.round((batch.done / Math.max(1, batch.total)) * 100)}%`,
+                    background: "var(--syn-accent)",
+                    borderRadius: 2,
+                    transition: "width 0.3s ease",
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Progress bar */}
           <div

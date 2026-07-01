@@ -80,6 +80,22 @@ _ingest_all_running: bool = False
 _ingest_all_done: int = 0
 _ingest_all_total: int = 0
 
+
+def get_ingest_all_progress() -> dict[str, int | bool]:
+    """
+    Return the current ingest-all batch progress (read-only snapshot of module state).
+
+    Consumed by GET /ingest/queue to surface a batch counter ("done/total") + a batch ETA
+    in the activity panel, so the user sees whole-batch progress, not just the 1-at-a-time
+    queue view. No I/O — pure in-memory read.
+    """
+    return {
+        "running": _ingest_all_running,
+        "done": _ingest_all_done,
+        "total": _ingest_all_total,
+    }
+
+
 router = APIRouter(prefix="/sources", tags=["sources"])
 
 # ── Category mapping (mirrors llm_wiki getFileCategory) ──────────────────────

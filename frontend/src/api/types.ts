@@ -758,6 +758,15 @@ export interface QueueTask {
  * Response from GET /ingest/queue.
  * completed_since_idle resets when the queue becomes idle again.
  */
+/** Whole-batch progress for an in-progress POST /sources/ingest-all (else null). */
+export interface QueueBatchProgress {
+  running: boolean;
+  done: number;
+  total: number;
+  /** Estimated seconds remaining for the whole batch (null when unknown). */
+  eta_seconds?: number | null;
+}
+
 export interface IngestQueueSnapshot {
   paused: boolean;
   pending: number;
@@ -766,6 +775,8 @@ export interface IngestQueueSnapshot {
   completed_since_idle: number;
   total: number;
   tasks: QueueTask[];
+  /** Batch progress when a bulk "index all" is running (null otherwise). */
+  batch?: QueueBatchProgress | null;
 }
 
 /** 202 response from POST /ingest/runs/{id}/cancel */
