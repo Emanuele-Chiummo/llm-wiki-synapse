@@ -97,13 +97,16 @@ import type { ReviewQueueStatus } from "../../api/reviewClient";
 const ROW_ESTIMATE = 160;
 
 // ─── Proposal type badge ──────────────────────────────────────────────────────
+// Light-theme: use --syn-* semantic tokens.
+// color values are concrete hex so the bg alpha tint can be inline-computed.
+// These match --syn-green, --syn-amber, --syn-red + --syn-type-* tokens.
 
 const ITEM_TYPE_COLORS: Record<string, { color: string; bg: string }> = {
-  "missing-page":  { color: "#3fb950", bg: "#3fb95022" },
-  suggestion:      { color: "#d29922", bg: "#d2992222" },
-  contradiction:   { color: "#f85149", bg: "#f8514922" },
-  duplicate:       { color: "#bc8cff", bg: "#bc8cff22" },
-  confirm:         { color: "#58a6ff", bg: "#58a6ff22" },
+  "missing-page":  { color: "#1a7f37", bg: "color-mix(in srgb, #1a7f37 10%, white 90%)" }, // --syn-green
+  suggestion:      { color: "#9a6700", bg: "color-mix(in srgb, #9a6700 10%, white 90%)" }, // --syn-amber
+  contradiction:   { color: "#cf222e", bg: "color-mix(in srgb, #cf222e 10%, white 90%)" }, // --syn-red
+  duplicate:       { color: "#8250df", bg: "color-mix(in srgb, #8250df 10%, white 90%)" }, // --syn-type-concept (purple)
+  confirm:         { color: "#2563eb", bg: "color-mix(in srgb, #2563eb 10%, white 90%)" }, // --syn-accent
 };
 
 interface ItemTypeBadgeProps {
@@ -112,23 +115,22 @@ interface ItemTypeBadgeProps {
 }
 
 function ItemTypeBadge({ itemType, t }: ItemTypeBadgeProps) {
-  const { color, bg } = ITEM_TYPE_COLORS[itemType] ?? { color: "#8b949e", bg: "#8b949e22" };
+  const { color, bg } = ITEM_TYPE_COLORS[itemType] ?? {
+    color: "var(--syn-text-dim)",
+    bg: "var(--syn-surface-hover)",
+  };
   const label = t(`review.itemType.${itemType}`);
   return (
     <span
+      className="syn-chip"
       style={{
-        display: "inline-flex",
-        alignItems: "center",
         fontSize: 10,
         fontWeight: 600,
         color,
         background: bg,
-        border: `1px solid ${color}4d`,
-        borderRadius: 8,
+        border: `1px solid color-mix(in srgb, ${color} 30%, transparent 70%)`,
+        borderRadius: "var(--syn-radius-pill)",
         padding: "1px 6px",
-        whiteSpace: "nowrap",
-        userSelect: "none",
-        flexShrink: 0,
       }}
     >
       {label}
@@ -147,19 +149,11 @@ function PageTypeChip({ pageType, t }: PageTypeChipProps) {
   const label = t(`review.pageType.${pageType}`) ?? pageType;
   return (
     <span
+      className="syn-chip"
       style={{
-        display: "inline-flex",
-        alignItems: "center",
         fontSize: 9,
         fontWeight: 500,
-        color: "#8b949e",
-        background: "#21262d",
-        border: "1px solid #30363d",
-        borderRadius: 4,
         padding: "0 5px",
-        whiteSpace: "nowrap",
-        userSelect: "none",
-        flexShrink: 0,
       }}
     >
       {label}
@@ -180,20 +174,16 @@ function ReferencedPageChip({ page, onClick }: ReferencedPageChipProps) {
       data-testid="referenced-page-chip"
       onClick={() => onClick(page.id)}
       title={`Open ${page.title}`}
+      className="syn-chip"
       style={{
-        display: "inline-flex",
-        alignItems: "center",
         fontSize: 10,
         fontWeight: 500,
-        color: "#58a6ff",
-        background: "#0d1b2a",
-        border: "1px solid #1f3a5a",
-        borderRadius: 4,
+        color: "var(--syn-accent)",
+        background: "var(--syn-accent-soft)",
+        border: "1px solid color-mix(in srgb, var(--syn-accent) 25%, var(--syn-border) 75%)",
+        borderRadius: "var(--syn-radius-sm)",
         padding: "1px 6px",
         cursor: "pointer",
-        whiteSpace: "nowrap",
-        userSelect: "none",
-        flexShrink: 0,
       }}
     >
       [[{page.title}]]
@@ -213,12 +203,12 @@ interface ActionButtonProps {
 
 function ActionButton({ label, onClick, disabled, loading, variant }: ActionButtonProps) {
   const COLORS: Record<string, { border: string; color: string }> = {
-    create:           { border: "#3fb950", color: "#3fb950" },
-    skip:             { border: "#484f58", color: "#8b949e" },
-    dismiss:          { border: "#484f58", color: "#6e7681" },
-    "deep-research":  { border: "#58a6ff", color: "#58a6ff" },
+    create:           { border: "var(--syn-green)",       color: "var(--syn-green)" },
+    skip:             { border: "var(--syn-border)",      color: "var(--syn-text-muted)" },
+    dismiss:          { border: "var(--syn-border)",      color: "var(--syn-text-dim)" },
+    "deep-research":  { border: "var(--syn-accent)",      color: "var(--syn-accent)" },
   };
-  const fallback = { border: "#484f58", color: "#8b949e" };
+  const fallback = { border: "var(--syn-border)", color: "var(--syn-text-muted)" };
   const { border, color } = COLORS[variant] ?? fallback;
   const isDisabled = disabled || loading;
   return (
@@ -235,13 +225,14 @@ function ActionButton({ label, onClick, disabled, loading, variant }: ActionButt
         padding: "3px 10px",
         fontSize: 11,
         fontWeight: 600,
-        border: `1px solid ${isDisabled ? "#21262d" : border}`,
-        borderRadius: 5,
+        border: `1px solid ${isDisabled ? "var(--syn-border)" : border}`,
+        borderRadius: "var(--syn-radius-sm)",
         background: "transparent",
-        color: isDisabled ? "#484f58" : color,
+        color: isDisabled ? "var(--syn-text-dim)" : color,
         cursor: isDisabled ? "not-allowed" : "pointer",
         whiteSpace: "nowrap",
         transition: "opacity 0.1s",
+        opacity: isDisabled ? 0.6 : 1,
       }}
     >
       {loading && (
@@ -344,15 +335,15 @@ function ReviewRow({
       style={{
         ...style,
         padding: "8px 16px",
-        borderBottom: "1px solid #21262d",
+        borderBottom: "1px solid var(--syn-border)",
         display: "flex",
         flexDirection: "column",
         gap: 3,
         boxSizing: "border-box",
         background: isSelected
-          ? "#0d1624"
+          ? "var(--syn-accent-soft)"
           : generationError
-          ? "#1a0f0f"
+          ? "color-mix(in srgb, var(--syn-red) 6%, white 94%)"
           : undefined,
       }}
     >
@@ -364,7 +355,7 @@ function ReviewRow({
           onChange={() => onToggleSelect(item.id)}
           aria-label={`Select ${item.proposed_title ?? item.id}`}
           data-testid={`review-select-${item.id}`}
-          style={{ flexShrink: 0, cursor: "pointer", accentColor: "#58a6ff" }}
+          style={{ flexShrink: 0, cursor: "pointer", accentColor: "var(--syn-accent)" }}
         />
         <ItemTypeBadge itemType={item.item_type} t={t} />
         {item.proposed_page_type && (
@@ -374,7 +365,7 @@ function ReviewRow({
           style={{
             fontSize: 12,
             fontWeight: 600,
-            color: "#e6edf3",
+            color: "var(--syn-text)",
             flex: 1,
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -386,7 +377,7 @@ function ReviewRow({
           {item.proposed_title ?? item.page_title ?? t("review.noTitle")}
         </span>
         <span
-          style={{ fontSize: 10, color: "#484f58", flexShrink: 0 }}
+          style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}
           title={item.created_at}
         >
           {relativeTime}
@@ -397,7 +388,7 @@ function ReviewRow({
       <div
         style={{
           fontSize: 11,
-          color: item.rationale ? "#8b949e" : "#30363d",
+          color: item.rationale ? "var(--syn-text-muted)" : "var(--syn-border)",
           fontStyle: item.rationale ? "normal" : "italic",
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -413,7 +404,7 @@ function ReviewRow({
         <div
           style={{
             fontSize: 10,
-            color: "#bc8cff",
+            color: "var(--syn-type-concept)", // --syn-type-concept (purple) for conflict link
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -436,7 +427,7 @@ function ReviewRow({
           }}
         >
           <span
-            style={{ fontSize: 10, color: "#484f58", flexShrink: 0, whiteSpace: "nowrap" }}
+            style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0, whiteSpace: "nowrap" }}
           >
             {t("review.referencedPages")}:
           </span>
@@ -452,7 +443,7 @@ function ReviewRow({
           data-testid="search-queries-row"
           style={{
             fontSize: 10,
-            color: "#484f58",
+            color: "var(--syn-text-dim)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -470,7 +461,7 @@ function ReviewRow({
           role="alert"
           style={{
             fontSize: 10,
-            color: "#f85149",
+            color: "var(--syn-red)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -486,7 +477,7 @@ function ReviewRow({
             onClick={() => onDismissGenerationError(item.id)}
             style={{
               fontSize: 10,
-              color: "#484f58",
+              color: "var(--syn-text-dim)",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -535,7 +526,7 @@ function ReviewRow({
         {actionError && !generationError && (
           <span
             role="alert"
-            style={{ fontSize: 10, color: "#f85149", marginLeft: 4 }}
+            style={{ fontSize: 10, color: "var(--syn-red)", marginLeft: 4 }}
           >
             {actionError}
           </span>
@@ -668,10 +659,10 @@ function ReviewItemList({ vaultId, onOpenSources, onOpenPage }: ReviewItemListPr
               right: 0,
               height: 40,
               margin: "4px 16px",
-              border: "1px solid #21262d",
-              borderRadius: 6,
-              background: "#161b22",
-              color: "#8b949e",
+              border: "1px solid var(--syn-border)",
+              borderRadius: "var(--syn-radius-sm)",
+              background: "var(--syn-surface)",
+              color: "var(--syn-text-muted)",
               fontSize: 12,
               cursor: loading ? "wait" : "pointer",
             }}
@@ -768,10 +759,10 @@ function TabButton({ label, active, onClick, testId }: TabButtonProps) {
         padding: "4px 10px",
         fontSize: 11,
         fontWeight: active ? 700 : 400,
-        border: active ? "1px solid #30363d" : "1px solid transparent",
-        borderRadius: 5,
-        background: active ? "#21262d" : "transparent",
-        color: active ? "#e6edf3" : "#8b949e",
+        border: active ? "1px solid var(--syn-border)" : "1px solid transparent",
+        borderRadius: "var(--syn-radius-sm)",
+        background: active ? "var(--syn-surface-hover)" : "transparent",
+        color: active ? "var(--syn-text)" : "var(--syn-text-muted)",
         cursor: "pointer",
         whiteSpace: "nowrap",
       }}
@@ -893,7 +884,7 @@ export function ReviewQueueView() {
         overflow: "hidden",
         width: "100%",
         height: "100%",
-        background: "#0d1117",
+        background: "var(--syn-bg)",
       }}
     >
       {/* Spinner keyframe — injected once as a style tag */}
@@ -906,9 +897,9 @@ export function ReviewQueueView() {
           alignItems: "center",
           gap: 8,
           padding: "10px 16px 6px",
-          borderBottom: "1px solid #21262d",
+          borderBottom: "1px solid var(--syn-border)",
           flexShrink: 0,
-          background: "#161b22",
+          background: "var(--syn-bg-soft)",
           flexWrap: "wrap",
         }}
       >
@@ -917,7 +908,7 @@ export function ReviewQueueView() {
             margin: 0,
             fontSize: 13,
             fontWeight: 600,
-            color: "#e6edf3",
+            color: "var(--syn-text)",
             flexShrink: 0,
           }}
         >
@@ -933,9 +924,9 @@ export function ReviewQueueView() {
                 minWidth: 18,
                 height: 18,
                 padding: "0 5px",
-                borderRadius: 9,
-                background: "#d29922",
-                color: "#0d1117",
+                borderRadius: "var(--syn-radius-pill)",
+                background: "var(--syn-amber)",
+                color: "#ffffff",
                 fontSize: 10,
                 fontWeight: 700,
               }}
@@ -987,10 +978,10 @@ export function ReviewQueueView() {
             style={{
               padding: "4px 10px",
               fontSize: 11,
-              border: "1px solid #f8514933",
-              borderRadius: 5,
+              border: "1px solid color-mix(in srgb, var(--syn-red) 30%, var(--syn-border) 70%)",
+              borderRadius: "var(--syn-radius-sm)",
               background: "transparent",
-              color: loading ? "#484f58" : "#f85149",
+              color: loading ? "var(--syn-text-dim)" : "var(--syn-red)",
               cursor: loading ? "wait" : "pointer",
             }}
           >
@@ -1004,14 +995,12 @@ export function ReviewQueueView() {
           disabled={loading}
           aria-label={t("review.sweep")}
           data-testid="review-sweep-btn"
+          className="syn-toolbar-button"
           style={{
             padding: "4px 10px",
             fontSize: 11,
-            border: "1px solid #21262d",
-            borderRadius: 5,
-            background: "transparent",
-            color: loading ? "#484f58" : "#8b949e",
             cursor: loading ? "wait" : "pointer",
+            opacity: loading ? 0.6 : 1,
           }}
           title={t("review.sweepHelp")}
         >
@@ -1024,14 +1013,12 @@ export function ReviewQueueView() {
           disabled={loading}
           aria-label={t("common.retry")}
           data-testid="review-refresh-btn"
+          className="syn-toolbar-button"
           style={{
             padding: "4px 10px",
             fontSize: 11,
-            border: "1px solid #21262d",
-            borderRadius: 5,
-            background: "transparent",
-            color: loading ? "#484f58" : "#8b949e",
             cursor: loading ? "wait" : "pointer",
+            opacity: loading ? 0.6 : 1,
           }}
         >
           {loading ? t("common.loading") : t("review.refresh")}
@@ -1045,9 +1032,9 @@ export function ReviewQueueView() {
           alignItems: "center",
           gap: 8,
           padding: "6px 16px",
-          borderBottom: "1px solid #21262d",
+          borderBottom: "1px solid var(--syn-border)",
           flexShrink: 0,
-          background: "#161b22",
+          background: "var(--syn-bg-soft)",
         }}
       >
         {/* "Select pending" toggle */}
@@ -1055,15 +1042,14 @@ export function ReviewQueueView() {
           onClick={handleSelectAllPending}
           data-testid="review-select-pending-btn"
           aria-label={hasSelection ? t("review.deselectAll") : t("review.selectPending")}
+          className="syn-toolbar-button"
           style={{
             padding: "3px 10px",
             fontSize: 11,
-            border: "1px solid #30363d",
-            borderRadius: 5,
-            background: hasSelection ? "#21262d" : "transparent",
-            color: "#8b949e",
             cursor: "pointer",
-            whiteSpace: "nowrap",
+            background: hasSelection ? "var(--syn-accent-soft)" : undefined,
+            color: hasSelection ? "var(--syn-accent)" : undefined,
+            borderColor: hasSelection ? "var(--syn-accent)" : undefined,
           }}
         >
           {hasSelection ? t("review.deselectAll") : t("review.selectPending")}
@@ -1073,7 +1059,7 @@ export function ReviewQueueView() {
         {hasSelection && (
           <span
             data-testid="review-selection-count"
-            style={{ fontSize: 11, color: "#58a6ff", whiteSpace: "nowrap" }}
+            style={{ fontSize: 11, color: "var(--syn-accent)", whiteSpace: "nowrap" }}
           >
             {t("review.selectionCount", { count: selectionCount })}
           </span>
@@ -1090,10 +1076,10 @@ export function ReviewQueueView() {
                 padding: "3px 10px",
                 fontSize: 11,
                 fontWeight: 600,
-                border: "1px solid #3fb95033",
-                borderRadius: 5,
+                border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-border) 70%)",
+                borderRadius: "var(--syn-radius-sm)",
                 background: "transparent",
-                color: loading ? "#484f58" : "#3fb950",
+                color: loading ? "var(--syn-text-dim)" : "var(--syn-green)",
                 cursor: loading ? "wait" : "pointer",
                 whiteSpace: "nowrap",
               }}
@@ -1108,10 +1094,10 @@ export function ReviewQueueView() {
                 padding: "3px 10px",
                 fontSize: 11,
                 fontWeight: 600,
-                border: "1px solid #30363d",
-                borderRadius: 5,
+                border: "1px solid var(--syn-border)",
+                borderRadius: "var(--syn-radius-sm)",
                 background: "transparent",
-                color: loading ? "#484f58" : "#8b949e",
+                color: loading ? "var(--syn-text-dim)" : "var(--syn-text-muted)",
                 cursor: loading ? "wait" : "pointer",
                 whiteSpace: "nowrap",
               }}
@@ -1126,10 +1112,10 @@ export function ReviewQueueView() {
                 padding: "3px 10px",
                 fontSize: 11,
                 fontWeight: 600,
-                border: "1px solid #30363d",
-                borderRadius: 5,
+                border: "1px solid var(--syn-border)",
+                borderRadius: "var(--syn-radius-sm)",
                 background: "transparent",
-                color: loading ? "#484f58" : "#6e7681",
+                color: loading ? "var(--syn-text-dim)" : "var(--syn-text-dim)",
                 cursor: loading ? "wait" : "pointer",
                 whiteSpace: "nowrap",
               }}
@@ -1145,24 +1131,23 @@ export function ReviewQueueView() {
         <div
           role="alert"
           data-testid="review-searxng-error"
+          className="syn-section-notice syn-section-notice--danger"
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 16px",
-            borderBottom: "1px solid #f8514933",
-            background: "#1a0f0f",
+            borderRadius: 0,
+            borderLeft: 0,
+            borderRight: 0,
+            borderTop: 0,
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 12, color: "#f85149", flex: 1 }}>
+          <span style={{ fontSize: 12, flex: 1 }}>
             {t("review.searxngUnavailable")}
           </span>
           <button
             onClick={clearDeepResearchError}
             style={{
               fontSize: 11,
-              color: "#8b949e",
+              color: "var(--syn-text-muted)",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -1179,24 +1164,23 @@ export function ReviewQueueView() {
       {lastDeepResearch && (
         <div
           data-testid="review-deep-research-success"
+          className="syn-section-notice syn-section-notice--success"
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 16px",
-            borderBottom: "1px solid #3fb95033",
-            background: "#0d1f0d",
+            borderRadius: 0,
+            borderLeft: 0,
+            borderRight: 0,
+            borderTop: 0,
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 12, color: "#3fb950", flex: 1 }}>
+          <span style={{ fontSize: 12, flex: 1 }}>
             {t("review.deepResearchStarted")}
             <span
               style={{
                 marginLeft: 6,
                 fontFamily: "monospace",
                 fontSize: 11,
-                color: "#8b949e",
+                color: "var(--syn-text-muted)",
               }}
             >
               run:{lastDeepResearch.runId.slice(0, 8)}&hellip;
@@ -1207,7 +1191,7 @@ export function ReviewQueueView() {
             data-testid="review-goto-deepsearch"
             style={{
               fontSize: 11,
-              color: "#58a6ff",
+              color: "var(--syn-accent)",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -1221,7 +1205,7 @@ export function ReviewQueueView() {
             onClick={clearLastDeepResearch}
             style={{
               fontSize: 11,
-              color: "#484f58",
+              color: "var(--syn-text-dim)",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -1238,17 +1222,16 @@ export function ReviewQueueView() {
       {lastSweepResult && (
         <div
           data-testid="review-sweep-result"
+          className="syn-section-notice syn-section-notice--info"
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 16px",
-            borderBottom: "1px solid #58a6ff33",
-            background: "#0d1624",
+            borderRadius: 0,
+            borderLeft: 0,
+            borderRight: 0,
+            borderTop: 0,
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 12, color: "#58a6ff", flex: 1 }}>
+          <span style={{ fontSize: 12, flex: 1 }}>
             {t("review.sweepResult", {
               rule: lastSweepResult.rule_resolved,
               llm: lastSweepResult.llm_resolved,
@@ -1259,7 +1242,7 @@ export function ReviewQueueView() {
             onClick={clearLastSweepResult}
             style={{
               fontSize: 11,
-              color: "#484f58",
+              color: "var(--syn-text-dim)",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -1276,17 +1259,16 @@ export function ReviewQueueView() {
       {lastBulkResult && (
         <div
           data-testid="review-bulk-result"
+          className="syn-section-notice syn-section-notice--success"
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 16px",
-            borderBottom: "1px solid #3fb95033",
-            background: "#0d1f0d",
+            borderRadius: 0,
+            borderLeft: 0,
+            borderRight: 0,
+            borderTop: 0,
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 12, color: "#3fb950", flex: 1 }}>
+          <span style={{ fontSize: 12, flex: 1 }}>
             {t("review.bulkResult", {
               updated: lastBulkResult.updated,
               skipped: lastBulkResult.skipped_terminal,
@@ -1296,7 +1278,7 @@ export function ReviewQueueView() {
             onClick={clearLastBulkResult}
             style={{
               fontSize: 11,
-              color: "#484f58",
+              color: "var(--syn-text-dim)",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -1313,24 +1295,23 @@ export function ReviewQueueView() {
       {lastClearResult && (
         <div
           data-testid="review-clear-result"
+          className="syn-section-notice syn-section-notice--info"
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 16px",
-            borderBottom: "1px solid #58a6ff33",
-            background: "#0d1624",
+            borderRadius: 0,
+            borderLeft: 0,
+            borderRight: 0,
+            borderTop: 0,
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 12, color: "#58a6ff", flex: 1 }}>
+          <span style={{ fontSize: 12, flex: 1 }}>
             {t("review.clearResult", { count: lastClearResult.deleted })}
           </span>
           <button
             onClick={clearLastClearResult}
             style={{
               fontSize: 11,
-              color: "#484f58",
+              color: "var(--syn-text-dim)",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -1348,24 +1329,23 @@ export function ReviewQueueView() {
         <div
           role="alert"
           data-testid="review-bulk-error"
+          className="syn-section-notice syn-section-notice--danger"
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 16px",
-            borderBottom: "1px solid #f8514933",
-            background: "#1a0f0f",
+            borderRadius: 0,
+            borderLeft: 0,
+            borderRight: 0,
+            borderTop: 0,
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 12, color: "#f85149", flex: 1 }}>
+          <span style={{ fontSize: 12, flex: 1 }}>
             {t("review.bulkError")} {bulkError}
           </span>
           <button
             onClick={clearBulkError}
             style={{
               fontSize: 11,
-              color: "#8b949e",
+              color: "var(--syn-text-muted)",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -1383,25 +1363,23 @@ export function ReviewQueueView() {
         <div
           role="alert"
           data-testid="review-load-error"
+          className="syn-section-notice syn-section-notice--danger"
           style={{
-            padding: "8px 16px",
-            borderBottom: "1px solid #21262d",
+            borderRadius: 0,
+            borderLeft: 0,
+            borderRight: 0,
+            borderTop: 0,
             flexShrink: 0,
             fontSize: 12,
-            color: "#f85149",
-            background: "#1a0f0f",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
           }}
         >
-          {error}
+          <span style={{ flex: 1 }}>{error}</span>
           <button
             onClick={() => void fetchFresh(effectiveVaultId)}
             style={{
               marginLeft: 4,
               fontSize: 12,
-              color: "#8b949e",
+              color: "var(--syn-text-muted)",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -1420,9 +1398,9 @@ export function ReviewQueueView() {
           style={{
             padding: "6px 16px",
             flexShrink: 0,
-            borderBottom: "1px solid #21262d",
+            borderBottom: "1px solid var(--syn-border)",
             fontSize: 11,
-            color: "#484f58",
+            color: "var(--syn-text-dim)",
           }}
         >
           {t("review.hint")}

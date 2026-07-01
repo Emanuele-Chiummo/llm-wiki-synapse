@@ -156,8 +156,8 @@ export function ConversationList(): ReactNode {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "#161b22",
-        borderRight: "1px solid #21262d",
+        background: "var(--syn-bg-soft)",
+        borderRight: "1px solid var(--syn-border)",
         minWidth: 0,
       }}
       data-testid="conversation-list"
@@ -166,14 +166,14 @@ export function ConversationList(): ReactNode {
       <div
         style={{
           padding: "12px 12px 8px",
-          borderBottom: "1px solid #21262d",
+          borderBottom: "1px solid var(--syn-border)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           flexShrink: 0,
         }}
       >
-        <span style={{ fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
           {t("chat.conversations")}
         </span>
         <button
@@ -182,10 +182,10 @@ export function ConversationList(): ReactNode {
           aria-label={t("chat.newConversation")}
           title={t("chat.newConversation")}
           style={{
-            background: "#21262d",
-            border: "1px solid #30363d",
+            background: "var(--syn-surface-hover)",
+            border: "1px solid var(--syn-border)",
             borderRadius: 4,
-            color: "#e6edf3",
+            color: "var(--syn-text)",
             cursor: "pointer",
             fontSize: 16,
             lineHeight: 1,
@@ -200,7 +200,7 @@ export function ConversationList(): ReactNode {
 
       {/* Loading state */}
       {loading && (
-        <div style={{ padding: "12px", color: "#484f58", fontSize: 12 }}>
+        <div style={{ padding: "12px", color: "var(--syn-text-dim)", fontSize: 12 }}>
           {t("common.loading")}
         </div>
       )}
@@ -218,7 +218,7 @@ export function ConversationList(): ReactNode {
             />
           ))}
           {conversations.length === 0 && (
-            <div style={{ padding: "16px 12px", color: "#484f58", fontSize: 12 }}>
+            <div style={{ padding: "16px 12px", color: "var(--syn-text-dim)", fontSize: 12 }}>
               {t("chat.noConversations")}
             </div>
           )}
@@ -324,8 +324,8 @@ function ConvItem({
       aria-current={isActive ? "true" : undefined}
       style={{
         padding: "8px 12px",
-        background: isActive ? "#1f2937" : "transparent",
-        borderLeft: isActive ? "2px solid #1f6feb" : "2px solid transparent",
+        background: isActive ? "var(--syn-accent-soft)" : "transparent",
+        borderLeft: isActive ? "2px solid var(--syn-accent)" : "2px solid transparent",
         cursor: "pointer",
         display: "flex",
         alignItems: "center",
@@ -338,7 +338,7 @@ function ConvItem({
         <div
           style={{
             fontSize: 13,
-            color: isActive ? "#e6edf3" : "#c9d1d9",
+            color: isActive ? "var(--syn-text)" : "var(--syn-text-muted)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -346,7 +346,7 @@ function ConvItem({
         >
           {title}
         </div>
-        <div style={{ fontSize: 11, color: "#484f58", marginTop: 2 }}>{date}</div>
+        <div style={{ fontSize: 11, color: "var(--syn-text-dim)", marginTop: 2 }}>{date}</div>
       </div>
       <button
         type="button"
@@ -356,7 +356,7 @@ function ConvItem({
         style={{
           background: "none",
           border: "none",
-          color: "#484f58",
+          color: "var(--syn-text-dim)",
           cursor: "pointer",
           fontSize: 14,
           padding: "2px 4px",

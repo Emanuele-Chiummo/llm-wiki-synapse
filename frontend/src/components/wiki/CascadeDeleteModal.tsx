@@ -44,7 +44,7 @@ const S = {
   overlay: {
     position: "fixed" as const,
     inset: 0,
-    background: "rgba(0,0,0,0.7)",
+    background: "rgba(31, 35, 40, 0.55)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -52,20 +52,20 @@ const S = {
     padding: 16,
   },
   dialog: {
-    background: "#161b22",
-    border: "1px solid #30363d",
-    borderRadius: 8,
+    background: "var(--syn-surface)",
+    border: "1px solid var(--syn-border)",
+    borderRadius: "var(--syn-radius-md)",
     width: "100%",
     maxWidth: 540,
     maxHeight: "80vh",
     display: "flex",
     flexDirection: "column" as const,
     overflow: "hidden",
-    boxShadow: "0 16px 48px rgba(0,0,0,0.6)",
+    boxShadow: "var(--syn-shadow-pop)",
   },
   header: {
     padding: "14px 16px 12px",
-    borderBottom: "1px solid #21262d",
+    borderBottom: "1px solid var(--syn-border)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -75,12 +75,12 @@ const S = {
     margin: 0,
     fontSize: 15,
     fontWeight: 600,
-    color: "#e6edf3",
+    color: "var(--syn-text)",
   },
   closeBtn: {
     background: "none",
     border: "none",
-    color: "#8b949e",
+    color: "var(--syn-text-muted)",
     cursor: "pointer",
     fontSize: 18,
     lineHeight: 1,
@@ -96,7 +96,7 @@ const S = {
   },
   footer: {
     padding: "10px 16px",
-    borderTop: "1px solid #21262d",
+    borderTop: "1px solid var(--syn-border)",
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-end",
@@ -104,9 +104,9 @@ const S = {
     flexShrink: 0,
   },
   warningBanner: {
-    background: "#271a00",
-    border: "1px solid #9e6a03",
-    borderRadius: 6,
+    background: "color-mix(in srgb, var(--syn-amber) 8%, white 92%)",
+    border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, transparent 70%)",
+    borderRadius: "var(--syn-radius-sm)",
     padding: "10px 12px",
     display: "flex",
     flexDirection: "column" as const,
@@ -116,7 +116,7 @@ const S = {
     margin: 0,
     fontSize: 12,
     fontWeight: 700,
-    color: "#e3b341",
+    color: "var(--syn-amber)",
     letterSpacing: "0.04em",
     textTransform: "uppercase" as const,
     display: "flex",
@@ -125,14 +125,14 @@ const S = {
   },
   warningItem: {
     fontSize: 12,
-    color: "#c9a227",
+    color: "var(--syn-amber)",
     margin: 0,
     padding: "2px 0",
-    borderBottom: "1px solid #9e6a0330",
+    borderBottom: "1px solid color-mix(in srgb, var(--syn-amber) 20%, transparent 80%)",
   },
   warningHint: {
     fontSize: 11,
-    color: "#8b7336",
+    color: "var(--syn-text-muted)",
     margin: "4px 0 0",
     fontStyle: "italic",
   },
@@ -146,12 +146,12 @@ const S = {
     fontWeight: 600,
     letterSpacing: "0.04em",
     textTransform: "uppercase" as const,
-    color: "#484f58",
+    color: "var(--syn-text-dim)",
     margin: 0,
   },
   emptyHint: {
     fontSize: 12,
-    color: "#484f58",
+    color: "var(--syn-text-dim)",
     fontStyle: "italic",
     margin: 0,
   },
@@ -165,24 +165,24 @@ const S = {
   },
   itemText: {
     fontSize: 12,
-    color: "#8b949e",
+    color: "var(--syn-text-muted)",
     fontFamily: "monospace",
     wordBreak: "break-all" as const,
   },
   badge: {
     display: "inline-block",
-    background: "#21262d",
-    border: "1px solid #30363d",
-    borderRadius: 4,
+    background: "var(--syn-surface-hover)",
+    border: "1px solid var(--syn-border)",
+    borderRadius: "var(--syn-radius-sm)",
     padding: "2px 6px",
     fontSize: 12,
-    color: "#e6edf3",
+    color: "var(--syn-text)",
     fontFamily: "monospace",
   },
   destructiveBtn: {
-    background: "#da3633",
-    border: "1px solid #b91c1c",
-    borderRadius: 6,
+    background: "var(--syn-red)",
+    border: "1px solid color-mix(in srgb, var(--syn-red) 80%, black 20%)",
+    borderRadius: "var(--syn-radius-sm)",
     color: "#fff",
     cursor: "pointer",
     fontSize: 13,
@@ -191,33 +191,33 @@ const S = {
   },
   secondaryBtn: {
     background: "transparent",
-    border: "1px solid #30363d",
-    borderRadius: 6,
-    color: "#8b949e",
+    border: "1px solid var(--syn-border)",
+    borderRadius: "var(--syn-radius-sm)",
+    color: "var(--syn-text-muted)",
     cursor: "pointer",
     fontSize: 13,
     padding: "6px 14px",
   },
   spinnerText: {
     fontSize: 13,
-    color: "#8b949e",
+    color: "var(--syn-text-muted)",
     textAlign: "center" as const,
     padding: "20px 0",
   },
   errorText: {
     fontSize: 13,
-    color: "#f85149",
+    color: "var(--syn-red)",
     textAlign: "center" as const,
     padding: "8px 0",
   },
   inlineError: {
     fontSize: 13,
-    color: "#f85149",
+    color: "var(--syn-red)",
     margin: 0,
     padding: "6px 8px",
-    background: "#1a0f0f",
-    border: "1px solid #f8514940",
-    borderRadius: 4,
+    background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
+    border: "1px solid color-mix(in srgb, var(--syn-red) 25%, transparent 75%)",
+    borderRadius: "var(--syn-radius-sm)",
   },
 };
 
@@ -326,7 +326,7 @@ export function CascadeDeleteModal({
               ? t("cascadeDelete.step1Title")
               : t("cascadeDelete.step2Title")}
             {" — "}
-            <span style={{ color: "#8b949e", fontWeight: 400 }}>{title}</span>
+            <span style={{ color: "var(--syn-text-muted)", fontWeight: 400 }}>{title}</span>
           </h2>
           <button
             style={S.closeBtn}
@@ -503,7 +503,7 @@ function PreviewBody({ loading, error, preview, t }: PreviewBodyProps) {
           </p>
         ) : (
           <>
-            <p style={{ margin: 0, fontSize: 12, color: "#8b949e" }}>
+            <p style={{ margin: 0, fontSize: 12, color: "var(--syn-text-muted)" }}>
               {t("cascadeDelete.wikilinksCount", {
                 count: preview.wikilinks_to_rewrite.reduce((s, r) => s + r.occurrences, 0),
               })}
@@ -512,7 +512,7 @@ function PreviewBody({ loading, error, preview, t }: PreviewBodyProps) {
               {preview.wikilinks_to_rewrite.map((r) => (
                 <li key={r.source_page_id}>
                   <code style={S.itemText}>{r.file_path}</code>
-                  <span style={{ color: "#484f58", fontSize: 11, marginLeft: 4 }}>
+                  <span style={{ color: "var(--syn-text-dim)", fontSize: 11, marginLeft: 4 }}>
                     {t("cascadeDelete.occurrences", { n: r.occurrences })}
                   </span>
                 </li>
@@ -525,7 +525,7 @@ function PreviewBody({ loading, error, preview, t }: PreviewBodyProps) {
       {/* ── Index entry ──────────────────────────────────────────────────── */}
       {preview.index_entry_will_be_removed && (
         <div style={S.section} data-testid="cascade-delete-index-removed">
-          <p style={{ ...S.emptyHint, color: "#8b949e", fontStyle: "normal" }}>
+          <p style={{ ...S.emptyHint, color: "var(--syn-text-muted)", fontStyle: "normal" }}>
             {t("cascadeDelete.indexEntryRemoved")}
           </p>
         </div>

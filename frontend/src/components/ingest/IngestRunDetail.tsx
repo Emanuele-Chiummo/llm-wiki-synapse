@@ -34,7 +34,7 @@ export function IngestRunDetail() {
           alignItems: "center",
           justifyContent: "center",
           height: "100%",
-          color: "#484f58",
+          color: "var(--syn-text-dim)",
           fontSize: 13,
           padding: 16,
           textAlign: "center",
@@ -61,14 +61,14 @@ export function IngestRunDetail() {
       <header
         style={{
           padding: "12px 16px",
-          borderBottom: "1px solid #21262d",
+          borderBottom: "1px solid var(--syn-border)",
           flexShrink: 0,
         }}
       >
-        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#e6edf3" }}>
+        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--syn-text)" }}>
           {t("ingest.manifest")}
         </h3>
-        <p style={{ margin: "2px 0 0", fontSize: 11, color: "#8b949e", fontFamily: "monospace" }}>
+        <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--syn-text-muted)", fontFamily: "monospace" }}>
           {run.id.slice(0, 8)}…
         </p>
       </header>
@@ -82,13 +82,13 @@ export function IngestRunDetail() {
         <DetailRow
           label={t("ingest.cost")}
           value={
-            <span style={{ fontFamily: "monospace", color: costAnomaly ? "#f85149" : "#e6edf3" }}>
+            <span style={{ fontFamily: "monospace", color: costAnomaly ? "var(--syn-red)" : "var(--syn-text)" }}>
               {formatCost(run.total_cost_usd)}
               {costAnomaly && (
                 <span
                   aria-label={t("ingest.costAnomaly")}
                   title={t("ingest.costAnomaly")}
-                  style={{ marginLeft: 4, fontSize: 10, color: "#f85149" }}
+                  style={{ marginLeft: 4, fontSize: 10, color: "var(--syn-red)" }}
                 >
                   ⚠
                 </span>
@@ -107,11 +107,11 @@ export function IngestRunDetail() {
               style={{
                 margin: "4px 0 0",
                 padding: 8,
-                background: "#1a1210",
-                border: "1px solid #f8514933",
+                background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
+                border: "1px solid color-mix(in srgb, var(--syn-red) 30%, white 70%)",
                 borderRadius: 4,
                 fontSize: 11,
-                color: "#f85149",
+                color: "var(--syn-red)",
                 fontFamily: "monospace",
                 wordBreak: "break-word",
               }}
@@ -132,7 +132,7 @@ const dtStyle: CSSProperties = {
   fontWeight: 600,
   letterSpacing: "0.04em",
   textTransform: "uppercase",
-  color: "#484f58",
+  color: "var(--syn-text-dim)",
   marginBottom: 2,
 };
 
@@ -140,17 +140,17 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "2px 12px", margin: "0 0 8px" }}>
       <dt style={dtStyle}>{label}</dt>
-      <dd style={{ margin: 0, fontSize: 12, color: "#e6edf3", wordBreak: "break-word" }}>{value}</dd>
+      <dd style={{ margin: 0, fontSize: 12, color: "var(--syn-text)", wordBreak: "break-word" }}>{value}</dd>
     </dl>
   );
 }
 
 function getStatusColor(status: string): string {
   switch (status) {
-    case "running": return "#1f6feb";
-    case "completed": return "#3fb950";
-    case "failed": return "#f85149";
-    case "converged_false": return "#d29922";
-    default: return "#8b949e";
+    case "running": return "var(--syn-accent)";
+    case "completed": return "var(--syn-green)";
+    case "failed": return "var(--syn-red)";
+    case "converged_false": return "var(--syn-amber)";
+    default: return "var(--syn-text-muted)";
   }
 }

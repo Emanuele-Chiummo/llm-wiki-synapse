@@ -30,7 +30,7 @@ export function ThinkBlock({ content, streaming = false }: ThinkBlockProps): Rea
     <div
       style={{
         margin: "0 0 8px 0",
-        border: "1px solid #21262d",
+        border: "1px solid var(--syn-border)",
         borderRadius: 6,
         overflow: "hidden",
         fontSize: 12,
@@ -46,10 +46,10 @@ export function ThinkBlock({ content, streaming = false }: ThinkBlockProps): Rea
           alignItems: "center",
           gap: 6,
           padding: "4px 10px",
-          background: "#161b22",
+          background: "var(--syn-surface-sunken)",
           border: "none",
-          borderBottom: open ? "1px solid #21262d" : "none",
-          color: "#8b949e",
+          borderBottom: open ? "1px solid var(--syn-border)" : "none",
+          color: "var(--syn-text-muted)",
           cursor: "pointer",
           fontSize: 11,
           fontFamily: "inherit",
@@ -79,7 +79,7 @@ export function ThinkBlock({ content, streaming = false }: ThinkBlockProps): Rea
         {streaming && !open && (
           <span
             aria-hidden="true"
-            style={{ marginLeft: "auto", color: "#58a6ff", fontSize: 10 }}
+            style={{ marginLeft: "auto", color: "var(--syn-accent)", fontSize: 10 }}
           >
             {t("chat.thinking")}
           </span>
@@ -90,8 +90,8 @@ export function ThinkBlock({ content, streaming = false }: ThinkBlockProps): Rea
         <div
           style={{
             padding: "8px 10px",
-            background: "#0d1117",
-            color: "#8b949e",
+            background: "var(--syn-surface-sunken)",
+            color: "var(--syn-text-muted)",
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
             fontFamily: "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace",
@@ -110,7 +110,7 @@ export function ThinkBlock({ content, streaming = false }: ThinkBlockProps): Rea
                 display: "inline-block",
                 width: 6,
                 height: 12,
-                background: "#58a6ff",
+                background: "var(--syn-accent)",
                 marginLeft: 2,
                 verticalAlign: "text-bottom",
                 animation: "synapse-blink 1s step-end infinite",

@@ -252,7 +252,7 @@ export function SettingsPanel() {
         display: "flex",
         width: "100%",
         height: "100%",
-        color: "#e6edf3",
+        color: "var(--syn-text)",
         fontSize: 13,
         overflow: "hidden",
       }}
@@ -265,15 +265,15 @@ export function SettingsPanel() {
         style={{
           width: 180,
           flexShrink: 0,
-          background: "#161b22",
-          borderRight: "1px solid #21262d",
+          background: "var(--syn-bg-soft)",
+          borderRight: "1px solid var(--syn-border)",
           display: "flex",
           flexDirection: "column",
           padding: "16px 0",
           overflowY: "auto",
         }}
       >
-        <p style={{ margin: "0 12px 12px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#484f58" }}>
+        <p style={{ margin: "0 12px 12px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--syn-text-dim)" }}>
           {t("settings.title")}
         </p>
         {NAV_ITEMS.map((item, idx) => (
@@ -291,25 +291,25 @@ export function SettingsPanel() {
               width: "100%",
               padding: "7px 12px",
               border: "none",
-              background: activeSection === item.id ? "#1f2937" : "transparent",
-              color: activeSection === item.id ? "#e6edf3" : "#6e7681",
+              background: activeSection === item.id ? "var(--syn-accent-soft)" : "transparent",
+              color: activeSection === item.id ? "var(--syn-text)" : "var(--syn-text-dim)",
               fontSize: 12,
               cursor: "pointer",
               textAlign: "left",
               borderRadius: 0,
-              borderLeft: activeSection === item.id ? "2px solid #1f6feb" : "2px solid transparent",
+              borderLeft: activeSection === item.id ? "2px solid var(--syn-accent)" : "2px solid transparent",
               transition: "background 0.1s ease, color 0.1s ease",
             }}
             onMouseEnter={(e) => {
               if (activeSection !== item.id) {
-                (e.currentTarget as HTMLButtonElement).style.background = "#1a1f27";
-                (e.currentTarget as HTMLButtonElement).style.color = "#8b949e";
+                (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface-hover)";
+                (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-muted)";
               }
             }}
             onMouseLeave={(e) => {
               if (activeSection !== item.id) {
                 (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                (e.currentTarget as HTMLButtonElement).style.color = "#6e7681";
+                (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-dim)";
               }
             }}
           >
@@ -363,7 +363,7 @@ function SectionGeneral() {
       </Field>
 
       <div style={{ marginTop: 24 }}>
-        <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "#8b949e" }}>
+        <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)" }}>
           {t("settings.budgetSplit")}
         </p>
         <BudgetRow label={t("settings.budgetHistory")}    pct={60} tokens={budget.history} />
@@ -436,22 +436,22 @@ function SectionLlmModels() {
       <SectionHeader title={t("settings.nav.llmModels")} desc={t("settings.llmModels.desc")} />
 
       {successMsg && (
-        <div style={{ marginBottom: 12, padding: "6px 12px", background: "#1b2d1b", border: "1px solid #238636", borderRadius: 6, fontSize: 12, color: "#3fb950" }}>
+        <div style={{ marginBottom: 12, padding: "6px 12px", background: "color-mix(in srgb, var(--syn-green) 8%, white 92%)", border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)", borderRadius: 6, fontSize: 12, color: "var(--syn-green)" }}>
           {successMsg}
         </div>
       )}
       {providerError && (
-        <div style={{ marginBottom: 12, padding: "6px 12px", background: "#2d1b1b", border: "1px solid #f85149", borderRadius: 6, fontSize: 12, color: "#f85149" }}>
+        <div style={{ marginBottom: 12, padding: "6px 12px", background: "color-mix(in srgb, var(--syn-red) 8%, white 92%)", border: "1px solid color-mix(in srgb, var(--syn-red) 30%, white 70%)", borderRadius: 6, fontSize: 12, color: "var(--syn-red)" }}>
           {providerError}
         </div>
       )}
 
       {providerLoading && (
-        <p style={{ fontSize: 12, color: "#484f58" }}>{t("common.loading")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("common.loading")}</p>
       )}
 
       {!providerLoading && providerList.length === 0 && (
-        <p style={{ fontSize: 12, color: "#484f58" }}>{t("provider.noProviders")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("provider.noProviders")}</p>
       )}
 
       {/* Provider list */}
@@ -464,33 +464,33 @@ function SectionLlmModels() {
               alignItems: "center",
               gap: 8,
               padding: "10px 12px",
-              border: "1px solid #21262d",
+              border: "1px solid var(--syn-border)",
               borderRadius: 6,
               marginBottom: 6,
-              background: "#161b22",
+              background: "var(--syn-surface)",
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#e6edf3" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text)" }}>
                   {t(`provider.type.${item.provider_type}` as string) || item.provider_type}
                 </span>
-                <span style={{ padding: "1px 6px", borderRadius: 4, background: "#21262d", color: "#8b949e", fontSize: 10 }}>
+                <span style={{ padding: "1px 6px", borderRadius: 4, background: "var(--syn-surface-hover)", color: "var(--syn-text-muted)", fontSize: 10 }}>
                   {t(`provider.scope.${item.scope}`)}
                 </span>
                 {item.is_fallback && (
-                  <span style={{ padding: "1px 6px", borderRadius: 4, background: "#21262d", color: "#484f58", fontSize: 10 }}>
+                  <span style={{ padding: "1px 6px", borderRadius: 4, background: "var(--syn-surface-hover)", color: "var(--syn-text-dim)", fontSize: 10 }}>
                     {t("settings.llmModels.fallback")}
                   </span>
                 )}
               </div>
               {item.model_id && (
-                <p style={{ margin: "3px 0 0", fontSize: 11, color: "#6e7681", fontFamily: "monospace" }}>
+                <p style={{ margin: "3px 0 0", fontSize: 11, color: "var(--syn-text-muted)", fontFamily: "monospace" }}>
                   {item.model_id}
                 </p>
               )}
               {item.base_url && (
-                <p style={{ margin: "2px 0 0", fontSize: 10, color: "#484f58", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <p style={{ margin: "2px 0 0", fontSize: 10, color: "var(--syn-text-dim)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {item.base_url}
                 </p>
               )}
@@ -500,10 +500,10 @@ function SectionLlmModels() {
               title={t("settings.llmModels.delete")}
               style={{
                 padding: "4px 8px",
-                border: "1px solid #f8514933",
+                border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
                 borderRadius: 4,
                 background: "transparent",
-                color: "#f85149",
+                color: "var(--syn-red)",
                 fontSize: 11,
                 cursor: "pointer",
                 flexShrink: 0,
@@ -517,8 +517,8 @@ function SectionLlmModels() {
 
       {/* Add form */}
       {showForm ? (
-        <div style={{ padding: 16, border: "1px solid #21262d", borderRadius: 8, background: "#161b22", marginBottom: 16 }}>
-          <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "#e6edf3" }}>
+        <div style={{ padding: 16, border: "1px solid var(--syn-border)", borderRadius: 8, background: "var(--syn-bg-soft)", marginBottom: 16 }}>
+          <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "var(--syn-text)" }}>
             {t("settings.llmModels.addProvider")}
           </p>
 
@@ -618,9 +618,9 @@ function SectionEmbeddings() {
     <div>
       <SectionHeader title={t("settings.nav.embeddings")} desc={t("settings.embeddings.desc")} />
       {err ? (
-        <p style={{ fontSize: 12, color: "#f85149", margin: "8px 0" }}>{t("settings.embeddings.error")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>{t("settings.embeddings.error")}</p>
       ) : cfg === null ? (
-        <p style={{ fontSize: 12, color: "#6e7681", margin: "8px 0" }}>{t("settings.embeddings.loading")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>{t("settings.embeddings.loading")}</p>
       ) : cfg.embeddings_enabled ? (
         /* ── ENABLED: semantic search active ── */
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -631,21 +631,21 @@ function SectionEmbeddings() {
               alignItems: "center",
               gap: 8,
               padding: "6px 10px",
-              background: "#0f2a1a",
-              border: "1px solid #238636",
+              background: "color-mix(in srgb, var(--syn-green) 8%, white 92%)",
+              border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
               borderRadius: 6,
               fontSize: 12,
-              color: "#3fb950",
+              color: "var(--syn-green)",
               fontWeight: 600,
             }}
           >
-            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "#3fb950", flexShrink: 0, display: "inline-block" }} />
+            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--syn-green)", flexShrink: 0, display: "inline-block" }} />
             {t("settings.embeddings.semanticActive")}
           </div>
           <EmbedRow label={t("settings.embeddings.urlLabel")} value={cfg.embedding_url} mono />
           <EmbedRow label={t("settings.embeddings.modelLabel")} value={cfg.embedding_model} mono />
           <EmbedRow label={t("settings.embeddings.dimLabel")} value={String(cfg.embedding_dim)} />
-          <p style={{ fontSize: 11, color: "#484f58", margin: "4px 0 0", lineHeight: 1.5 }}>
+          <p style={{ fontSize: 11, color: "var(--syn-text-dim)", margin: "4px 0 0", lineHeight: 1.5 }}>
             {t("settings.embeddings.envNote")}
           </p>
         </div>
@@ -659,18 +659,18 @@ function SectionEmbeddings() {
               alignItems: "center",
               gap: 8,
               padding: "6px 10px",
-              background: "#2d1f0e",
-              border: "1px solid #9e6a03",
+              background: "color-mix(in srgb, var(--syn-amber) 8%, white 92%)",
+              border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, white 70%)",
               borderRadius: 6,
               fontSize: 12,
-              color: "#e3b341",
+              color: "var(--syn-amber)",
               fontWeight: 600,
             }}
           >
-            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "#e3b341", flexShrink: 0, display: "inline-block" }} />
+            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--syn-amber)", flexShrink: 0, display: "inline-block" }} />
             {t("settings.embeddings.lexicalOnly")}
           </div>
-          <p style={{ fontSize: 12, color: "#8b949e", margin: 0, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: 0, lineHeight: 1.6 }}>
             {t("settings.embeddings.lexicalOnlyNote")}
           </p>
           {/* URL / model / dim shown dimmed — informational only in lexical mode */}
@@ -683,7 +683,7 @@ function SectionEmbeddings() {
               <EmbedRow label={t("settings.embeddings.dimLabel")} value={String(cfg.embedding_dim)} />
             </div>
           </div>
-          <p style={{ fontSize: 11, color: "#484f58", margin: 0, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 11, color: "var(--syn-text-dim)", margin: 0, lineHeight: 1.5 }}>
             {t("settings.embeddings.envNote")}
           </p>
         </div>
@@ -695,16 +695,16 @@ function SectionEmbeddings() {
 function EmbedRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <span style={{ fontSize: 11, color: "#6e7681" }}>{label}</span>
+      <span style={{ fontSize: 11, color: "var(--syn-text-muted)" }}>{label}</span>
       <span
         style={{
           fontSize: 12,
-          color: "#e6edf3",
+          color: "var(--syn-text)",
           fontFamily: mono ? "monospace" : undefined,
           padding: "5px 8px",
-          background: "#161b22",
+          background: "var(--syn-surface-sunken)",
           borderRadius: 4,
-          border: "1px solid #21262d",
+          border: "1px solid var(--syn-border)",
           wordBreak: "break-all",
         }}
       >
@@ -844,20 +844,20 @@ function SectionWebSearch() {
       <div style={{
         marginBottom: 20,
         padding: "8px 12px",
-        background: "#161b22",
-        border: "1px solid #21262d",
+        background: "var(--syn-bg-soft)",
+        border: "1px solid var(--syn-border)",
         borderRadius: 6,
         fontSize: 11,
-        color: "#6e7681",
+        color: "var(--syn-text-muted)",
         lineHeight: 1.5,
       }}>
         {t("settings.webSearch.searxngOnly")}
       </div>
 
       {err ? (
-        <p style={{ fontSize: 12, color: "#f85149", margin: "8px 0" }}>{t("settings.webSearch.error")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>{t("settings.webSearch.error")}</p>
       ) : cfg === null ? (
-        <p style={{ fontSize: 12, color: "#6e7681", margin: "8px 0" }}>{t("settings.webSearch.loading")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>{t("settings.webSearch.loading")}</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -868,9 +868,9 @@ function SectionWebSearch() {
               style={{
                 padding: "2px 8px",
                 borderRadius: 4,
-                background: cfg.configured ? "#0f2a1a" : "#2d1b1b",
-                border: `1px solid ${cfg.configured ? "#238636" : "#f8514933"}`,
-                color: cfg.configured ? "#3fb950" : "#f85149",
+                background: cfg.configured ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "color-mix(in srgb, var(--syn-red) 8%, white 92%)",
+                border: `1px solid ${cfg.configured ? "color-mix(in srgb, var(--syn-green) 30%, white 70%)" : "color-mix(in srgb, var(--syn-red) 30%, white 70%)"}`,
+                color: cfg.configured ? "var(--syn-green)" : "var(--syn-red)",
                 fontSize: 11,
                 fontWeight: 600,
               }}
@@ -882,8 +882,8 @@ function SectionWebSearch() {
               style={{
                 padding: "2px 8px",
                 borderRadius: 4,
-                background: "#21262d",
-                color: "#8b949e",
+                background: "var(--syn-surface-hover)",
+                color: "var(--syn-text-muted)",
                 fontSize: 11,
               }}
             >
@@ -894,7 +894,7 @@ function SectionWebSearch() {
           {/* URL field */}
           <div>
             <Field label={t("settings.webSearch.urlLabel")}>
-              <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+              <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
                 {t("settings.webSearch.urlHelp")}
               </p>
               <div style={{ display: "flex", gap: 8 }}>
@@ -921,7 +921,7 @@ function SectionWebSearch() {
                 </button>
               </div>
               {urlError && (
-                <p style={{ margin: "4px 0 0", fontSize: 11, color: "#f85149" }}>{urlError}</p>
+                <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--syn-red)" }}>{urlError}</p>
               )}
             </Field>
           </div>
@@ -929,7 +929,7 @@ function SectionWebSearch() {
           {/* Categories field */}
           <div>
             <Field label={t("settings.webSearch.categoriesLabel")}>
-              <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+              <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
                 {t("settings.webSearch.categoriesHelp")}
               </p>
               <div style={{ display: "flex", gap: 8 }}>
@@ -961,7 +961,7 @@ function SectionWebSearch() {
           {/* Max queries field */}
           <div>
             <Field label={t("settings.webSearch.maxQueriesLabel")}>
-              <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+              <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
                 {t("settings.webSearch.maxQueriesHelp")}
               </p>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -991,8 +991,8 @@ function SectionWebSearch() {
           </div>
 
           {/* Clear all DB overrides */}
-          <div style={{ paddingTop: 8, borderTop: "1px solid #21262d" }}>
-            <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+          <div style={{ paddingTop: 8, borderTop: "1px solid var(--syn-border)" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
               {t("settings.webSearch.clearHelp")}
             </p>
             <button
@@ -1001,10 +1001,10 @@ function SectionWebSearch() {
               disabled={busy}
               style={{
                 padding: "6px 14px",
-                border: "1px solid #f8514933",
+                border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
                 borderRadius: 6,
                 background: "transparent",
-                color: "#f85149",
+                color: "var(--syn-red)",
                 fontSize: 12,
                 cursor: busy ? "not-allowed" : "pointer",
                 fontWeight: 500,
@@ -1251,11 +1251,11 @@ function SectionApiMcp() {
       <SectionHeader title={t("settings.nav.apiMcp")} desc={t("settings.apiMcp.desc")} />
 
       {err ? (
-        <p style={{ fontSize: 12, color: "#f85149", margin: "8px 0" }}>
+        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>
           {t("settings.apiMcp.error")}
         </p>
       ) : info === null ? (
-        <p style={{ fontSize: 12, color: "#6e7681", margin: "8px 0" }}>
+        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>
           {t("settings.apiMcp.loading")}
         </p>
       ) : (
@@ -1263,7 +1263,7 @@ function SectionApiMcp() {
 
           {/* ── Access sub-block — ADR-0033 §2.6 ── */}
           <div>
-            <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               {t("settings.apiMcp.access.title")}
             </p>
 
@@ -1271,8 +1271,8 @@ function SectionApiMcp() {
             <div
               style={{
                 padding: "10px 14px",
-                background: "#161b22",
-                border: "1px solid #21262d",
+                background: "var(--syn-bg-soft)",
+                border: "1px solid var(--syn-border)",
                 borderRadius: 8,
                 marginBottom: 10,
               }}
@@ -1285,14 +1285,14 @@ function SectionApiMcp() {
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: tokenConfigured ? "#3fb950" : "#484f58",
+                    background: tokenConfigured ? "var(--syn-green)" : "var(--syn-text-dim)",
                     flexShrink: 0,
                     display: "inline-block",
                   }}
                 />
                 <span
                   data-testid="mcp-token-posture"
-                  style={{ fontSize: 12, fontWeight: 600, color: tokenConfigured ? "#3fb950" : "#484f58" }}
+                  style={{ fontSize: 12, fontWeight: 600, color: tokenConfigured ? "var(--syn-green)" : "var(--syn-text-dim)" }}
                 >
                   {t(tokenPostureKey)}
                 </span>
@@ -1323,10 +1323,10 @@ function SectionApiMcp() {
                     disabled={authBusy}
                     style={{
                       padding: "6px 14px",
-                      border: "1px solid #f8514933",
+                      border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
                       borderRadius: 6,
                       background: "transparent",
-                      color: "#f85149",
+                      color: "var(--syn-red)",
                       fontSize: 12,
                       cursor: authBusy ? "not-allowed" : "pointer",
                       fontWeight: 500,
@@ -1344,13 +1344,13 @@ function SectionApiMcp() {
               <div
                 style={{
                   padding: "12px 14px",
-                  background: "#0f2a1a",
-                  border: "1px solid #238636",
+                  background: "color-mix(in srgb, var(--syn-green) 8%, white 92%)",
+                  border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
                   borderRadius: 8,
                   marginBottom: 10,
                 }}
               >
-                <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "#3fb950" }}>
+                <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "var(--syn-green)" }}>
                   {t("settings.apiMcp.access.revealWarning")}
                 </p>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1360,10 +1360,10 @@ function SectionApiMcp() {
                       flex: 1,
                       fontFamily: "monospace",
                       fontSize: 12,
-                      color: "#e6edf3",
+                      color: "var(--syn-text)",
                       padding: "6px 10px",
-                      background: "#0d1117",
-                      border: "1px solid #238636",
+                      background: "var(--syn-bg)",
+                      border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
                       borderRadius: 4,
                       wordBreak: "break-all",
                       userSelect: "all",
@@ -1376,10 +1376,10 @@ function SectionApiMcp() {
                     onClick={handleCopyGeneratedToken}
                     style={{
                       padding: "6px 12px",
-                      border: "1px solid #238636",
+                      border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
                       borderRadius: 4,
-                      background: copiedGenToken ? "#238636" : "transparent",
-                      color: copiedGenToken ? "#fff" : "#3fb950",
+                      background: copiedGenToken ? "var(--syn-green)" : "transparent",
+                      color: copiedGenToken ? "#fff" : "var(--syn-green)",
                       fontSize: 11,
                       cursor: "pointer",
                       flexShrink: 0,
@@ -1395,10 +1395,10 @@ function SectionApiMcp() {
                   style={{
                     marginTop: 8,
                     padding: "4px 10px",
-                    border: "1px solid #21262d",
+                    border: "1px solid var(--syn-border)",
                     borderRadius: 4,
                     background: "transparent",
-                    color: "#6e7681",
+                    color: "var(--syn-text-muted)",
                     fontSize: 11,
                     cursor: "pointer",
                   }}
@@ -1415,8 +1415,8 @@ function SectionApiMcp() {
                 alignItems: "flex-start",
                 gap: 12,
                 padding: "10px 14px",
-                background: "#161b22",
-                border: `1px solid ${allowWithoutToken ? "#9e6a03" : "#21262d"}`,
+                background: "var(--syn-bg-soft)",
+                border: `1px solid ${allowWithoutToken ? "color-mix(in srgb, var(--syn-amber) 30%, white 70%)" : "var(--syn-border)"}`,
                 borderRadius: 8,
                 opacity: authBusy ? 0.6 : 1,
                 transition: "border-color 0.15s, opacity 0.15s",
@@ -1444,8 +1444,8 @@ function SectionApiMcp() {
                       width: 36,
                       height: 20,
                       borderRadius: 10,
-                      background: allowWithoutToken ? "#9e6a03" : "#21262d",
-                      border: `1px solid ${allowWithoutToken ? "#e3b341" : "#484f58"}`,
+                      background: allowWithoutToken ? "var(--syn-amber)" : "var(--syn-border)",
+                      border: `1px solid ${allowWithoutToken ? "var(--syn-amber)" : "var(--syn-border-subtle)"}`,
                       transition: "background 0.15s, border-color 0.15s",
                     }}
                   />
@@ -1459,19 +1459,19 @@ function SectionApiMcp() {
                       width: 14,
                       height: 14,
                       borderRadius: "50%",
-                      background: allowWithoutToken ? "#e3b341" : "#6e7681",
+                      background: allowWithoutToken ? "#fff" : "var(--syn-text-dim)",
                       transition: "left 0.15s, background 0.15s",
                     }}
                   />
                 </span>
                 <div>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: allowWithoutToken ? "#e3b341" : "#8b949e" }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: allowWithoutToken ? "var(--syn-amber)" : "var(--syn-text-muted)" }}>
                     {t("settings.apiMcp.access.allowWithoutTokenLabel")}
                   </span>
                   {/* Security caveat — always visible for this switch (ADR-0033 §2.3) */}
                   <p
                     data-testid="mcp-allow-without-token-caveat"
-                    style={{ margin: "4px 0 0", fontSize: 11, color: "#9e6a03", lineHeight: 1.5 }}
+                    style={{ margin: "4px 0 0", fontSize: 11, color: "var(--syn-amber)", lineHeight: 1.5 }}
                   >
                     {t("settings.apiMcp.access.allowWithoutTokenCaveat")}
                   </p>
@@ -1482,7 +1482,7 @@ function SectionApiMcp() {
 
           {/* ── Remote (claude.ai) sub-section — ADR-0032 §2.7 ── */}
           <div>
-            <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               {t("settings.apiMcp.remote.title")}
             </p>
 
@@ -1493,8 +1493,8 @@ function SectionApiMcp() {
                 alignItems: "center",
                 gap: 12,
                 padding: "10px 14px",
-                background: "#161b22",
-                border: `1px solid ${remoteEnabled ? "#1f6feb" : "#21262d"}`,
+                background: "var(--syn-bg-soft)",
+                border: `1px solid ${remoteEnabled ? "var(--syn-accent)" : "var(--syn-border)"}`,
                 borderRadius: 8,
                 marginBottom: 10,
                 opacity: toggleBusy ? 0.6 : 1,
@@ -1525,8 +1525,8 @@ function SectionApiMcp() {
                       width: 36,
                       height: 20,
                       borderRadius: 10,
-                      background: remoteEnabled ? "#1f6feb" : "#21262d",
-                      border: `1px solid ${remoteEnabled ? "#1f6feb" : "#484f58"}`,
+                      background: remoteEnabled ? "var(--syn-accent)" : "var(--syn-border)",
+                      border: `1px solid ${remoteEnabled ? "var(--syn-accent)" : "var(--syn-border-subtle)"}`,
                       transition: "background 0.15s, border-color 0.15s",
                     }}
                   />
@@ -1540,18 +1540,18 @@ function SectionApiMcp() {
                       width: 14,
                       height: 14,
                       borderRadius: "50%",
-                      background: remoteEnabled ? "#fff" : "#6e7681",
+                      background: remoteEnabled ? "#fff" : "var(--syn-text-dim)",
                       transition: "left 0.15s, background 0.15s",
                     }}
                   />
                 </span>
                 <div>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: remoteEnabled ? "#e6edf3" : "#8b949e" }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: remoteEnabled ? "var(--syn-text)" : "var(--syn-text-muted)" }}>
                     {t("settings.apiMcp.remote.enabledLabel")}
                   </span>
                   {/* No-token note rendered inline when neither token nor allow is configured */}
                   {!canEnableRemote && (
-                    <p style={{ margin: "3px 0 0", fontSize: 11, color: "#9e6a03", lineHeight: 1.5 }}>
+                    <p style={{ margin: "3px 0 0", fontSize: 11, color: "var(--syn-amber)", lineHeight: 1.5 }}>
                       {t("settings.apiMcp.remote.noTokenNote")}
                     </p>
                   )}
@@ -1564,8 +1564,8 @@ function SectionApiMcp() {
                   style={{
                     padding: "2px 8px",
                     borderRadius: 4,
-                    background: remoteWrite ? "#1b2d1b" : "#21262d",
-                    color: remoteWrite ? "#3fb950" : "#8b949e",
+                    background: remoteWrite ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "var(--syn-surface-hover)",
+                    color: remoteWrite ? "var(--syn-green)" : "var(--syn-text-muted)",
                     fontSize: 10,
                     fontWeight: 600,
                     letterSpacing: "0.04em",
@@ -1581,7 +1581,7 @@ function SectionApiMcp() {
             {remoteEnabled && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
                 <div>
-                  <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681" }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)" }}>
                     {t("settings.apiMcp.remote.urlLabel")}
                   </p>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1591,10 +1591,10 @@ function SectionApiMcp() {
                         flex: 1,
                         fontFamily: "monospace",
                         fontSize: 12,
-                        color: "#58a6ff",
+                        color: "var(--syn-accent)",
                         padding: "5px 8px",
-                        background: "#0d1117",
-                        border: "1px solid #1f6feb44",
+                        background: "var(--syn-accent-soft)",
+                        border: "1px solid color-mix(in srgb, var(--syn-accent) 30%, white 70%)",
                         borderRadius: 4,
                         wordBreak: "break-all",
                       }}
@@ -1606,10 +1606,10 @@ function SectionApiMcp() {
                       onClick={handleCopyRemoteUrl}
                       style={{
                         padding: "5px 10px",
-                        border: "1px solid #21262d",
+                        border: "1px solid var(--syn-border)",
                         borderRadius: 4,
-                        background: copiedRemote ? "#1b2d1b" : "transparent",
-                        color: copiedRemote ? "#3fb950" : "#6e7681",
+                        background: copiedRemote ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "transparent",
+                        color: copiedRemote ? "var(--syn-green)" : "var(--syn-text-muted)",
                         fontSize: 11,
                         cursor: "pointer",
                         flexShrink: 0,
@@ -1623,7 +1623,7 @@ function SectionApiMcp() {
 
                 {/* claude.ai remote-MCP connection snippet — mirrors Desktop snippet style (ADR-0032 §2.7) */}
                 <div>
-                  <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681" }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)" }}>
                     {t("settings.apiMcp.remote.snippetLabel")}
                   </p>
                   <div
@@ -1631,11 +1631,11 @@ function SectionApiMcp() {
                     style={{
                       fontFamily: "monospace",
                       fontSize: 11,
-                      background: "#0d1117",
-                      border: "1px solid #21262d",
+                      background: "var(--syn-surface-sunken)",
+                      border: "1px solid var(--syn-border)",
                       borderRadius: 6,
                       padding: "10px 12px",
-                      color: "#8b949e",
+                      color: "var(--syn-text-muted)",
                       whiteSpace: "pre",
                       overflowX: "auto",
                       marginBottom: 6,
@@ -1648,10 +1648,10 @@ function SectionApiMcp() {
                     onClick={handleCopyRemoteSnippet}
                     style={{
                       padding: "5px 12px",
-                      border: "1px solid #21262d",
+                      border: "1px solid var(--syn-border)",
                       borderRadius: 6,
-                      background: copiedRemoteSnippet ? "#1b2d1b" : "transparent",
-                      color: copiedRemoteSnippet ? "#3fb950" : "#6e7681",
+                      background: copiedRemoteSnippet ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "transparent",
+                      color: copiedRemoteSnippet ? "var(--syn-green)" : "var(--syn-text-muted)",
                       fontSize: 11,
                       cursor: "pointer",
                       transition: "background 0.15s, color 0.15s",
@@ -1666,7 +1666,7 @@ function SectionApiMcp() {
 
           {/* ── Connection sub-section (stdio — read-only, ADR-0027) ── */}
           <div>
-            <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               {t("settings.apiMcp.connectionTitle")}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1680,11 +1680,11 @@ function SectionApiMcp() {
                 style={{
                   fontFamily: "monospace",
                   fontSize: 11,
-                  background: "#0d1117",
-                  border: "1px solid #21262d",
+                  background: "var(--syn-surface-sunken)",
+                  border: "1px solid var(--syn-border)",
                   borderRadius: 6,
                   padding: "10px 12px",
-                  color: "#8b949e",
+                  color: "var(--syn-text-muted)",
                   whiteSpace: "pre",
                   overflowX: "auto",
                   marginBottom: 8,
@@ -1698,10 +1698,10 @@ function SectionApiMcp() {
                 data-testid="mcp-copy-btn"
                 style={{
                   padding: "5px 12px",
-                  border: "1px solid #21262d",
+                  border: "1px solid var(--syn-border)",
                   borderRadius: 6,
-                  background: copied ? "#1b2d1b" : "transparent",
-                  color: copied ? "#3fb950" : "#6e7681",
+                  background: copied ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "transparent",
+                  color: copied ? "var(--syn-green)" : "var(--syn-text-muted)",
                   fontSize: 11,
                   cursor: "pointer",
                   transition: "background 0.15s, color 0.15s",
@@ -1714,9 +1714,9 @@ function SectionApiMcp() {
 
           {/* ── Tools sub-section — rendered from info.tools, nothing hardcoded (I6/I9) ── */}
           <div>
-            <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               {t("settings.apiMcp.toolsTitle")}
-              <span style={{ marginLeft: 8, fontWeight: 400, textTransform: "none", color: "#484f58" }}>
+              <span style={{ marginLeft: 8, fontWeight: 400, textTransform: "none", color: "var(--syn-text-dim)" }}>
                 ({info.tool_count})
               </span>
             </p>
@@ -1731,30 +1731,31 @@ function SectionApiMcp() {
                   <div
                     key={tool.name}
                     data-testid={`mcp-tool-row-${tool.name}`}
+                    className="settings-mcp-tool-row"
                     style={{
                       display: "grid",
                       gridTemplateColumns: "140px 1fr auto",
                       gap: 10,
                       alignItems: "center",
                       padding: "8px 12px",
-                      background: "#161b22",
-                      border: "1px solid #21262d",
+                      background: "var(--syn-bg-soft)",
+                      border: "1px solid var(--syn-border)",
                       borderRadius: 6,
                     }}
                   >
                     <span
                       data-testid={`mcp-tool-name-${tool.name}`}
-                      style={{ fontFamily: "monospace", fontSize: 12, color: "#e6edf3", fontWeight: 600 }}
+                      style={{ fontFamily: "monospace", fontSize: 12, color: "var(--syn-text)", fontWeight: 600 }}
                     >
                       {tool.name}
                     </span>
-                    <span style={{ fontSize: 12, color: "#6e7681", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ fontSize: 12, color: "var(--syn-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {truncated}
                     </span>
                     <span
                       data-testid={`mcp-tool-params-${tool.name}`}
                       data-param-count={paramCount}
-                      style={{ fontSize: 11, color: "#484f58", whiteSpace: "nowrap" }}
+                      style={{ fontSize: 11, color: "var(--syn-text-dim)", whiteSpace: "nowrap" }}
                     >
                       {t("settings.apiMcp.paramCount", { count: paramCount })}
                     </span>
@@ -1841,14 +1842,14 @@ function SectionCliAuth() {
 
   return (
     <div data-testid="cli-auth-section">
-      <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
         {t("settings.cliAuth.title")}
       </p>
 
       {err ? (
-        <p style={{ fontSize: 12, color: "#f85149", margin: "8px 0" }}>{t("settings.cliAuth.error")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>{t("settings.cliAuth.error")}</p>
       ) : posture === null ? (
-        <p style={{ fontSize: 12, color: "#6e7681", margin: "8px 0" }}>{t("settings.cliAuth.loading")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>{t("settings.cliAuth.loading")}</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
@@ -1859,9 +1860,9 @@ function SectionCliAuth() {
               style={{
                 padding: "2px 8px",
                 borderRadius: 4,
-                background: posture.token_configured ? "#0f2a1a" : "#2d1b1b",
-                border: `1px solid ${posture.token_configured ? "#238636" : "#f8514933"}`,
-                color: posture.token_configured ? "#3fb950" : "#f85149",
+                background: posture.token_configured ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "color-mix(in srgb, var(--syn-red) 8%, white 92%)",
+                border: `1px solid ${posture.token_configured ? "color-mix(in srgb, var(--syn-green) 30%, white 70%)" : "color-mix(in srgb, var(--syn-red) 30%, white 70%)"}`,
+                color: posture.token_configured ? "var(--syn-green)" : "var(--syn-red)",
                 fontSize: 11,
                 fontWeight: 600,
               }}
@@ -1872,7 +1873,7 @@ function SectionCliAuth() {
             </span>
             <span
               data-testid="cli-auth-source-badge"
-              style={{ padding: "2px 8px", borderRadius: 4, background: "#21262d", color: "#8b949e", fontSize: 11 }}
+              style={{ padding: "2px 8px", borderRadius: 4, background: "var(--syn-surface-hover)", color: "var(--syn-text-muted)", fontSize: 11 }}
             >
               {t("settings.cliAuth.sourceBadge", { source: posture.token_source })}
             </span>
@@ -1881,8 +1882,8 @@ function SectionCliAuth() {
               style={{
                 padding: "2px 8px",
                 borderRadius: 4,
-                background: posture.auth_mode === "subscription" ? "#0f2a1a" : "#21262d",
-                color: posture.auth_mode === "subscription" ? "#3fb950" : "#8b949e",
+                background: posture.auth_mode === "subscription" ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "var(--syn-surface-hover)",
+                color: posture.auth_mode === "subscription" ? "var(--syn-green)" : "var(--syn-text-muted)",
                 fontSize: 11,
               }}
             >
@@ -1892,10 +1893,10 @@ function SectionCliAuth() {
 
           {/* Password input + Save + Clear */}
           <div>
-            <label style={{ display: "block", marginBottom: 6, fontSize: 12, fontWeight: 600, color: "#8b949e" }}>
+            <label style={{ display: "block", marginBottom: 6, fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)" }}>
               {t("settings.cliAuth.tokenLabel")}
             </label>
-            <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+            <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
               {t("settings.cliAuth.tokenHelp")}
             </p>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -1928,10 +1929,10 @@ function SectionCliAuth() {
                   disabled={busy}
                   style={{
                     padding: "6px 14px",
-                    border: "1px solid #f8514933",
+                    border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
                     borderRadius: 6,
                     background: "transparent",
-                    color: "#f85149",
+                    color: "var(--syn-red)",
                     fontSize: 12,
                     cursor: busy ? "not-allowed" : "pointer",
                     fontWeight: 500,
@@ -1944,7 +1945,7 @@ function SectionCliAuth() {
               )}
             </div>
             {saveErr && (
-              <p style={{ margin: "4px 0 0", fontSize: 11, color: "#f85149" }}>{saveErr}</p>
+              <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--syn-red)" }}>{saveErr}</p>
             )}
           </div>
 
@@ -1953,15 +1954,15 @@ function SectionCliAuth() {
             data-testid="cli-auth-guide"
             style={{
               padding: "10px 14px",
-              background: "#161b22",
-              border: "1px solid #21262d",
+              background: "var(--syn-bg-soft)",
+              border: "1px solid var(--syn-border)",
               borderRadius: 8,
               fontSize: 11,
-              color: "#6e7681",
+              color: "var(--syn-text-muted)",
               lineHeight: 1.7,
             }}
           >
-            <p style={{ margin: "0 0 6px", fontWeight: 600, color: "#8b949e" }}>
+            <p style={{ margin: "0 0 6px", fontWeight: 600, color: "var(--syn-text-muted)" }}>
               {t("settings.cliAuth.guideTitle")}
             </p>
             <p style={{ margin: 0, whiteSpace: "pre-line" }}>
@@ -1974,11 +1975,11 @@ function SectionCliAuth() {
             data-testid="cli-auth-caveat"
             style={{
               padding: "8px 12px",
-              background: "#2d1f0e",
-              border: "1px solid #9e6a03",
+              background: "color-mix(in srgb, var(--syn-amber) 8%, white 92%)",
+              border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, white 70%)",
               borderRadius: 6,
               fontSize: 11,
-              color: "#9e6a03",
+              color: "var(--syn-amber)",
               lineHeight: 1.5,
             }}
           >
@@ -2149,9 +2150,9 @@ function SectionWebClipper() {
       <SectionHeader title={t("settings.nav.webClipper")} desc={t("settings.webClipper.desc")} />
 
       {err ? (
-        <p style={{ fontSize: 12, color: "#f85149", margin: "8px 0" }}>{t("settings.webClipper.error")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>{t("settings.webClipper.error")}</p>
       ) : cfg === null ? (
-        <p style={{ fontSize: 12, color: "#6e7681", margin: "8px 0" }}>{t("settings.webClipper.loading")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>{t("settings.webClipper.loading")}</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
@@ -2163,8 +2164,8 @@ function SectionWebClipper() {
                 alignItems: "center",
                 gap: 12,
                 padding: "10px 14px",
-                background: "#161b22",
-                border: `1px solid ${enabled ? "#1f6feb" : "#21262d"}`,
+                background: "var(--syn-bg-soft)",
+                border: `1px solid ${enabled ? "var(--syn-accent)" : "var(--syn-border)"}`,
                 borderRadius: 8,
                 opacity: enableBusy ? 0.6 : 1,
                 transition: "border-color 0.15s, opacity 0.15s",
@@ -2190,8 +2191,8 @@ function SectionWebClipper() {
                       width: 36,
                       height: 20,
                       borderRadius: 10,
-                      background: enabled ? "#1f6feb" : "#21262d",
-                      border: `1px solid ${enabled ? "#1f6feb" : "#484f58"}`,
+                      background: enabled ? "var(--syn-accent)" : "var(--syn-border)",
+                      border: `1px solid ${enabled ? "var(--syn-accent)" : "var(--syn-border-subtle)"}`,
                       transition: "background 0.15s, border-color 0.15s",
                     }}
                   />
@@ -2205,16 +2206,16 @@ function SectionWebClipper() {
                       width: 14,
                       height: 14,
                       borderRadius: "50%",
-                      background: enabled ? "#fff" : "#6e7681",
+                      background: enabled ? "#fff" : "var(--syn-text-dim)",
                       transition: "left 0.15s, background 0.15s",
                     }}
                   />
                 </span>
                 <div>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: enabled ? "#e6edf3" : "#8b949e" }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: enabled ? "var(--syn-text)" : "var(--syn-text-muted)" }}>
                     {t("settings.webClipper.enabledLabel")}
                   </span>
-                  <p style={{ margin: "3px 0 0", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+                  <p style={{ margin: "3px 0 0", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
                     {t("settings.webClipper.enabledHelp")}
                   </p>
                 </div>
@@ -2224,7 +2225,7 @@ function SectionWebClipper() {
 
           {/* ── Token sub-block (mirrors SectionApiMcp Access sub-block) ── */}
           <div>
-            <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               {t("settings.webClipper.tokenTitle")}
             </p>
 
@@ -2232,8 +2233,8 @@ function SectionWebClipper() {
             <div
               style={{
                 padding: "10px 14px",
-                background: "#161b22",
-                border: "1px solid #21262d",
+                background: "var(--syn-bg-soft)",
+                border: "1px solid var(--syn-border)",
                 borderRadius: 8,
                 marginBottom: 10,
               }}
@@ -2246,14 +2247,14 @@ function SectionWebClipper() {
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: tokenConfigured ? "#3fb950" : "#484f58",
+                    background: tokenConfigured ? "var(--syn-green)" : "var(--syn-text-dim)",
                     flexShrink: 0,
                     display: "inline-block",
                   }}
                 />
                 <span
                   data-testid="clip-token-posture"
-                  style={{ fontSize: 12, fontWeight: 600, color: tokenConfigured ? "#3fb950" : "#484f58" }}
+                  style={{ fontSize: 12, fontWeight: 600, color: tokenConfigured ? "var(--syn-green)" : "var(--syn-text-dim)" }}
                 >
                   {t(tokenPostureKey)}
                 </span>
@@ -2284,10 +2285,10 @@ function SectionWebClipper() {
                     disabled={authBusy}
                     style={{
                       padding: "6px 14px",
-                      border: "1px solid #f8514933",
+                      border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
                       borderRadius: 6,
                       background: "transparent",
-                      color: "#f85149",
+                      color: "var(--syn-red)",
                       fontSize: 12,
                       cursor: authBusy ? "not-allowed" : "pointer",
                       fontWeight: 500,
@@ -2305,13 +2306,13 @@ function SectionWebClipper() {
               <div
                 style={{
                   padding: "12px 14px",
-                  background: "#0f2a1a",
-                  border: "1px solid #238636",
+                  background: "color-mix(in srgb, var(--syn-green) 8%, white 92%)",
+                  border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
                   borderRadius: 8,
                   marginBottom: 10,
                 }}
               >
-                <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "#3fb950" }}>
+                <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "var(--syn-green)" }}>
                   {t("settings.webClipper.revealWarning")}
                 </p>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2321,10 +2322,10 @@ function SectionWebClipper() {
                       flex: 1,
                       fontFamily: "monospace",
                       fontSize: 12,
-                      color: "#e6edf3",
+                      color: "var(--syn-text)",
                       padding: "6px 10px",
-                      background: "#0d1117",
-                      border: "1px solid #238636",
+                      background: "var(--syn-bg)",
+                      border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
                       borderRadius: 4,
                       wordBreak: "break-all",
                       userSelect: "all",
@@ -2337,10 +2338,10 @@ function SectionWebClipper() {
                     onClick={handleCopyGeneratedToken}
                     style={{
                       padding: "6px 12px",
-                      border: "1px solid #238636",
+                      border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
                       borderRadius: 4,
-                      background: copiedGenToken ? "#238636" : "transparent",
-                      color: copiedGenToken ? "#fff" : "#3fb950",
+                      background: copiedGenToken ? "var(--syn-green)" : "transparent",
+                      color: copiedGenToken ? "#fff" : "var(--syn-green)",
                       fontSize: 11,
                       cursor: "pointer",
                       flexShrink: 0,
@@ -2356,10 +2357,10 @@ function SectionWebClipper() {
                   style={{
                     marginTop: 8,
                     padding: "4px 10px",
-                    border: "1px solid #21262d",
+                    border: "1px solid var(--syn-border)",
                     borderRadius: 4,
                     background: "transparent",
-                    color: "#6e7681",
+                    color: "var(--syn-text-muted)",
                     fontSize: 11,
                     cursor: "pointer",
                   }}
@@ -2373,7 +2374,7 @@ function SectionWebClipper() {
           {/* ── Allowed origins field ── */}
           <div>
             <Field label={t("settings.webClipper.originsLabel")}>
-              <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+              <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
                 {t("settings.webClipper.originsHelp")}
               </p>
               <div style={{ display: "flex", gap: 8 }}>
@@ -2409,8 +2410,8 @@ function SectionWebClipper() {
                       style={{
                         padding: "2px 8px",
                         borderRadius: 4,
-                        background: "#21262d",
-                        color: "#8b949e",
+                        background: "var(--syn-surface-hover)",
+                        color: "var(--syn-text-muted)",
                         fontSize: 11,
                         fontFamily: "monospace",
                       }}
@@ -2425,7 +2426,7 @@ function SectionWebClipper() {
 
           {/* ── Clip endpoint URL (read-only — paste into extension Options) ── */}
           <div>
-            <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 600, color: "#8b949e" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)" }}>
               {t("settings.webClipper.extensionUrlLabel")}
             </p>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2435,10 +2436,10 @@ function SectionWebClipper() {
                   flex: 1,
                   fontFamily: "monospace",
                   fontSize: 12,
-                  color: "#58a6ff",
+                  color: "var(--syn-accent)",
                   padding: "5px 8px",
-                  background: "#0d1117",
-                  border: "1px solid #1f6feb44",
+                  background: "var(--syn-accent-soft)",
+                  border: "1px solid color-mix(in srgb, var(--syn-accent) 30%, white 70%)",
                   borderRadius: 4,
                   wordBreak: "break-all",
                 }}
@@ -2450,10 +2451,10 @@ function SectionWebClipper() {
                 onClick={handleCopyClipUrl}
                 style={{
                   padding: "5px 10px",
-                  border: "1px solid #21262d",
+                  border: "1px solid var(--syn-border)",
                   borderRadius: 4,
-                  background: copiedUrl ? "#1b2d1b" : "transparent",
-                  color: copiedUrl ? "#3fb950" : "#6e7681",
+                  background: copiedUrl ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "transparent",
+                  color: copiedUrl ? "var(--syn-green)" : "var(--syn-text-muted)",
                   fontSize: 11,
                   cursor: "pointer",
                   flexShrink: 0,
@@ -2463,7 +2464,7 @@ function SectionWebClipper() {
                 {copiedUrl ? t("settings.webClipper.copied") : t("common.copy")}
               </button>
             </div>
-            <p style={{ margin: "6px 0 0", fontSize: 11, color: "#484f58", lineHeight: 1.5 }}>
+            <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--syn-text-dim)", lineHeight: 1.5 }}>
               {t("settings.webClipper.extensionHint")}
             </p>
           </div>
@@ -2512,10 +2513,10 @@ function SectionOutput() {
               aria-pressed={language === lang}
               style={{
                 padding: "6px 16px",
-                border: "1px solid #21262d",
+                border: "1px solid var(--syn-border)",
                 borderRadius: 6,
-                background: language === lang ? "#1f6feb22" : "transparent",
-                color: language === lang ? "#58a6ff" : "#6e7681",
+                background: language === lang ? "var(--syn-accent-soft)" : "transparent",
+                color: language === lang ? "var(--syn-accent)" : "var(--syn-text-muted)",
                 fontSize: 12,
                 cursor: "pointer",
                 fontWeight: language === lang ? 600 : 400,
@@ -2528,7 +2529,7 @@ function SectionOutput() {
       </Field>
 
       <Field label={t("settings.output.convHistoryTitle")}>
-        <p style={{ margin: "0 0 10px", fontSize: 12, color: "#6e7681" }}>
+        <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--syn-text-muted)" }}>
           {t("settings.output.convHistoryDesc")}
         </p>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -2540,21 +2541,21 @@ function SectionOutput() {
               style={{
                 width: 40,
                 height: 40,
-                border: "1px solid #21262d",
+                border: "1px solid var(--syn-border)",
                 borderRadius: 8,
-                background: convHistory === n ? "#1f2937" : "transparent",
-                color: convHistory === n ? "#e6edf3" : "#6e7681",
+                background: convHistory === n ? "var(--syn-accent-soft)" : "transparent",
+                color: convHistory === n ? "var(--syn-accent)" : "var(--syn-text-muted)",
                 fontSize: 13,
                 fontWeight: convHistory === n ? 600 : 400,
                 cursor: "pointer",
-                outline: convHistory === n ? "1px solid #1f6feb" : "none",
+                outline: convHistory === n ? `1px solid var(--syn-accent)` : "none",
               }}
             >
               {n}
             </button>
           ))}
         </div>
-        <p style={{ margin: "8px 0 0", fontSize: 11, color: "#484f58" }}>
+        <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--syn-text-dim)" }}>
           {t("settings.output.convHistoryLabel", { count: convHistory, turns })}
         </p>
       </Field>
@@ -2592,24 +2593,24 @@ function SectionMaintenance() {
       <SectionHeader title={t("settings.nav.maintenance")} desc={t("settings.maintenance.desc")} />
 
       {/* Detect duplicates */}
-      <div style={{ padding: 16, border: "1px solid #21262d", borderRadius: 8, background: "#161b22", marginBottom: 20 }}>
+      <div style={{ padding: 16, border: "1px solid var(--syn-border)", borderRadius: 8, background: "var(--syn-bg-soft)", marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
           <span style={{ marginTop: 1, opacity: 0.6 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b949e" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
             </svg>
           </span>
           <div style={{ flex: 1 }}>
-            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "#e6edf3" }}>
+            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "var(--syn-text)" }}>
               {t("settings.maintenance.duplicates")}
             </p>
-            <p style={{ margin: "0 0 12px", fontSize: 12, color: "#6e7681", lineHeight: 1.5 }}>
+            <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
               {t("settings.maintenance.duplicatesDesc")}
             </p>
             <button disabled style={{ ...BTN_PRIMARY, opacity: 0.4, cursor: "not-allowed" }}>
               {t("settings.maintenance.duplicatesScan")}
             </button>
-            <span style={{ marginLeft: 8, fontSize: 11, color: "#484f58" }}>
+            <span style={{ marginLeft: 8, fontSize: 11, color: "var(--syn-text-dim)" }}>
               {t("settings.maintenance.duplicatesComingSoon")}
             </span>
           </div>
@@ -2617,11 +2618,11 @@ function SectionMaintenance() {
       </div>
 
       {/* Danger zone */}
-      <div style={{ padding: 16, border: "1px solid #f8514933", borderRadius: 8, marginBottom: 16 }}>
-        <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 600, color: "#f85149" }}>
+      <div style={{ padding: 16, border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)", borderRadius: 8, marginBottom: 16 }}>
+        <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 600, color: "var(--syn-red)" }}>
           {t("settings.maintenance.dangerZone")}
         </p>
-        <p style={{ margin: "0 0 12px", fontSize: 12, color: "#6e7681" }}>
+        <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--syn-text-muted)" }}>
           {t("settings.maintenance.resetDesc")}
         </p>
         <button
@@ -2629,10 +2630,10 @@ function SectionMaintenance() {
           data-testid="settings-reset-btn"
           style={{
             padding: "6px 16px",
-            border: "1px solid #f8514933",
+            border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
             borderRadius: 6,
             background: "transparent",
-            color: "#f85149",
+            color: "var(--syn-red)",
             fontSize: 12,
             cursor: "pointer",
           }}
@@ -2653,15 +2654,15 @@ function SectionAbout() {
       <SectionHeader title={t("settings.nav.about")} desc="Synapse — Self-hosted LLM Wiki" />
 
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 16px", fontSize: 12, marginBottom: 24 }}>
-        <span style={{ color: "#484f58" }}>{t("settings.about.version")}</span>
-        <span style={{ color: "#e6edf3", fontFamily: "monospace" }}>v0.5</span>
-        <span style={{ color: "#484f58" }}>{t("settings.about.sprint")}</span>
-        <span style={{ color: "#e6edf3", fontFamily: "monospace" }}>sprint/v0.5</span>
-        <span style={{ color: "#484f58" }}>{t("settings.about.milestone")}</span>
-        <span style={{ color: "#e6edf3", fontFamily: "monospace" }}>M5 — Feature parity core</span>
+        <span style={{ color: "var(--syn-text-dim)" }}>{t("settings.about.version")}</span>
+        <span style={{ color: "var(--syn-text)", fontFamily: "monospace" }}>v0.5</span>
+        <span style={{ color: "var(--syn-text-dim)" }}>{t("settings.about.sprint")}</span>
+        <span style={{ color: "var(--syn-text)", fontFamily: "monospace" }}>sprint/v0.5</span>
+        <span style={{ color: "var(--syn-text-dim)" }}>{t("settings.about.milestone")}</span>
+        <span style={{ color: "var(--syn-text)", fontFamily: "monospace" }}>M5 — Feature parity core</span>
       </div>
 
-      <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#484f58" }}>
+      <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--syn-text-dim)" }}>
         {t("settings.about.links")}
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -2669,7 +2670,7 @@ function SectionAbout() {
           href="https://github.com/nashsu/llm_wiki"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ fontSize: 12, color: "#58a6ff", textDecoration: "none" }}
+          style={{ fontSize: 12, color: "var(--syn-accent)", textDecoration: "none" }}
         >
           {t("settings.about.github")} ↗
         </a>
@@ -2683,8 +2684,8 @@ function SectionAbout() {
 function SectionHeader({ title, desc }: { title: string; desc: string }) {
   return (
     <div style={{ marginBottom: 24 }}>
-      <h2 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "#e6edf3" }}>{title}</h2>
-      <p style={{ margin: 0, fontSize: 12, color: "#6e7681", lineHeight: 1.5 }}>{desc}</p>
+      <h2 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "var(--syn-text)" }}>{title}</h2>
+      <p style={{ margin: 0, fontSize: 12, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>{desc}</p>
     </div>
   );
 }
@@ -2692,7 +2693,7 @@ function SectionHeader({ title, desc }: { title: string; desc: string }) {
 function Field({ label, children, compact }: { label: string; children: ReactNode; compact?: boolean }) {
   return (
     <div style={{ marginBottom: compact ? 10 : 20 }}>
-      <label style={{ display: "block", marginBottom: 6, fontSize: 12, fontWeight: 600, color: "#8b949e" }}>
+      <label style={{ display: "block", marginBottom: 6, fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)" }}>
         {label}
       </label>
       {children}
@@ -2704,11 +2705,11 @@ function ComingSoonBadge({ message }: { message: string }) {
   return (
     <div style={{
       padding: "12px 16px",
-      border: "1px solid #21262d",
+      border: "1px solid var(--syn-border)",
       borderRadius: 8,
-      background: "#161b22",
+      background: "var(--syn-bg-soft)",
       fontSize: 12,
-      color: "#484f58",
+      color: "var(--syn-text-dim)",
       display: "flex",
       alignItems: "center",
       gap: 8,
@@ -2730,12 +2731,12 @@ function BudgetRow({ label, pct, tokens }: { label: string; pct: number; tokens:
         marginBottom: 4,
       }}
     >
-      <span style={{ fontSize: 11, color: "#8b949e" }}>{label}</span>
-      <span style={{ fontSize: 11, color: "#6e7681", fontFamily: "monospace" }}>{pct}%</span>
-      <div style={{ height: 4, background: "#21262d", borderRadius: 2, overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: "#1f6feb", borderRadius: 2 }} />
+      <span style={{ fontSize: 11, color: "var(--syn-text-muted)" }}>{label}</span>
+      <span style={{ fontSize: 11, color: "var(--syn-text-muted)", fontFamily: "monospace" }}>{pct}%</span>
+      <div style={{ height: 4, background: "var(--syn-border)", borderRadius: 2, overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: "var(--syn-accent)", borderRadius: 2 }} />
       </div>
-      <span style={{ fontSize: 11, color: "#6e7681", fontFamily: "monospace", textAlign: "right" }}>
+      <span style={{ fontSize: 11, color: "var(--syn-text-muted)", fontFamily: "monospace", textAlign: "right" }}>
         {formatTokenCount(tokens)}
       </span>
     </div>
@@ -2747,10 +2748,10 @@ function BudgetRow({ label, pct, tokens }: { label: string; pct: number; tokens:
 const INPUT_STYLE: React.CSSProperties = {
   width: "100%",
   padding: "6px 10px",
-  background: "#0d1117",
-  border: "1px solid #21262d",
+  background: "var(--syn-bg)",
+  border: "1px solid var(--syn-border)",
   borderRadius: 6,
-  color: "#e6edf3",
+  color: "var(--syn-text)",
   fontSize: 12,
   cursor: "pointer",
   boxSizing: "border-box",
@@ -2758,10 +2759,10 @@ const INPUT_STYLE: React.CSSProperties = {
 
 const BTN_PRIMARY: React.CSSProperties = {
   padding: "6px 14px",
-  border: "1px solid #1f6feb",
+  border: "1px solid var(--syn-accent)",
   borderRadius: 6,
-  background: "#1f6feb22",
-  color: "#58a6ff",
+  background: "var(--syn-accent-soft)",
+  color: "var(--syn-accent)",
   fontSize: 12,
   cursor: "pointer",
   fontWeight: 500,
@@ -2769,10 +2770,10 @@ const BTN_PRIMARY: React.CSSProperties = {
 
 const BTN_SECONDARY: React.CSSProperties = {
   padding: "6px 14px",
-  border: "1px solid #21262d",
+  border: "1px solid var(--syn-border)",
   borderRadius: 6,
   background: "transparent",
-  color: "#6e7681",
+  color: "var(--syn-text-muted)",
   fontSize: 12,
   cursor: "pointer",
 };

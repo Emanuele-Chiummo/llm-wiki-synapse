@@ -112,7 +112,7 @@ export const MarkdownView = memo(function MarkdownView({
         dangerouslySetInnerHTML={{ __html: html }}
         onClick={handleBodyClick}
         style={{
-          color: "#e6edf3",
+          color: "var(--syn-text)",
           lineHeight: 1.6,
           wordBreak: "break-word",
         }}

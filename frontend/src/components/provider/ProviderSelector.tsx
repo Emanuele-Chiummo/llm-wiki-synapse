@@ -149,10 +149,10 @@ export function ProviderSelector() {
           alignItems: "center",
           gap: 6,
           padding: "4px 10px",
-          border: "1px solid #21262d",
+          border: "1px solid var(--syn-border)",
           borderRadius: 6,
-          background: open ? "#21262d" : "transparent",
-          color: "#e6edf3",
+          background: open ? "var(--syn-surface-hover)" : "transparent",
+          color: "var(--syn-text)",
           fontSize: 12,
           cursor: "pointer",
           whiteSpace: "nowrap",
@@ -167,7 +167,7 @@ export function ProviderSelector() {
             width: 6,
             height: 6,
             borderRadius: "50%",
-            background: error ? "#f85149" : active ? "#3fb950" : "#484f58",
+            background: error ? "var(--syn-red)" : active ? "var(--syn-green)" : "var(--syn-text-dim)",
             flexShrink: 0,
           }}
         />
@@ -190,10 +190,10 @@ export function ProviderSelector() {
             right: 0,
             zIndex: 1000,
             width: 320,
-            background: "#161b22",
-            border: "1px solid #21262d",
+            background: "var(--syn-surface)",
+            border: "1px solid var(--syn-border)",
             borderRadius: 8,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+            boxShadow: "var(--syn-shadow-pop)",
             overflow: "hidden",
           }}
         >
@@ -204,10 +204,10 @@ export function ProviderSelector() {
               alignItems: "center",
               gap: 8,
               padding: "10px 14px",
-              borderBottom: "1px solid #21262d",
+              borderBottom: "1px solid var(--syn-border)",
             }}
           >
-            <span style={{ fontSize: 11, color: "#6e7681", flex: 1 }}>{t("provider.scope.vault")} / {t("provider.scope.global")}</span>
+            <span style={{ fontSize: 11, color: "var(--syn-text-muted)", flex: 1 }}>{t("provider.scope.vault")} / {t("provider.scope.global")}</span>
             <div
               role="group"
               aria-label="Scope"
@@ -220,10 +220,10 @@ export function ProviderSelector() {
                   aria-pressed={writeScope === scope}
                   style={{
                     padding: "3px 8px",
-                    border: "1px solid #21262d",
+                    border: "1px solid var(--syn-border)",
                     borderRadius: 4,
-                    background: writeScope === scope ? "#1f6feb22" : "transparent",
-                    color: writeScope === scope ? "#58a6ff" : "#6e7681",
+                    background: writeScope === scope ? "var(--syn-accent-soft)" : "transparent",
+                    color: writeScope === scope ? "var(--syn-accent)" : "var(--syn-text-muted)",
                     fontSize: 11,
                     cursor: "pointer",
                     fontWeight: writeScope === scope ? 600 : 400,
@@ -242,12 +242,12 @@ export function ProviderSelector() {
             style={{ maxHeight: 280, overflow: "auto" }}
           >
             {loading && (
-              <div style={{ padding: "12px 14px", fontSize: 12, color: "#484f58" }}>
+              <div style={{ padding: "12px 14px", fontSize: 12, color: "var(--syn-text-dim)" }}>
                 {t("common.loading")}
               </div>
             )}
             {!loading && list.length === 0 && (
-              <div style={{ padding: "12px 14px", fontSize: 12, color: "#484f58" }}>
+              <div style={{ padding: "12px 14px", fontSize: 12, color: "var(--syn-text-dim)" }}>
                 {t("provider.noProviders")}
               </div>
             )}
@@ -270,9 +270,9 @@ export function ProviderSelector() {
                     width: "100%",
                     padding: "8px 14px",
                     border: "none",
-                    borderBottom: "1px solid #21262d",
-                    background: isActive ? "#1f6feb1a" : "transparent",
-                    color: "#e6edf3",
+                    borderBottom: "1px solid var(--syn-border-subtle)",
+                    background: isActive ? "var(--syn-accent-soft)" : "transparent",
+                    color: "var(--syn-text)",
                     textAlign: "left",
                     cursor: writing ? "wait" : "pointer",
                     fontSize: 12,
@@ -285,7 +285,7 @@ export function ProviderSelector() {
                       width: 6,
                       height: 6,
                       borderRadius: "50%",
-                      background: isActive ? "#3fb950" : "#21262d",
+                      background: isActive ? "var(--syn-green)" : "var(--syn-border)",
                       flexShrink: 0,
                       marginTop: 4,
                     }}
@@ -294,13 +294,13 @@ export function ProviderSelector() {
                     <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {label}
                     </div>
-                    <div style={{ fontSize: 10, color: "#6e7681", marginTop: 2, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 10, color: "var(--syn-text-muted)", marginTop: 2, display: "flex", gap: 6, flexWrap: "wrap" }}>
                       <span
                         style={{
                           padding: "1px 5px",
                           borderRadius: 3,
-                          background: "#21262d",
-                          color: "#8b949e",
+                          background: "var(--syn-surface-hover)",
+                          color: "var(--syn-text-muted)",
                         }}
                       >
                         {t(`provider.scope.${item.scope}`)}
@@ -309,8 +309,8 @@ export function ProviderSelector() {
                         style={{
                           padding: "1px 5px",
                           borderRadius: 3,
-                          background: "#21262d",
-                          color: "#58a6ff",
+                          background: "var(--syn-accent-soft)",
+                          color: "var(--syn-accent)",
                         }}
                       >
                         {t(capability)}
@@ -328,9 +328,9 @@ export function ProviderSelector() {
               role="alert"
               style={{
                 padding: "8px 14px",
-                borderTop: "1px solid #21262d",
+                borderTop: "1px solid var(--syn-border)",
                 fontSize: 11,
-                color: "#f85149",
+                color: "var(--syn-red)",
               }}
             >
               {error}

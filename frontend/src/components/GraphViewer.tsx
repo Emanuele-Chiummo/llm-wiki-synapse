@@ -22,9 +22,15 @@
  * Accessibility:
  *   - container role="application" aria-label="Knowledge graph"
  *   - aria-live="polite" region announces selected node (title, type, neighbor count)
- *   - Label contrast #e6edf3 on #0d1117 ≈ 16:1 (AAA)
+ *   - Label contrast #1f2328 on #ffffff ≈ 18:1 (AAA) — light theme
  *   - CVD-safe type palette with redundant encoding (name in legend + tooltip text)
  *   - prefers-reduced-motion respected for all camera animations
+ *
+ * LIGHT THEME NOTE (sigma node colors):
+ *   sigma.js requires concrete color strings, not CSS custom properties.
+ *   TYPE_COLORS below uses hex values that exactly match the --syn-type-* tokens
+ *   defined in theme.css. This is the ONE allowed exception to "tokens only"
+ *   (documented in ADR-0015 §CVD-SAFE): sigma cannot resolve CSS vars at draw time.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -58,16 +64,32 @@ const reducedMotion: boolean =
 // ─── CVD-safe type palette (spec §CVD-SAFE) ──────────────────────────────────
 // Color alone MUST NOT be the only differentiator (WCAG 1.4.1).
 // Redundant encoding: legend shows swatch + type NAME; tooltip also shows type text.
+//
+// LIGHT THEME: hex values exactly match --syn-type-* tokens in theme.css.
+// sigma.js cannot resolve CSS custom properties at canvas draw time, so concrete
+// hex strings are required here — this is the one documented exception to token-only usage.
+// If theme.css tokens change, update these values in sync.
+//   --syn-type-concept:    #8250df  (purple)
+//   --syn-type-entity:     #2563eb  (blue)
+//   --syn-type-source:     #e16f24  (orange)
+//   --syn-type-synthesis:  #cf222e  (red)
+//   --syn-type-comparison: #1a7f37  (green)
+//   --syn-type-query:      #16a34a  (green)
+//   --syn-type-overview:   #b8860b  (amber)
+//   --syn-type-other:      #6e7781
+//   DEFAULT (--syn-text-dim): #8b949e
 
 const TYPE_COLORS: Record<string, string> = {
-  concept: "#58a6ff", // blue
-  entity: "#3fb950", // green
-  source: "#ffa657", // orange
-  synthesis: "#d2a8ff", // purple
-  comparison: "#f2cc60", // yellow
+  concept:    "#8250df", // matches --syn-type-concept
+  entity:     "#2563eb", // matches --syn-type-entity
+  source:     "#e16f24", // matches --syn-type-source
+  synthesis:  "#cf222e", // matches --syn-type-synthesis
+  comparison: "#1a7f37", // matches --syn-type-comparison
+  query:      "#16a34a", // matches --syn-type-query
+  overview:   "#b8860b", // matches --syn-type-overview
 };
 
-const DEFAULT_NODE_COLOR = "#8b949e";
+const DEFAULT_NODE_COLOR = "#6e7781"; // matches --syn-type-other
 
 function colorForType(type: string | null): string {
   if (type === null) return DEFAULT_NODE_COLOR;
@@ -75,11 +97,12 @@ function colorForType(type: string | null): string {
 }
 
 /**
- * Brighten a hex color by mixing it 40% toward white (#ffffff).
- * Used in nodeReducer to make neighbor nodes pop against the dimmed background.
+ * Deepen a hex color by mixing it 30% toward black (#000000).
+ * Used in nodeReducer to make neighbor nodes pop more visibly on the light background
+ * against the washed-out dimmed nodes.
  * Handles both 3-char (#rgb) and 6-char (#rrggbb) hex; falls back to input on parse error.
  */
-function brightenColor(hex: string): string {
+function deepenColor(hex: string): string {
   const clean = hex.startsWith("#") ? hex.slice(1) : hex;
   const full = clean.length === 3 ? clean.replace(/./g, (c) => c + c) : clean;
   if (full.length !== 6) return hex;
@@ -90,17 +113,17 @@ function brightenColor(hex: string): string {
 
   if (isNaN(r) || isNaN(g) || isNaN(b)) return hex;
 
-  const mix = 0.4; // 40% toward white
-  const br = Math.round(r + (255 - r) * mix);
-  const bg = Math.round(g + (255 - g) * mix);
-  const bb = Math.round(b + (255 - b) * mix);
+  const mix = 0.3; // 30% toward black
+  const dr = Math.round(r * (1 - mix));
+  const dg = Math.round(g * (1 - mix));
+  const db = Math.round(b * (1 - mix));
 
-  return `#${br.toString(16).padStart(2, "0")}${bg.toString(16).padStart(2, "0")}${bb.toString(16).padStart(2, "0")}`;
+  return `#${dr.toString(16).padStart(2, "0")}${dg.toString(16).padStart(2, "0")}${db.toString(16).padStart(2, "0")}`;
 }
 
 // ─── Halo label drawer (accessible, AAA contrast) ────────────────────────────
 // sigma v3 has no built-in halo; we override defaultDrawNodeLabel.
-// Dark halo (#0d1117, lineWidth 3) then light fill (#e6edf3) — ~16:1 contrast.
+// Light halo (#ffffff, lineWidth 3) then dark fill (#1f2328) — ~18:1 contrast on white.
 
 type LabelDrawData = PartialButFor<NodeDisplayData, "x" | "y" | "size" | "label" | "color">;
 
@@ -120,14 +143,14 @@ function drawHaloNodeLabel(
   context.textAlign = "center";
   context.textBaseline = "bottom";
 
-  // Halo stroke (dark) — improves readability on any background
-  context.strokeStyle = "#0d1117";
+  // Halo stroke (white) — improves readability on the light graph background
+  context.strokeStyle = "#ffffff"; // --syn-bg
   context.lineWidth = 3;
   context.lineJoin = "round";
   context.strokeText(data.label, x, y);
 
-  // Label fill (light)
-  context.fillStyle = "#e6edf3";
+  // Label fill (dark near-black — --syn-text)
+  context.fillStyle = "#1f2328"; // --syn-text
   context.fillText(data.label, x, y);
 }
 
@@ -139,12 +162,12 @@ function drawHaloNodeHover(
   data: LabelDrawData,
   settings: Settings<Attributes, Attributes, Attributes>,
 ): void {
-  // Dark-theme hover ring around the node (NO white background box — sigma's
-  // default drawDiscNodeHover paints a light rect that clashes with the dark UI).
+  // Light-theme hover ring around the node (NO background box — sigma's
+  // default drawDiscNodeHover paints a box that clashes; we draw a ring only).
   context.beginPath();
   context.arc(data.x, data.y, data.size + 3, 0, Math.PI * 2);
   context.lineWidth = 2;
-  context.strokeStyle = "#e6edf3";
+  context.strokeStyle = "#1f2328"; // --syn-text — visible on white canvas
   context.stroke();
 
   // Then draw the halo'd label (reuse the label drawer)
@@ -184,26 +207,23 @@ const NodeTooltip: React.FC<TooltipProps> = ({ nodeId, position, neighborCount, 
 
   return (
     <div
+      className="syn-card"
       style={{
         position: "absolute",
         left: position.x + 12,
         top: position.y - 8,
-        background: "#161b22",
-        border: "1px solid #30363d",
-        borderRadius: 6,
         padding: "8px 12px",
         maxWidth: 240,
         zIndex: 10,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
         pointerEvents: "none",
       }}
       role="tooltip"
     >
       {fetching ? (
-        <span style={{ color: "#8b949e", fontSize: 12 }}>Loading...</span>
+        <span style={{ color: "var(--syn-text-muted)", fontSize: 12 }}>Loading...</span>
       ) : detail !== null ? (
         <>
-          <div style={{ fontWeight: 600, fontSize: 13, color: "#e6edf3", marginBottom: 4 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: "var(--syn-text)", marginBottom: 4 }}>
             {detail.title}
           </div>
           {detail.type !== null && (
@@ -218,12 +238,12 @@ const NodeTooltip: React.FC<TooltipProps> = ({ nodeId, position, neighborCount, 
               {detail.type}
             </div>
           )}
-          <div style={{ fontSize: 11, color: "#8b949e", marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: "var(--syn-text-muted)", marginTop: 4 }}>
             {neighborCount} connection{neighborCount !== 1 ? "s" : ""}
           </div>
         </>
       ) : (
-        <span style={{ color: "#8b949e", fontSize: 12 }}>Page not found</span>
+        <span style={{ color: "var(--syn-text-muted)", fontSize: 12 }}>Page not found</span>
       )}
       <button
         style={{
@@ -232,7 +252,7 @@ const NodeTooltip: React.FC<TooltipProps> = ({ nodeId, position, neighborCount, 
           right: 6,
           background: "none",
           border: "none",
-          color: "#8b949e",
+          color: "var(--syn-text-dim)",
           cursor: "pointer",
           fontSize: 14,
           lineHeight: 1,
@@ -252,13 +272,11 @@ const NodeTooltip: React.FC<TooltipProps> = ({ nodeId, position, neighborCount, 
 
 const GraphLegend: React.FC = () => (
   <div
+    className="syn-card"
     style={{
       position: "absolute",
       bottom: 16,
       left: 16,
-      background: "rgba(13,17,23,0.90)",
-      border: "1px solid #30363d",
-      borderRadius: 6,
       padding: "8px 12px",
       zIndex: 5,
       pointerEvents: "none",
@@ -269,7 +287,7 @@ const GraphLegend: React.FC = () => (
     <div
       style={{
         fontSize: 10,
-        color: "#8b949e",
+        color: "var(--syn-text-muted)",
         marginBottom: 6,
         letterSpacing: "0.08em",
         fontWeight: 600,
@@ -289,12 +307,12 @@ const GraphLegend: React.FC = () => (
             borderRadius: "50%",
             background: color,
             flexShrink: 0,
-            boxShadow: `0 0 0 1px rgba(0,0,0,0.3)`,
+            boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
           }}
           aria-hidden="true"
         />
         {/* Redundant encoding: type NAME shown alongside color (WCAG 1.4.1) */}
-        <span style={{ fontSize: 11, color: "#e6edf3", textTransform: "capitalize" }}>{type}</span>
+        <span style={{ fontSize: 11, color: "var(--syn-text)", textTransform: "capitalize" }}>{type}</span>
       </div>
     ))}
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
@@ -305,10 +323,11 @@ const GraphLegend: React.FC = () => (
           borderRadius: "50%",
           background: DEFAULT_NODE_COLOR,
           flexShrink: 0,
+          boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
         }}
         aria-hidden="true"
       />
-      <span style={{ fontSize: 11, color: "#8b949e" }}>other</span>
+      <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>other</span>
     </div>
   </div>
 );
@@ -329,9 +348,9 @@ const StatusBar: React.FC = () => {
           top: 12,
           left: "50%",
           transform: "translateX(-50%)",
-          background: "#da3633",
+          background: "var(--syn-red)",
           color: "#fff",
-          borderRadius: 4,
+          borderRadius: "var(--syn-radius-sm)",
           padding: "4px 12px",
           fontSize: 12,
           zIndex: 10,
@@ -346,17 +365,15 @@ const StatusBar: React.FC = () => {
   if (loading) {
     return (
       <div
+        className="syn-card"
         style={{
           position: "absolute",
           top: 12,
           left: "50%",
           transform: "translateX(-50%)",
-          background: "#161b22",
-          border: "1px solid #30363d",
-          borderRadius: 4,
           padding: "4px 12px",
           fontSize: 12,
-          color: "#8b949e",
+          color: "var(--syn-text-muted)",
           zIndex: 10,
         }}
         aria-live="polite"
@@ -369,16 +386,14 @@ const StatusBar: React.FC = () => {
 
   return (
     <div
+      className="syn-card"
       style={{
         position: "absolute",
         top: 12,
         right: 12,
-        background: "rgba(13,17,23,0.85)",
-        border: "1px solid #30363d",
-        borderRadius: 4,
         padding: "3px 8px",
         fontSize: 11,
-        color: "#8b949e",
+        color: "var(--syn-text-muted)",
         zIndex: 5,
         display: "flex",
         gap: 10,
@@ -390,7 +405,7 @@ const StatusBar: React.FC = () => {
       <span>{edges.length} edges</span>
       {dataVersion !== null && <span>v{dataVersion}</span>}
       {cacheStatus !== "unknown" && (
-        <span style={{ color: cacheStatus === "hit" ? "#3fb950" : "#ffa657" }}>
+        <span style={{ color: cacheStatus === "hit" ? "var(--syn-green)" : "var(--syn-amber)" }}>
           {cacheStatus}
         </span>
       )}
@@ -544,11 +559,11 @@ export const GraphViewer: React.FC = () => {
     // nodeReducer / edgeReducer implement Obsidian-style hover-dim.
     // They are set ONCE at construction; we mutate hoverState and call refresh().
     const sigmaSettings: Partial<Settings<Attributes, Attributes, Attributes>> = {
-      // Label rendering
+      // Label rendering — light theme: dark near-black labels (--syn-text)
       labelFont: "Inter, system-ui, sans-serif",
       labelSize: 13,
       labelWeight: "600",
-      labelColor: { color: "#e6edf3" },
+      labelColor: { color: "#1f2328" }, // --syn-text
       labelDensity: 0.4,
       labelGridCellSize: 80,
       labelRenderedSizeThreshold: 14,
@@ -582,15 +597,15 @@ export const GraphViewer: React.FC = () => {
             res["zIndex"] = 2;
             res["size"] = ((data["size"] as number | undefined) ?? 8) * 1.15;
           } else if (isNeighbor) {
-            // Neighbor: show label, raised z, subtly brightened color so cluster pops
+            // Neighbor: show label, raised z, deepened color so cluster pops on light bg
             res["forceLabel"] = true;
             res["zIndex"] = 1;
-            // Mix toward white to brighten while preserving hue
-            res["color"] = brightenColor((data["color"] as string | undefined) ?? DEFAULT_NODE_COLOR);
+            // Mix toward black to deepen while preserving hue (light-theme pop)
+            res["color"] = deepenColor((data["color"] as string | undefined) ?? DEFAULT_NODE_COLOR);
           } else {
-            // All other nodes: dim (dark color, hide label)
+            // All other nodes: dim (washed-out light gray, hide label)
             res["label"] = "";
-            res["color"] = "#2a2f37";
+            res["color"] = "#c7ccd4"; // light-theme dim: close to --syn-border
             res["zIndex"] = 0;
           }
         }
@@ -615,8 +630,8 @@ export const GraphViewer: React.FC = () => {
             // Non-incident: hide entirely (Obsidian dim)
             res["hidden"] = true;
           } else {
-            // Incident to hovered node: light up clearly (bright + thicker)
-            res["color"] = "rgba(201,209,217,0.9)";
+            // Incident to hovered node: darker on light background (--syn-text-muted, thicker)
+            res["color"] = "rgba(89,99,110,0.85)"; // --syn-text-muted #59636e
             res["size"] = ((data["size"] as number | undefined) ?? 1) * 2;
           }
         }
@@ -811,13 +826,15 @@ export const GraphViewer: React.FC = () => {
       id="graph-root"
       role="application"
       aria-label="Knowledge graph"
-      style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}
+      style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", background: "var(--syn-bg)" }}
     >
-      {/* sigma mounts ONE WebGL <canvas> here — I4 */}
+      {/* sigma mounts ONE WebGL <canvas> here — I4.
+          Background is var(--syn-bg) (white) to match the llm_wiki light theme.
+          sigma inherits the container background for its WebGL clear color. */}
       <div
         id="sigma-container"
         ref={containerRef}
-        style={{ width: "100%", height: "100%" }}
+        style={{ width: "100%", height: "100%", background: "var(--syn-bg)" }}
       />
 
       {/* Aria-live region — announces node selection for screen readers */}

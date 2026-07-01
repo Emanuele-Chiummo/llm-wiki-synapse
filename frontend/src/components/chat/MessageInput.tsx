@@ -83,9 +83,9 @@ export function MessageInput({
   return (
     <div
       style={{
-        borderTop: "1px solid #21262d",
+        borderTop: "1px solid var(--syn-border)",
         padding: "12px 16px",
-        background: "#161b22",
+        background: "var(--syn-surface-sunken)",
         display: "flex",
         flexDirection: "column",
         gap: 8,
@@ -96,14 +96,14 @@ export function MessageInput({
         <div
           style={{
             fontSize: 11,
-            color: "#484f58",
+            color: "var(--syn-text-dim)",
             display: "flex",
             alignItems: "center",
             gap: 4,
           }}
           aria-label={t("chat.usingProvider", { provider: providerLabel })}
         >
-          <span style={{ color: "#3fb950", fontSize: 8 }}>●</span>
+          <span style={{ color: "var(--syn-green)", fontSize: 8 }}>●</span>
           <span>{providerLabel}</span>
         </div>
       )}
@@ -122,10 +122,10 @@ export function MessageInput({
           style={{
             flex: 1,
             resize: "none",
-            background: "#0d1117",
-            border: "1px solid #30363d",
+            background: "var(--syn-bg)",
+            border: "1px solid var(--syn-border)",
             borderRadius: 6,
-            color: isInputDisabled ? "#484f58" : "#e6edf3",
+            color: isInputDisabled ? "var(--syn-text-dim)" : "var(--syn-text)",
             fontSize: 14,
             lineHeight: 1.5,
             padding: "8px 12px",
@@ -137,10 +137,10 @@ export function MessageInput({
             transition: "border-color 0.15s ease",
           }}
           onFocus={(e) => {
-            if (!isInputDisabled) e.currentTarget.style.borderColor = "#388bfd";
+            if (!isInputDisabled) e.currentTarget.style.borderColor = "var(--syn-accent)";
           }}
           onBlur={(e) => {
-            e.currentTarget.style.borderColor = "#30363d";
+            e.currentTarget.style.borderColor = "var(--syn-border)";
           }}
         />
 
@@ -154,7 +154,7 @@ export function MessageInput({
             style={{
               flexShrink: 0,
               padding: "8px 14px",
-              background: "#da3633",
+              background: "var(--syn-red)",
               border: "none",
               borderRadius: 6,
               color: "#fff",
@@ -190,10 +190,10 @@ export function MessageInput({
             style={{
               flexShrink: 0,
               padding: "8px 14px",
-              background: value.trim() && !isInputDisabled ? "#1f6feb" : "#21262d",
+              background: value.trim() && !isInputDisabled ? "var(--syn-accent)" : "var(--syn-border)",
               border: "none",
               borderRadius: 6,
-              color: value.trim() && !isInputDisabled ? "#fff" : "#484f58",
+              color: value.trim() && !isInputDisabled ? "#fff" : "var(--syn-text-dim)",
               cursor: value.trim() && !isInputDisabled ? "pointer" : "not-allowed",
               fontSize: 13,
               fontWeight: 600,
@@ -224,7 +224,7 @@ export function MessageInput({
         )}
       </div>
 
-      <div style={{ fontSize: 11, color: "#484f58" }}>
+      <div style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
         {t("chat.inputHint")}
       </div>
     </div>

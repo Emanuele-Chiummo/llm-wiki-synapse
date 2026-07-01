@@ -115,7 +115,7 @@ export function ChatSection(): ReactNode {
         overflow: "hidden",
         width: "100%",
         height: "100%",
-        background: "#0d1117",
+        background: "var(--syn-bg)",
       }}
       data-testid="section-chat"
     >
@@ -146,9 +146,9 @@ export function ChatSection(): ReactNode {
         <div
           style={{
             padding: "10px 16px",
-            borderBottom: "1px solid #21262d",
+            borderBottom: "1px solid var(--syn-border)",
             fontSize: 13,
-            color: "#8b949e",
+            color: "var(--syn-text-muted)",
             flexShrink: 0,
           }}
         >

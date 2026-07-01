@@ -59,19 +59,19 @@ const ROW_HEIGHT = 84;
 // ─── Research status badge ────────────────────────────────────────────────────
 
 const RESEARCH_STATUS_COLOR: Record<string, string> = {
-  running: "#1f6feb",
-  converged: "#3fb950",
-  max_iter_reached: "#d29922",
-  budget_exhausted: "#d29922",
-  error: "#f85149",
+  running: "var(--syn-accent)",
+  converged: "var(--syn-green)",
+  max_iter_reached: "var(--syn-amber)",
+  budget_exhausted: "var(--syn-amber)",
+  error: "var(--syn-red)",
 };
 
 const RESEARCH_STATUS_BG: Record<string, string> = {
-  running: "#1f6feb22",
-  converged: "#3fb95022",
-  max_iter_reached: "#d2992222",
-  budget_exhausted: "#d2992222",
-  error: "#f8514922",
+  running: "var(--syn-accent-soft)",
+  converged: "color-mix(in srgb, var(--syn-green) 10%, white 90%)",
+  max_iter_reached: "color-mix(in srgb, var(--syn-amber) 10%, white 90%)",
+  budget_exhausted: "color-mix(in srgb, var(--syn-amber) 10%, white 90%)",
+  error: "color-mix(in srgb, var(--syn-red) 10%, white 90%)",
 };
 
 interface ResearchStatusBadgeProps {
@@ -82,8 +82,8 @@ function ResearchStatusBadge({ status }: ResearchStatusBadgeProps) {
   const { t } = useTranslation();
   const labelKey = `research.status.${status}` as const;
   const label = t(labelKey as string, { defaultValue: status });
-  const color = RESEARCH_STATUS_COLOR[status] ?? "#8b949e";
-  const bg = RESEARCH_STATUS_BG[status] ?? "#8b949e22";
+  const color = RESEARCH_STATUS_COLOR[status] ?? "var(--syn-text-dim)";
+  const bg = RESEARCH_STATUS_BG[status] ?? "var(--syn-surface-hover)";
 
   const reducedMotion =
     typeof window !== "undefined" &&
@@ -101,7 +101,7 @@ function ResearchStatusBadge({ status }: ResearchStatusBadgeProps) {
         fontWeight: 600,
         color,
         background: bg,
-        border: `1px solid ${color}4d`,
+        border: `1px solid color-mix(in srgb, ${color} 40%, transparent 60%)`,
         borderRadius: 10,
         padding: "2px 7px",
         whiteSpace: "nowrap",
@@ -159,13 +159,13 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
         ...style,
         height: ROW_HEIGHT,
         padding: "8px 12px",
-        background: selected ? "#1f2937" : "transparent",
-        borderBottom: "1px solid #21262d",
+        background: selected ? "var(--syn-accent-soft)" : "transparent",
+        borderBottom: "1px solid var(--syn-border)",
         cursor: "pointer",
         display: "flex",
         flexDirection: "column",
         gap: 4,
-        outline: selected ? "1px solid #1f6feb" : "none",
+        outline: selected ? "1px solid var(--syn-accent)" : "none",
         outlineOffset: -1,
       }}
       onClick={onClick}
@@ -176,9 +176,9 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
       {/* Row 1: status badge + cost */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <ResearchStatusBadge status={run.status} />
-        <span style={{ fontSize: 12, color: "#6e7681", marginLeft: "auto" }}>
+        <span style={{ fontSize: 12, color: "var(--syn-text-dim)", marginLeft: "auto" }}>
           {t("research.cost")}:{" "}
-          <span style={{ fontFamily: "monospace", color: "#e6edf3" }}>
+          <span style={{ fontFamily: "monospace", color: "var(--syn-text)" }}>
             {formatCost(run.total_cost_usd)}
           </span>
         </span>
@@ -188,7 +188,7 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
       <div
         style={{
           fontSize: 12,
-          color: "#e6edf3",
+          color: "var(--syn-text)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -200,13 +200,13 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
 
       {/* Row 3: iterations + relative time */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 11, color: "#6e7681" }}>
+        <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
           {t("research.iterations")}: {run.iterations_used}
           {" · "}
           {t("research.sources")}: {run.sources_fetched}
         </span>
         <span
-          style={{ fontSize: 11, color: "#484f58", marginLeft: "auto" }}
+          style={{ fontSize: 11, color: "var(--syn-text-dim)", marginLeft: "auto", opacity: 0.7 }}
           title={run.started_at}
         >
           {formatRelativeTime(run.started_at, lang)}
@@ -237,7 +237,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
           alignItems: "center",
           justifyContent: "center",
           height: "100%",
-          color: "#484f58",
+          color: "var(--syn-text-dim)",
           fontSize: 13,
           padding: 24,
           textAlign: "center",
@@ -256,7 +256,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
           alignItems: "center",
           justifyContent: "center",
           height: "100%",
-          color: "#6e7681",
+          color: "var(--syn-text-muted)",
           fontSize: 13,
         }}
       >
@@ -269,7 +269,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
     return (
       <div
         role="alert"
-        style={{ padding: 16, color: "#f85149", fontSize: 12 }}
+        style={{ padding: 16, color: "var(--syn-red)", fontSize: 12 }}
       >
         {error}
       </div>
@@ -297,7 +297,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
             margin: 0,
             fontSize: 13,
             fontWeight: 600,
-            color: "#e6edf3",
+            color: "var(--syn-text)",
             wordBreak: "break-word",
           }}
         >
@@ -308,17 +308,17 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
       {/* Status + meta row */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         <ResearchStatusBadge status={detail.status} />
-        <span style={{ fontSize: 12, color: "#6e7681" }}>
-          {t("research.iterations")}: <strong style={{ color: "#e6edf3" }}>{detail.iterations_used}</strong>/{detail.max_iter}
+        <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
+          {t("research.iterations")}: <strong style={{ color: "var(--syn-text)" }}>{detail.iterations_used}</strong>/{detail.max_iter}
         </span>
-        <span style={{ fontSize: 12, color: "#6e7681" }}>
+        <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
           {t("research.cost")}:{" "}
-          <span style={{ fontFamily: "monospace", color: "#e6edf3" }}>
+          <span style={{ fontFamily: "monospace", color: "var(--syn-text)" }}>
             {formatCost(detail.total_cost_usd)}
           </span>
         </span>
-        <span style={{ fontSize: 12, color: "#6e7681" }}>
-          {t("research.sources")}: <strong style={{ color: "#e6edf3" }}>{detail.sources_fetched}</strong>
+        <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
+          {t("research.sources")}: <strong style={{ color: "var(--syn-text)" }}>{detail.sources_fetched}</strong>
         </span>
       </div>
 
@@ -326,14 +326,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
       {detail.error_message && (
         <div
           role="alert"
-          style={{
-            padding: "8px 12px",
-            background: "#1a0f0f",
-            border: "1px solid #f8514933",
-            borderRadius: 6,
-            fontSize: 12,
-            color: "#f85149",
-          }}
+          className="syn-section-notice syn-section-notice--danger"
         >
           {detail.error_message}
         </div>
@@ -341,16 +334,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
 
       {/* Synthesis page link */}
       {detail.synthesis_page_id && (
-        <div
-          style={{
-            padding: "6px 10px",
-            background: "#122d1f",
-            border: "1px solid #3fb95033",
-            borderRadius: 6,
-            fontSize: 12,
-            color: "#3fb950",
-          }}
-        >
+        <div className="syn-section-notice syn-section-notice--success">
           {t("research.wikiPageCreated")}
         </div>
       )}
@@ -363,7 +347,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
               margin: "0 0 6px",
               fontSize: 11,
               fontWeight: 600,
-              color: "#8b949e",
+              color: "var(--syn-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
             }}
@@ -375,11 +359,11 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
             style={{
               margin: 0,
               padding: "10px 12px",
-              background: "#0d1117",
-              border: "1px solid #21262d",
+              background: "var(--syn-surface-sunken)",
+              border: "1px solid var(--syn-border)",
               borderRadius: 6,
               fontSize: 12,
-              color: "#c9d1d9",
+              color: "var(--syn-text)",
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
               maxHeight: 300,
@@ -400,7 +384,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
               margin: "0 0 6px",
               fontSize: 11,
               fontWeight: 600,
-              color: "#8b949e",
+              color: "var(--syn-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
             }}
@@ -417,7 +401,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
             }}
           >
             {detail.queries_used.map((q, i) => (
-              <li key={i} style={{ fontSize: 12, color: "#8b949e" }}>
+              <li key={i} style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
                 {q}
               </li>
             ))}
@@ -433,7 +417,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
               margin: "0 0 6px",
               fontSize: 11,
               fontWeight: 600,
-              color: "#8b949e",
+              color: "var(--syn-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
             }}
@@ -469,8 +453,8 @@ function SourceRow({ source, t }: SourceRowProps) {
     <div
       style={{
         padding: "6px 10px",
-        background: "#0d1117",
-        border: "1px solid #21262d",
+        background: "var(--syn-surface-sunken)",
+        border: "1px solid var(--syn-border)",
         borderRadius: 6,
         fontSize: 11,
         display: "flex",
@@ -483,7 +467,7 @@ function SourceRow({ source, t }: SourceRowProps) {
         target="_blank"
         rel="noopener noreferrer"
         style={{
-          color: "#58a6ff",
+          color: "var(--syn-accent)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -493,7 +477,7 @@ function SourceRow({ source, t }: SourceRowProps) {
       >
         {source.title ?? source.url}
       </a>
-      <div style={{ display: "flex", gap: 8, color: "#484f58" }}>
+      <div style={{ display: "flex", gap: 8, color: "var(--syn-text-dim)" }}>
         <span>
           {t("research.iteration")}: {source.iteration}
         </span>
@@ -540,7 +524,7 @@ function ResearchRunList({ vaultId }: RunListProps) {
           alignItems: "center",
           justifyContent: "center",
           height: "100%",
-          color: "#484f58",
+          color: "var(--syn-text-dim)",
           fontSize: 13,
           padding: 24,
           textAlign: "center",
@@ -589,10 +573,10 @@ function ResearchRunList({ vaultId }: RunListProps) {
               right: 0,
               height: 40,
               margin: "4px 12px",
-              border: "1px solid #21262d",
+              border: "1px solid var(--syn-border)",
               borderRadius: 6,
-              background: "#161b22",
-              color: "#8b949e",
+              background: "var(--syn-bg-soft)",
+              color: "var(--syn-text-muted)",
               fontSize: 12,
               cursor: loading ? "wait" : "pointer",
             }}
@@ -706,7 +690,7 @@ export function DeepSearchView() {
           flexDirection: "column",
           overflow: "hidden",
           minWidth: 0,
-          background: "#0d1117",
+          background: "var(--syn-bg)",
         }}
       >
         {/* Header */}
@@ -716,9 +700,9 @@ export function DeepSearchView() {
             alignItems: "center",
             gap: 8,
             padding: "10px 16px",
-            borderBottom: "1px solid #21262d",
+            borderBottom: "1px solid var(--syn-border)",
             flexShrink: 0,
-            background: "#161b22",
+            background: "var(--syn-bg-soft)",
           }}
         >
           <h2
@@ -726,7 +710,7 @@ export function DeepSearchView() {
               margin: 0,
               fontSize: 13,
               fontWeight: 600,
-              color: "#e6edf3",
+              color: "var(--syn-text)",
               flex: 1,
             }}
           >
@@ -743,8 +727,8 @@ export function DeepSearchView() {
                   height: 18,
                   padding: "0 5px",
                   borderRadius: 9,
-                  background: "#1f6feb",
-                  color: "#e6edf3",
+                  background: "var(--syn-accent)",
+                  color: "#ffffff",
                   fontSize: 10,
                   fontWeight: 700,
                 }}
@@ -759,9 +743,9 @@ export function DeepSearchView() {
         <div
           style={{
             padding: "12px 16px",
-            borderBottom: "1px solid #21262d",
+            borderBottom: "1px solid var(--syn-border)",
             flexShrink: 0,
-            background: "#0d1117",
+            background: "var(--syn-bg)",
           }}
         >
           <label
@@ -770,7 +754,7 @@ export function DeepSearchView() {
               display: "block",
               fontSize: 12,
               fontWeight: 500,
-              color: "#8b949e",
+              color: "var(--syn-text-muted)",
               marginBottom: 4,
             }}
           >
@@ -790,10 +774,10 @@ export function DeepSearchView() {
               style={{
                 flex: 1,
                 padding: "6px 10px",
-                background: "#161b22",
-                border: "1px solid #21262d",
+                background: "var(--syn-surface)",
+                border: "1px solid var(--syn-border)",
                 borderRadius: 6,
-                color: "#e6edf3",
+                color: "var(--syn-text)",
                 fontSize: 12,
                 outline: "none",
               }}
@@ -807,8 +791,8 @@ export function DeepSearchView() {
                 padding: "6px 16px",
                 border: "none",
                 borderRadius: 6,
-                background: !topic.trim() || starting ? "#21262d" : "#1f6feb",
-                color: !topic.trim() || starting ? "#484f58" : "#e6edf3",
+                background: !topic.trim() || starting ? "var(--syn-surface-hover)" : "var(--syn-accent)",
+                color: !topic.trim() || starting ? "var(--syn-text-dim)" : "#ffffff",
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: !topic.trim() || starting ? "not-allowed" : "pointer",
@@ -818,7 +802,7 @@ export function DeepSearchView() {
               {starting ? t("common.loading") : t("research.startButton")}
             </button>
           </div>
-          <p style={{ margin: "4px 0 0", fontSize: 11, color: "#484f58" }}>
+          <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--syn-text-dim)" }}>
             {t("research.topicHint")}
           </p>
 
@@ -829,7 +813,7 @@ export function DeepSearchView() {
               style={{
                 marginTop: 6,
                 fontSize: 12,
-                color: "#f85149",
+                color: "var(--syn-red)",
               }}
             >
               {startError}
@@ -843,11 +827,11 @@ export function DeepSearchView() {
             role="alert"
             style={{
               padding: "8px 16px",
-              borderBottom: "1px solid #21262d",
+              borderBottom: "1px solid var(--syn-border)",
               flexShrink: 0,
               fontSize: 12,
-              color: "#f85149",
-              background: "#1a0f0f",
+              color: "var(--syn-red)",
+              background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
             }}
           >
             {listError}
@@ -856,7 +840,7 @@ export function DeepSearchView() {
               style={{
                 marginLeft: 8,
                 fontSize: 12,
-                color: "#8b949e",
+                color: "var(--syn-text-muted)",
                 background: "none",
                 border: "none",
                 cursor: "pointer",
@@ -881,8 +865,8 @@ export function DeepSearchView() {
           width: 360,
           flexShrink: 0,
           overflow: "hidden",
-          background: "#161b22",
-          borderLeft: "1px solid #21262d",
+          background: "var(--syn-bg-soft)",
+          borderLeft: "1px solid var(--syn-border)",
         }}
       >
         <RunDetailPanel

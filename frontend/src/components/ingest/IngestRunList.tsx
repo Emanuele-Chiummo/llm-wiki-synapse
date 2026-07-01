@@ -80,7 +80,7 @@ export function IngestRunList({ vaultId }: IngestRunListProps) {
           alignItems: "center",
           justifyContent: "center",
           height: "100%",
-          color: "#484f58",
+          color: "var(--syn-text-dim)",
           fontSize: 13,
           padding: 24,
           textAlign: "center",
@@ -130,10 +130,10 @@ export function IngestRunList({ vaultId }: IngestRunListProps) {
               right: 0,
               height: 40,
               margin: "4px 12px",
-              border: "1px solid #21262d",
+              border: "1px solid var(--syn-border)",
               borderRadius: 6,
-              background: "#161b22",
-              color: "#8b949e",
+              background: "var(--syn-bg-soft)",
+              color: "var(--syn-text-muted)",
               fontSize: 12,
               cursor: loading ? "wait" : "pointer",
             }}
@@ -176,13 +176,13 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
         ...style,
         height: ROW_HEIGHT,
         padding: "8px 12px",
-        background: selected ? "#1f2937" : "transparent",
-        borderBottom: "1px solid #21262d",
+        background: selected ? "var(--syn-accent-soft)" : "transparent",
+        borderBottom: "1px solid var(--syn-border-subtle)",
         cursor: "pointer",
         display: "flex",
         flexDirection: "column",
         gap: 4,
-        outline: selected ? "1px solid #1f6feb" : "none",
+        outline: selected ? "1px solid var(--syn-accent)" : "none",
         outlineOffset: -1,
       }}
       onClick={onClick}
@@ -191,27 +191,27 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
       {/* Row 1: status + provider + cost */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <StatusBadge status={run.status} />
-        <span style={{ fontSize: 12, color: "#8b949e" }}>
+        <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
           {t(`provider.type.${run.provider_type}` as string) || run.provider_type}
         </span>
-        <span style={{ fontSize: 12, color: "#6e7681", marginLeft: "auto" }}>
-          {t("ingest.cost")}: <span style={{ fontFamily: "monospace", color: "#e6edf3" }}>{formatCost(run.total_cost_usd)}</span>
+        <span style={{ fontSize: 12, color: "var(--syn-text-muted)", marginLeft: "auto" }}>
+          {t("ingest.cost")}: <span style={{ fontFamily: "monospace", color: "var(--syn-text)" }}>{formatCost(run.total_cost_usd)}</span>
         </span>
       </div>
 
       {/* Row 2: pages created + relative time */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 11, color: "#6e7681" }}>
+        <span style={{ fontSize: 11, color: "var(--syn-text-muted)" }}>
           {run.pages_created} {t("ingest.pagesCreated")}
         </span>
-        <span style={{ fontSize: 11, color: "#484f58", marginLeft: "auto" }} title={run.started_at}>
+        <span style={{ fontSize: 11, color: "var(--syn-text-dim)", marginLeft: "auto" }} title={run.started_at}>
           {formatRelativeTime(run.started_at, lang)}
         </span>
       </div>
 
       {/* Row 3: error (truncated, expandable) */}
       {hasError && (
-        <div style={{ fontSize: 11, color: "#f85149", lineHeight: 1.3 }}>
+        <div style={{ fontSize: 11, color: "var(--syn-red)", lineHeight: 1.3 }}>
           {errorExpanded ? errorText : errorTruncated}
           {errorText.length > ERROR_TRUNCATE && (
             <button
@@ -219,7 +219,7 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
               style={{
                 marginLeft: 4,
                 fontSize: 10,
-                color: "#8b949e",
+                color: "var(--syn-text-muted)",
                 background: "none",
                 border: "none",
                 cursor: "pointer",

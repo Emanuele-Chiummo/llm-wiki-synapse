@@ -88,7 +88,7 @@ export function MessageList({ onRegenerate }: MessageListProps): ReactNode {
             alignItems: "center",
             justifyContent: "center",
             height: "100%",
-            color: "#484f58",
+            color: "var(--syn-text-dim)",
             fontSize: 14,
           }}
         >
@@ -121,7 +121,7 @@ export function MessageList({ onRegenerate }: MessageListProps): ReactNode {
                   width: "100%",
                   transform: `translateY(${virtualItem.start}px)`,
                   padding: "12px 16px",
-                  borderBottom: "1px solid #21262d",
+                  borderBottom: "1px solid var(--syn-border)",
                 }}
               >
                 <MessageRow
@@ -144,7 +144,7 @@ export function MessageList({ onRegenerate }: MessageListProps): ReactNode {
         <div
           style={{
             padding: "12px 16px",
-            borderBottom: "1px solid #21262d",
+            borderBottom: "1px solid var(--syn-border)",
           }}
         >
           <MessageRoleLabel role="assistant" t={t} />
@@ -220,7 +220,7 @@ const MessageRow = memo(function MessageRow({
             gap: 12,
             marginTop: 8,
             fontSize: 11,
-            color: "#484f58",
+            color: "var(--syn-text-dim)",
           }}
         >
           {/* I7: cost displayed at 4dp */}
@@ -238,9 +238,9 @@ const MessageRow = memo(function MessageRow({
               data-testid="save-to-wiki-btn"
               style={{
                 background: "none",
-                border: "1px solid #30363d",
+                border: "1px solid var(--syn-border)",
                 borderRadius: 4,
-                color: "#8b949e",
+                color: "var(--syn-text-muted)",
                 cursor: "pointer",
                 fontSize: 11,
                 padding: "2px 8px",
@@ -252,7 +252,7 @@ const MessageRow = memo(function MessageRow({
           ) : saveState.kind === "loading" ? (
             <span
               data-testid="save-to-wiki-loading"
-              style={{ color: "#8b949e", fontSize: 11 }}
+              style={{ color: "var(--syn-text-muted)", fontSize: 11 }}
             >
               {t("chat.saveToWikiSaving")}
             </span>
@@ -260,7 +260,7 @@ const MessageRow = memo(function MessageRow({
             /* success */
             <span
               data-testid="save-to-wiki-success"
-              style={{ color: "#3fb950", fontSize: 11 }}
+              style={{ color: "var(--syn-green)", fontSize: 11 }}
               title={saveState.wikilink}
             >
               {t("chat.saveToWikiSaved", { title: saveState.pageTitle })}
@@ -271,7 +271,7 @@ const MessageRow = memo(function MessageRow({
           {saveState.kind === "error" && (
             <span
               data-testid="save-to-wiki-error"
-              style={{ color: "#f85149", fontSize: 11 }}
+              style={{ color: "var(--syn-red)", fontSize: 11 }}
             >
               {saveState.message}
             </span>
@@ -284,9 +284,9 @@ const MessageRow = memo(function MessageRow({
               onClick={onRegenerate}
               style={{
                 background: "none",
-                border: "1px solid #30363d",
+                border: "1px solid var(--syn-border)",
                 borderRadius: 4,
-                color: "#8b949e",
+                color: "var(--syn-text-muted)",
                 cursor: "pointer",
                 fontSize: 11,
                 padding: "2px 8px",
@@ -317,7 +317,7 @@ function MessageRoleLabel({
       style={{
         fontSize: 11,
         fontWeight: 600,
-        color: isUser ? "#58a6ff" : "#3fb950",
+        color: isUser ? "var(--syn-accent)" : "var(--syn-green)",
         marginBottom: 4,
         textTransform: "uppercase",
         letterSpacing: "0.05em",

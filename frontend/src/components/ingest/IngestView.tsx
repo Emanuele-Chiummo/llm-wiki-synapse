@@ -131,9 +131,9 @@ export function IngestView() {
           alignItems: "center",
           gap: 8,
           padding: "10px 16px",
-          borderBottom: "1px solid #21262d",
+          borderBottom: "1px solid var(--syn-border)",
           flexShrink: 0,
-          background: "#161b22",
+          background: "var(--syn-bg-soft)",
         }}
       >
         <h2
@@ -141,7 +141,7 @@ export function IngestView() {
             margin: 0,
             fontSize: 13,
             fontWeight: 600,
-            color: "#e6edf3",
+            color: "var(--syn-text)",
             flex: 1,
           }}
         >
@@ -158,8 +158,8 @@ export function IngestView() {
                 height: 18,
                 padding: "0 5px",
                 borderRadius: 9,
-                background: "#1f6feb",
-                color: "#e6edf3",
+                background: "var(--syn-accent)",
+                color: "#ffffff",
                 fontSize: 10,
                 fontWeight: 700,
               }}
@@ -178,10 +178,10 @@ export function IngestView() {
             alignItems: "center",
             gap: 6,
             padding: "5px 12px",
-            border: "1px solid #21262d",
+            border: "1px solid var(--syn-border)",
             borderRadius: 6,
-            background: formOpen ? "#21262d" : "#21262d",
-            color: formOpen ? "#6e7681" : "#58a6ff",
+            background: formOpen ? "var(--syn-surface-hover)" : "transparent",
+            color: formOpen ? "var(--syn-text-muted)" : "var(--syn-accent)",
             fontSize: 12,
             fontWeight: 500,
             cursor: "pointer",
@@ -202,14 +202,14 @@ export function IngestView() {
           data-testid="ingest-form"
           style={{
             padding: "12px 16px",
-            borderBottom: "1px solid #21262d",
+            borderBottom: "1px solid var(--syn-border)",
             flexShrink: 0,
-            background: "#0d1117",
+            background: "var(--syn-surface-sunken)",
           }}
         >
           <label
             htmlFor="ingest-file-path"
-            style={{ display: "block", fontSize: 12, fontWeight: 500, color: "#8b949e", marginBottom: 4 }}
+            style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)", marginBottom: 4 }}
           >
             {t("ingest.filePathLabel")}
           </label>
@@ -227,10 +227,10 @@ export function IngestView() {
               style={{
                 flex: 1,
                 padding: "6px 10px",
-                background: "#161b22",
-                border: "1px solid #21262d",
+                background: "var(--syn-bg)",
+                border: "1px solid var(--syn-border)",
                 borderRadius: 6,
-                color: "#e6edf3",
+                color: "var(--syn-text)",
                 fontSize: 12,
                 fontFamily: "monospace",
                 outline: "none",
@@ -244,8 +244,8 @@ export function IngestView() {
                 padding: "6px 16px",
                 border: "none",
                 borderRadius: 6,
-                background: !filePath.trim() || submitting ? "#21262d" : "#1f6feb",
-                color: !filePath.trim() || submitting ? "#484f58" : "#e6edf3",
+                background: !filePath.trim() || submitting ? "var(--syn-surface-hover)" : "var(--syn-accent)",
+                color: !filePath.trim() || submitting ? "var(--syn-text-dim)" : "#ffffff",
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: !filePath.trim() || submitting ? "not-allowed" : "pointer",
@@ -256,7 +256,7 @@ export function IngestView() {
           </div>
           <p
             id="ingest-file-path-help"
-            style={{ margin: "4px 0 0", fontSize: 11, color: "#484f58" }}
+            style={{ margin: "4px 0 0", fontSize: 11, color: "var(--syn-text-dim)" }}
           >
             {t("ingest.filePathHelp")}
           </p>
@@ -269,11 +269,11 @@ export function IngestView() {
           role="alert"
           style={{
             padding: "8px 16px",
-            borderBottom: "1px solid #21262d",
+            borderBottom: "1px solid var(--syn-border)",
             flexShrink: 0,
             fontSize: 12,
-            color: "#f85149",
-            background: "#1a0f0f",
+            color: "var(--syn-red)",
+            background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
           }}
         >
           {storeError}
@@ -282,7 +282,7 @@ export function IngestView() {
             style={{
               marginLeft: 8,
               fontSize: 12,
-              color: "#8b949e",
+              color: "var(--syn-text-muted)",
               background: "none",
               border: "none",
               cursor: "pointer",

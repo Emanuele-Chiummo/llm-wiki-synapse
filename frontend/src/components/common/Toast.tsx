@@ -73,30 +73,24 @@ function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: (id: 
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [toast.id, onDismiss]);
 
-  const color = toast.variant === "error" ? "#f85149" : "#3fb950";
-  const bg = toast.variant === "error" ? "#1a0f0f" : "#0d1a10";
+  const isError = toast.variant === "error";
 
   return (
     <div
       role="status"
+      className={`syn-section-notice syn-section-notice--${isError ? "danger" : "success"}`}
       style={{
         pointerEvents: "auto",
         display: "flex",
         alignItems: "center",
         gap: 10,
-        padding: "8px 12px",
-        background: bg,
-        border: `1px solid ${color}4d`,
-        borderRadius: 6,
-        fontSize: 13,
-        color: "#e6edf3",
         minWidth: 240,
         maxWidth: 380,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+        boxShadow: "var(--syn-shadow-pop)",
       }}
     >
-      <span style={{ color, fontSize: 14, flexShrink: 0 }}>
-        {toast.variant === "error" ? "✕" : "✓"}
+      <span style={{ fontSize: 14, flexShrink: 0 }}>
+        {isError ? "✕" : "✓"}
       </span>
       <span style={{ flex: 1 }}>{toast.message}</span>
       <button
@@ -104,7 +98,8 @@ function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: (id: 
         style={{
           background: "none",
           border: "none",
-          color: "#484f58",
+          color: "inherit",
+          opacity: 0.7,
           cursor: "pointer",
           fontSize: 12,
           padding: 0,
