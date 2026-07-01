@@ -155,9 +155,9 @@ vi.mock("../components/settings/ImportScheduleCard", () => ({
 
 // ─── Mock providerClient (fetchEmbeddingConfig + fetchMcpInfo + setRemoteMcpEnabled
 //     + setMcpAuth + fetchClipConfig + setClipConfig + fetchWebSearchConfig
-//     + setWebSearchConfig) ──────────────────────────────────────────────────────────
+//     + setWebSearchConfig + getCliAuthConfig + setCliAuthConfig) ─────────────────────
 // NOTE: vi.mock is hoisted — no top-level variables may be referenced inside the
-// factory. The 4-tool fixture is inlined here. ADR-0032/0033/0040/0041 fields included.
+// factory. The 4-tool fixture is inlined here. ADR-0032/0033/0040/0041/0043 fields included.
 
 vi.mock("../api/providerClient", async (importOriginal) => {
   const orig = await importOriginal<typeof import("../api/providerClient")>();
@@ -254,6 +254,18 @@ vi.mock("../api/providerClient", async (importOriginal) => {
       categories: ["general"],
       max_queries: 3,
       source: "db",
+    }),
+    // ADR-0043 — CLI Auth default: token configured (db), auth_mode=subscription
+    getCliAuthConfig: vi.fn().mockResolvedValue({
+      token_configured: true,
+      token_source: "db",
+      auth_mode: "subscription",
+    }),
+    // ADR-0043 — default: post-write posture reflecting cleared state
+    setCliAuthConfig: vi.fn().mockResolvedValue({
+      token_configured: false,
+      token_source: "none",
+      auth_mode: "unconfigured",
     }),
   };
 });
@@ -1704,5 +1716,229 @@ describe("SettingsPanel — Web Search section (ADR-0041)", () => {
     await navigateToWebSearchAndWait();
     // i18n mock: "settings.webSearch.searxngOnly" → "searxngOnly"
     expect(screen.getByText("searxngOnly")).toBeTruthy();
+  });
+});
+
+// ─── 17. CLI Subscription Auth section — ADR-0043 ────────────────────────────
+// Covers: posture badges render; Save calls PUT {token}; Clear calls PUT {clear:true};
+// token value never persisted/rendered; password field discarded after save;
+// clear button visible only when token_configured=true; error state.
+
+describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
+  // Helper: navigate to API+MCP and wait for the CLI auth sub-block to appear.
+  async function navigateToCliAuthAndWait() {
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="apiMcp"]');
+    fireEvent.click(btn!);
+    await waitFor(() => {
+      expect(screen.getByTestId("cli-auth-section")).toBeTruthy();
+    });
+    // Wait for the fetch to resolve and posture badges to appear.
+    await waitFor(() => {
+      expect(screen.getByTestId("cli-auth-configured-badge")).toBeTruthy();
+    });
+  }
+
+  it("shows loading state immediately after navigation (before fetch resolves)", () => {
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="apiMcp"]');
+    fireEvent.click(btn!);
+    // The CLI auth sub-block shows "loading" while getCliAuthConfig is pending.
+    // i18n mock: "settings.cliAuth.loading" → "loading"
+    // (apiMcp also shows "loading" for fetchMcpInfo — both resolve async)
+    expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders 'configuredBadge' when token_configured=true (default fixture)", async () => {
+    await navigateToCliAuthAndWait();
+    // i18n mock: "settings.cliAuth.configuredBadge" → "configuredBadge"
+    expect(screen.getByTestId("cli-auth-configured-badge").textContent).toMatch(/configuredBadge/i);
+  });
+
+  it("renders 'notConfiguredBadge' when token_configured=false", async () => {
+    const { getCliAuthConfig: mockGet } = await import("../api/providerClient");
+    (mockGet as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      token_configured: false,
+      token_source: "none",
+      auth_mode: "unconfigured",
+    });
+    await navigateToCliAuthAndWait();
+    expect(screen.getByTestId("cli-auth-configured-badge").textContent).toMatch(/notConfiguredBadge/i);
+  });
+
+  it("renders the source badge with the token_source from the fixture", async () => {
+    await navigateToCliAuthAndWait();
+    expect(screen.getByTestId("cli-auth-source-badge")).toBeTruthy();
+  });
+
+  it("renders the auth_mode badge", async () => {
+    await navigateToCliAuthAndWait();
+    expect(screen.getByTestId("cli-auth-mode-badge")).toBeTruthy();
+  });
+
+  it("renders the password input field", async () => {
+    await navigateToCliAuthAndWait();
+    const input = screen.getByTestId("cli-auth-token-input") as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(input.type).toBe("password");
+  });
+
+  it("renders the Save button", async () => {
+    await navigateToCliAuthAndWait();
+    expect(screen.getByTestId("cli-auth-save-btn")).toBeTruthy();
+  });
+
+  it("renders the Clear button when token_configured=true (default fixture)", async () => {
+    await navigateToCliAuthAndWait();
+    expect(screen.getByTestId("cli-auth-clear-btn")).toBeTruthy();
+  });
+
+  it("does NOT render the Clear button when token_configured=false", async () => {
+    const { getCliAuthConfig: mockGet } = await import("../api/providerClient");
+    (mockGet as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      token_configured: false,
+      token_source: "none",
+      auth_mode: "unconfigured",
+    });
+    await navigateToCliAuthAndWait();
+    expect(screen.queryByTestId("cli-auth-clear-btn")).toBeNull();
+  });
+
+  it("clicking Save calls setCliAuthConfig({token: '<value>'}) with the typed token", async () => {
+    const { setCliAuthConfig: mockSet } = await import("../api/providerClient");
+    (mockSet as ReturnType<typeof vi.fn>).mockClear();
+    (mockSet as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      token_configured: true,
+      token_source: "db",
+      auth_mode: "subscription",
+    });
+
+    await navigateToCliAuthAndWait();
+    const input = screen.getByTestId("cli-auth-token-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "sk-ant-oat01-test-token-value" } });
+    fireEvent.click(screen.getByTestId("cli-auth-save-btn"));
+
+    await waitFor(() => {
+      expect(mockSet).toHaveBeenCalledWith({ token: "sk-ant-oat01-test-token-value" });
+    });
+  });
+
+  it("after Save, the token input is cleared (value discarded — never persisted)", async () => {
+    const { setCliAuthConfig: mockSet } = await import("../api/providerClient");
+    (mockSet as ReturnType<typeof vi.fn>).mockClear();
+    (mockSet as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      token_configured: true,
+      token_source: "db",
+      auth_mode: "subscription",
+    });
+
+    await navigateToCliAuthAndWait();
+    const input = screen.getByTestId("cli-auth-token-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "sk-ant-oat01-test-value" } });
+    expect(input.value).toBe("sk-ant-oat01-test-value");
+
+    fireEvent.click(screen.getByTestId("cli-auth-save-btn"));
+
+    await waitFor(() => {
+      expect(mockSet).toHaveBeenCalled();
+    });
+    // After save, the field must be cleared — token discarded (ADR-0043 §2.6).
+    expect(input.value).toBe("");
+  });
+
+  it("clicking Clear calls setCliAuthConfig({clear: true})", async () => {
+    const { setCliAuthConfig: mockSet } = await import("../api/providerClient");
+    (mockSet as ReturnType<typeof vi.fn>).mockClear();
+    // Default mock response: token_configured=false, source=none, mode=unconfigured
+
+    await navigateToCliAuthAndWait();
+    fireEvent.click(screen.getByTestId("cli-auth-clear-btn"));
+
+    await waitFor(() => {
+      expect(mockSet).toHaveBeenCalledWith({ clear: true });
+    });
+  });
+
+  it("after Clear, posture updates to not-configured (clear button disappears)", async () => {
+    const { setCliAuthConfig: mockSet } = await import("../api/providerClient");
+    (mockSet as ReturnType<typeof vi.fn>).mockClear();
+    (mockSet as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      token_configured: false,
+      token_source: "none",
+      auth_mode: "unconfigured",
+    });
+
+    await navigateToCliAuthAndWait();
+    // Default fixture: token_configured=true, so Clear button is visible.
+    expect(screen.getByTestId("cli-auth-clear-btn")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("cli-auth-clear-btn"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("cli-auth-clear-btn")).toBeNull();
+    });
+    // Posture badge should reflect not-configured.
+    expect(screen.getByTestId("cli-auth-configured-badge").textContent).toMatch(/notConfiguredBadge/i);
+  });
+
+  it("token value typed by user is NEVER rendered as visible text in the DOM", async () => {
+    await navigateToCliAuthAndWait();
+    const input = screen.getByTestId("cli-auth-token-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "sk-ant-oat01-secret-token-xyz" } });
+    // The input type is password — the value is in the DOM but not rendered as text.
+    // DOM body text must not contain the raw token string.
+    const body = document.body.textContent ?? "";
+    expect(body).not.toContain("sk-ant-oat01-secret-token-xyz");
+  });
+
+  it("token value from the fixture (posture) is never rendered — GET returns no value", async () => {
+    // The fixture returns token_configured=true but never the token itself.
+    // The rendered body must contain no token-shaped string from the fetch response.
+    await navigateToCliAuthAndWait();
+    const body = document.body.textContent ?? "";
+    // The fixture token_source="db" but no token value — ensure nothing like a token value appears.
+    expect(body).not.toMatch(/sk-ant-oat01-/);
+  });
+
+  it("shows the mini-guide block (guideTitle key)", async () => {
+    await navigateToCliAuthAndWait();
+    // i18n mock: "settings.cliAuth.guideTitle" → "guideTitle"
+    expect(screen.getByTestId("cli-auth-guide")).toBeTruthy();
+    expect(screen.getByText("guideTitle")).toBeTruthy();
+  });
+
+  it("shows the security caveat block", async () => {
+    await navigateToCliAuthAndWait();
+    expect(screen.getByTestId("cli-auth-caveat")).toBeTruthy();
+  });
+
+  it("shows an error state when getCliAuthConfig rejects", async () => {
+    const { getCliAuthConfig: mockGet } = await import("../api/providerClient");
+    (mockGet as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("network error"));
+
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="apiMcp"]');
+    fireEvent.click(btn!);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("cli-auth-section")).toBeTruthy();
+    });
+    // i18n mock: "settings.cliAuth.error" → "error" (same key as other error strings)
+    await waitFor(() => {
+      // At least one "error" text should be visible (could be from apiMcp or cliAuth)
+      expect(screen.getAllByText("error").length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it("Save does NOT call setCliAuthConfig when the token input is empty", async () => {
+    const { setCliAuthConfig: mockSet } = await import("../api/providerClient");
+    (mockSet as ReturnType<typeof vi.fn>).mockClear();
+
+    await navigateToCliAuthAndWait();
+    // Input is empty by default
+    fireEvent.click(screen.getByTestId("cli-auth-save-btn"));
+
+    // Should not have called the API
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockSet).not.toHaveBeenCalled();
   });
 });

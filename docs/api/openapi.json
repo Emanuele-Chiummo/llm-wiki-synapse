@@ -2079,6 +2079,62 @@
         }
       }
     },
+    "/provider/cli-auth": {
+      "get": {
+        "summary": "Read-only CLI subscription OAuth token posture (ADR-0043)",
+        "description": "Returns the current posture of the CLI provider subscription token: token_configured (bool, never the value), token_source (db|env|none), auth_mode (api-key|subscription|unconfigured). Mirrors GET /clip/config: no sensitive values ever returned. ADR-0043 \u00a72.5.",
+        "operationId": "get_cli_auth_config_provider_cli_auth_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliAuthConfigResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set or clear the CLI subscription OAuth token (ADR-0043)",
+        "description": "ADR-0043 \u00a72.5 \u2014 store a pasted Claude subscription OAuth token or clear it. clear=true: set DB token to NULL (falls back to env / none). token=<value>: validate and store to vault_state.cli_oauth_token; refresh cache. Returns post-write posture (same shape as GET); NEVER the token value. 400 if body has neither token nor clear. 422 if token is empty/whitespace or absurd length. Soft prefix check warns but does NOT hard-reject \u2014 ADR-0043 \u00a72.5.",
+        "operationId": "put_cli_auth_config_provider_cli_auth_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CliAuthConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliAuthConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/clip": {
       "post": {
         "summary": "Chrome MV3 web clipper ingress \u2014 secure clip receiver (F11, ADR-0038)",
@@ -2475,6 +2531,64 @@
         ],
         "title": "ChatRequest",
         "description": "Request body for POST /chat/stream (ADR-0019 \u00a72.2).\n\nThe server NEVER accepts provider_type / model_id (I6 / Do-NOT #4): the backend resolves\n`resolve_provider_config(\"chat\", vault_id)`. `operation` is fixed to \"chat\" so the same\nabstraction can route ingest-vs-chat differently."
+      },
+      "CliAuthConfigRequest": {
+        "properties": {
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token",
+            "description": "The Claude subscription OAuth token to store (from `claude setup-token`). Stored plaintext (ADR-0043 \u00a72.1 \u2014 replayed outbound). NEVER logged or returned. Validated: non-empty, 20\u2013500 chars; soft prefix check (warns, does not block)."
+          },
+          "clear": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clear",
+            "description": "true \u21d2 set cli_oauth_token = NULL (fall back to env / none). Wins over token if both are sent."
+          }
+        },
+        "type": "object",
+        "title": "CliAuthConfigRequest",
+        "description": "Request body for PUT /provider/cli-auth (ADR-0043 \u00a72.5).\n\nExactly one of {token, clear} should be present:\n  token: str  \u2014 paste the token produced by ``claude setup-token`` (prefix: sk-ant- + oat01-)\n  clear: bool \u2014 true \u21d2 set vault_state.cli_oauth_token = NULL (fall back to env / none)\n\n``clear`` wins if both are sent. An empty body (neither field) \u2192 400."
+      },
+      "CliAuthConfigResponse": {
+        "properties": {
+          "token_configured": {
+            "type": "boolean",
+            "title": "Token Configured",
+            "description": "True iff any credential is available (DB cli_oauth_token set OR any env signal: ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN / CLAUDE_CODE_USE_SUBSCRIPTION). NEVER contains the token value."
+          },
+          "token_source": {
+            "type": "string",
+            "title": "Token Source",
+            "description": "\"db\" | \"env\" | \"none\". \"db\": vault_state.cli_oauth_token is set (DB wins \u2014 ADR-0043 \u00a72.3 tier 1). \"env\": no DB token; at least one env signal is present (ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN / CLAUDE_CODE_USE_SUBSCRIPTION). \"none\": nothing configured."
+          },
+          "auth_mode": {
+            "type": "string",
+            "title": "Auth Mode",
+            "description": "\"api-key\" | \"subscription\" | \"unconfigured\". Derived from ADR-0043 \u00a72.3 precedence (presence-only; does NOT run injection): \"api-key\": env ANTHROPIC_API_KEY non-empty AND no DB token. \"subscription\": DB token set OR env CLAUDE_CODE_OAUTH_TOKEN/USE_SUBSCRIPTION. \"unconfigured\": nothing set."
+          }
+        },
+        "type": "object",
+        "required": [
+          "token_configured",
+          "token_source",
+          "auth_mode"
+        ],
+        "title": "CliAuthConfigResponse",
+        "description": "Response model for GET/PUT /provider/cli-auth (ADR-0043 \u00a72.5).\n\nPosture only \u2014 NEVER returns the token value. Mirrors ClipConfigResponse but simpler:\nno enabled/allowed_origins, no generated_token, no rotate. The user pastes their own\ntoken; the server never generates one."
       },
       "ClipConfigRequest": {
         "properties": {

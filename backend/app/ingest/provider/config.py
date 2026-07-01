@@ -31,3 +31,8 @@ class ProviderSettings:
     is_fallback: bool = False
     # Optional knobs that may come from env-adjacent config (never a literal in app code):
     timeout: float = 120.0
+    # ADR-0043: the resolved Claude subscription OAuth token for the CLI backend, injected
+    # into the spawned `claude` CLI env as CLAUDE_CODE_OAUTH_TOKEN when set. None = no DB
+    # token (env governs). Set ONLY for provider_type == "cli"; ignored by local/api.
+    # NEVER logged.
+    subscription_token: str | None = None

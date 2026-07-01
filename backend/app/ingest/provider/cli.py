@@ -7,17 +7,28 @@ Invariants:
   - I6: model id from ProviderSettings (provider_config), NEVER hardcoded; API key from the
     environment inside THIS module only (§12). Routing reaches this class via capabilities()
     (supports_agentic_loop=True), never via isinstance/type.
-  - Auth (§12, ADR-0008 §3): the CLI backend resolves ONE of two auth modes from the environment
-    (never a stored secret) via three signals. If ANTHROPIC_API_KEY is set (non-empty) the SDK
-    bills per token (mode "api-key"). Otherwise the SDK authenticates via the Claude Code (Pro/Max)
-    subscription with NO API key (mode "subscription", marginal cost genuinely $0 per the ADR-0009
-    convention) when EITHER CLAUDE_CODE_OAUTH_TOKEN is set (the container-friendly long-lived token
-    from `claude setup-token`, passed into the container as env) OR CLAUDE_CODE_USE_SUBSCRIPTION is
-    truthy (ambient host login / mounted creds). We only detect PRESENCE — the token VALUE is never
-    read or forwarded; the SDK's spawned `claude` CLI inherits it from the process environment.
+  - Auth (§12, ADR-0008 §3, amended by ADR-0043): the CLI backend resolves ONE of two auth modes
+    via four signals, in precedence order. HIGHEST is a DB-set Claude subscription OAuth token that
+    reaches this module ONLY on ProviderSettings.subscription_token (UI-settable per ADR-0043; the
+    provider package stays ORM-free — no DB import here). When that token is non-empty we run in
+    mode "subscription" AND inject it into the spawned `claude` CLI env as CLAUDE_CODE_OAUTH_TOKEN
+    while SCRUBBING ANTHROPIC_API_KEY from that child env — the scrub is the safety crux (ADR-0043
+    §2.3): Claude Code's own precedence ranks ANTHROPIC_API_KEY above the subscription, so a stray
+    inherited API key would out-bill the deliberate UI action unless removed. Below the DB tier the
+    ADR-0042 env signals are unchanged: ANTHROPIC_API_KEY set (non-empty) → "api-key" (billed);
+    else CLAUDE_CODE_OAUTH_TOKEN set (non-empty) → "subscription"; else CLAUDE_CODE_USE_SUBSCRIPTION
+    truthy → "subscription". For the env tiers we only detect PRESENCE — the token VALUE is never
+    read or forwarded; the SDK's spawned CLI inherits it from the ambient process environment (no
+    injection, no scrub — tier "api-key" by definition means the operator chose the API key).
     With none set we fail fast (ValueError) BEFORE any stream/loop opens (Do-NOT #9), naming all
-    three options. We NEVER mutate os.environ — an empty ANTHROPIC_API_KEY would silently override
-    the subscription and bill per token, so it is treated as "unset".
+    three env options. We NEVER PERMANENTLY mutate os.environ — an empty ANTHROPIC_API_KEY would
+    silently override the subscription and bill per token, so it is treated as "unset". The DB-token
+    scrub is applied via a SCOPED, restored-in-`finally` os.environ override around the SDK session
+    (see _cli_subscription_env_override): the installed claude-agent-sdk (>=0.2,<0.3) merges
+    ClaudeAgentOptions.env OVER the inherited os.environ (add/override only — it cannot DELETE an
+    inherited key), so options.env alone cannot remove an inherited ANTHROPIC_API_KEY; the scoped
+    os.environ override is the only way to make the key absent at the child-spawn snapshot, and it
+    restores the parent env exactly (including keys that were absent) on exit or exception.
   - I7: the SDK is given a token_budget (ADR-0009: 100k default for CLI); the provider aborts
     if the SDK reports the budget exceeded. The orchestrator records ONE ingest_runs row.
   - ADR-0009 (as amended by NB-4): record the REAL cost the SDK reports. claude-agent-sdk
@@ -38,7 +49,8 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -80,26 +92,31 @@ _DEFAULT_CHAT_AGENT_MAX_TURNS = 8
 MCP_TOOL_NAMES: tuple[str, ...] = ("search_wiki", "write_page", "get_page", "list_pages")
 
 
-def _resolve_cli_auth_mode() -> str:
+def _resolve_cli_auth_mode(subscription_token: str | None) -> str:
     """
-    Resolve the CLI backend's auth mode from the environment, fail-fast (§12, ADR-0008 §3).
+    Resolve the CLI backend's auth mode, fail-fast (§12, ADR-0008 §3, amended by ADR-0043 §2.3).
 
-    Precedence (never mutates os.environ; never reads a token VALUE — presence only):
-      1. ANTHROPIC_API_KEY set & non-empty      → "api-key"      (billed per token; real cost)
-      2. CLAUDE_CODE_OAUTH_TOKEN set & non-empty → "subscription" (container-friendly long-lived
-         subscription token from `claude setup-token`; NO API key; marginal cost genuinely $0 per
-         the ADR-0009 convention)
-      3. CLAUDE_CODE_USE_SUBSCRIPTION truthy     → "subscription" (ambient host login / mounted
-         creds; same $0 convention)
-      4. none                                    → raise ValueError naming ALL THREE options
+    Precedence (never PERMANENTLY mutates os.environ; env tiers read PRESENCE only, no VALUE):
+      1. subscription_token non-empty (DB, from the UI) → "subscription"  ← ADR-0043, HIGHEST.
+         A DB-set token is an explicit operator action ("use my subscription for the CLI"); the
+         caller injects it into the spawned CLI env AND scrubs ANTHROPIC_API_KEY so it
+         deterministically wins (§2.3 crux). This tier OUTRANKS an env ANTHROPIC_API_KEY on purpose.
+      2. ANTHROPIC_API_KEY env set & non-empty          → "api-key"      (billed per token; real
+         cost — unchanged from ADR-0042)
+      3. CLAUDE_CODE_OAUTH_TOKEN env set & non-empty     → "subscription" (container-friendly
+         long-lived token from `claude setup-token`; NO API key; $0 marginal cost per ADR-0009)
+      4. CLAUDE_CODE_USE_SUBSCRIPTION truthy             → "subscription" (ambient host login /
+         mounted creds; same $0 convention)
+      5. none                                            → raise ValueError naming ALL THREE env
+         options (unchanged — the DB token is a UI setting, not an env option to name here)
 
-    Signals (2) and (3) both resolve to "subscription": there is no behavioural difference in the
-    provider (the SDK's spawned `claude` CLI picks the token up from the inherited environment; we
-    only detect PRESENCE to pass the gate). An empty ANTHROPIC_API_KEY is treated as "unset" so it
-    cannot silently override the subscription and bill per token. Called BEFORE any SDK stream/loop
-    opens so a misconfiguration surfaces as a clean pre-stream/pre-loop error, never a fake/half-
-    open stream (Do-NOT #9).
+    Empty-string = unset at EVERY tier (ADR-0042 rule preserved, ADR-0043 §2.3): an empty
+    subscription_token or an empty ANTHROPIC_API_KEY is treated as "unset" so neither can silently
+    outrank the subscription. Called BEFORE any SDK stream/loop opens so a misconfiguration surfaces
+    as a clean pre-stream/pre-loop error, never a fake/half-open stream (Do-NOT #9).
     """
+    if subscription_token:  # non-empty DB token (from the UI) — ADR-0043 tier 1, DB wins over env
+        return "subscription"
     if os.environ.get(_ANTHROPIC_KEY_ENV):  # non-empty
         return "api-key"
     if os.environ.get(_OAUTH_TOKEN_ENV):  # non-empty container-friendly OAuth token
@@ -113,6 +130,74 @@ def _resolve_cli_auth_mode() -> str:
         "CLAUDE_CODE_USE_SUBSCRIPTION=true after logging in with `claude` (Claude Code) on the "
         "host."
     )
+
+
+def _build_cli_child_env(base: dict[str, str], subscription_token: str) -> dict[str, str]:
+    """
+    Build the child-process environment for the spawned `claude` CLI on the DB-token path
+    (ADR-0043 §2.3): a copy of *base* PLUS CLAUDE_CODE_OAUTH_TOKEN=<subscription_token> MINUS
+    ANTHROPIC_API_KEY (scrubbed so the injected subscription deterministically wins). Pure — takes
+    and returns a plain dict, mutates nothing; the scoped context manager below applies the result
+    to os.environ around the SDK session. Kept as a standalone function so the scrub is
+    unit-testable without opening any SDK stream.
+    """
+    child = dict(base)
+    child[_OAUTH_TOKEN_ENV] = subscription_token
+    child.pop(_ANTHROPIC_KEY_ENV, None)  # remove — an empty string would still out-bill (§2.3)
+    return child
+
+
+@contextmanager
+def _cli_subscription_env_override(subscription_token: str) -> Iterator[None]:
+    """
+    Scoped os.environ override for the DB-token subscription path (ADR-0043 §2.4 fallback, which is
+    the REQUIRED path with the installed SDK — see note below). For the duration of the wrapped SDK
+    session it sets CLAUDE_CODE_OAUTH_TOKEN=<subscription_token> and REMOVES ANTHROPIC_API_KEY from
+    os.environ, then restores the PREVIOUS os.environ state EXACTLY in `finally` — including keys
+    that were absent before (they are removed again) — even on exception.
+
+    Why mutate os.environ at all (documented trade-off): claude-agent-sdk (>=0.2,<0.3) builds the
+    spawned CLI's environment as `{**os.environ, ..., **ClaudeAgentOptions.env}` — options.env is
+    MERGED OVER the inherited process env and can only ADD or OVERRIDE keys, never DELETE an
+    inherited one. So options.env alone cannot remove an inherited ANTHROPIC_API_KEY (the §2.3
+    scrub). The SDK snapshots os.environ at child-spawn time, so scoping the mutation around the
+    `ClaudeSDKClient(...)` session (and restoring it immediately after) is the only way to make the
+    key ABSENT from the child while NEVER PERMANENTLY mutating the parent env (Do-NOT #3). The
+    override is exception-safe: the `finally` restores the exact prior state regardless of outcome.
+    """
+    sentinel = object()
+    prev_oauth: Any = os.environ.get(_OAUTH_TOKEN_ENV, sentinel)
+    prev_api_key: Any = os.environ.get(_ANTHROPIC_KEY_ENV, sentinel)
+    os.environ[_OAUTH_TOKEN_ENV] = subscription_token
+    os.environ.pop(_ANTHROPIC_KEY_ENV, None)  # scrub: the safety crux (ADR-0043 §2.3)
+    try:
+        yield
+    finally:
+        # Restore EXACTLY — including re-removing keys that were absent before the override.
+        if prev_oauth is sentinel:
+            os.environ.pop(_OAUTH_TOKEN_ENV, None)
+        else:
+            os.environ[_OAUTH_TOKEN_ENV] = prev_oauth
+        if prev_api_key is sentinel:
+            os.environ.pop(_ANTHROPIC_KEY_ENV, None)
+        else:
+            os.environ[_ANTHROPIC_KEY_ENV] = prev_api_key
+
+
+@contextmanager
+def _cli_subscription_env_scope(subscription_token: str | None) -> Iterator[None]:
+    """
+    Call-site convenience wrapper (ADR-0043 §2.3): apply the inject+scrub os.environ override ONLY
+    when a DB subscription token is present (non-empty). For env-sourced subscription (signals 3/4)
+    and api-key mode the token is None/empty and this is a NO-OP — the SDK session inherits the
+    ambient env unchanged (current behaviour). Lets both SDK call sites (delegate_ingest and
+    _chat_stream) wrap their session unconditionally without branching.
+    """
+    if subscription_token:
+        with _cli_subscription_env_override(subscription_token):
+            yield
+    else:
+        yield
 
 
 @dataclass
@@ -183,7 +268,8 @@ class CliAgentProvider(InferenceProvider):
         raise surfaces as a normal provider error event, not a half-open stream. Dev default stays
         Ollama.
         """
-        auth_mode = _resolve_cli_auth_mode()  # raises if neither API key nor subscription is set
+        # ADR-0043 §2.3: a DB-set token (on ProviderSettings.subscription_token) outranks env.
+        auth_mode = _resolve_cli_auth_mode(self._config.subscription_token)
 
         # Lazy SDK import here too, so a missing SDK is a clean pre-stream error (not mid-stream).
         try:
@@ -224,17 +310,23 @@ class CliAgentProvider(InferenceProvider):
 
         usage = Usage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
         sdk_cost_usd: float | None = None
+        # ADR-0043 §2.3: when the subscription is driven by the DB token (not env), inject it into
+        # the spawned CLI env and scrub ANTHROPIC_API_KEY. The scoped override wraps ONLY the SDK
+        # session and restores os.environ in its own finally — parent env is never permanently
+        # mutated (Do-NOT #3). Env-sourced subscription / api-key inherit the ambient env unchanged.
+        db_token = self._config.subscription_token
         try:
-            async with client_cls(options=options) as client:
-                await client.query(_build_chat_prompt(messages))
-                async for message in client.receive_response():
-                    for delta in _extract_text_deltas(message):
-                        if delta:
-                            yield delta
-                    usage = _merge_sdk_usage(usage, message)
-                    msg_cost = _extract_sdk_cost(message)
-                    if msg_cost is not None:
-                        sdk_cost_usd = msg_cost
+            with _cli_subscription_env_scope(db_token):
+                async with client_cls(options=options) as client:
+                    await client.query(_build_chat_prompt(messages))
+                    async for message in client.receive_response():
+                        for delta in _extract_text_deltas(message):
+                            if delta:
+                                yield delta
+                        usage = _merge_sdk_usage(usage, message)
+                        msg_cost = _extract_sdk_cost(message)
+                        if msg_cost is not None:
+                            sdk_cost_usd = msg_cost
         finally:
             self._record_usage(_finalize_chat_usage(usage, sdk_cost_usd, auth_mode))
 
@@ -262,7 +354,8 @@ class CliAgentProvider(InferenceProvider):
         $0.00 by the subscription/OAuth convention, ADR-0009). Raises a clean pre-loop ValueError
         if NEITHER ANTHROPIC_API_KEY nor CLAUDE_CODE_USE_SUBSCRIPTION is set (Do-NOT #9).
         """
-        auth_mode = _resolve_cli_auth_mode()  # raises if neither API key nor subscription is set
+        # ADR-0043 §2.3: a DB-set token (on ProviderSettings.subscription_token) outranks env.
+        auth_mode = _resolve_cli_auth_mode(self._config.subscription_token)
 
         # ── Lazy SDK import (keeps the package import-clean without the SDK installed) ──
         try:
@@ -306,17 +399,22 @@ class CliAgentProvider(InferenceProvider):
         sdk_cost_usd: float | None = None
         converged = False
 
-        async with ClaudeSDKClient(options=options) as client:
-            await client.query(
-                "Ingest the following source into the wiki. Classify it, create schema-valid "
-                "pages via write_page, and link related pages. Source:\n\n" + source_text
-            )
-            async for message in client.receive_response():
-                pages_written += _count_write_page_calls(message)
-                usage = _merge_sdk_usage(usage, message)
-                msg_cost = _extract_sdk_cost(message)
-                if msg_cost is not None:
-                    sdk_cost_usd = msg_cost
+        # ADR-0043 §2.3: DB-token subscription → inject CLAUDE_CODE_OAUTH_TOKEN + scrub
+        # ANTHROPIC_API_KEY from the child env for the duration of the SDK session, restored after
+        # (no-op for env-sourced subscription / api-key). Parent os.environ never permanently
+        # mutated (Do-NOT #3).
+        with _cli_subscription_env_scope(self._config.subscription_token):
+            async with ClaudeSDKClient(options=options) as client:
+                await client.query(
+                    "Ingest the following source into the wiki. Classify it, create schema-valid "
+                    "pages via write_page, and link related pages. Source:\n\n" + source_text
+                )
+                async for message in client.receive_response():
+                    pages_written += _count_write_page_calls(message)
+                    usage = _merge_sdk_usage(usage, message)
+                    msg_cost = _extract_sdk_cost(message)
+                    if msg_cost is not None:
+                        sdk_cost_usd = msg_cost
         converged = pages_written > 0
 
         # Raw tokens recorded when the SDK exposes them.
@@ -522,5 +620,8 @@ __all__ = [
     "DelegatedIngestResult",
     "MCP_TOOL_NAMES",
     "UsageAccumulator",
+    "_build_cli_child_env",
+    "_cli_subscription_env_override",
+    "_cli_subscription_env_scope",
     "_resolve_cli_auth_mode",
 ]

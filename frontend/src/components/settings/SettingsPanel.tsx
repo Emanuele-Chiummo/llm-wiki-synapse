@@ -55,12 +55,14 @@ import {
   setClipConfig,
   fetchWebSearchConfig,
   setWebSearchConfig,
+  getCliAuthConfig,
+  setCliAuthConfig,
   type EmbeddingConfig,
   type McpInfoResponse,
   type McpRemoteStateResponse,
   type McpAuthResponse,
 } from "../../api/providerClient";
-import type { ClipConfigResponse, ClipConfigStateResponse, WebSearchConfigResponse } from "../../api/types";
+import type { ClipConfigResponse, ClipConfigStateResponse, WebSearchConfigResponse, CliAuthConfig } from "../../api/types";
 
 // ─── Settings section type ────────────────────────────────────────────────────
 
@@ -1760,6 +1762,227 @@ function SectionApiMcp() {
                 );
               })}
             </div>
+          </div>
+
+          {/* ── CLI Subscription Auth sub-block — ADR-0043 §2.6 ── */}
+          <SectionCliAuth />
+
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Section: CLI Subscription Auth ─────────────────────────────────────────
+// ADR-0043: user pastes their own token from `claude setup-token` (no server generation).
+// password field + Save (PUT {token}) + Clear (PUT {clear:true}).
+// Token value NEVER shown (no reveal — GET never returns it; ADR-0043 Do-NOT #2).
+// I3: local state only; no Zustand store; plain <input type="password">.
+
+function SectionCliAuth() {
+  const { t } = useTranslation();
+  const [posture, setPosture] = useState<CliAuthConfig | null>(null);
+  const [err, setErr] = useState(false);
+  // password field — local state only; discarded on save/clear (ADR-0043 Do-NOT for no persistence).
+  const [tokenInput, setTokenInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    getCliAuthConfig(ac.signal)
+      .then((data) => { setPosture(data); setErr(false); })
+      .catch((e: unknown) => { if (!(e instanceof Error) || e.name !== "AbortError") setErr(true); });
+    return () => { ac.abort(); };
+  }, []);
+
+  /** Apply the post-write posture from any PUT response. */
+  const applyPosture = (resp: CliAuthConfig) => {
+    setPosture(resp);
+    // Discard the typed token from the field — never persisted (ADR-0043 §2.6).
+    setTokenInput("");
+    setSaveErr(null);
+  };
+
+  const handleSave = async () => {
+    if (busy) return;
+    const trimmed = tokenInput.trim();
+    if (trimmed === "") {
+      setSaveErr(t("settings.cliAuth.emptyTokenError"));
+      return;
+    }
+    setBusy(true);
+    setSaveErr(null);
+    try {
+      const resp = await setCliAuthConfig({ token: trimmed });
+      applyPosture(resp);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+      setSaveErr(t("settings.cliAuth.saveError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleClear = async () => {
+    if (busy) return;
+    setBusy(true);
+    setSaveErr(null);
+    try {
+      const resp = await setCliAuthConfig({ clear: true });
+      applyPosture(resp);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+      setSaveErr(t("settings.cliAuth.saveError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div data-testid="cli-auth-section">
+      <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        {t("settings.cliAuth.title")}
+      </p>
+
+      {err ? (
+        <p style={{ fontSize: 12, color: "#f85149", margin: "8px 0" }}>{t("settings.cliAuth.error")}</p>
+      ) : posture === null ? (
+        <p style={{ fontSize: 12, color: "#6e7681", margin: "8px 0" }}>{t("settings.cliAuth.loading")}</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Posture badges */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span
+              data-testid="cli-auth-configured-badge"
+              style={{
+                padding: "2px 8px",
+                borderRadius: 4,
+                background: posture.token_configured ? "#0f2a1a" : "#2d1b1b",
+                border: `1px solid ${posture.token_configured ? "#238636" : "#f8514933"}`,
+                color: posture.token_configured ? "#3fb950" : "#f85149",
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            >
+              {posture.token_configured
+                ? t("settings.cliAuth.configuredBadge")
+                : t("settings.cliAuth.notConfiguredBadge")}
+            </span>
+            <span
+              data-testid="cli-auth-source-badge"
+              style={{ padding: "2px 8px", borderRadius: 4, background: "#21262d", color: "#8b949e", fontSize: 11 }}
+            >
+              {t("settings.cliAuth.sourceBadge", { source: posture.token_source })}
+            </span>
+            <span
+              data-testid="cli-auth-mode-badge"
+              style={{
+                padding: "2px 8px",
+                borderRadius: 4,
+                background: posture.auth_mode === "subscription" ? "#0f2a1a" : "#21262d",
+                color: posture.auth_mode === "subscription" ? "#3fb950" : "#8b949e",
+                fontSize: 11,
+              }}
+            >
+              {t(`settings.cliAuth.authMode.${posture.auth_mode}`)}
+            </span>
+          </div>
+
+          {/* Password input + Save + Clear */}
+          <div>
+            <label style={{ display: "block", marginBottom: 6, fontSize: 12, fontWeight: 600, color: "#8b949e" }}>
+              {t("settings.cliAuth.tokenLabel")}
+            </label>
+            <p style={{ margin: "0 0 6px", fontSize: 11, color: "#6e7681", lineHeight: 1.5 }}>
+              {t("settings.cliAuth.tokenHelp")}
+            </p>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <input
+                type="password"
+                data-testid="cli-auth-token-input"
+                value={tokenInput}
+                onChange={(e) => { setTokenInput(e.target.value); setSaveErr(null); }}
+                placeholder={t("settings.cliAuth.tokenPlaceholder")}
+                autoComplete="off"
+                style={{ ...INPUT_STYLE, flex: 1, minWidth: 200 }}
+              />
+              <button
+                data-testid="cli-auth-save-btn"
+                onClick={() => { void handleSave(); }}
+                disabled={busy}
+                style={{
+                  ...BTN_PRIMARY,
+                  opacity: busy ? 0.4 : 1,
+                  cursor: busy ? "not-allowed" : "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                {busy ? "…" : t("settings.cliAuth.saveButton")}
+              </button>
+              {posture.token_configured && (
+                <button
+                  data-testid="cli-auth-clear-btn"
+                  onClick={() => { void handleClear(); }}
+                  disabled={busy}
+                  style={{
+                    padding: "6px 14px",
+                    border: "1px solid #f8514933",
+                    borderRadius: 6,
+                    background: "transparent",
+                    color: "#f85149",
+                    fontSize: 12,
+                    cursor: busy ? "not-allowed" : "pointer",
+                    fontWeight: 500,
+                    opacity: busy ? 0.4 : 1,
+                    flexShrink: 0,
+                  }}
+                >
+                  {t("settings.cliAuth.clearButton")}
+                </button>
+              )}
+            </div>
+            {saveErr && (
+              <p style={{ margin: "4px 0 0", fontSize: 11, color: "#f85149" }}>{saveErr}</p>
+            )}
+          </div>
+
+          {/* Mini-guide (ADR-0043 §2.6) */}
+          <div
+            data-testid="cli-auth-guide"
+            style={{
+              padding: "10px 14px",
+              background: "#161b22",
+              border: "1px solid #21262d",
+              borderRadius: 8,
+              fontSize: 11,
+              color: "#6e7681",
+              lineHeight: 1.7,
+            }}
+          >
+            <p style={{ margin: "0 0 6px", fontWeight: 600, color: "#8b949e" }}>
+              {t("settings.cliAuth.guideTitle")}
+            </p>
+            <p style={{ margin: 0, whiteSpace: "pre-line" }}>
+              {t("settings.cliAuth.guideSteps")}
+            </p>
+          </div>
+
+          {/* Security caveat (ADR-0043 §2.1 / §2.6) */}
+          <div
+            data-testid="cli-auth-caveat"
+            style={{
+              padding: "8px 12px",
+              background: "#2d1f0e",
+              border: "1px solid #9e6a03",
+              borderRadius: 6,
+              fontSize: 11,
+              color: "#9e6a03",
+              lineHeight: 1.5,
+            }}
+          >
+            {t("settings.cliAuth.caveat")}
           </div>
 
         </div>

@@ -87,6 +87,7 @@ class TestEmbeddingStartupToggle:
         load_mcp_auth_mock = AsyncMock()
         load_clip_config_mock = AsyncMock()
         load_web_search_config_mock = AsyncMock()
+        load_cli_auth_config_mock = AsyncMock()
         with (
             patch.object(main_mod, "_validate_embedding_and_collection", _fake_validate),
             patch.object(main_mod, "_seed_vault_state", seed_mock),
@@ -98,6 +99,8 @@ class TestEmbeddingStartupToggle:
             patch.object(main_mod, "_load_clip_config_cache", load_clip_config_mock),
             # ADR-0041: _load_web_search_config_cache also runs in lifespan; patch to avoid DB hit.
             patch.object(main_mod, "_load_web_search_config_cache", load_web_search_config_mock),
+            # ADR-0043: _load_cli_auth_config_cache also runs in lifespan; patch to avoid DB hit.
+            patch.object(main_mod, "_load_cli_auth_config_cache", load_cli_auth_config_mock),
             patch("app.main.bootstrap_vault"),
             patch("app.main.start_watcher"),
             patch("app.main.stop_watcher"),
@@ -157,6 +160,7 @@ class TestEmbeddingStartupToggle:
         load_mcp_auth_mock = AsyncMock()
         load_clip_config_mock = AsyncMock()
         load_web_search_config_mock = AsyncMock()
+        load_cli_auth_config_mock = AsyncMock()
         with (
             patch.object(main_mod, "_validate_embedding_and_collection", _fake_validate),
             patch.object(main_mod, "_seed_vault_state", seed_mock),
@@ -168,6 +172,8 @@ class TestEmbeddingStartupToggle:
             patch.object(main_mod, "_load_clip_config_cache", load_clip_config_mock),
             # ADR-0041: _load_web_search_config_cache also runs in lifespan; patch to avoid DB hit.
             patch.object(main_mod, "_load_web_search_config_cache", load_web_search_config_mock),
+            # ADR-0043: _load_cli_auth_config_cache also runs in lifespan; patch to avoid DB hit.
+            patch.object(main_mod, "_load_cli_auth_config_cache", load_cli_auth_config_mock),
             patch("app.main.bootstrap_vault"),
             patch("app.main.start_watcher"),
             patch("app.main.stop_watcher"),
@@ -272,6 +278,7 @@ class TestEmbeddingToggleSideEffectFree:
                     clip_enabled_db INTEGER,
                     clip_access_token TEXT,
                     clip_allowed_origins_db TEXT,
+                    cli_oauth_token TEXT,
                     searxng_url_db TEXT,
                     searxng_categories_db TEXT,
                     searxng_max_queries_db INTEGER,

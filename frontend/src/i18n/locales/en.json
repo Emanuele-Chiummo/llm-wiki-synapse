@@ -313,6 +313,29 @@
       "clearHelp": "Falls back to SEARXNG_URL env var and code defaults.",
       "searxngOnly": "Only SearXNG is supported as the web-search backend. No other provider can be configured here (I9)."
     },
+    "cliAuth": {
+      "title": "CLI Subscription Auth",
+      "loading": "Loading CLI auth config…",
+      "error": "Could not load CLI auth config. Is the backend running?",
+      "configuredBadge": "Configured",
+      "notConfiguredBadge": "Not configured",
+      "sourceBadge": "Source: {{source}}",
+      "authMode": {
+        "subscription": "subscription",
+        "api-key": "api-key",
+        "unconfigured": "unconfigured"
+      },
+      "tokenLabel": "Subscription OAuth token",
+      "tokenHelp": "Paste the token printed by `claude setup-token` on the host (starts with sk-ant-oat01-).",
+      "tokenPlaceholder": "sk-ant-oat01-…",
+      "saveButton": "Save",
+      "clearButton": "Clear",
+      "emptyTokenError": "Token cannot be empty.",
+      "saveError": "Failed to save. Is the backend running?",
+      "guideTitle": "How to set up",
+      "guideSteps": "1) On the host run: claude setup-token\n2) Paste the printed sk-ant-oat01-… token here\n3) Leave ANTHROPIC_API_KEY unset — the DB token is injected into the Claude CLI and the API key is scrubbed from its environment, so your subscription is used ($0 per token).",
+      "caveat": "Security note: this token is stored in the application database in plaintext and grants access to your Claude subscription. Treat database backups accordingly. To rotate: re-run `claude setup-token` and paste the new value. To revoke: click Clear and the CLI will fall back to env / unconfigured."
+    },
     "import": {
       "title": "Scheduled folder import",
       "enabled": "Enabled",

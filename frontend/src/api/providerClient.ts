@@ -22,6 +22,8 @@ import type {
   WebSearchConfigResponse,
   WebSearchConfigRequest,
   WebSearchConfigStateResponse,
+  CliAuthConfig,
+  CliAuthUpdateRequest,
 } from "./types";
 import { ApiError } from "./graphClient";
 
@@ -396,4 +398,61 @@ export async function setWebSearchConfig(
   });
   await checkResponse(res);
   return (await res.json()) as WebSearchConfigStateResponse;
+}
+
+// ─── CLI Auth config (F17, ADR-0043) ─────────────────────────────────────────
+
+/**
+ * Fetch current CLI subscription auth posture (ADR-0043 §2.5).
+ * GET /provider/cli-auth
+ *
+ * Returns posture-only: token_configured, token_source, auth_mode.
+ * The token value is NEVER returned (ADR-0043 Do-NOT #2).
+ *
+ * The /provider prefix is already in the API_PREFIXES NetworkOnly list
+ * and the vite dev proxy — no vite config change needed.
+ *
+ * I3: single fetch on mount; no Zustand store.
+ */
+export async function getCliAuthConfig(
+  signal?: AbortSignal,
+): Promise<CliAuthConfig> {
+  const url = `${API_BASE}/provider/cli-auth`;
+  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as CliAuthConfig;
+}
+
+/**
+ * Set or clear the CLI subscription OAuth token (ADR-0043 §2.5).
+ * PUT /provider/cli-auth — body: CliAuthUpdateRequest.
+ *
+ * Set:   body { token: "<pasted value>" } — stores in vault_state.cli_oauth_token.
+ * Clear: body { clear: true }             — sets cli_oauth_token = NULL.
+ *
+ * Returns the authoritative posture after the write.
+ * The token value is NEVER returned (ADR-0043 Do-NOT #2).
+ * The server does NOT generate a token — the user pastes their own
+ * from `claude setup-token` (ADR-0043 Do-NOT #7).
+ *
+ * Status codes:
+ *   200 — set or clear succeeded; response is the post-write posture.
+ *   400 — empty body (neither token nor clear).
+ *   422 — token is empty/whitespace or absurd length.
+ *
+ * I3: single fetch/PUT per user interaction; no Zustand store churn.
+ */
+export async function setCliAuthConfig(
+  body: CliAuthUpdateRequest,
+  signal?: AbortSignal,
+): Promise<CliAuthConfig> {
+  const url = `${API_BASE}/provider/cli-auth`;
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as CliAuthConfig;
 }
