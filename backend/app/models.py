@@ -8,6 +8,8 @@ Tables defined here:
                         v0.5-ADR-0032: adds remote_mcp_enabled (Alembic migration 0011).
                         v0.5-ADR-0033: adds mcp_access_token_hash + mcp_allow_without_token
                         (Alembic migration 0012).
+                        v0.6-ADR-0040: adds clip_enabled_db + clip_access_token +
+                        clip_allowed_origins_db (Alembic migration 0015).
   - provider_config   : F17 backend selection per scope (global|vault|operation) (ADR-0008).
   - ingest_runs       : per-run cost/convergence audit ledger (I7, ADR-0008 §4).
   - links             : K5 wikilink edges; source_page_id → target_title (dangling until resolved).
@@ -59,6 +61,10 @@ v0.5-ADR-0032: vault_state.remote_mcp_enabled added in Alembic migration 0011 (A
 v0.5-ADR-0033: vault_state.mcp_access_token_hash + vault_state.mcp_allow_without_token added
     in Alembic migration 0012 (ADR-0033 §2.1/§2.3 — UI-settable token as salted PBKDF2 hash;
     allow-without-token flag for private-source access; both default fail-closed).
+
+v0.6-ADR-0040: vault_state.clip_enabled_db + vault_state.clip_access_token +
+    vault_state.clip_allowed_origins_db added in Alembic migration 0015 (ADR-0040 §3 —
+    runtime configuration for the web clipper ingress; DB wins over CLIP_* env when set).
 
 Run `make er` to regenerate docs/er/schema.mmd from this file (I8).
 """
@@ -312,6 +318,43 @@ class VaultState(Base):
             "PUBLIC sources (Cloudflare tunnel — CF-Connecting-IP/CF-Ray) are NEVER "
             "exempted regardless of this flag (fail-safe by construction). "
             "Default false — fail-closed. Migration 0012."
+        ),
+    )
+
+    # ── ADR-0040: Web clipper runtime configuration ────────────────────────────────
+    clip_enabled_db: Mapped[bool | None] = mapped_column(
+        Boolean,
+        nullable=True,
+        default=None,
+        comment=(
+            "Runtime enabled-gate for POST /clip ingress (ADR-0040 §3). "
+            "NULL = not set in DB; env CLIP_ENABLED is the fallback. "
+            "When NOT NULL, DB value is authoritative (overrides CLIP_ENABLED env). "
+            "Migration 0015."
+        ),
+    )
+
+    clip_access_token: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+        comment=(
+            "Plaintext bearer token for POST /clip (ADR-0040 §3). "
+            "NULL = no DB token; fall back to CLIP_TOKEN env bootstrap or none. "
+            "When set, DB value wins over CLIP_TOKEN env. "
+            "Shown once at generation time (one-time reveal in PUT /clip/config generated_token). "
+            "NEVER logged. Migration 0015."
+        ),
+    )
+
+    clip_allowed_origins_db: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+        comment=(
+            "Comma-separated Origin allowlist for POST /clip (ADR-0040 §3). "
+            "NULL = fall back to CLIP_ALLOWED_ORIGINS env var. "
+            "When set, DB value wins over env. Migration 0015."
         ),
     )
 

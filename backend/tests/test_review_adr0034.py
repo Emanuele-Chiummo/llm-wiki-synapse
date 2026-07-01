@@ -88,6 +88,10 @@ def _build_review_meta_0034() -> MetaData:
         Column("remote_mcp_enabled", Integer, nullable=False, server_default=sa_text("0")),
         Column("mcp_access_token_hash", Text, nullable=True),
         Column("mcp_allow_without_token", Integer, nullable=False, server_default=sa_text("0")),
+        # ADR-0040 §3: clip ingress runtime config (NULL = not set in DB; env fallback applies)
+        Column("clip_enabled_db", Integer, nullable=True),
+        Column("clip_access_token", Text, nullable=True),
+        Column("clip_allowed_origins_db", Text, nullable=True),
         Column("updated_at", Text, nullable=False),
     )
 
