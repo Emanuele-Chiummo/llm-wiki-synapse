@@ -39,7 +39,7 @@ import json
 import logging
 import re
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -59,14 +59,75 @@ logger = logging.getLogger(__name__)
 _VALID_ITEM_TYPES = frozenset(
     {"missing-page", "suggestion", "contradiction", "duplicate", "confirm"}
 )
-_VALID_STATUSES = frozenset({"pending", "created", "skipped", "deep_researched", "auto_resolved"})
-_VALID_RESOLUTIONS = frozenset(
-    {"created", "skipped", "researched", "rule_resolved", "llm_resolved"}
+_VALID_STATUSES = frozenset(
+    {"pending", "created", "skipped", "dismissed", "deep_researched", "auto_resolved"}
 )
+_VALID_RESOLUTIONS = frozenset(
+    {"created", "skipped", "dismissed", "researched", "rule_resolved", "llm_resolved"}
+)
+
+# Terminal statuses (ADR-0044): an item is closed and never re-mutated by re-ingest / bulk.
+_TERMINAL_STATUSES = frozenset(
+    {"created", "skipped", "dismissed", "deep_researched", "auto_resolved"}
+)
+# The "resolved" tab set (ADR-0044 §6): terminal-resolved (excludes skipped/dismissed).
+_RESOLVED_STATUSES = frozenset({"created", "auto_resolved", "deep_researched"})
 
 # Caps (I7 — bounded reads/lists)
 _SWEEP_PASS1_MAX_ITEMS: int = 200  # max pending items processed per sweep Pass-1
 _PROPOSE_MAX_ITEMS: int = 8  # max proposals emitted per run (ADR-0034 §4.3)
+
+
+# ── ADR-0044 §3.2: stable content-derived idempotency key (FNV-1a, no new dep) ──
+
+_FNV1A_64_OFFSET = 0xCBF29CE484222325
+_FNV1A_64_PRIME = 0x100000001B3
+_FNV1A_64_MASK = 0xFFFFFFFFFFFFFFFF
+_CONTENT_KEY_SEP = "\x1f"  # unit-separator; won't collide with normalized title content
+
+
+def _fnv1a_16hex(text: str) -> str:
+    """
+    64-bit FNV-1a of *text* (UTF-8), rendered as 16 lowercase hex chars (ADR-0044 §3.2).
+
+    Chosen over sha256 to match the nashsu reference: this is a dedup HANDLE, not a security
+    digest. Pure-Python one-liner — no new dependency (I9).
+    """
+    h = _FNV1A_64_OFFSET
+    for byte in text.encode("utf-8"):
+        h ^= byte
+        h = (h * _FNV1A_64_PRIME) & _FNV1A_64_MASK
+    return format(h, "016x")
+
+
+def _content_key(
+    *,
+    vault_id: str,
+    item_type: str,
+    proposed_title: str | None,
+    target_page_title: str | None = None,
+    page_id: str | None = None,
+) -> str | None:
+    """
+    Stable content-derived idempotency key (ADR-0044 §3.2).
+
+    Returns a 16-hex FNV-1a digest over
+      vault_id + item_type + normalize(proposed_title) + (normalize(target_page_title) | page_id).
+
+    `confirm` items get content_key = NULL (never deduped — every confirmation is a distinct
+    human ask; ADR-0044 §3.2, Do-NOT #10). normalize() reuses _normalize_title (I9 — no reinvent).
+    """
+    if item_type == "confirm":
+        return None
+    norm_title = _normalize_title(proposed_title) if proposed_title else ""
+    if target_page_title:
+        anchor = _normalize_title(target_page_title)
+    elif page_id:
+        anchor = str(page_id)
+    else:
+        anchor = ""
+    payload = _CONTENT_KEY_SEP.join([vault_id, item_type, norm_title, anchor])
+    return _fnv1a_16hex(payload)
 
 
 # ── Public result types ────────────────────────────────────────────────────────
@@ -116,6 +177,11 @@ class ProposalDTO:
     proposed_page_type: str | None  # entity|concept|source|synthesis|comparison|None
     rationale: str | None
     target_page_title: str | None = None  # resolved to page_id at enqueue time
+    # ADR-0044 §4.1: contextual depth — both ride the SAME single proposal call (no extra call).
+    referenced_page_titles: list[str] = field(default_factory=list)
+    """Existing-vault titles this proposal is about (resolved → referenced_page_ids)."""
+    search_queries: list[str] = field(default_factory=list)
+    """≤ REVIEW_SEARCH_QUERIES_MAX web-search queries; search_queries[0] seeds Deep Research."""
 
 
 # ── AI seam implementations (ADR-0034 §11.2) ─────────────────────────────────
@@ -502,26 +568,85 @@ async def enqueue_review(
     rationale: str | None = None,
     source_page_id: uuid.UUID | None = None,
     page_id: uuid.UUID | None = None,
+    content_key: str | None = None,
+    referenced_page_ids: list[str] | None = None,
+    search_queries: list[str] | None = None,
 ) -> ReviewItem:
     """
-    Insert one pending review_items proposal row (ADR-0034 §3.2).
+    Idempotent upsert of one review_items proposal row (ADR-0044 §3.4, supersedes ADR-0034 §3.2).
 
     Pure DB write — NEVER calls a provider (fire-and-forget from propose_reviews,
     which is itself called fire-and-forget from the orchestrator).
 
     item_type must be one of: missing-page | suggestion | contradiction | duplicate | confirm.
-    Idempotency is NOT required: the queue is an event log, not a per-page singleton
-    (ADR-0034 §3.2 / ADR-0025 §3.1 note).
+
+    IDEMPOTENCY (ADR-0044 §3.4 / Do-NOT #2):
+      When content_key is non-NULL, this is an UPSERT-on-(vault_id, content_key):
+        - no existing row              → INSERT a new pending row (first sighting)
+        - existing row is 'pending'    → refresh rationale/referenced_page_ids/search_queries
+                                         IN PLACE (keep id + created_at; the human hasn't acted)
+        - existing row is terminal     → NO-OP (respect the human's prior skip/dismiss/create)
+      A single bounded indexed read (the new partial-unique index) — the portable contract that
+      the Postgres partial-unique index enforces at the DB level (SQLite emulates via this read).
+
+    When content_key is NULL (i.e. `confirm`, or legacy/rule with no key) → always INSERT
+    (no dedup — every confirmation is a distinct human ask; Do-NOT #10).
 
     page_id / source_page_id / created_page_id are stored as string UUIDs for
     SQLite/Postgres compat (with_variant pattern).
     """
-    item_id = uuid.uuid4()
-    item_id_str = str(item_id)
     page_id_str = str(page_id) if page_id is not None else None
     source_page_id_str = str(source_page_id) if source_page_id is not None else None
+    ref_ids = list(referenced_page_ids) if referenced_page_ids else None
+    queries = list(search_queries) if search_queries else None
 
     async with get_session() as session:
+        # ── UPSERT branch (ADR-0044 §3.4) — only when we have a dedup handle ──────
+        if content_key is not None:
+            existing_row = await session.execute(
+                select(ReviewItem)
+                .where(
+                    ReviewItem.vault_id == vault_id,
+                    ReviewItem.content_key == content_key,
+                )
+                .order_by(ReviewItem.created_at.desc())
+                .limit(1)
+            )
+            existing = existing_row.scalar_one_or_none()
+
+            if existing is not None:
+                if existing.status == "pending":
+                    # Refresh context in place, keep id + created_at + queue position.
+                    existing.rationale = rationale
+                    if ref_ids is not None:
+                        existing.referenced_page_ids = ref_ids
+                    if queries is not None:
+                        existing.search_queries = queries
+                    await session.flush()
+                    await session.refresh(existing)
+                    session.expunge(existing)
+                    logger.debug(
+                        "enqueue_review: refreshed pending item_id=%s key=%s vault=%s title=%r",
+                        existing.id,
+                        content_key,
+                        vault_id,
+                        proposed_title,
+                    )
+                    return existing
+                # Terminal row with the same key → NO-OP (respect the human's decision).
+                session.expunge(existing)
+                logger.debug(
+                    "enqueue_review: no-op (terminal %s) key=%s vault=%s title=%r",
+                    existing.status,
+                    content_key,
+                    vault_id,
+                    proposed_title,
+                )
+                return existing
+
+        # ── INSERT branch (first sighting, or content_key is NULL) ───────────────
+        item_id = uuid.uuid4()
+        item_id_str = str(item_id)
         item = ReviewItem(
             id=item_id_str,
             vault_id=vault_id,
@@ -533,6 +658,9 @@ async def enqueue_review(
             proposed_page_type=proposed_page_type,
             proposed_dir=proposed_dir,
             rationale=rationale,
+            content_key=content_key,
+            referenced_page_ids=ref_ids,
+            search_queries=queries,
             resolution=None,
             created_page_id=None,
             deep_research_run_id=None,
@@ -547,10 +675,11 @@ async def enqueue_review(
         session.expunge(loaded)
 
     logger.debug(
-        "enqueue_review: item_id=%s type=%s vault=%s proposed_title=%r",
+        "enqueue_review: inserted item_id=%s type=%s vault=%s key=%s proposed_title=%r",
         item_id_str,
         item_type,
         vault_id,
+        content_key,
         proposed_title,
     )
     return loaded
@@ -588,10 +717,16 @@ async def propose_reviews(
 
     # ── Rule-based: dangling wikilinks → missing-page ─────────────────────────
     rule_proposals: list[ProposalDTO] = []
+    # ADR-0044 §4.1: rule-based referenced ids resolved BY ID (no title round-trip), keyed by
+    # proposed_title. Merged into the persist loop's resolved referenced_page_ids.
+    _rule_ref_ids: dict[str, list[str]] = {}
 
     # Find dangling wikilinks for the written pages (bounded indexed read — I1/I2)
     written_page_ids = [str(p.id) for p in written_pages]
     dangling_targets: set[str] = set()
+    # ADR-0044 §4.1: remember the referencing (written) page per dangling target so the
+    # rule-based proposal can carry [referencing page id] as its referenced_page_ids seed.
+    dangling_referrer: dict[str, str] = {}
     try:
         from app.models import Link
 
@@ -606,9 +741,9 @@ async def propose_reviews(
             )
             rows = list((await session.execute(dangling_stmt)).all())
             dangling_targets = {r.target_title for r in rows}
-
-            # Get the provenance (first written page or None)
-            source_page_id = written_pages[0].id if written_pages else None
+            for r in rows:
+                # First referring written page wins (stable, bounded).
+                dangling_referrer.setdefault(r.target_title, str(r.source_page_id))
 
         for target_title in dangling_targets:
             # Check if a page with this title already exists (bounded indexed read)
@@ -625,6 +760,7 @@ async def propose_reviews(
                     )
                 ).scalar_one_or_none()
             if existing is None:
+                referrer = dangling_referrer.get(target_title)
                 rule_proposals.append(
                     ProposalDTO(
                         item_type="missing-page",
@@ -632,8 +768,14 @@ async def propose_reviews(
                         proposed_page_type=None,  # heuristic at Create time
                         rationale=f"Dangling wikilink [[{target_title}]] in ingested content.",
                         target_page_title=None,
+                        # ADR-0044 §4.1 rule-based seeds: [referencing page id] + [proposed_title].
+                        referenced_page_titles=[],  # resolved via id below, not titles
+                        search_queries=[target_title],
                     )
                 )
+                if referrer:
+                    # Stash the resolved referencing id directly (skip title resolution).
+                    _rule_ref_ids[target_title] = [referrer]
     except Exception as exc:  # noqa: BLE001
         logger.warning("propose_reviews: dangling-link detection failed (non-fatal): %s", exc)
 
@@ -658,6 +800,8 @@ async def propose_reviews(
                                 )
                             ),
                             target_page_title=None,
+                            # ADR-0044 §4.1 rule-based trivial search seed.
+                            search_queries=[suggested.title],
                         )
                     )
 
@@ -763,6 +907,51 @@ async def propose_reviews(
             except (ValueError, KeyError):
                 pass
 
+        # ── ADR-0044 §4.1: resolve referenced_page_titles → referenced_page_ids ──
+        # Bounded indexed reads (reuse the exact target_page_title lookup pattern). Titles that
+        # do not resolve to a live page are DROPPED — the model must not fabricate references
+        # (Do-NOT #4: JSON array, no FK). Rule-based ids (resolved by id) are merged in first.
+        referenced_ids: list[str] = list(
+            _rule_ref_ids.get(proposal.proposed_title or "", [])
+        )
+        ref_cap = int(getattr(settings, "review_referenced_pages_max", 8))
+        for ref_title in proposal.referenced_page_titles[:ref_cap]:
+            if len(referenced_ids) >= ref_cap:
+                break
+            try:
+                async with get_session() as session:
+                    ref_row = (
+                        await session.execute(
+                            select(Page.id)
+                            .where(
+                                Page.vault_id == vault_id,
+                                Page.title == ref_title,
+                                Page.deleted_at.is_(None),
+                            )
+                            .limit(1)
+                        )
+                    ).scalar_one_or_none()
+                if ref_row is not None:
+                    ref_id_str = str(ref_row)
+                    if ref_id_str not in referenced_ids:
+                        referenced_ids.append(ref_id_str)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "propose_reviews: referenced_page lookup failed for %r: %s", ref_title, exc
+                )
+        referenced_ids = referenced_ids[:ref_cap]
+
+        # ── ADR-0044 §3.2: stable content_key (confirm → NULL, never deduped) ────
+        query_cap = int(getattr(settings, "review_search_queries_max", 3))
+        search_queries = (proposal.search_queries or [])[:query_cap]
+        content_key = _content_key(
+            vault_id=vault_id,
+            item_type=proposal.item_type,
+            proposed_title=proposal.proposed_title,
+            target_page_title=proposal.target_page_title,
+            page_id=str(target_page_id) if target_page_id is not None else None,
+        )
+
         try:
             await enqueue_review(
                 vault_id=vault_id,
@@ -775,6 +964,9 @@ async def propose_reviews(
                     uuid.UUID(str(source_page_id)) if source_page_id is not None else None
                 ),
                 page_id=target_page_id,
+                content_key=content_key,
+                referenced_page_ids=referenced_ids or None,
+                search_queries=search_queries or None,
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
@@ -1125,32 +1317,59 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
     return item2
 
 
+def _status_filter_values(status: str | None) -> frozenset[str] | None:
+    """
+    Map the GET /review/queue ?status= filter (ADR-0044 §6) to a status value set.
+
+      pending (default) → {'pending'}
+      resolved          → the terminal-resolved set (created/auto_resolved/deep_researched)
+      dismissed         → {'dismissed'}
+      all / None-'all'  → None (no status filter — return everything)
+
+    Any unrecognized value falls back to the pending set (safe default — the live queue).
+    """
+    normalized = (status or "pending").strip().lower()
+    if normalized == "all":
+        return None
+    if normalized == "resolved":
+        return _RESOLVED_STATUSES
+    if normalized == "dismissed":
+        return frozenset({"dismissed"})
+    # default + unrecognized → live/pending set
+    return frozenset({"pending"})
+
+
 async def list_queue(
     vault_id: str,
     *,
     limit: int = 50,
     offset: int = 0,
+    status: str | None = "pending",
 ) -> ReviewQueuePage:
     """
-    Return a paginated ReviewQueuePage for GET /review/queue (ADR-0034 §7).
+    Return a paginated ReviewQueuePage for GET /review/queue (ADR-0034 §7, ADR-0044 §6 filter).
 
-    Queries all statuses so the UI can show the full queue.
-    Ordered by created_at ASC.
-    limit is capped at 200 by the REST endpoint (I7 — bounded page size).
+    The ?status= filter (ADR-0044 §6) partitions the queue:
+      pending (default) | resolved | dismissed | all.
+    Ordered by created_at ASC. limit is capped at 200 by the REST endpoint (I7).
     """
+    status_values = _status_filter_values(status)
+
     async with get_session() as session:
         count_stmt = (
             select(func.count()).select_from(ReviewItem).where(ReviewItem.vault_id == vault_id)
         )
-        total: int = (await session.execute(count_stmt)).scalar_one()
-
         data_stmt = (
             select(ReviewItem)
             .where(ReviewItem.vault_id == vault_id)
             .order_by(ReviewItem.created_at.asc())
-            .offset(offset)
-            .limit(limit)
         )
+        if status_values is not None:
+            count_stmt = count_stmt.where(ReviewItem.status.in_(list(status_values)))
+            data_stmt = data_stmt.where(ReviewItem.status.in_(list(status_values)))
+
+        total: int = (await session.execute(count_stmt)).scalar_one()
+        data_stmt = data_stmt.offset(offset).limit(limit)
         rows = list((await session.execute(data_stmt)).scalars().all())
         for r in rows:
             session.expunge(r)
@@ -1158,10 +1377,139 @@ async def list_queue(
     return ReviewQueuePage(items=rows, total=total, limit=limit, offset=offset)
 
 
+@dataclass
+class BulkResult:
+    """Result of bulk_update_reviews (ADR-0044 §6)."""
+
+    updated: int
+    skipped_terminal: int
+
+
+async def bulk_update_reviews(
+    *,
+    vault_id: str,
+    action: str,
+    ids: list[uuid.UUID],
+) -> BulkResult:
+    """
+    Bounded bulk status write (ADR-0044 §6, Do-NOT #5/#6).
+
+    action ∈ {skip, dismiss, mark-resolved}. Only PENDING ids (scoped to *vault_id*) are
+    mutated; already-terminal ids are counted in skipped_terminal and NEVER re-mutated.
+    `confirm` items are NEVER auto-resolved by mark-resolved (Do-NOT #6/#10) — they are counted
+    as skipped_terminal-style no-ops for mark-resolved (kept pending). No provider call.
+
+    Caller (REST) enforces len(ids) ≤ REVIEW_BULK_MAX_IDS (I7 — 400 otherwise).
+    """
+    status_for_action = {
+        "skip": ("skipped", "skipped"),
+        "dismiss": ("dismissed", "dismissed"),
+        # Human-marked terminal: reuse the auto_resolved lifecycle value + llm_resolved resolution
+        # (ADR-0044 §6 — "human-marked terminal", same shape the sweep produces).
+        "mark-resolved": ("auto_resolved", "llm_resolved"),
+    }
+    if action not in status_for_action:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail=f"Unknown bulk action {action!r}")
+    new_status, new_resolution = status_for_action[action]
+
+    id_strs = [str(i) for i in ids]
+    if not id_strs:
+        return BulkResult(updated=0, skipped_terminal=0)
+
+    updated = 0
+    skipped_terminal = 0
+    async with get_session() as session:
+        rows = list(
+            (
+                await session.execute(
+                    select(ReviewItem).where(
+                        ReviewItem.vault_id == vault_id,
+                        ReviewItem.id.in_(id_strs),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for item in rows:
+            if item.status != "pending":
+                skipped_terminal += 1
+                continue
+            # NEVER auto-resolve a confirm via mark-resolved (Do-NOT #6/#10) — keep it pending.
+            if action == "mark-resolved" and item.item_type == "confirm":
+                skipped_terminal += 1
+                continue
+            item.status = new_status
+            item.resolution = new_resolution
+            item.reviewed_at = datetime.now(UTC)
+            item.reviewed_by = "web-ui"
+            updated += 1
+        await session.flush()
+
+    logger.info(
+        "bulk_update_reviews: vault=%s action=%s requested=%d updated=%d skipped_terminal=%d",
+        vault_id,
+        action,
+        len(id_strs),
+        updated,
+        skipped_terminal,
+    )
+    return BulkResult(updated=updated, skipped_terminal=skipped_terminal)
+
+
+async def clear_resolved_reviews(vault_id: str) -> int:
+    """
+    Hard-delete terminal review rows for a vault ("Clear resolved" — ADR-0044 §6, Do-NOT #5/#6).
+
+    Deletes rows whose status is terminal (skipped/dismissed/created/auto_resolved/
+    deep_researched) for *vault_id* in ONE bounded vault-scoped statement. Pending rows are
+    NEVER touched. Idempotent. Returns the number of rows deleted.
+
+    These rows are advisory metadata (not vault content); created_page_id points at a page that
+    persists independently (ADR-0044 §9.5). No cascade risk (the pages FK is nullable).
+    """
+    from sqlalchemy import delete
+
+    async with get_session() as session:
+        result = await session.execute(
+            delete(ReviewItem).where(
+                ReviewItem.vault_id == vault_id,
+                ReviewItem.status.in_(list(_TERMINAL_STATUSES)),
+            )
+        )
+        deleted = int(result.rowcount or 0)
+
+    logger.info("clear_resolved_reviews: vault=%s deleted=%d", vault_id, deleted)
+    return deleted
+
+
+def _first_search_query(raw: Any) -> str | None:
+    """Return the first non-empty string in a search_queries JSON value, else None (ADR-0044)."""
+    if not isinstance(raw, list):
+        return None
+    for entry in raw:
+        s = _clean_str(entry)
+        if s:
+            return s
+    return None
+
+
 async def skip(item_id: uuid.UUID) -> ReviewItem:
     """Set status=skipped, resolution=skipped, reviewed_at=now() (ADR-0034 §7).
     404 if the item is not found."""
     return await _set_status(item_id, "skipped", resolution="skipped")
+
+
+async def dismiss(item_id: uuid.UUID) -> ReviewItem:
+    """
+    Dismiss action (ADR-0044 §6): status=dismissed, resolution=dismissed, reviewed_at=now().
+
+    Terminal, distinct from skip: "hide this, I'm not acting" vs skip's "considered and declined".
+    404 if the item is not found.
+    """
+    return await _set_status(item_id, "dismissed", resolution="dismissed")
 
 
 async def deep_research(
@@ -1202,10 +1550,13 @@ async def deep_research(
 
             raise HTTPException(status_code=404, detail=f"Review item {item_id} not found")
 
-        # Extract topic: proposed_title → rationale first line → page.title → fallback
-        # (ADR-0034 §7 — topic derived from new fields, NOT pre_generated_query)
+        # Extract topic: search_queries[0] (ADR-0044 §2.3 curated seed) → proposed_title →
+        # rationale first line → page.title → fallback (ADR-0034 order when no seed).
         topic: str
-        if item.proposed_title:
+        seed_query = _first_search_query(item.search_queries)
+        if seed_query:
+            topic = seed_query
+        elif item.proposed_title:
             topic = item.proposed_title
         elif item.rationale:
             first_line = item.rationale.splitlines()[0].strip()
@@ -1392,6 +1743,9 @@ def _build_propose_instruction(
     pages_digest = _digest_written_pages(written_pages)
     titles_block = "\n".join(f"- {t}" for t in existing_titles[:200]) or "(none)"
 
+    ref_max = int(getattr(settings, "review_referenced_pages_max", 8))
+    query_max = int(getattr(settings, "review_search_queries_max", 3))
+
     return (
         "You are the review-proposal step of a self-organizing wiki ingest pipeline.\n"
         "Given the ingest analysis, the pages just written, and the existing vault titles, "
@@ -1408,7 +1762,13 @@ def _build_propose_instruction(
         "NEVER 'source')\n"
         "  rationale: short string explaining why this matters\n"
         "  target_page_title: string (REQUIRED for contradiction/duplicate — the existing "
-        "page in conflict; otherwise omit or null)\n\n"
+        "page in conflict; otherwise omit or null)\n"
+        f"  referenced_page_titles: list of up to {ref_max} EXISTING vault page titles (taken "
+        "VERBATIM from the 'Existing vault page titles' list above) that this proposal is "
+        "contextually about. Use ONLY titles from that list — never invent a title. Omit or [] "
+        "if none apply.\n"
+        f"  search_queries: list of up to {query_max} short web-search queries that would advance "
+        "this item (the first is used to seed Deep Research). Omit or [] if none apply.\n\n"
         "Do NOT propose a page whose title already exists. Keep the output well under "
         f"{token_budget} tokens. Return no prose, only the JSON object."
     )
@@ -1445,6 +1805,15 @@ def _parse_proposals(raw: str) -> list[ProposalDTO]:
         # 'source' is never a valid Create target (§5.2) — drop it to the heuristic (None).
         if proposed_type == "source":
             proposed_type = None
+        # ADR-0044 §4.1: tolerant extraction of the two new per-proposal lists (drop non-strings;
+        # cap lengths). These ride the SAME single call — no extra provider round-trip.
+        ref_max = int(getattr(settings, "review_referenced_pages_max", 8))
+        query_max = int(getattr(settings, "review_search_queries_max", 3))
+        referenced = _clean_str_list(
+            entry.get("referenced_page_titles") or entry.get("referenced_pages"),
+            cap=ref_max,
+        )
+        queries = _clean_str_list(entry.get("search_queries"), cap=query_max)
         out.append(
             ProposalDTO(
                 item_type=item_type,
@@ -1452,6 +1821,8 @@ def _parse_proposals(raw: str) -> list[ProposalDTO]:
                 proposed_page_type=_clean_str(proposed_type),
                 rationale=_clean_str(entry.get("rationale")),
                 target_page_title=_clean_str(entry.get("target_page_title")),
+                referenced_page_titles=referenced,
+                search_queries=queries,
             )
         )
     return out
@@ -1552,6 +1923,28 @@ def _clean_str(value: Any) -> str | None:
         s = value.strip()
         return s or None
     return None
+
+
+def _clean_str_list(value: Any, *, cap: int) -> list[str]:
+    """
+    Tolerant parse of a JSON list into a bounded list of stripped non-empty strings (ADR-0044).
+
+    Drops non-strings and empties; de-dups preserving order; truncates to *cap* (I7).
+    Anything that is not a list → []. Never raises (degrade-safe for the AI seam).
+    """
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for entry in value:
+        s = _clean_str(entry)
+        if s is None or s in seen:
+            continue
+        seen.add(s)
+        out.append(s)
+        if len(out) >= cap:
+            break
+    return out
 
 
 _COMPARISON_CUES = ("vs", "versus", "compared", "comparison")

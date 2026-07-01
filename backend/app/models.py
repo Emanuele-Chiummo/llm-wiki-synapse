@@ -1418,12 +1418,18 @@ class ReviewItem(Base):
       duplicate      — a possible name-collision with an existing page
       confirm        — the LLM wants human confirmation before proceeding
 
-    status lifecycle (ADR-0034 §3.1):
+    status lifecycle (ADR-0034 §3.1; ADR-0044 §3.1 adds `dismissed`):
       pending        — awaiting human action (initial state)
       created        — Create action ran; page written via write_wiki_page (§5)
-      skipped        — human chose Skip
+      skipped        — human chose Skip (considered and declined)
+      dismissed      — human hid the item without acting (ADR-0044; distinct from skipped)
       deep_researched— human chose Deep Research; deep_research_run_id is set
-      auto_resolved  — sweep auto-closed the item (Pass-1 or Pass-2)
+      auto_resolved  — sweep auto-closed the item (Pass-1 or Pass-2), or human bulk mark-resolved
+
+    ADR-0044 idempotency (§3): content_key is a stable FNV-1a digest; enqueue_review upserts
+    on (vault_id, content_key) for the live (pending) set so re-ingest does not resurrect a
+    skipped/dismissed item nor accumulate duplicates. `confirm` items carry content_key=NULL
+    (never deduped). referenced_page_ids + search_queries carry contextual depth.
 
     page_id (RE-DOCUMENTED, same column):
       The review TARGET: existing page in conflict (contradiction/duplicate) or
@@ -1501,8 +1507,8 @@ class ReviewItem(Base):
         default="pending",
         server_default=sa_text("'pending'"),
         comment=(
-            "Lifecycle (ADR-0034 §3.1): "
-            "pending | created | skipped | deep_researched | auto_resolved. "
+            "Lifecycle (ADR-0034 §3.1; ADR-0044 adds dismissed): "
+            "pending | created | skipped | dismissed | deep_researched | auto_resolved. "
             "Defaults 'pending'. (approved is gone; Create produces created.)"
         ),
     )
@@ -1575,13 +1581,49 @@ class ReviewItem(Base):
         ),
     )
 
+    # ── ADR-0044 §3.1: stable idempotency + contextual depth ──────────────────
+    content_key: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "16-hex FNV-1a stable digest over "
+            "vault_id + item_type + normalize(proposed_title) + (target_page_title|page_id) "
+            "(ADR-0044 §3.2). Makes the queue idempotent across re-ingest: the same logical "
+            "proposal keeps its content_key and therefore its status. NULL for `confirm` items "
+            "(never deduped — every confirmation is a distinct human ask) and legacy rows. "
+            "Migration 0019."
+        ),
+    )
+
+    referenced_page_ids: Mapped[list[str] | None] = mapped_column(
+        JSONB().with_variant(JSON, "sqlite"),
+        nullable=True,
+        comment=(
+            "JSON array of page-id STRINGS: the existing pages this proposal is contextually "
+            "about (plural context set; ADR-0044 §2/§3.1). Bounded (≤ REVIEW_REFERENCED_PAGES_MAX, "
+            "default 8). Distinct from page_id (single primary conflict) and source_page_id "
+            "(provenance). Deliberately a JSON array, NOT a junction/FK — stale ids are filtered "
+            "at render (ADR-0044 §9.2). NULL/[] when none. Migration 0019."
+        ),
+    )
+
+    search_queries: Mapped[list[str] | None] = mapped_column(
+        JSONB().with_variant(JSON, "sqlite"),
+        nullable=True,
+        comment=(
+            "JSON array of ≤3 pre-generated web-search-query strings (ADR-0044 §2.3), produced by "
+            "the SAME single proposal call (no extra provider call). Deep Research seeds its topic "
+            "from search_queries[0]; the UI shows them on the card. NULL when none. Migration 0019."
+        ),
+    )
+
     # ── Terminal audit ────────────────────────────────────────────────────────
     resolution: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment=(
-            "How the item closed (ADR-0034 §3.1 ADD): "
-            "created | skipped | researched | rule_resolved | llm_resolved. "
+            "How the item closed (ADR-0034 §3.1 ADD; ADR-0044 adds dismissed): "
+            "created | skipped | dismissed | researched | rule_resolved | llm_resolved. "
             "NULL while pending. Complements status (status records *what* happened; "
             "resolution records *how* it was resolved)."
         ),
@@ -1649,6 +1691,20 @@ class ReviewItem(Base):
             "ix_review_items_vault_proposed_title",
             "vault_id",
             "proposed_title",
+        ),
+        # ADR-0044 §3.3: partial-unique idempotency index scoped to the live (pending) set.
+        # Postgres enforces it; SQLite (unit tests) emulates it via enqueue_review's
+        # read-before-write upsert (the application upsert is the portable contract —
+        # mirrors the raw-SQL portability note in project memory). A terminal row with the
+        # same content_key does NOT conflict (WHERE status IN ('pending')) — the upsert reads
+        # it first and no-ops, respecting the human's prior decision.
+        Index(
+            "ix_review_items_vault_content_key_live",
+            "vault_id",
+            "content_key",
+            unique=True,
+            postgresql_where=sa_text("content_key IS NOT NULL AND status IN ('pending')"),
+            sqlite_where=sa_text("content_key IS NOT NULL AND status IN ('pending')"),
         ),
     )
 

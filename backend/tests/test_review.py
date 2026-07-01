@@ -163,6 +163,10 @@ def _build_review_meta() -> MetaData:
         Column("created_page_id", Text, nullable=True),
         # retained
         Column("deep_research_run_id", String(36), nullable=True),
+        # ADR-0044 (migration 0019) additive columns — kept in sync with the live schema (I8).
+        Column("content_key", Text, nullable=True),
+        Column("referenced_page_ids", Text, nullable=True),
+        Column("search_queries", Text, nullable=True),
         Column("created_at", Text, nullable=False, server_default=sa_text("datetime('now')")),
         Column("reviewed_at", Text, nullable=True),
         Column("reviewed_by", Text, nullable=True),

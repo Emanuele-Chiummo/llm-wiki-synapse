@@ -25,8 +25,9 @@ Synapse-managed write path rather than raw filesystem writes (I1/I5, ADR-0010).
 
 from __future__ import annotations
 
+import contextvars
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from fastmcp import FastMCP
@@ -62,6 +63,59 @@ class PageRef:
     title: str | None
     type: str | None
     relevance_score: float = 0.0
+
+
+# ── Delegated-run write-record (ADR-0044 §4.2, Phase E) ──────────────────────────
+# A pure SIDE-RECORD of the pages write_page writes DURING one delegated (CLI) ingest run, so
+# the orchestrator can enumerate them afterward and drive the SAME propose_reviews seam (no new
+# table, no new agent loop, no provider branch — I6). Keyed per run via a contextvar so
+# concurrent delegated runs never clash; a run that never enters the context records nothing
+# (stdio / external MCP clients are unaffected — the write-record is opt-in by construction).
+
+
+@dataclass
+class DelegatedWriteRecord:
+    """Titles + ids write_page wrote during the current delegated run (ADR-0044 §4.2)."""
+
+    ids: list[str] = field(default_factory=list)
+    titles: list[str] = field(default_factory=list)
+
+    def record(self, page_id: str, title: str | None) -> None:
+        if page_id and page_id not in self.ids:
+            self.ids.append(page_id)
+            self.titles.append(title or "")
+
+
+_delegated_write_record: contextvars.ContextVar[DelegatedWriteRecord | None] = (
+    contextvars.ContextVar("synapse_delegated_write_record", default=None)
+)
+
+
+class delegated_write_capture:
+    """
+    Context manager that installs a fresh DelegatedWriteRecord for a delegated ingest run.
+
+    Usage (orchestrator._delegate_ingest, ADR-0044 §4.2):
+
+        with delegated_write_capture() as record:
+            ... run the delegated agent (it writes via write_page) ...
+        # record.ids / record.titles now hold what the agent wrote through write_page.
+
+    Nesting-safe: the previous record (if any) is restored on exit. No global mutable state.
+    """
+
+    def __init__(self) -> None:
+        self._token: contextvars.Token[DelegatedWriteRecord | None] | None = None
+        self.record = DelegatedWriteRecord()
+
+    def __enter__(self) -> DelegatedWriteRecord:
+        self._token = _delegated_write_record.set(self.record)
+        return self.record
+
+    def __exit__(self, *exc: object) -> None:
+        if self._token is not None:
+            _delegated_write_record.reset(self._token)
+            self._token = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -198,6 +252,13 @@ async def _write_page_body(
     except Exception as exc:  # noqa: BLE001
         logger.error("write_page MCP tool: write_wiki_page failed: %s", exc)
         return {"error": f"write failed: {exc}"}
+
+    # ── ADR-0044 §4.2: side-record the write for the current delegated run (if any) ──
+    # Pure record; no behavior change. Only populated when a delegated_write_capture() is
+    # active (CLI delegated ingest). stdio / external MCP callers → no active record → no-op.
+    _record = _delegated_write_record.get()
+    if _record is not None:
+        _record.record(str(page_row.id), page_row.title)
 
     return {
         "id": str(page_row.id),
@@ -421,9 +482,9 @@ def _validate_frontmatter_dict(fm: dict[str, Any]) -> str | None:
     This is a pre-validation step; WikiFrontmatter() provides the full Pydantic validation.
     """
     missing: list[str] = []
-    for field in ("type", "title", "sources", "lang"):
-        if not fm.get(field):
-            missing.append(field)
+    for required_key in ("type", "title", "sources", "lang"):
+        if not fm.get(required_key):
+            missing.append(required_key)
     if missing:
         return f"frontmatter missing required fields: {missing} (ADR-0007 §5, I5)"
 

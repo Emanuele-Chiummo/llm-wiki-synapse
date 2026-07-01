@@ -354,11 +354,40 @@ async def run_ingest_pipeline(
     try:
         if caps.supports_agentic_loop:
             route = "delegated"
-            converged, delegated_pages_written = await _delegate_ingest(
+            converged, delegated_pages_written, delegated_page_ids = await _delegate_ingest(
                 provider=provider,
                 source_text=source_text,
                 origin_source=origin_source,
             )
+            # ── F9 delegated-route proposals (ADR-0044 §4.2, closes ADR-0034 §9 risk 1) ─
+            # Load the pages the CLI agent wrote through MCP write_page, synthesize a minimal
+            # Analysis, and drive the SAME bounded propose_reviews seam (≤1 provider call, same
+            # degrade). Empty record → early-return (its `if not written_pages` guard) → zero
+            # cost, zero proposals. Fire-and-forget: NEVER raises into ingest (Do-NOT #5).
+            # Capability-agnostic — no isinstance/provider_type branch (I6).
+            try:
+                await _propose_reviews_for_delegated(
+                    vault_id=settings.vault_id,
+                    written_page_ids=delegated_page_ids,
+                    origin_source=origin_source,
+                )
+            except Exception as _f9d_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: F9 delegated propose_reviews hook failed "
+                    "(non-fatal): %s",
+                    _f9d_exc,
+                )
+            # Sweep after the delegated run too (same fire-and-forget contract as orchestrated).
+            try:
+                from app.ops.review import sweep_reviews as _sweep_reviews_deleg
+
+                await _sweep_reviews_deleg(settings.vault_id)
+            except Exception as _sweep_d_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: F9 delegated sweep_reviews hook failed "
+                    "(non-fatal): %s",
+                    _sweep_d_exc,
+                )
         else:
             # route is already "orchestrated" (default above) — explicit for readers.
             route = "orchestrated"
@@ -609,14 +638,20 @@ async def _delegate_ingest(
     provider: InferenceProvider,
     source_text: str,
     origin_source: str,
-) -> tuple[bool, int]:
+) -> tuple[bool, int, list[str]]:
     """
     Delegate the whole ingest to an agentic provider (CLI). The provider runs its own bounded
     agent loop and writes pages through the MCP write_page tool (which reuses write_wiki_page,
     ADR-0010 §2), so I1/I5 hold without the orchestrator touching the pages here.
 
-    Returns (converged, pages_written). The MCP server object + system prompt assembly are the
-    backend-engineer/SDK wiring seam; v0.2 surfaces a clear error if invoked without it.
+    Returns (converged, pages_written, written_page_ids). The MCP server object + system prompt
+    assembly are the backend-engineer/SDK wiring seam; v0.2 surfaces a clear error if invoked
+    without it.
+
+    ADR-0044 §4.2 (Phase E): the delegated run is wrapped in `delegated_write_capture()` so the
+    ids/titles the agent writes through MCP write_page are side-recorded (no new table). The
+    recorded ids are returned so the pipeline can drive the SAME propose_reviews seam afterward —
+    capability-agnostic (no isinstance/provider_type branch; empty record → no proposals, I6/I7).
     """
     delegate = getattr(provider, "delegate_ingest", None)
     if delegate is None:
@@ -631,21 +666,107 @@ async def _delegate_ingest(
     # serializable". build_sdk_mcp_server() constructs the SDK server from the same _*_body
     # functions (one write path, I1/I5). Degrade to None (cli.py then raises the I1/I5 guard).
     _mcp_server: Any | None = None
+    written_page_ids: list[str] = []
     try:
         from app.mcp.server import build_sdk_mcp_server
 
         _mcp_server = build_sdk_mcp_server()
     except Exception as _mcp_exc:  # noqa: BLE001
         logger.warning("MCP server unavailable; delegate_ingest will run without it: %s", _mcp_exc)
-    result = await delegate(
-        source_text=source_text,
-        system_prompt=system_prompt,
-        vault_dir=str(settings.vault_root),
-        mcp_server=_mcp_server,  # McpSdkServerConfig dict (ADR-0010); cli.py seam
-    )
+
+    # ADR-0044 §4.2: capture the pages the delegated agent writes via MCP write_page.
+    from app.mcp.server import delegated_write_capture
+
+    with delegated_write_capture() as _write_record:
+        result = await delegate(
+            source_text=source_text,
+            system_prompt=system_prompt,
+            vault_dir=str(settings.vault_root),
+            mcp_server=_mcp_server,  # McpSdkServerConfig dict (ADR-0010); cli.py seam
+        )
+        written_page_ids = list(_write_record.ids)
+
     converged = bool(getattr(result, "converged", False))
     pages_written = int(getattr(result, "pages_written", 0))
-    return converged, pages_written
+    return converged, pages_written, written_page_ids
+
+
+async def _propose_reviews_for_delegated(
+    *,
+    vault_id: str,
+    written_page_ids: list[str],
+    origin_source: str,
+) -> None:
+    """
+    Drive propose_reviews for the delegated (CLI) route (ADR-0044 §4.2, Phase E).
+
+    Loads the Page rows the CLI agent wrote through MCP write_page (recorded ids), synthesizes a
+    minimal Analysis from their titles, and calls the SAME `propose_reviews(...)` seam the
+    orchestrated route uses — so the rule-based dangling-link path + the single bounded LLM
+    proposal call both run on the written set. NO provider-type branch (I6).
+
+    Empty recorded set → returns immediately (propose_reviews' own `if not written_pages` guard
+    would early-return anyway; we short-circuit here to avoid even loading). Zero cost.
+    """
+    if not written_page_ids:
+        logger.debug(
+            "delegated propose_reviews: no recorded write_page ids — no proposals (zero cost)"
+        )
+        return
+
+    # Load the written pages (bounded indexed read by id — I1; no vault re-scan).
+    # Compare on the string form of the id so the read is dialect-portable (SQLite stores the
+    # id as TEXT via with_variant; CAST keeps Postgres native-UUID columns matchable too).
+    from sqlalchemy import String as _SAString
+    from sqlalchemy import cast, select
+
+    from app.ingest.schemas import Analysis, PageType, SuggestedPage
+    from app.models import Page
+    from app.ops.review import propose_reviews as _propose_reviews
+
+    async with get_session() as session:
+        rows = list(
+            (
+                await session.execute(
+                    select(Page).where(
+                        cast(Page.id, _SAString).in_([str(i) for i in written_page_ids]),
+                        Page.deleted_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for r in rows:
+            session.expunge(r)
+
+    if not rows:
+        logger.debug("delegated propose_reviews: recorded ids resolved to no live pages")
+        return
+
+    # Synthesize a minimal Analysis from the written titles. No suggested_pages (the rule-based
+    # dangling-link path + the LLM path run on the written set; ADR-0044 §4.2). Analysis requires
+    # ≥1 topic and ≥1 suggested_page by schema, so we seed both from the written titles — these
+    # are already-written pages, so they never re-propose themselves (the not-written filter
+    # drops them). language is left generic; the proposal prompt does not depend on it.
+    titles = [(r.title or "").strip() for r in rows if (r.title or "").strip()]
+    synthesized = Analysis(
+        topics=titles[:8] or ["ingest"],
+        entities=[],
+        language="en",
+        suggested_pages=[
+            SuggestedPage(title=t, type=PageType.CONCEPT) for t in titles[:1]
+        ]
+        or [SuggestedPage(title="(delegated ingest)", type=PageType.CONCEPT)],
+        summary=None,
+    )
+
+    await _propose_reviews(
+        vault_id=vault_id,
+        analysis=synthesized,
+        written_pages=rows,
+        origin_source=origin_source,
+    )
 
 
 async def _resolve_fallback_provider_config() -> object | None:
