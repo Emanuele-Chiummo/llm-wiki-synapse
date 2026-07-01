@@ -16,7 +16,7 @@
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { CacheStatus, GraphEdge, GraphNode } from "../api/types";
+import type { CacheStatus, GraphCommunity, GraphEdge, GraphNode } from "../api/types";
 
 // ─── UI slice types (ADR-0017 §4, ADR-0018 §2) ───────────────────────────────
 
@@ -73,6 +73,12 @@ export interface GraphState {
   // Data
   nodes: GraphNode[];
   edges: GraphEdge[];
+  /**
+   * Community summary list from GET /graph (server-computed Louvain, v0.6+).
+   * Empty array when the server doesn't return communities (old server / no graph data).
+   * INVARIANT I2: client NEVER computes communities; only stores what the server returns.
+   */
+  communities: GraphCommunity[];
   dataVersion: number | null;
   cacheStatus: CacheStatus;
 
@@ -101,6 +107,7 @@ export interface GraphActions {
     edges: GraphEdge[],
     dataVersion: number,
     cacheStatus: CacheStatus,
+    communities?: GraphCommunity[],
   ) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -121,6 +128,7 @@ export type GraphStore = GraphState & GraphActions;
 const INITIAL_STATE: GraphState = {
   nodes: [],
   edges: [],
+  communities: [],
   dataVersion: null,
   cacheStatus: "unknown",
   loading: false,
@@ -145,8 +153,8 @@ const INITIAL_STATE: GraphState = {
 export const useGraphStore = create<GraphStore>((set) => ({
   ...INITIAL_STATE,
 
-  setGraph: (nodes, edges, dataVersion, cacheStatus) =>
-    set({ nodes, edges, dataVersion, cacheStatus, loading: false, error: null }),
+  setGraph: (nodes, edges, dataVersion, cacheStatus, communities = []) =>
+    set({ nodes, edges, communities, dataVersion, cacheStatus, loading: false, error: null }),
 
   setLoading: (loading) => set({ loading }),
 
@@ -191,6 +199,11 @@ export function selectNodes(s: GraphStore): GraphNode[] {
 /** Select the edges array. */
 export function selectEdges(s: GraphStore): GraphEdge[] {
   return s.edges;
+}
+
+/** Select the communities array (server-computed Louvain, v0.6+). Use with useShallow. */
+export function selectCommunities(s: GraphStore): GraphCommunity[] {
+  return s.communities;
 }
 
 /** Select loading + error status as a shallow-compared object. */

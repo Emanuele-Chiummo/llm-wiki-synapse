@@ -34,14 +34,22 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  COMMUNITY_PALETTE,
+  LOW_COHESION_THRESHOLD,
+  colorForCommunity,
+} from "./graphPalette";
+import type { ColorMode } from "./graphPalette";
 import Sigma from "sigma";
 import type { Attributes } from "graphology-types";
 import type { Settings } from "sigma/settings";
 import type { NodeDisplayData, PartialButFor } from "sigma/types";
 import { buildGraphologyGraph } from "../api/graphTransform";
 import { fetchGraph, fetchPageDetail, patchNodePosition } from "../api/graphClient";
-import type { PageDetail } from "../api/types";
+import type { GraphCommunity, PageDetail } from "../api/types";
 import {
+  selectCommunities,
   selectEdges,
   selectNodes,
   selectSelectedNodeId,
@@ -95,6 +103,13 @@ function colorForType(type: string | null): string {
   if (type === null) return DEFAULT_NODE_COLOR;
   return TYPE_COLORS[type] ?? DEFAULT_NODE_COLOR;
 }
+
+// ─── Re-export community palette identifiers for test isolation ───────────────
+// COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity, ColorMode are
+// all imported from ./graphPalette (pure module, no sigma dependency) so they
+// can be unit-tested in jsdom without WebGL2. See graphPalette.ts.
+export { COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity };
+export type { ColorMode };
 
 /**
  * Deepen a hex color by mixing it 30% toward black (#000000).
@@ -268,69 +283,169 @@ const NodeTooltip: React.FC<TooltipProps> = ({ nodeId, position, neighborCount, 
 };
 
 // ─── Legend ───────────────────────────────────────────────────────────────────
-// CVD-safe: shows color swatch AND type name (redundant encoding, WCAG 1.4.1).
+// CVD-safe: shows color swatch AND type/community label (redundant encoding, WCAG 1.4.1).
 
-const GraphLegend: React.FC = () => (
-  <div
-    className="syn-card"
-    style={{
-      position: "absolute",
-      bottom: 16,
-      left: 16,
-      padding: "8px 12px",
-      zIndex: 5,
-      pointerEvents: "none",
-      userSelect: "none",
-    }}
-    aria-label="Graph node type legend"
-  >
+interface GraphLegendProps {
+  /** Which color-mode is currently active — determines legend content. */
+  colorMode: ColorMode;
+  /** Community summary list from GET /graph (server-computed, I2). */
+  communities: GraphCommunity[];
+}
+
+const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities }) => {
+  const { t } = useTranslation();
+
+  return (
     <div
+      className="syn-card"
       style={{
-        fontSize: 10,
-        color: "var(--syn-text-muted)",
-        marginBottom: 6,
-        letterSpacing: "0.08em",
-        fontWeight: 600,
+        position: "absolute",
+        bottom: 16,
+        left: 16,
+        padding: "8px 12px",
+        zIndex: 5,
+        pointerEvents: "none",
+        userSelect: "none",
+        maxHeight: "calc(100% - 96px)",
+        overflowY: "auto",
       }}
+      aria-label={colorMode === "type" ? "Graph node type legend" : "Graph community legend"}
+      data-testid="graph-legend"
     >
-      NODE TYPES
+      {colorMode === "type" ? (
+        <>
+          {/* TYPE mode legend — CVD-safe: name + swatch (WCAG 1.4.1) */}
+          <div
+            style={{
+              fontSize: 10,
+              color: "var(--syn-text-muted)",
+              marginBottom: 6,
+              letterSpacing: "0.08em",
+              fontWeight: 600,
+            }}
+          >
+            {t("graph.legendNodeTypes")}
+          </div>
+          {Object.entries(TYPE_COLORS).map(([type, color]) => (
+            <div
+              key={type}
+              style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}
+            >
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: "50%",
+                  background: color,
+                  flexShrink: 0,
+                  boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
+                }}
+                aria-hidden="true"
+              />
+              {/* Redundant encoding: type NAME shown alongside color (WCAG 1.4.1) */}
+              <span style={{ fontSize: 11, color: "var(--syn-text)", textTransform: "capitalize" }}>{type}</span>
+            </div>
+          ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+            <span
+              style={{
+                width: 9,
+                height: 9,
+                borderRadius: "50%",
+                background: DEFAULT_NODE_COLOR,
+                flexShrink: 0,
+                boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
+              }}
+              aria-hidden="true"
+            />
+            <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>other</span>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* COMMUNITY mode legend (server-driven, I2) */}
+          <div
+            style={{
+              fontSize: 10,
+              color: "var(--syn-text-muted)",
+              marginBottom: 6,
+              letterSpacing: "0.08em",
+              fontWeight: 600,
+            }}
+          >
+            {t("graph.legendCommunities")}
+          </div>
+          {communities.length === 0 ? (
+            <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
+              {t("common.unknown")}
+            </span>
+          ) : (
+            communities.map((c) => {
+              const isLowCohesion = c.cohesion < LOW_COHESION_THRESHOLD;
+              const color = colorForCommunity(c.id);
+              return (
+                <div
+                  key={c.id}
+                  style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}
+                  data-testid={`community-legend-item-${c.id}`}
+                >
+                  <span
+                    style={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: "50%",
+                      background: color,
+                      flexShrink: 0,
+                      boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
+                    }}
+                    aria-hidden="true"
+                  />
+                  <span style={{ fontSize: 11, color: "var(--syn-text)" }}>
+                    {t("graph.legendCommunityLabel", { id: c.id })}
+                    <span style={{ color: "var(--syn-text-muted)", marginLeft: 4 }}>
+                      {t("graph.legendCommunitySize", { size: c.size })}
+                    </span>
+                    {/* Low-cohesion warning — llm_wiki pattern */}
+                    {isLowCohesion && (
+                      <span
+                        title={t("graph.legendCommunityLowCohesion")}
+                        style={{
+                          marginLeft: 4,
+                          color: "var(--syn-amber, #d97706)",
+                          fontWeight: 600,
+                          fontSize: 10,
+                        }}
+                        data-testid={`community-low-cohesion-${c.id}`}
+                        aria-label={t("graph.legendCommunityLowCohesion")}
+                      >
+                        !
+                      </span>
+                    )}
+                  </span>
+                </div>
+              );
+            })
+          )}
+          {/* Unassigned (-1) swatch */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+            <span
+              style={{
+                width: 9,
+                height: 9,
+                borderRadius: "50%",
+                background: DEFAULT_NODE_COLOR,
+                flexShrink: 0,
+                boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
+              }}
+              aria-hidden="true"
+            />
+            <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>—</span>
+          </div>
+        </>
+      )}
     </div>
-    {Object.entries(TYPE_COLORS).map(([type, color]) => (
-      <div
-        key={type}
-        style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}
-      >
-        <span
-          style={{
-            width: 9,
-            height: 9,
-            borderRadius: "50%",
-            background: color,
-            flexShrink: 0,
-            boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
-          }}
-          aria-hidden="true"
-        />
-        {/* Redundant encoding: type NAME shown alongside color (WCAG 1.4.1) */}
-        <span style={{ fontSize: 11, color: "var(--syn-text)", textTransform: "capitalize" }}>{type}</span>
-      </div>
-    ))}
-    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-      <span
-        style={{
-          width: 9,
-          height: 9,
-          borderRadius: "50%",
-          background: DEFAULT_NODE_COLOR,
-          flexShrink: 0,
-          boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
-        }}
-        aria-hidden="true"
-      />
-      <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>other</span>
-    </div>
-  </div>
-);
+  );
+};
 
 // ─── Status bar ───────────────────────────────────────────────────────────────
 
@@ -458,9 +573,11 @@ interface TooltipState {
  *   </div>
  */
 export const GraphViewer: React.FC = () => {
+  const { t } = useTranslation();
   // I3: typed selectors — never subscribe to whole store
   const nodes = useGraphStore(selectNodes);
   const edges = useGraphStore(selectEdges);
+  const communities = useGraphStore(selectCommunities);
   const vaultId = useGraphStore(selectVaultId);
   const selectedNodeId = useGraphStore(selectSelectedNodeId);
   const setGraph = useGraphStore(selectSetGraph);
@@ -472,6 +589,9 @@ export const GraphViewer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   // sigma instance ref — kept outside React state to avoid re-render on mount
   const sigmaRef = useRef<Sigma<Attributes, Attributes, Attributes> | null>(null);
+
+  // Color-mode toggle: "type" (default) or "community" (llm_wiki pattern)
+  const [colorMode, setColorMode] = useState<ColorMode>("type");
 
   // Tooltip state (React state — triggers re-render to show/hide tooltip)
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -486,7 +606,7 @@ export const GraphViewer: React.FC = () => {
 
     fetchGraph(vaultId, ctrl.signal)
       .then(({ data, cacheStatus }) => {
-        setGraph(data.nodes, data.edges, data.data_version, cacheStatus);
+        setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? []);
       })
       .catch((err: unknown) => {
         if (err instanceof Error && err.name !== "AbortError") {
@@ -517,16 +637,25 @@ export const GraphViewer: React.FC = () => {
 
     rawGraph.forEachNode((nodeKey, attrs) => {
       const nodeType = attrs["type"] as string | null | undefined;
+      // Community id — -1 when unassigned or from older servers (non-breaking, set in graphTransform)
+      const nodeCommunity = (attrs["community"] as number | undefined) ?? -1;
+      // Color is determined by active color-mode (I2: community id comes from server)
+      const nodeColor =
+        colorMode === "community"
+          ? colorForCommunity(nodeCommunity)
+          : colorForType(nodeType ?? null);
       sigmaGraph.addNode(nodeKey, {
         x: attrs["x"] as number,
         y: attrs["y"] as number,
         label: attrs["label"] as string,
         size: attrs["size"] as number,
-        color: colorForType(nodeType ?? null),
+        color: nodeColor,
         // Store degree for reducers
         degree: attrs["degree"] as number,
         // Store type for reducers
         nodeType: nodeType ?? null,
+        // Store community for reducers / tooltip
+        nodeCommunity,
       });
     });
 
@@ -781,9 +910,9 @@ export const GraphViewer: React.FC = () => {
       sigma.kill();
       sigmaRef.current = null;
     };
-    // Rebuild sigma only when graph data changes (new fetch result)
+    // Rebuild sigma when graph data or color-mode changes (colorMode switches palette)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, edges]);
+  }, [nodes, edges, colorMode]);
 
   // ── Sync selectedNodeId from store → announcement (aria-live) ────────────
 
@@ -821,7 +950,7 @@ export const GraphViewer: React.FC = () => {
 
   return (
     // I4: this container holds sigma's single <canvas> + a handful of overlay divs.
-    // Total DOM nodes inside: <div#sigma-container> + <canvas> + aria-live + 3 overlays = ~7 → well under 20.
+    // Total DOM nodes inside: <div#sigma-container> + <canvas> + aria-live + overlays = ~10 → well under 20.
     <div
       id="graph-root"
       role="application"
@@ -856,11 +985,69 @@ export const GraphViewer: React.FC = () => {
         {announcement}
       </div>
 
+      {/* Color-mode toolbar — Type / Community toggle (llm_wiki pattern) */}
+      <div
+        className="syn-card"
+        style={{
+          position: "absolute",
+          bottom: 16,
+          right: 12,
+          padding: "4px 6px",
+          zIndex: 5,
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          userSelect: "none",
+        }}
+        aria-label={t("graph.colorModeToggleLabel")}
+        data-testid="color-mode-toolbar"
+      >
+        <span style={{ fontSize: 10, color: "var(--syn-text-muted)", marginRight: 2, letterSpacing: "0.05em" }}>
+          {t("graph.colorModeToggleLabel")}
+        </span>
+        <button
+          type="button"
+          onClick={() => setColorMode("type")}
+          data-testid="color-mode-type"
+          style={{
+            fontSize: 11,
+            padding: "2px 8px",
+            borderRadius: 3,
+            border: "1px solid var(--syn-border)",
+            cursor: "pointer",
+            background: colorMode === "type" ? "var(--syn-accent)" : "var(--syn-surface)",
+            color: colorMode === "type" ? "#fff" : "var(--syn-text-muted)",
+            fontWeight: colorMode === "type" ? 600 : 400,
+          }}
+          aria-pressed={colorMode === "type"}
+        >
+          {t("graph.colorModeType")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setColorMode("community")}
+          data-testid="color-mode-community"
+          style={{
+            fontSize: 11,
+            padding: "2px 8px",
+            borderRadius: 3,
+            border: "1px solid var(--syn-border)",
+            cursor: "pointer",
+            background: colorMode === "community" ? "var(--syn-accent)" : "var(--syn-surface)",
+            color: colorMode === "community" ? "#fff" : "var(--syn-text-muted)",
+            fontWeight: colorMode === "community" ? 600 : 400,
+          }}
+          aria-pressed={colorMode === "community"}
+        >
+          {t("graph.colorModeCommunity")}
+        </button>
+      </div>
+
       {/* Status bar overlay */}
       <StatusBar />
 
-      {/* Legend overlay — CVD-safe: name + color swatch */}
-      <GraphLegend />
+      {/* Legend overlay — CVD-safe: name + color swatch; switches on colorMode */}
+      <GraphLegend colorMode={colorMode} communities={communities} />
 
       {/* Tooltip — conditional, at most 1 visible at a time */}
       {tooltip !== null && (

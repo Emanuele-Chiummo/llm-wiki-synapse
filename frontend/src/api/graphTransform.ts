@@ -29,6 +29,12 @@ export interface NodeAttributes {
   /** Page type for color-coding in the legend */
   type: string | null;
   /**
+   * Louvain community id (server-computed, v0.6+).
+   * -1 = unassigned/isolated. Default -1 when absent on older servers.
+   * INVARIANT I2: passed through verbatim; no client community computation.
+   */
+  community: number;
+  /**
    * Visual radius in pixels (normalized sqrt over degree range).
    * MIN_R=4, MAX_R=22. t = (sqrt(d)-sqrt(dMin))/(sqrt(dMax)-sqrt(dMin));
    * radius = MIN_R + t*(MAX_R-MIN_R). If dMax==dMin use (MIN_R+MAX_R)/2.
@@ -199,6 +205,8 @@ export function buildGraphologyGraph(nodes: GraphNode[], edges: GraphEdge[]): Sy
       y: node.y, // precomputed by server FA2 — DO NOT RECOMPUTE
       label: node.title,
       type: node.type,
+      // community passed verbatim; -1 when absent (I2: no client computation)
+      community: node.community ?? -1,
       size: radii.get(node.id) ?? MID_R,
       degree: node.degree ?? 0,
     });

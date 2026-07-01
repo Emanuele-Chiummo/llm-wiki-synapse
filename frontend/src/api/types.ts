@@ -25,6 +25,13 @@ export interface GraphNode {
   size?: number;
   /** Incident-edge count — derived, not persisted */
   degree?: number;
+  /**
+   * Louvain community id (server-computed, v0.6+).
+   * 0 = largest community; -1 = unassigned / isolated.
+   * Absent on older server responses (non-breaking additive field).
+   * INVARIANT I2: client NEVER recomputes community; only reads this value.
+   */
+  community?: number;
 }
 
 export interface GraphEdge {
@@ -43,6 +50,20 @@ export interface GraphEdge {
   kind?: "link" | "source";
 }
 
+/** Community summary entry returned in the top-level communities array (v0.6+). */
+export interface GraphCommunity {
+  /** Community id (matches community field on GraphNode). */
+  id: number;
+  /** Number of nodes in this community. */
+  size: number;
+  /**
+   * Louvain cohesion score (0–1).
+   * Communities with cohesion < 0.1 are considered low-cohesion and
+   * the UI marks them with a warning indicator in the legend.
+   */
+  cohesion: number;
+}
+
 export interface GraphResponse {
   nodes: GraphNode[];
   edges: GraphEdge[];
@@ -50,6 +71,12 @@ export interface GraphResponse {
   data_version: number;
   /** true = X-Graph-Cache: hit (no FA2 ran); false = miss (inline recompute) */
   cached: boolean;
+  /**
+   * Community summary list (v0.6+, server-computed Louvain).
+   * Absent on older server responses (non-breaking additive field).
+   * INVARIANT I2: client NEVER computes communities; only reads this list.
+   */
+  communities?: GraphCommunity[];
 }
 
 /** Value of the X-Graph-Cache response header */
