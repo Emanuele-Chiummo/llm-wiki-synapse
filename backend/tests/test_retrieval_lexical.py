@@ -134,7 +134,8 @@ async def _setup_sqlite(engine: Any) -> None:
                 mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
                 clip_enabled_db INTEGER,
                 clip_access_token TEXT,
-                clip_allowed_origins_db TEXT
+                clip_allowed_origins_db TEXT,
+                cli_oauth_token TEXT
             )
         """
             )

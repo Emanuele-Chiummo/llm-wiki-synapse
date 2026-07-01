@@ -130,6 +130,7 @@ async def graph_app(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClie
                 clip_enabled_db INTEGER,
                 clip_access_token TEXT,
                 clip_allowed_origins_db TEXT,
+                cli_oauth_token TEXT,
                 searxng_url_db TEXT,
                 searxng_categories_db TEXT,
                 searxng_max_queries_db INTEGER,

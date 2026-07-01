@@ -106,12 +106,13 @@ def _install_fake_sdk(
     monkeypatch.setitem(sys.modules, "claude_agent_sdk", fake)
 
 
-def _settings() -> ProviderSettings:
+def _settings(subscription_token: str | None = None) -> ProviderSettings:
     return ProviderSettings(
         provider_type="cli",
         model_id="claude-sonnet-4-6",  # from provider_config in real runs — never hardcoded
         base_url=None,
         token_budget=100_000,
+        subscription_token=subscription_token,
     )
 
 
@@ -399,3 +400,60 @@ async def test_chat_subscription_mode_does_not_raise_auth_error(
     assert deltas == ["hi"]
     assert recorder.options is not None  # the SDK session was opened (auth gate passed)
     assert acc.total_cost_usd == 0.0  # subscription → $0 by convention
+
+
+@pytest.mark.asyncio
+async def test_chat_db_token_scrubs_child_env_and_restores_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    ADR-0043 §2.3 on the chat path: a DB subscription_token + ambient ANTHROPIC_API_KEY → the
+    (faked) SDK session observes the injected CLAUDE_CODE_OAUTH_TOKEN and NO ANTHROPIC_API_KEY;
+    $0.00 recorded (subscription); parent os.environ restored after the stream is drained.
+    """
+    import os
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-env-key")
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)
+
+    captured: dict[str, Any] = {}
+
+    class _CapturingClient:
+        def __init__(self, options: Any) -> None:
+            captured["oauth"] = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+            captured["api_key_present"] = "ANTHROPIC_API_KEY" in os.environ
+
+        async def __aenter__(self) -> _CapturingClient:
+            return self
+
+        async def __aexit__(self, *exc: object) -> None:
+            return None
+
+        async def query(self, prompt: str) -> None:
+            return None
+
+        async def receive_response(self):  # type: ignore[no-untyped-def]
+            yield _FakeAssistantMessage("hi")
+            yield _FakeResultMessage(total_cost_usd=None)
+
+    def _fake_options(**kwargs: Any) -> dict[str, Any]:
+        return dict(kwargs)
+
+    fake = types.ModuleType("claude_agent_sdk")
+    fake.ClaudeSDKClient = _CapturingClient  # type: ignore[attr-defined]
+    fake.ClaudeAgentOptions = _fake_options  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "claude_agent_sdk", fake)
+
+    before = dict(os.environ)
+    provider = CliAgentProvider(_settings(subscription_token="sk-ant-oat01-db-value"))
+    acc = UsageAccumulator()
+    provider.bind_accumulator(acc)
+
+    deltas = await _drain(await provider.chat([Message(role="user", content="hi")], "ctx"))
+
+    assert deltas == ["hi"]
+    assert captured["oauth"] == "sk-ant-oat01-db-value"  # injected DB token seen by the child
+    assert captured["api_key_present"] is False  # scrubbed (§2.3 crux)
+    assert acc.total_cost_usd == 0.0  # subscription → $0 by convention
+    assert dict(os.environ) == before  # parent os.environ restored exactly

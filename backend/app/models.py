@@ -71,6 +71,11 @@ v0.6-ADR-0041: vault_state.searxng_url_db + vault_state.searxng_categories_db +
     runtime configuration for the SearXNG web-search backend; DB wins over SEARXNG_URL /
     DEEP_RESEARCH_* env when set; URL is NOT a secret and IS returned by GET /web-search/config).
 
+v0.6-ADR-0043: vault_state.cli_oauth_token added in Alembic migration 0017 (ADR-0043 §2.2 —
+    plaintext Claude subscription OAuth token for the CLI provider; DB wins over env when set;
+    stored plaintext because it is replayed outbound to the spawned CLI — a hash cannot be
+    replayed; §12 narrowly amended for this one credential; NEVER logged or returned).
+
 Run `make er` to regenerate docs/er/schema.mmd from this file (I8).
 """
 
@@ -360,6 +365,25 @@ class VaultState(Base):
             "Comma-separated Origin allowlist for POST /clip (ADR-0040 §3). "
             "NULL = fall back to CLIP_ALLOWED_ORIGINS env var. "
             "When set, DB value wins over env. Migration 0015."
+        ),
+    )
+
+    # ── ADR-0043: CLI subscription OAuth token ───────────────────────────────────
+    cli_oauth_token: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+        comment=(
+            "Plaintext Claude subscription OAuth token for the CLI provider (ADR-0043 §2.1). "
+            "Produced on the host by `claude setup-token` (prefix: sk-ant- + oat01-). "
+            "NULL = no UI token; env `CLAUDE_CODE_OAUTH_TOKEN` / `CLAUDE_CODE_USE_SUBSCRIPTION` "
+            "govern. "
+            "When NOT NULL the DB value is authoritative: it is injected into the spawned "
+            "`claude` CLI's env as CLAUDE_CODE_OAUTH_TOKEN AND `ANTHROPIC_API_KEY` is scrubbed "
+            "from that child env so the subscription wins (ADR-0043 §2.3). "
+            "Stored PLAINTEXT because it is replayed outbound to the CLI, not verified against "
+            "an incoming request — a hash cannot be replayed (§12 narrowly amended for this one "
+            "credential). NEVER logged; NEVER returned by any endpoint. Migration 0017."
         ),
     )
 

@@ -548,6 +548,45 @@ export interface WebSearchConfigStateResponse {
   source: "db" | "env" | "none";
 }
 
+// ─── GET/PUT /provider/cli-auth (F17, ADR-0043) ──────────────────────────────
+
+/**
+ * Response from GET /provider/cli-auth and PUT /provider/cli-auth (ADR-0043 §2.5).
+ * Posture-only: the token value is NEVER returned by any endpoint.
+ *
+ * token_configured: true iff a DB or env signal is present.
+ * token_source:     "db"  — token set via UI (vault_state.cli_oauth_token non-NULL)
+ *                   "env" — any env signal present (ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_USE_SUBSCRIPTION)
+ *                   "none" — no signal anywhere
+ * auth_mode:        "subscription"   — DB token set, or env subscription signal present
+ *                   "api-key"        — env ANTHROPIC_API_KEY wins (no DB token)
+ *                   "unconfigured"   — no credential at all
+ *
+ * The token value NEVER appears in this type or any GET/PUT response (ADR-0043 §2.5 / Do-NOT #2).
+ */
+export interface CliAuthConfig {
+  token_configured: boolean;
+  token_source: "db" | "env" | "none";
+  auth_mode: "api-key" | "subscription" | "unconfigured";
+}
+
+/**
+ * Request body for PUT /provider/cli-auth (ADR-0043 §2.5).
+ * Exactly one of token or clear should be set per call.
+ *
+ * token: the pasted Claude subscription OAuth token (from `claude setup-token`).
+ *        Stored plaintext in vault_state.cli_oauth_token — replayed into the spawned CLI.
+ * clear: true ⇒ set cli_oauth_token = NULL (fall back to env / none).
+ *
+ * Empty body → 400 (nothing to do).
+ * Empty/whitespace token → 422.
+ * Server generates NO token — the user pastes their own (ADR-0043 §2.5 / Do-NOT #7).
+ */
+export interface CliAuthUpdateRequest {
+  token?: string;
+  clear?: boolean;
+}
+
 // ─── POST /lint/scan + GET /lint/runs + GET /lint/findings (K2, ADR-0037 §6) ──
 
 /** Lint finding categories (ADR-0037 §6). */

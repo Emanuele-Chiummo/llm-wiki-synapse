@@ -72,6 +72,10 @@ def resolve_provider(provider_config_row: ProviderConfigRow | Any) -> InferenceP
     Raises ValueError on a missing row or an unknown provider_type — never silently defaults
     to a backend (I6: "never hardcode a provider"). The caller (ConfigResolver) is responsible
     for selecting the row by precedence (operation>vault>global, ADR-0008).
+
+    ADR-0043: when provider_type == 'cli', stamps ProviderSettings.subscription_token with
+    the DB-cached OAuth token (via cli_auth.resolve_subscription_token()). Non-CLI providers
+    always receive subscription_token=None. Import is deferred to avoid a cycle.
     """
     if provider_config_row is None:
         raise ValueError(
@@ -83,7 +87,21 @@ def resolve_provider(provider_config_row: ProviderConfigRow | Any) -> InferenceP
         raise ValueError(
             f"Unknown provider_type {provider_type!r}; expected one of {sorted(_REGISTRY)}."
         )
-    return cls(_settings_from_row(provider_config_row))
+    settings = _settings_from_row(provider_config_row)
+
+    # ADR-0043: inject DB-resolved subscription token for CLI only (never for local/api).
+    # Deferred import to avoid circular imports (cli_auth → config only; safe here).
+    if provider_type == "cli":
+        from app import cli_auth  # noqa: PLC0415 — deferred to break any potential cycle
+
+        token = cli_auth.resolve_subscription_token()
+        if token is not None:
+            # ProviderSettings is frozen — rebuild with the token field set.
+            import dataclasses  # noqa: PLC0415
+
+            settings = dataclasses.replace(settings, subscription_token=token)
+
+    return cls(settings)
 
 
 __all__ = [

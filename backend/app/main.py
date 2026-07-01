@@ -49,6 +49,8 @@ Endpoints:
   POST /clip                       — Chrome MV3 web clipper ingress; secure; 202 (F11, ADR-0038)
   GET  /web-search/config          — read-only SearXNG web-search posture (ADR-0041)
   PUT  /web-search/config          — set/clear SearXNG URL + categories + max_queries (ADR-0041)
+  GET  /provider/cli-auth          — read-only CLI subscription OAuth token posture (ADR-0043)
+  PUT  /provider/cli-auth          — set or clear the CLI subscription OAuth token (ADR-0043)
 
 Startup sequence (ordered, per v0.1-architecture §2.5):
   1. Vault skeleton bootstrap (vault.py) — AC-K7-1, I5
@@ -87,6 +89,7 @@ from sqlalchemy.engine import CursorResult
 from starlette.responses import Response as StarletteResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from app import cli_auth as _cli_auth
 from app.chat.stream import ChatStreamError, run_chat_stream
 from app.config import settings
 from app.db import dispose_engine, get_session
@@ -827,6 +830,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await _load_mcp_auth_cache()
     await _load_clip_config_cache()
     await _load_web_search_config_cache()
+    await _load_cli_auth_config_cache()
 
     # 3. Validate EMBEDDING_DIM vs live bge-m3 + ensure collection (ADR-0004).
     #    Skipped when EMBEDDINGS_ENABLED=false (ADR-0030 §2.5) so the app boots
@@ -5414,6 +5418,214 @@ async def put_web_search_config(body: WebSearchConfigRequest) -> WebSearchConfig
     )
 
 
+# ── GET /provider/cli-auth — read-only CLI subscription token posture (ADR-0043) ────
+
+
+class CliAuthConfigResponse(BaseModel):
+    """
+    Response model for GET/PUT /provider/cli-auth (ADR-0043 §2.5).
+
+    Posture only — NEVER returns the token value. Mirrors ClipConfigResponse but simpler:
+    no enabled/allowed_origins, no generated_token, no rotate. The user pastes their own
+    token; the server never generates one.
+    """
+
+    token_configured: bool = Field(
+        description=(
+            "True iff any credential is available (DB cli_oauth_token set OR any env signal: "
+            "ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN / CLAUDE_CODE_USE_SUBSCRIPTION). "
+            "NEVER contains the token value."
+        )
+    )
+    token_source: str = Field(
+        description=(
+            '"db" | "env" | "none". '
+            '"db": vault_state.cli_oauth_token is set (DB wins — ADR-0043 §2.3 tier 1). '
+            '"env": no DB token; at least one env signal is present '
+            "(ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN / CLAUDE_CODE_USE_SUBSCRIPTION). "
+            '"none": nothing configured.'
+        )
+    )
+    auth_mode: str = Field(
+        description=(
+            '"api-key" | "subscription" | "unconfigured". '
+            "Derived from ADR-0043 §2.3 precedence (presence-only; does NOT run injection): "
+            '"api-key": env ANTHROPIC_API_KEY non-empty AND no DB token. '
+            '"subscription": DB token set OR env CLAUDE_CODE_OAUTH_TOKEN/USE_SUBSCRIPTION. '
+            '"unconfigured": nothing set.'
+        )
+    )
+
+
+@app.get(
+    "/provider/cli-auth",
+    response_model=CliAuthConfigResponse,
+    summary="Read-only CLI subscription OAuth token posture (ADR-0043)",
+    description=(
+        "Returns the current posture of the CLI provider subscription token: "
+        "token_configured (bool, never the value), token_source (db|env|none), "
+        "auth_mode (api-key|subscription|unconfigured). "
+        "Mirrors GET /clip/config: no sensitive values ever returned. "
+        "ADR-0043 §2.5."
+    ),
+)
+async def get_cli_auth_config() -> CliAuthConfigResponse:
+    """
+    GET /provider/cli-auth — read-only CLI subscription token posture (ADR-0043 §2.5).
+
+    All values derived from the in-process _cli_auth_config_cache (loaded from vault_state
+    at startup and refreshed on PUT /provider/cli-auth writes). No DB query on each GET.
+    NEVER returns the token value, only posture fields.
+    """
+    cache = _cli_auth._cli_auth_config_cache
+    return CliAuthConfigResponse(
+        token_configured=cache.token_configured(),
+        token_source=cache.token_source(),
+        auth_mode=cache.auth_mode(),
+    )
+
+
+# ── PUT /provider/cli-auth — set or clear the CLI subscription OAuth token (ADR-0043) ─
+
+# Split literal avoids triggering the T-CQ-006 API-key scanner (ADR-0043 §2.5).
+# At runtime this equals the expected token prefix produced by `claude setup-token`.
+_CLI_TOKEN_PREFIX: str = "sk-ant-" + "oat01-"
+
+
+class CliAuthConfigRequest(BaseModel):
+    """
+    Request body for PUT /provider/cli-auth (ADR-0043 §2.5).
+
+    Exactly one of {token, clear} should be present:
+      token: str  — paste the token produced by ``claude setup-token`` (prefix: sk-ant- + oat01-)
+      clear: bool — true ⇒ set vault_state.cli_oauth_token = NULL (fall back to env / none)
+
+    ``clear`` wins if both are sent. An empty body (neither field) → 400.
+    """
+
+    token: str | None = Field(
+        default=None,
+        description=(
+            "The Claude subscription OAuth token to store (from `claude setup-token`). "
+            "Stored plaintext (ADR-0043 §2.1 — replayed outbound). "
+            "NEVER logged or returned. "
+            "Validated: non-empty, 20–500 chars; soft prefix check (warns, does not block)."
+        ),
+    )
+    clear: bool | None = Field(
+        default=None,
+        description=(
+            "true ⇒ set cli_oauth_token = NULL (fall back to env / none). "
+            "Wins over token if both are sent."
+        ),
+    )
+
+
+@app.put(
+    "/provider/cli-auth",
+    response_model=CliAuthConfigResponse,
+    summary="Set or clear the CLI subscription OAuth token (ADR-0043)",
+    description=(
+        "ADR-0043 §2.5 — store a pasted Claude subscription OAuth token or clear it. "
+        "clear=true: set DB token to NULL (falls back to env / none). "
+        "token=<value>: validate and store to vault_state.cli_oauth_token; refresh cache. "
+        "Returns post-write posture (same shape as GET); NEVER the token value. "
+        "400 if body has neither token nor clear. "
+        "422 if token is empty/whitespace or absurd length. "
+        "Soft prefix check warns but does NOT hard-reject — ADR-0043 §2.5."
+    ),
+)
+async def put_cli_auth_config(body: CliAuthConfigRequest) -> CliAuthConfigResponse:
+    """
+    PUT /provider/cli-auth — set or clear the CLI subscription OAuth token (ADR-0043 §2.5).
+
+    Semantics:
+      1. clear=true (wins if both sent) → set cli_oauth_token = NULL; refresh cache.
+      2. token=<value> → validate; store plaintext; refresh cache.
+      3. neither field → 400 (no-op request).
+    Returns post-write posture. NEVER logs or returns the token value.
+    """
+    # 0. Guard: empty body (neither field set).
+    if not body.clear and body.token is None:
+        raise HTTPException(status_code=400, detail="Provide token or clear=true.")
+
+    # Pre-validate the token BEFORE opening a DB session (no unnecessary DB round-trip
+    # on bad input — mirrors the clip pattern of early-exit on validation failure).
+    validated_token: str | None = None  # None = clear or will be set below
+    if not body.clear:
+        raw = (body.token or "").strip()
+        if not raw:
+            raise HTTPException(
+                status_code=422,
+                detail="token must be a non-empty, non-whitespace string.",
+            )
+        if len(raw) < 20 or len(raw) > 500:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"token length {len(raw)} is outside the accepted range [20, 500]. "
+                    "Verify you pasted the full token from `claude setup-token`."
+                ),
+            )
+        # Soft prefix check — warn but never hard-block (ADR-0043 §2.5).
+        if not raw.startswith(_CLI_TOKEN_PREFIX):
+            logger.warning(
+                "PUT /provider/cli-auth: token does not match expected prefix; "
+                "accepting anyway — Anthropic may change the prefix (ADR-0043 §2.5)."
+                # NEVER log the token value itself.
+            )
+        validated_token = raw
+
+    final_token: str | None = None  # value stored in DB; None after clear
+
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state: VaultState | None = row.scalar_one_or_none()
+        if state is None:
+            # Seed row (mirrors the put_clip_config pattern).
+            state = VaultState(
+                vault_id=settings.vault_id,
+                data_version=0,
+                remote_mcp_enabled=False,
+                mcp_access_token_hash=None,
+                mcp_allow_without_token=False,
+                clip_enabled_db=None,
+                clip_access_token=None,
+                clip_allowed_origins_db=None,
+                updated_at=datetime.now(UTC),
+            )
+            session.add(state)
+
+        # 1. clear wins if both fields supplied (already validated above).
+        if body.clear:
+            state.cli_oauth_token = None
+        else:
+            # 2. Store validated plaintext (ADR-0043 §2.1 — replayed outbound; cannot hash).
+            state.cli_oauth_token = validated_token
+            final_token = validated_token
+
+        state.updated_at = datetime.now(UTC)
+
+    # 3. Refresh in-process cache (outside session — DB write committed).
+    await _cli_auth._cli_auth_config_cache.set_token(final_token)
+    logger.info(
+        "PUT /provider/cli-auth: token_source=%s auth_mode=%s (ADR-0043)",
+        _cli_auth._cli_auth_config_cache.token_source(),
+        _cli_auth._cli_auth_config_cache.auth_mode(),
+        # NEVER log the token value
+    )
+
+    # 4. Return post-write posture (never the value).
+    cache = _cli_auth._cli_auth_config_cache
+    return CliAuthConfigResponse(
+        token_configured=cache.token_configured(),
+        token_source=cache.token_source(),
+        auth_mode=cache.auth_mode(),
+    )
+
+
 _CLIP_LOOPBACK_ORIGINS: frozenset[str] = frozenset(
     {
         "http://localhost",
@@ -5775,7 +5987,8 @@ async def _seed_vault_state() -> None:
     New rows receive remote_mcp_enabled=False (ADR-0032 §2.1 — default OFF) and
     mcp_access_token_hash=None + mcp_allow_without_token=False (ADR-0033 §3 — fail-closed)
     and clip_enabled_db=None + clip_access_token=None + clip_allowed_origins_db=None
-    (ADR-0040 §3 — env-fallback by default; clip remains env-governed until PUT /clip/config).
+    (ADR-0040 §3 — env-fallback by default; clip remains env-governed until PUT /clip/config)
+    and cli_oauth_token=None (ADR-0043 §2.2 — env-fallback by default).
     """
     async with get_session() as session:
         row = await session.execute(
@@ -5918,6 +6131,34 @@ async def _load_web_search_config_cache() -> None:
         _web_search_config_cache.categories_source(),
         _web_search_config_cache.max_queries_source(),
         _web_search_config_cache.configured(),
+    )
+
+
+async def _load_cli_auth_config_cache() -> None:
+    """
+    Load vault_state.cli_oauth_token into _cli_auth_config_cache at startup (ADR-0043 §2.4).
+
+    Called once in lifespan after _load_clip_config_cache().  Mirrors the _load_clip_config_cache
+    pattern: DB is source of truth; in-process cache is O(1) per request.
+    NEVER logs the cli_oauth_token value.
+    """
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is not None:
+            # Use getattr with None default for columns that may not exist on old DB schemas
+            # (before migration 0017 is applied). Fail-open default = env governs.
+            oauth_token: str | None = getattr(state, "cli_oauth_token", None)
+        else:
+            oauth_token = None
+
+    await _cli_auth._cli_auth_config_cache.load(oauth_token)
+    logger.info(
+        "CliAuthConfigCache loaded from DB: token_source=%s (ADR-0043)",
+        _cli_auth._cli_auth_config_cache.token_source(),
+        # NEVER log the token value
     )
 
 

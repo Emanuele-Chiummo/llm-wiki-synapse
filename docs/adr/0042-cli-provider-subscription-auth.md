@@ -1,6 +1,6 @@
 # ADR-0042 — CLI provider subscription auth: OAuth token / ambient login, no API key (F17, I6/I7)
 
-- Status: Accepted
+- Status: Accepted · **amended in part by [ADR-0043](0043-ui-settable-cli-subscription-token.md)** (adds a UI/DB-settable token that takes precedence over the env `ANTHROPIC_API_KEY` via inject+scrub; the pure-env precedence in §1 below is superseded for the CLI provider when a DB token is present)
 - Date: 2026-07-01
 - Sprint: v0.6
 - Decider: solution-architect
