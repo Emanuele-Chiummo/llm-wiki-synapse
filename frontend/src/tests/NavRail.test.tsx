@@ -4,12 +4,13 @@
  * M5 Phase 2 (F10): Deep Search is now an ACTIVE nav item (AC-F10-8a).
  * M5 Phase 3 (F9): Review is now an ACTIVE nav item (AC-F9-5).
  * v0.6 (K2/F15): Lint is now an ACTIVE nav item.
+ * v0.6 (F5/llm_wiki parity): Search added to TOP_ITEMS between Sources and Graph.
  *
  * Covers:
  *   AC-HARD-LBL-7: each rendered item has both an SVG icon and a visible label span.
- *   AC-HARD-M5P-6 (updated for v0.6): search absent; lint + deep-search + review present.
- *   AC-HARD-ORD-1 (updated for v0.6): exactly 8 interactive items
- *                  (Chat/Wiki/Sources/Graph/Lint/Review/DeepSearch/Settings).
+ *   AC-HARD-M5P-6 (updated for v0.6): search PRESENT; lint + deep-search + review present.
+ *   AC-HARD-ORD-1 (updated for v0.6+Search): exactly 9 interactive items
+ *                  (Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Settings).
  *   AC-F10-8a: "Deep Search" nav item renders in the rail.
  *   AC-F9-5: "Review" nav item renders in the rail.
  *
@@ -58,17 +59,17 @@ function renderNavRail() {
   return render(<NavRail />);
 }
 
-// ─── AC-HARD-ORD-1 (v0.6 update): exactly 8 interactive nav items ────────────
+// ─── AC-HARD-ORD-1 (v0.6+Search update): exactly 9 interactive nav items ─────
 
-describe("NavRail — item count and order (AC-HARD-ORD-1 v0.6, AC-F10-8a, AC-F9-5)", () => {
+describe("NavRail — item count and order (AC-HARD-ORD-1 v0.6+Search, AC-F10-8a, AC-F9-5)", () => {
   beforeEach(() => {
     renderNavRail();
   });
 
-  it("renders exactly 8 interactive buttons (Chat/Wiki/Sources/Graph/Lint/Review/DeepSearch/Settings)", () => {
+  it("renders exactly 9 interactive buttons (Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Settings)", () => {
     const buttons = screen.getAllByRole("button");
-    // 8 nav buttons: chat, pages, ingest, graph, lint, review, deep-search, settings
-    expect(buttons).toHaveLength(8);
+    // 9 nav buttons: chat, pages, ingest, search, graph, lint, review, deep-search, settings
+    expect(buttons).toHaveLength(9);
   });
 
   it("renders a Chat button", () => {
@@ -98,15 +99,15 @@ describe("NavRail — item count and order (AC-HARD-ORD-1 v0.6, AC-F10-8a, AC-F9
   });
 });
 
-// ─── AC-HARD-M5P-6 (v0.6 update) + AC-F10-8a + AC-F9-5 ─────────────────────
+// ─── AC-HARD-M5P-6 (v0.6+Search update) + AC-F10-8a + AC-F9-5 ──────────────
 
-describe("NavRail — v0.6 items (AC-HARD-M5P-6 updated, AC-F10-8a, AC-F9-5)", () => {
+describe("NavRail — v0.6+Search items (AC-HARD-M5P-6 updated, AC-F10-8a, AC-F9-5)", () => {
   beforeEach(() => {
     renderNavRail();
   });
 
-  it("does NOT render data-section='search' (not yet active)", () => {
-    expect(document.querySelector("[data-section='search']")).toBeNull();
+  it("DOES render data-section='search' (Search active in v0.6 — F5/llm_wiki parity)", () => {
+    expect(document.querySelector("[data-section='search']")).not.toBeNull();
   });
 
   it("DOES render data-section='lint' (K2/v0.6 — Lint active)", () => {

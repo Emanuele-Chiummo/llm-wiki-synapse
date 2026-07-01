@@ -3,9 +3,9 @@
  *
  * Order (top → bottom):
  *   Logo (branding, non-nav)
- *   Chat · Wiki · Sources · Graph  (TOP_ITEMS)
+ *   Chat · Wiki · Sources · Search · Graph  (TOP_ITEMS)
  *   [separator]
- *   Lint · Review · Deep Search    (M5_ITEMS)
+ *   Lint · Review · Deep Search             (M5_ITEMS)
  *   [spacer]
  *   Settings  (pinned bottom)
  *
@@ -16,9 +16,9 @@
  *   - Hover: var(--syn-surface-hover) (via theme.css .nav-rail__item:hover)
  *   - Rounded: var(--syn-radius-md)
  *
- * CHANGE F1-HARD-M5-PLACEHOLDER: Search removed from rail (Point B ruling).
- * i18n keys nav.search / nav.comingSoon retained in en.json/it.json for M5.
- * The Section type in graphStore.ts is UNCHANGED.
+ * CHANGE v0.6-SEARCH: Search added to rail between Sources and Graph (F5/llm_wiki parity).
+ * The Section type in graphStore.ts is UNCHANGED ("search" was already a valid Section).
+ * Item count is now 9 (8 interactive nav buttons + Logo).
  *
  * CHANGE F1-HARD-NAV-LABELS: rail widened to 72px; each button renders the icon
  * SVG with a <span> caption below it (10px, centered, truncate with ellipsis).
@@ -37,6 +37,7 @@ import {
   MessageSquare,
   FileText,
   FolderOpen,
+  Search,
   Share2,
   ClipboardCheck,
   ListChecks,
@@ -61,13 +62,14 @@ interface RailItem {
 }
 
 /**
- * Active items for M4. Search/Lint/Review/Deep-Search removed per F1-HARD-M5-PLACEHOLDER.
- * i18n keys for removed items are retained in en.json/it.json for M5.
+ * Active items. Search added between Sources and Graph (llm_wiki parity, F5/v0.6).
+ * i18n keys: nav.search / nav.comingSoon retained.
  */
 const TOP_ITEMS: RailItem[] = [
   { id: "chat",   icon: <MessageSquare size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.chat" },
   { id: "pages",  icon: <FileText      size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.wiki" },
   { id: "ingest", icon: <FolderOpen    size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.sources" },
+  { id: "search", icon: <Search        size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.search" },
   { id: "graph",  icon: <Share2        size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.graph" },
 ];
 

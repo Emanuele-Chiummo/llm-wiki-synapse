@@ -570,6 +570,27 @@
     "legendCommunitySize": "{{size}} nodi",
     "legendCommunityLowCohesion": "Bassa coesione"
   },
+  "search": {
+    "title": "Cerca",
+    "inputLabel": "Cerca nel wiki",
+    "placeholder": "Cerca pagine wiki…",
+    "clear": "Cancella ricerca",
+    "minCharsHint": "Digita almeno 2 caratteri per cercare",
+    "emptyTitle": "Cerca nel tuo wiki",
+    "emptyBody": "Inizia a digitare per trovare pagine per similarità semantica.",
+    "noResults": "Nessun risultato",
+    "noResultsHint": "Prova parole diverse o una query più ampia.",
+    "error": "Errore di ricerca",
+    "resultsLabel": "Risultati ricerca",
+    "score": "Punteggio",
+    "phaseVector": "vettore",
+    "phaseExpansion": "espansione"
+  },
+  "providerGate": {
+    "title": "Nessun provider configurato",
+    "body": "Configura un provider AI nelle Impostazioni prima di usare chat o importazione.",
+    "cta": "Apri Impostazioni"
+  },
   "common": {
     "loading": "Caricamento…",
     "retry": "Riprova",
