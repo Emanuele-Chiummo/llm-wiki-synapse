@@ -26,90 +26,31 @@
  *
  * INVARIANT I3: reads activeSection (scalar) + setActiveSection only from graphStore.
  * i18n: all labels are translation keys.
+ *
+ * Icons: lucide-react tree-shaken named imports [F1].
+ * Icon size: 20px; inactive color var(--syn-text-dim); active var(--syn-accent).
  */
 
 import { useCallback, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  MessageSquare,
+  FileText,
+  FolderOpen,
+  Share2,
+  ClipboardCheck,
+  ListChecks,
+  Globe,
+  Settings,
+  Zap,
+} from "lucide-react";
 import { useGraphStore, selectActiveSection, selectSetActiveSection } from "../../store/graphStore";
 import type { Section } from "../../store/graphStore";
 import { useIngestRunningCount } from "../../store/ingestStore";
 
-// ─── Icons ────────────────────────────────────────────────────────────────────
+// ─── Lucide icon size constant ────────────────────────────────────────────────
 
-function IconMessageSquare() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-    </svg>
-  );
-}
-
-function IconFiles() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
-      <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
-      <path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
-    </svg>
-  );
-}
-
-function IconDownload() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-      <polyline points="7 10 12 15 17 10"/>
-      <line x1="12" y1="15" x2="12" y2="3"/>
-    </svg>
-  );
-}
-
-function IconShare() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-    </svg>
-  );
-}
-
-function IconSettings() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-      <circle cx="12" cy="12" r="3"/>
-    </svg>
-  );
-}
-
-function IconSearch() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="11" cy="11" r="8"/>
-      <path d="m21 21-4.35-4.35"/>
-      <path d="M11 8v6m-3-3h6"/>
-    </svg>
-  );
-}
-
-function IconClipboardCheck() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
-      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-      <path d="m9 14 2 2 4-4"/>
-    </svg>
-  );
-}
-
-function IconWrench() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-    </svg>
-  );
-}
+const ICON_SIZE = 20;
 
 // ─── Rail item types ──────────────────────────────────────────────────────────
 
@@ -124,10 +65,10 @@ interface RailItem {
  * i18n keys for removed items are retained in en.json/it.json for M5.
  */
 const TOP_ITEMS: RailItem[] = [
-  { id: "chat",   icon: <IconMessageSquare />, labelKey: "nav.chat" },
-  { id: "pages",  icon: <IconFiles />,        labelKey: "nav.wiki" },
-  { id: "ingest", icon: <IconDownload />,     labelKey: "nav.sources" },
-  { id: "graph",  icon: <IconShare />,        labelKey: "nav.graph" },
+  { id: "chat",   icon: <MessageSquare size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.chat" },
+  { id: "pages",  icon: <FileText      size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.wiki" },
+  { id: "ingest", icon: <FolderOpen    size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.sources" },
+  { id: "graph",  icon: <Share2        size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.graph" },
 ];
 
 /**
@@ -136,13 +77,13 @@ const TOP_ITEMS: RailItem[] = [
  * i18n keys nav.search / nav.comingSoon retained.
  */
 const M5_ITEMS: RailItem[] = [
-  { id: "lint",        icon: <IconWrench />,         labelKey: "nav.lint" },
-  { id: "review",      icon: <IconClipboardCheck />, labelKey: "nav.review" },
-  { id: "deep-search", icon: <IconSearch />,         labelKey: "nav.deepSearch" },
+  { id: "lint",        icon: <ClipboardCheck size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.lint" },
+  { id: "review",      icon: <ListChecks     size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.review" },
+  { id: "deep-search", icon: <Globe          size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.deepSearch" },
 ];
 
 const BOTTOM_ITEMS: RailItem[] = [
-  { id: "settings", icon: <IconSettings />, labelKey: "nav.settings" },
+  { id: "settings", icon: <Settings size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.settings" },
 ];
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
@@ -164,14 +105,7 @@ function Logo() {
         boxShadow: "var(--syn-shadow-soft)",
       }}
     >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="2"/>
-        <path d="M12 2a10 10 0 0 1 10 10"/>
-        <path d="M12 22a10 10 0 0 1-10-10"/>
-        <path d="M2 12h4m12 0h4"/>
-        <path d="m4.93 4.93 2.83 2.83m8.48 8.48 2.83 2.83"/>
-        <path d="m19.07 4.93-2.83 2.83M7.76 16.24l-2.83 2.83"/>
-      </svg>
+      <Zap size={18} stroke="white" strokeWidth={2} aria-hidden="true" />
     </div>
   );
 }
