@@ -568,7 +568,23 @@
     "legendCommunities": "COMUNITÀ",
     "legendCommunityLabel": "Comunità {{id}}",
     "legendCommunitySize": "{{size}} nodi",
-    "legendCommunityLowCohesion": "Bassa coesione"
+    "legendCommunityLowCohesion": "Bassa coesione",
+    "insights": {
+      "title": "Insight del Grafo",
+      "sectionSurprising": "Connessioni sorprendenti",
+      "sectionGaps": "Lacune di conoscenza",
+      "subKindIsolated": "nodi isolati",
+      "subKindSparse": "comunità sparse",
+      "subKindBridge": "nodi ponte",
+      "surprisingRow": "{{source}} — {{target}} (punteggio {{score}})",
+      "sparseRow": "Comunità {{id}}: {{size}} nodi, {{cohesion}}% coesione",
+      "bridgeRow": "{{title}} collega {{count}} comunità",
+      "dismissAriaLabel": "Ignora insight",
+      "deepResearch": "Ricerca Profonda",
+      "collapseAriaLabel": "Comprimi pannello insight",
+      "expandAriaLabel": "Espandi pannello insight",
+      "empty": "Nessun insight trovato. Aggiungi altre pagine e collegamenti per far emergere connessioni sorprendenti e lacune di conoscenza."
+    }
   },
   "search": {
     "title": "Cerca",

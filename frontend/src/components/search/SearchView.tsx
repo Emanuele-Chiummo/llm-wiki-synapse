@@ -297,7 +297,9 @@ export function SearchView() {
       data-testid="search-view"
       style={{
         display: "flex",
+        flex: 1,
         flexDirection: "column",
+        width: "100%",
         height: "100%",
         overflow: "hidden",
         background: "var(--syn-bg)",
