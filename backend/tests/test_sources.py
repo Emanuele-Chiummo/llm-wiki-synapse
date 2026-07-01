@@ -24,7 +24,7 @@ Covers:
   T-SRC-019  GET /sources content-type: correct MIME per extension
   T-SRC-020  TestOpenAPISpec: /sources paths in openapi.json (I8/D4)
   T-SRC-021  POST /sources/ingest-all: 202 candidate_files=N (supported files only, nested incl)
-  T-SRC-022  POST /sources/ingest-all: driver calls ingest_file SERIALLY, once per file
+  T-SRC-022  POST /sources/ingest-all: driver calls ingest_file with BOUNDED concurrency, once/file
   T-SRC-023  POST /sources/ingest-all: single-flight → 409 on second call while running
   T-SRC-024  POST /sources/ingest-all: empty directory → {started:false, candidate_files:0}
   T-SRC-025  POST /sources/ingest-all: cap truncates list + logs warning
@@ -909,20 +909,25 @@ class TestIngestAll:
         assert len(patched_driver_calls) == 1
         assert len(patched_driver_calls[0]) == 3
 
-    async def test_driver_calls_ingest_file_serially(
+    async def test_driver_ingests_with_bounded_concurrency(
         self,
         ingest_all_env: dict[str, Any],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """T-SRC-022: driver awaits ingest_file ONCE PER FILE and calls them SERIALLY (no overlap).
+        """T-SRC-022: driver awaits ingest_file ONCE PER FILE with BOUNDED concurrency (I7).
 
-        Serial enforcement is tested by asserting:
+        Concurrency guarantees are tested by asserting:
         1. ingest_file is called exactly N times (once per supported file).
-        2. Each call completes before the next starts — verified by tracking an 'in_flight'
-           counter that must never exceed 1.
+        2. Files ARE processed concurrently (max in-flight > 1 — proves the speedup).
+        3. Concurrency is BOUNDED — max in-flight never exceeds SOURCES_INGEST_ALL_CONCURRENCY
+           (I7: never unbounded).
         """
         import app.sources as src_module
-        from app.sources import _collect_ingest_all_candidates, _ingest_all_driver
+        from app.sources import (
+            SOURCES_INGEST_ALL_CONCURRENCY,
+            _collect_ingest_all_candidates,
+            _ingest_all_driver,
+        )
 
         sources_dir = ingest_all_env["sources_dir"]
         candidates = _collect_ingest_all_candidates(sources_dir, max_files=200)
@@ -953,12 +958,19 @@ class TestIngestAll:
         # Run the driver directly (not via HTTP) to avoid the fire-and-forget task
         await _ingest_all_driver(candidates)
 
-        # All 3 files processed
+        # All 3 files processed exactly once
         assert len(call_order) == 3, f"Expected 3 calls, got {call_order}"
-        # Serial: in-flight count never exceeded 1
-        assert in_flight_max[0] == 1, (
-            f"Files were processed concurrently! max in-flight={in_flight_max[0]}"
+        assert sorted(call_order) == sorted({c.name for c in candidates})
+        # Bounded (I7): in-flight never exceeded the configured concurrency cap.
+        assert in_flight_max[0] <= SOURCES_INGEST_ALL_CONCURRENCY, (
+            f"Concurrency unbounded! max in-flight={in_flight_max[0]} "
+            f"> cap={SOURCES_INGEST_ALL_CONCURRENCY}"
         )
+        # With cap>=2 and 3 candidates, files should overlap (proves the parallel speedup).
+        if SOURCES_INGEST_ALL_CONCURRENCY >= 2:
+            assert in_flight_max[0] >= 2, (
+                f"Expected concurrent processing, but max in-flight={in_flight_max[0]}"
+            )
         # Flag cleared
         assert src_module._ingest_all_running is False
         assert src_module._ingest_all_done == 3
