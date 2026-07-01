@@ -49,6 +49,29 @@ def _analysis() -> Analysis:
     )
 
 
+def test_overview_instruction_explicit_language_directive() -> None:
+    """F3 / G-P1-8: a detected analysis language forces the overview into that language."""
+    it_analysis = Analysis(
+        topics=["licensing"],
+        entities=["IBM"],
+        language="it",
+        suggested_pages=[SuggestedPage(title="P", type=PageType.CONCEPT)],
+        summary="Wiki sul procurement.",
+    )
+    instr = orch._build_overview_instruction(
+        analysis=it_analysis, existing_digest="x", lang=it_analysis.language
+    )
+    assert "MANDATORY OUTPUT LANGUAGE: Italian (it)" in instr
+    assert "Do NOT translate to English" in instr
+
+
+def test_overview_instruction_fallback_language_directive() -> None:
+    """Delegated route (lang unknown): overview matches purpose+pages language, not default EN."""
+    instr = orch._build_overview_instruction(analysis=None, existing_digest="x")
+    assert "SAME LANGUAGE" in instr
+    assert "Do NOT default to English" in instr
+
+
 class _FakeOverviewProvider:
     """
     Minimal provider whose chat() streams a fixed narrative and records ONE usage row.

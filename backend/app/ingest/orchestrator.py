@@ -1270,7 +1270,17 @@ async def _update_overview(analysis: Analysis | None, origin_source: str) -> Non
 
         # ── Build bounded context (purpose.md + existing titles + analysis) — I1 ────
         existing = await _load_overview_page_digest()
-        instruction = _build_overview_instruction(analysis=analysis, existing_digest=existing)
+        # Language (F3 parity): use the just-ingested analysis language when available
+        # (orchestrated route); otherwise (delegated route, analysis=None) detect the vault's
+        # dominant content language from existing pages. If neither yields a language,
+        # _build_overview_instruction falls back to the "match purpose + existing pages" directive.
+        if analysis is not None and getattr(analysis, "language", None):
+            overview_lang: str | None = analysis.language
+        else:
+            overview_lang = await _detect_vault_language()
+        instruction = _build_overview_instruction(
+            analysis=analysis, existing_digest=existing, lang=overview_lang
+        )
 
         token_budget = int(
             getattr(config_row, "token_budget", None)
@@ -1400,12 +1410,80 @@ async def _load_overview_page_digest() -> str:
     return "\n".join(lines) if lines else "(no pages yet)"
 
 
-def _build_overview_instruction(*, analysis: Analysis | None, existing_digest: str) -> str:
+_ISO_LANG_NAMES = {
+    "it": "Italian",
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "pt": "Portuguese",
+}
+
+# Bounded sample size for vault-language detection (I7 — cheap, no full walk).
+_LANG_DETECT_SAMPLE = 25
+
+
+async def _detect_vault_language() -> str | None:
+    """
+    Detect the vault's dominant content language from existing wiki pages' `lang` frontmatter
+    (nashsu/llm_wiki parity — the overview must match the vault content language, not default
+    to English). Used for the DELEGATED ingest route where no per-source Analysis (hence no
+    detected language) is available.
+
+    Reads a BOUNDED sample of wiki/*.md files (excluding meta: overview/index/log) and returns
+    the modal `lang`. Returns None when the vault is empty or no lang is found — the caller then
+    falls back to the "match purpose + existing pages" directive. Pure filesystem read (I1: no
+    index mutation); bounded to _LANG_DETECT_SAMPLE files (I7).
+    """
+    wiki_dir = settings.vault_root / "wiki"
+    if not wiki_dir.exists():
+        return None
+    counts: dict[str, int] = {}
+    seen = 0
+    for path in sorted(wiki_dir.rglob("*.md")):
+        name = path.stem.lower()
+        if name in ("overview", "index", "log"):
+            continue
+        try:
+            post = frontmatter.loads(path.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001, S112 — tolerant: skip unreadable/malformed files
+            continue
+        lang = post.metadata.get("lang")
+        if isinstance(lang, str) and len(lang) >= 2:
+            counts[lang.lower()] = counts.get(lang.lower(), 0) + 1
+        seen += 1
+        if seen >= _LANG_DETECT_SAMPLE:
+            break
+    if not counts:
+        return None
+    return max(counts, key=lambda k: counts[k])
+
+
+def _build_overview_instruction(
+    *, analysis: Analysis | None, existing_digest: str, lang: str | None = None
+) -> str:
     """
     Build the single overview-regeneration prompt (F3). Inputs: purpose.md (F2, if present),
     the existing page titles+types digest, and the just-ingested analysis. Asks for a concise
     narrative body ONLY (no frontmatter, no title heading — the writer adds valid frontmatter).
+
+    Language (nashsu/llm_wiki buildLanguageDirective parity): the overview MUST be written in
+    the vault's language, not defaulted to English. When the detected `lang` is known (from the
+    just-ingested analysis) it is stated explicitly; in all cases the model is told to match the
+    language of the purpose.md + existing pages provided below (covers the delegated route where
+    analysis — hence lang — is None).
     """
+    if lang:
+        lang_name = _ISO_LANG_NAMES.get(lang.lower(), lang)
+        lang_directive = (
+            f"MANDATORY OUTPUT LANGUAGE: {lang_name} ({lang}). Write the ENTIRE overview in "
+            f"{lang_name}. Do NOT translate to English.\n\n"
+        )
+    else:
+        lang_directive = (
+            "MANDATORY OUTPUT LANGUAGE: write the overview in the SAME LANGUAGE as the wiki "
+            "purpose and existing pages shown below. Do NOT default to English.\n\n"
+        )
     purpose_parts: list[str] = []
     for name in ("purpose.md",):
         path = settings.vault_root / name
@@ -1424,7 +1502,8 @@ def _build_overview_instruction(*, analysis: Analysis | None, existing_digest: s
         analysis_block = f"topics: {topics}\nentities: {entities}\nsummary: {summary}"
 
     return (
-        "You maintain the single OVERVIEW note of a self-organizing wiki. Regenerate it now to "
+        lang_directive
+        + "You maintain the single OVERVIEW note of a self-organizing wiki. Regenerate it now to "
         "capture the CURRENT big picture of the whole wiki: its main themes, how the pages relate, "
         "and the key context a reader needs before diving in.\n\n"
         "Write a concise narrative (a few short paragraphs, and optionally a short bulleted list "
