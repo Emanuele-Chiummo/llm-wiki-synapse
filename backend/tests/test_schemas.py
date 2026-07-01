@@ -176,13 +176,16 @@ async def test_chat_cli_no_longer_notimplemented_clean_config_error_without_key(
 ) -> None:
     """
     S-F17-1 (ADR-0022 §2.7) removed the M4 NotImplementedError stub: CliAgentProvider.chat() is
-    now a delegated streaming chat. With no ANTHROPIC_API_KEY it raises a CLEAN pre-stream config
-    error (ValueError) — never NotImplementedError, never a fake stream (Do-NOT #9). Full chat
-    behavior is covered in test_cli_chat.py.
+    now a delegated streaming chat. With no auth configured (no ANTHROPIC_API_KEY, no
+    CLAUDE_CODE_OAUTH_TOKEN, no CLAUDE_CODE_USE_SUBSCRIPTION) it raises a CLEAN pre-stream config
+    error (ValueError) naming the auth options — never NotImplementedError, never a fake stream
+    (Do-NOT #9). Full chat + auth behavior is covered in test_cli_chat.py / test_cli_auth.py.
     """
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)
     cli = CliAgentProvider(ProviderSettings(provider_type="cli", model_id="dummy-model"))
-    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY not set"):
+    with pytest.raises(ValueError, match="CLAUDE_CODE_USE_SUBSCRIPTION"):
         await cli.chat([Message(role="user", content="hi")], "")  # type: ignore[attr-defined]
 
 

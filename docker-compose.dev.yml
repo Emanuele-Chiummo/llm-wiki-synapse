@@ -36,6 +36,11 @@ services:
     environment:
       # Point at the local qdrant container instead of host.docker.internal:6333
       QDRANT_URL: http://qdrant:6333
+      # ── F17 CLI provider auth: same three options as prod (ADR-0042) ────────────────────
+      # Inherit from .env or set here. See docker-compose.yml for detailed auth docs.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      CLAUDE_CODE_USE_SUBSCRIPTION: ${CLAUDE_CODE_USE_SUBSCRIPTION:-}
       # ── Remote MCP (Feature A, optional in dev) ────────────────────────────────────
       # Leave both unset to disable HTTP MCP in dev, or set them to test remote MCP locally.
       MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}

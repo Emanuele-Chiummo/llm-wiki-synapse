@@ -32,6 +32,18 @@ COPY scripts/ ./scripts/
 RUN useradd -m -u 1000 synapse && chown -R synapse:synapse /app
 USER synapse
 
+# ─── F17 CLI Provider: Claude Code OAuth subscription auth (ADR-0042) ───
+# The claude-agent-sdk package bundles a prebuilt Claude Code CLI binary;
+# no separate Node.js installation is needed. The CLI reads OAuth tokens from
+# CLAUDE_CODE_OAUTH_TOKEN env var or from ~/.claude/ config dir (written by
+# `claude setup-token` on the host).
+# - Set CLAUDE_CONFIG_DIR to a writable dir so the SDK can cache credentials.
+# - The synapse user (uid 1000) owns /home/synapse/.claude (mode 700).
+RUN mkdir -p /home/synapse/.claude && \
+    chown -R synapse:synapse /home/synapse/.claude && \
+    chmod 700 /home/synapse/.claude
+ENV CLAUDE_CONFIG_DIR=/home/synapse/.claude
+
 # Healthcheck: GET /status endpoint
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
     CMD python -c "import httpx; httpx.get('http://localhost:8000/status')" || exit 1
