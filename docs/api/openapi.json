@@ -202,6 +202,53 @@
         }
       }
     },
+    "/sources/ingest-all": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Index all pre-existing files in vault/raw/sources/",
+        "description": "Enumerates vault/raw/sources/ recursively and starts a SERIAL background driver that calls ingest_file() on each supported file ONE AT A TIME (I7 \u2014 no concurrent LLM ingests). Each file's mtime-then-hash gate skips already-indexed files cheaply (idempotent; I1). Supported extensions: same allow-list as the watcher (_UPLOAD_ACCEPTED from upload.py). Capped at SOURCES_INGEST_ALL_MAX (default=200) files (I7); truncation is logged. Returns 202 immediately \u2014 do NOT block the caller. Returns 409 if a scan is already running (single-flight guard). I6: this endpoint makes zero InferenceProvider calls; ingest_file routes them. ADR-0006: this is the explicit user-initiated path for pre-existing files, NOT a startup rescan (I1 is not violated). Poll GET /sources/ingest-all/status or GET /ingest/queue to track progress.",
+        "operationId": "ingest_all_sources_ingest_all_post",
+        "responses": {
+          "202": {
+            "description": "Driver started (or nothing to do if candidate_files=0)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestAllResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "An ingest-all scan is already running"
+          }
+        }
+      }
+    },
+    "/sources/ingest-all/status": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Status of a running (or most-recent) ingest-all scan",
+        "description": "Returns running=true/false and the done/total counts for the current or most-recent POST /sources/ingest-all driver. When running=false and done=total=0 no scan has been started this session. Cheap read-only poll (no DB I/O).",
+        "operationId": "ingest_all_status_sources_ingest_all_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestAllStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/status": {
       "get": {
         "summary": "Service health + data_version",
@@ -3989,6 +4036,49 @@
         "type": "object",
         "title": "ImportScheduleResponse",
         "description": "GET /import-schedule response body (ADR-0020 \u00a74.6).\n\nReturns the current config + last-run status for the vault's import schedule.\nReturns sane defaults (enabled=false, frequency=\"1h\") if no row exists yet."
+      },
+      "IngestAllResponse": {
+        "properties": {
+          "started": {
+            "type": "boolean",
+            "title": "Started"
+          },
+          "candidate_files": {
+            "type": "integer",
+            "title": "Candidate Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "started",
+          "candidate_files"
+        ],
+        "title": "IngestAllResponse",
+        "description": "Response for POST /sources/ingest-all."
+      },
+      "IngestAllStatusResponse": {
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "title": "Running"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running",
+          "done",
+          "total"
+        ],
+        "title": "IngestAllStatusResponse",
+        "description": "Response for GET /sources/ingest-all/status."
       },
       "IngestFromTextRequest": {
         "properties": {

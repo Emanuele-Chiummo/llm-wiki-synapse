@@ -9,12 +9,13 @@
  *   - Ingested badge shows when content.ingested = true
  *   - Empty state shows when no entries
  *   - Source-preview renders for selected path
+ *   - Index All button: click calls ingestAllSources, shows progress, handles 409, stops polling
  *
  * INVARIANT I4: TanStack Virtual mocked for jsdom (no layout engine).
- * INVARIANT I3: mocks return fixed data; no real network calls.
+ * INVARIANT I3: mocks return fixed data; no real network calls; single poll chain tested via fake timers.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SourcesView } from "../components/sources/SourcesView";
 import { SourcePreview } from "../components/sources/SourcePreview";
@@ -39,14 +40,26 @@ vi.mock("@tanstack/react-virtual", () => ({
 
 // ─── Mock sourcesClient ───────────────────────────────────────────────────────
 
-vi.mock("../api/sourcesClient", () => ({
-  listSources: vi.fn(),
-  getSourceContent: vi.fn(),
-  getSourceDerivedPages: vi.fn(),
-  deleteSource: vi.fn(),
-  sourceRawUrl: (path: string) => `/sources/raw?path=${encodeURIComponent(path)}`,
-  triggerIngest: vi.fn(),
-}));
+vi.mock("../api/sourcesClient", () => {
+  // Reproduce the real IngestAllRunningError so instanceof checks work inside the component
+  class IngestAllRunningError extends Error {
+    constructor() {
+      super("ingest-all already running");
+      this.name = "IngestAllRunningError";
+    }
+  }
+  return {
+    listSources: vi.fn(),
+    getSourceContent: vi.fn(),
+    getSourceDerivedPages: vi.fn(),
+    deleteSource: vi.fn(),
+    sourceRawUrl: (path: string) => `/sources/raw?path=${encodeURIComponent(path)}`,
+    triggerIngest: vi.fn(),
+    ingestAllSources: vi.fn(),
+    getIngestAllStatus: vi.fn(),
+    IngestAllRunningError,
+  };
+});
 
 import * as sourcesClient from "../api/sourcesClient";
 
@@ -78,6 +91,11 @@ vi.mock("react-i18next", () => ({
         "sources.ingestedToast": "Ingest started.",
         "sources.folder": "items",
         "sources.file": "Open raw file",
+        "sources.ingestAll": "Index all",
+        "sources.ingestAllStarted": `${String(params?.count ?? 0)} files indexing`,
+        "sources.ingestAllRunning": `Indexing… ${String(params?.done ?? 0)}/${String(params?.total ?? 0)}`,
+        "sources.ingestAllNone": "Nothing to index",
+        "sources.ingestAllAlready": "Already running",
         "common.loading": "Loading…",
       };
       return map[key] ?? key;
@@ -130,6 +148,9 @@ function makeContent(overrides: Partial<import("../api/sourcesClient").SourceCon
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // NOTE: real timers — @testing-library `waitFor` polls on real timers, so global fake
+  // timers freeze it and every async test times out. The one test that needs the poll to
+  // advance waits with a real-timer waitFor(timeout) instead.
   vi.mocked(sourcesClient.listSources).mockResolvedValue({
     entries: [],
     total: 0,
@@ -142,6 +163,20 @@ beforeEach(() => {
     deleted_source: "doc1.md",
     pages_deleted: 0,
   });
+  // Default: no scan running
+  vi.mocked(sourcesClient.getIngestAllStatus).mockResolvedValue({
+    running: false,
+    done: 0,
+    total: 0,
+  });
+  vi.mocked(sourcesClient.ingestAllSources).mockResolvedValue({
+    started: true,
+    candidate_files: 5,
+  });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 // ─── SourcesView rendering ────────────────────────────────────────────────────
@@ -329,5 +364,111 @@ describe("SourcePreview — ingested badge", () => {
     render(<SourcePreview path={null} />);
     expect(screen.getByTestId("source-preview")).toBeTruthy();
     expect(screen.getByText("Select a file to preview it")).toBeTruthy();
+  });
+});
+
+// ─── Index All button ─────────────────────────────────────────────────────────
+
+describe("SourcesView — Index All button", () => {
+  it("renders the sources-ingest-all button in idle state", async () => {
+    render(<SourcesView />);
+    // Let the mount-time status check settle
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-ingest-all")).toBeTruthy();
+    });
+    expect(screen.getByText("Index all")).toBeTruthy();
+    // Button is not disabled when no scan is running
+    expect(screen.getByTestId("sources-ingest-all").hasAttribute("disabled")).toBe(false);
+  });
+
+  it("calls ingestAllSources when the button is clicked", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-ingest-all")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-ingest-all"));
+
+    await waitFor(() => {
+      expect(sourcesClient.ingestAllSources).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("shows progress label when status returns running=true", async () => {
+    // Mock: status returns running with 2/10
+    vi.mocked(sourcesClient.getIngestAllStatus).mockResolvedValue({
+      running: true,
+      done: 2,
+      total: 10,
+    });
+
+    render(<SourcesView />);
+
+    // The mount effect calls getIngestAllStatus — wait for it to resolve
+    await waitFor(() => {
+      expect(sourcesClient.getIngestAllStatus).toHaveBeenCalled();
+    });
+
+    // Progress label should appear
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-ingest-all-progress")).toBeTruthy();
+    });
+    expect(screen.getByText("Indexing… 2/10")).toBeTruthy();
+
+    // Button should be disabled while running
+    expect(screen.getByTestId("sources-ingest-all").hasAttribute("disabled")).toBe(true);
+  });
+
+  it("shows 'Already running' toast and starts polling on 409 IngestAllRunningError", async () => {
+    const { showToast } = await import("../components/common/Toast");
+    const { IngestAllRunningError: RunningErr } = await import("../api/sourcesClient");
+
+    vi.mocked(sourcesClient.ingestAllSources).mockRejectedValue(new RunningErr());
+    // Status will say running after the 409
+    vi.mocked(sourcesClient.getIngestAllStatus).mockResolvedValue({
+      running: false,
+      done: 0,
+      total: 0,
+    });
+
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-ingest-all")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-ingest-all"));
+
+    await waitFor(() => {
+      expect(showToast).toHaveBeenCalledWith("Already running", "success");
+    });
+  });
+
+  it("stops polling and re-enables button when running becomes false", async () => {
+    // First call (mount check): running
+    // Second call (poll tick): not running → should clear progress
+    let callCount = 0;
+    vi.mocked(sourcesClient.getIngestAllStatus).mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) return { running: true, done: 3, total: 5 };
+      return { running: false, done: 5, total: 5 };
+    });
+
+    render(<SourcesView />);
+
+    // First status check on mount → running
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-ingest-all-progress")).toBeTruthy();
+    });
+
+    // The next poll fires after the real INGEST_ALL_POLL_MS (~1.5s) and returns running=false.
+    // After that the progress label should disappear — wait on real timers.
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId("sources-ingest-all-progress")).toBeNull();
+      },
+      { timeout: 4000 },
+    );
+    // Button re-enabled
+    expect(screen.getByTestId("sources-ingest-all").hasAttribute("disabled")).toBe(false);
   });
 });

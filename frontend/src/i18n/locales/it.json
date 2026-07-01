@@ -622,7 +622,12 @@
     "deletedToast": "Eliminato. {{pages}} pagina/e wiki rimossa/e.",
     "ingestedToast": "Importazione avviata.",
     "folder": "elementi",
-    "file": "Apri file grezzo"
+    "file": "Apri file grezzo",
+    "ingestAll": "Indicizza tutti",
+    "ingestAllStarted": "{{count}} file in indicizzazione",
+    "ingestAllRunning": "Indicizzo… {{done}}/{{total}}",
+    "ingestAllNone": "Nulla da indicizzare",
+    "ingestAllAlready": "Già in corso"
   },
   "providerGate": {
     "title": "Nessun provider configurato",

@@ -6,26 +6,32 @@ GET  /sources/content?path=<rel> — metadata + preview payload for one file
 GET  /sources/raw?path=<rel>     — stream raw bytes for inline image/PDF preview
 GET  /sources/derived-pages?path=<rel> — pages derived from this source (sources[] pivot)
 DELETE /sources?path=<rel>       — delete raw file + cascade-delete derived pages (I1/I2)
+POST /sources/ingest-all         — index all pre-existing files in raw/sources/ (ADR-0006)
+GET  /sources/ingest-all/status  — whether an ingest-all scan is running + progress
 
 Path-safety: EVERY client-supplied path is routed through resolve_under_sources()
 from app.upload (ADR-0020 §2.2 — belt-and-braces containment check). 404 on escape.
 
 Invariants honoured:
-  I1  — listing/content/raw are read-only; delete reuses incremental cascade (no rescan).
+  I1  — listing/content/raw are read-only; delete reuses incremental cascade (no rescan);
+        ingest-all reuses the incremental gate in ingest_file (mtime-then-hash), never re-scans.
   I2  — DELETE bumps data_version + notifies _graph_cache via cascade machinery.
-  I6  — zero InferenceProvider calls.
+  I6  — zero InferenceProvider calls in this module; ingest_file handles provider routing.
   I7  — bounded listing (SOURCES_LIST_MAX entries), bounded text preview (SOURCES_TEXT_MAX_CHARS),
-        bounded raw bytes (SOURCES_RAW_MAX_BYTES), hard 413 for oversize raw.
+        bounded raw bytes (SOURCES_RAW_MAX_BYTES), hard 413 for oversize raw;
+        ingest-all capped at SOURCES_INGEST_ALL_MAX files; serial execution (one at a time).
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import mimetypes
 import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, Response
@@ -59,6 +65,20 @@ SOURCES_TEXT_MAX_CHARS: int = int(os.environ.get("SOURCES_TEXT_MAX_CHARS", str(2
 
 # Maximum raw bytes streamed by GET /sources/raw (I7 size guard)
 SOURCES_RAW_MAX_BYTES: int = int(os.environ.get("SOURCES_RAW_MAX_BYTES", str(50 * 1024 * 1024)))
+
+# Maximum files indexed by POST /sources/ingest-all (I7 — explicit user action; bounded scan).
+# Reuses import_scan_max_files (200) by default; override via SOURCES_INGEST_ALL_MAX.
+SOURCES_INGEST_ALL_MAX: int = int(
+    os.environ.get("SOURCES_INGEST_ALL_MAX", str(settings.import_scan_max_files))
+)
+
+# ── Ingest-all single-flight state ────────────────────────────────────────────
+
+# Module-level flag/task handle for single-flight enforcement.
+# Only ONE ingest-all driver may run at a time across the process.
+_ingest_all_running: bool = False
+_ingest_all_done: int = 0
+_ingest_all_total: int = 0
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
@@ -247,6 +267,27 @@ class SourceDeleteResponse(BaseModel):
 
     deleted_source: str
     pages_deleted: int
+
+
+class IngestAllResponse(BaseModel):
+    """Response for POST /sources/ingest-all."""
+
+    started: bool
+    """True when the driver task was started (or was already running → 409)."""
+
+    candidate_files: int
+    """Number of supported files found (post-cap). 0 → started=false."""
+
+
+class IngestAllStatusResponse(BaseModel):
+    """Response for GET /sources/ingest-all/status."""
+
+    running: bool
+    done: int
+    """Files processed so far by the current (or most-recent) driver."""
+
+    total: int
+    """Total candidate files queued in the current (or most-recent) driver."""
 
 
 # ── DB helpers ────────────────────────────────────────────────────────────────
@@ -700,6 +741,175 @@ async def delete_source(
         await _bump_version_no_derived()
 
     return SourceDeleteResponse(deleted_source=rel_path, pages_deleted=pages_deleted)
+
+
+@router.post(
+    "/ingest-all",
+    response_model=IngestAllResponse,
+    status_code=202,
+    summary="Index all pre-existing files in vault/raw/sources/",
+    description=(
+        "Enumerates vault/raw/sources/ recursively and starts a SERIAL background driver that "
+        "calls ingest_file() on each supported file ONE AT A TIME (I7 — no concurrent LLM ingests). "
+        "Each file's mtime-then-hash gate skips already-indexed files cheaply (idempotent; I1). "
+        "Supported extensions: same allow-list as the watcher (_UPLOAD_ACCEPTED from upload.py). "
+        f"Capped at SOURCES_INGEST_ALL_MAX (default={SOURCES_INGEST_ALL_MAX}) files (I7); "
+        "truncation is logged. "
+        "Returns 202 immediately — do NOT block the caller. "
+        "Returns 409 if a scan is already running (single-flight guard). "
+        "I6: this endpoint makes zero InferenceProvider calls; ingest_file routes them. "
+        "ADR-0006: this is the explicit user-initiated path for pre-existing files, "
+        "NOT a startup rescan (I1 is not violated). "
+        "Poll GET /sources/ingest-all/status or GET /ingest/queue to track progress."
+    ),
+    responses={
+        202: {"description": "Driver started (or nothing to do if candidate_files=0)"},
+        409: {"description": "An ingest-all scan is already running"},
+    },
+)
+async def ingest_all() -> IngestAllResponse:
+    """
+    POST /sources/ingest-all — index all pre-existing files in vault/raw/sources/.
+
+    I1: reuses ingest_file incremental gate (mtime-then-hash) — idempotent, no rescan.
+    I6: zero InferenceProvider calls in this layer; ingest_file handles routing.
+    I7: bounded by SOURCES_INGEST_ALL_MAX; serial (one file at a time in the driver).
+    ADR-0006: explicit user action — NOT the startup-rescan anti-pattern.
+    Single-flight: 409 if already running.
+    """
+    global _ingest_all_running, _ingest_all_done, _ingest_all_total
+
+    if _ingest_all_running:
+        raise HTTPException(status_code=409, detail="ingest-all already running")
+
+    # Collect candidate files: recursive walk, supported extensions, bounded by cap.
+    sources_dir = settings.raw_sources_dir
+    candidates: list[Path] = _collect_ingest_all_candidates(sources_dir, SOURCES_INGEST_ALL_MAX)
+
+    if not candidates:
+        return IngestAllResponse(started=False, candidate_files=0)
+
+    # Arm the counters before creating the task so status is correct immediately.
+    _ingest_all_running = True
+    _ingest_all_done = 0
+    _ingest_all_total = len(candidates)
+
+    # Start the serial driver as a single fire-and-forget asyncio.Task.
+    asyncio.create_task(_ingest_all_driver(candidates))
+
+    return IngestAllResponse(started=True, candidate_files=len(candidates))
+
+
+@router.get(
+    "/ingest-all/status",
+    response_model=IngestAllStatusResponse,
+    summary="Status of a running (or most-recent) ingest-all scan",
+    description=(
+        "Returns running=true/false and the done/total counts for the current or most-recent "
+        "POST /sources/ingest-all driver. "
+        "When running=false and done=total=0 no scan has been started this session. "
+        "Cheap read-only poll (no DB I/O)."
+    ),
+)
+async def ingest_all_status() -> IngestAllStatusResponse:
+    """GET /sources/ingest-all/status — running flag + progress counters."""
+    return IngestAllStatusResponse(
+        running=_ingest_all_running,
+        done=_ingest_all_done,
+        total=_ingest_all_total,
+    )
+
+
+# ── Ingest-all helpers ────────────────────────────────────────────────────────
+
+
+def _is_ingest_all_supported(path: Path) -> bool:
+    """
+    Return True if *path* should be included in an ingest-all scan.
+
+    Uses _UPLOAD_ACCEPTED from upload.py as the single source of truth for
+    supported extensions — the same set the watcher filter and upload endpoint use
+    (ADR-0025 §4.2). This includes text (.md/.txt/.markdown), binary extractables
+    (.pdf/.docx/.pptx/.xlsx), and placeholder formats (.png/.jpg/...).
+    """
+    from app.upload import _UPLOAD_ACCEPTED
+
+    return path.suffix.lower() in _UPLOAD_ACCEPTED
+
+
+def _collect_ingest_all_candidates(sources_dir: Path, max_files: int) -> list[Path]:
+    """
+    Walk *sources_dir* recursively and return absolute Paths of supported files.
+
+    Bounded at *max_files* (I7). Logs a WARNING when truncated.
+    Returns an empty list if *sources_dir* does not exist.
+    """
+    if not sources_dir.exists():
+        return []
+
+    candidates: list[Path] = []
+    truncated = False
+
+    for dirpath_str, dirnames, filenames in os.walk(sources_dir):
+        dirnames.sort()
+        filenames.sort()
+        for fname in filenames:
+            if len(candidates) >= max_files:
+                truncated = True
+                break
+            fpath = Path(dirpath_str) / fname
+            if _is_ingest_all_supported(fpath):
+                candidates.append(fpath)
+        if truncated:
+            break
+
+    if truncated:
+        logger.warning(
+            "ingest-all: candidate list truncated at %d files (SOURCES_INGEST_ALL_MAX). "
+            "vault/raw/sources/ contains more supported files — run again to index the rest.",
+            max_files,
+        )
+
+    return candidates
+
+
+async def _ingest_all_driver(candidates: list[Path]) -> None:
+    """
+    Serial driver: await ingest_file() on each candidate path, ONE AT A TIME.
+
+    CRITICAL INVARIANT (I7): files are processed sequentially, never concurrently.
+    This prevents N concurrent LLM ingest runs which would cause resource/cost explosion.
+    Each call goes through the mtime-then-hash gate — unchanged files are skipped cheaply.
+    A per-file try/except ensures one bad file does not abort the whole run.
+    The module-level single-flight flag is cleared in the finally block.
+    """
+    global _ingest_all_running, _ingest_all_done
+
+    try:
+        from app.ingest.orchestrator import ingest_file
+
+        for path in candidates:
+            try:
+                result = await ingest_file(str(path))
+                logger.info(
+                    "ingest-all: %s path=%s",
+                    result.status,
+                    path,
+                )
+            except FileNotFoundError:
+                logger.debug("ingest-all: file vanished before ingest %s — skipping", path)
+            except Exception:  # noqa: BLE001
+                logger.exception("ingest-all: ingest error for %s — continuing", path)
+            finally:
+                _ingest_all_done += 1
+
+    finally:
+        _ingest_all_running = False
+        logger.info(
+            "ingest-all: driver finished — processed %d / %d files",
+            _ingest_all_done,
+            len(candidates),
+        )
 
 
 async def _bump_version_no_derived() -> None:

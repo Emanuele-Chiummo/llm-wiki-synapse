@@ -8,6 +8,8 @@
  *   DELETE /sources?path=<rel>       → SourceDeleteResponse
  *   GET  /sources/raw?path=<rel>     → raw bytes (URL only — browser fetches directly)
  *   POST /ingest/trigger             → 202 (re-exported from ingestClient for convenience)
+ *   POST /sources/ingest-all         → 202 { started, candidate_files } | 409
+ *   GET  /sources/ingest-all/status  → { running, done, total }
  *
  * All `path` values are relative to raw/sources/ with forward slashes.
  * triggerIngest is re-exported from ingestClient so callers import both from one place.
@@ -97,6 +99,35 @@ export interface SourceDeleteResponse {
   pages_deleted: number;
 }
 
+/** Response from POST /sources/ingest-all (202). */
+export interface IngestAllResponse {
+  /** True when a new background scan was started. False if there were no candidate files. */
+  started: boolean;
+  /** Number of files that are candidates for ingestion. */
+  candidate_files: number;
+}
+
+/** Response from GET /sources/ingest-all/status. */
+export interface IngestAllStatusResponse {
+  /** True while the background scan is running. */
+  running: boolean;
+  /** Number of files processed so far in the current scan. */
+  done: number;
+  /** Total number of candidate files in the current scan. */
+  total: number;
+}
+
+/**
+ * Sentinel error thrown when POST /sources/ingest-all returns 409 (scan already running).
+ * The UI can catch this specifically to show "already running" rather than a generic error.
+ */
+export class IngestAllRunningError extends Error {
+  constructor() {
+    super("ingest-all already running");
+    this.name = "IngestAllRunningError";
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function checkResponse(res: Response): Promise<void> {
@@ -178,4 +209,36 @@ export async function deleteSource(
  */
 export function sourceRawUrl(path: string): string {
   return `${API_BASE}/sources/raw?path=${encodeURIComponent(path)}`;
+}
+
+/**
+ * Start a background scan that force-ingests every file in raw/sources/.
+ * POST /sources/ingest-all → 202 IngestAllResponse
+ * Throws IngestAllRunningError on 409 (scan already in progress).
+ * INVARIANT I3: pure async, no side effects beyond the network call.
+ */
+export async function ingestAllSources(signal?: AbortSignal): Promise<IngestAllResponse> {
+  const url = `${API_BASE}/sources/ingest-all`;
+  const res = await fetch(url, {
+    method: "POST",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  if (res.status === 409) {
+    throw new IngestAllRunningError();
+  }
+  await checkResponse(res);
+  return (await res.json()) as IngestAllResponse;
+}
+
+/**
+ * Poll the progress of a running ingest-all scan.
+ * GET /sources/ingest-all/status → IngestAllStatusResponse
+ * When running=false the scan has finished (or was never started).
+ * INVARIANT I3: pure async, no side effects.
+ */
+export async function getIngestAllStatus(signal?: AbortSignal): Promise<IngestAllStatusResponse> {
+  const url = `${API_BASE}/sources/ingest-all/status`;
+  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as IngestAllStatusResponse;
 }
