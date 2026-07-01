@@ -1374,6 +1374,25 @@
         }
       }
     },
+    "/overview/regenerate": {
+      "post": {
+        "summary": "Regenerate the overview note in the vault language (F3)",
+        "description": "Force a regeneration of the single auto-maintained overview.md note WITHOUT re-ingesting a source. Same seam as the per-ingest overview regen (nashsu/llm_wiki parity): resolves the ingest provider (I6), one bounded provider.chat() call (I7), overwrites overview.md with valid frontmatter (type: overview, I5), indexes it as a Page, and bumps data_version so the graph/tree refresh (I2). The language is detected from existing pages so the overview matches the vault content language (not defaulted to English). Degrade-safe: keeps the previous overview.md on provider failure/timeout.",
+        "operationId": "regenerate_overview_overview_regenerate_post",
+        "responses": {
+          "200": {
+            "description": "Overview regeneration attempted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegenerateOverviewResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/links/reresolve": {
       "post": {
         "summary": "Re-resolve dangling wikilinks against current pages (F3/K3)",
@@ -5415,6 +5434,37 @@
         ],
         "title": "ReferencedPage",
         "description": "Convenience join for a referenced_page_ids entry (ADR-0044 \u00a76.1)."
+      },
+      "RegenerateOverviewResponse": {
+        "properties": {
+          "regenerated": {
+            "type": "boolean",
+            "title": "Regenerated",
+            "description": "Whether overview.md was rewritten this call."
+          },
+          "detected_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected Language",
+            "description": "Language the overview was regenerated in (ISO-639-1) or null."
+          }
+        },
+        "type": "object",
+        "required": [
+          "regenerated"
+        ],
+        "title": "RegenerateOverviewResponse",
+        "description": "Response for POST /overview/regenerate (F3 \u2014 force an overview refresh without re-ingesting).\n\nregenerated: True if the overview.md note was rewritten this call (False = degrade-safe\n             keep-previous, e.g. no provider configured or the provider call failed/timed out).\ndetected_language: the language the overview was requested in (ISO-639-1) \u2014 from the vault's\n                   existing pages; None when undetectable (the model then matches purpose+pages).",
+        "example": {
+          "detected_language": "it",
+          "regenerated": true
+        }
       },
       "RelatedPageItem": {
         "properties": {

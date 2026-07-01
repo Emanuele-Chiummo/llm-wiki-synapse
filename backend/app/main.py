@@ -4089,6 +4089,91 @@ async def save_chat_to_wiki(body: SaveToWikiRequest) -> SaveToWikiResponse:
     )
 
 
+# ── POST /overview/regenerate ──────────────────────────────────────────────────
+
+
+class RegenerateOverviewResponse(BaseModel):
+    """
+    Response for POST /overview/regenerate (F3 — force an overview refresh without re-ingesting).
+
+    regenerated: True if the overview.md note was rewritten this call (False = degrade-safe
+                 keep-previous, e.g. no provider configured or the provider call failed/timed out).
+    detected_language: the language the overview was requested in (ISO-639-1) — from the vault's
+                       existing pages; None when undetectable (the model then matches purpose+pages).
+    """
+
+    regenerated: bool = Field(description="Whether overview.md was rewritten this call.")
+    detected_language: str | None = Field(
+        default=None, description="Language the overview was regenerated in (ISO-639-1) or null."
+    )
+
+    model_config = {
+        "json_schema_extra": {"example": {"regenerated": True, "detected_language": "it"}}
+    }
+
+
+@app.post(
+    "/overview/regenerate",
+    response_model=RegenerateOverviewResponse,
+    status_code=200,
+    summary="Regenerate the overview note in the vault language (F3)",
+    description=(
+        "Force a regeneration of the single auto-maintained overview.md note WITHOUT re-ingesting "
+        "a source. Same seam as the per-ingest overview regen (nashsu/llm_wiki parity): resolves "
+        "the ingest provider (I6), one bounded provider.chat() call (I7), overwrites overview.md "
+        "with valid frontmatter (type: overview, I5), indexes it as a Page, and bumps data_version "
+        "so the graph/tree refresh (I2). The language is detected from existing pages so the "
+        "overview matches the vault content language (not defaulted to English). Degrade-safe: "
+        "keeps the previous overview.md on provider failure/timeout."
+    ),
+    responses={200: {"description": "Overview regeneration attempted"}},
+)
+async def regenerate_overview() -> RegenerateOverviewResponse:
+    """
+    POST /overview/regenerate — manual overview refresh (F3).
+
+    I6 — provider resolved via provider_config, never hardcoded. I7 — single bounded call.
+    I1/I5 — reuses the shared overview write+index seam. I2 — bumps data_version + notify_bump.
+    """
+    from app.ingest.orchestrator import (
+        OVERVIEW_REL_PATH,
+        _detect_vault_language,
+        _update_overview,
+        bump_version,
+    )
+
+    overview_path = settings.vault_root / OVERVIEW_REL_PATH
+
+    def _read_overview() -> str:
+        try:
+            return overview_path.read_text(encoding="utf-8")
+        except OSError:
+            return ""
+
+    # Compare the overview.md content before/after: a degrade-safe keep-previous leaves it
+    # unchanged, a successful regen rewrites it.
+    before = _read_overview()
+    detected = await _detect_vault_language()
+    # analysis=None → _update_overview detects the vault language internally (delegated-style).
+    await _update_overview(None, "(manual regenerate)")
+    after = _read_overview()
+
+    regenerated = after != before
+    if regenerated:
+        await bump_version()
+        global _graph_cache
+        if _graph_cache is not None:
+            async with get_session() as _vs_sess:
+                _vs_row = await _vs_sess.execute(
+                    select(VaultState).where(VaultState.vault_id == settings.vault_id)
+                )
+                _vs = _vs_row.scalar_one_or_none()
+                _new_version = _vs.data_version if _vs is not None else 0
+            _graph_cache.notify_bump(_new_version)
+
+    return RegenerateOverviewResponse(regenerated=regenerated, detected_language=detected)
+
+
 # ── POST /links/reresolve ────────────────────────────────────────────────────────
 
 
