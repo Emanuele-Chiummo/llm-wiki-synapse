@@ -48,10 +48,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
-
-if TYPE_CHECKING:
-    from fastmcp import FastMCP
+from typing import Any, Literal
 
 import frontmatter  # python-frontmatter
 import httpx
@@ -622,16 +619,22 @@ async def _delegate_ingest(
     system_prompt = _load_vault_context()
     # ── MCP wiring seam (ADR-0010 §2) ──────────────────────────────────────────
     # Import lazily to avoid a circular import; app.mcp.server imports from orchestrator.
-    _mcp_server: FastMCP[Any] | None = None
+    # The CLI delegated path needs an IN-PROCESS SDK MCP server (McpSdkServerConfig dict), NOT
+    # the FastMCP object — passing FastMCP to the SDK raises "Object of type FastMCP is not JSON
+    # serializable". build_sdk_mcp_server() constructs the SDK server from the same _*_body
+    # functions (one write path, I1/I5). Degrade to None (cli.py then raises the I1/I5 guard).
+    _mcp_server: Any | None = None
     try:
-        from app.mcp.server import mcp as _mcp_server
+        from app.mcp.server import build_sdk_mcp_server
+
+        _mcp_server = build_sdk_mcp_server()
     except Exception as _mcp_exc:  # noqa: BLE001
         logger.warning("MCP server unavailable; delegate_ingest will run without it: %s", _mcp_exc)
     result = await delegate(
         source_text=source_text,
         system_prompt=system_prompt,
         vault_dir=str(settings.vault_root),
-        mcp_server=_mcp_server,  # FastMCP server (ADR-0010); cli.py seam
+        mcp_server=_mcp_server,  # McpSdkServerConfig dict (ADR-0010); cli.py seam
     )
     converged = bool(getattr(result, "converged", False))
     pages_written = int(getattr(result, "pages_written", 0))
@@ -650,6 +653,54 @@ async def _resolve_fallback_provider_config() -> object | None:
 
 
 # ── Wiki page writer (reused by the MCP write_page tool — ADR-0010 §2) ─────────
+
+
+def _strip_leading_frontmatter(body: str) -> str:
+    """
+    Defensively remove ONE stray leading YAML frontmatter block from a page *body*.
+
+    The write path composes the file as `serialized frontmatter + body` (ADR-0011 —
+    content excludes frontmatter). Some providers (notably the CLI agent via the MCP
+    write_page tool) ignore that contract and pass a `content` that ALREADY begins with a
+    `---\\n...\\n---` block, which would then be duplicated. This strips exactly one such
+    leading block so the composed file has a single frontmatter block.
+
+    Rules (conservative — never corrupt legitimate content):
+      * If, after optional leading blank lines, the body does NOT start with a line that is
+        exactly `---`, it is returned unchanged.
+      * Otherwise the NEXT line that is exactly `---` or `...` (a YAML document terminator)
+        closes the block; everything through that fence — plus any immediately following
+        blank lines — is removed.
+      * If no closing fence is found, the body is returned UNCHANGED (a later `---`
+        horizontal rule must never be mistaken for a fence, and we never truncate content).
+    """
+    # Preserve leading blank lines' effect: split on \n, find first non-blank line.
+    lines = body.split("\n")
+    start = 0
+    while start < len(lines) and lines[start].strip() == "":
+        start += 1
+
+    # First meaningful line must be exactly the opening fence `---`.
+    if start >= len(lines) or lines[start] != "---":
+        return body
+
+    # Find the closing fence: the NEXT line that is exactly `---` or `...`.
+    close = None
+    for i in range(start + 1, len(lines)):
+        if lines[i] == "---" or lines[i] == "...":
+            close = i
+            break
+
+    # No closing fence → conservative: leave the body untouched.
+    if close is None:
+        return body
+
+    # Drop everything through the closing fence, plus any immediately following blanks.
+    rest = close + 1
+    while rest < len(lines) and lines[rest].strip() == "":
+        rest += 1
+
+    return "\n".join(lines[rest:])
 
 
 async def write_wiki_page(
@@ -709,10 +760,17 @@ async def write_wiki_page(
                 sources.append(_prior_source)
 
     # Build the .md file: frontmatter block + body (ADR-0011).
+    # DEFENSIVE: strip a stray leading frontmatter block from the body before composing, so a
+    # provider that violated the "content is body-only" contract (e.g. the CLI agent passing a
+    # `content` that already begins with `---\n...\n---`) does not produce a DUPLICATED
+    # frontmatter block. Applies to BOTH the orchestrated loop and the MCP/CLI write path since
+    # this is the single shared write seam (ADR-0010 §2). All downstream uses (file bytes, hash,
+    # Qdrant text, wikilink parse) use `body` so nothing desyncs.
+    body = _strip_leading_frontmatter(page.content)
     fm_dump = page.frontmatter.model_dump()
     fm_dump["sources"] = sources
     fm_dump["type"] = page_type  # serialize enum as its string value for Obsidian (I5)
-    post = frontmatter.Post(page.content, **fm_dump)
+    post = frontmatter.Post(body, **fm_dump)
     serialized = frontmatter.dumps(post)
     # content_hash MUST hash the exact bytes written to disk (serialized + trailing newline), NOT
     # `serialized` alone — otherwise the stored hash never matches the file and every on-disk hash
@@ -734,7 +792,7 @@ async def write_wiki_page(
     )
     await upsert_vector(
         page_id=page_id,
-        text=page.content,
+        text=body,
         file_path=rel_path,
         title=page.title,
         page_type=page_type,
@@ -745,7 +803,7 @@ async def write_wiki_page(
     # ── K5: parse + persist wikilinks (incremental, I1) ──────────────────────
     from app.wiki.links import parse_wikilinks, persist_links
 
-    parsed = parse_wikilinks(page.content)
+    parsed = parse_wikilinks(body)
     async with get_session() as wl_sess:
         await persist_links(wl_sess, page_id, parsed)
 
