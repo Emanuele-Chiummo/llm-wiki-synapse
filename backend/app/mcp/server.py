@@ -211,6 +211,20 @@ async def _write_page_body(
         {"id", "title", "type", "relevance_score": 0.0} on success.
         {"error": "<message>"} on validation failure.
     """
+    # ── K6/F3/F13 traceability: pre-inject origin_source into sources[] ────────
+    # validate_pages() checks that origin_source ∈ fm.sources (F3 guard, loop.py:89-93).
+    # write_wiki_page() appends it post-write (orchestrator.py:1041-42) — but validation
+    # runs BEFORE write_wiki_page.  When origin_source is non-empty and not already listed,
+    # insert it here so the validator passes and the file lands with the correct provenance.
+    # Works for both the delegated path (bound origin) and direct callers that supply one.
+    # We mutate a local copy so the caller's dict is untouched.
+    if origin_source:
+        frontmatter = dict(frontmatter)  # shallow copy — never mutate caller's dict
+        sources = list(frontmatter.get("sources") or [])
+        if origin_source not in sources:
+            sources.append(origin_source)
+        frontmatter["sources"] = sources
+
     # ── Validate and construct WikiPage ──────────────────────────────────────
     error = _validate_frontmatter_dict(frontmatter)
     if error:
@@ -638,7 +652,7 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
 # ── In-process SDK MCP server factory (claude-agent-sdk, ADR-0010 §2) ──────────
 
 
-def build_sdk_mcp_server() -> Any:
+def build_sdk_mcp_server(origin_source: str = "") -> Any:
     """
     Build an IN-PROCESS SDK MCP server for the CLI delegated ingest path (F17, ADR-0010 §2).
 
@@ -658,6 +672,15 @@ def build_sdk_mcp_server() -> Any:
     The claude-agent-sdk import is LAZY (kept inside this function) so importing app.mcp.server
     without the SDK installed still works (the stdio/HTTP FastMCP paths need no SDK). A clear
     RuntimeError is raised if the SDK is missing.
+
+    Args:
+        origin_source: When provided (non-empty), this value is bound into the ``write_page``
+                       tool as the authoritative origin source path for K6/F3/F13 traceability.
+                       The bound value wins over whatever the CLI agent passes in the tool call
+                       (``effective = bound_origin_source or tool_arg``).  This prevents the
+                       agent from omitting or misdescribing the raw file path — it is stamped
+                       server-side.  When empty (default, standalone/global MCP server), the
+                       tool-arg behaviour is unchanged.
 
     Returns the McpSdkServerConfig dict from create_sdk_mcp_server (name="synapse").
     """
@@ -696,12 +719,18 @@ def build_sdk_mcp_server() -> Any:
         {"title": str, "content": str, "frontmatter": dict, "origin_source": str},
     )
     async def _sdk_write_page(args: dict[str, Any]) -> dict[str, Any]:
+        # K6/F3/F13 traceability: bound origin_source (set at build time from the delegated
+        # ingest run) wins over whatever the CLI agent passes.  When no bound value was set
+        # (origin_source="" — standalone / global MCP), fall back to the tool-arg so the
+        # external-MCP / stdio path is unchanged.
+        tool_arg = args.get("origin_source", "") or ""
+        effective_origin = origin_source or tool_arg
         return _wrap(
             await _write_page_body(
                 args["title"],
                 args["content"],
                 args["frontmatter"],
-                args.get("origin_source", "") or "",
+                effective_origin,
             )
         )
 
