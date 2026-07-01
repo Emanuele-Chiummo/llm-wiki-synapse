@@ -15,14 +15,15 @@ Invariant compliance:
 Edge INCLUSION rule (ADR-0016 — supersedes ADR-0012 §3):
   An edge (A,B) EXISTS iff:
     direct_link_count(A,B) > 0  OR  shared_source_count(A,B) > 0
-  AA and same-type are MODULATORS only — they adjust the weight of already-structural
+  AA and type-affinity are MODULATORS only — they adjust the weight of already-structural
   edges but NEVER create an edge on their own.  This prevents type-cliques (hairball).
 
-Edge-weight formula (ADR-0012 §1/§2, UNCHANGED — applied only to structural pairs):
+Edge-weight formula (ADR-0012 §1/§2 coefficients — applied only to structural pairs):
   w(A,B) = 3.0·direct_link_count(A,B)
           + 4.0·shared_source_count(A,B)
           + 1.5·adamic_adar(A,B)
-          + 1.0·same_type(A,B)
+          + 1.0·type_affinity(A,B)      # G-P1-7: cross-type matrix (llm_wiki parity),
+                                        # replaces the old binary same_type signal
 
 Per-edge kind (ADR-0016 §4):
   "link"   — direct_link_count > 0  (wikilink; may also have source/AA/type weight)
@@ -85,6 +86,45 @@ FA2_ITERS_HUGE: int = 28     # n > 2500
 # scalingRatio increases for larger graphs to counter crowding (ADR-0045 §1)
 FA2_SCALING_RATIO_SMALL: float = 2.0   # n <= 400
 FA2_SCALING_RATIO_LARGE: float = 3.0   # n > 400
+
+# ── Type-affinity matrix — 4th weight signal (G-P1-7, llm_wiki parity) ────────
+# Mirrors nashsu/llm_wiki src/lib/graph-relevance.ts TYPE_AFFINITY: a MODULATOR of
+# already-structural edges (never creates an edge — ADR-0016 §1). It REWARDS cross-type
+# pairs (entity↔concept = 1.2, concept↔synthesis = 1.2) and PENALIZES same-type pairs
+# (entity↔entity 0.8, source↔source / query↔query 0.5). This shapes ForceAtlas2 clustering
+# so related-but-different notes attract, replacing the previous binary same_type signal
+# which had the OPPOSITE directional effect. Symmetric; unknown/None type pairs → 0.5.
+_TYPE_AFFINITY: dict[str, dict[str, float]] = {
+    "entity": {"concept": 1.2, "entity": 0.8, "source": 1.0, "synthesis": 1.0, "query": 0.8},
+    "concept": {"entity": 1.2, "concept": 0.8, "source": 1.0, "synthesis": 1.2, "query": 1.0},
+    "source": {"entity": 1.0, "concept": 1.0, "source": 0.5, "query": 0.8, "synthesis": 1.0},
+    "query": {"concept": 1.0, "entity": 0.8, "synthesis": 1.0, "source": 0.8, "query": 0.5},
+    "synthesis": {"concept": 1.2, "entity": 1.0, "source": 1.0, "query": 1.0, "synthesis": 0.8},
+}
+_TYPE_AFFINITY_DEFAULT: float = 0.5
+
+
+def _type_affinity(type_a: str | None, type_b: str | None) -> float:
+    """
+    Type-affinity modulator for the 4th weight signal (G-P1-7, llm_wiki parity).
+
+    Looks up the (type_a, type_b) pair in _TYPE_AFFINITY (case-insensitive). The matrix
+    is symmetric, so a missing outer key is retried with the operands swapped before
+    falling back to _TYPE_AFFINITY_DEFAULT (0.5). Types outside the llm_wiki 5-type set
+    (e.g. comparison/overview/index/log) or None resolve to the 0.5 default — matching
+    llm_wiki's `?? 0.5` fallback.
+    """
+    if type_a is None or type_b is None:
+        return _TYPE_AFFINITY_DEFAULT
+    a = type_a.lower()
+    b = type_b.lower()
+    row = _TYPE_AFFINITY.get(a)
+    if row is not None and b in row:
+        return row[b]
+    row_b = _TYPE_AFFINITY.get(b)
+    if row_b is not None and a in row_b:
+        return row_b[a]
+    return _TYPE_AFFINITY_DEFAULT
 
 
 # ── Snapshot dataclass ─────────────────────────────────────────────────────────
@@ -307,17 +347,18 @@ class GraphEngine:
             aa = _aa(a, b)
             type_a = node_index[nid_a]["page_type"]
             type_b = node_index[nid_b]["page_type"]
-            same_type = (
-                1.0 if (type_a is not None and type_b is not None and type_a == type_b) else 0.0
-            )
+            # 4th signal: type-affinity matrix (G-P1-7, llm_wiki parity) — rewards
+            # cross-type pairs, penalizes same-type. Replaces the old binary same_type.
+            type_affinity = _type_affinity(type_a, type_b)
 
-            # Weight formula (ADR-0012 §1/§2, UNCHANGED arithmetic)
-            w = 3.0 * direct + 4.0 * shared + 1.5 * aa + 1.0 * same_type
+            # Weight formula (ADR-0012 §1/§2 coefficients UNCHANGED; 4th term is now
+            # the type-affinity modulator instead of binary same_type — G-P1-7)
+            w = 3.0 * direct + 4.0 * shared + 1.5 * aa + 1.0 * type_affinity
             signals = {
                 "direct": 3.0 * direct,
                 "source": 4.0 * shared,
                 "aa": 1.5 * aa,
-                "type": same_type,
+                "type": type_affinity,
             }
             # Per-edge kind (ADR-0016 §4): "link" wins when both structural signals present
             kind = "link" if direct > 0 else "source"

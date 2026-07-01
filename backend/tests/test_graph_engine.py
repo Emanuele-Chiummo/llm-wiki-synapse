@@ -36,13 +36,17 @@ Structural edges (ADR-0016 sec 1 -- only direct link OR shared source creates an
   P2-P4: direct=0 BUT shared([doc_a])=1 -> structural (kind="source")
   P3-P4: direct(P3->P4)=1 AND shared([doc_b])=1 -> structural (kind="link")
   P3-P5: NO link, NO shared source -> NOT structural -> ABSENT (ADR-0016 sec 1)
-  P1-P2 and P1-P4: type signal adds +1 to WEIGHT but does NOT create edges alone.
+  type_affinity is a weight MODULATOR, never an edge generator.
 
-Expected weights (ADR-0012 sec 1/sec 2, arithmetic UNCHANGED, structural pairs only):
-  P1-P2: direct=2 -> 3x2=6; source=1 -> 4; AA=0; type=1 -> total >= 11.0
-  P1-P4: direct=1 -> 3; source=1 -> 4; AA=0; type=1 -> total >= 8.0
-  P2-P4: direct=0; source=1 -> 4; AA>0 via P1; type=1 -> total >= 5.0
-  P3-P4: direct=1 -> 3; source=1 -> 4; AA=0; type=0 -> total = 7.0
+Expected weights (ADR-0012 sec 1/sec 2; 4th term is now type-affinity matrix G-P1-7):
+  P1(entity)-P2(entity): direct=2 -> 3x2=6; source=1 -> 4; AA=0;
+    type_affinity(entity,entity)=0.8 -> total >= 10.0  (exact: 10.8)
+  P1(entity)-P4(entity): direct=1 -> 3; source=1 -> 4; AA=0;
+    type_affinity(entity,entity)=0.8 -> total >= 7.5  (exact: 7.8)
+  P2(entity)-P4(entity): direct=0; source=1 -> 4; AA>0 via P1 (AA=1/ln2≈1.443);
+    type_affinity(entity,entity)=0.8 -> total >= 5.0  (exact ~6.96)
+  P3(concept)-P4(entity): direct=1 -> 3; source=1 -> 4; AA=0;
+    type_affinity(concept,entity)=1.2 -> total = 8.2  (exact)
   P3-P5: ABSENT -- no structural tie (ADR-0016 sec 6, fixes P3-P5 type-only hairball edge)
 
 ADR-0016 sec 6 note (supersedes ADR-0012 sec 3):
@@ -364,27 +368,40 @@ class TestFourSignalWeights:
     """AC-F4-1: exact 4-signal additive weight assertions on the hand-computable fixture."""
 
     async def test_p1_p2_weight_ge_11(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
-        """P1-P2: 2 directed links + 1 shared source + entity==entity -> base >= 11."""
+        """
+        P1-P2: 2 directed links + 1 shared source + type_affinity(entity,entity)=0.8
+        -> base without AA: 3*2 + 4*1 + 0 + 0.8 = 10.8 >= 10.0.
+        (G-P1-7: same-type entity pair now contributes 0.8 not 1.0 — cross-type is rewarded.)
+        """
         engine_obj, p, vault_id = graph_db
         from app.graph.engine import GraphEngine
 
         snapshot = await GraphEngine().recompute(vault_id)
         edge = _find_edge(snapshot.edges, p["P1"], p["P2"])
         assert edge is not None, "P1-P2 edge must be present (structural: 2 direct links)"
-        assert edge.weight >= 11.0, f"P1-P2 weight {edge.weight} < 11 (base without AA)"
+        assert edge.weight >= 10.0, f"P1-P2 weight {edge.weight} < 10.0 (base without AA: 6+4+0+0.8=10.8)"
 
     async def test_p1_p4_weight_ge_8(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
-        """P1-P4: 1 link (P4->P1) + 1 shared source (doc_a) + entity==entity -> base >= 8."""
+        """
+        P1-P4: 1 link (P4->P1) + 1 shared source (doc_a) + type_affinity(entity,entity)=0.8
+        -> base without AA: 3*1 + 4*1 + 0 + 0.8 = 7.8 >= 7.5.
+        (G-P1-7: same-type entity pair now contributes 0.8 not 1.0.)
+        """
         engine_obj, p, vault_id = graph_db
         from app.graph.engine import GraphEngine
 
         snapshot = await GraphEngine().recompute(vault_id)
         edge = _find_edge(snapshot.edges, p["P1"], p["P4"])
         assert edge is not None, "P1-P4 edge must be present (structural: direct link)"
-        assert edge.weight >= 8.0, f"P1-P4 weight {edge.weight} < 8"
+        assert edge.weight >= 7.5, f"P1-P4 weight {edge.weight} < 7.5 (base: 3+4+0+0.8=7.8)"
 
     async def test_p2_p4_weight_ge_5(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
-        """P2-P4: 0 links + 1 shared source (doc_a) + entity==entity + AA via P1 -> base >= 5."""
+        """
+        P2-P4: 0 links + 1 shared source (doc_a) + type_affinity(entity,entity)=0.8
+        + AA via P1 (P1 is common neighbour with deg=2, AA=1/ln2≈1.443)
+        -> 4*1 + 1.5*1.443 + 0.8 ≈ 6.96 >= 5.0.
+        (G-P1-7: same-type entity pair contributes 0.8; total still comfortably above 5.)
+        """
         engine_obj, p, vault_id = graph_db
         from app.graph.engine import GraphEngine
 
@@ -394,7 +411,13 @@ class TestFourSignalWeights:
         assert edge.weight >= 5.0, f"P2-P4 weight {edge.weight} < 5"
 
     async def test_p3_p4_weight_is_7(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
-        """P3-P4: 1 link (P3->P4) x 3 = 3; 1 shared source (doc_b) x 4 = 4; AA=0; type=0 -> 7."""
+        """
+        P3(concept)-P4(entity): 1 link x 3 = 3; 1 shared source x 4 = 4; AA=0;
+        type_affinity(concept,entity) = 1.2 (cross-type REWARD — G-P1-7).
+        Exact weight: 3 + 4 + 0 + 1.2 = 8.2.
+        (Old binary same_type gave 0 for concept vs entity -> 7.0. Now the matrix
+        rewards this cross-type pair with 1.2 -> 8.2.)
+        """
         engine_obj, p, vault_id = graph_db
         from app.graph.engine import GraphEngine
 
@@ -402,8 +425,8 @@ class TestFourSignalWeights:
         edge = _find_edge(snapshot.edges, p["P3"], p["P4"])
         assert edge is not None, "P3-P4 edge must be present (structural: direct link)"
         assert (
-            abs(edge.weight - 7.0) < 0.01
-        ), f"P3-P4 weight {edge.weight} != 7.0 (direct 1x3=3 + source 1x4=4 + AA 0 + type 0=0)"
+            abs(edge.weight - 8.2) < 0.01
+        ), f"P3-P4 weight {edge.weight} != 8.2 (direct 1x3=3 + source 1x4=4 + AA 0 + type_affinity(concept,entity)=1.2)"
 
     async def test_p3_p5_absent(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
         """
@@ -421,7 +444,9 @@ class TestFourSignalWeights:
     async def test_direct_signal_isolation(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
         """
         AC-F4-1(e): signals JSONB breakdown allows independent inspection.
-        P3-P4 should have direct signal = 3.0 (one link x 3), source signal = 4.0.
+        P3(concept)-P4(entity): direct signal = 3.0 (one link x 3), source signal = 4.0,
+        aa signal = 0.0 (no shared neighbours), type signal = 1.2 (concept↔entity
+        cross-type reward per G-P1-7 affinity matrix; old binary same_type was 0.0).
         """
         engine_obj, p, vault_id = graph_db
         from app.graph.engine import GraphEngine
@@ -453,13 +478,16 @@ class TestFourSignalWeights:
             abs(sigs.get("aa", -1) - 0.0) < 0.01
         ), f"aa signal should be 0.0 (no shared neighbours), got {sigs.get('aa')}"
         assert (
-            abs(sigs.get("type", -1) - 0.0) < 0.01
-        ), f"type signal should be 0.0 (concept vs entity), got {sigs.get('type')}"
+            abs(sigs.get("type", -1) - 1.2) < 0.01
+        ), f"type signal should be 1.2 (concept↔entity cross-type reward G-P1-7), got {sigs.get('type')}"
 
     async def test_type_signal_contributes(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
         """
-        AC-F4-1(e): type term adds +1 for same-type pairs THAT ARE ALREADY STRUCTURAL.
-        P1 and P2 are both 'entity' and have a direct link -> type signal = 1.0 in signals.
+        AC-F4-1(e): type-affinity modulates weight for structural pairs.
+        P1 and P2 are both 'entity' and have a direct link ->
+        type signal = 0.8 (same-type entity PENALTY per G-P1-7 affinity matrix).
+        Old binary same_type gave 1.0; matrix now gives 0.8 to discourage same-type
+        clustering and reward cross-type connections.
         """
         engine_obj, p, vault_id = graph_db
         from app.graph.engine import GraphEngine
@@ -475,14 +503,16 @@ class TestFourSignalWeights:
         assert db_row is not None
         sigs = json.loads(db_row[0]) if db_row[0] else {}
         assert (
-            abs(sigs.get("type", -1) - 1.0) < 0.01
-        ), f"P1-P2 type signal should be 1.0 (both entity), got {sigs.get('type')}"
+            abs(sigs.get("type", -1) - 0.8) < 0.01
+        ), f"P1-P2 type signal should be 0.8 (entity↔entity same-type penalty G-P1-7), got {sigs.get('type')}"
 
     async def test_null_type_no_match(
         self, graph_db: tuple[Any, dict[str, str], str], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """
-        type term: NULL type does NOT match NULL -- two pages with NULL type get same_type=0.
+        type-affinity: NULL type resolves to the default 0.5 (not 0.0 and not 1.0).
+        _type_affinity(None, None) == 0.5 per G-P1-7 (unknown/None types fall back
+        to _TYPE_AFFINITY_DEFAULT=0.5, matching llm_wiki's `?? 0.5` fallback).
         Verified by checking type signal in signals JSONB for a NULL-type pair.
         """
         engine_obj, p, vault_id = graph_db
@@ -523,8 +553,135 @@ class TestFourSignalWeights:
             if db_row:
                 sigs = json.loads(db_row[0]) if db_row[0] else {}
                 assert (
-                    sigs.get("type", 0.0) == 0.0
-                ), "Two NULL-type pages must NOT get type signal=1 (NULL != NULL per ADR-0012)"
+                    abs(sigs.get("type", -1) - 0.5) < 0.01
+                ), f"Two NULL-type pages must get type signal=0.5 (default fallback G-P1-7), got {sigs.get('type')}"
+
+
+class TestTypeAffinity:
+    """
+    Pure unit tests for _type_affinity helper (G-P1-7, llm_wiki parity).
+
+    No DB or fixture needed — tests the helper in isolation to verify:
+      - Cross-type REWARD (entity↔concept = 1.2)
+      - Same-type PENALTY (entity↔entity = 0.8, source↔source = 0.5)
+      - Symmetry (matrix is symmetric; a↔b == b↔a)
+      - Case-insensitivity
+      - None → 0.5 (default fallback)
+      - Unknown type → 0.5 (types outside the 5-type set, e.g. comparison/overview/log)
+    """
+
+    def test_cross_type_entity_concept_reward(self) -> None:
+        """entity↔concept is a cross-type pair -> 1.2 (the highest reward value)."""
+        from app.graph.engine import _type_affinity
+
+        assert _type_affinity("entity", "concept") == 1.2, (
+            "entity↔concept cross-type pair should get 1.2 reward"
+        )
+
+    def test_same_type_entity_penalty(self) -> None:
+        """entity↔entity is a same-type pair -> 0.8 (same-type penalty)."""
+        from app.graph.engine import _type_affinity
+
+        assert _type_affinity("entity", "entity") == 0.8, (
+            "entity↔entity same-type pair should get 0.8 (mild penalty)"
+        )
+
+    def test_same_type_source_penalty(self) -> None:
+        """source↔source is a same-type pair -> 0.5 (strongest same-type penalty)."""
+        from app.graph.engine import _type_affinity
+
+        assert _type_affinity("source", "source") == 0.5, (
+            "source↔source same-type pair should get 0.5 (strong penalty — sources cluster)"
+        )
+
+    def test_symmetry_concept_synthesis(self) -> None:
+        """concept↔synthesis == synthesis↔concept == 1.2 (matrix is symmetric)."""
+        from app.graph.engine import _type_affinity
+
+        fwd = _type_affinity("concept", "synthesis")
+        rev = _type_affinity("synthesis", "concept")
+        assert fwd == 1.2, f"concept↔synthesis should be 1.2, got {fwd}"
+        assert rev == 1.2, f"synthesis↔concept should be 1.2, got {rev}"
+        assert fwd == rev, "type_affinity must be symmetric"
+
+    def test_case_insensitive(self) -> None:
+        """Type strings are lowercased before lookup -> Entity↔Concept == 1.2."""
+        from app.graph.engine import _type_affinity
+
+        assert _type_affinity("Entity", "Concept") == 1.2, (
+            "type_affinity must be case-insensitive: Entity↔Concept == 1.2"
+        )
+        assert _type_affinity("ENTITY", "ENTITY") == 0.8, (
+            "type_affinity must be case-insensitive: ENTITY↔ENTITY == 0.8"
+        )
+
+    def test_none_type_a_returns_default(self) -> None:
+        """_type_affinity(None, 'entity') returns 0.5 (default fallback)."""
+        from app.graph.engine import _type_affinity
+
+        assert _type_affinity(None, "entity") == 0.5, (
+            "_type_affinity(None, 'entity') should return 0.5 default"
+        )
+
+    def test_none_type_b_returns_default(self) -> None:
+        """_type_affinity('entity', None) returns 0.5 (default fallback)."""
+        from app.graph.engine import _type_affinity
+
+        assert _type_affinity("entity", None) == 0.5, (
+            "_type_affinity('entity', None) should return 0.5 default"
+        )
+
+    def test_both_none_returns_default(self) -> None:
+        """_type_affinity(None, None) returns 0.5 (default fallback)."""
+        from app.graph.engine import _type_affinity
+
+        assert _type_affinity(None, None) == 0.5, (
+            "_type_affinity(None, None) should return 0.5 default"
+        )
+
+    def test_unknown_type_comparison_returns_default(self) -> None:
+        """Unknown type 'comparison' is outside the 5-type set -> 0.5."""
+        from app.graph.engine import _type_affinity
+
+        assert _type_affinity("comparison", "entity") == 0.5, (
+            "'comparison' is not in the affinity matrix -> 0.5 default"
+        )
+
+    def test_unknown_type_overview_both_returns_default(self) -> None:
+        """Two unknown types (overview↔overview) both outside the 5-type set -> 0.5."""
+        from app.graph.engine import _type_affinity
+
+        assert _type_affinity("overview", "overview") == 0.5, (
+            "'overview'↔'overview' both outside affinity matrix -> 0.5 default"
+        )
+
+    def test_all_known_types_in_matrix(self) -> None:
+        """
+        Spot-check every known type pair from the matrix to ensure the full
+        5x5 matrix is correctly implemented. Values taken from _TYPE_AFFINITY dict.
+        """
+        from app.graph.engine import _type_affinity
+
+        # Row: entity
+        assert _type_affinity("entity", "concept") == 1.2
+        assert _type_affinity("entity", "entity") == 0.8
+        assert _type_affinity("entity", "source") == 1.0
+        assert _type_affinity("entity", "synthesis") == 1.0
+        assert _type_affinity("entity", "query") == 0.8
+        # Row: concept
+        assert _type_affinity("concept", "concept") == 0.8
+        assert _type_affinity("concept", "source") == 1.0
+        assert _type_affinity("concept", "synthesis") == 1.2
+        assert _type_affinity("concept", "query") == 1.0
+        # Row: source
+        assert _type_affinity("source", "source") == 0.5
+        assert _type_affinity("source", "query") == 0.8
+        assert _type_affinity("source", "synthesis") == 1.0
+        # Row: query
+        assert _type_affinity("query", "synthesis") == 1.0
+        assert _type_affinity("query", "query") == 0.5
+        # Row: synthesis
+        assert _type_affinity("synthesis", "synthesis") == 0.8
 
 
 class TestFA2Determinism:
