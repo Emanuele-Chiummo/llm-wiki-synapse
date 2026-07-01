@@ -4263,14 +4263,25 @@ async def get_research_run(run_id: uuid.UUID) -> ResearchRunDetail:
 _REVIEW_QUEUE_MAX_LIMIT: int = 200
 
 
+class ReferencedPage(BaseModel):
+    """Convenience join for a referenced_page_ids entry (ADR-0044 §6.1)."""
+
+    id: uuid.UUID
+    title: str | None = None
+    type: str | None = None
+
+
 class ReviewItemResponse(BaseModel):
     """
-    API response shape for one review_items row (ADR-0034 §7.1).
+    API response shape for one review_items row (ADR-0034 §7.1; ADR-0044 §6.1 additions).
 
     Projection carries the full proposal model: type, proposed_title, proposed_page_type,
     proposed_dir, rationale, and the three page FK fields (page_id/source_page_id/created_page_id).
     page_title is a convenience join from pages.title for the page_id FK (UI display).
     resolution records how the item was closed (null while pending).
+
+    ADR-0044 §6.1 adds: content_key (opaque dedup handle), referenced_page_ids (array),
+    referenced_pages (convenience join, stale ids filtered), search_queries (Deep-Research seeds).
     """
 
     id: uuid.UUID
@@ -4278,7 +4289,9 @@ class ReviewItemResponse(BaseModel):
     item_type: str = Field(
         description="missing-page | suggestion | contradiction | duplicate | confirm"
     )
-    status: str = Field(description="pending | created | skipped | deep_researched | auto_resolved")
+    status: str = Field(
+        description="pending | created | skipped | dismissed | deep_researched | auto_resolved"
+    )
     proposed_title: str | None = Field(
         default=None,
         description="Title the LLM proposes to create; drives lazy skeleton (ADR-0034 §5.2)",
@@ -4313,11 +4326,33 @@ class ReviewItemResponse(BaseModel):
     )
     resolution: str | None = Field(
         default=None,
-        description="created|skipped|researched|rule_resolved|llm_resolved; null while pending",
+        description=(
+            "created|skipped|dismissed|researched|rule_resolved|llm_resolved; null while pending"
+        ),
     )
     deep_research_run_id: uuid.UUID | None = Field(
         default=None,
         description="FK → deep_research_runs.id; set when Deep-Research fires (AC-F10-5)",
+    )
+    # ── ADR-0044 §6.1: contextual depth + stable idempotency (additions) ──────────
+    content_key: str | None = Field(
+        default=None,
+        description="Stable FNV-1a dedup handle (opaque to UI); NULL for confirm (ADR-0044 §3.2)",
+    )
+    referenced_page_ids: list[str] | None = Field(
+        default=None,
+        description="Array of page-id strings this proposal is contextually about (ADR-0044 §2)",
+    )
+    referenced_pages: list[ReferencedPage] | None = Field(
+        default=None,
+        description=(
+            "Convenience join [{id,title,type}] for referenced_page_ids; stale ids filtered at "
+            "render (ADR-0044 §6.1/§9.2) so the card renders [[title]] links without a round-trip"
+        ),
+    )
+    search_queries: list[str] | None = Field(
+        default=None,
+        description="≤3 pre-generated search queries; search_queries[0] seeds Deep Research",
     )
     created_at: datetime
     reviewed_at: datetime | None = None
@@ -4358,8 +4393,55 @@ class ReviewSweepResponse(BaseModel):
     kept: int = Field(description="Items that remain pending after the sweep")
 
 
-def _review_item_to_response(item: ReviewItem, page_title: str | None = None) -> ReviewItemResponse:
-    """Convert ReviewItem ORM row to ReviewItemResponse (handles str/UUID for id fields)."""
+class ReviewBulkRequest(BaseModel):
+    """Request body for POST /review/queue/bulk (ADR-0044 §6)."""
+
+    vault_id: str = Field(..., description="Vault scope (required)")
+    action: str = Field(
+        ...,
+        description="skip | dismiss | mark-resolved (ADR-0044 §6)",
+    )
+    ids: list[uuid.UUID] = Field(
+        ...,
+        description="Review item ids to act on; capped at REVIEW_BULK_MAX_IDS (I7 — 400 over)",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "vault_id": "default",
+                "action": "dismiss",
+                "ids": ["00000000-0000-0000-0000-000000000001"],
+            }
+        }
+    }
+
+
+class ReviewBulkResponse(BaseModel):
+    """200 response for POST /review/queue/bulk (ADR-0044 §6)."""
+
+    updated: int = Field(description="Pending ids mutated to the new terminal status")
+    skipped_terminal: int = Field(
+        description="Ids that were already terminal (or confirm under mark-resolved); never mutated"
+    )
+
+
+class ReviewClearResolvedResponse(BaseModel):
+    """200 response for DELETE /review/queue/resolved (ADR-0044 §6)."""
+
+    deleted: int = Field(description="Terminal rows hard-deleted for the vault (pending untouched)")
+
+
+def _review_item_to_response(
+    item: ReviewItem,
+    page_title: str | None = None,
+    *,
+    referenced_pages: list[ReferencedPage] | None = None,
+) -> ReviewItemResponse:
+    """Convert ReviewItem ORM row to ReviewItemResponse (handles str/UUID for id fields).
+
+    ADR-0044 §6.1: content_key, referenced_page_ids, search_queries pass through; referenced_pages
+    is the caller-supplied convenience join (stale ids already filtered — §9.2)."""
 
     # UUID fields stored as str in SQLite, UUID in Postgres — normalise to UUID
     def _to_uuid(val: Any) -> uuid.UUID | None:
@@ -4369,6 +4451,12 @@ def _review_item_to_response(item: ReviewItem, page_title: str | None = None) ->
             return uuid.UUID(str(val))
         except (ValueError, AttributeError):
             return None
+
+    def _str_list(val: Any) -> list[str] | None:
+        if not isinstance(val, list):
+            return None
+        out = [str(x) for x in val if isinstance(x, str) and x.strip()]
+        return out or None
 
     return ReviewItemResponse(
         id=_to_uuid(item.id) or uuid.UUID(int=0),
@@ -4385,6 +4473,10 @@ def _review_item_to_response(item: ReviewItem, page_title: str | None = None) ->
         created_page_id=_to_uuid(item.created_page_id),
         resolution=item.resolution,
         deep_research_run_id=_to_uuid(item.deep_research_run_id),
+        content_key=getattr(item, "content_key", None),
+        referenced_page_ids=_str_list(getattr(item, "referenced_page_ids", None)),
+        referenced_pages=referenced_pages,
+        search_queries=_str_list(getattr(item, "search_queries", None)),
         created_at=item.created_at,
         reviewed_at=item.reviewed_at,
     )
@@ -4395,12 +4487,14 @@ def _review_item_to_response(item: ReviewItem, page_title: str | None = None) ->
     response_model=ReviewQueueResponse,
     summary="List HITL review queue proposals",
     description=(
-        "F9 HITL Review Queue (ADR-0034 §7). "
+        "F9 HITL Review Queue (ADR-0034 §7; ADR-0044 §6 status filter + contextual projection). "
         "Returns paginated review_items for a vault, ordered created_at ASC. "
         "Each item is a PROPOSAL (missing-page|suggestion|contradiction|duplicate|confirm). "
+        "status filter (ADR-0044 §6): pending (default) | resolved | dismissed | all. "
         "limit: default 50, max 200 (I7 — bounded page size). offset: >=0. "
         "vault_id: required filter. "
-        "page_title is a convenience join from pages.title for the page_id FK (UI display)."
+        "page_title is a convenience join from pages.title for the page_id FK (UI display). "
+        "referenced_pages joins referenced_page_ids to [{id,title,type}] (stale ids filtered)."
     ),
     responses={
         200: {"description": "Paginated review proposals"},
@@ -4409,6 +4503,10 @@ def _review_item_to_response(item: ReviewItem, page_title: str | None = None) ->
 )
 async def list_review_queue(
     vault_id: str = Query(..., description="Vault scope (required)"),
+    status: str = Query(
+        default="pending",
+        description="Status filter (ADR-0044 §6): pending | resolved | dismissed | all",
+    ),
     limit: int = Query(
         default=50,
         ge=1,
@@ -4418,35 +4516,69 @@ async def list_review_queue(
     offset: int = Query(default=0, ge=0, description="Row offset for pagination"),
 ) -> ReviewQueueResponse:
     """
-    GET /review/queue — paginated HITL review proposals (ADR-0034 §7).
+    GET /review/queue — paginated HITL review proposals (ADR-0034 §7, ADR-0044 §6 filter).
 
     READ-ONLY — no data_version bump, no ingest triggered.
-    limit capped at 200 (I7 — bounded page size, ADR-0034 §7).
-    page_title is loaded via a JOIN on pages.title for the page_id FK.
+    limit capped at 200 (I7 — bounded page size). page_title + referenced_pages are convenience
+    joins on pages; referenced_pages drops ids that no longer resolve to a live page (§9.2).
     """
     from app.ops.review import list_queue
 
-    queue_page = await list_queue(vault_id, limit=limit, offset=offset)
+    queue_page = await list_queue(vault_id, limit=limit, offset=offset, status=status)
 
-    # Load page_title for items that have a page_id (convenience join)
-    page_ids = [str(it.page_id) for it in queue_page.items if it.page_id is not None]
-    page_titles: dict[str, str | None] = {}
-    if page_ids:
+    # Load page_title for page_id + referenced_pages for referenced_page_ids in ONE bounded
+    # pages read across all items on the page (convenience joins — ADR-0044 §6.1).
+    def _ids_of(val: Any) -> list[str]:
+        if not isinstance(val, list):
+            return []
+        return [str(x) for x in val if isinstance(x, str) and x.strip()]
+
+    all_page_ids: set[str] = set()
+    for it in queue_page.items:
+        if it.page_id is not None:
+            all_page_ids.add(str(it.page_id))
+        for rid in _ids_of(getattr(it, "referenced_page_ids", None)):
+            all_page_ids.add(rid)
+
+    page_info: dict[str, tuple[str | None, str | None]] = {}
+    if all_page_ids:
+        from sqlalchemy import String as _SAString
+        from sqlalchemy import cast as _sa_cast
+
         async with get_session() as session:
             rows = await session.execute(
-                select(Page.id, Page.title).where(
-                    Page.id.in_(page_ids),
+                select(Page.id, Page.title, Page.page_type).where(
+                    # CAST for SQLite/Postgres id portability (mirrors retrieval.py / sweep).
+                    _sa_cast(Page.id, _SAString).in_(list(all_page_ids)),
+                    Page.deleted_at.is_(None),
                 )
             )
             for row in rows:
-                page_titles[str(row[0])] = row[1]
+                page_info[str(row[0])] = (row[1], row[2])
 
-    items = [
-        _review_item_to_response(
-            it, page_title=page_titles.get(str(it.page_id)) if it.page_id else None
+    items: list[ReviewItemResponse] = []
+    for it in queue_page.items:
+        page_title = page_info.get(str(it.page_id), (None, None))[0] if it.page_id else None
+        # referenced_pages: resolve + DROP stale ids (§9.2 render-time filter, I9).
+        referenced_pages: list[ReferencedPage] = []
+        for rid in _ids_of(getattr(it, "referenced_page_ids", None)):
+            info = page_info.get(rid)
+            if info is None:
+                continue  # stale id → filtered out
+            try:
+                referenced_pages.append(
+                    ReferencedPage(id=uuid.UUID(rid), title=info[0], type=info[1])
+                )
+            except (ValueError, AttributeError):
+                continue
+        items.append(
+            _review_item_to_response(
+                it,
+                page_title=page_title,
+                referenced_pages=referenced_pages or None,
+            )
         )
-        for it in queue_page.items
-    ]
+
     return ReviewQueueResponse(
         items=items,
         total=queue_page.total,
@@ -4547,6 +4679,29 @@ async def skip_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
 
 
 @app.post(
+    "/review/queue/{item_id}/dismiss",
+    response_model=ReviewItemResponse,
+    summary="Dismiss a review proposal",
+    description=(
+        "F9 HITL Review Queue — dismiss action (ADR-0044 §6). "
+        "Sets status=dismissed, resolution=dismissed, reviewed_at=now(). Terminal. "
+        "Distinct from skip: 'hide this, I'm not acting' vs skip's 'considered and declined'. "
+        "404 if item_id is unknown."
+    ),
+    responses={
+        200: {"description": "Item dismissed"},
+        404: {"description": "Review item not found"},
+    },
+)
+async def dismiss_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
+    """POST /review/queue/{id}/dismiss — status write (ADR-0044 §6)."""
+    from app.ops.review import dismiss
+
+    item = await dismiss(item_id)
+    return _review_item_to_response(item)
+
+
+@app.post(
     "/review/queue/{item_id}/deep-research",
     response_model=ReviewDeepResearchResponse,
     status_code=202,
@@ -4610,6 +4765,78 @@ async def sweep_review_queue(
         llm_resolved=result.llm_resolved,
         kept=result.kept,
     )
+
+
+@app.post(
+    "/review/queue/bulk",
+    response_model=ReviewBulkResponse,
+    summary="Bulk status action on review proposals",
+    description=(
+        "F9 HITL Review Queue — bounded bulk status write (ADR-0044 §6, I7). "
+        "action: skip | dismiss | mark-resolved. "
+        "Only PENDING ids (scoped to vault_id) are mutated; already-terminal ids are counted in "
+        "skipped_terminal and NEVER re-mutated. mark-resolved NEVER auto-resolves a `confirm` "
+        "item (Do-NOT #6/#10 — it is counted as skipped_terminal). No provider call. "
+        "len(ids) is capped at REVIEW_BULK_MAX_IDS (400 over cap — I7)."
+    ),
+    responses={
+        200: {"description": "Bulk action applied; {updated, skipped_terminal}"},
+        400: {"description": "ids exceed REVIEW_BULK_MAX_IDS, or unknown action (I7)"},
+    },
+)
+async def bulk_review_queue(body: ReviewBulkRequest) -> ReviewBulkResponse:
+    """POST /review/queue/bulk — bounded bulk status write (ADR-0044 §6)."""
+    from app.config import settings as _settings
+    from app.ops.review import bulk_update_reviews
+
+    max_ids = int(getattr(_settings, "review_bulk_max_ids", 200))
+    if len(body.ids) > max_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"bulk ids ({len(body.ids)}) exceed REVIEW_BULK_MAX_IDS ({max_ids}) — "
+                "split into smaller batches (I7 — bounded bulk write)."
+            ),
+        )
+    if body.action not in ("skip", "dismiss", "mark-resolved"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown bulk action {body.action!r}; expected skip|dismiss|mark-resolved.",
+        )
+
+    result = await bulk_update_reviews(
+        vault_id=body.vault_id,
+        action=body.action,
+        ids=body.ids,
+    )
+    return ReviewBulkResponse(updated=result.updated, skipped_terminal=result.skipped_terminal)
+
+
+@app.delete(
+    "/review/queue/resolved",
+    response_model=ReviewClearResolvedResponse,
+    summary="Clear (hard-delete) terminal review proposals",
+    description=(
+        "F9 HITL Review Queue — 'Clear resolved' (ADR-0044 §6, I7). "
+        "Hard-deletes terminal rows (skipped/dismissed/created/auto_resolved/deep_researched) for "
+        "the vault in ONE bounded vault-scoped statement. PENDING rows are NEVER touched. "
+        "Idempotent. These rows are advisory metadata (not vault content); created_page_id points "
+        "at a page that persists independently (ADR-0044 §9.5). "
+        "vault_id: required."
+    ),
+    responses={
+        200: {"description": "Terminal rows deleted; {deleted}"},
+        422: {"description": "Validation error (missing vault_id)"},
+    },
+)
+async def clear_resolved_review_queue(
+    vault_id: str = Query(..., description="Vault scope (required)"),
+) -> ReviewClearResolvedResponse:
+    """DELETE /review/queue/resolved — bounded hard-delete of terminal rows (ADR-0044 §6)."""
+    from app.ops.review import clear_resolved_reviews
+
+    deleted = await clear_resolved_reviews(vault_id)
+    return ReviewClearResolvedResponse(deleted=deleted)
 
 
 # ── K2 Lint-fix loop REST (ADR-0037) ─────────────────────────────────────────

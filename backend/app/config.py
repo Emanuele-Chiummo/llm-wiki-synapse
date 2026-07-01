@@ -253,6 +253,31 @@ class Settings(BaseSettings):
     Env var: REVIEW_SWEEP_TIMEOUT_SECONDS.
     """
 
+    # ── ADR-0044 (F9 depth pass) — contextual depth + bulk bounds ────────────────
+
+    review_referenced_pages_max: int = 8
+    """
+    Cap on referenced existing pages carried per proposal (ADR-0044 §2/§4.3). The proposal
+    call's `referenced_page_titles` list is truncated to this at parse; resolution drops
+    non-resolving titles. Bounds referenced_page_ids to this length (I7).
+    Env var: REVIEW_REFERENCED_PAGES_MAX.
+    """
+
+    review_search_queries_max: int = 3
+    """
+    Cap on pre-generated search queries carried per proposal (ADR-0044 §2.3/§4.3). The proposal
+    call's `search_queries` list is truncated to this at parse. search_queries[0] seeds Deep
+    Research. Rides the SAME single proposal call (no extra provider call, I6/I7).
+    Env var: REVIEW_SEARCH_QUERIES_MAX.
+    """
+
+    review_bulk_max_ids: int = 200
+    """
+    Cap on the number of ids in a POST /review/queue/bulk request (ADR-0044 §6, I7). Over the
+    cap → HTTP 400 (never an unbounded bulk write). DELETE /review/queue/resolved is one bounded
+    vault-scoped statement (no id list). Env var: REVIEW_BULK_MAX_IDS.
+    """
+
     # ── F4: wikilink-enrichment post-pass bounds (ADR-0036, [AI] §9) ─────────────
     # The once-per-run enrichment call is bounded by these + the resolved provider row's
     # token_budget (I7). Substitution-apply (R1): the LLM returns {mention, target_title}

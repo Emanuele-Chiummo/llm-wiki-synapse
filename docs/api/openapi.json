@@ -166,6 +166,57 @@
         }
       }
     },
+    "/pages/{page_id}/related": {
+      "get": {
+        "summary": "Top-N related pages ranked by 4-signal edge weight",
+        "description": "Returns the top *limit* pages most related to *page_id*, ranked by the stored 4-signal edge weight (direct \u00d73, source-overlap \u00d74, Adamic-Adar \u00d71.5, type-affinity \u00d71 \u2014 ADR-0012). Reads the persisted *edges* table directly: no graph recompute, no FA2 (I1/I2). Empty list (200) if the page has no edges yet. 404 if the page is unknown or soft-deleted. limit is capped at 50; default 10.",
+        "operationId": "get_related_pages_pages__page_id__related_get",
+        "parameters": [
+          {
+            "name": "page_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Page Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "description": "Max results (1\u201350)",
+              "default": 10,
+              "title": "Limit"
+            },
+            "description": "Max results (1\u201350)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Related pages list (may be empty if no edges yet)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelatedPagesResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Page not found"
+          },
+          "422": {
+            "description": "Invalid page_id UUID or limit out of range"
+          }
+        }
+      }
+    },
     "/pages/{page_id}/content": {
       "get": {
         "summary": "Read raw markdown content of a wiki page",
@@ -1318,7 +1369,7 @@
     "/review/queue": {
       "get": {
         "summary": "List HITL review queue proposals",
-        "description": "F9 HITL Review Queue (ADR-0034 \u00a77). Returns paginated review_items for a vault, ordered created_at ASC. Each item is a PROPOSAL (missing-page|suggestion|contradiction|duplicate|confirm). limit: default 50, max 200 (I7 \u2014 bounded page size). offset: >=0. vault_id: required filter. page_title is a convenience join from pages.title for the page_id FK (UI display).",
+        "description": "F9 HITL Review Queue (ADR-0034 \u00a77; ADR-0044 \u00a76 status filter + contextual projection). Returns paginated review_items for a vault, ordered created_at ASC. Each item is a PROPOSAL (missing-page|suggestion|contradiction|duplicate|confirm). status filter (ADR-0044 \u00a76): pending (default) | resolved | dismissed | all. limit: default 50, max 200 (I7 \u2014 bounded page size). offset: >=0. vault_id: required filter. page_title is a convenience join from pages.title for the page_id FK (UI display). referenced_pages joins referenced_page_ids to [{id,title,type}] (stale ids filtered).",
         "operationId": "list_review_queue_review_queue_get",
         "parameters": [
           {
@@ -1331,6 +1382,18 @@
               "title": "Vault Id"
             },
             "description": "Vault scope (required)"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Status filter (ADR-0044 \u00a76): pending | resolved | dismissed | all",
+              "default": "pending",
+              "title": "Status"
+            },
+            "description": "Status filter (ADR-0044 \u00a76): pending | resolved | dismissed | all"
           },
           {
             "name": "limit",
@@ -1521,6 +1584,50 @@
         }
       }
     },
+    "/review/queue/{item_id}/dismiss": {
+      "post": {
+        "summary": "Dismiss a review proposal",
+        "description": "F9 HITL Review Queue \u2014 dismiss action (ADR-0044 \u00a76). Sets status=dismissed, resolution=dismissed, reviewed_at=now(). Terminal. Distinct from skip: 'hide this, I'm not acting' vs skip's 'considered and declined'. 404 if item_id is unknown.",
+        "operationId": "dismiss_review_item_review_queue__item_id__dismiss_post",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Item dismissed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewItemResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review item not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/review/queue/{item_id}/deep-research": {
       "post": {
         "summary": "Trigger deep research for a review proposal",
@@ -1593,6 +1700,83 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReviewSweepResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (missing vault_id)"
+          }
+        }
+      }
+    },
+    "/review/queue/bulk": {
+      "post": {
+        "summary": "Bulk status action on review proposals",
+        "description": "F9 HITL Review Queue \u2014 bounded bulk status write (ADR-0044 \u00a76, I7). action: skip | dismiss | mark-resolved. Only PENDING ids (scoped to vault_id) are mutated; already-terminal ids are counted in skipped_terminal and NEVER re-mutated. mark-resolved NEVER auto-resolves a `confirm` item (Do-NOT #6/#10 \u2014 it is counted as skipped_terminal). No provider call. len(ids) is capped at REVIEW_BULK_MAX_IDS (400 over cap \u2014 I7).",
+        "operationId": "bulk_review_queue_review_queue_bulk_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewBulkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Bulk action applied; {updated, skipped_terminal}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewBulkResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ids exceed REVIEW_BULK_MAX_IDS, or unknown action (I7)"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/queue/resolved": {
+      "delete": {
+        "summary": "Clear (hard-delete) terminal review proposals",
+        "description": "F9 HITL Review Queue \u2014 'Clear resolved' (ADR-0044 \u00a76, I7). Hard-deletes terminal rows (skipped/dismissed/created/auto_resolved/deep_researched) for the vault in ONE bounded vault-scoped statement. PENDING rows are NEVER touched. Idempotent. These rows are advisory metadata (not vault content); created_page_id points at a page that persists independently (ADR-0044 \u00a79.5). vault_id: required.",
+        "operationId": "clear_resolved_review_queue_review_queue_resolved_delete",
+        "parameters": [
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Vault scope (required)",
+              "title": "Vault Id"
+            },
+            "description": "Vault scope (required)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Terminal rows deleted; {deleted}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewClearResolvedResponse"
                 }
               }
             }
@@ -4283,6 +4467,48 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type",
+            "description": "Frontmatter 'type'; NULL if absent (K6)"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources",
+            "description": "Frontmatter 'sources[]'; NULL if absent (K6)"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags",
+            "description": "Frontmatter 'tags[]' navigation tags; NULL if absent (K6)"
           }
         },
         "type": "object",
@@ -4295,7 +4521,7 @@
           "updated_at"
         ],
         "title": "PageContentResponse",
-        "description": "Response for GET /pages/{id}/content (F1-content-read)."
+        "description": "Response for GET /pages/{id}/content (F1-content-read).\n\nAdditive extension (backward-compatible): page_type (serialised as \"type\"), sources, and\ntags are included so the reader can render a type badge, sources list, and navigation\ntags without a second call to GET /pages/{id}.  All three are nullable (NULL when absent\nfrom YAML frontmatter).  tags is the K6 navigation list (nashsu/llm_wiki parity), mirroring\nthe sources column."
       },
       "PageListResponse": {
         "properties": {
@@ -4678,6 +4904,123 @@
         "title": "ProviderConfigResponse",
         "description": "API response shape for a provider_config row (\u00a712: no api_key field)."
       },
+      "ReferencedPage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ReferencedPage",
+        "description": "Convenience join for a referenced_page_ids entry (ADR-0044 \u00a76.1)."
+      },
+      "RelatedPageItem": {
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Page Id",
+            "description": "UUID of the related page"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "YAML frontmatter title; NULL if absent"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type",
+            "description": "YAML frontmatter type; NULL if absent"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "4-signal edge weight (higher = more related)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page_id",
+          "score"
+        ],
+        "title": "RelatedPageItem",
+        "description": "One entry in the GET /pages/{id}/related response.\n\nscore is the stored 4-signal edge weight (ADR-0012):\n  3\u00b7direct_link_count + 4\u00b7shared_source_count + 1.5\u00b7adamic_adar + 1\u00b7same_type\nReuses the persisted edges table \u2014 no recompute (I1/I2)."
+      },
+      "RelatedPagesResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedPageItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total related pages found (before limit)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "RelatedPagesResponse",
+        "description": "Response for GET /pages/{id}/related.",
+        "example": {
+          "items": [
+            {
+              "page_id": "00000000-0000-0000-0000-000000000002",
+              "score": 11.5,
+              "title": "Beta Concept",
+              "type": "concept"
+            }
+          ],
+          "total": 1
+        }
+      },
       "ResearchRunDetail": {
         "properties": {
           "id": {
@@ -5013,6 +5356,80 @@
           "run_id": "00000000-0000-0000-0000-000000000001"
         }
       },
+      "ReviewBulkRequest": {
+        "properties": {
+          "vault_id": {
+            "type": "string",
+            "title": "Vault Id",
+            "description": "Vault scope (required)"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "description": "skip | dismiss | mark-resolved (ADR-0044 \u00a76)"
+          },
+          "ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Ids",
+            "description": "Review item ids to act on; capped at REVIEW_BULK_MAX_IDS (I7 \u2014 400 over)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vault_id",
+          "action",
+          "ids"
+        ],
+        "title": "ReviewBulkRequest",
+        "description": "Request body for POST /review/queue/bulk (ADR-0044 \u00a76).",
+        "example": {
+          "action": "dismiss",
+          "ids": [
+            "00000000-0000-0000-0000-000000000001"
+          ],
+          "vault_id": "default"
+        }
+      },
+      "ReviewBulkResponse": {
+        "properties": {
+          "updated": {
+            "type": "integer",
+            "title": "Updated",
+            "description": "Pending ids mutated to the new terminal status"
+          },
+          "skipped_terminal": {
+            "type": "integer",
+            "title": "Skipped Terminal",
+            "description": "Ids that were already terminal (or confirm under mark-resolved); never mutated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated",
+          "skipped_terminal"
+        ],
+        "title": "ReviewBulkResponse",
+        "description": "200 response for POST /review/queue/bulk (ADR-0044 \u00a76)."
+      },
+      "ReviewClearResolvedResponse": {
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted",
+            "description": "Terminal rows hard-deleted for the vault (pending untouched)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "ReviewClearResolvedResponse",
+        "description": "200 response for DELETE /review/queue/resolved (ADR-0044 \u00a76)."
+      },
       "ReviewDeepResearchResponse": {
         "properties": {
           "review_item_id": {
@@ -5057,7 +5474,7 @@
           "status": {
             "type": "string",
             "title": "Status",
-            "description": "pending | created | skipped | deep_researched | auto_resolved"
+            "description": "pending | created | skipped | dismissed | deep_researched | auto_resolved"
           },
           "proposed_title": {
             "anyOf": [
@@ -5168,7 +5585,7 @@
               }
             ],
             "title": "Resolution",
-            "description": "created|skipped|researched|rule_resolved|llm_resolved; null while pending"
+            "description": "created|skipped|dismissed|researched|rule_resolved|llm_resolved; null while pending"
           },
           "deep_research_run_id": {
             "anyOf": [
@@ -5182,6 +5599,63 @@
             ],
             "title": "Deep Research Run Id",
             "description": "FK \u2192 deep_research_runs.id; set when Deep-Research fires (AC-F10-5)"
+          },
+          "content_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Key",
+            "description": "Stable FNV-1a dedup handle (opaque to UI); NULL for confirm (ADR-0044 \u00a73.2)"
+          },
+          "referenced_page_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Referenced Page Ids",
+            "description": "Array of page-id strings this proposal is contextually about (ADR-0044 \u00a72)"
+          },
+          "referenced_pages": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ReferencedPage"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Referenced Pages",
+            "description": "Convenience join [{id,title,type}] for referenced_page_ids; stale ids filtered at render (ADR-0044 \u00a76.1/\u00a79.2) so the card renders [[title]] links without a round-trip"
+          },
+          "search_queries": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Queries",
+            "description": "\u22643 pre-generated search queries; search_queries[0] seeds Deep Research"
           },
           "created_at": {
             "type": "string",
@@ -5210,7 +5684,7 @@
           "created_at"
         ],
         "title": "ReviewItemResponse",
-        "description": "API response shape for one review_items row (ADR-0034 \u00a77.1).\n\nProjection carries the full proposal model: type, proposed_title, proposed_page_type,\nproposed_dir, rationale, and the three page FK fields (page_id/source_page_id/created_page_id).\npage_title is a convenience join from pages.title for the page_id FK (UI display).\nresolution records how the item was closed (null while pending)."
+        "description": "API response shape for one review_items row (ADR-0034 \u00a77.1; ADR-0044 \u00a76.1 additions).\n\nProjection carries the full proposal model: type, proposed_title, proposed_page_type,\nproposed_dir, rationale, and the three page FK fields (page_id/source_page_id/created_page_id).\npage_title is a convenience join from pages.title for the page_id FK (UI display).\nresolution records how the item was closed (null while pending).\n\nADR-0044 \u00a76.1 adds: content_key (opaque dedup handle), referenced_page_ids (array),\nreferenced_pages (convenience join, stale ids filtered), search_queries (Deep-Research seeds)."
       },
       "ReviewQueueResponse": {
         "properties": {
