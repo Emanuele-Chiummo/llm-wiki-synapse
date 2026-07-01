@@ -359,6 +359,21 @@ async def run_ingest_pipeline(
                 source_text=source_text,
                 origin_source=origin_source,
             )
+            # ── F3 delegated-route overview regen (nashsu/llm_wiki parity) ──────────────
+            # The CLI agent writes pages via MCP write_page but does NOT maintain overview.md.
+            # Drive the SAME bounded, degrade-safe overview seam once after its run so the single
+            # auto-maintained Overview note is regenerated + indexed on BOTH routes (no
+            # provider_type branch — I6). Fire-and-forget: NEVER raises into ingest (I7). Analysis
+            # is None on the
+            # delegated route (the agent owns its own analysis); the seam degrades to titles-only.
+            try:
+                await _update_overview(None, origin_source)
+            except Exception as _ov_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: F3 delegated overview regen hook failed "
+                    "(non-fatal): %s",
+                    _ov_exc,
+                )
             # ── F9 delegated-route proposals (ADR-0044 §4.2, closes ADR-0034 §9 risk 1) ─
             # Load the pages the CLI agent wrote through MCP write_page, synthesize a minimal
             # Analysis, and drive the SAME bounded propose_reviews seam (≤1 provider call, same
@@ -1064,23 +1079,322 @@ def _ensure_source_summary(
     return [WikiPage(title=title, type=PageType.SOURCE, content=summary, frontmatter=fm)]
 
 
+OVERVIEW_REL_PATH = "wiki/overview.md"
+
+
 async def _update_overview(analysis: Analysis | None, origin_source: str) -> None:
     """
-    Append a one-line entry for this source to vault/wiki/overview.md (F3 auto-overview).
+    REGENERATE the single auto-maintained overview.md note (F3, nashsu/llm_wiki parity).
 
-    Keeps overview.md a valid Obsidian page (I5). Append-only-ish: a marker line is added per
-    ingested source; full regeneration is a v0.3+ concern.
+    Mirrors llm_wiki: overview.md is a SINGLE note, fully OVERWRITTEN on each ingest with a
+    concise narrative of the wiki's current themes/context — NOT an append-only marker log.
+
+    Pipeline (bounded, degrade-safe):
+      1. Build a compact context prompt from purpose.md (if present), a bounded set of existing
+         page titles+types (indexed read — I1, no vault re-scan), and the just-ingested analysis.
+      2. Make AT MOST ONE InferenceProvider call resolved via resolve_provider_config("ingest")
+         (I6 — never a hardcoded backend), wrapped in wait_for(overview_timeout_seconds) and
+         bounded by the resolved row's token_budget / overview_token_budget (I7). Cost logged.
+      3. OVERWRITE vault/wiki/overview.md with valid Obsidian frontmatter (type: overview,
+         title: <overview_title>) + the narrative body (I5).
+      4. Index overview.md as a Page(type="overview") via the shared persist primitives so it
+         surfaces in GET /pages and populates the nav "Overview" section (count 1).
+
+    Fire-and-forget / degrade-safe (I7): if the provider is unavailable or the call fails/times
+    out, the previous overview.md is KEPT (log a warning) and ingest still succeeds. This function
+    NEVER raises into the ingest critical path — callers already treat it as best-effort.
+
+    The (analysis, origin_source) signature is preserved so existing call sites / tests are
+    unchanged; origin_source is used only for logging context here.
+    """
+    try:
+        # ── Resolve provider (I6 — never hardcode; "no provider" → keep previous) ───
+        resolved = await _resolve_overview_provider()
+        if resolved is None:
+            logger.debug(
+                "_update_overview: no ingest provider resolved — keeping previous overview.md "
+                "(I6: no silent default). origin=%s",
+                origin_source,
+            )
+            # Still ensure a Page row exists for an already-present overview.md so the nav
+            # Overview section can populate even before the first provider-backed regen.
+            await _index_existing_overview_if_present()
+            return
+        provider, config_row = resolved
+
+        # ── Build bounded context (purpose.md + existing titles + analysis) — I1 ────
+        existing = await _load_overview_page_digest()
+        instruction = _build_overview_instruction(analysis=analysis, existing_digest=existing)
+
+        token_budget = int(
+            getattr(config_row, "token_budget", None)
+            or getattr(settings, "overview_token_budget", 3_000)
+        )
+        timeout_s = float(getattr(settings, "overview_timeout_seconds", 30.0))
+
+        # ── Bind a run-scoped Usage ledger (I7 — cost logged out of band) ──────────
+        accumulator = UsageAccumulator()
+        provider.bind_accumulator(accumulator)
+
+        # ── ONE bounded call, no loop, no retry (I7) ───────────────────────────────
+        try:
+            narrative = await asyncio.wait_for(
+                _overview_chat_collect(provider, instruction, token_budget),
+                timeout=timeout_s,
+            )
+        except TimeoutError:
+            logger.warning(
+                "_update_overview: provider call timed out after %.1fs — keeping previous "
+                "overview.md (degrade, never fail ingest). origin=%s",
+                timeout_s,
+                origin_source,
+            )
+            await _index_existing_overview_if_present()
+            return
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_update_overview: provider call failed (%s) — keeping previous overview.md. "
+                "origin=%s",
+                exc,
+                origin_source,
+            )
+            await _index_existing_overview_if_present()
+            return
+        finally:
+            logger.info(
+                "overview regen provider call: tokens=%d cost_usd=%.4f calls=%d origin=%s",
+                accumulator.total_tokens,
+                round(accumulator.total_cost_usd, 4),
+                accumulator.calls,
+                origin_source,
+            )
+
+        narrative = (narrative or "").strip()
+        if not narrative:
+            logger.warning(
+                "_update_overview: provider returned empty narrative — keeping previous "
+                "overview.md. origin=%s",
+                origin_source,
+            )
+            await _index_existing_overview_if_present()
+            return
+
+        # ── OVERWRITE overview.md with valid frontmatter (I5) + index it ────────────
+        await _write_and_index_overview(narrative)
+    except Exception as exc:  # noqa: BLE001
+        # Belt-and-braces: never let overview maintenance fail an ingest (I7).
+        logger.warning(
+            "_update_overview: unexpected failure (%s) — keeping previous overview.md. origin=%s",
+            exc,
+            origin_source,
+        )
+
+
+async def _resolve_overview_provider() -> tuple[InferenceProvider, object] | None:
+    """
+    Resolve the InferenceProvider for operation='ingest' (I6) for the overview regen call.
+
+    Returns (provider, config_row) or None when no provider_config resolves / DB unavailable.
+    NEVER hardcodes a backend; NEVER branches on isinstance/type/class-name (I6). Mirrors
+    ops/review.py::_resolve_review_provider and _resolve_ingest_provider_config.
+    """
+    from app.provider_config_service import ConfigNotFoundError, resolve_provider_config
+
+    try:
+        config_row = await resolve_provider_config("ingest")
+    except ConfigNotFoundError:
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("_resolve_overview_provider: provider resolution unavailable: %s", exc)
+        return None
+
+    try:
+        provider = resolve_provider(config_row)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_resolve_overview_provider: provider build failed: %s", exc)
+        return None
+    return provider, config_row
+
+
+async def _load_overview_page_digest() -> str:
+    """
+    Compact digest of existing wiki page titles+types (bounded indexed read — I1, no re-scan).
+
+    Excludes the reserved catalogue types (overview/index) so the overview never summarizes
+    itself. Capped at overview_max_titles. Returns a newline list "- <title> [<type>]".
+    """
+    from sqlalchemy import select
+
+    max_titles = int(getattr(settings, "overview_max_titles", 200))
+    lines: list[str] = []
+    try:
+        async with get_session() as session:
+            rows = list(
+                (
+                    await session.execute(
+                        select(Page.title, Page.page_type)
+                        .where(
+                            Page.vault_id == settings.vault_id,
+                            Page.deleted_at.is_(None),
+                            Page.title.isnot(None),
+                            Page.page_type.notin_(["overview", "index"]),
+                        )
+                        .order_by(Page.updated_at.desc())
+                        .limit(max_titles)
+                    )
+                ).all()
+            )
+        for title, ptype in rows:
+            t = (title or "").strip()
+            if not t:
+                continue
+            lines.append(f"- {t} [{(ptype or '?').strip() or '?'}]")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("_load_overview_page_digest: title read failed (non-fatal): %s", exc)
+    return "\n".join(lines) if lines else "(no pages yet)"
+
+
+def _build_overview_instruction(*, analysis: Analysis | None, existing_digest: str) -> str:
+    """
+    Build the single overview-regeneration prompt (F3). Inputs: purpose.md (F2, if present),
+    the existing page titles+types digest, and the just-ingested analysis. Asks for a concise
+    narrative body ONLY (no frontmatter, no title heading — the writer adds valid frontmatter).
+    """
+    purpose_parts: list[str] = []
+    for name in ("purpose.md",):
+        path = settings.vault_root / name
+        if path.exists():
+            try:
+                purpose_parts.append(path.read_text(encoding="utf-8").strip())
+            except OSError:
+                pass
+    purpose_block = "\n\n".join(purpose_parts).strip() or "(no purpose.md)"
+
+    analysis_block = "(none)"
+    if analysis is not None:
+        topics = ", ".join(analysis.topics[:12]) if analysis.topics else "(none)"
+        entities = ", ".join(analysis.entities[:12]) if analysis.entities else "(none)"
+        summary = (analysis.summary or "").strip() or "(none)"
+        analysis_block = f"topics: {topics}\nentities: {entities}\nsummary: {summary}"
+
+    return (
+        "You maintain the single OVERVIEW note of a self-organizing wiki. Regenerate it now to "
+        "capture the CURRENT big picture of the whole wiki: its main themes, how the pages relate, "
+        "and the key context a reader needs before diving in.\n\n"
+        "Write a concise narrative (a few short paragraphs, and optionally a short bulleted list "
+        "of the main themes). Reference existing pages with [[wikilinks]] where natural. Do NOT "
+        "output YAML frontmatter, a top-level title heading, or any preamble like 'Here is' — "
+        "output ONLY the narrative body in Markdown.\n\n"
+        f"# Wiki purpose\n{purpose_block}\n\n"
+        f"# Existing pages (title [type])\n{existing_digest}\n\n"
+        f"# Most recent ingest analysis\n{analysis_block}\n"
+    )
+
+
+async def _overview_chat_collect(
+    provider: InferenceProvider, instruction: str, token_budget: int
+) -> str:
+    """
+    Run ONE capability-agnostic provider.chat() turn and collect the full text (I6/I7).
+
+    Rides the existing chat() seam (backend-neutral — no isinstance/type branch). Usage is
+    recorded out of band onto the bound accumulator by the provider. token_budget is surfaced in
+    the prompt only for provider hints; the hard bounds are the single call + wait_for timeout.
+    """
+    from app.ingest.schemas import Message
+
+    chunks: list[str] = []
+    async for chunk in await provider.chat(
+        messages=[Message(role="user", content=instruction)],
+        retrieval_context="",
+    ):
+        chunks.append(chunk)
+    return "".join(chunks).strip()
+
+
+async def _write_and_index_overview(narrative: str) -> None:
+    """
+    OVERWRITE vault/wiki/overview.md with valid frontmatter (I5) + index it as a Page (I1).
+
+    Frontmatter: type: overview, title: <overview_title>. The file is rebuilt from scratch (full
+    overwrite — F3 regeneration). Then a Page row is upserted via persist_metadata (key by
+    (vault_id, file_path), hash over the exact file bytes) and embedded via upsert_vector so
+    GET /pages returns it and the nav Overview section shows count 1.
+    """
+    title = str(getattr(settings, "overview_title", "Overview")) or "Overview"
+    post = frontmatter.Post(narrative, type="overview", title=title)
+    serialized = frontmatter.dumps(post)
+    file_text = serialized + "\n"
+
+    overview_path = settings.wiki_dir / "overview.md"
+    overview_path.parent.mkdir(parents=True, exist_ok=True)
+    overview_path.write_text(file_text, encoding="utf-8")
+
+    await _index_overview_file(file_text, title)
+    logger.info("_update_overview: regenerated + indexed overview.md (title=%r)", title)
+
+
+async def _index_overview_file(file_text: str, title: str) -> None:
+    """
+    Upsert the Page row for wiki/overview.md (type="overview") from the given file bytes (I1).
+
+    Reuses the existing live row's id when present (upsert by (vault_id, file_path)); content_hash
+    hashes the EXACT file bytes (matches GET /pages/{id}/content recompute). Embeds the body via
+    upsert_vector. Does NOT touch index.md / log.md (those stay disk-only by design).
+    """
+    from sqlalchemy import select
+
+    async with get_session() as _id_sess:
+        existing = (
+            await _id_sess.execute(
+                select(Page).where(
+                    Page.vault_id == settings.vault_id,
+                    Page.file_path == OVERVIEW_REL_PATH,
+                    Page.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+    page_id = existing.id if existing is not None else uuid.uuid4()
+
+    file_bytes = file_text.encode("utf-8")
+    await persist_metadata(
+        page_id=page_id,
+        vault_id=settings.vault_id,
+        file_path=OVERVIEW_REL_PATH,
+        title=title,
+        page_type="overview",
+        sources=None,
+        tags=None,
+        content_hash=_sha256(file_bytes),
+        source_mtime_ns=0,
+    )
+    # Embed the narrative body (frontmatter excluded) for retrieval parity with wiki pages.
+    body_for_embedding = _strip_leading_frontmatter(file_text)
+    await upsert_vector(
+        page_id=page_id,
+        text=body_for_embedding,
+        file_path=OVERVIEW_REL_PATH,
+        title=title,
+        page_type="overview",
+    )
+
+
+async def _index_existing_overview_if_present() -> None:
+    """
+    If overview.md already exists on disk but is not yet indexed as a Page, index it (degrade
+    path). Ensures the nav Overview section can populate from a previously-regenerated file even
+    when the current run's provider call is unavailable/failed. Best-effort — never raises.
     """
     overview_path = settings.wiki_dir / "overview.md"
     if not overview_path.exists():
-        overview_path.parent.mkdir(parents=True, exist_ok=True)
-        overview_path.write_text(
-            "---\ntype: overview\ntitle: Synapse Overview\n---\n\n", encoding="utf-8"
-        )
-    summary = analysis.summary if analysis and analysis.summary else origin_source
-    line = f"- [[{Path(origin_source).stem}]] — {summary}\n"
-    with overview_path.open("a", encoding="utf-8") as f:
-        f.write(line)
+        return
+    try:
+        file_text = overview_path.read_text(encoding="utf-8")
+        meta = frontmatter.loads(file_text).metadata
+        title = str(meta.get("title") or getattr(settings, "overview_title", "Overview"))
+        await _index_overview_file(file_text, title)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("_index_existing_overview_if_present: skipped (non-fatal): %s", exc)
 
 
 def _derive_run_status(*, converged: bool, error_message: str | None) -> str:
