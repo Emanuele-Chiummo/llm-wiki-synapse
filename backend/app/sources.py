@@ -26,7 +26,6 @@ import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, Response
@@ -255,15 +254,22 @@ class SourceDeleteResponse(BaseModel):
 
 async def _get_derived_pages(rel_path: str) -> list[SourceDerivedPage]:
     """
-    Query pages whose sources[] JSONB list contains rel_path (non-deleted).
+    Query pages whose sources[] JSONB list references this source file (non-deleted).
 
-    Uses Python-side list filter for SQLite compat in tests; Postgres JSONB @> is
-    used in production via the same SQLAlchemy call but with a fallback iteration.
+    `rel_path` is relative to raw/sources/ (e.g. "chat-x.md"), but write_wiki_page stamps the
+    VAULT-relative origin path ("raw/sources/chat-x.md") into sources[]. Match against a set of
+    candidate forms — full vault-relative path, the bare rel_path, and the basename — so the
+    linkage works regardless of which form a page recorded (K6/F13 traceability).
+
+    Uses Python-side list filter for SQLite compat in tests; Postgres JSONB comes back as a list.
     """
     from sqlalchemy import select
 
     from app.db import get_session
     from app.models import Page
+
+    # Candidate strings a page's sources[] might use to reference this file.
+    candidates = {rel_path, f"raw/sources/{rel_path}", rel_path.rsplit("/", 1)[-1]}
 
     async with get_session() as session:
         rows = await session.execute(
@@ -281,11 +287,11 @@ async def _get_derived_pages(rel_path: str) -> list[SourceDerivedPage]:
 
                 try:
                     sources = _json.loads(sources)
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001, S112 — skip a row with malformed sources JSON
                     continue
             if not isinstance(sources, list):
                 continue
-            if rel_path in sources:
+            if candidates.intersection(sources):
                 results.append(
                     SourceDerivedPage(
                         id=str(page_id),
@@ -428,7 +434,7 @@ async def source_content(
     try:
         abs_path = resolve_under_sources(path)
     except HTTPException:
-        raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")
+        raise HTTPException(status_code=404, detail=f"Source not found: {path!r}") from None
 
     if not abs_path.exists() or not abs_path.is_file():
         raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")
@@ -531,7 +537,7 @@ async def source_raw(
     try:
         abs_path = resolve_under_sources(path)
     except HTTPException:
-        raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")
+        raise HTTPException(status_code=404, detail=f"Source not found: {path!r}") from None
 
     if not abs_path.exists() or not abs_path.is_file():
         raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")
@@ -586,7 +592,7 @@ async def source_derived_pages(
     try:
         abs_path = resolve_under_sources(path)
     except HTTPException:
-        raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")
+        raise HTTPException(status_code=404, detail=f"Source not found: {path!r}") from None
 
     if not abs_path.exists() or not abs_path.is_file():
         raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")
@@ -633,7 +639,7 @@ async def delete_source(
     try:
         abs_path = resolve_under_sources(path)
     except HTTPException:
-        raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")
+        raise HTTPException(status_code=404, detail=f"Source not found: {path!r}") from None
 
     if not abs_path.exists() or not abs_path.is_file():
         raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")

@@ -831,7 +831,11 @@ async def _delegate_ingest(
     try:
         from app.mcp.server import build_sdk_mcp_server
 
-        _mcp_server = build_sdk_mcp_server()
+        # Pass origin_source so the SDK write_page tool stamps it into sources[] for every
+        # page written during this delegated run — server-side traceability (K6/F3/F13).
+        # The bound value wins over whatever the CLI agent passes in the tool call, so the
+        # raw file path is never lost regardless of agent behaviour (Option B, ADR-0010 §2).
+        _mcp_server = build_sdk_mcp_server(origin_source=origin_source)
     except Exception as _mcp_exc:  # noqa: BLE001
         logger.warning("MCP server unavailable; delegate_ingest will run without it: %s", _mcp_exc)
 
@@ -1430,20 +1434,26 @@ async def _detect_vault_language() -> str | None:
     to English). Used for the DELEGATED ingest route where no per-source Analysis (hence no
     detected language) is available.
 
-    Reads a BOUNDED sample of wiki/*.md files (excluding meta: overview/index/log) and returns
-    the modal `lang`. Returns None when the vault is empty or no lang is found — the caller then
-    falls back to the "match purpose + existing pages" directive. Pure filesystem read (I1: no
-    index mutation); bounded to _LANG_DETECT_SAMPLE files (I7).
+    I1 — NO directory walk: the file set comes from a BOUNDED DB query over the pages table
+    (most-recently-updated non-meta pages); only those specific files are read for their `lang`
+    frontmatter. Returns the modal `lang`, or None when undetectable — the caller then falls back
+    to the "match purpose + existing pages" directive. Bounded to _LANG_DETECT_SAMPLE (I7).
     """
-    wiki_dir = settings.vault_root / "wiki"
-    if not wiki_dir.exists():
-        return None
+    from sqlalchemy import select
+
+    async with get_session() as session:
+        rows = await session.execute(
+            select(Page.file_path)
+            .where(Page.deleted_at.is_(None))
+            .where(Page.page_type.not_in(["index", "log", "overview"]))
+            .order_by(Page.updated_at.desc())
+            .limit(_LANG_DETECT_SAMPLE)
+        )
+        file_paths = [fp for (fp,) in rows.all() if fp]
+
     counts: dict[str, int] = {}
-    seen = 0
-    for path in sorted(wiki_dir.rglob("*.md")):
-        name = path.stem.lower()
-        if name in ("overview", "index", "log"):
-            continue
+    for rel in file_paths:
+        path = settings.vault_root / rel
         try:
             post = frontmatter.loads(path.read_text(encoding="utf-8"))
         except Exception:  # noqa: BLE001, S112 — tolerant: skip unreadable/malformed files
@@ -1451,9 +1461,6 @@ async def _detect_vault_language() -> str | None:
         lang = post.metadata.get("lang")
         if isinstance(lang, str) and len(lang) >= 2:
             counts[lang.lower()] = counts.get(lang.lower(), 0) + 1
-        seen += 1
-        if seen >= _LANG_DETECT_SAMPLE:
-            break
     if not counts:
         return None
     return max(counts, key=lambda k: counts[k])
