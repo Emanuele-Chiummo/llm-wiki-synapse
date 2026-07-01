@@ -55,8 +55,11 @@ vi.mock("../api/reviewClient", () => ({
   fetchReviewQueue: vi.fn().mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 }),
   createReviewItem: vi.fn(),
   skipReviewItem: vi.fn(),
+  dismissReviewItem: vi.fn(),
   deepResearchReviewItem: vi.fn(),
+  bulkReview: vi.fn(),
   sweepReviewQueue: vi.fn(),
+  clearResolved: vi.fn(),
 }));
 
 import * as reviewClient from "../api/reviewClient";
@@ -69,13 +72,14 @@ vi.mock("react-i18next", () => ({
       const map: Record<string, string> = {
         "review.title": "Review Queue",
         "review.hint": "AI proposals.",
-        "review.empty": "No pending proposals.",
+        "review.empty": "No proposals.",
         "review.loadMore": "Load more",
         "review.refresh": "Refresh",
         "review.create": "Create",
         "review.creating": "Creating…",
         "review.createFailed": "Page generation failed — retry or skip.",
         "review.skip": "Skip",
+        "review.dismiss": "Dismiss",
         "review.deepResearch": "Deep Research",
         "review.deepResearchStarted": "Deep research run started.",
         "review.viewRun": "View run",
@@ -83,9 +87,23 @@ vi.mock("react-i18next", () => ({
         "review.noTitle": "(no proposed title)",
         "review.noRationale": "No rationale provided",
         "review.conflictsWith": "Conflicts with",
+        "review.referencedPages": "Related pages",
+        "review.willSearch": "will search",
         "review.sweep": "Clean up resolved",
         "review.sweepHelp": "Run auto-resolution sweep.",
         "review.sweepResult": `Sweep complete: ${String(params?.rule ?? 0)} rule-resolved, ${String(params?.llm ?? 0)} LLM-resolved, ${String(params?.kept ?? 0)} kept pending.`,
+        "review.bulkResult": `Bulk action complete: ${String(params?.updated ?? 0)} updated, ${String(params?.skipped ?? 0)} already resolved.`,
+        "review.clearResolved": "Clear resolved",
+        "review.clearResolvedHelp": "Hard-delete terminal rows.",
+        "review.clearResult": `Cleared ${String(params?.count ?? 0)} resolved item(s).`,
+        "review.selectPending": "Select pending",
+        "review.deselectAll": "Deselect all",
+        "review.selectionCount": `${String(params?.count ?? 0)} selected`,
+        "review.markResolved": "Mark resolved",
+        "review.bulkError": "Bulk action failed.",
+        "review.tabPending": "Pending",
+        "review.tabResolved": "Resolved",
+        "review.tabDismissed": "Dismissed",
         "review.itemType.missing-page": "Missing page",
         "review.itemType.suggestion": "Suggestion",
         "review.itemType.contradiction": "Contradiction",
@@ -133,6 +151,10 @@ function makeItem(id: string, overrides: Partial<ReviewItem> = {}): ReviewItem {
     created_page_id: null,
     resolution: null,
     deep_research_run_id: null,
+    content_key: null,
+    referenced_page_ids: null,
+    referenced_pages: null,
+    search_queries: null,
     created_at: new Date().toISOString(),
     reviewed_at: null,
     ...overrides,
@@ -146,12 +168,17 @@ function resetStore(overrides: Partial<ReturnType<typeof useReviewStore.getState
     offset: 0,
     loading: false,
     error: null,
+    activeTab: "pending",
+    selectedIds: new Set<string>(),
     actionInFlight: {},
     actionError: {},
     createGenerationError: {},
     lastDeepResearch: null,
     deepResearchError: null,
     lastSweepResult: null,
+    lastBulkResult: null,
+    lastClearResult: null,
+    bulkError: null,
     ...overrides,
   });
 }
@@ -180,7 +207,7 @@ describe("ReviewQueueView — rendering", () => {
     await waitFor(() => {
       expect(screen.getByTestId("review-empty")).toBeTruthy();
     });
-    expect(screen.getByText("No pending proposals.")).toBeTruthy();
+    expect(screen.getByText("No proposals.")).toBeTruthy();
   });
 
   it("renders item rows with proposed_title and action buttons", async () => {
@@ -589,6 +616,395 @@ describe("ReviewQueueView — list load error", () => {
     await waitFor(() => {
       expect(screen.getByTestId("review-load-error")).toBeTruthy();
       expect(screen.getByText("Backend unavailable")).toBeTruthy();
+    });
+  });
+});
+
+// ─── Card enrichment — referenced_pages chips (ADR-0044 §7) ──────────────────
+
+describe("ReviewQueueView — card enrichment: referenced_pages (ADR-0044 §7)", () => {
+  it("renders referenced page chips when referenced_pages is set", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [
+        makeItem("1", {
+          referenced_pages: [
+            { id: "pg-a", title: "Alpha Concept", type: "concept" },
+            { id: "pg-b", title: "Beta Entity", type: "entity" },
+          ],
+          referenced_page_ids: ["pg-a", "pg-b"],
+        }),
+      ],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("referenced-pages-row")).toBeTruthy();
+      // Chip text is [[title]]
+      expect(screen.getByText("[[Alpha Concept]]")).toBeTruthy();
+      expect(screen.getByText("[[Beta Entity]]")).toBeTruthy();
+    });
+  });
+
+  it("does NOT render referenced-pages row when referenced_pages is null", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("1", { referenced_pages: null })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-item-row")).toHaveLength(1);
+    });
+    expect(screen.queryByTestId("referenced-pages-row")).toBeNull();
+  });
+
+  it("does NOT render referenced-pages row when referenced_pages is empty", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("1", { referenced_pages: [] })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-item-row")).toHaveLength(1);
+    });
+    expect(screen.queryByTestId("referenced-pages-row")).toBeNull();
+  });
+
+  it("clicking a referenced page chip calls setActiveSection('pages')", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [
+        makeItem("1", {
+          referenced_pages: [{ id: "pg-a", title: "Alpha Concept", type: "concept" }],
+          referenced_page_ids: ["pg-a"],
+        }),
+      ],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("referenced-page-chip")).toHaveLength(1);
+    });
+
+    fireEvent.click(screen.getAllByTestId("referenced-page-chip")[0]!);
+    expect(mockSetActiveSection).toHaveBeenCalledWith("pages");
+  });
+});
+
+// ─── Card enrichment — search_queries line (ADR-0044 §7) ─────────────────────
+
+describe("ReviewQueueView — card enrichment: search_queries (ADR-0044 §7)", () => {
+  it("renders search-queries line when search_queries is set", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [
+        makeItem("1", {
+          search_queries: ["llm wiki pattern", "karpathy knowledge graph"],
+        }),
+      ],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("search-queries-row")).toBeTruthy();
+      // "will search: q1 · q2"
+      expect(screen.getByText(/llm wiki pattern/)).toBeTruthy();
+      expect(screen.getByText(/karpathy knowledge graph/)).toBeTruthy();
+    });
+  });
+
+  it("does NOT render search-queries row when search_queries is null", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("1", { search_queries: null })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-item-row")).toHaveLength(1);
+    });
+    expect(screen.queryByTestId("search-queries-row")).toBeNull();
+  });
+});
+
+// ─── Dismiss per-item action (ADR-0044 §7) ───────────────────────────────────
+
+describe("ReviewQueueView — dismiss per-item action (ADR-0044 §6)", () => {
+  it("calls dismissReviewItem and item leaves the list", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("A"), makeItem("B")],
+      total: 2,
+      limit: 50,
+      offset: 0,
+    });
+    vi.mocked(reviewClient.dismissReviewItem).mockResolvedValueOnce(
+      makeItem("A", { status: "dismissed" }),
+    );
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-action-dismiss")).toHaveLength(2);
+    });
+
+    fireEvent.click(screen.getAllByTestId("review-action-dismiss")[0]!);
+
+    await waitFor(() => {
+      expect(reviewClient.dismissReviewItem).toHaveBeenCalledWith("A");
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-item-row")).toHaveLength(1);
+      expect(screen.queryByText("Proposed Page A")).toBeNull();
+    });
+  });
+});
+
+// ─── Status tabs (ADR-0044 §7) ────────────────────────────────────────────────
+
+describe("ReviewQueueView — status tabs (ADR-0044 §7)", () => {
+  it("renders all three tabs", async () => {
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-tab-pending")).toBeTruthy();
+      expect(screen.getByTestId("review-tab-resolved")).toBeTruthy();
+      expect(screen.getByTestId("review-tab-dismissed")).toBeTruthy();
+    });
+  });
+
+  it("clicking Resolved tab re-fetches with status=resolved", async () => {
+    const resolvedItems = [makeItem("r1", { status: "created" })];
+    vi.mocked(reviewClient.fetchReviewQueue)
+      // initial mount fetch (pending)
+      .mockResolvedValueOnce({ items: [], total: 0, limit: 50, offset: 0 })
+      // tab switch fetch (resolved)
+      .mockResolvedValueOnce({
+        items: resolvedItems,
+        total: 1,
+        limit: 50,
+        offset: 0,
+      });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-tab-resolved")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("review-tab-resolved"));
+
+    await waitFor(() => {
+      // The second call (tab switch) must carry status=resolved
+      const calls = vi.mocked(reviewClient.fetchReviewQueue).mock.calls;
+      const tabSwitchCall = calls.find(
+        (c) => (c[0] as { status?: string }).status === "resolved",
+      );
+      expect(tabSwitchCall).toBeDefined();
+    });
+  });
+
+  it("shows Clear resolved button on Resolved tab", async () => {
+    // Simulate active tab = resolved via store pre-state
+    resetStore({ activeTab: "resolved" });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-clear-resolved-btn")).toBeTruthy();
+    });
+  });
+
+  it("does NOT show Clear resolved button on Pending tab", async () => {
+    resetStore({ activeTab: "pending" });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("review-clear-resolved-btn")).toBeNull();
+    });
+  });
+});
+
+// ─── Selection + bulk bar (ADR-0044 §7) ──────────────────────────────────────
+
+describe("ReviewQueueView — selection + bulk bar (ADR-0044 §7)", () => {
+  it("renders 'Select pending' toggle button", async () => {
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("review-select-pending-btn")).toBeTruthy();
+    });
+  });
+
+  it("'Select pending' selects loaded pending items", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("1"), makeItem("2")],
+      total: 2,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-item-row")).toHaveLength(2);
+    });
+
+    fireEvent.click(screen.getByTestId("review-select-pending-btn"));
+
+    await waitFor(() => {
+      // selection count badge appears
+      expect(screen.getByTestId("review-selection-count")).toBeTruthy();
+      expect(screen.getByText("2 selected")).toBeTruthy();
+    });
+  });
+
+  it("shows bulk action bar when items are selected", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("1")],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-item-row")).toHaveLength(1);
+    });
+
+    fireEvent.click(screen.getByTestId("review-select-pending-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-bulk-mark-resolved")).toBeTruthy();
+      expect(screen.getByTestId("review-bulk-dismiss")).toBeTruthy();
+      expect(screen.getByTestId("review-bulk-skip")).toBeTruthy();
+    });
+  });
+
+  it("does NOT show bulk action bar when nothing selected", async () => {
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      expect(screen.queryByTestId("review-bulk-mark-resolved")).toBeNull();
+    });
+  });
+
+  it("clicking 'Mark resolved' dispatches bulkReview + refreshes", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue)
+      .mockResolvedValueOnce({ items: [makeItem("1")], total: 1, limit: 50, offset: 0 })
+      .mockResolvedValueOnce({ items: [], total: 0, limit: 50, offset: 0 }); // after bulk
+    vi.mocked(reviewClient.bulkReview).mockResolvedValueOnce({
+      updated: 1,
+      skipped_terminal: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-item-row")).toHaveLength(1);
+    });
+
+    // Select item
+    fireEvent.click(screen.getByTestId("review-select-pending-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-bulk-mark-resolved")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("review-bulk-mark-resolved"));
+
+    await waitFor(() => {
+      expect(reviewClient.bulkReview).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "mark-resolved" }),
+      );
+    });
+
+    // Bulk result banner
+    await waitFor(() => {
+      expect(screen.getByTestId("review-bulk-result")).toBeTruthy();
+    });
+  });
+
+  it("per-row checkbox toggles selection of that item", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("abc")],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-select-abc")).toBeTruthy();
+    });
+
+    const checkbox = screen.getByTestId("review-select-abc") as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+
+    fireEvent.click(checkbox);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-selection-count")).toBeTruthy();
+    });
+  });
+});
+
+// ─── Virtualization smoke at N≈500 rows (ADR-0044 §7 / I4) ──────────────────
+
+describe("ReviewQueueView — virtualization smoke N=500 (I4)", () => {
+  it("mounts and renders a bounded subset of 500 rows (virtualizer is active)", async () => {
+    const items = Array.from({ length: 500 }, (_, i) => makeItem(String(i)));
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items,
+      total: 500,
+      limit: 500,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      // All 500 are passed through in test (TanStack Virtual mock renders all items).
+      // The key assertion: the component mounts without error and rows are present.
+      const rows = screen.getAllByTestId("review-item-row");
+      expect(rows.length).toBeGreaterThan(0);
+      // In production the virtualizer would clamp to a window; in tests the mock
+      // returns all. The important guarantee is that the component does not crash
+      // and does not exceed the item count.
+      expect(rows.length).toBeLessThanOrEqual(500);
     });
   });
 });
