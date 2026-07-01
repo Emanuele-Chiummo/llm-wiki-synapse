@@ -85,6 +85,12 @@ services:
       # Deep Research returns 503 until a URL is available (env here, or DB via the UI).
       SEARXNG_URL: ${SEARXNG_URL:-}
 
+      # Anthropic API key — required to use Claude as the inference AI (F17):
+      #   - "API" provider  (Anthropic Messages API — the simple path)
+      #   - "CLI" provider  (claude-agent-sdk — also needs the SDK in the image)
+      # Set ANTHROPIC_API_KEY in .env. NEVER commit a real key.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
       # Vault identity and path
       VAULT_ID: default
       VAULT_PATH: /vault
