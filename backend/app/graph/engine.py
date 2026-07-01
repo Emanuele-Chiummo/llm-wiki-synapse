@@ -1,16 +1,16 @@
 """
-GraphEngine — 4-signal edge-weight computation + seeded FR layout (F4, I2).
+GraphEngine — 4-signal edge-weight computation + ForceAtlas2 layout (F4, I2).
 
 Public API:
   GraphEngine.recompute(vault_id, session?) → GraphSnapshot
 
 Invariant compliance:
-  I2 — FR layout runs ONLY here, server-side, via python-igraph (R9, I9).
-       Coordinates are persisted in pages.x/y (ADR-0013, AQ-6).
+  I2 — ForceAtlas2 layout runs ONLY here, server-side, via fa2_modified + python-igraph.
+       Coordinates are persisted in pages.x/y (ADR-0013, ADR-0045, AQ-6).
        Never called from any frontend path.
   I1 — Reads only pages + links tables; never walks vault/ filesystem.
   I7 — Single bounded pass; logs node/edge count + wall-clock duration.
-  I9 — python-igraph for both Adamic-Adar and force-directed layout (R9).
+  I9 — python-igraph for Adamic-Adar; fa2_modified for ForceAtlas2 layout (R9).
 
 Edge INCLUSION rule (ADR-0016 — supersedes ADR-0012 §3):
   An edge (A,B) EXISTS iff:
@@ -32,18 +32,22 @@ Node size (ADR-0016 §2):
   size = BASE + GROWTH·sqrt(structural_degree)   BASE=1.0, GROWTH=2.5
   structural_degree = count of distinct incident structural edges.
 
-FR determinism (ADR-0013):
-  Fixed seed = 42 (GRAPH_LAYOUT_SEED env override).
-  Identical topology+weights → identical coordinates.
-
-Layout post-processing (Feature B — circular envelope):
-  After FR: center → polar → compress radii against p95 with exponent 0.7 → cartesian.
-  Applied BEFORE pinned-node restoration so pinned coords are untouched.
-  Deterministic (uses only the FR output, no extra RNG).
+ForceAtlas2 layout (ADR-0045 — supersedes FR in ADR-0013 §1/§2):
+  Algorithm: fa2_modified.ForceAtlas2 with gravity=1.0, strongGravityMode=True,
+    scalingRatio=2.0 (3.0 when n>400), barnesHutOptimize=(n>50), verbose=False.
+  Iterations taper by node count (see FA2_ITERS_* constants below).
+  Determinism strategy (ADR-0045 §2 — ADR-0013 §1/§2 superseded for layout):
+    1. Initial positions from igraph layout_circle() — pure deterministic, no RNG.
+    2. numpy.random.seed(FA2_SEED) called immediately before fa2_modified call
+       as belt-and-suspenders (FA2 internals may call numpy RNG).
+    Identical topology+weights → identical coordinates across any two recomputes.
+  Layout post-processing (Feature B — disc compression) REMOVED (ADR-0045 §3):
+    FA2's organic spread is the desired output; disc compression was fighting it.
+    Raw FA2 output is used directly.
 
 Node pinning (Feature A):
-  pages.pinned=true → engine reads stored (x,y) from DB and overwrites FR coords.
-  Applied AFTER Feature B post-processing; PATCH /pages/{id}/position sets the flag.
+  pages.pinned=true → engine reads stored (x,y) from DB and overwrites FA2 coords.
+  Applied AFTER FA2 layout; PATCH /pages/{id}/position sets the flag.
   Pinned nodes stay put across every subsequent recompute.
 """
 
@@ -57,6 +61,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,9 +69,22 @@ from app.db import get_session
 
 logger = logging.getLogger(__name__)
 
-# ── Seed (ADR-0013 §2) ────────────────────────────────────────────────────────
+# ── Seed (ADR-0013 §2 / ADR-0045 §2) ─────────────────────────────────────────
 _DEFAULT_SEED = 42
 FA2_SEED: int = int(os.environ.get("GRAPH_LAYOUT_SEED", str(_DEFAULT_SEED)))
+
+# ── ForceAtlas2 iteration taper by node count (ADR-0045 §1) ──────────────────
+# Mirrors nashsu/llm_wiki layoutIterations tuning: small graphs run more
+# iterations for quality; large graphs are capped to keep recompute bounded (I7).
+FA2_ITERS_SMALL: int = 140   # n <= 100
+FA2_ITERS_MEDIUM: int = 100  # 100 < n <= 400
+FA2_ITERS_LARGE: int = 60    # 400 < n <= 1000
+FA2_ITERS_XLARGE: int = 40   # 1000 < n <= 2500
+FA2_ITERS_HUGE: int = 28     # n > 2500
+
+# scalingRatio increases for larger graphs to counter crowding (ADR-0045 §1)
+FA2_SCALING_RATIO_SMALL: float = 2.0   # n <= 400
+FA2_SCALING_RATIO_LARGE: float = 3.0   # n > 400
 
 
 # ── Snapshot dataclass ─────────────────────────────────────────────────────────
@@ -132,7 +150,7 @@ class GraphSnapshot:
 
 class GraphEngine:
     """
-    Computes 4-signal weighted edges and seeded FA2 layout from Postgres tables.
+    Computes 4-signal weighted edges and ForceAtlas2 layout from Postgres tables.
 
     Usage::
 
@@ -154,7 +172,7 @@ class GraphEngine:
           1. Load nodes (pages) and resolved links from Postgres (I1 — no vault walk).
           2. Build undirected unweighted igraph for Adamic-Adar.
           3. Compute 4-signal weight per candidate pair (ADR-0012).
-          4. Build weighted igraph; run seeded FA2 → coords (I2, ADR-0013).
+          4. Build weighted igraph; run ForceAtlas2 → coords (I2, ADR-0045).
           5. Persist edges + coords in ONE transaction (ADR-0013 §algorithm step 6).
           6. Return GraphSnapshot (GraphCache stamps data_version).
           7. Log node/edge count + wall-clock duration (I7 observability).
@@ -305,7 +323,7 @@ class GraphEngine:
             kind = "link" if direct > 0 else "source"
             weighted_edges.append((a, b, w, signals, kind))
 
-        # ── 4. Build weighted igraph + seeded FR → coords (I2, ADR-0013) ──────
+        # ── 4. Build weighted igraph + ForceAtlas2 → coords (I2, ADR-0045) ──────
         weighted_edges_idx = [(a, b) for a, b, _w, _s, _k in weighted_edges]
         edge_weights = [w for _a, _b, w, _s, _k in weighted_edges]
 
@@ -317,35 +335,22 @@ class GraphEngine:
         if edge_weights:
             g_weighted.es["weight"] = edge_weights
 
-        # Seed the igraph RNG for deterministic layout (ADR-0013 §2)
+        # Seed the igraph RNG (still used by Louvain community_multilevel below)
         igraph.set_random_number_generator(_SeedableRNG(FA2_SEED))
 
-        # Use Fruchterman-Reingold layout (force-directed; satisfies I2 "FA2-family" intent).
-        # igraph exposes layout_fruchterman_reingold which accepts weights and is
-        # deterministic when the RNG is seeded (ADR-0013 §1 architect note).
-        layout_kwargs: dict[str, Any] = {
-            "weights": "weight" if edge_weights else None,
-            "niter": 500,
-        }
-        layout = g_weighted.layout_fruchterman_reingold(**layout_kwargs)
-        raw_coords: list[tuple[float, float]] = [(pos[0], pos[1]) for pos in layout]
+        # Run ForceAtlas2 layout (ADR-0045).  Determinism: circle-init pos + numpy seed.
+        raw_coords: list[tuple[float, float]] = _forceatlas2_layout(
+            g_weighted, edge_weights, n
+        )
 
-        # ── 4b. Feature B — polar-compression envelope (circular disc) ────────
-        # Center coords at centroid; convert to polar; compress the radius
-        # distribution so outliers come inward and the boundary is rounder.
-        # Formula: r' = R_TARGET * min(1, (r / p95)) ** 0.7
-        # R_TARGET=10.0 — canonical radius; client scales via sigma.js camera.
-        # Exponent 0.7 is <1 → outliers pulled in (concave mapping); structure
-        # and angular positions are preserved exactly.  Deterministic (no RNG).
-        # Applied BEFORE pinned-node restoration (Feature A) so pinned nodes
-        # keep their manually-set coords untouched.
-        coords = _compress_to_disc(raw_coords, r_target=10.0, p_high=95, exponent=0.7)
+        # ── 4b. Feature B (disc-compression) REMOVED (ADR-0045 §3) ──────────
+        # FA2's organic spread is the desired output.  Raw FA2 coords used directly.
+        coords = list(raw_coords)
 
         # ── 4c. Feature A — preserve pinned nodes ─────────────────────────────
         # For any node with pinned=true and valid stored (x,y), overwrite the
-        # FR+post-processed coord with the user-set one so drag-and-drop
-        # positions survive every subsequent recompute.
-        coords = list(coords)  # make mutable
+        # FA2-computed coord with the user-set one so drag-and-drop positions
+        # survive every subsequent recompute.
         for i, nid in enumerate(node_ids):
             nd = node_index[nid]
             if nd["pinned"] and nd["stored_x"] is not None and nd["stored_y"] is not None:
@@ -560,6 +565,76 @@ class GraphEngine:
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
+def _forceatlas2_layout(
+    g_weighted: Any,
+    edge_weights: list[float],
+    n: int,
+) -> list[tuple[float, float]]:
+    """
+    Run ForceAtlas2 on g_weighted and return a list of (x, y) coordinates.
+
+    Determinism strategy (ADR-0045 §2):
+      1. Initial positions built from igraph layout_circle() — pure deterministic,
+         no RNG involved.  Passed as `pos` to fa2_modified so FA2 does not randomize.
+      2. numpy.random.seed(FA2_SEED) called immediately before the FA2 call as
+         belt-and-suspenders (fa2_modified may draw from numpy's global RNG internally).
+      Two calls on identical (g_weighted, edge_weights, n) MUST yield identical output.
+
+    Iteration taper (ADR-0045 §1):
+      n<=100 → FA2_ITERS_SMALL (140), n<=400 → FA2_ITERS_MEDIUM (100),
+      n<=1000 → FA2_ITERS_LARGE (60), n<=2500 → FA2_ITERS_XLARGE (40), else FA2_ITERS_HUGE (28).
+
+    Single-node / no-edge graphs return trivial coords without running FA2.
+    """
+    import igraph
+    from fa2_modified import ForceAtlas2
+
+    if n == 0:
+        return []
+    if n == 1:
+        return [(0.0, 0.0)]
+
+    # Choose iteration count by node count (taper for I7 bounding)
+    if n <= 100:
+        iterations = FA2_ITERS_SMALL
+    elif n <= 400:
+        iterations = FA2_ITERS_MEDIUM
+    elif n <= 1000:
+        iterations = FA2_ITERS_LARGE
+    elif n <= 2500:
+        iterations = FA2_ITERS_XLARGE
+    else:
+        iterations = FA2_ITERS_HUGE
+
+    # scalingRatio: larger graphs need more spread to avoid crowding
+    scaling_ratio = FA2_SCALING_RATIO_LARGE if n > 400 else FA2_SCALING_RATIO_SMALL
+
+    fa = ForceAtlas2(
+        gravity=1.0,
+        scalingRatio=scaling_ratio,
+        strongGravityMode=True,
+        barnesHutOptimize=(n > 50),
+        verbose=False,
+    )
+
+    # Deterministic initial positions: circle layout (no RNG, pure math)
+    circle_layout: igraph.Layout = g_weighted.layout_circle()
+    init_pos: list[tuple[float, float]] = [(p[0], p[1]) for p in circle_layout]
+
+    # Belt-and-suspenders numpy seed before FA2 call (ADR-0045 §2)
+    np.random.seed(FA2_SEED)  # noqa: NPY002 — seeded for determinism, not security
+
+    weight_attr: str | None = "weight" if edge_weights else None
+    layout = fa.forceatlas2_igraph_layout(
+        g_weighted,
+        pos=init_pos,
+        iterations=iterations,
+        weight_attr=weight_attr,
+    )
+
+    return [(pos[0], pos[1]) for pos in layout]
+
+
 def _compress_to_disc(
     coords: list[tuple[float, float]],
     *,
@@ -568,7 +643,13 @@ def _compress_to_disc(
     exponent: float = 0.7,
 ) -> list[tuple[float, float]]:
     """
-    Post-process FR coordinates into a rounder disc envelope (Feature B).
+    Post-process coordinates into a rounder disc envelope (Feature B — now unused).
+
+    NOTE: This function is NO LONGER called by GraphEngine.recompute() as of ADR-0045.
+    The disc-compression post-pass was removed because it fought FA2's organic spread.
+    The function is retained here because existing unit tests in TestFeatureBDiscEnvelope
+    import and test it in isolation; those tests remain valid as unit tests of this
+    standalone function.  The engine no longer invokes it.
 
     Algorithm (deterministic, bounded, O(n)):
       1. Center at centroid.

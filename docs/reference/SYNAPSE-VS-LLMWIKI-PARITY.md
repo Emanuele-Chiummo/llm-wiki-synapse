@@ -103,6 +103,17 @@ Every row covers one atomic user-facing behavior pulled from the audit.
 
 ## 4. F4 — Knowledge Graph, 4-signal relevance, sigma.js / FA2
 
+> **⚠️ CORRECTION (2026-07-01, code-verified against llm_wiki `src/lib/wiki-graph.ts`):** the
+> earlier claim that "llm_wiki includes any edge with weight > 0" is **WRONG**. llm_wiki's
+> rendered graph is built from **wikilinks only** (one edge per resolved `[[wikilink]]`;
+> relevance is applied only as a *weight* to those edges). Synapse (wikilink ∪ shared-source,
+> ADR-0016) is actually a **denser superset** — so the perceived "abysmal difference" from
+> llm_wiki was **NOT** edge density. Root causes were: (1) layout algorithm — **fixed by
+> switching FR → server-side ForceAtlas2, ADR-0045** (2026-07-01); (2) thin edges / no
+> opacity-by-weight — **fixed** (edge size 0.5→4px + deepened weight ramp); (3) missing
+> zoom/fit controls — **fixed** (zoom-in/out/fit buttons). The remaining real edge-logic gap
+> is the typeAffinity cross-type matrix (row below, still P1).
+
 | Feature / sub-behavior | llm_wiki behavior (audit ref) | Synapse current state (code ref) | Verdict | Gap (exact, actionable) | Priority | Owner |
 |---|---|---|---|---|---|---|
 | 4-signal edge-weight formula (exact weights) | `graph-relevance.ts:30-43` — `directLink×3.0 + sourceOverlap×4.0 + adamicAdar×1.5 + typeAffinity×1.0` | `backend/app/graph/engine.py:21-26` — identical formula: `3.0·direct + 4.0·source_overlap + 1.5·adamic_adar + 1.0·same_type` | ✅ | Exact weight parity confirmed. | — | — |
@@ -119,8 +130,8 @@ Every row covers one atomic user-facing behavior pulled from the audit.
 | Zoom in/out/fit | `graph-view.tsx:584-623` | `frontend/src/components/GraphViewer.tsx` — zoom controls | ✅ | | — | — |
 | Position cache / anti-jump on re-layout | `graph-view.tsx:301-302`, `:322-338` — module-level positionCache | `backend/app/models.py:207-213` — `pages.x / pages.y` columns (FA2 layout coords, ADR-0013); `pages.pinned` flag (Feature A); coords persisted across recomputes | ⭐ | Synapse persists positions SERVER-SIDE in Postgres. No client-side positionCache needed. Pinned nodes preserved across recomputes (Feature A). Strictly better than llm_wiki's ephemeral positionCache. | — | — |
 | Edge label (relevance score on hover) | `renderEdgeLabels:false` — llm_wiki README claims this exists but **it is absent** (01-AUDIT §F4 inaccuracy 3) | Absent in Synapse too. | ⛔ | llm_wiki's own audit says this is NOT implemented (renderEdgeLabels=false). Do not add it as a gap — it is an llm_wiki unimplemented claim, not a behavioral reference. If desired, treat as a Synapse enhancement (P2). | P2 | [FE] |
-| Edge color coding (strength by alpha) | llm_wiki: monochrome slate-500 + alpha variation (README "green=strong" is wrong) | `frontend/src/components/GraphViewer.tsx` — edge rendering | 🟡 | Verify Synapse renders edge alpha proportional to weight (thicker/more opaque = stronger edge). If using uniform weight, this is a visual parity gap. | P1 | [FE] |
-| FA2 layout server-side, never main-thread | llm_wiki defect: FA2 blocks main thread for graphs <220 nodes (01-CODE-UI §P-2) | `backend/app/graph/engine.py:6-8` — python-igraph FR layout server-side (I2 hard rule); `frontend/src/components/GraphViewer.tsx:7-9` — explicitly FORBIDDEN to import any layout algo | ⭐ | Synapse's I2 invariant eliminates this entire class of defect. Graph never blocks the UI main thread at any scale. | — | — |
+| Edge color coding (strength by alpha) | llm_wiki: monochrome slate-500 + alpha variation (README "green=strong" is wrong) | `frontend/src/api/graphTransform.ts` — edge size `0.5 + normW·3.5` (0.5–4px) + weight-proportional color ramp (link gray `#dde0e4→#7c8598`, source blue-gray `#d8dff0→#7d90bf`); baked RGB since sigma v3 ignores edge alpha on white | ✅ | Done (2026-07-01). Thicker + darker = stronger edge, matching llm_wiki's opacity-by-weight cue. | — | [FE] |
+| FA2 layout server-side, never main-thread | llm_wiki defect: FA2 blocks main thread for graphs <220 nodes (01-CODE-UI §P-2) | `backend/app/graph/engine.py` — **ForceAtlas2 server-side** via `fa2_modified` (gravity 1, strongGravity, scalingRatio 2–3, Barnes-Hut, iterations 140→28; determinism via circle-init + numpy seed; disc-compression removed) — ADR-0045; `frontend/src/components/GraphViewer.tsx` — FORBIDDEN to import any layout algo | ⭐ | Best of both: Synapse now runs the SAME ForceAtlas2 algorithm as llm_wiki (organic clustered look) but **server-side + cached** (I2), so it never blocks the UI main thread at any scale — llm_wiki's P-2 defect stays eliminated. Switched FR→FA2 on 2026-07-01. | — | — |
 | Full graph rebuild on every dataVersion (defect) | llm_wiki: rebuilds ALL .md files on each dataVersion (01-CODE-UI §P-1) | `backend/app/graph/cache.py:39-60` — debounce-based; `backend/app/graph/engine.py` — reads only pages+links tables (no vault filesystem walk, I1); debounced recompute via `GraphCache.notify_bump()` | ⭐ | Synapse avoids the full-rescan defect. GraphEngine reads Postgres, not the filesystem. Debounced to avoid burst rebuilds. | — | — |
 
 **Invariants touched:** I1, I2, I4.

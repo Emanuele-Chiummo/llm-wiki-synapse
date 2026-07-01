@@ -34,6 +34,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   COMMUNITY_PALETTE,
@@ -948,6 +949,22 @@ export const GraphViewer: React.FC = () => {
     setAnnouncement("");
   }, [setSelectedNodeId]);
 
+  // ── Camera controls — zoom in / out / fit ─────────────────────────────────
+  // These are simple camera calls; I2 is preserved (no layout algorithm invoked).
+  // reducedMotion is read from the module-level const declared above the component.
+
+  const handleZoomIn = useCallback(() => {
+    sigmaRef.current?.getCamera().animatedZoom({ duration: reducedMotion ? 0 : 200 });
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    sigmaRef.current?.getCamera().animatedUnzoom({ duration: reducedMotion ? 0 : 200 });
+  }, []);
+
+  const handleFit = useCallback(() => {
+    sigmaRef.current?.getCamera().animatedReset({ duration: reducedMotion ? 0 : 300 });
+  }, []);
+
   return (
     // I4: this container holds sigma's single <canvas> + a handful of overlay divs.
     // Total DOM nodes inside: <div#sigma-container> + <canvas> + aria-live + overlays = ~10 → well under 20.
@@ -983,6 +1000,92 @@ export const GraphViewer: React.FC = () => {
         }}
       >
         {announcement}
+      </div>
+
+      {/* Zoom / fit control cluster — bottom-right, above color-mode toolbar */}
+      <div
+        className="syn-card"
+        style={{
+          position: "absolute",
+          bottom: 60,
+          right: 12,
+          padding: "4px",
+          zIndex: 5,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 2,
+          userSelect: "none",
+        }}
+        aria-label={t("graph.zoomControlsLabel")}
+        data-testid="graph-zoom-controls"
+      >
+        <button
+          type="button"
+          onClick={handleZoomIn}
+          data-testid="graph-zoom-in"
+          aria-label={t("graph.zoomIn")}
+          title={t("graph.zoomIn")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 28,
+            height: 28,
+            border: "1px solid var(--syn-border)",
+            borderRadius: 3,
+            background: "var(--syn-surface)",
+            color: "var(--syn-text-muted)",
+            cursor: "pointer",
+            padding: 0,
+          }}
+        >
+          <ZoomIn size={14} strokeWidth={1.8} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={handleZoomOut}
+          data-testid="graph-zoom-out"
+          aria-label={t("graph.zoomOut")}
+          title={t("graph.zoomOut")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 28,
+            height: 28,
+            border: "1px solid var(--syn-border)",
+            borderRadius: 3,
+            background: "var(--syn-surface)",
+            color: "var(--syn-text-muted)",
+            cursor: "pointer",
+            padding: 0,
+          }}
+        >
+          <ZoomOut size={14} strokeWidth={1.8} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={handleFit}
+          data-testid="graph-fit"
+          aria-label={t("graph.fit")}
+          title={t("graph.fit")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 28,
+            height: 28,
+            border: "1px solid var(--syn-border)",
+            borderRadius: 3,
+            background: "var(--syn-surface)",
+            color: "var(--syn-text-muted)",
+            cursor: "pointer",
+            padding: 0,
+          }}
+        >
+          <Maximize2 size={14} strokeWidth={1.8} aria-hidden="true" />
+        </button>
       </div>
 
       {/* Color-mode toolbar — Type / Community toggle (llm_wiki pattern) */}
