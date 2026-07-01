@@ -44,6 +44,8 @@ Endpoints:
   POST /lint/findings/{id}/dismiss — set status=dismissed (K2, ADR-0037)
   POST /pages/{id}/cascade-delete/preview — dry-run plan; read-only; 200 (F13, ADR-0026)
   DELETE /pages/{id}               — cascade-delete; single-pass; 200 (F13, ADR-0026)
+  GET  /clip/config                — read-only clip ingress posture (ADR-0040)
+  PUT  /clip/config                — set/rotate/clear clip token + enabled/origins (ADR-0040)
   POST /clip                       — Chrome MV3 web clipper ingress; secure; 202 (F11, ADR-0038)
 
 Startup sequence (ordered, per v0.1-architecture §2.5):
@@ -414,6 +416,108 @@ class _McpAuthCache:
 _remote_mcp_flag: RemoteMcpFlag = RemoteMcpFlag()
 _mcp_auth_cache: _McpAuthCache = _McpAuthCache()
 
+
+class _ClipConfigCache:
+    """
+    In-process cache for vault_state clip runtime config columns (ADR-0040 §3).
+
+    Loaded from vault_state at startup; refreshed on PUT /clip/config writes.
+    The middleware / handler reads all three O(1) per request (no DB round-trip).
+    Precedence (DB wins when set, else env fallback — ADR-0040 §2.2):
+      clip_enabled:        DB clip_enabled_db (if not None) else CLIP_ENABLED env
+      clip_token:          DB clip_access_token hash (if not None) else CLIP_TOKEN env plaintext
+      clip_allowed_origins: DB clip_allowed_origins_db (if not None) else CLIP_ALLOWED_ORIGINS env
+
+    Token storage strategy (mirrors _McpAuthCache / ADR-0033 §2.1):
+      - DB path: PBKDF2-SHA256 hash stored in vault_state.clip_access_token;
+        verification via _verify_token(presented, stored_hash) (constant-time).
+      - Env path: CLIP_TOKEN plaintext env var; inherently plaintext (same as .env);
+        verification via hmac.compare_digest (constant-time).
+    NEVER exposes clip_access_token or its hash to callers outside the auth check.
+    """
+
+    def __init__(self) -> None:
+        self._enabled_db: bool | None = None  # None = unset; fall back to env
+        self._hash: str | None = None  # DB token PBKDF2 hash; None = fall back to env
+        self._allowed_origins_db: str | None = None  # None = fall back to env
+        self._lock: asyncio.Lock = asyncio.Lock()
+
+    # ── Resolved accessors (apply env fallback) ──────────────────────────────
+
+    def resolved_enabled(self) -> bool:
+        """Return DB clip_enabled_db if set, else settings.clip_enabled (env)."""
+        if self._enabled_db is not None:
+            return self._enabled_db
+        return settings.clip_enabled
+
+    def get_hash(self) -> str | None:
+        """Return the stored PBKDF2 hash (DB path only). None = DB token not set.
+
+        NEVER log or return this to callers. Use only for _verify_token().
+        """
+        return self._hash
+
+    def resolved_allowed_origins_list(self) -> list[str]:
+        """Return DB origins list if set, else env list (settings.clip_allowed_origins_list)."""
+        if self._allowed_origins_db is not None:
+            return [o.strip() for o in self._allowed_origins_db.split(",") if o.strip()]
+        return settings.clip_allowed_origins_list
+
+    # ── Source helpers ────────────────────────────────────────────────────────
+
+    def token_source(self) -> str:
+        """'db' | 'env' | 'none' — which token source is authoritative."""
+        if self._hash is not None:
+            return "db"
+        if settings.clip_token:
+            return "env"
+        return "none"
+
+    def token_configured(self) -> bool:
+        """True iff a token is available (DB hash or env bootstrap)."""
+        return self.token_source() != "none"
+
+    def enabled_source(self) -> str:
+        """'db' | 'env' — which enabled source is authoritative."""
+        return "db" if self._enabled_db is not None else "env"
+
+    def origins_source(self) -> str:
+        """'db' | 'env' — which allowed_origins source is authoritative."""
+        return "db" if self._allowed_origins_db is not None else "env"
+
+    # ── Cache management ──────────────────────────────────────────────────────
+
+    async def load(
+        self,
+        enabled_db: bool | None,
+        token_hash: str | None,
+        allowed_origins_db: str | None,
+    ) -> None:
+        """Load from DB at startup (or full reload). token_hash must be a PBKDF2 string or None."""
+        async with self._lock:
+            self._enabled_db = enabled_db
+            self._hash = token_hash
+            self._allowed_origins_db = allowed_origins_db
+
+    async def set_enabled_db(self, value: bool | None) -> None:
+        """Update cached enabled_db after DB write."""
+        async with self._lock:
+            self._enabled_db = value
+
+    async def set_hash(self, hash_value: str | None) -> None:
+        """Update cached hash after DB write. NEVER log the value."""
+        async with self._lock:
+            self._hash = hash_value
+
+    async def set_allowed_origins_db(self, value: str | None) -> None:
+        """Update cached allowed_origins_db after DB write."""
+        async with self._lock:
+            self._allowed_origins_db = value
+
+
+# Module-level singleton — initialised in lifespan.
+_clip_config_cache: _ClipConfigCache = _ClipConfigCache()
+
 # ── MCP HTTP surface (ADR-0033 §2.4 — always-mount) ──────────────────────────
 # Built unconditionally at module load (ADR-0033 §2.4: mount condition is no longer
 # "token set"). The _McpGate middleware is the sole per-request arbiter.
@@ -615,10 +719,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 1. Vault skeleton (K1, I5, AC-K7-1)
     bootstrap_vault()
 
-    # 2. Seed vault_state (ADR-0005, AC-F16dv-1) + load runtime caches (ADR-0032/0033)
+    # 2. Seed vault_state (ADR-0005, AC-F16dv-1) + load runtime caches (ADR-0032/0033/0040)
     await _seed_vault_state()
     await _load_remote_mcp_flag()
     await _load_mcp_auth_cache()
+    await _load_clip_config_cache()
 
     # 3. Validate EMBEDDING_DIM vs live bge-m3 + ensure collection (ADR-0004).
     #    Skipped when EMBEDDINGS_ENABLED=false (ADR-0030 §2.5) so the app boots
@@ -4702,6 +4807,273 @@ async def delete_page(page_id: uuid.UUID) -> CascadeDeleteResponse:
 # NEVER binds a second server — this endpoint lives on the EXISTING FastAPI app.
 
 
+# ── GET /clip/config — read-only clip posture (ADR-0040) ──────────────────────
+
+
+class ClipConfigResponse(BaseModel):
+    """
+    Response model for GET /clip/config (ADR-0040 §2.3).
+
+    Mirrors McpInfoResponse structure: posture-only, token value NEVER returned.
+    """
+
+    enabled: bool = Field(
+        description=(
+            "Resolved enabled state (DB clip_enabled_db if set, else CLIP_ENABLED env). "
+            "True iff POST /clip will be accepted."
+        )
+    )
+    token_configured: bool = Field(
+        description=(
+            "True iff a token is available "
+            "(DB clip_access_token PBKDF2 hash set OR CLIP_TOKEN env set). "
+            "NEVER contains the token value."
+        )
+    )
+    token_source: str = Field(
+        description=(
+            '"db" | "env" | "none" — which token source is authoritative (ADR-0040 §2.2). '
+            '"db": token set via PUT /clip/config. '
+            '"env": CLIP_TOKEN env bootstrap. '
+            '"none": no token configured. '
+            "NEVER the token value."
+        )
+    )
+    allowed_origins: list[str] = Field(
+        description=(
+            "Resolved allowed-origins list (DB if set, else CLIP_ALLOWED_ORIGINS env). "
+            "Loopback origins are always implicitly allowed in addition to this list."
+        )
+    )
+    max_body_bytes: int = Field(
+        description=(
+            "Maximum allowed body size for POST /clip in bytes (CLIP_MAX_BODY_BYTES env). "
+            "Not runtime-settable via PUT /clip/config; change the env var."
+        )
+    )
+
+
+@app.get(
+    "/clip/config",
+    response_model=ClipConfigResponse,
+    summary="Read-only web clipper ingress posture (ADR-0040)",
+    description=(
+        "Returns the current posture of the POST /clip ingress: enabled state, "
+        "token_configured (bool, never the value), token_source (db|env|none), "
+        "allowed_origins list, and max_body_bytes. "
+        "Mirrors GET /mcp/info: no sensitive values ever returned. "
+        "F11-clip-config (ADR-0040)."
+    ),
+)
+async def get_clip_config() -> ClipConfigResponse:
+    """
+    GET /clip/config — read-only web clipper ingress posture (ADR-0040).
+
+    All values derived from the in-process _clip_config_cache (loaded from vault_state
+    at startup and refreshed on PUT /clip/config writes). No DB query on each GET.
+    NEVER returns the token value, only token_configured + token_source.
+    """
+    return ClipConfigResponse(
+        enabled=_clip_config_cache.resolved_enabled(),
+        token_configured=_clip_config_cache.token_configured(),
+        token_source=_clip_config_cache.token_source(),
+        allowed_origins=_clip_config_cache.resolved_allowed_origins_list(),
+        max_body_bytes=settings.clip_max_body_bytes,
+    )
+
+
+# ── PUT /clip/config — set/rotate/clear clip token + enabled + origins (ADR-0040) ─
+
+
+class ClipConfigRequest(BaseModel):
+    """
+    Request body for PUT /clip/config (ADR-0040 §2.4).
+
+    All fields are optional; omitting a field leaves that aspect unchanged.
+    Mirrors McpAuthRequest (ADR-0033 §2.5).
+    """
+
+    rotate_token: bool | None = Field(
+        default=None,
+        description=(
+            "true ⇒ generate a new high-entropy token (secrets.token_urlsafe(32)), "
+            "store its PBKDF2-SHA256 hash in clip_access_token (never the raw value), "
+            "return plaintext ONCE in generated_token. "
+            "The plaintext is NEVER stored or returned again after this call."
+        ),
+    )
+    clear_token: bool | None = Field(
+        default=None,
+        description=(
+            "true ⇒ set clip_access_token = NULL (DB token cleared; "
+            "falls back to CLIP_TOKEN env bootstrap or none)."
+        ),
+    )
+    set_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Set the clip_enabled_db flag. "
+            "true ⇒ DB overrides CLIP_ENABLED env with True. "
+            "false ⇒ DB overrides with False (ingress disabled regardless of env). "
+            "Omit to leave unchanged."
+        ),
+    )
+    set_allowed_origins: str | None = Field(
+        default=None,
+        description=(
+            "Replace the DB clip_allowed_origins_db value with this comma-separated string. "
+            'Empty string "" clears the DB value (falls back to CLIP_ALLOWED_ORIGINS env). '
+            "Omit to leave unchanged."
+        ),
+    )
+
+
+class ClipConfigStateResponse(BaseModel):
+    """
+    Response body for PUT /clip/config (ADR-0040 §2.4).
+
+    Always reflects post-write posture. generated_token is populated ONLY when
+    rotate_token=true — shown ONCE, never returned again.
+    NEVER contains the token value (except the one-time generated_token on rotate).
+    """
+
+    enabled: bool = Field(description="Resolved enabled state after this write.")
+    token_configured: bool = Field(
+        description="True iff a token is available after this write (DB or env)."
+    )
+    token_source: str = Field(
+        description='"db" | "env" | "none" — authoritative token source after this write.'
+    )
+    allowed_origins: list[str] = Field(
+        description="Resolved allowed-origins list after this write."
+    )
+    max_body_bytes: int = Field(description="CLIP_MAX_BODY_BYTES (env, not runtime-settable).")
+    generated_token: str | None = Field(
+        default=None,
+        description=(
+            "Populated ONLY when rotate_token=true — the plaintext token shown ONCE. "
+            "null in all other cases. NEVER stored as recoverable. "
+            "NEVER returned by subsequent GET or PUT."
+        ),
+    )
+
+
+@app.put(
+    "/clip/config",
+    response_model=ClipConfigStateResponse,
+    summary="Set, rotate, or clear the clip ingress token + enabled/origins (ADR-0040)",
+    description=(
+        "ADR-0040 §2.4 — runtime web clipper configuration. "
+        "rotate_token=true: generate a new token (secrets.token_urlsafe(32)), store its "
+        "PBKDF2-SHA256 hash in vault_state.clip_access_token, return plaintext ONCE in "
+        "generated_token (never stored). "
+        "clear_token=true: set DB token to NULL (falls back to CLIP_TOKEN env or none). "
+        "set_enabled: set clip_enabled_db (DB wins over CLIP_ENABLED env when set). "
+        'set_allowed_origins: replace DB origins (empty string "" clears to env fallback). '
+        "Same-origin / unauthenticated — consistent with PUT /mcp/auth (ADR-0033 §2.5). "
+        "NEVER returns or stores the token plaintext (except the one-time generated_token). "
+        "F11-clip-config (ADR-0040)."
+    ),
+)
+async def put_clip_config(body: ClipConfigRequest) -> ClipConfigStateResponse:
+    """
+    PUT /clip/config — runtime web clipper configuration (ADR-0040 §2.4).
+
+    Applies changes in this order:
+      1. clear_token (if true) → set clip_access_token = NULL.
+      2. rotate_token (if true) → generate plaintext, hash with PBKDF2, store hash,
+         capture plaintext for one-time response (never persisted).
+      3. set_enabled (if set) → persist clip_enabled_db.
+      4. set_allowed_origins (if set) → persist clip_allowed_origins_db
+         (empty string → NULL = env-fallback).
+      5. Refresh in-process _clip_config_cache.
+      6. Return ClipConfigStateResponse (no token plaintext except one-time generated_token).
+
+    Mirrors PUT /mcp/auth (ADR-0033 §2.5).
+    """
+    generated_token: str | None = None
+
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is None:
+            # Should not happen (seeded at startup), but be defensive.
+            state = VaultState(
+                vault_id=settings.vault_id,
+                data_version=0,
+                remote_mcp_enabled=False,
+                mcp_access_token_hash=None,
+                mcp_allow_without_token=False,
+                clip_enabled_db=None,
+                clip_access_token=None,
+                clip_allowed_origins_db=None,
+                updated_at=datetime.now(UTC),
+            )
+            session.add(state)
+
+        # 1. clear_token
+        if body.clear_token:
+            state.clip_access_token = None
+
+        # 2. rotate_token (takes precedence over clear if both are set)
+        if body.rotate_token:
+            new_plaintext = secrets.token_urlsafe(32)
+            # Hash for storage (mirrors MCP ADR-0033 §2.1 — never store plaintext in DB).
+            # The PBKDF2 hash is safe even if the DB is compromised.
+            state.clip_access_token = _hash_token(new_plaintext)
+            # Capture plaintext for the one-time response ONLY (never persisted).
+            generated_token = new_plaintext
+            # new_plaintext out of scope after assignment to generated_token.
+
+        # 3. set_enabled
+        if body.set_enabled is not None:
+            state.clip_enabled_db = body.set_enabled
+
+        # 4. set_allowed_origins (empty string → NULL = env-fallback)
+        if body.set_allowed_origins is not None:
+            state.clip_allowed_origins_db = (
+                body.set_allowed_origins if body.set_allowed_origins else None
+            )
+
+        state.updated_at = datetime.now(UTC)
+
+        # Capture final values for cache update (inside session scope — will be committed).
+        # clip_access_token is now a PBKDF2 hash (or None); store hash in cache.
+        final_hash: str | None = state.clip_access_token
+        final_enabled_db: bool | None = state.clip_enabled_db
+        final_origins_db: str | None = state.clip_allowed_origins_db
+
+    # 5. Refresh in-process caches (outside session — DB write committed).
+    await _clip_config_cache.set_hash(final_hash)
+    await _clip_config_cache.set_enabled_db(final_enabled_db)
+    await _clip_config_cache.set_allowed_origins_db(final_origins_db)
+
+    tok_source = _clip_config_cache.token_source()
+    tok_configured = _clip_config_cache.token_configured()
+    resolved_enabled = _clip_config_cache.resolved_enabled()
+    resolved_origins = _clip_config_cache.resolved_allowed_origins_list()
+
+    logger.info(
+        "PUT /clip/config: enabled=%s token_source=%s origins_source=%s (ADR-0040)",
+        resolved_enabled,
+        tok_source,
+        _clip_config_cache.origins_source(),
+        # NEVER log the token value
+    )
+
+    # 6. Return posture (no plaintext except the one-time generated_token).
+    return ClipConfigStateResponse(
+        enabled=resolved_enabled,
+        token_configured=tok_configured,
+        token_source=tok_source,
+        allowed_origins=resolved_origins,
+        max_body_bytes=settings.clip_max_body_bytes,
+        generated_token=generated_token,
+    )
+
+
 _CLIP_LOOPBACK_ORIGINS: frozenset[str] = frozenset(
     {
         "http://localhost",
@@ -4721,20 +5093,36 @@ ADR-0038 §2.2: allowlist = CLIP_ALLOWED_ORIGINS ∪ _CLIP_LOOPBACK_ORIGINS.
 """
 
 
-def _clip_origin_allowed(origin: str | None) -> bool:
+def _clip_origin_allowed(
+    origin: str | None,
+    extra_origins: list[str] | None = None,
+) -> bool:
     """
-    Return True iff the Origin header is on the clip allowlist (ADR-0038 §2.2).
+    Return True iff the Origin header is on the clip allowlist (ADR-0038 §2.2, ADR-0040).
 
-    Allowlist = CLIP_ALLOWED_ORIGINS (env) ∪ loopback origins (implicit).
+    Allowlist = resolved_allowed_origins (DB if set, else env) ∪ loopback origins (implicit).
     When Origin is absent the request is treated as NOT browser-origin-fenced
     (e.g. a local curl); we allow it because the token gate already enforces
     authentication — origin validation is a defence against drive-by CSRF, which
     requires an Origin header in the browser. No Origin → allow (bearer-only path).
+
+    Parameters
+    ----------
+    origin : str | None
+        The request's Origin header value.
+    extra_origins : list[str] | None
+        Additional configured origins to merge in (caller passes the resolved list
+        from the cache or env — allows unit tests to inject values without patching).
+        When None, the function calls settings.clip_allowed_origins_list (env-only;
+        kept for backward-compat unit tests that patch the settings property).
     """
     if origin is None:
         return True  # no Origin header → not a browser CSRF; token gate is sufficient
 
-    configured = set(settings.clip_allowed_origins_list)
+    if extra_origins is not None:
+        configured = set(extra_origins)
+    else:
+        configured = set(settings.clip_allowed_origins_list)
     full_allowlist = configured | _CLIP_LOOPBACK_ORIGINS
     return origin in full_allowlist
 
@@ -4881,17 +5269,21 @@ async def clip_ingest(
     """
     import tempfile
 
-    # ── 1. CLIP_ENABLED gate ─────────────────────────────────────────────────
-    if not settings.clip_enabled:
+    # ── 1. CLIP_ENABLED gate (ADR-0040: DB wins over env when set) ─────────────
+    # Resolution: DB clip_enabled_db (if not None) else CLIP_ENABLED env.
+    if not _clip_config_cache.resolved_enabled():
         raise HTTPException(
             status_code=503,
             detail="Web clipper ingress is disabled (CLIP_ENABLED=false).",
         )
 
-    # ── 2. AuthN: CLIP_TOKEN bearer (constant-time) ──────────────────────────
-    # NEVER log the token. Fail-closed: no token configured = always 401.
-    token_configured = bool(settings.clip_token)
-    if not token_configured:
+    # ── 2. AuthN: bearer token — source-aware constant-time compare (ADR-0038 §2.1, ADR-0040) ──
+    # Precedence (ADR-0040 §2.2):
+    #   DB path  (token_source == "db"):  _verify_token(presented, stored_pbkdf2_hash)
+    #   Env path (token_source == "env"): hmac.compare_digest(presented, env_plaintext)
+    # NEVER log the token, hash, or presented value. Fail-closed: no token = always 401.
+    tok_source: _TokenSource = _clip_config_cache.token_source()  # type: ignore[assignment]
+    if tok_source == "none":
         raise HTTPException(
             status_code=401,
             detail="Clip ingress is not configured (no CLIP_TOKEN set).",
@@ -4900,15 +5292,29 @@ async def clip_ingest(
     presented: str | None = None
     if auth_header.lower().startswith("bearer "):
         presented = auth_header[len("bearer ") :]
-    if presented is None or not hmac.compare_digest(presented, settings.clip_token or ""):
+
+    bearer_ok: bool = False
+    if presented is not None:
+        if tok_source == "db":
+            # PBKDF2 constant-time verification (mirrors MCP _BearerAuthMiddleware).
+            db_hash = _clip_config_cache.get_hash()
+            bearer_ok = db_hash is not None and _verify_token(presented, db_hash)
+        else:
+            # Env bootstrap: plaintext pre-shared secret — constant-time compare.
+            env_token = settings.clip_token or ""
+            bearer_ok = bool(env_token) and hmac.compare_digest(presented, env_token)
+
+    if not bearer_ok:
         raise HTTPException(
             status_code=401,
             detail="Missing or invalid clip token.",
         )
 
     # ── 3. Origin allowlist (server-side — CORS alone doesn't block simple POSTs) ──
+    # ADR-0040: resolved_allowed_origins_list() = DB if set, else env.
     origin: str | None = request.headers.get("origin")
-    if not _clip_origin_allowed(origin):
+    resolved_origins = _clip_config_cache.resolved_allowed_origins_list()
+    if not _clip_origin_allowed(origin, extra_origins=resolved_origins):
         raise HTTPException(
             status_code=403,
             detail=(
@@ -5027,7 +5433,9 @@ async def _seed_vault_state() -> None:
 
     Idempotent — safe to call on every restart.
     New rows receive remote_mcp_enabled=False (ADR-0032 §2.1 — default OFF) and
-    mcp_access_token_hash=None + mcp_allow_without_token=False (ADR-0033 §3 — fail-closed).
+    mcp_access_token_hash=None + mcp_allow_without_token=False (ADR-0033 §3 — fail-closed)
+    and clip_enabled_db=None + clip_access_token=None + clip_allowed_origins_db=None
+    (ADR-0040 §3 — env-fallback by default; clip remains env-governed until PUT /clip/config).
     """
     async with get_session() as session:
         row = await session.execute(
@@ -5040,6 +5448,9 @@ async def _seed_vault_state() -> None:
                 remote_mcp_enabled=False,
                 mcp_access_token_hash=None,
                 mcp_allow_without_token=False,
+                clip_enabled_db=None,
+                clip_access_token=None,
+                clip_allowed_origins_db=None,
                 updated_at=datetime.now(UTC),
             )
             session.add(state)
@@ -5096,6 +5507,42 @@ async def _load_mcp_auth_cache() -> None:
         tok_src,
         allow_val,
         # NEVER log hash_val
+    )
+
+
+async def _load_clip_config_cache() -> None:
+    """
+    Load vault_state clip runtime config into _clip_config_cache at startup (ADR-0040 §3).
+
+    Called once in lifespan after _seed_vault_state().  Mirrors the _load_mcp_auth_cache
+    pattern: DB is source of truth; in-process cache is O(1) per request.
+    NEVER logs the clip_access_token value.
+    """
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is not None:
+            # Use getattr with defaults for columns that may not exist on old DB schemas
+            # (before migration 0015 is applied). Fail-open defaults = env governs.
+            # clip_access_token stores a PBKDF2 hash (ADR-0040 §2.2) — never plaintext.
+            enabled_db: bool | None = getattr(state, "clip_enabled_db", None)
+            token_hash_db: str | None = getattr(state, "clip_access_token", None)
+            origins_db: str | None = getattr(state, "clip_allowed_origins_db", None)
+        else:
+            enabled_db = None
+            token_hash_db = None
+            origins_db = None
+
+    await _clip_config_cache.load(enabled_db, token_hash_db, origins_db)
+    logger.info(
+        "ClipConfigCache loaded from DB: enabled_source=%s token_source=%s origins_source=%s "
+        "(ADR-0040)",
+        _clip_config_cache.enabled_source(),
+        _clip_config_cache.token_source(),
+        _clip_config_cache.origins_source(),
+        # NEVER log the token value
     )
 
 

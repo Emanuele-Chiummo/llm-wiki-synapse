@@ -127,6 +127,9 @@ async def graph_app(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClie
                 remote_mcp_enabled INTEGER NOT NULL DEFAULT 0,
                 mcp_access_token_hash TEXT,
                 mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
+                clip_enabled_db INTEGER,
+                clip_access_token TEXT,
+                clip_allowed_origins_db TEXT,
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """

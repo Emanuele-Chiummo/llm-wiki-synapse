@@ -85,6 +85,7 @@ class TestEmbeddingStartupToggle:
 
         load_flag_mock = AsyncMock()
         load_mcp_auth_mock = AsyncMock()
+        load_clip_config_mock = AsyncMock()
         with (
             patch.object(main_mod, "_validate_embedding_and_collection", _fake_validate),
             patch.object(main_mod, "_seed_vault_state", seed_mock),
@@ -92,6 +93,8 @@ class TestEmbeddingStartupToggle:
             patch.object(main_mod, "_load_remote_mcp_flag", load_flag_mock),
             # ADR-0033: _load_mcp_auth_cache also runs in lifespan; patch to avoid DB hit.
             patch.object(main_mod, "_load_mcp_auth_cache", load_mcp_auth_mock),
+            # ADR-0040: _load_clip_config_cache also runs in lifespan; patch to avoid DB hit.
+            patch.object(main_mod, "_load_clip_config_cache", load_clip_config_mock),
             patch("app.main.bootstrap_vault"),
             patch("app.main.start_watcher"),
             patch("app.main.stop_watcher"),
@@ -149,6 +152,7 @@ class TestEmbeddingStartupToggle:
 
         load_flag_mock = AsyncMock()
         load_mcp_auth_mock = AsyncMock()
+        load_clip_config_mock = AsyncMock()
         with (
             patch.object(main_mod, "_validate_embedding_and_collection", _fake_validate),
             patch.object(main_mod, "_seed_vault_state", seed_mock),
@@ -156,6 +160,8 @@ class TestEmbeddingStartupToggle:
             patch.object(main_mod, "_load_remote_mcp_flag", load_flag_mock),
             # ADR-0033: _load_mcp_auth_cache also runs in lifespan; patch to avoid DB hit.
             patch.object(main_mod, "_load_mcp_auth_cache", load_mcp_auth_mock),
+            # ADR-0040: _load_clip_config_cache also runs in lifespan; patch to avoid DB hit.
+            patch.object(main_mod, "_load_clip_config_cache", load_clip_config_mock),
             patch("app.main.bootstrap_vault"),
             patch("app.main.start_watcher"),
             patch("app.main.stop_watcher"),
@@ -257,6 +263,9 @@ class TestEmbeddingToggleSideEffectFree:
                     remote_mcp_enabled INTEGER NOT NULL DEFAULT 0,
                     mcp_access_token_hash TEXT,
                     mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
+                    clip_enabled_db INTEGER,
+                    clip_access_token TEXT,
+                    clip_allowed_origins_db TEXT,
                     updated_at TEXT NOT NULL
                 )
             """

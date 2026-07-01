@@ -228,6 +228,13 @@ async def upload_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("vault_id", sa.String, nullable=False, unique=True),
         sa.Column("data_version", sa.Integer, nullable=False, default=0),
+        sa.Column("remote_mcp_enabled", sa.Integer, nullable=False, server_default=sa.text("0")),
+        sa.Column("mcp_access_token_hash", sa.Text, nullable=True),
+        sa.Column("mcp_allow_without_token", sa.Integer, nullable=False, server_default=sa.text("0")),
+        # ADR-0040 §3: clip ingress runtime config (NULL = not set in DB; env fallback applies)
+        sa.Column("clip_enabled_db", sa.Integer, nullable=True),
+        sa.Column("clip_access_token", sa.Text, nullable=True),
+        sa.Column("clip_allowed_origins_db", sa.Text, nullable=True),
         sa.Column("updated_at", sa.Text, nullable=False),
     )
     sa.Table(
@@ -589,6 +596,13 @@ async def schedule_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("vault_id", sa.String, nullable=False, unique=True),
         sa.Column("data_version", sa.Integer, nullable=False, default=0),
+        sa.Column("remote_mcp_enabled", sa.Integer, nullable=False, server_default=sa.text("0")),
+        sa.Column("mcp_access_token_hash", sa.Text, nullable=True),
+        sa.Column("mcp_allow_without_token", sa.Integer, nullable=False, server_default=sa.text("0")),
+        # ADR-0040 §3: clip ingress runtime config (NULL = not set in DB; env fallback applies)
+        sa.Column("clip_enabled_db", sa.Integer, nullable=True),
+        sa.Column("clip_access_token", sa.Text, nullable=True),
+        sa.Column("clip_allowed_origins_db", sa.Text, nullable=True),
         sa.Column("updated_at", sa.Text, nullable=False),
     )
 

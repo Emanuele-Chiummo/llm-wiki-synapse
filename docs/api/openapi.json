@@ -1967,6 +1967,62 @@
         }
       }
     },
+    "/clip/config": {
+      "get": {
+        "summary": "Read-only web clipper ingress posture (ADR-0040)",
+        "description": "Returns the current posture of the POST /clip ingress: enabled state, token_configured (bool, never the value), token_source (db|env|none), allowed_origins list, and max_body_bytes. Mirrors GET /mcp/info: no sensitive values ever returned. F11-clip-config (ADR-0040).",
+        "operationId": "get_clip_config_clip_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipConfigResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set, rotate, or clear the clip ingress token + enabled/origins (ADR-0040)",
+        "description": "ADR-0040 \u00a72.4 \u2014 runtime web clipper configuration. rotate_token=true: generate a new token (secrets.token_urlsafe(32)), store it in vault_state.clip_access_token, return plaintext ONCE in generated_token. clear_token=true: set DB token to NULL (falls back to CLIP_TOKEN env or none). set_enabled: set clip_enabled_db (DB wins over CLIP_ENABLED env when set). set_allowed_origins: replace DB origins (empty string \"\" clears to env fallback). Same-origin / unauthenticated \u2014 consistent with PUT /mcp/auth (ADR-0033 \u00a72.5). NEVER returns or stores the token plaintext (except the one-time generated_token). F11-clip-config (ADR-0040).",
+        "operationId": "put_clip_config_clip_config_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClipConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipConfigStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/clip": {
       "post": {
         "summary": "Chrome MV3 web clipper ingress \u2014 secure clip receiver (F11, ADR-0038)",
@@ -2363,6 +2419,157 @@
         ],
         "title": "ChatRequest",
         "description": "Request body for POST /chat/stream (ADR-0019 \u00a72.2).\n\nThe server NEVER accepts provider_type / model_id (I6 / Do-NOT #4): the backend resolves\n`resolve_provider_config(\"chat\", vault_id)`. `operation` is fixed to \"chat\" so the same\nabstraction can route ingest-vs-chat differently."
+      },
+      "ClipConfigRequest": {
+        "properties": {
+          "rotate_token": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rotate Token",
+            "description": "true \u21d2 generate a new high-entropy token (secrets.token_urlsafe(32)), store it in clip_access_token, return plaintext ONCE in generated_token. The plaintext is NEVER returned again after this call."
+          },
+          "clear_token": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clear Token",
+            "description": "true \u21d2 set clip_access_token = NULL (DB token cleared; falls back to CLIP_TOKEN env bootstrap or none)."
+          },
+          "set_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set Enabled",
+            "description": "Set the clip_enabled_db flag. true \u21d2 DB overrides CLIP_ENABLED env with True. false \u21d2 DB overrides with False (ingress disabled regardless of env). Omit to leave unchanged."
+          },
+          "set_allowed_origins": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set Allowed Origins",
+            "description": "Replace the DB clip_allowed_origins_db value with this comma-separated string. Empty string \"\" clears the DB value (falls back to CLIP_ALLOWED_ORIGINS env). Omit to leave unchanged."
+          }
+        },
+        "type": "object",
+        "title": "ClipConfigRequest",
+        "description": "Request body for PUT /clip/config (ADR-0040 \u00a72.4).\n\nAll fields are optional; omitting a field leaves that aspect unchanged.\nMirrors McpAuthRequest (ADR-0033 \u00a72.5)."
+      },
+      "ClipConfigResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Resolved enabled state (DB clip_enabled_db if set, else CLIP_ENABLED env). True iff POST /clip will be accepted."
+          },
+          "token_configured": {
+            "type": "boolean",
+            "title": "Token Configured",
+            "description": "True iff a token is available (DB clip_access_token set OR CLIP_TOKEN env set). NEVER contains the token value."
+          },
+          "token_source": {
+            "type": "string",
+            "title": "Token Source",
+            "description": "\"db\" | \"env\" | \"none\" \u2014 which token source is authoritative (ADR-0040 \u00a72.2). \"db\": token set via PUT /clip/config. \"env\": CLIP_TOKEN env bootstrap. \"none\": no token configured. NEVER the token value."
+          },
+          "allowed_origins": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Origins",
+            "description": "Resolved allowed-origins list (DB if set, else CLIP_ALLOWED_ORIGINS env). Loopback origins are always implicitly allowed in addition to this list."
+          },
+          "max_body_bytes": {
+            "type": "integer",
+            "title": "Max Body Bytes",
+            "description": "Maximum allowed body size for POST /clip in bytes (CLIP_MAX_BODY_BYTES env). Not runtime-settable via PUT /clip/config; change the env var."
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "token_configured",
+          "token_source",
+          "allowed_origins",
+          "max_body_bytes"
+        ],
+        "title": "ClipConfigResponse",
+        "description": "Response model for GET /clip/config (ADR-0040 \u00a72.3).\n\nMirrors McpInfoResponse structure: posture-only, token value NEVER returned."
+      },
+      "ClipConfigStateResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Resolved enabled state after this write."
+          },
+          "token_configured": {
+            "type": "boolean",
+            "title": "Token Configured",
+            "description": "True iff a token is available after this write (DB or env)."
+          },
+          "token_source": {
+            "type": "string",
+            "title": "Token Source",
+            "description": "\"db\" | \"env\" | \"none\" \u2014 authoritative token source after this write."
+          },
+          "allowed_origins": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Origins",
+            "description": "Resolved allowed-origins list after this write."
+          },
+          "max_body_bytes": {
+            "type": "integer",
+            "title": "Max Body Bytes",
+            "description": "CLIP_MAX_BODY_BYTES (env, not runtime-settable)."
+          },
+          "generated_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated Token",
+            "description": "Populated ONLY when rotate_token=true \u2014 the plaintext token shown ONCE. null in all other cases. NEVER stored as recoverable. NEVER returned by subsequent GET or PUT."
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "token_configured",
+          "token_source",
+          "allowed_origins",
+          "max_body_bytes"
+        ],
+        "title": "ClipConfigStateResponse",
+        "description": "Response body for PUT /clip/config (ADR-0040 \u00a72.4).\n\nAlways reflects post-write posture. generated_token is populated ONLY when\nrotate_token=true \u2014 shown ONCE, never returned again.\nNEVER contains the token value (except the one-time generated_token on rotate)."
       },
       "ClipRequest": {
         "properties": {

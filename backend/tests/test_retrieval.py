@@ -133,7 +133,13 @@ async def _setup_sqlite(engine: Any) -> None:
             CREATE TABLE vault_state (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
-                data_version INTEGER NOT NULL DEFAULT 0
+                data_version INTEGER NOT NULL DEFAULT 0,
+                remote_mcp_enabled INTEGER NOT NULL DEFAULT 0,
+                mcp_access_token_hash TEXT,
+                mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
+                clip_enabled_db INTEGER,
+                clip_access_token TEXT,
+                clip_allowed_origins_db TEXT
             )
         """
             )

@@ -1,4 +1,4 @@
-<!-- Generated: v0.5-ADR-0033 | 2026-06-30 — ADR-0033: vault_state +mcp_access_token_hash +mcp_allow_without_token (migration 0012); ADR-0032: +remote_mcp_enabled (migration 0011); ADR-0025: review_items; ADR-0024: deep_research_runs/sources -->
+<!-- Generated: v0.5-ADR-0033 | 2026-07-01 — ADR-0033: vault_state +mcp_access_token_hash +mcp_allow_without_token (migration 0012); ADR-0032: +remote_mcp_enabled (migration 0011); ADR-0025: review_items; ADR-0024: deep_research_runs/sources -->
 erDiagram
 
     CONVERSATIONS {
@@ -79,6 +79,9 @@ erDiagram
         boolean remote_mcp_enabled "Runtime toggle for the remote (HTTP) MCP surface (ADR-0032 §2.1). Default OFF; requires MCP_AUTH_TOKEN to be set before enabling. Persisted here; read into RemoteMcpFlag cache in main.py at startup."
         string mcp_access_token_hash "Salted PBKDF2-HMAC-SHA256 hash of the UI-set MCP access token (ADR-0033 §2.1). Format: pbkdf2_sha256$<iters>$<salt_b64>$<hash_b64>. NULL = no UI token; env MCP_AUTH_TOKEN is the bootstrap fallback. NEVER stores plaintext. Token shown once at generation time (one-time reveal). DB-hash takes precedence over env bootstrap when set. Migration 0012."
         boolean mcp_allow_without_token "When ON: PRIVATE sources (loopback/CGNAT/RFC1918/link-local/ULA) may reach /mcp/server without a bearer token (ADR-0033 §2.3). PUBLIC sources (Cloudflare tunnel — CF-Connecting-IP/CF-Ray) are NEVER exempted regardless of this flag (fail-safe by construction). Default false — fail-closed. Migration 0012."
+        boolean clip_enabled_db "Runtime enabled-gate for POST /clip ingress (ADR-0040 §3). NULL = not set in DB; env CLIP_ENABLED is the fallback. When NOT NULL, DB value is authoritative (overrides CLIP_ENABLED env). Migration 0015."
+        string clip_access_token "Plaintext bearer token for POST /clip (ADR-0040 §3). NULL = no DB token; fall back to CLIP_TOKEN env bootstrap or none. When set, DB value wins over CLIP_TOKEN env. Shown once at generation time (one-time reveal in PUT /clip/config generated_token). NEVER logged. Migration 0015."
+        string clip_allowed_origins_db "Comma-separated Origin allowlist for POST /clip (ADR-0040 §3). NULL = fall back to CLIP_ALLOWED_ORIGINS env var. When set, DB value wins over env. Migration 0015."
         timestamptz updated_at "Last bump time"
     }
 

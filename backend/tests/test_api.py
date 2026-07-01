@@ -180,6 +180,10 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
         # ADR-0033 §2.1/§2.3: UI-settable MCP access token hash + allow-without-token flag
         Column("mcp_access_token_hash", Text, nullable=True),
         Column("mcp_allow_without_token", Integer, nullable=False, server_default=sa_text("0")),
+        # ADR-0040 §3: clip ingress runtime config (NULL = not set in DB; env fallback applies)
+        Column("clip_enabled_db", Integer, nullable=True),
+        Column("clip_access_token", Text, nullable=True),
+        Column("clip_allowed_origins_db", Text, nullable=True),
         Column("updated_at", Text, nullable=False),
     )
     # Retrieval needs edges + links tables (ADR-0022 §2.2 phase 2 — BFS expansion).

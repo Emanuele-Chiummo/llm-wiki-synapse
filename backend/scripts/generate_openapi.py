@@ -68,6 +68,8 @@ def main() -> None:
         "/config/embedding",
         # F11 Web Clipper ingress (ADR-0038)
         "/clip",
+        # F11 Web Clipper runtime config (ADR-0040)
+        "/clip/config",
     ]:
         assert required_path in paths, f"Missing path {required_path!r} in openapi.json"
 
@@ -75,40 +77,70 @@ def main() -> None:
     schemas = schema.get("components", {}).get("schemas", {})
     emb_schema = schemas.get("EmbeddingConfigResponse", {})
     emb_props = emb_schema.get("properties", {})
-    assert "embeddings_enabled" in emb_props, \
-        "Missing 'embeddings_enabled' field in EmbeddingConfigResponse schema (ADR-0030)"
+    assert (
+        "embeddings_enabled" in emb_props
+    ), "Missing 'embeddings_enabled' field in EmbeddingConfigResponse schema (ADR-0030)"
 
     # ADR-0029: http_enabled + remote_write_enabled fields in GET /mcp/info (McpInfoResponse)
     mcp_schema = schemas.get("McpInfoResponse", {})
     mcp_props = mcp_schema.get("properties", {})
-    assert "http_enabled" in mcp_props, \
-        "Missing 'http_enabled' field in McpInfoResponse schema (ADR-0029)"
-    assert "remote_write_enabled" in mcp_props, \
-        "Missing 'remote_write_enabled' field in McpInfoResponse schema (ADR-0029)"
+    assert (
+        "http_enabled" in mcp_props
+    ), "Missing 'http_enabled' field in McpInfoResponse schema (ADR-0029)"
+    assert (
+        "remote_write_enabled" in mcp_props
+    ), "Missing 'remote_write_enabled' field in McpInfoResponse schema (ADR-0029)"
 
     # ADR-0033: token_source + allow_without_token on McpInfoResponse + McpAuthStateResponse
-    assert "token_source" in mcp_props, \
-        "Missing 'token_source' field in McpInfoResponse schema (ADR-0033)"
-    assert "allow_without_token" in mcp_props, \
-        "Missing 'allow_without_token' field in McpInfoResponse schema (ADR-0033)"
+    assert (
+        "token_source" in mcp_props
+    ), "Missing 'token_source' field in McpInfoResponse schema (ADR-0033)"
+    assert (
+        "allow_without_token" in mcp_props
+    ), "Missing 'allow_without_token' field in McpInfoResponse schema (ADR-0033)"
     auth_resp_schema = schemas.get("McpAuthStateResponse", {})
     auth_resp_props = auth_resp_schema.get("properties", {})
-    assert "token_source" in auth_resp_props, \
-        "Missing 'token_source' field in McpAuthStateResponse schema (ADR-0033)"
-    assert "allow_without_token" in auth_resp_props, \
-        "Missing 'allow_without_token' field in McpAuthStateResponse schema (ADR-0033)"
+    assert (
+        "token_source" in auth_resp_props
+    ), "Missing 'token_source' field in McpAuthStateResponse schema (ADR-0033)"
+    assert (
+        "allow_without_token" in auth_resp_props
+    ), "Missing 'allow_without_token' field in McpAuthStateResponse schema (ADR-0033)"
     # CRITICAL: no raw token/hash/salt field exposed
     for field_name in ["plaintext_token", "raw_token", "token_value", "hash_value", "salt_value"]:
-        assert field_name not in auth_resp_props, \
-            f"SECURITY: token/hash/salt field {field_name!r} must not appear in McpAuthStateResponse"
-        assert field_name not in mcp_props, \
-            f"SECURITY: token/hash/salt field {field_name!r} must not appear in McpInfoResponse"
+        assert (
+            field_name not in auth_resp_props
+        ), f"SECURITY: token/hash/salt field {field_name!r} must not appear in McpAuthStateResponse"
+        assert (
+            field_name not in mcp_props
+        ), f"SECURITY: token/hash/salt field {field_name!r} must not appear in McpInfoResponse"
+
+    # ADR-0040: clip config endpoints + token-never-leaked check
+    clip_cfg_schema = schemas.get("ClipConfigResponse", {})
+    clip_cfg_props = clip_cfg_schema.get("properties", {})
+    assert (
+        "token_configured" in clip_cfg_props
+    ), "Missing 'token_configured' field in ClipConfigResponse schema (ADR-0040)"
+    assert (
+        "token_source" in clip_cfg_props
+    ), "Missing 'token_source' field in ClipConfigResponse schema (ADR-0040)"
+    # CRITICAL: raw clip token value must never appear in any schema property
+    clip_state_schema = schemas.get("ClipConfigStateResponse", {})
+    clip_state_props = clip_state_schema.get("properties", {})
+    for field_name in ["plaintext_token", "raw_token", "token_value", "clip_token"]:
+        assert (
+            field_name not in clip_cfg_props
+        ), f"SECURITY: field {field_name!r} must not appear in ClipConfigResponse (ADR-0040)"
+        assert (
+            field_name not in clip_state_props
+        ), f"SECURITY: field {field_name!r} must not appear in ClipConfigStateResponse (ADR-0040)"
 
     print(
-        "Sanity check passed: all 20 required endpoints present (incl. /clip — ADR-0038); "
-        "embeddings_enabled, http_enabled, remote_write_enabled confirmed (ADR-0029, ADR-0030); "
-        "token_source, allow_without_token confirmed in McpInfoResponse + McpAuthStateResponse "
-        "(ADR-0033); no token/hash/salt field exposed (no-leak check PASS)"
+        "Sanity check passed: all 21 required endpoints present (incl. /clip, /clip/config — "
+        "ADR-0038, ADR-0040); embeddings_enabled, http_enabled, remote_write_enabled confirmed "
+        "(ADR-0029, ADR-0030); token_source, allow_without_token confirmed in McpInfoResponse + "
+        "McpAuthStateResponse (ADR-0033); token_configured, token_source confirmed in "
+        "ClipConfigResponse (ADR-0040); no token/hash/salt field exposed (no-leak check PASS)"
     )
 
 
