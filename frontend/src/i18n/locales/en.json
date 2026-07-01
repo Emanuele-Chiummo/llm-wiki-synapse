@@ -568,7 +568,23 @@
     "legendCommunities": "COMMUNITIES",
     "legendCommunityLabel": "Community {{id}}",
     "legendCommunitySize": "{{size}} nodes",
-    "legendCommunityLowCohesion": "Low cohesion"
+    "legendCommunityLowCohesion": "Low cohesion",
+    "insights": {
+      "title": "Graph Insights",
+      "sectionSurprising": "Surprising connections",
+      "sectionGaps": "Knowledge gaps",
+      "subKindIsolated": "isolated nodes",
+      "subKindSparse": "sparse communities",
+      "subKindBridge": "bridge nodes",
+      "surprisingRow": "{{source}} — {{target}} (score {{score}})",
+      "sparseRow": "Community {{id}}: {{size}} nodes, {{cohesion}}% cohesion",
+      "bridgeRow": "{{title}} spans {{count}} communities",
+      "dismissAriaLabel": "Dismiss insight",
+      "deepResearch": "Deep Research",
+      "collapseAriaLabel": "Collapse insights panel",
+      "expandAriaLabel": "Expand insights panel",
+      "empty": "No insights found. Add more pages and links to surface surprising connections and knowledge gaps."
+    }
   },
   "search": {
     "title": "Search",

@@ -294,7 +294,6 @@ const MessageRow = memo(function MessageRow({
               type="button"
               onClick={() => void handleSaveToWiki()}
               data-testid="save-to-wiki-btn"
-              disabled={saveState.kind === "loading"}
               style={{
                 background: "none",
                 border: "1px solid var(--syn-border)",

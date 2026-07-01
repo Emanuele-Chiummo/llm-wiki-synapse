@@ -232,11 +232,11 @@ export interface SaveToWikiV2Request {
   /** Raw assistant message content (backend strips <think> and citation markers). */
   content: string;
   /** Optional vault scoping. */
-  vault_id?: string | null;
+  vault_id?: string | null | undefined;
   /** Citation source page-ids from the done event (ADR-0022 §2.4). */
-  sources?: string[];
+  sources?: string[] | undefined;
   /** The active conversation id for provenance tracking. */
-  conversation_id?: string | null;
+  conversation_id?: string | null | undefined;
 }
 
 /**
