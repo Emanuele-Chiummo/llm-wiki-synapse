@@ -389,8 +389,10 @@
     "saveToWiki": "Salva nel wiki",
     "saveToWikiComingSoon": "Salva nel wiki",
     "saveToWikiSaving": "Salvataggio…",
-    "saveToWikiSaved": "Salvato: {{title}}",
+    "saveToWikiSaved": "Salvato: {{path}}",
+    "saveToWikiSavedToast": "Salvato nel wiki: {{path}}",
     "saveToWikiError": "Salvataggio fallito",
+    "saveToWikiErrorToast": "Impossibile salvare nel wiki",
     "cost": "Costo",
     "costLabel": "${{cost}}",
     "reasoning": "Ragionamento",
@@ -557,6 +559,16 @@
       "stale-claim": "Affermazione obsoleta",
       "missing-page": "Pagina mancante"
     }
+  },
+  "graph": {
+    "colorModeType": "Tipo",
+    "colorModeCommunity": "Comunità",
+    "colorModeToggleLabel": "Colora per",
+    "legendNodeTypes": "TIPI NODO",
+    "legendCommunities": "COMUNITÀ",
+    "legendCommunityLabel": "Comunità {{id}}",
+    "legendCommunitySize": "{{size}} nodi",
+    "legendCommunityLowCohesion": "Bassa coesione"
   },
   "common": {
     "loading": "Caricamento…",

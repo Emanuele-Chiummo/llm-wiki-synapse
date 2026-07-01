@@ -6,7 +6,8 @@
  *   A. decorateCitations — correct <sup>, hover title, memoization / single-pass (I3/G3).
  *   B. chatStore — carries citations from finalizeTurn; updateMessageCitations action.
  *   C. saveToWiki client — calls POST /ingest/from-text; handles 202 success and error.
- *   D. MessageRow integration — save-to-wiki button enabled, calls client, shows states.
+ *   C2. saveToWikiV2 client — calls POST /chat/save-to-wiki; derives title; passes sources+conversation_id.
+ *   D. MessageRow integration — save-to-wiki button wired, disabled while loading, shows toast.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -18,6 +19,7 @@ import type { CitationRef } from "../store/chatStore";
 import { useChatStore } from "../store/chatStore";
 import type { ChatMessage } from "../store/chatStore";
 import * as chatClientModule from "../api/chatClient";
+import type { SaveToWikiV2Request } from "../api/chatClient";
 
 // ─── A. decorateCitations ────────────────────────────────────────────────────
 
@@ -314,22 +316,109 @@ describe("saveToWiki client — POST /ingest/from-text (AC-F6-5)", () => {
   });
 });
 
+// ─── C2. saveToWikiV2 client — POST /chat/save-to-wiki ───────────────────────
+
+describe("saveToWikiV2 client — POST /chat/save-to-wiki (F6 v0.6)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("calls POST /chat/save-to-wiki with title, content, vault_id, sources, conversation_id", async () => {
+    const mockResponse = { page_id: "uuid-42", file_path: "wiki/queries/my-question.md" };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockResponse,
+      status: 201,
+    } as Response);
+
+    const req: SaveToWikiV2Request = {
+      title: "My question",
+      content: "The assistant answer",
+      vault_id: "vault-123",
+      sources: ["src-uuid-1", "src-uuid-2"],
+      conversation_id: "conv-abc",
+    };
+    const result = await chatClientModule.saveToWikiV2(req);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/chat/save-to-wiki"),
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ "Content-Type": "application/json" }),
+        body: expect.stringContaining("My question"),
+      }),
+    );
+    expect(result.page_id).toBe("uuid-42");
+    expect(result.file_path).toBe("wiki/queries/my-question.md");
+  });
+
+  it("sends sources array in the request body", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ page_id: "p1", file_path: "wiki/queries/q.md" }),
+      status: 201,
+    } as Response);
+
+    await chatClientModule.saveToWikiV2({
+      title: "Q",
+      content: "A",
+      sources: ["src-a", "src-b"],
+      conversation_id: "conv-1",
+    });
+
+    const call = vi.mocked(globalThis.fetch).mock.calls[0];
+    const body = JSON.parse(call?.[1]?.body as string) as SaveToWikiV2Request;
+    expect(body.sources).toEqual(["src-a", "src-b"]);
+    expect(body.conversation_id).toBe("conv-1");
+  });
+
+  it("throws an error with the server detail on non-ok response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      json: async () => ({ detail: "title too long" }),
+    } as Response);
+
+    await expect(chatClientModule.saveToWikiV2({ title: "T", content: "C" })).rejects.toThrow(
+      "title too long",
+    );
+  });
+
+  it("throws with status code when server returns no detail", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      json: async () => ({}),
+    } as Response);
+
+    await expect(chatClientModule.saveToWikiV2({ title: "T", content: "C" })).rejects.toThrow("503");
+  });
+});
+
 // ─── D. MessageRow integration — save-to-wiki button ─────────────────────────
 // We test the button behaviour by rendering a minimal wrapper that mirrors
 // MessageRow's save-to-wiki logic, isolating it from the full virtualizer/store.
 
-// A minimal component that mirrors the save-to-wiki button state machine
+/**
+ * Minimal component mirroring MessageRow's save-to-wiki state machine.
+ * Now uses saveToWikiV2 (POST /chat/save-to-wiki) to match the v0.6 wiring.
+ * Disabled while loading (AC-F6-5).
+ */
 function SaveToWikiButton({
   content,
+  title = "Test title",
   vaultId,
+  conversationId,
 }: {
   content: string;
+  title?: string;
   vaultId?: string;
+  conversationId?: string;
 }): React.ReactElement {
   const [state, setState] = React.useState<
     | { kind: "idle" }
     | { kind: "loading" }
-    | { kind: "success"; pageTitle: string; wikilink: string }
+    | { kind: "success"; pageId: string; filePath: string }
     | { kind: "error"; message: string }
   >({ kind: "idle" });
 
@@ -337,31 +426,36 @@ function SaveToWikiButton({
     if (state.kind === "loading") return;
     setState({ kind: "loading" });
     try {
-      const result = await chatClientModule.saveToWiki(content, vaultId);
-      setState({ kind: "success", pageTitle: result.page_title, wikilink: result.wikilink });
+      const result = await chatClientModule.saveToWikiV2({
+        title,
+        content,
+        vault_id: vaultId,
+        conversation_id: conversationId,
+      });
+      setState({ kind: "success", pageId: result.page_id, filePath: result.file_path });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Save failed";
       setState({ kind: "error", message });
     }
   };
 
+  const isLoading = state.kind === "loading";
+
   return (
     <div>
-      {(state.kind === "idle" || state.kind === "error") && (
+      {(state.kind === "idle" || state.kind === "error" || state.kind === "loading") && (
         <button
           type="button"
           data-testid="save-to-wiki-btn"
+          disabled={isLoading}
           onClick={() => void handleClick()}
         >
-          Save to wiki
+          {isLoading ? "Saving…" : "Save to wiki"}
         </button>
       )}
-      {state.kind === "loading" && (
-        <span data-testid="save-to-wiki-loading">Saving…</span>
-      )}
       {state.kind === "success" && (
-        <span data-testid="save-to-wiki-success" title={state.wikilink}>
-          Saved: {state.pageTitle}
+        <span data-testid="save-to-wiki-success" title={state.filePath}>
+          Saved: {state.filePath}
         </span>
       )}
       {state.kind === "error" && (
@@ -371,36 +465,63 @@ function SaveToWikiButton({
   );
 }
 
-describe("save-to-wiki button state machine (AC-F6-5)", () => {
+describe("save-to-wiki button state machine (AC-F6-5 v0.6 — POST /chat/save-to-wiki)", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("button is rendered and not disabled — AC-F6-5(a)", () => {
+  it("button is rendered and not disabled initially — AC-F6-5(a)", () => {
     render(<SaveToWikiButton content="Hello" />);
     const btn = screen.getByTestId("save-to-wiki-btn") as HTMLButtonElement;
     expect(btn).toBeTruthy();
-    // Not disabled: disabled attribute absent or false
     expect(btn.disabled).toBe(false);
   });
 
-  it("clicking calls saveToWiki with the message content — AC-F6-5(b)", async () => {
+  it("clicking calls saveToWikiV2 with title, content, and vaultId — AC-F6-5(b)", async () => {
     const saveSpy = vi
-      .spyOn(chatClientModule, "saveToWiki")
-      .mockResolvedValueOnce({ page_title: "Test Page", wikilink: "[[Test Page]]" });
+      .spyOn(chatClientModule, "saveToWikiV2")
+      .mockResolvedValueOnce({ page_id: "uuid-1", file_path: "wiki/queries/test-title.md" });
 
-    render(<SaveToWikiButton content="Assistant answer here" vaultId="vault-42" />);
+    render(<SaveToWikiButton content="Assistant answer here" title="Test title" vaultId="vault-42" />);
     fireEvent.click(screen.getByTestId("save-to-wiki-btn"));
 
     await waitFor(() => {
-      expect(saveSpy).toHaveBeenCalledWith("Assistant answer here", "vault-42");
+      expect(saveSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Test title",
+          content: "Assistant answer here",
+          vault_id: "vault-42",
+        }),
+      );
     });
   });
 
-  it("shows success state with page_title after 202 — AC-F6-5(c)", async () => {
-    vi.spyOn(chatClientModule, "saveToWiki").mockResolvedValueOnce({
-      page_title: "Wiki Article",
-      wikilink: "[[Wiki Article]]",
+  it("passes conversation_id to saveToWikiV2 — AC-F6-5(b2)", async () => {
+    const saveSpy = vi
+      .spyOn(chatClientModule, "saveToWikiV2")
+      .mockResolvedValueOnce({ page_id: "uuid-2", file_path: "wiki/queries/q.md" });
+
+    render(
+      <SaveToWikiButton
+        content="content"
+        title="My question"
+        vaultId="v1"
+        conversationId="conv-99"
+      />,
+    );
+    fireEvent.click(screen.getByTestId("save-to-wiki-btn"));
+
+    await waitFor(() => {
+      expect(saveSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ conversation_id: "conv-99" }),
+      );
+    });
+  });
+
+  it("shows success state with file_path after 201 — AC-F6-5(c)", async () => {
+    vi.spyOn(chatClientModule, "saveToWikiV2").mockResolvedValueOnce({
+      page_id: "uuid-3",
+      file_path: "wiki/queries/my-article.md",
     });
 
     render(<SaveToWikiButton content="content" />);
@@ -410,12 +531,12 @@ describe("save-to-wiki button state machine (AC-F6-5)", () => {
       expect(screen.queryByTestId("save-to-wiki-success")).toBeTruthy();
     });
     const successEl = screen.getByTestId("save-to-wiki-success");
-    expect(successEl.textContent).toContain("Wiki Article");
-    expect(successEl.getAttribute("title")).toBe("[[Wiki Article]]");
+    expect(successEl.textContent).toContain("wiki/queries/my-article.md");
+    expect(successEl.getAttribute("title")).toBe("wiki/queries/my-article.md");
   });
 
-  it("shows error state on non-202 response — AC-F6-5(d)", async () => {
-    vi.spyOn(chatClientModule, "saveToWiki").mockRejectedValueOnce(
+  it("shows error state on non-201 response — AC-F6-5(d)", async () => {
+    vi.spyOn(chatClientModule, "saveToWikiV2").mockRejectedValueOnce(
       new Error("Backend unavailable"),
     );
 
@@ -433,10 +554,9 @@ describe("save-to-wiki button state machine (AC-F6-5)", () => {
     );
   });
 
-  it("chat state is unchanged on error — AC-F6-5(d)", async () => {
-    vi.spyOn(chatClientModule, "saveToWiki").mockRejectedValueOnce(new Error("500"));
+  it("chat store messages are unchanged on error — AC-F6-5(d)", async () => {
+    vi.spyOn(chatClientModule, "saveToWikiV2").mockRejectedValueOnce(new Error("500"));
 
-    // Store state before click
     const messagesBefore = useChatStore.getState().messages;
 
     render(<SaveToWikiButton content="content" />);
@@ -449,14 +569,13 @@ describe("save-to-wiki button state machine (AC-F6-5)", () => {
       expect(screen.queryByTestId("save-to-wiki-error")).toBeTruthy();
     });
 
-    // Chat store messages unchanged
     expect(useChatStore.getState().messages).toBe(messagesBefore);
   });
 
-  it("shows loading state while request is in flight", async () => {
-    let resolvePromise!: (v: chatClientModule.SaveToWikiResponse) => void;
-    vi.spyOn(chatClientModule, "saveToWiki").mockReturnValueOnce(
-      new Promise<chatClientModule.SaveToWikiResponse>((resolve) => {
+  it("button is disabled while request is in-flight — AC-F6-5(e)", async () => {
+    let resolvePromise!: (v: chatClientModule.SaveToWikiV2Response) => void;
+    vi.spyOn(chatClientModule, "saveToWikiV2").mockReturnValueOnce(
+      new Promise<chatClientModule.SaveToWikiV2Response>((resolve) => {
         resolvePromise = resolve;
       }),
     );
@@ -465,12 +584,13 @@ describe("save-to-wiki button state machine (AC-F6-5)", () => {
     fireEvent.click(screen.getByTestId("save-to-wiki-btn"));
 
     await waitFor(() => {
-      expect(screen.queryByTestId("save-to-wiki-loading")).toBeTruthy();
+      const btn = screen.getByTestId("save-to-wiki-btn") as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
     });
 
     // Resolve to clean up
     await act(async () => {
-      resolvePromise({ page_title: "P", wikilink: "[[P]]" });
+      resolvePromise({ page_id: "p", file_path: "wiki/queries/p.md" });
     });
   });
 });

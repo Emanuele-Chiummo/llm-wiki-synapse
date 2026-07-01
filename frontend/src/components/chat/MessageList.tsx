@@ -35,10 +35,12 @@ import {
   useMessages,
   selectIsStreaming,
   selectLastUsage,
+  selectActiveConversationId,
 } from "../../store/chatStore";
 import type { ChatMessage } from "../../store/chatStore";
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
-import { saveToWiki } from "../../api/chatClient";
+import { saveToWikiV2 } from "../../api/chatClient";
+import { showToast } from "../common/Toast";
 import { MarkdownView } from "./MarkdownView";
 import { StreamingMessage } from "./StreamingMessage";
 
@@ -52,6 +54,7 @@ export function MessageList({ onRegenerate }: MessageListProps): ReactNode {
   const messages = useMessages();
   const isStreaming = useChatStore(selectIsStreaming);
   const lastUsage = useChatStore(selectLastUsage);
+  const activeConversationId = useChatStore(selectActiveConversationId);
   const vaultId = useGraphStore(selectVaultId);
 
   const parentRef = useRef<HTMLDivElement>(null);
@@ -126,11 +129,14 @@ export function MessageList({ onRegenerate }: MessageListProps): ReactNode {
               >
                 <MessageRow
                   msg={msg}
+                  msgIndex={virtualItem.index}
+                  allMessages={messages}
                   isLast={isLast}
                   onRegenerate={isLast && msg.role === "assistant" ? onRegenerate : undefined}
                   showCost={isLast && msg.role === "assistant" && lastUsage !== null}
                   costUsd={isLast ? (lastUsage?.totalCostUsd ?? msg.total_cost_usd) : msg.total_cost_usd}
                   vaultId={vaultId}
+                  conversationId={activeConversationId}
                   t={t}
                 />
               </div>
@@ -160,28 +166,64 @@ export function MessageList({ onRegenerate }: MessageListProps): ReactNode {
 type SaveState =
   | { kind: "idle" }
   | { kind: "loading" }
-  | { kind: "success"; pageTitle: string; wikilink: string }
+  | { kind: "success"; pageId: string; filePath: string }
   | { kind: "error"; message: string };
+
+/**
+ * Derive a page title from the user message that prompted this assistant reply.
+ * Walks backward from `msgIndex` in `allMessages` to find the nearest "user" role
+ * message. Falls back to the first line of the assistant content, then to a generic
+ * fallback string. Trims to 80 chars max.
+ */
+function deriveSaveTitle(
+  msg: ChatMessage,
+  msgIndex: number,
+  allMessages: ChatMessage[],
+): string {
+  // Search backwards for a user message preceding this assistant message
+  for (let i = msgIndex - 1; i >= 0; i--) {
+    const candidate = allMessages[i];
+    if (candidate?.role === "user") {
+      const trimmed = candidate.content.trim().replace(/\s+/g, " ");
+      return trimmed.length > 80 ? trimmed.slice(0, 80) : trimmed;
+    }
+  }
+  // Fallback: first line of the assistant content (strip <think> preamble)
+  const firstLine = msg.content
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .trim()
+    .split("\n")[0]
+    ?.trim() ?? "";
+  return firstLine.length > 80 ? firstLine.slice(0, 80) : firstLine || "Saved answer";
+}
 
 // ─── MessageRow — memoized per settled message ────────────────────────────────
 
 interface MessageRowProps {
   msg: ChatMessage;
+  /** Index of this message in the allMessages array — used to walk back to user question. */
+  msgIndex: number;
+  /** Full settled messages array — needed to derive the save title from prior user msg. */
+  allMessages: ChatMessage[];
   isLast: boolean;
   onRegenerate?: (() => void) | undefined;
   showCost: boolean;
   costUsd: number;
   vaultId: string | null | undefined;
+  conversationId: string | null | undefined;
   t: ReturnType<typeof useTranslation>["t"];
 }
 
 const MessageRow = memo(function MessageRow({
   msg,
+  msgIndex,
+  allMessages,
   isLast,
   onRegenerate,
   showCost,
   costUsd,
   vaultId,
+  conversationId,
   t,
 }: MessageRowProps): ReactNode {
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
@@ -190,13 +232,29 @@ const MessageRow = memo(function MessageRow({
     if (saveState.kind === "loading") return;
     setSaveState({ kind: "loading" });
     try {
-      const result = await saveToWiki(msg.content, vaultId ?? null);
-      setSaveState({ kind: "success", pageTitle: result.page_title, wikilink: result.wikilink });
+      // Derive title from the user question preceding this assistant message (AC-F6-5)
+      const title = deriveSaveTitle(msg, msgIndex, allMessages);
+      // Collect source page-ids from citations if available
+      const sources =
+        msg.citations && msg.citations.length > 0
+          ? msg.citations.map((c) => c.id)
+          : undefined;
+      const result = await saveToWikiV2({
+        title,
+        content: msg.content,
+        vault_id: vaultId ?? null,
+        sources,
+        conversation_id: conversationId ?? null,
+      });
+      setSaveState({ kind: "success", pageId: result.page_id, filePath: result.file_path });
+      // Success toast — i18n IT/EN (F16)
+      showToast(t("chat.saveToWikiSavedToast", { path: result.file_path }), "success");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t("chat.saveToWikiError");
       setSaveState({ kind: "error", message });
+      showToast(t("chat.saveToWikiErrorToast"), "error");
     }
-  }, [saveState.kind, msg.content, vaultId, t]);
+  }, [saveState.kind, msg, msgIndex, allMessages, vaultId, conversationId, t]);
 
   return (
     <div>
@@ -230,12 +288,13 @@ const MessageRow = memo(function MessageRow({
             </span>
           )}
 
-          {/* Save to wiki (AC-F6-5) — enabled in M5 */}
+          {/* Save to wiki (AC-F6-5) — wired to POST /chat/save-to-wiki (v0.6) */}
           {saveState.kind === "idle" || saveState.kind === "error" ? (
             <button
               type="button"
               onClick={() => void handleSaveToWiki()}
               data-testid="save-to-wiki-btn"
+              disabled={saveState.kind === "loading"}
               style={{
                 background: "none",
                 border: "1px solid var(--syn-border)",
@@ -250,20 +309,31 @@ const MessageRow = memo(function MessageRow({
               {t("chat.saveToWiki")}
             </button>
           ) : saveState.kind === "loading" ? (
-            <span
-              data-testid="save-to-wiki-loading"
-              style={{ color: "var(--syn-text-muted)", fontSize: 11 }}
+            <button
+              type="button"
+              data-testid="save-to-wiki-btn"
+              disabled
+              style={{
+                background: "none",
+                border: "1px solid var(--syn-border)",
+                borderRadius: 4,
+                color: "var(--syn-text-muted)",
+                cursor: "not-allowed",
+                fontSize: 11,
+                padding: "2px 8px",
+                opacity: 0.5,
+              }}
             >
               {t("chat.saveToWikiSaving")}
-            </span>
+            </button>
           ) : (
             /* success */
             <span
               data-testid="save-to-wiki-success"
               style={{ color: "var(--syn-green)", fontSize: 11 }}
-              title={saveState.wikilink}
+              title={saveState.filePath}
             >
-              {t("chat.saveToWikiSaved", { title: saveState.pageTitle })}
+              {t("chat.saveToWikiSaved", { path: saveState.filePath })}
             </span>
           )}
 

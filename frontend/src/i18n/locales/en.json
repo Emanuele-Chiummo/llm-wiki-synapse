@@ -389,8 +389,10 @@
     "saveToWiki": "Save to wiki",
     "saveToWikiComingSoon": "Save to wiki",
     "saveToWikiSaving": "Saving…",
-    "saveToWikiSaved": "Saved: {{title}}",
+    "saveToWikiSaved": "Saved: {{path}}",
+    "saveToWikiSavedToast": "Saved to wiki: {{path}}",
     "saveToWikiError": "Save failed",
+    "saveToWikiErrorToast": "Failed to save to wiki",
     "cost": "Cost",
     "costLabel": "${{cost}}",
     "reasoning": "Reasoning",
@@ -557,6 +559,16 @@
       "stale-claim": "Stale claim",
       "missing-page": "Missing page"
     }
+  },
+  "graph": {
+    "colorModeType": "Type",
+    "colorModeCommunity": "Community",
+    "colorModeToggleLabel": "Color by",
+    "legendNodeTypes": "NODE TYPES",
+    "legendCommunities": "COMMUNITIES",
+    "legendCommunityLabel": "Community {{id}}",
+    "legendCommunitySize": "{{size}} nodes",
+    "legendCommunityLowCohesion": "Low cohesion"
   },
   "common": {
     "loading": "Loading…",

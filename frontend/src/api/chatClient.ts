@@ -217,3 +217,69 @@ export async function saveToWiki(
   }
   return res.json() as Promise<SaveToWikiResponse>;
 }
+
+// ─── POST /chat/save-to-wiki (F6, v0.6 dedicated endpoint) ───────────────────
+
+/**
+ * Request body for POST /chat/save-to-wiki.
+ *
+ * The backend cleans <think>/citations server-side and writes
+ * wiki/queries/<slug>.md as a type=query page.
+ */
+export interface SaveToWikiV2Request {
+  /** Page title — derived from the prior user question (trimmed to ~80 chars). */
+  title: string;
+  /** Raw assistant message content (backend strips <think> and citation markers). */
+  content: string;
+  /** Optional vault scoping. */
+  vault_id?: string | null;
+  /** Citation source page-ids from the done event (ADR-0022 §2.4). */
+  sources?: string[];
+  /** The active conversation id for provenance tracking. */
+  conversation_id?: string | null;
+}
+
+/**
+ * Response from POST /chat/save-to-wiki → 201 Created.
+ */
+export interface SaveToWikiV2Response {
+  /** UUID of the newly created wiki page. */
+  page_id: string;
+  /** Vault-relative file path (e.g. "wiki/queries/my-question.md"). */
+  file_path: string;
+}
+
+/**
+ * saveToWikiV2 — POST the settled assistant turn to POST /chat/save-to-wiki.
+ *
+ * This is the v0.6 dedicated endpoint (see backend `POST /chat/save-to-wiki`).
+ * The backend:
+ *   1. Strips <think>…</think> blocks and [n] citation markers.
+ *   2. Writes wiki/queries/<slug>.md with type=query frontmatter.
+ *   3. Returns { page_id, file_path } on 201.
+ *
+ * @param req — structured save request (title, content, sources, conversation_id)
+ * @param signal — optional AbortSignal for cancellation
+ */
+export async function saveToWikiV2(
+  req: SaveToWikiV2Request,
+  signal?: AbortSignal,
+): Promise<SaveToWikiV2Response> {
+  const res = await fetch(`${API_BASE}/chat/save-to-wiki`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const payload = (await res.json()) as { detail?: string };
+      if (payload.detail) detail = payload.detail;
+    } catch {
+      // ignore JSON parse error; use status code as message
+    }
+    throw new Error(detail);
+  }
+  return res.json() as Promise<SaveToWikiV2Response>;
+}
