@@ -377,6 +377,9 @@ export interface CascadeDeleteResult {
 /**
  * Response from GET /pages/{id}/content.
  * 404 if the page is unknown, deleted, or the backing file is missing.
+ *
+ * v0.6: backend now also returns `type` and `sources` — both optional/nullable
+ * so older server responses remain valid (additive, no breaking change).
  */
 export interface PageContentResponse {
   id: string;
@@ -385,6 +388,35 @@ export interface PageContentResponse {
   content: string;
   content_hash: string;
   updated_at: string; // ISO-8601
+  /** Page type (concept | entity | source | …) — may be null or absent on old servers. */
+  type?: string | null;
+  /** Source document IDs referenced by this page — may be null or absent on old servers. */
+  sources?: string[] | null;
+}
+
+// ─── GET /pages/{id}/related ─────────────────────────────────────────────────
+
+/**
+ * One item in GET /pages/{id}/related?limit=10.
+ * Ranked by 4-signal edge weight (highest first).
+ */
+export interface RelatedPageItem {
+  page_id: string;
+  title: string;
+  /** Page type — may be null. */
+  type: string | null;
+  /** 4-signal relevance score (3·direct + 4·source_overlap + 1.5·AA + 1·same_type). */
+  score: number;
+}
+
+/**
+ * Response from GET /pages/{id}/related?limit=10.
+ * items is empty + total is 0 when the page has no edges.
+ * 404 if the page_id is unknown.
+ */
+export interface RelatedPagesResponse {
+  items: RelatedPageItem[];
+  total: number;
 }
 
 /**

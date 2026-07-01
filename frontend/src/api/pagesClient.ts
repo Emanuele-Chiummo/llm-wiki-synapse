@@ -10,6 +10,7 @@ import type {
   PageListResponse,
   PageContentResponse,
   PageContentPutResponse,
+  RelatedPagesResponse,
   StatusResponse,
 } from "./types";
 import { ApiError } from "./graphClient";
@@ -100,6 +101,26 @@ export async function savePageContent(
   );
   await checkResponse(res);
   return (await res.json()) as PageContentPutResponse;
+}
+
+/**
+ * Fetch related pages for a wiki page, ranked by 4-signal edge weight.
+ * GET /pages/{id}/related?limit=<limit>
+ *
+ * Returns RelatedPagesResponse(items=[], total=0) when the page has no graph edges.
+ * Throws ApiError(404) if the page is unknown.
+ * The AbortSignal is propagated so the caller can cancel when the selection changes (I3).
+ */
+export async function fetchRelatedPages(
+  pageId: string,
+  limit = 10,
+  signal?: AbortSignal,
+): Promise<RelatedPagesResponse> {
+  const url =
+    `${API_BASE}/pages/${encodeURIComponent(pageId)}/related?limit=${limit}`;
+  const res = await fetchWithTimeout(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as RelatedPagesResponse;
 }
 
 /**

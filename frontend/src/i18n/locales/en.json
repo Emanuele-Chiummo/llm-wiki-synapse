@@ -504,7 +504,11 @@
     "staleConflict": "This note changed on disk — reload before editing",
     "reload": "Reload",
     "loadError": "Could not load page content",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "wikilinkNotFound": "Page not found: {{title}}",
+    "sources": "Sources",
+    "related": "Related ({{count}})",
+    "relatedError": "Could not load related pages"
   },
   "lint": {
     "title": "Lint",
