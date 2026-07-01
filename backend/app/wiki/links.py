@@ -31,6 +31,7 @@ from datetime import UTC, datetime
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ingest.orchestrator import _slugify
 from app.models import Link, Page
 
 logger = logging.getLogger(__name__)
@@ -99,6 +100,69 @@ def parse_wikilinks(markdown: str) -> list[ParsedLink]:
     return results
 
 
+# ── Tolerant target → page resolution (F3/K3 cross-ingest connectivity) ─────────
+
+
+@dataclass(frozen=True)
+class _ResolverMaps:
+    """Three lookup maps over live pages, built in one bulk query (avoids N+1)."""
+
+    by_title: dict[str, uuid.UUID]  # exact Page.title → id
+    by_lower: dict[str, uuid.UUID]  # lower(title) → id (first-hit-wins)
+    by_slug: dict[str, uuid.UUID]  # _slugify(title) → id (first-hit-wins)
+
+
+async def _build_resolver_maps(session: AsyncSession) -> _ResolverMaps:
+    """
+    Build exact / case-insensitive / slug lookup maps over ALL live pages in ONE query.
+
+    First-hit-wins for the lossy (lower/slug) maps: when two live titles collapse to the same
+    lower/slug key we keep the first seen and do NOT overwrite. This is conservative — it never
+    invents an ambiguous edge; the exact map always wins at resolution time anyway.
+    """
+    result = await session.execute(
+        select(Page.id, Page.title).where(
+            Page.deleted_at.is_(None),
+            Page.title.is_not(None),
+        )
+    )
+    by_title: dict[str, uuid.UUID] = {}
+    by_lower: dict[str, uuid.UUID] = {}
+    by_slug: dict[str, uuid.UUID] = {}
+    for row in result.all():
+        # Attribute access (row.id/row.title) works for both SQLAlchemy Row and test fakes.
+        pid = row.id
+        title = row.title
+        if title is None:
+            continue
+        by_title.setdefault(title, pid)
+        by_lower.setdefault(title.lower(), pid)
+        by_slug.setdefault(_slugify(title), pid)
+    return _ResolverMaps(by_title=by_title, by_lower=by_lower, by_slug=by_slug)
+
+
+def _resolve_target(target: str, maps: _ResolverMaps) -> uuid.UUID | None:
+    """
+    Resolve a [[Target]] to a live page id using a fixed, conservative precedence:
+
+        1. exact Page.title match                    (unchanged historical behavior)
+        2. case-insensitive lower(title) match       (catches "rag" vs "RAG")
+        3. slug match (_slugify(title) == _slugify(target))  (catches punctuation/spacing drift)
+
+    Exact-first is deliberate: it guarantees we never demote a real title to a fuzzy match. We
+    stop at the first hit and only fall through to the looser maps when the stricter one misses,
+    so unrelated pages are never linked (over-linking would create false graph edges). Returns
+    None when none of the three match → caller marks the link dangling.
+    """
+    hit = maps.by_title.get(target)
+    if hit is not None:
+        return hit
+    hit = maps.by_lower.get(target.lower())
+    if hit is not None:
+        return hit
+    return maps.by_slug.get(_slugify(target))
+
+
 # ── Persistence ────────────────────────────────────────────────────────────────
 
 
@@ -125,21 +189,17 @@ async def persist_links(
     if not parsed_links:
         return
 
-    # 2. Bulk-resolve target titles in one query.
-    target_titles = [pl.target for pl in parsed_links]
-    result = await session.execute(
-        select(Page.id, Page.title).where(
-            Page.title.in_(target_titles),
-            Page.deleted_at.is_(None),
-        )
-    )
-    title_to_id: dict[str, uuid.UUID] = {row.title: row.id for row in result.all()}
+    # 2. Bulk-build the tolerant resolver maps in ONE query over live pages (F3/K3, no N+1).
+    #    Resolution precedence is exact → case-insensitive → slug (see _resolve_target). This
+    #    catches near-miss titles the ingest LLM invents so cross-ingest links form real edges
+    #    instead of dangling — while staying conservative (exact-first, first-hit-wins).
+    maps = await _build_resolver_maps(session)
 
     now = datetime.now(UTC)
     dangling_count = 0
 
     for pl in parsed_links:
-        target_page_id = title_to_id.get(pl.target)
+        target_page_id = _resolve_target(pl.target, maps)
         dangling = target_page_id is None
         if dangling:
             dangling_count += 1
@@ -162,3 +222,41 @@ async def persist_links(
             dangling_count,
             source_page_id,
         )
+
+
+# ── Backfill: re-resolve historical dangling links (F3/K3) ──────────────────────
+
+
+async def reresolve_dangling_links(session: AsyncSession) -> int:
+    """
+    Re-resolve every dangling Link against the CURRENT live pages using the same tolerant
+    matcher as persist_links (exact → case-insensitive → slug). For any dangling link whose
+    target_title now maps to a live page, set target_page_id and clear dangling.
+
+    Returns the number of links reconnected. Bounded single pass (I7): one query for the
+    dangling rows + one query to build the resolver maps; no per-row DB round-trips. The caller
+    commits and bumps the graph (main.py POST /links/reresolve).
+    """
+    result = await session.execute(select(Link).where(Link.dangling.is_(True)))
+    dangling_links = list(result.scalars().all())
+    if not dangling_links:
+        return 0
+
+    maps = await _build_resolver_maps(session)
+
+    reconnected = 0
+    for link in dangling_links:
+        if not link.target_title:
+            continue
+        target_page_id = _resolve_target(link.target_title, maps)
+        if target_page_id is not None:
+            link.target_page_id = target_page_id
+            link.dangling = False
+            reconnected += 1
+
+    logger.info(
+        "reresolve_dangling_links: reconnected %d of %d dangling links (F3/K3 backfill)",
+        reconnected,
+        len(dangling_links),
+    )
+    return reconnected

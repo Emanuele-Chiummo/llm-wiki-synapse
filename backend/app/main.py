@@ -4089,6 +4089,87 @@ async def save_chat_to_wiki(body: SaveToWikiRequest) -> SaveToWikiResponse:
     )
 
 
+# ── POST /links/reresolve ────────────────────────────────────────────────────────
+
+
+class ReresolveLinksResponse(BaseModel):
+    """
+    Response for POST /links/reresolve (F3/K3 cross-ingest connectivity backfill).
+
+    reconnected: number of previously-dangling links now bound to a live page.
+    remaining_dangling: number of links still dangling after the pass.
+    """
+
+    reconnected: int = Field(
+        description="Previously-dangling links reconnected to a live page in this pass."
+    )
+    remaining_dangling: int = Field(
+        description="Links still dangling after the pass (target has no matching live page)."
+    )
+
+    model_config = {
+        "json_schema_extra": {"example": {"reconnected": 42, "remaining_dangling": 7}}
+    }
+
+
+@app.post(
+    "/links/reresolve",
+    response_model=ReresolveLinksResponse,
+    status_code=200,
+    summary="Re-resolve dangling wikilinks against current pages (F3/K3)",
+    description=(
+        "Backfill for cross-ingest graph connectivity: re-resolves every dangling Link against "
+        "the current live pages using the tolerant matcher (exact → case-insensitive → slug). "
+        "Links whose target now matches a live page are reconnected (target_page_id set, "
+        "dangling cleared). Bounded single pass (I7 — two queries, no per-row round-trips). "
+        "Bumps data_version once so the debounced GraphCache recomputes with the new edges (I2). "
+        "Returns {reconnected, remaining_dangling}."
+    ),
+    responses={200: {"description": "Backfill completed"}},
+)
+async def reresolve_links() -> ReresolveLinksResponse:
+    """
+    POST /links/reresolve — reconnect historical dangling wikilinks (F3/K3).
+
+    Invariant compliance:
+      I1 — incremental: only touches Link rows that resolve; no page rescan.
+      I2 — bumps data_version + notify_bump once so FA2 recomputes with the new edges.
+      I6 — NO provider call; pure DB resolution.
+      I7 — single bounded pass, no loop.
+    """
+    from sqlalchemy import func
+
+    from app.ingest.orchestrator import bump_version
+    from app.models import Link
+    from app.wiki.links import reresolve_dangling_links
+
+    async with get_session() as session:
+        reconnected = await reresolve_dangling_links(session)
+        remaining_row = await session.execute(
+            select(func.count()).select_from(Link).where(Link.dangling.is_(True))
+        )
+        remaining_dangling = int(remaining_row.scalar_one() or 0)
+        # Commit the reconnected rows before bumping the graph (session commits on exit).
+
+    # Only bump the graph when something actually changed (avoid a needless FA2 recompute, I2).
+    if reconnected:
+        await bump_version()
+        global _graph_cache
+        if _graph_cache is not None:
+            async with get_session() as _vs_sess:
+                _vs_row = await _vs_sess.execute(
+                    select(VaultState).where(VaultState.vault_id == settings.vault_id)
+                )
+                _vs = _vs_row.scalar_one_or_none()
+                _new_version = _vs.data_version if _vs is not None else 0
+            _graph_cache.notify_bump(_new_version)
+
+    return ReresolveLinksResponse(
+        reconnected=reconnected,
+        remaining_dangling=remaining_dangling,
+    )
+
+
 # ── GET /graph ─────────────────────────────────────────────────────────────────
 
 

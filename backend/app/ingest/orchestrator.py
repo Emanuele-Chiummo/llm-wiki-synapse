@@ -61,6 +61,8 @@ from app.ingest.provider import resolve_provider
 from app.ingest.provider.base import InferenceProvider, UsageAccumulator
 from app.ingest.queue_manager import ingest_queue
 from app.ingest.schemas import (
+    INDEX_TYPE,
+    OVERVIEW_TYPE,
     Analysis,
     WikiPage,
     type_subdir,
@@ -388,6 +390,14 @@ async def run_ingest_pipeline(
     # Wrapped so a route failure still persists an ingest_runs row with status="failed" and the
     # error_message + accumulated cost (BUG A2 / I7), then re-raises so the REST/watcher caller
     # surfaces the error unchanged.
+    # ── F3/K3 cross-ingest connectivity: assemble the provider context ONCE ──────
+    # purpose.md + schema.md + the existing-pages catalogue ("LINK TO THESE"). Built here in
+    # the async pipeline (the catalogue needs an async DB query) and threaded into BOTH the
+    # delegated (CLI) and orchestrated (API/Local) paths so the LLM links to existing pages on
+    # every backend → one connected graph instead of isolated islands (I6 — guidance is in the
+    # context STRING, never in provider code).
+    ingest_context = await _load_ingest_context()
+
     try:
         if caps.supports_agentic_loop:
             route = "delegated"
@@ -395,6 +405,7 @@ async def run_ingest_pipeline(
                 provider=provider,
                 source_text=source_text,
                 origin_source=origin_source,
+                system_prompt=ingest_context,
             )
             # ── ADR-0046 §3: deferred cancel check for delegated route (I6) ──────────
             # We cannot inject a cancel boundary into the provider's own agent loop (I6
@@ -457,6 +468,7 @@ async def run_ingest_pipeline(
                 source_text=source_text,
                 origin_source=origin_source,
                 config_row=provider_config_row,
+                vault_context=ingest_context,
                 cancel_event=cancel_event,
             )
             pages = loop_result.pages
@@ -710,17 +722,24 @@ async def _run_orchestrated(
     source_text: str,
     origin_source: str,
     config_row: object,
-    cancel_event: "asyncio.Event | None" = None,
+    vault_context: str | None = None,
+    cancel_event: asyncio.Event | None = None,
 ) -> LoopResult:
     """Run the bounded loop with optional single fallback (I7, ADR-0009 §4).
 
     cancel_event is threaded from run_ingest_pipeline (ADR-0046 §3); passed to
     run_orchestrated_loop so IngestCancelled is raised at loop boundaries only.
     IngestCancelled propagates up — it is NOT a fallback-eligible exception.
+
+    vault_context is assembled by run_ingest_pipeline (F2/F3: purpose + schema +
+    existing-pages catalogue) and threaded in so the same context reaches primary AND fallback.
+    Falls back to purpose+schema only (no catalogue) when the caller omits it — this keeps
+    direct callers working without a DB round-trip.
     """
     max_iter = int(getattr(config_row, "max_iter", None) or 3)
     token_budget = int(getattr(config_row, "token_budget", None) or 60_000)
-    vault_context = _load_vault_context()
+    if vault_context is None:
+        vault_context = _load_vault_context()
     retrieval_context = ""  # F5 4-phase retrieval lands in v0.5; empty context for v0.2.
 
     try:
@@ -774,6 +793,7 @@ async def _delegate_ingest(
     provider: InferenceProvider,
     source_text: str,
     origin_source: str,
+    system_prompt: str | None = None,
 ) -> tuple[bool, int, list[str]]:
     """
     Delegate the whole ingest to an agentic provider (CLI). The provider runs its own bounded
@@ -794,7 +814,12 @@ async def _delegate_ingest(
         raise IngestError(
             "agentic provider exposes no delegate_ingest() — cannot delegate (ADR-0007 §3)"
         )
-    system_prompt = _load_vault_context()
+    # system_prompt is assembled by run_ingest_pipeline (F2/F3: purpose + schema +
+    # existing-pages catalogue) so the CLI agent links to existing pages too (I6 — guidance
+    # lives in the context string, not in provider code). Falls back to purpose+schema only
+    # when the caller omits it (keeps direct callers working without a DB round-trip).
+    if system_prompt is None:
+        system_prompt = _load_vault_context()
     # ── MCP wiring seam (ADR-0010 §2) ──────────────────────────────────────────
     # Import lazily to avoid a circular import; app.mcp.server imports from orchestrator.
     # The CLI delegated path needs an IN-PROCESS SDK MCP server (McpSdkServerConfig dict), NOT
@@ -1730,6 +1755,129 @@ def _load_vault_context() -> str:
         if path.exists():
             parts.append(f"# {name}\n{path.read_text(encoding='utf-8')}")
     return "\n\n".join(parts)
+
+
+# ── F3 cross-ingest connectivity: existing-pages catalogue (K3) ──────────────────
+#
+# Each ingest otherwise produces an isolated graph island because the ingest LLM does not
+# know which pages already exist, so it invents new titles → [[wikilinks]] don't match →
+# links are dangling (no edge). nashsu/llm_wiki feeds the existing index catalogue to the
+# LLM so it links to existing pages → one connected web. We inject the catalogue INTO THE
+# CONTEXT STRING (never into provider code — I6).
+#
+# Bounded (I7): capped by title count AND char budget; a one-shot indexed query, no rescan.
+_CATALOGUE_MAX_TITLES = 400
+_CATALOGUE_MAX_CHARS = 8000
+# Meta/infra page types the LLM should never link to as content pages.
+_CATALOGUE_EXCLUDED_TYPES = frozenset({INDEX_TYPE, OVERVIEW_TYPE, "log"})
+
+
+async def _load_existing_pages_catalogue() -> str:
+    """
+    Build the "Existing wiki pages — LINK TO THESE" catalogue (F3/K3 cross-ingest connectivity).
+
+    Query live pages (deleted_at IS NULL), EXCLUDING meta/infra pages (index/log/overview page
+    types AND anything under raw/sources/). Group the remaining real wiki-page titles by
+    page_type and format a compact section instructing the LLM to link with the EXACT existing
+    title instead of inventing a duplicate.
+
+    Bounded (I7): capped at _CATALOGUE_MAX_TITLES titles and _CATALOGUE_MAX_CHARS chars. When the
+    vault exceeds the cap we keep the most-recently-updated subset, append an explicit truncation
+    note, and log.warning the count dropped (never silent). Returns "" when there is nothing to
+    link to yet (first-ever ingest).
+    """
+    from sqlalchemy import select
+
+    async with get_session() as session:
+        result = await session.execute(
+            select(Page.title, Page.page_type)
+            .where(
+                Page.deleted_at.is_(None),
+                Page.title.is_not(None),
+                Page.page_type.not_in(_CATALOGUE_EXCLUDED_TYPES),
+                Page.file_path.not_like("raw/sources/%"),
+            )
+            # Most-recent first so truncation keeps the freshest pages (F3 intent).
+            .order_by(Page.updated_at.desc())
+        )
+        rows = result.all()
+
+    if not rows:
+        return ""
+
+    total = len(rows)
+    truncated = total > _CATALOGUE_MAX_TITLES
+    kept_rows = rows[:_CATALOGUE_MAX_TITLES]
+
+    # Group titles by page_type, preserving the most-recent-first order within each group.
+    grouped: dict[str, list[str]] = {}
+    for title, page_type in kept_rows:
+        grouped.setdefault(page_type or "other", []).append(title)
+
+    header = (
+        "# Existing wiki pages — LINK TO THESE\n"
+        "When a concept/entity you write about already exists below, you MUST reference it with "
+        "its EXACT title in a [[wikilink]] instead of creating a duplicate page. Only create a "
+        "new page when nothing below fits."
+    )
+    sections: list[str] = [header]
+    for page_type in sorted(grouped):
+        titles = grouped[page_type]
+        lines = "\n".join(f"- {t}" for t in titles)
+        sections.append(f"## {page_type}\n{lines}")
+
+    catalogue = "\n\n".join(sections)
+
+    # Char-budget cap (I7): titles cap is the primary bound, but very long titles could still
+    # blow the char budget — trim on a line boundary and note it.
+    char_truncated = False
+    if len(catalogue) > _CATALOGUE_MAX_CHARS:
+        char_truncated = True
+        cut = catalogue[:_CATALOGUE_MAX_CHARS]
+        # Trim back to the last complete line so we never emit a half title.
+        nl = cut.rfind("\n")
+        catalogue = cut[:nl] if nl > 0 else cut
+
+    if truncated or char_truncated:
+        catalogue += (
+            f"\n\n_(catalogue truncated: showing a subset of {total} existing pages, "
+            "most recent first — link to any exact title you know exists.)_"
+        )
+        logger.warning(
+            "_load_existing_pages_catalogue: vault has %d linkable pages; catalogue truncated "
+            "to fit budget (max_titles=%d, max_chars=%d) — F3/I7",
+            total,
+            _CATALOGUE_MAX_TITLES,
+            _CATALOGUE_MAX_CHARS,
+        )
+
+    return catalogue
+
+
+async def _load_ingest_context() -> str:
+    """
+    Full ingest provider context (F2/F3): purpose.md + schema.md + the existing-pages catalogue.
+
+    Assembled once per ingest in the async pipeline and threaded into BOTH the orchestrated loop
+    and the delegated/CLI path so the LLM links to existing pages on every backend (I6 — the
+    guidance lives in the context STRING, not in any provider). The catalogue is appended so it
+    never shadows the schema/purpose rules.
+    """
+    base = _load_vault_context()
+    try:
+        catalogue = await _load_existing_pages_catalogue()
+    except Exception as exc:  # noqa: BLE001
+        # Best-effort enhancement — a DB hiccup must never fail ingest (I7). Degrade to
+        # purpose+schema only; the LLM simply won't get the existing-pages hint this run.
+        logger.warning(
+            "_load_ingest_context: existing-pages catalogue unavailable (%s) — "
+            "ingesting without it (F3 degrade)",
+            exc,
+        )
+        catalogue = ""
+    if not catalogue:
+        return base
+    return f"{base}\n\n{catalogue}" if base else catalogue
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")

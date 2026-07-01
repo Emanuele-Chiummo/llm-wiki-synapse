@@ -1374,6 +1374,25 @@
         }
       }
     },
+    "/links/reresolve": {
+      "post": {
+        "summary": "Re-resolve dangling wikilinks against current pages (F3/K3)",
+        "description": "Backfill for cross-ingest graph connectivity: re-resolves every dangling Link against the current live pages using the tolerant matcher (exact \u2192 case-insensitive \u2192 slug). Links whose target now matches a live page are reconnected (target_page_id set, dangling cleared). Bounded single pass (I7 \u2014 two queries, no per-row round-trips). Bumps data_version once so the debounced GraphCache recomputes with the new edges (I2). Returns {reconnected, remaining_dangling}.",
+        "operationId": "reresolve_links_links_reresolve_post",
+        "responses": {
+          "200": {
+            "description": "Backfill completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReresolveLinksResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/graph": {
       "get": {
         "summary": "Precomputed knowledge graph (nodes + edges with FA2 coordinates)",
@@ -5475,6 +5494,31 @@
             }
           ],
           "total": 1
+        }
+      },
+      "ReresolveLinksResponse": {
+        "properties": {
+          "reconnected": {
+            "type": "integer",
+            "title": "Reconnected",
+            "description": "Previously-dangling links reconnected to a live page in this pass."
+          },
+          "remaining_dangling": {
+            "type": "integer",
+            "title": "Remaining Dangling",
+            "description": "Links still dangling after the pass (target has no matching live page)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "reconnected",
+          "remaining_dangling"
+        ],
+        "title": "ReresolveLinksResponse",
+        "description": "Response for POST /links/reresolve (F3/K3 cross-ingest connectivity backfill).\n\nreconnected: number of previously-dangling links now bound to a live page.\nremaining_dangling: number of links still dangling after the pass.",
+        "example": {
+          "reconnected": 42,
+          "remaining_dangling": 7
         }
       },
       "ResearchRunDetail": {
