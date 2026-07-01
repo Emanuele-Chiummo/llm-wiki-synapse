@@ -1,6 +1,6 @@
 """
 Sources view tests — GET /sources, /sources/content, /sources/raw, /sources/derived-pages,
-DELETE /sources (nashsu/llm_wiki Sources tab backend).
+DELETE /sources, POST /sources/ingest-all, GET /sources/ingest-all/status.
 
 Covers:
   T-SRC-001  GET /sources lists files + subdirs in a temp tree; truncation warning (I7)
@@ -23,13 +23,19 @@ Covers:
   T-SRC-018  DELETE /sources source with no derived pages: file deleted, pages_deleted=0
   T-SRC-019  GET /sources content-type: correct MIME per extension
   T-SRC-020  TestOpenAPISpec: /sources paths in openapi.json (I8/D4)
+  T-SRC-021  POST /sources/ingest-all: 202 candidate_files=N (supported files only, nested incl)
+  T-SRC-022  POST /sources/ingest-all: driver calls ingest_file SERIALLY, once per file
+  T-SRC-023  POST /sources/ingest-all: single-flight → 409 on second call while running
+  T-SRC-024  POST /sources/ingest-all: empty directory → {started:false, candidate_files:0}
+  T-SRC-025  POST /sources/ingest-all: cap truncates list + logs warning
+  T-SRC-026  GET /sources/ingest-all/status: reflects running/done/total counters
 
-Fixture pattern: reuses api_env + api_client from test_api.py (conftest-less approach —
-both fixtures are defined in test_api.py and collected by pytest via conftest.py import-all).
+Fixture pattern: reuses src_env + src_client defined below.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import struct
 import uuid
@@ -798,4 +804,325 @@ class TestOpenAPISourcesPaths:
             assert required in paths, (
                 f"openapi.json must include {required!r} (I8/D4). "
                 f"Present paths: {sorted(p for p in paths if p.startswith('/sources'))}"
+            )
+
+
+# ── T-SRC-021..T-SRC-026: POST /sources/ingest-all ───────────────────────────
+
+
+@pytest.fixture()
+async def ingest_all_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """
+    Isolated environment for ingest-all tests.
+
+    - Temp raw/sources/ tree with supported + unsupported files + nested subdir.
+    - Module-level single-flight flag reset to False before each test.
+    - ingest_file patched to a controllable async mock (never calls real LLM/DB/Qdrant).
+    """
+    import app.sources as src_module
+    from app import config as cfg
+
+    # ── Reset single-flight state before each test ────────────────────────────
+    monkeypatch.setattr(src_module, "_ingest_all_running", False)
+    monkeypatch.setattr(src_module, "_ingest_all_done", 0)
+    monkeypatch.setattr(src_module, "_ingest_all_total", 0)
+
+    # ── Vault / sources_dir ───────────────────────────────────────────────────
+    vault_root = tmp_path / "vault"
+    vault_root.mkdir()
+    sources_dir = vault_root / "raw" / "sources"
+    sources_dir.mkdir(parents=True)
+
+    # Supported files (text)
+    (sources_dir / "alpha.md").write_text("# Alpha\n", encoding="utf-8")
+    (sources_dir / "beta.txt").write_text("beta\n", encoding="utf-8")
+
+    # Nested subdir with a supported file
+    sub = sources_dir / "sub"
+    sub.mkdir()
+    (sub / "gamma.md").write_text("# Gamma\n", encoding="utf-8")
+
+    # Unsupported file (.DS_Store) — must NOT be included
+    (sources_dir / ".DS_Store").write_bytes(b"\x00\x01\x02")
+
+    # Unsupported extension (.xyz) — must NOT be included
+    (sources_dir / "data.xyz").write_text("nope\n", encoding="utf-8")
+
+    # ── Settings patch ────────────────────────────────────────────────────────
+    monkeypatch.setattr(type(cfg.settings), "raw_sources_dir", property(lambda self: sources_dir))
+
+    return {
+        "sources_dir": sources_dir,
+        "vault_root": vault_root,
+    }
+
+
+class TestIngestAll:
+    """T-SRC-021..T-SRC-026 — POST /sources/ingest-all + GET /sources/ingest-all/status."""
+
+    async def test_returns_202_with_candidate_count(
+        self,
+        ingest_all_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-021: 202 + candidate_files = count of SUPPORTED files (nested incl, junk excl)."""
+        import app.sources as src_module
+        from contextlib import asynccontextmanager
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+        from app.main import app
+
+        @asynccontextmanager
+        async def test_lifespan(application: FastAPI):  # type: ignore[override]
+            yield
+
+        app.router.lifespan_context = test_lifespan  # type: ignore[assignment]
+
+        # Patch the driver directly to record calls without actually ingesting
+        patched_driver_calls: list[list[Any]] = []
+
+        async def _patched_driver(candidates: list[Any]) -> None:
+            patched_driver_calls.append(list(candidates))
+            # Simulate completion: clear flag and advance done counter
+            src_module._ingest_all_running = False
+            src_module._ingest_all_done = len(candidates)
+
+        monkeypatch.setattr(src_module, "_ingest_all_driver", _patched_driver)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.post("/sources/ingest-all")
+
+        assert resp.status_code == 202, f"Expected 202, got {resp.status_code}: {resp.text}"
+        data = resp.json()
+        assert data["started"] is True
+        # 3 supported: alpha.md, beta.txt, sub/gamma.md
+        assert data["candidate_files"] == 3, (
+            f"Expected 3 supported files, got {data['candidate_files']}"
+        )
+
+        # Drain the event loop so the fire-and-forget create_task runs the patched driver.
+        await asyncio.sleep(0)
+
+        # Driver received the same 3 paths
+        assert len(patched_driver_calls) == 1
+        assert len(patched_driver_calls[0]) == 3
+
+    async def test_driver_calls_ingest_file_serially(
+        self,
+        ingest_all_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-022: driver awaits ingest_file ONCE PER FILE and calls them SERIALLY (no overlap).
+
+        Serial enforcement is tested by asserting:
+        1. ingest_file is called exactly N times (once per supported file).
+        2. Each call completes before the next starts — verified by tracking an 'in_flight'
+           counter that must never exceed 1.
+        """
+        import app.sources as src_module
+        from app.sources import _collect_ingest_all_candidates, _ingest_all_driver
+
+        sources_dir = ingest_all_env["sources_dir"]
+        candidates = _collect_ingest_all_candidates(sources_dir, max_files=200)
+        assert len(candidates) == 3, f"Expected 3 candidates, got {len(candidates)}"
+
+        call_order: list[str] = []
+        in_flight_max: list[int] = [0]
+        in_flight_current: list[int] = [0]
+
+        async def _fake_ingest(file_path: str) -> Any:
+            in_flight_current[0] += 1
+            if in_flight_current[0] > in_flight_max[0]:
+                in_flight_max[0] = in_flight_current[0]
+            call_order.append(Path(file_path).name)
+            # Yield to the event loop to simulate async I/O
+            await asyncio.sleep(0)
+            in_flight_current[0] -= 1
+            result = MagicMock()
+            result.status = "completed"
+            result.page_id = "fake-uuid"
+            return result
+
+        # Patch ingest_file inside the sources module (where _ingest_all_driver imports it)
+        monkeypatch.setattr(
+            "app.ingest.orchestrator.ingest_file", _fake_ingest, raising=False
+        )
+
+        # Run the driver directly (not via HTTP) to avoid the fire-and-forget task
+        await _ingest_all_driver(candidates)
+
+        # All 3 files processed
+        assert len(call_order) == 3, f"Expected 3 calls, got {call_order}"
+        # Serial: in-flight count never exceeded 1
+        assert in_flight_max[0] == 1, (
+            f"Files were processed concurrently! max in-flight={in_flight_max[0]}"
+        )
+        # Flag cleared
+        assert src_module._ingest_all_running is False
+        assert src_module._ingest_all_done == 3
+
+    async def test_single_flight_returns_409(
+        self,
+        ingest_all_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-023: second POST while running → 409 {detail: 'ingest-all already running'}."""
+        import app.sources as src_module
+        from contextlib import asynccontextmanager
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+        from app.main import app
+
+        @asynccontextmanager
+        async def test_lifespan(application: FastAPI):  # type: ignore[override]
+            yield
+
+        app.router.lifespan_context = test_lifespan  # type: ignore[assignment]
+
+        # Simulate a scan already running
+        monkeypatch.setattr(src_module, "_ingest_all_running", True)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.post("/sources/ingest-all")
+
+        assert resp.status_code == 409
+        assert "already running" in resp.json()["detail"]
+
+    async def test_empty_directory_returns_started_false(
+        self,
+        ingest_all_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-024: empty raw/sources/ → {started: false, candidate_files: 0}."""
+        import app.sources as src_module
+        from app import config as cfg
+        from contextlib import asynccontextmanager
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+        from app.main import app
+
+        @asynccontextmanager
+        async def test_lifespan(application: FastAPI):  # type: ignore[override]
+            yield
+
+        app.router.lifespan_context = test_lifespan  # type: ignore[assignment]
+
+        # Point sources_dir at an empty directory
+        empty_dir = ingest_all_env["vault_root"] / "raw" / "empty_sources"
+        empty_dir.mkdir(parents=True)
+        monkeypatch.setattr(
+            type(cfg.settings), "raw_sources_dir", property(lambda self: empty_dir)
+        )
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.post("/sources/ingest-all")
+
+        assert resp.status_code == 202
+        data = resp.json()
+        assert data["started"] is False
+        assert data["candidate_files"] == 0
+        # Single-flight flag must NOT be set when nothing was started
+        assert src_module._ingest_all_running is False
+
+    async def test_cap_truncates_candidates_and_logs(
+        self,
+        ingest_all_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """T-SRC-025: more than max files → truncated + logged."""
+        import app.sources as src_module
+        import logging
+
+        sources_dir = ingest_all_env["sources_dir"]
+
+        # Lower the cap to 2 (there are 3 supported files)
+        monkeypatch.setattr(src_module, "SOURCES_INGEST_ALL_MAX", 2)
+
+        with caplog.at_level(logging.WARNING, logger="app.sources"):
+            candidates = src_module._collect_ingest_all_candidates(sources_dir, max_files=2)
+
+        assert len(candidates) == 2, f"Expected 2 (capped), got {len(candidates)}"
+        assert any("truncated" in r.message for r in caplog.records), (
+            "Expected a truncation WARNING log"
+        )
+
+    async def test_status_endpoint_reflects_counters(
+        self,
+        ingest_all_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-026: GET /sources/ingest-all/status returns running/done/total."""
+        import app.sources as src_module
+        from contextlib import asynccontextmanager
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+        from app.main import app
+
+        @asynccontextmanager
+        async def test_lifespan(application: FastAPI):  # type: ignore[override]
+            yield
+
+        app.router.lifespan_context = test_lifespan  # type: ignore[assignment]
+
+        # Simulate a scan in progress with 2/5 files done
+        monkeypatch.setattr(src_module, "_ingest_all_running", True)
+        monkeypatch.setattr(src_module, "_ingest_all_done", 2)
+        monkeypatch.setattr(src_module, "_ingest_all_total", 5)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/sources/ingest-all/status")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["running"] is True
+        assert data["done"] == 2
+        assert data["total"] == 5
+
+    def test_extension_filter_matches_upload_accepted(self) -> None:
+        """T-SRC-021b: _is_ingest_all_supported matches _UPLOAD_ACCEPTED (exact match)."""
+        from app.sources import _is_ingest_all_supported
+        from app.upload import _UPLOAD_ACCEPTED
+
+        for ext in _UPLOAD_ACCEPTED:
+            fake = Path(f"file{ext}")
+            assert _is_ingest_all_supported(fake), f"Expected {ext!r} to be supported"
+
+        # Junk not in the set
+        assert not _is_ingest_all_supported(Path("file.DS_Store"))
+        assert not _is_ingest_all_supported(Path("file.xyz"))
+        assert not _is_ingest_all_supported(Path("file"))
+
+
+# ── T-SRC-020b: OpenAPI spec has /sources/ingest-all paths ────────────────────
+
+
+class TestOpenAPIIngestAllPaths:
+    """T-SRC-020b — ingest-all endpoints in openapi.json (I8/D4)"""
+
+    def test_ingest_all_paths_in_openapi_json(self) -> None:
+        """POST /sources/ingest-all + GET /sources/ingest-all/status must be in openapi.json."""
+        import json
+        from pathlib import Path
+
+        p = Path(__file__).resolve().parent.parent.parent / "docs" / "api" / "openapi.json"
+        if not p.exists():
+            pytest.skip(
+                "openapi.json not generated yet — run: cd backend && python scripts/generate_openapi.py"
+            )
+
+        data = json.loads(p.read_text(encoding="utf-8"))
+        paths = data.get("paths", {})
+        for required in ("/sources/ingest-all", "/sources/ingest-all/status"):
+            assert required in paths, (
+                f"openapi.json must include {required!r} (I8/D4). "
+                f"Present /sources/* paths: {sorted(p for p in paths if p.startswith('/sources'))}"
             )

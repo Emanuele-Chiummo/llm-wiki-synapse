@@ -2,7 +2,7 @@
  * SourcesView.tsx — raw-source file browser for Synapse [F11 / v0.6].
  *
  * Layout:
- *   - Header: title + Import button (UploadZone) + Refresh button
+ *   - Header: title + "Index all" button + Import button (UploadZone) + Refresh button
  *   - Split: source tree (left, virtualised I4) + SourcePreview (right)
  *
  * File tree behaviour:
@@ -16,12 +16,20 @@
  *   - Only one row can be armed at a time (armedPath lifted to this view).
  *   - Second click fires DELETE /sources; success → refresh + clear preview.
  *
+ * Index All button:
+ *   - Calls POST /sources/ingest-all; toasts result or "already running".
+ *   - While running: polls GET /sources/ingest-all/status (~1.5s chain, I3).
+ *   - Label changes to "Indexing… done/total"; button is disabled + shows spinner.
+ *   - Polling stops when running=false; tree is refreshed.
+ *   - Polling also starts on mount so button reflects any in-progress scan.
+ *
  * INVARIANT I4: virtualised with @tanstack/react-virtual (mirrors NavTree).
- * INVARIANT I3: selectors + no heavy per-render work.
+ * INVARIANT I3: single setTimeout poll chain; no heavy per-render work.
  *
  * All strings: sources.* i18n keys.
  * All testids: sources-view, sources-tree, source-row, source-ingest,
- *              source-delete, source-refresh.
+ *              source-delete, source-refresh, sources-ingest-all,
+ *              sources-ingest-all-progress.
  */
 
 import {
@@ -47,11 +55,16 @@ import {
   Trash2,
   ChevronRight,
   ChevronDown,
+  Layers,
+  Loader2,
 } from "lucide-react";
 import {
   listSources,
   deleteSource,
   triggerIngest,
+  ingestAllSources,
+  getIngestAllStatus,
+  IngestAllRunningError,
 } from "../../api/sourcesClient";
 import type { SourceEntry } from "../../api/sourcesClient";
 import { SourcePreview } from "./SourcePreview";
@@ -177,6 +190,21 @@ function buildRows(
 const FOLDER_ROW_H = 30;
 const FILE_ROW_H   = 30;
 const DISARM_DELAY = 5000; // ms
+const INGEST_ALL_POLL_MS = 1500; // I3: single setTimeout chain interval
+
+// ─── Module-level reduced-motion detection (mirrors ActivityBar/GraphViewer) ──
+
+const reducedMotion: boolean =
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ─── IngestAllProgress — local state type ────────────────────────────────────
+
+interface IngestAllProgress {
+  running: boolean;
+  done: number;
+  total: number;
+}
 
 // ─── SourcesView ──────────────────────────────────────────────────────────────
 
@@ -196,6 +224,10 @@ export function SourcesView() {
   const [ingestingPath, setIngestingPath]   = useState<string | null>(null);
   // Disarm timer ref
   const disarmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ingest-all progress state (null = not running / idle)
+  const [ingestAllProgress, setIngestAllProgress] = useState<IngestAllProgress | null>(null);
+  // Single setTimeout poll chain ref (I3)
+  const ingestAllPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
 
@@ -218,6 +250,76 @@ export function SourcesView() {
     void fetchSources(ctrl.signal);
     return () => ctrl.abort();
   }, [fetchSources]);
+
+  // ── Ingest-all polling ───────────────────────────────────────────────────────
+
+  const stopIngestAllPoll = useCallback(() => {
+    if (ingestAllPollRef.current) {
+      clearTimeout(ingestAllPollRef.current);
+      ingestAllPollRef.current = null;
+    }
+  }, []);
+
+  const scheduleIngestAllPoll = useCallback(() => {
+    stopIngestAllPoll();
+    ingestAllPollRef.current = setTimeout(() => {
+      void (async () => {
+        try {
+          const status = await getIngestAllStatus();
+          if (status.running) {
+            setIngestAllProgress({ running: true, done: status.done, total: status.total });
+            scheduleIngestAllPoll();
+          } else {
+            setIngestAllProgress(null);
+            // Refresh the tree once the scan finishes
+            void fetchSources();
+          }
+        } catch {
+          // Network error while polling — clear state, let user retry manually
+          setIngestAllProgress(null);
+        }
+      })();
+    }, INGEST_ALL_POLL_MS);
+  }, [stopIngestAllPoll, fetchSources]);
+
+  // On mount: check if a scan is already running and start polling if so
+  useEffect(() => {
+    void (async () => {
+      try {
+        const status = await getIngestAllStatus();
+        if (status.running) {
+          setIngestAllProgress({ running: true, done: status.done, total: status.total });
+          scheduleIngestAllPoll();
+        }
+      } catch {
+        // Backend unreachable — ignore, button will be in idle state
+      }
+    })();
+    return () => { stopIngestAllPoll(); };
+  }, [scheduleIngestAllPoll, stopIngestAllPoll]);
+
+  const handleIngestAll = useCallback(async () => {
+    try {
+      const res = await ingestAllSources();
+      if (!res.started) {
+        showToast(t("sources.ingestAllNone"), "success");
+        return;
+      }
+      showToast(t("sources.ingestAllStarted", { count: res.candidate_files }), "success");
+      // Immediately mark running and start polling
+      setIngestAllProgress({ running: true, done: 0, total: res.candidate_files });
+      scheduleIngestAllPoll();
+    } catch (err: unknown) {
+      if (err instanceof IngestAllRunningError) {
+        showToast(t("sources.ingestAllAlready"), "success");
+        // Start polling since it's already running
+        setIngestAllProgress({ running: true, done: 0, total: 0 });
+        scheduleIngestAllPoll();
+        return;
+      }
+      showToast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [t, scheduleIngestAllPoll]);
 
   // ── Two-stage delete helpers ─────────────────────────────────────────────────
 
@@ -318,6 +420,37 @@ export function SourcesView() {
           {t("sources.title")}
         </span>
         <div style={{ display: "flex", gap: 6 }}>
+          {/* Index All button */}
+          <button
+            data-testid="sources-ingest-all"
+            style={{
+              ...HEADER_BTN_STYLE,
+              opacity: ingestAllProgress?.running ? 0.7 : 1,
+            }}
+            onClick={() => { void handleIngestAll(); }}
+            disabled={ingestAllProgress?.running === true}
+            title={t("sources.ingestAll")}
+          >
+            {ingestAllProgress?.running && !reducedMotion ? (
+              <Loader2
+                size={14}
+                aria-hidden="true"
+                style={{ animation: "synapse-spin 1s linear infinite" }}
+              />
+            ) : (
+              <Layers size={14} aria-hidden="true" />
+            )}
+            {ingestAllProgress?.running ? (
+              <span data-testid="sources-ingest-all-progress">
+                {t("sources.ingestAllRunning", {
+                  done: ingestAllProgress.done,
+                  total: ingestAllProgress.total,
+                })}
+              </span>
+            ) : (
+              t("sources.ingestAll")
+            )}
+          </button>
           <button
             data-testid="source-refresh"
             style={HEADER_BTN_STYLE}
@@ -337,6 +470,8 @@ export function SourcesView() {
             {t("sources.import")}
           </button>
         </div>
+        {/* Keyframe for spinner — injected once, harmless if duplicated */}
+        <style>{`@keyframes synapse-spin { to { transform: rotate(360deg); } }`}</style>
       </div>
 
       {/* ── Import zone (collapsible) ── */}

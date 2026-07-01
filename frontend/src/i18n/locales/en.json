@@ -622,7 +622,12 @@
     "deletedToast": "Deleted. {{pages}} wiki page(s) removed.",
     "ingestedToast": "Ingest started.",
     "folder": "items",
-    "file": "Open raw file"
+    "file": "Open raw file",
+    "ingestAll": "Index all",
+    "ingestAllStarted": "{{count}} files indexing",
+    "ingestAllRunning": "Indexing… {{done}}/{{total}}",
+    "ingestAllNone": "Nothing to index",
+    "ingestAllAlready": "Already running"
   },
   "providerGate": {
     "title": "No provider configured",
