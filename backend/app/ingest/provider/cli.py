@@ -347,8 +347,11 @@ class CliAgentProvider(InferenceProvider):
             source_text:   the raw source document to ingest.
             system_prompt: schema.md + purpose.md content (F2/F3) — built by the orchestrator.
             vault_dir:     absolute path to the vault root; filesystem tools are scoped here.
-            mcp_server:    the FastMCP server object exposing MCP_TOOL_NAMES (built by
-                           backend-engineer in app/mcp/server.py). See the INTEGRATION SEAM.
+            mcp_server:    the in-process SDK MCP server config (McpSdkServerConfig dict from
+                           create_sdk_mcp_server) exposing MCP_TOOL_NAMES, built by
+                           app.mcp.server.build_sdk_mcp_server(). NOT a FastMCP object — the SDK
+                           would try to JSON-serialize that as an external server config and crash.
+                           See the INTEGRATION SEAM.
 
         Returns DelegatedIngestResult. Records Usage (real SDK cost under "api-key" auth, else
         $0.00 by the subscription/OAuth convention, ADR-0009). Raises a clean pre-loop ValueError
@@ -370,12 +373,11 @@ class CliAgentProvider(InferenceProvider):
         # MCP INTEGRATION SEAM (cli.py <-> app/mcp/server.py — backend-engineer owns server)
         #   The agent must read/write vault/wiki/ ONLY via the in-process Synapse MCP tools
         #   (search_wiki/write_page/get_page/list_pages, ADR-0010) so frontmatter validation
-        #   (I5) and incremental upsert (I1) run on every write. backend-engineer builds the
-        #   FastMCP server object and passes it in as `mcp_server`. Until that lands, a None
-        #   server raises here rather than letting the agent fall back to raw filesystem
+        #   (I5) and incremental upsert (I1) run on every write. The orchestrator builds the
+        #   in-process SDK MCP server via app.mcp.server.build_sdk_mcp_server() (a
+        #   McpSdkServerConfig dict, NOT a FastMCP object) and passes it in as `mcp_server`.
+        #   A None server raises here rather than letting the agent fall back to raw filesystem
         #   writes (which would bypass I1/I5).
-        #   TODO(backend-engineer): construct the FastMCP server in app/mcp/server.py and wire
-        #     it into ClaudeAgentOptions(mcp_servers=...). See ADR-0010 §2 (single write path).
         # ─────────────────────────────────────────────────────────────────────────
         if mcp_server is None:
             raise RuntimeError(
@@ -389,8 +391,10 @@ class CliAgentProvider(InferenceProvider):
             system_prompt=system_prompt,  # schema.md + purpose.md (F2/F3)
             permission_mode="acceptEdits",  # non-interactive (CLAUDE.md §5)
             cwd=vault_dir,  # filesystem tools scoped to the vault
-            allowed_tools=list(MCP_TOOL_NAMES),
-            mcp_servers={"synapse": mcp_server},
+            # In-process SDK MCP tools are namespaced by the SDK as mcp__<server>__<tool>, so the
+            # model must be granted the NAMESPACED names (bare names would never match). ADR-0010.
+            allowed_tools=[f"mcp__synapse__{n}" for n in MCP_TOOL_NAMES],
+            mcp_servers={"synapse": mcp_server},  # McpSdkServerConfig dict (create_sdk_mcp_server)
         )
 
         pages_written = 0
@@ -557,14 +561,20 @@ def _finalize_chat_usage(usage: Usage, sdk_cost_usd: float | None, auth_mode: st
 
 
 def _count_write_page_calls(message: Any) -> int:
-    """Best-effort count of write_page tool invocations in an SDK message (for pages_written)."""
+    """
+    Best-effort count of write_page tool invocations in an SDK message (for pages_written).
+
+    In-process SDK MCP tools are namespaced by the SDK, so the tool-use block name is
+    ``mcp__synapse__write_page`` — not the bare ``write_page``. Match both (endswith is
+    sufficient: it accepts the bare name AND the namespaced form, ADR-0010).
+    """
     content = getattr(message, "content", None)
     if not isinstance(content, list):
         return 0
     count = 0
     for block in content:
         name = getattr(block, "name", None)
-        if name == "write_page":
+        if isinstance(name, str) and (name == "write_page" or name.endswith("__write_page")):
             count += 1
     return count
 

@@ -144,7 +144,10 @@ async def _write_page_body(
 
     Args:
         title:         Page title (non-empty).
-        content:       Markdown body WITHOUT a frontmatter block.
+        content:       The markdown body ONLY — do NOT include a YAML frontmatter
+                       block or a leading `---` fence. Frontmatter fields go in the
+                       `frontmatter` argument. A stray leading block is stripped
+                       defensively, but relying on that is a contract violation.
         frontmatter:   Dict with at least {type, title, sources, lang}.
         origin_source: Optional origin path injected into sources[] for F3 traceability.
 
@@ -349,7 +352,10 @@ async def write_page(
 
     Args:
         title:         Page title (non-empty).
-        content:       Markdown body WITHOUT a frontmatter block.
+        content:       The markdown body ONLY — do NOT include a YAML frontmatter
+                       block or a leading `---` fence. Frontmatter fields go in the
+                       `frontmatter` argument. A stray leading block is stripped
+                       defensively, but relying on that is a contract violation.
         frontmatter:   Dict with at least {type, title, sources, lang}.
         origin_source: Optional origin path injected into sources[] for F3 traceability.
 
@@ -546,7 +552,10 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
 
             Args:
                 title:         Page title (non-empty).
-                content:       Markdown body WITHOUT a frontmatter block.
+                content:       The markdown body ONLY — do NOT include a YAML frontmatter
+                       block or a leading `---` fence. Frontmatter fields go in the
+                       `frontmatter` argument. A stray leading block is stripped
+                       defensively, but relying on that is a contract violation.
                 frontmatter:   Dict with at least {type, title, sources, lang}.
                 origin_source: Optional origin path injected into sources[] for F3 traceability.
 
@@ -557,6 +566,99 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
             return await _write_page_body(title, content, frontmatter, origin_source)
 
     return http_mcp
+
+
+# ── In-process SDK MCP server factory (claude-agent-sdk, ADR-0010 §2) ──────────
+
+
+def build_sdk_mcp_server() -> Any:
+    """
+    Build an IN-PROCESS SDK MCP server for the CLI delegated ingest path (F17, ADR-0010 §2).
+
+    This is a DIFFERENT surface from the FastMCP `mcp` object / build_http_mcp() above: the
+    claude-agent-sdk (0.2.x) does NOT accept a FastMCP object as an in-process server. Passing
+    one to ClaudeAgentOptions(mcp_servers=...) makes the SDK try to JSON-serialize it as an
+    EXTERNAL server config → `Object of type FastMCP is not JSON serializable`. Instead the SDK
+    expects a `McpSdkServerConfig` dict {"type":"sdk","name":str,"instance":<McpServer>} built by
+    `create_sdk_mcp_server(name, version, tools=[SdkMcpTool, ...])`.
+
+    Each SDK tool's async handler receives a SINGLE `args: dict`, delegates to the shared
+    ``_*_body`` functions (so I1/I5 hold identically — one write path, ADR-0010 §2), and returns
+    the SDK content shape {"content":[{"type":"text","text": <string>}]} (dict/list results are
+    json.dumps-encoded). Tool names are the BARE names in MCP_TOOL_NAMES; the SDK namespaces them
+    to the model as ``mcp__synapse__<toolname>`` (cli.py builds allowed_tools accordingly).
+
+    The claude-agent-sdk import is LAZY (kept inside this function) so importing app.mcp.server
+    without the SDK installed still works (the stdio/HTTP FastMCP paths need no SDK). A clear
+    RuntimeError is raised if the SDK is missing.
+
+    Returns the McpSdkServerConfig dict from create_sdk_mcp_server (name="synapse").
+    """
+    import json
+
+    try:
+        from claude_agent_sdk import create_sdk_mcp_server, tool
+    except ImportError as exc:  # pragma: no cover - exercised only without the SDK installed
+        raise RuntimeError(
+            "claude-agent-sdk is not installed; the in-process SDK MCP server (CLI delegated "
+            "ingest) requires it (R3). Install it in the backend environment."
+        ) from exc
+
+    def _wrap(result: Any) -> dict[str, Any]:
+        """Wrap a shared-body result into the SDK content shape (json for dict/list)."""
+        text = result if isinstance(result, str) else json.dumps(result, default=str)
+        return {"content": [{"type": "text", "text": text}]}
+
+    @tool(
+        "search_wiki",
+        "Search the Synapse wiki via the shared 4-phase retrieval path (F5). "
+        "Returns up to k ranked {id, title, type, relevance_score} results.",
+        {"query": str, "k": int},
+    )
+    async def _sdk_search_wiki(args: dict[str, Any]) -> dict[str, Any]:
+        return _wrap(await _search_wiki_body(args["query"], int(args.get("k", 5) or 5)))
+
+    @tool(
+        "write_page",
+        "Create or update a wiki page through the Synapse ingest seam (I1/I5, ADR-0010 §2). "
+        "Validates frontmatter (type, title, sources[], lang) before writing. "
+        "content MUST be the markdown body ONLY — do NOT include a YAML frontmatter block "
+        "or a leading `---` fence; frontmatter fields go in the `frontmatter` argument.",
+        {"title": str, "content": str, "frontmatter": dict, "origin_source": str},
+    )
+    async def _sdk_write_page(args: dict[str, Any]) -> dict[str, Any]:
+        return _wrap(
+            await _write_page_body(
+                args["title"],
+                args["content"],
+                args["frontmatter"],
+                args.get("origin_source", "") or "",
+            )
+        )
+
+    @tool(
+        "get_page",
+        "Retrieve a live wiki page by exact title. Returns {title, type, content, frontmatter} "
+        "or {error}.",
+        {"title": str},
+    )
+    async def _sdk_get_page(args: dict[str, Any]) -> dict[str, Any]:
+        return _wrap(await _get_page_body(args["title"]))
+
+    @tool(
+        "list_pages",
+        "List live wiki pages, optionally filtered by page type. Returns "
+        "[{id, title, type, relevance_score}].",
+        {"type": str},
+    )
+    async def _sdk_list_pages(args: dict[str, Any]) -> dict[str, Any]:
+        return _wrap(await _list_pages_body(args.get("type") or None))
+
+    return create_sdk_mcp_server(
+        name="synapse",
+        version="1.0.0",
+        tools=[_sdk_search_wiki, _sdk_write_page, _sdk_get_page, _sdk_list_pages],
+    )
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
