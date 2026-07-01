@@ -50,9 +50,13 @@ export interface EdgeAttributes {
   weight: number;
   /** Normalized 0..1 weight (computed at build time over all edges) */
   normalizedWeight: number;
-  /** Visual thickness: 0.25 + normalizedWeight * 1.0 (faint at rest; edgeReducer brightens on hover) */
+  /**
+   * Visual thickness: EDGE_MIN_SIZE + normalizedWeight * EDGE_SIZE_RANGE (0.5–4 px).
+   * Matches llm_wiki: strong (high-normW) edges read clearly on white via thicker + darker.
+   * edgeReducer further scales incident edges on hover.
+   */
   size: number;
-  /** RGBA color encoding weight + kind */
+  /** RGB color encoding weight + kind (alpha channel baked in — sigma v3 ignores alpha) */
   color: string;
   /** Edge kind from server (default "link") */
   kind: "link" | "source";
@@ -65,6 +69,12 @@ export type SynapseGraph = Graph<NodeAttributes, EdgeAttributes>;
 const MIN_R = 4;
 const MAX_R = 22;
 const MID_R = (MIN_R + MAX_R) / 2;
+
+// ─── Edge size constants (llm_wiki parity) ───────────────────────────────────
+// Range 0.5–4 px: "thicker + darker = stronger edge" visual cue on white canvas.
+// edgeReducer scales incident edges further on hover (×2).
+const EDGE_MIN_SIZE = 0.5;
+const EDGE_SIZE_RANGE = 3.5; // → max edge size = 4.0 px
 
 /**
  * Compute per-node visual radii using normalized sqrt over the degree range.
@@ -136,30 +146,32 @@ function computeNormalizedWeights(edges: GraphEdge[]): Float64Array {
 
 /**
  * Build resting-state edge color from normalized weight and kind.
- * Light theme: edges are light gray at rest — they darken on hover via edgeReducer.
+ * Light theme: edges are light at rest and darken on hover via edgeReducer.
  *
  * IMPORTANT: sigma v3's default edge program renders the edge RGB at full opacity and
- * effectively IGNORES the alpha channel. On a white (#ffffff) canvas we bake faintness
- * into the RGB directly: light gray at low weight ramping to a medium gray at high weight.
- * kind="source" gets a subtle blue-gray tint vs the neutral link gray.
+ * effectively IGNORES the alpha channel. On a white (#ffffff) canvas we bake weight
+ * into the RGB directly: light color at low weight ramping to a darker, more saturated
+ * color at high weight. "Thicker + darker = stronger edge" (llm_wiki parity).
  *
- * Resting range (light theme):
- *   low weight  → #dde0e4  (very light near --syn-border)
- *   high weight → #a8b0ba  (medium gray — still clearly visible on white)
+ * Resting ramps (light theme):
+ *   kind="link"   low=#dde0e4  → high=#7c8598  (slate gray, clearly visible on white)
+ *   kind="source" low=#d8dff0  → high=#7d90bf  (slate blue-gray)
+ *
+ * Two-kind distinction is preserved: link=neutral gray, source=blue-gray tint.
  */
 function edgeColor(normalizedWeight: number, kind: "link" | "source"): string {
   const t = Math.max(0, Math.min(1, normalizedWeight));
   if (kind === "source") {
-    // Blue-gray tint: low=#d8dff0, high=#9aaac8
-    const r = Math.round(216 - 30 * t);
-    const g = Math.round(223 - 23 * t);
-    const b = Math.round(240 - 32 * t);
+    // Blue-gray tint: low=#d8dff0 (r=216,g=223,b=240) → high=#7d90bf (r=125,g=144,b=191)
+    const r = Math.round(216 - 91 * t);
+    const g = Math.round(223 - 79 * t);
+    const b = Math.round(240 - 49 * t);
     return `rgb(${r},${g},${b})`;
   }
-  // Neutral gray: low=#dde0e4, high=#a8b0ba
-  const r = Math.round(221 - 37 * t);
-  const g = Math.round(224 - 36 * t);
-  const b = Math.round(228 - 34 * t);
+  // Neutral slate gray: low=#dde0e4 (r=221,g=224,b=228) → high=#7c8598 (r=124,g=133,b=152)
+  const r = Math.round(221 - 97 * t);
+  const g = Math.round(224 - 91 * t);
+  const b = Math.round(228 - 76 * t);
   return `rgb(${r},${g},${b})`;
 }
 
@@ -226,7 +238,7 @@ export function buildGraphologyGraph(nodes: GraphNode[], edges: GraphEdge[]): Sy
     graph.addEdge(edge.source, edge.target, {
       weight: edge.weight,
       normalizedWeight: nw,
-      size: 0.5 + nw * 1.5, // slightly thicker for better visibility on light background
+      size: EDGE_MIN_SIZE + nw * EDGE_SIZE_RANGE, // 0.5–4 px: thicker + darker = stronger (llm_wiki parity)
       color: edgeColor(nw, kind),
       kind,
     });

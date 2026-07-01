@@ -1,6 +1,6 @@
 """
-GraphEngine unit tests -- 4-signal edge weights + FR determinism (F4, ADR-0012, ADR-0013,
-ADR-0016).
+GraphEngine unit tests -- 4-signal edge weights + FA2 determinism (F4, ADR-0012, ADR-0013,
+ADR-0016, ADR-0045).
 
 Infra-free: SQLite+aiosqlite in-memory DB, no live Postgres, no Qdrant, no Ollama.
 
@@ -14,7 +14,8 @@ Coverage:
   AC-F4-2  edge persistence -- ADR-0016 structural gate (direct>0 OR shared>0);
             type-only pair is ABSENT (not persisted); zero-weight absent.
   ADR-0016  structural edges, kind field, structural_degree size formula.
-  ADR-0013  FR determinism: same topology + weights + seed -> identical coords (x2 runs)
+  ADR-0045  FA2 determinism: same topology + weights + seed -> identical coords (x2 runs)
+            _forceatlas2_layout helper: finite coords, determinism, correct node count.
 
 Fixture (5-node, hand-computable, architect-corrected per AQ-1 note):
   P1 Alpha   entity  sources=[doc_a]
@@ -526,8 +527,11 @@ class TestFourSignalWeights:
                 ), "Two NULL-type pages must NOT get type signal=1 (NULL != NULL per ADR-0012)"
 
 
-class TestFRDeterminism:
-    """ADR-0013: identical topology + weights + seed -> identical coordinates."""
+class TestFA2Determinism:
+    """
+    ADR-0045: identical topology + weights + seed -> identical coordinates.
+    Replaces TestFRDeterminism (FR removed; FA2 via fa2_modified is the layout engine).
+    """
 
     async def test_same_coords_two_runs(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
         """Two recompute() calls on the same data produce identical node coordinates."""
@@ -552,12 +556,24 @@ class TestFRDeterminism:
 
         snapshot = await GraphEngine().recompute(vault_id)
         coords = [(n.x, n.y) for n in snapshot.nodes]
-        # At least some coords should differ (force layout separates nodes)
+        # At least some coords should differ (FA2 separates nodes)
         xs = [x for x, _ in coords]
         ys = [y for _, y in coords]
         assert (
             max(xs) - min(xs) > 1e-6 or max(ys) - min(ys) > 1e-6
-        ), "FR layout should spread nodes apart (non-zero spread)"
+        ), "FA2 layout should spread nodes apart (non-zero spread)"
+
+    async def test_coords_are_finite(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
+        """All coordinates returned by FA2 must be finite (no NaN / Inf)."""
+        import math
+
+        engine_obj, p, vault_id = graph_db
+        from app.graph.engine import GraphEngine
+
+        snapshot = await GraphEngine().recompute(vault_id)
+        for node in snapshot.nodes:
+            assert math.isfinite(node.x), f"Node {node.id} x={node.x} is not finite"
+            assert math.isfinite(node.y), f"Node {node.id} y={node.y} is not finite"
 
 
 class TestEdgeInclusionRule:
@@ -803,25 +819,25 @@ class TestPinnedNodePreservation:
             abs(p1.y - pinned_y) < 0.001
         ), f"Pinned P1 y should be {pinned_y}, got {p1.y} (FR must not overwrite pinned coords)"
 
-    async def test_unpinned_nodes_coords_are_fr_output(
+    async def test_unpinned_nodes_coords_are_fa2_output(
         self, graph_db: tuple[Any, dict[str, str], str]
     ) -> None:
         """
-        Unpinned nodes (pinned=false / 0) get FR-computed coords; their x/y in the
+        Unpinned nodes (pinned=false / 0) get FA2-computed coords; their x/y in the
         snapshot must NOT be the sentinel stored value (NULL or 0).
-        This verifies Feature B post-processing applies to unpinned nodes.
+        Verifies FA2 layout ran and spread nodes out (ADR-0045).
         """
         engine_obj, p, vault_id = graph_db
         from app.graph.engine import GraphEngine
 
         # All nodes start unpinned (default=0 in SQLite fixture)
         snapshot = await GraphEngine().recompute(vault_id)
-        # Not all zero or identical — layout must have spread them out
+        # Not all zero or identical — FA2 layout must have spread them out
         xs = [n.x for n in snapshot.nodes]
         ys = [n.y for n in snapshot.nodes]
         assert (
             max(xs) - min(xs) > 1e-6 or max(ys) - min(ys) > 1e-6
-        ), "Unpinned nodes should have non-trivial spread (FR layout ran)"
+        ), "Unpinned nodes should have non-trivial spread (FA2 layout ran)"
 
     async def test_mixed_pinned_and_free_nodes(
         self, graph_db: tuple[Any, dict[str, str], str]
@@ -860,8 +876,103 @@ class TestPinnedNodePreservation:
         ), "Free nodes must have non-trivial spread"
 
 
+class TestFA2LayoutHelper:
+    """
+    Unit tests for the _forceatlas2_layout helper (ADR-0045 §2).
+
+    Tests run directly against the helper — no DB required — to verify:
+      - Correct node count in output.
+      - All coordinates finite.
+      - Determinism: two calls with identical inputs yield bit-for-bit identical output.
+    """
+
+    def _build_graph(self, n: int, edges: list[tuple[int, int]], weights: list[float]) -> Any:
+        import igraph
+
+        g = igraph.Graph(n=n, edges=edges, directed=False)
+        if weights:
+            g.es["weight"] = weights
+        return g
+
+    def test_output_length_matches_node_count(self) -> None:
+        """_forceatlas2_layout returns one (x,y) per node."""
+        from app.graph.engine import _forceatlas2_layout
+
+        g = self._build_graph(6, [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)], [3.0] * 5)
+        coords = _forceatlas2_layout(g, [3.0] * 5, 6)
+        assert len(coords) == 6, f"Expected 6 coords, got {len(coords)}"
+
+    def test_all_coords_finite(self) -> None:
+        """All coordinates are finite (no NaN / Inf)."""
+        import math
+
+        from app.graph.engine import _forceatlas2_layout
+
+        g = self._build_graph(6, [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)], [3.0] * 5)
+        coords = _forceatlas2_layout(g, [3.0] * 5, 6)
+        for i, (x, y) in enumerate(coords):
+            assert math.isfinite(x), f"Node {i} x={x} is not finite"
+            assert math.isfinite(y), f"Node {i} y={y} is not finite"
+
+    def test_determinism_same_result_two_calls(self) -> None:
+        """
+        Two calls with identical inputs produce bit-for-bit identical coordinates.
+        This is the core ADR-0045 §2 invariant: circle-init + numpy seed guarantees
+        reproducible FA2 output regardless of process state between calls.
+        """
+        from app.graph.engine import _forceatlas2_layout
+
+        edges = [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0), (0, 3)]
+        weights = [3.0, 7.0, 4.0, 5.0, 2.0, 6.0, 8.0]
+        g = self._build_graph(6, edges, weights)
+
+        coords1 = _forceatlas2_layout(g, weights, 6)
+        coords2 = _forceatlas2_layout(g, weights, 6)
+
+        assert len(coords1) == len(coords2), "Output lengths must match"
+        for i, ((x1, y1), (x2, y2)) in enumerate(zip(coords1, coords2, strict=True)):
+            assert x1 == x2, f"Node {i} x not deterministic: {x1} vs {x2}"
+            assert y1 == y2, f"Node {i} y not deterministic: {y1} vs {y2}"
+
+    def test_single_node_returns_origin(self) -> None:
+        """Single-node graph returns a single (0.0, 0.0) coordinate."""
+        import igraph
+
+        from app.graph.engine import _forceatlas2_layout
+
+        g = igraph.Graph(n=1, edges=[], directed=False)
+        coords = _forceatlas2_layout(g, [], 1)
+        assert len(coords) == 1
+        assert coords[0] == (0.0, 0.0)
+
+    def test_empty_graph_returns_empty(self) -> None:
+        """Zero-node graph returns empty list."""
+        import igraph
+
+        from app.graph.engine import _forceatlas2_layout
+
+        g = igraph.Graph(n=0, edges=[], directed=False)
+        coords = _forceatlas2_layout(g, [], 0)
+        assert coords == []
+
+    def test_no_edge_graph_returns_coords_for_all_nodes(self) -> None:
+        """Graph with nodes but no edges still returns one coord per node."""
+        from app.graph.engine import _forceatlas2_layout
+
+        g = self._build_graph(4, [], [])
+        coords = _forceatlas2_layout(g, [], 4)
+        assert len(coords) == 4
+
+
 class TestFeatureBDiscEnvelope:
-    """Feature B: polar-compression post-process produces a rounder disc envelope."""
+    """
+    Unit tests for _compress_to_disc (standalone function, no longer called by engine).
+
+    NOTE: As of ADR-0045, GraphEngine.recompute() no longer calls _compress_to_disc.
+    These tests remain valid as unit tests of the standalone helper function itself.
+    The engine's recompute() path no longer enforces a disc envelope — FA2's organic
+    spread is used directly.  See TestFA2Determinism for engine-level coordinate tests.
+    """
 
     def test_compress_to_disc_basic(self) -> None:
         """_compress_to_disc compresses far-outlier radii while preserving angles."""
