@@ -19,10 +19,19 @@ import {
   fetchReviewQueue,
   createReviewItem,
   skipReviewItem,
+  dismissReviewItem,
   deepResearchReviewItem,
+  bulkReview,
   sweepReviewQueue,
+  clearResolved,
 } from "../api/reviewClient";
-import type { ReviewItem, ReviewQueueResponse, ReviewDeepResearchResponse } from "../api/types";
+import type {
+  ReviewItem,
+  ReviewQueueResponse,
+  ReviewDeepResearchResponse,
+  ReviewBulkResponse,
+  ReviewClearResolvedResponse,
+} from "../api/types";
 import { ApiError } from "../api/graphClient";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -43,6 +52,10 @@ function makeItem(id: string, overrides: Partial<ReviewItem> = {}): ReviewItem {
     created_page_id: null,
     resolution: null,
     deep_research_run_id: null,
+    content_key: null,
+    referenced_page_ids: null,
+    referenced_pages: null,
+    search_queries: null,
     created_at: new Date().toISOString(),
     reviewed_at: null,
     ...overrides,
@@ -232,5 +245,151 @@ describe("reviewClient — sweepReviewQueue", () => {
     expect(result.rule_resolved).toBe(2);
     expect(result.llm_resolved).toBe(0);
     expect(result.kept).toBe(3);
+  });
+});
+
+// ─── fetchReviewQueue — status param (ADR-0044) ───────────────────────────────
+
+describe("reviewClient — fetchReviewQueue status param (ADR-0044 §6)", () => {
+  it("includes ?status=pending by default", async () => {
+    const fetchMock = mockFetch({ items: [], total: 0, limit: 50, offset: 0 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchReviewQueue({ vaultId: "default" });
+
+    const url = fetchMock.mock.calls[0]?.[0] as string;
+    expect(url).toContain("status=pending");
+  });
+
+  it("passes status=resolved when specified", async () => {
+    const fetchMock = mockFetch({ items: [], total: 0, limit: 50, offset: 0 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchReviewQueue({ vaultId: "default", status: "resolved" });
+
+    const url = fetchMock.mock.calls[0]?.[0] as string;
+    expect(url).toContain("status=resolved");
+  });
+
+  it("passes status=dismissed when specified", async () => {
+    const fetchMock = mockFetch({ items: [], total: 0, limit: 50, offset: 0 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchReviewQueue({ vaultId: "default", status: "dismissed" });
+
+    const url = fetchMock.mock.calls[0]?.[0] as string;
+    expect(url).toContain("status=dismissed");
+  });
+
+  it("returned items carry ADR-0044 §6.1 projection fields", async () => {
+    const item = makeItem("1", {
+      content_key: "abcd1234abcd1234",
+      referenced_page_ids: ["page-a", "page-b"],
+      referenced_pages: [
+        { id: "page-a", title: "Page A", type: "concept" },
+        { id: "page-b", title: "Page B", type: "entity" },
+      ],
+      search_queries: ["query one", "query two"],
+    });
+    const fetchMock = mockFetch({ items: [item], total: 1, limit: 50, offset: 0 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchReviewQueue({ vaultId: "default" });
+    const first = result.items[0]!;
+    expect(first.content_key).toBe("abcd1234abcd1234");
+    expect(first.referenced_page_ids).toEqual(["page-a", "page-b"]);
+    expect(first.referenced_pages).toHaveLength(2);
+    expect(first.search_queries).toEqual(["query one", "query two"]);
+  });
+});
+
+// ─── dismissReviewItem (ADR-0044) ─────────────────────────────────────────────
+
+describe("reviewClient — dismissReviewItem (ADR-0044 §6)", () => {
+  it("POSTs to /review/queue/{id}/dismiss", async () => {
+    const item = makeItem("abc", { status: "dismissed", resolution: "dismissed" });
+    const fetchMock = mockFetch(item);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await dismissReviewItem("abc");
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, { method: string }];
+    expect(url).toContain("/review/queue/abc/dismiss");
+    expect(init.method).toBe("POST");
+    expect(result.id).toBe("abc");
+    expect(result.status).toBe("dismissed");
+  });
+
+  it("throws ApiError on 404", async () => {
+    const fetchMock = mockFetch({ detail: "Not found" }, 404);
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(dismissReviewItem("missing")).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+// ─── bulkReview (ADR-0044) ────────────────────────────────────────────────────
+
+describe("reviewClient — bulkReview (ADR-0044 §6)", () => {
+  it("POSTs to /review/queue/bulk with JSON body", async () => {
+    const bulkResp: ReviewBulkResponse = { updated: 3, skipped_terminal: 1 };
+    const fetchMock = mockFetch(bulkResp);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await bulkReview({
+      vault_id: "default",
+      action: "skip",
+      ids: ["id1", "id2", "id3"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [
+      string,
+      { method: string; headers: Record<string, string>; body: string },
+    ];
+    expect(url).toContain("/review/queue/bulk");
+    expect(init.method).toBe("POST");
+    expect(init.headers["Content-Type"]).toBe("application/json");
+    const body = JSON.parse(init.body) as { vault_id: string; action: string; ids: string[] };
+    expect(body.vault_id).toBe("default");
+    expect(body.action).toBe("skip");
+    expect(body.ids).toEqual(["id1", "id2", "id3"]);
+    expect(result.updated).toBe(3);
+    expect(result.skipped_terminal).toBe(1);
+  });
+
+  it("throws ApiError on 400 (ids over cap)", async () => {
+    const fetchMock = mockFetch({ detail: "Too many ids" }, 400);
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      bulkReview({ vault_id: "default", action: "dismiss", ids: ["a"] }),
+    ).rejects.toBeInstanceOf(ApiError);
+    await expect(
+      bulkReview({ vault_id: "default", action: "dismiss", ids: ["a"] }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+});
+
+// ─── clearResolved (ADR-0044) ─────────────────────────────────────────────────
+
+describe("reviewClient — clearResolved (ADR-0044 §6)", () => {
+  it("sends DELETE to /review/queue/resolved with vault_id", async () => {
+    const resp: ReviewClearResolvedResponse = { deleted: 7 };
+    const fetchMock = mockFetch(resp);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await clearResolved("default");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, { method: string }];
+    expect(url).toContain("/review/queue/resolved");
+    expect(url).toContain("vault_id=default");
+    expect(init.method).toBe("DELETE");
+    expect(result.deleted).toBe(7);
+  });
+
+  it("throws ApiError on non-ok response", async () => {
+    const fetchMock = mockFetch({ detail: "Server error" }, 500);
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(clearResolved("default")).rejects.toBeInstanceOf(ApiError);
   });
 });

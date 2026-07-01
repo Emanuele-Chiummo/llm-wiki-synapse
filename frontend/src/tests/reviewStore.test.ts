@@ -30,8 +30,11 @@ vi.mock("../api/reviewClient", () => ({
   fetchReviewQueue: vi.fn(),
   createReviewItem: vi.fn(),
   skipReviewItem: vi.fn(),
+  dismissReviewItem: vi.fn(),
   deepResearchReviewItem: vi.fn(),
+  bulkReview: vi.fn(),
   sweepReviewQueue: vi.fn(),
+  clearResolved: vi.fn(),
 }));
 
 import * as reviewClient from "../api/reviewClient";
@@ -54,6 +57,10 @@ function makeItem(id: string, overrides: Partial<ReviewItem> = {}): ReviewItem {
     created_page_id: null,
     resolution: null,
     deep_research_run_id: null,
+    content_key: null,
+    referenced_page_ids: null,
+    referenced_pages: null,
+    search_queries: null,
     created_at: new Date().toISOString(),
     reviewed_at: null,
     ...overrides,
@@ -73,12 +80,17 @@ beforeEach(() => {
     offset: 0,
     loading: false,
     error: null,
+    activeTab: "pending",
+    selectedIds: new Set<string>(),
     actionInFlight: {},
     actionError: {},
     createGenerationError: {},
     lastDeepResearch: null,
     deepResearchError: null,
     lastSweepResult: null,
+    lastBulkResult: null,
+    lastClearResult: null,
+    bulkError: null,
   });
   vi.clearAllMocks();
 });
@@ -339,6 +351,178 @@ describe("reviewStore — fetchMore", () => {
     useReviewStore.setState({ items: [makeItem("1")], total: 1, offset: 0 });
     await useReviewStore.getState().fetchMore("default");
     expect(reviewClient.fetchReviewQueue).not.toHaveBeenCalled();
+  });
+});
+
+// ─── dismiss (ADR-0044) ───────────────────────────────────────────────────────
+
+describe("reviewStore — dismiss (ADR-0044 §6)", () => {
+  it("removes the item from the list on success", async () => {
+    useReviewStore.setState({
+      items: [makeItem("A"), makeItem("B")],
+      total: 2,
+    });
+    vi.mocked(reviewClient.dismissReviewItem).mockResolvedValueOnce(
+      makeItem("A", { status: "dismissed", resolution: "dismissed" }),
+    );
+
+    await useReviewStore.getState().dismiss("A");
+
+    const state = useReviewStore.getState();
+    expect(state.items).toHaveLength(1);
+    expect(state.items[0]?.id).toBe("B");
+    expect(state.total).toBe(1);
+    expect(state.actionInFlight["A"]).toBeNull();
+  });
+
+  it("sets actionError on failure and keeps item in list", async () => {
+    useReviewStore.setState({ items: [makeItem("A")], total: 1 });
+    vi.mocked(reviewClient.dismissReviewItem).mockRejectedValueOnce(
+      new Error("500 Internal Server Error"),
+    );
+
+    await useReviewStore.getState().dismiss("A");
+
+    expect(useReviewStore.getState().items).toHaveLength(1);
+    expect(useReviewStore.getState().actionError["A"]).toBeTruthy();
+  });
+});
+
+// ─── bulkAction (ADR-0044) ────────────────────────────────────────────────────
+
+describe("reviewStore — bulkAction (ADR-0044 §7)", () => {
+  it("calls bulkReview with correct ids and action, then refreshes queue", async () => {
+    const items = [makeItem("1"), makeItem("2"), makeItem("3")];
+    useReviewStore.setState({
+      items,
+      total: 3,
+      selectedIds: new Set(["1", "2"]),
+    });
+
+    vi.mocked(reviewClient.bulkReview).mockResolvedValueOnce({
+      updated: 2,
+      skipped_terminal: 0,
+    });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValueOnce({
+      items: [makeItem("3")],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    await useReviewStore.getState().bulkAction("default", "skip");
+
+    expect(reviewClient.bulkReview).toHaveBeenCalledWith({
+      vault_id: "default",
+      action: "skip",
+      ids: expect.arrayContaining(["1", "2"]),
+    });
+    const state = useReviewStore.getState();
+    expect(state.items).toHaveLength(1);
+    expect(state.lastBulkResult).toEqual({ updated: 2, skipped_terminal: 0 });
+    // Selection cleared after bulk action
+    expect(state.selectedIds.size).toBe(0);
+  });
+
+  it("does nothing when selection is empty", async () => {
+    useReviewStore.setState({ items: [makeItem("1")], total: 1, selectedIds: new Set() });
+    await useReviewStore.getState().bulkAction("default", "skip");
+    expect(reviewClient.bulkReview).not.toHaveBeenCalled();
+  });
+
+  it("sets bulkError on failure", async () => {
+    useReviewStore.setState({
+      items: [makeItem("1")],
+      total: 1,
+      selectedIds: new Set(["1"]),
+    });
+    vi.mocked(reviewClient.bulkReview).mockRejectedValueOnce(new Error("400 Bad Request"));
+
+    await useReviewStore.getState().bulkAction("default", "dismiss");
+
+    expect(useReviewStore.getState().bulkError).toBeTruthy();
+  });
+});
+
+// ─── selection helpers (ADR-0044) ─────────────────────────────────────────────
+
+describe("reviewStore — selection helpers (ADR-0044 §7 / I4)", () => {
+  it("toggleSelected adds an id to the set", () => {
+    useReviewStore.getState().toggleSelected("abc");
+    expect(useReviewStore.getState().selectedIds.has("abc")).toBe(true);
+  });
+
+  it("toggleSelected removes an already-selected id", () => {
+    useReviewStore.setState({ selectedIds: new Set(["abc"]) });
+    useReviewStore.getState().toggleSelected("abc");
+    expect(useReviewStore.getState().selectedIds.has("abc")).toBe(false);
+  });
+
+  it("selectAllPending selects only loaded pending items (O(loaded) — I4)", () => {
+    const items = [
+      makeItem("1", { status: "pending" }),
+      makeItem("2", { status: "skipped" }),
+      makeItem("3", { status: "pending" }),
+    ];
+    useReviewStore.setState({ items });
+    useReviewStore.getState().selectAllPending();
+    const { selectedIds } = useReviewStore.getState();
+    expect(selectedIds.has("1")).toBe(true);
+    expect(selectedIds.has("3")).toBe(true);
+    // skipped item NOT selected
+    expect(selectedIds.has("2")).toBe(false);
+  });
+
+  it("clearSelection empties the set", () => {
+    useReviewStore.setState({ selectedIds: new Set(["1", "2"]) });
+    useReviewStore.getState().clearSelection();
+    expect(useReviewStore.getState().selectedIds.size).toBe(0);
+  });
+});
+
+// ─── setActiveTab (ADR-0044) ──────────────────────────────────────────────────
+
+describe("reviewStore — setActiveTab (ADR-0044 §7)", () => {
+  it("switches tab and re-fetches with the new status", async () => {
+    const resolvedItems = [makeItem("r1", { status: "created" })];
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValueOnce({
+      items: resolvedItems,
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    await useReviewStore.getState().setActiveTab("resolved", "default");
+
+    expect(reviewClient.fetchReviewQueue).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "resolved" }),
+    );
+    const state = useReviewStore.getState();
+    expect(state.activeTab).toBe("resolved");
+    expect(state.items).toHaveLength(1);
+    // Selection cleared on tab switch
+    expect(state.selectedIds.size).toBe(0);
+  });
+});
+
+// ─── clearResolvedRows (ADR-0044) ─────────────────────────────────────────────
+
+describe("reviewStore — clearResolvedRows (ADR-0044 §6)", () => {
+  it("calls clearResolved and refreshes queue", async () => {
+    vi.mocked(reviewClient.clearResolved).mockResolvedValueOnce({ deleted: 5 });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+    });
+
+    await useReviewStore.getState().clearResolvedRows("default");
+
+    expect(reviewClient.clearResolved).toHaveBeenCalledWith("default");
+    const state = useReviewStore.getState();
+    expect(state.lastClearResult).toEqual({ deleted: 5 });
+    expect(state.items).toHaveLength(0);
   });
 });
 
