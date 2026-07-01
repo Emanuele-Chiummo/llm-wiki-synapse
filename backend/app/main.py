@@ -4145,6 +4145,10 @@ async def reresolve_links() -> ReresolveLinksResponse:
 
     async with get_session() as session:
         reconnected = await reresolve_dangling_links(session)
+        # Flush the in-place dangling→resolved mutations so the count below reflects them
+        # (the session has autoflush off, so an unflushed UPDATE would otherwise be invisible
+        # and remaining_dangling would wrongly report the pre-reresolve total).
+        await session.flush()
         remaining_row = await session.execute(
             select(func.count()).select_from(Link).where(Link.dangling.is_(True))
         )
