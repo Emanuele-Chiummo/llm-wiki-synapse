@@ -655,6 +655,7 @@
     "emptyQueue": "Coda vuota",
     "etaLeft": "~{{eta}} rimanenti",
     "elapsed": "Trascorso",
+    "batchIndexing": "Indicizzazione {{done}}/{{total}}",
     "phase": {
       "analyzing": "analisi",
       "validating": "validazione",

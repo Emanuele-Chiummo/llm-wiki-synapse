@@ -5464,6 +5464,45 @@
         "title": "ProviderConfigResponse",
         "description": "API response shape for a provider_config row (\u00a712: no api_key field)."
       },
+      "QueueBatchProgress": {
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "title": "Running",
+            "description": "True while an ingest-all batch is in progress"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done",
+            "description": "Files processed so far in the current batch"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total files in the current batch"
+          },
+          "eta_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Seconds",
+            "description": "Estimated seconds remaining for the whole batch (None if unknown)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running",
+          "done",
+          "total"
+        ],
+        "title": "QueueBatchProgress",
+        "description": "Whole-batch progress for a POST /sources/ingest-all run (surfaced in the activity panel).\n\nLets the UI show \"done/total\" + a total ETA for the entire bulk index, not just the\none-file-at-a-time queue view. eta_seconds = remaining files \u00d7 avg per-file duration\n(best-effort; None when no history)."
+      },
       "QueueCancelResponse": {
         "properties": {
           "run_id": {
@@ -5597,6 +5636,17 @@
             "type": "array",
             "title": "Tasks",
             "description": "All visible tasks (pending+processing+failed)"
+          },
+          "batch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueueBatchProgress"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whole-batch progress for an in-progress POST /sources/ingest-all (else null)"
           }
         },
         "type": "object",

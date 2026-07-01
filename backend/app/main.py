@@ -1289,6 +1289,23 @@ class QueueTaskItem(BaseModel):
     )
 
 
+class QueueBatchProgress(BaseModel):
+    """
+    Whole-batch progress for a POST /sources/ingest-all run (surfaced in the activity panel).
+
+    Lets the UI show "done/total" + a total ETA for the entire bulk index, not just the
+    one-file-at-a-time queue view. eta_seconds = remaining files × avg per-file duration
+    (best-effort; None when no history).
+    """
+
+    running: bool = Field(description="True while an ingest-all batch is in progress")
+    done: int = Field(description="Files processed so far in the current batch")
+    total: int = Field(description="Total files in the current batch")
+    eta_seconds: int | None = Field(
+        default=None, description="Estimated seconds remaining for the whole batch (None if unknown)"
+    )
+
+
 class QueueSnapshotResponse(BaseModel):
     """Live activity queue snapshot for GET /ingest/queue (ADR-0046 §6)."""
 
@@ -1301,6 +1318,10 @@ class QueueSnapshotResponse(BaseModel):
     )
     total: int = Field(description="pending + processing + failed")
     tasks: list[QueueTaskItem] = Field(description="All visible tasks (pending+processing+failed)")
+    batch: QueueBatchProgress | None = Field(
+        default=None,
+        description="Whole-batch progress for an in-progress POST /sources/ingest-all (else null)",
+    )
 
 
 class QueueCancelResponse(BaseModel):
@@ -2939,6 +2960,31 @@ async def get_ingest_queue() -> QueueSnapshotResponse:
 
     snap = _iq.snapshot(avg_duration_by_route=avg_by_route)
     tasks = [QueueTaskItem(**t) for t in snap["tasks"]]
+
+    # ── Batch progress (POST /sources/ingest-all) — surface done/total + a whole-batch ETA ──
+    batch: QueueBatchProgress | None = None
+    try:
+        from app.sources import get_ingest_all_progress
+
+        bp = get_ingest_all_progress()
+        b_total = int(bp["total"])
+        b_done = int(bp["done"])
+        if bp["running"] or (b_total > 0 and b_done < b_total):
+            # Per-file estimate: prefer the delegated route (CLI bulk), else orchestrated, else
+            # the mean of known route averages. Batch ETA = remaining × per-file (I7 heuristic).
+            per_file: float | None = (
+                avg_by_route.get("delegated")
+                or avg_by_route.get("orchestrated")
+                or (sum(avg_by_route.values()) / len(avg_by_route) if avg_by_route else None)
+            )
+            remaining = max(0, b_total - b_done)
+            eta = int(round(per_file * remaining)) if per_file else None
+            batch = QueueBatchProgress(
+                running=bool(bp["running"]), done=b_done, total=b_total, eta_seconds=eta
+            )
+    except Exception:  # noqa: BLE001
+        logger.debug("get_ingest_queue: ingest-all batch progress unavailable")
+
     return QueueSnapshotResponse(
         paused=snap["paused"],
         pending=snap["pending"],
@@ -2947,6 +2993,7 @@ async def get_ingest_queue() -> QueueSnapshotResponse:
         completed_since_idle=snap["completed_since_idle"],
         total=snap["total"],
         tasks=tasks,
+        batch=batch,
     )
 
 
