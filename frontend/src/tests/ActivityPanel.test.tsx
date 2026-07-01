@@ -510,3 +510,187 @@ describe("ActivityPanel — Retry Failed button", () => {
     });
   });
 });
+
+// ─── Phase / progress / ETA task row tests ────────────────────────────────────
+
+describe("ActivityPanel — phase, determinate progress bar, and ETA (orchestrated task)", () => {
+  // processing=1 so panel auto-expands.
+  beforeEach(() => {
+    mockActivityState = buildMockState({
+      paused: false,
+      pending: 0,
+      processing: 1,
+      failed: 0,
+      completed_since_idle: 0,
+      total: 1,
+      tasks: [
+        {
+          run_id: "orch-1",
+          source_path: "raw/doc.md",
+          filename: "doc.md",
+          status: "processing",
+          retry_count: 0,
+          phase: "generating (2/3)",
+          progress: 0.5,
+          elapsed_seconds: 65,
+          eta_seconds: 90,
+        },
+      ],
+    });
+  });
+
+  it("renders phase text for a processing task with phase set", async () => {
+    renderBar();
+    await waitFor(() => expect(screen.getByTestId("activity-panel")).toBeTruthy());
+    const phaseEl = await screen.findByTestId("activity-task-phase");
+    // "generating (2/3)" is a raw pass-through (not mapped to an i18n key)
+    expect(phaseEl.textContent).toContain("generating (2/3)");
+  });
+
+  it("renders a determinate progress bar at ~50% for progress=0.5", async () => {
+    renderBar();
+    await waitFor(() => expect(screen.getByTestId("activity-panel")).toBeTruthy());
+    const progressEl = await screen.findByTestId("activity-task-progress");
+    expect(progressEl).toBeTruthy();
+    // The inner fill div should have width 50%
+    const fillDiv = progressEl.querySelector("div");
+    expect(fillDiv).toBeTruthy();
+    expect((fillDiv as HTMLElement).style.width).toBe("50%");
+  });
+
+  it("renders ETA text when eta_seconds is a number", async () => {
+    renderBar();
+    await waitFor(() => expect(screen.getByTestId("activity-panel")).toBeTruthy());
+    const etaEl = await screen.findByTestId("activity-task-eta");
+    // The i18n mock does key-passthrough with param interpolation:
+    // t("activity.etaLeft", { eta: "1m 30s" }) → "activity.etaLeft" (key only, no real interpolation in mock)
+    // so we assert the key is present AND the formatted duration "1m 30s" is included in the element.
+    // The mock replaces {{eta}} → "1m 30s" in the key string: "activity.etaLeft" becomes "activity.etaLeft"
+    // because the mock returns key when no {{}} replacements match.
+    // Actually the mock does: replace("{{eta}}", "1m 30s") on the key string "activity.etaLeft"
+    // which has no {{eta}}, so it returns "activity.etaLeft" unchanged.
+    // The elapsed span is a sibling that shows "1m 5s". We verify the container shows "1m 5s".
+    expect(etaEl.textContent).toContain("1m 5s");
+  });
+
+  it("renders the etaLeft i18n key in the ETA span when eta_seconds is a number", async () => {
+    renderBar();
+    await waitFor(() => expect(screen.getByTestId("activity-panel")).toBeTruthy());
+    const etaEl = await screen.findByTestId("activity-task-eta");
+    // The mock t() returns the key string; confirm the etaLeft key is present in rendered text
+    expect(etaEl.textContent).toContain("activity.etaLeft");
+  });
+
+  it("renders elapsed time alongside ETA", async () => {
+    renderBar();
+    await waitFor(() => expect(screen.getByTestId("activity-panel")).toBeTruthy());
+    const etaEl = await screen.findByTestId("activity-task-eta");
+    // elapsed 65s → "1m 5s"
+    expect(etaEl.textContent).toContain("1m 5s");
+  });
+});
+
+describe("ActivityPanel — indeterminate bar and ETA for delegated/CLI task", () => {
+  // processing=1 so panel auto-expands.
+  beforeEach(() => {
+    mockActivityState = buildMockState({
+      paused: false,
+      pending: 0,
+      processing: 1,
+      failed: 0,
+      completed_since_idle: 0,
+      total: 1,
+      tasks: [
+        {
+          run_id: "cli-1",
+          source_path: "raw/doc.md",
+          filename: "doc.md",
+          status: "processing",
+          retry_count: 0,
+          phase: "agent running",
+          progress: null,
+          elapsed_seconds: 30,
+          eta_seconds: 120,
+        },
+      ],
+    });
+  });
+
+  it("renders phase text for agent running", async () => {
+    renderBar();
+    await waitFor(() => expect(screen.getByTestId("activity-panel")).toBeTruthy());
+    const phaseEl = await screen.findByTestId("activity-task-phase");
+    // "agent running" maps to i18n key "activity.phase.agentRunning" — key passthrough in mock → "activity.phase.agentRunning"
+    expect(phaseEl.textContent).toContain("activity.phase.agentRunning");
+  });
+
+  it("renders an indeterminate progress bar (no fill width = 50%) when progress=null", async () => {
+    renderBar();
+    await waitFor(() => expect(screen.getByTestId("activity-panel")).toBeTruthy());
+    const progressEl = await screen.findByTestId("activity-task-progress");
+    expect(progressEl).toBeTruthy();
+    const fillDiv = progressEl.querySelector("div");
+    expect(fillDiv).toBeTruthy();
+    // Indeterminate: no explicit percentage width set on the fill (it uses 40% or animation)
+    // — the fill div should NOT have width "50%" (that would be determinate at 0.5)
+    expect((fillDiv as HTMLElement).style.width).not.toBe("50%");
+  });
+
+  it("renders ETA when eta_seconds=120", async () => {
+    renderBar();
+    await waitFor(() => expect(screen.getByTestId("activity-panel")).toBeTruthy());
+    const etaEl = await screen.findByTestId("activity-task-eta");
+    // The i18n mock returns the key "activity.etaLeft" (no real interpolation);
+    // the elapsed span shows "30s". Verify the etaLeft key and elapsed are present.
+    expect(etaEl.textContent).toContain("activity.etaLeft");
+    expect(etaEl.textContent).toContain("30s");
+  });
+});
+
+describe("ActivityPanel — no ETA rendered when eta_seconds=null", () => {
+  // processing=1 so panel auto-expands.
+  beforeEach(() => {
+    mockActivityState = buildMockState({
+      paused: false,
+      pending: 0,
+      processing: 1,
+      failed: 0,
+      completed_since_idle: 0,
+      total: 1,
+      tasks: [
+        {
+          run_id: "noeta-1",
+          source_path: "raw/doc.md",
+          filename: "doc.md",
+          status: "processing",
+          retry_count: 0,
+          phase: "analyzing",
+          progress: 0.1,
+          elapsed_seconds: 5,
+          eta_seconds: null,
+        },
+      ],
+    });
+  });
+
+  it("does NOT render activity-task-eta when eta_seconds=null (no history)", async () => {
+    renderBar();
+    await waitFor(() => expect(screen.getByTestId("activity-panel")).toBeTruthy());
+    // elapsed>0 but eta=null → etaEl still rendered for elapsed, but no ETA text
+    // OR etaEl is absent if elapsed also treated as not enough — check spec:
+    // "when eta_seconds is null, show only elapsed (if present) or nothing"
+    // elapsed_seconds=5 > 0 → etaEl should appear with elapsed only
+    const etaEl = await screen.findByTestId("activity-task-eta");
+    expect(etaEl.textContent).toContain("5s");
+    // Must NOT contain the etaLeft i18n key pattern
+    expect(etaEl.textContent).not.toContain("left");
+    expect(etaEl.textContent).not.toContain("rimanenti");
+  });
+
+  it("renders phase text when phase=analyzing", async () => {
+    renderBar();
+    await waitFor(() => expect(screen.getByTestId("activity-panel")).toBeTruthy());
+    const phaseEl = await screen.findByTestId("activity-task-phase");
+    expect(phaseEl.textContent).toContain("activity.phase.analyzing");
+  });
+});

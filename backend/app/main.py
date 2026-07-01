@@ -1260,6 +1260,33 @@ class QueueTaskItem(BaseModel):
     retry_count: int = Field(description="Times this source has been retried (I7, max 3)")
     error: str | None = Field(description="Error detail for failed tasks; null otherwise")
     started_at: str | None = Field(description="ISO-8601 start time; null for pending tasks")
+    phase: str | None = Field(
+        default=None,
+        description=(
+            "Human-facing current phase: queued | analyzing | generating (N/M) | "
+            "validating | writing | agent running. None for pending/failed tasks."
+        ),
+    )
+    progress: float | None = Field(
+        default=None,
+        description=(
+            "Coarse 0..1 progress for orchestrated runs (0.0=queued, 0.2=analyzing, "
+            "0.5=generating, 0.8=validating, 0.95=writing). "
+            "None for delegated/CLI runs (indeterminate spinner) and non-processing tasks."
+        ),
+    )
+    elapsed_seconds: int | None = Field(
+        default=None,
+        description="Seconds since the run started; null for pending/failed tasks.",
+    )
+    eta_seconds: int | None = Field(
+        default=None,
+        description=(
+            "Best-effort estimated seconds until completion, derived from the historical "
+            "average duration for this route (last 50 completed runs). "
+            "None when no history is available for the route or for non-processing tasks."
+        ),
+    )
 
 
 class QueueSnapshotResponse(BaseModel):
@@ -2825,6 +2852,60 @@ def _ingest_run_to_response(run: IngestRun) -> IngestRunResponse:
     )
 
 
+# ── ETA helper for GET /ingest/queue ─────────────────────────────────────────
+
+_ETA_HISTORY_WINDOW: int = 50  # bounded history window (I7)
+
+
+async def _compute_avg_duration_by_route() -> dict[str, float]:
+    """
+    Return a dict mapping route → average completed-run duration in seconds.
+
+    Queries the last _ETA_HISTORY_WINDOW completed/converged_false rows per route from
+    ingest_runs (finished_at IS NOT NULL, status IN ('completed','converged_false')).
+    Uses portable CAST(col AS TEXT) to avoid dialect differences (SQLite/Postgres).
+
+    Returns {} when the table is absent (pre-migration env) or has no history.
+    Called once per GET /ingest/queue — bounded query, read-only (I1-safe).
+    """
+    result: dict[str, float] = {}
+    for route_val in ("orchestrated", "delegated"):
+        try:
+            async with get_session() as session:
+                # avg(extract(epoch from finished_at - started_at)) — Postgres dialect.
+                # For SQLite compatibility we use julianday arithmetic converted to seconds.
+                # We rely on the fact that started_at and finished_at are stored as
+                # timezone-aware datetimes; the ORM returns Python datetime objects.
+                # Fallback: load the raw timestamps and compute avg in Python so the
+                # query works on BOTH SQLite (tests) and Postgres (production) without
+                # dialect-specific SQL (avoids the raw-SQL SQLite vs Postgres pitfall noted
+                # in memory/raw-sql-sqlite-tests-vs-postgres-runtime.md).
+                stmt = (
+                    select(IngestRun.started_at, IngestRun.finished_at)
+                    .where(
+                        IngestRun.vault_id == settings.vault_id,
+                        IngestRun.route == route_val,
+                        IngestRun.status.in_(["completed", "converged_false"]),
+                        IngestRun.finished_at.isnot(None),
+                    )
+                    .order_by(IngestRun.started_at.desc())
+                    .limit(_ETA_HISTORY_WINDOW)
+                )
+                rows = list((await session.execute(stmt)).all())
+            if rows:
+                durations = [
+                    (row.finished_at - row.started_at).total_seconds()
+                    for row in rows
+                    if row.finished_at is not None and row.started_at is not None
+                ]
+                if durations:
+                    result[route_val] = sum(durations) / len(durations)
+        except Exception:  # noqa: BLE001
+            # Per-route failure is non-fatal; skip this route → eta_seconds=None for it.
+            pass
+    return result
+
+
 # ── GET /ingest/queue + POST /ingest/runs/{id}/cancel|retry + pause/resume ───
 # ADR-0046 §6 — live activity queue endpoints
 
@@ -2845,7 +2926,18 @@ async def get_ingest_queue() -> QueueSnapshotResponse:
     """GET /ingest/queue — live snapshot from the in-process queue manager (ADR-0046 §6)."""
     from app.ingest.queue_manager import ingest_queue as _iq
 
-    snap = _iq.snapshot()
+    # ── ETA: compute historical average run duration per route (bounded, I7) ───
+    # Read ingest_runs WHERE status IN ('completed','converged_false') AND finished_at IS NOT NULL,
+    # grouped by route, over last 50 runs per route. Single DB read per endpoint call.
+    # Tolerates DB unavailability (avg_by_route = {}) — snapshot() degrades to eta_seconds=None.
+    avg_by_route: dict[str, float] = {}
+    try:
+        avg_by_route = await _compute_avg_duration_by_route()
+    except Exception:  # noqa: BLE001
+        # Non-fatal: ETA degrades to None; queue still returns all other fields.
+        logger.debug("get_ingest_queue: ETA history query failed — eta_seconds will be None")
+
+    snap = _iq.snapshot(avg_duration_by_route=avg_by_route)
     tasks = [QueueTaskItem(**t) for t in snap["tasks"]]
     return QueueSnapshotResponse(
         paused=snap["paused"],

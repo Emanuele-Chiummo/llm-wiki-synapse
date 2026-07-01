@@ -5579,6 +5579,54 @@
             ],
             "title": "Started At",
             "description": "ISO-8601 start time; null for pending tasks"
+          },
+          "phase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase",
+            "description": "Human-facing current phase: queued | analyzing | generating (N/M) | validating | writing | agent running. None for pending/failed tasks."
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress",
+            "description": "Coarse 0..1 progress for orchestrated runs (0.0=queued, 0.2=analyzing, 0.5=generating, 0.8=validating, 0.95=writing). None for delegated/CLI runs (indeterminate spinner) and non-processing tasks."
+          },
+          "elapsed_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elapsed Seconds",
+            "description": "Seconds since the run started; null for pending/failed tasks."
+          },
+          "eta_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Seconds",
+            "description": "Best-effort estimated seconds until completion, derived from the historical average duration for this route (last 50 completed runs). None when no history is available for the route or for non-processing tasks."
           }
         },
         "type": "object",

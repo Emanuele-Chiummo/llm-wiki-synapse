@@ -647,7 +647,17 @@
     "completedCount": "{{completed}}/{{total}}",
     "expand": "Espandi pannello attività",
     "collapse": "Comprimi pannello attività",
-    "emptyQueue": "Coda vuota"
+    "emptyQueue": "Coda vuota",
+    "etaLeft": "~{{eta}} rimanenti",
+    "elapsed": "Trascorso",
+    "phase": {
+      "analyzing": "analisi",
+      "validating": "validazione",
+      "writing": "scrittura",
+      "queued": "in coda",
+      "failed": "fallito",
+      "agentRunning": "agente in esecuzione"
+    }
   },
   "common": {
     "loading": "Caricamento…",

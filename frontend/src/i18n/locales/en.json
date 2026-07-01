@@ -647,7 +647,17 @@
     "completedCount": "{{completed}}/{{total}}",
     "expand": "Expand activity panel",
     "collapse": "Collapse activity panel",
-    "emptyQueue": "Queue is empty"
+    "emptyQueue": "Queue is empty",
+    "etaLeft": "~{{eta}} left",
+    "elapsed": "Elapsed",
+    "phase": {
+      "analyzing": "analyzing",
+      "validating": "validating",
+      "writing": "writing",
+      "queued": "queued",
+      "failed": "failed",
+      "agentRunning": "agent running"
+    }
   },
   "common": {
     "loading": "Loading…",
