@@ -570,6 +570,27 @@
     "legendCommunitySize": "{{size}} nodes",
     "legendCommunityLowCohesion": "Low cohesion"
   },
+  "search": {
+    "title": "Search",
+    "inputLabel": "Search wiki",
+    "placeholder": "Search wiki pages…",
+    "clear": "Clear search",
+    "minCharsHint": "Type at least 2 characters to search",
+    "emptyTitle": "Search your wiki",
+    "emptyBody": "Start typing to find pages by semantic similarity.",
+    "noResults": "No results",
+    "noResultsHint": "Try different keywords or a broader query.",
+    "error": "Search error",
+    "resultsLabel": "Search results",
+    "score": "Score",
+    "phaseVector": "vector",
+    "phaseExpansion": "expansion"
+  },
+  "providerGate": {
+    "title": "No provider configured",
+    "body": "Configure an AI provider in Settings before using chat or ingest.",
+    "cta": "Open Settings"
+  },
   "common": {
     "loading": "Loading…",
     "retry": "Retry",

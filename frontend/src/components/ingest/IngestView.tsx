@@ -24,20 +24,26 @@ import {
   selectIngestError,
   selectIngestLoading,
 } from "../../store/ingestStore";
-import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import { useGraphStore, selectVaultId, selectSetActiveSection } from "../../store/graphStore";
 import { triggerIngest } from "../../api/ingestClient";
 import { IngestRunList } from "./IngestRunList";
 import { UploadZone } from "./UploadZone";
 import { showToast } from "../common/Toast";
+import { EmptyState } from "../common/EmptyState";
+import { useProviderConfigured } from "../../hooks/useProviderConfigured";
 
 export function IngestView() {
   const { t } = useTranslation();
   const vaultId = useGraphStore(selectVaultId);
+  const setActiveSection = useGraphStore(selectSetActiveSection);
   const fetchFresh = useIngestStore(selectFetchFresh);
   const startPolling = useIngestStore(selectStartPolling);
   const runningCount = useIngestStore(selectRunningCount);
   const storeError = useIngestStore(selectIngestError);
   const loading = useIngestStore(selectIngestLoading);
+
+  // Provider gate (P0): check once on mount.
+  const { configured, loading: providerLoading } = useProviderConfigured();
 
   const [formOpen, setFormOpen] = useState(false);
   const [filePath, setFilePath] = useState("");
@@ -113,6 +119,42 @@ export function IngestView() {
     },
     [handleSubmit],
   );
+
+  // While checking configuration, render nothing to avoid flicker (I3).
+  if (providerLoading || configured === null) {
+    return <div data-testid="ingest-view" style={{ flex: 1, background: "var(--syn-bg)" }} />;
+  }
+
+  // Gate: no provider configured → block with CTA. Actions are disabled below.
+  if (!configured) {
+    return (
+      <div
+        data-testid="ingest-view"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
+          overflow: "hidden",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--syn-bg)",
+        }}
+      >
+        <EmptyState
+          title={t("providerGate.title")}
+          body={t("providerGate.body")}
+          testId="provider-gate-ingest"
+          actions={[
+            {
+              label: t("providerGate.cta"),
+              variant: "primary",
+              onClick: () => setActiveSection("settings"),
+            },
+          ]}
+        />
+      </div>
+    );
+  }
 
   return (
     <div

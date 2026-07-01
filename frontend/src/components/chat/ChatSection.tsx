@@ -20,18 +20,21 @@ import { useCallback, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore, selectActiveConversationId, selectIsStreaming, selectMessages } from "../../store/chatStore";
 import type { ChatMessage } from "../../store/chatStore";
-import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import { useGraphStore, selectVaultId, selectSetActiveSection } from "../../store/graphStore";
 import { useSettingsStore, selectContextWindow, selectConversationHistoryLength } from "../../store/settingsStore";
 import { useChatStream } from "./useChatStream";
 import { buildMessagePayload } from "./buildMessagePayload";
 import { ConversationList } from "./ConversationList";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
+import { EmptyState } from "../common/EmptyState";
+import { useProviderConfigured } from "../../hooks/useProviderConfigured";
 import type { ChatStreamRequest } from "../../api/chatClient";
 
 export function ChatSection(): ReactNode {
   const { t } = useTranslation();
   const vaultId = useGraphStore(selectVaultId);
+  const setActiveSection = useGraphStore(selectSetActiveSection);
   const activeConversationId = useChatStore(selectActiveConversationId);
   const isStreaming = useChatStore(selectIsStreaming);
   const messages = useChatStore(selectMessages);
@@ -40,6 +43,10 @@ export function ChatSection(): ReactNode {
   const historyLength = useSettingsStore(selectConversationHistoryLength);
 
   const { send, abort } = useChatStream();
+
+  // Provider gate (P0): check once on mount whether a provider is configured.
+  // Show nothing until resolved (no flicker), then either the gate or the normal view.
+  const { configured, loading: providerLoading } = useProviderConfigured();
 
   const handleSend = useCallback(
     (text: string) => {
@@ -106,6 +113,39 @@ export function ChatSection(): ReactNode {
 
     send(req);
   }, [isStreaming, messages, activeConversationId, vaultId, contextWindow, historyLength, send]);
+
+  // While checking configuration, render nothing to avoid flicker (I3).
+  if (providerLoading || configured === null) {
+    return (
+      <div
+        style={{ flex: 1, display: "flex", width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        data-testid="section-chat"
+      />
+    );
+  }
+
+  // Gate: no provider configured → block with CTA.
+  if (!configured) {
+    return (
+      <div
+        style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        data-testid="section-chat"
+      >
+        <EmptyState
+          title={t("providerGate.title")}
+          body={t("providerGate.body")}
+          testId="provider-gate-chat"
+          actions={[
+            {
+              label: t("providerGate.cta"),
+              variant: "primary",
+              onClick: () => setActiveSection("settings"),
+            },
+          ]}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
