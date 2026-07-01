@@ -63,6 +63,7 @@ import {
   selectSelectedNodeId,
   selectNodes,
   selectSelectPage,
+  selectSetActiveSection,
 } from "../../store/graphStore";
 import type { RelatedPageItem, PageContentResponse } from "../../api/types";
 import { fetchPageContent, savePageContent, fetchRelatedPages } from "../../api/pagesClient";
@@ -199,6 +200,7 @@ export function NoteView() {
   // Shallow-compared nodes array for wikilink resolution + type badge fallback (I3).
   const nodes = useGraphStore(useShallow(selectNodes));
   const selectPage = useGraphStore(selectSelectPage);
+  const setActiveSection = useGraphStore(selectSetActiveSection);
 
   const [state, setState] = useState<NoteViewState>({
     phase: "idle",
@@ -569,16 +571,37 @@ export function NoteView() {
                     data-testid="note-sources"
                     style={SOURCES_CHIPS_ROW_STYLE}
                   >
-                    {sources.map((src) => (
-                      <span
-                        key={src}
-                        className="syn-chip"
-                        title={src}
-                        style={SOURCE_CHIP_STYLE}
-                      >
-                        {src}
-                      </span>
-                    ))}
+                    {sources.map((src) => {
+                      // A chip is navigable when it looks like a raw/sources/ path.
+                      // Strip the "raw/sources/" prefix to get the SourcesView path.
+                      const RAW_PREFIX = "raw/sources/";
+                      const isSourcePath = src.startsWith(RAW_PREFIX) || src.startsWith("/raw/sources/");
+                      if (isSourcePath) {
+                        return (
+                          <button
+                            key={src}
+                            className="syn-chip"
+                            title={src}
+                            style={{ ...SOURCE_CHIP_STYLE, cursor: "pointer", border: "none" }}
+                            onClick={() => {
+                              setActiveSection("sources");
+                            }}
+                          >
+                            {src}
+                          </button>
+                        );
+                      }
+                      return (
+                        <span
+                          key={src}
+                          className="syn-chip"
+                          title={src}
+                          style={SOURCE_CHIP_STYLE}
+                        >
+                          {src}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}

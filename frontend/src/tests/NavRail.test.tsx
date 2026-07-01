@@ -59,17 +59,20 @@ function renderNavRail() {
   return render(<NavRail />);
 }
 
-// ─── AC-HARD-ORD-1 (v0.6+Search update): exactly 9 interactive nav items ─────
+// ─── AC-HARD-ORD-1 (v0.6+Sources update): exactly 10 interactive nav items ───
+//
+// v0.6 [F11]: "sources" added to TOP_ITEMS (file browser); "ingest" moved to M5_ITEMS
+// (cost-ledger / run-history). Total interactive items = 10.
 
-describe("NavRail — item count and order (AC-HARD-ORD-1 v0.6+Search, AC-F10-8a, AC-F9-5)", () => {
+describe("NavRail — item count and order (AC-HARD-ORD-1 v0.6+Sources, AC-F10-8a, AC-F9-5)", () => {
   beforeEach(() => {
     renderNavRail();
   });
 
-  it("renders exactly 9 interactive buttons (Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Settings)", () => {
+  it("renders exactly 10 interactive buttons (Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Ingest/Settings)", () => {
     const buttons = screen.getAllByRole("button");
-    // 9 nav buttons: chat, pages, ingest, search, graph, lint, review, deep-search, settings
-    expect(buttons).toHaveLength(9);
+    // 10 nav buttons: chat, pages, sources, search, graph, lint, review, deep-search, ingest, settings
+    expect(buttons).toHaveLength(10);
   });
 
   it("renders a Chat button", () => {
@@ -83,7 +86,12 @@ describe("NavRail — item count and order (AC-HARD-ORD-1 v0.6+Search, AC-F10-8a
     expect(pagesBtn).not.toBeNull();
   });
 
-  it("renders a Sources/ingest button", () => {
+  it("renders a Sources file-browser button (data-section='sources') [F11]", () => {
+    const sourcesBtn = document.querySelector("[data-section='sources']");
+    expect(sourcesBtn).not.toBeNull();
+  });
+
+  it("renders an Ingest run-history button (data-section='ingest') in M5 group", () => {
     const ingestBtn = document.querySelector("[data-section='ingest']");
     expect(ingestBtn).not.toBeNull();
   });

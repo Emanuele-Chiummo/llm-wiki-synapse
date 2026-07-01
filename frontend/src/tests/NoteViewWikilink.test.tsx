@@ -116,6 +116,8 @@ let _selectedNodeId: string | null = "page-abc";
 let _nodes: GraphNode[] = [];
 const _mockSelectPage = vi.fn();
 
+const _mockSetActiveSection = vi.fn();
+
 vi.mock("../store/graphStore", () => ({
   useGraphStore: (selector: (s: unknown) => unknown) => {
     // Replicate the store shape accessed by NoteView
@@ -123,12 +125,14 @@ vi.mock("../store/graphStore", () => ({
       selectedNodeId: _selectedNodeId,
       nodes: _nodes,
       selectPage: _mockSelectPage,
+      setActiveSection: _mockSetActiveSection,
     };
     return selector(store);
   },
   selectSelectedNodeId: (s: { selectedNodeId: string | null }) => s.selectedNodeId,
   selectNodes: (s: { nodes: GraphNode[] }) => s.nodes,
   selectSelectPage: (s: { selectPage: typeof _mockSelectPage }) => s.selectPage,
+  selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) => s.setActiveSection,
 }));
 
 // useShallow — in vitest/jsdom zustand's useShallow is not needed; identity works.

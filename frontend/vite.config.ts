@@ -27,6 +27,9 @@ const API_PREFIXES = [
   `/lint`,
   `/clip`,
   `/web-search`,
+  `/sources`,
+  `/overview`,
+  `/links`,
   `/api`,
 ];
 
@@ -158,6 +161,18 @@ export default defineConfig({
         changeOrigin: true,
       },
       "/lint": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/sources": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/overview": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/links": {
         target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
         changeOrigin: true,
       },

@@ -4,12 +4,13 @@
  * Section → layout mapping:
  *   chat        → <ChatSection/>
  *   pages       → <PanelGroup/>  (NavTree | GraphPanel | PreviewPanel)
- *   ingest      → <IngestView/> + <IngestRunDetail/>
+ *   sources     → <SourcesView/> (v0.6 [F11] — raw-source file browser)
+ *   ingest      → <IngestView/> + <IngestRunDetail/> (ingest run history / cost ledger)
  *   graph       → <GraphPanel/> full-bleed
  *   search      → <SearchView/>   (v0.6, GET /search — F5/llm_wiki parity)
- *   lint        → placeholder (M5)
- *   review      → placeholder (M5)
- *   deep-search → placeholder (M5)
+ *   lint        → <LintView/>
+ *   review      → <ReviewQueueView/>
+ *   deep-search → <DeepSearchView/>
  *   settings    → <SettingsPanel/> (single column)
  *
  * Light design: var(--syn-bg) content areas, var(--syn-bg-soft) side detail panels,
@@ -30,6 +31,7 @@ import { DeepSearchView } from "./research/DeepSearchView";
 import { ReviewQueueView } from "./review/ReviewQueueView";
 import { LintView } from "./lint/LintView";
 import { SearchView } from "./search/SearchView";
+import { SourcesView } from "./sources/SourcesView";
 
 // ─── SectionRouter ────────────────────────────────────────────────────────────
 
@@ -51,6 +53,17 @@ export function SectionRouter() {
         data-testid="section-graph"
       >
         <GraphPanel />
+      </div>
+    );
+  }
+
+  if (activeSection === "sources") {
+    return (
+      <div
+        style={{ flex: 1, display: "flex", overflow: "hidden", width: "100%", height: "100%" }}
+        data-testid="section-sources"
+      >
+        <SourcesView />
       </div>
     );
   }

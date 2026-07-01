@@ -5,20 +5,19 @@
  *   Logo (branding, non-nav)
  *   Chat · Wiki · Sources · Search · Graph  (TOP_ITEMS)
  *   [separator]
- *   Lint · Review · Deep Search             (M5_ITEMS)
+ *   Lint · Review · Deep Search · Ingest    (M5_ITEMS)
  *   [spacer]
  *   Settings  (pinned bottom)
  *
- * Light design (llm_wiki parity):
- *   - Rail bg: var(--syn-bg-soft); border: var(--syn-border)
- *   - Inactive icons: var(--syn-text-dim)
- *   - Active: var(--syn-accent-soft) bg + var(--syn-accent) icon/text
- *   - Hover: var(--syn-surface-hover) (via theme.css .nav-rail__item:hover)
- *   - Rounded: var(--syn-radius-md)
+ * Rail/section decision [F11 / v0.6]:
+ *   - "sources" (FolderOpen icon, nav.sources label) → raw-source file browser (SourcesView).
+ *   - "ingest"  (Activity icon, nav.ingest label) → ingest run-history / cost ledger (IngestView).
+ *     IngestView is now in the secondary M5 group so the ingest cost ledger remains reachable.
+ *   - This keeps the TOP_ITEMS group at 5 user-facing actions (unchanged item count).
  *
  * CHANGE v0.6-SEARCH: Search added to rail between Sources and Graph (F5/llm_wiki parity).
- * The Section type in graphStore.ts is UNCHANGED ("search" was already a valid Section).
- * Item count is now 9 (8 interactive nav buttons + Logo).
+ * CHANGE v0.6-SOURCES [F11]: "Sources" rail item now maps to "sources" section (SourcesView);
+ *   "Ingest" item moved to M5 group pointing to "ingest" section (IngestView run-history).
  *
  * CHANGE F1-HARD-NAV-LABELS: rail widened to 72px; each button renders the icon
  * SVG with a <span> caption below it (10px, centered, truncate with ellipsis).
@@ -44,6 +43,7 @@ import {
   Globe,
   Settings,
   Zap,
+  Activity,
 } from "lucide-react";
 import { useGraphStore, selectActiveSection, selectSetActiveSection } from "../../store/graphStore";
 import type { Section } from "../../store/graphStore";
@@ -62,26 +62,26 @@ interface RailItem {
 }
 
 /**
- * Active items. Search added between Sources and Graph (llm_wiki parity, F5/v0.6).
- * i18n keys: nav.search / nav.comingSoon retained.
+ * Active items. Search between Sources and Graph (llm_wiki parity, F5/v0.6).
+ * "sources" now maps to SourcesView (file browser) — [F11 / v0.6].
  */
 const TOP_ITEMS: RailItem[] = [
-  { id: "chat",   icon: <MessageSquare size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.chat" },
-  { id: "pages",  icon: <FileText      size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.wiki" },
-  { id: "ingest", icon: <FolderOpen    size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.sources" },
-  { id: "search", icon: <Search        size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.search" },
-  { id: "graph",  icon: <Share2        size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.graph" },
+  { id: "chat",    icon: <MessageSquare size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.chat" },
+  { id: "pages",   icon: <FileText      size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.wiki" },
+  { id: "sources", icon: <FolderOpen    size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.sources" },
+  { id: "search",  icon: <Search        size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.search" },
+  { id: "graph",   icon: <Share2        size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.graph" },
 ];
 
 /**
- * M5_ITEMS — Deep Search (F10), Review (F9), and Lint (K2/v0.6) are active.
- * Search remains as a placeholder.
- * i18n keys nav.search / nav.comingSoon retained.
+ * M5_ITEMS — Lint (K2), Review (F9), Deep Search (F10), and Ingest run-history (cost ledger).
+ * "ingest" kept here so the cost ledger is always reachable — [F11 / v0.6].
  */
 const M5_ITEMS: RailItem[] = [
   { id: "lint",        icon: <ClipboardCheck size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.lint" },
   { id: "review",      icon: <ListChecks     size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.review" },
   { id: "deep-search", icon: <Globe          size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.deepSearch" },
+  { id: "ingest",      icon: <Activity       size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.ingest" },
 ];
 
 const BOTTOM_ITEMS: RailItem[] = [
@@ -175,14 +175,14 @@ export function NavRail() {
             key={item.id}
             item={item}
             isActive={item.id === activeSection}
-            badge={item.id === "ingest" ? runningCount : 0}
+            badge={0}
             label={t(item.labelKey)}
             onClick={() => handleItemClick(item)}
           />
         ))}
       </div>
 
-      {/* M5 items (Lint + Review + Deep Search) */}
+      {/* M5 items (Lint + Review + Deep Search + Ingest run-history) */}
       {M5_ITEMS.length > 0 && (
         <>
           <div style={{ width: 40, height: 1, background: "var(--syn-border)", margin: "4px 0 2px" }} />
@@ -192,7 +192,7 @@ export function NavRail() {
                 key={item.id}
                 item={item}
                 isActive={item.id === activeSection}
-                badge={0}
+                badge={item.id === "ingest" ? runningCount : 0}
                 label={t(item.labelKey)}
                 onClick={() => handleItemClick(item)}
               />

@@ -137,16 +137,20 @@ vi.mock("../api/graphClient", () => ({
 let _selectedNodeId: string | null = null;
 const _mockSelectPage = vi.fn();
 
+const _mockSetActiveSection = vi.fn();
+
 vi.mock("../store/graphStore", () => ({
   useGraphStore: (selector: (s: {
     selectedNodeId: string | null;
     nodes: [];
     selectPage: typeof _mockSelectPage;
+    setActiveSection: typeof _mockSetActiveSection;
   }) => unknown) =>
-    selector({ selectedNodeId: _selectedNodeId, nodes: [], selectPage: _mockSelectPage }),
+    selector({ selectedNodeId: _selectedNodeId, nodes: [], selectPage: _mockSelectPage, setActiveSection: _mockSetActiveSection }),
   selectSelectedNodeId: (s: { selectedNodeId: string | null }) => s.selectedNodeId,
   selectNodes: (s: { nodes: [] }) => s.nodes,
   selectSelectPage: (s: { selectPage: typeof _mockSelectPage }) => s.selectPage,
+  selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) => s.setActiveSection,
 }));
 
 // useShallow is called by NoteView to wrap the selectNodes selector.
