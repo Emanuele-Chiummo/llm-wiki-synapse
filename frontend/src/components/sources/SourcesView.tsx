@@ -1,0 +1,732 @@
+/**
+ * SourcesView.tsx — raw-source file browser for Synapse [F11 / v0.6].
+ *
+ * Layout:
+ *   - Header: title + Import button (UploadZone) + Refresh button
+ *   - Split: source tree (left, virtualised I4) + SourcePreview (right)
+ *
+ * File tree behaviour:
+ *   - Folders: collapsible, child count badge.
+ *   - Files: Lucide icon by category, name, size, mtime.
+ *   - Row click → select file + show preview.
+ *   - Hover/selected row actions: Ingest + Delete (two-stage confirm).
+ *
+ * Two-stage delete:
+ *   - First click arms the row (red "Confirm" state; 5s auto-disarm).
+ *   - Only one row can be armed at a time (armedPath lifted to this view).
+ *   - Second click fires DELETE /sources; success → refresh + clear preview.
+ *
+ * INVARIANT I4: virtualised with @tanstack/react-virtual (mirrors NavTree).
+ * INVARIANT I3: selectors + no heavy per-render work.
+ *
+ * All strings: sources.* i18n keys.
+ * All testids: sources-view, sources-tree, source-row, source-ingest,
+ *              source-delete, source-refresh.
+ */
+
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type CSSProperties,
+} from "react";
+import { useTranslation } from "react-i18next";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  RefreshCw,
+  Upload,
+  Folder,
+  FolderOpen,
+  File,
+  FileText,
+  Image,
+  FileVideo,
+  FileAudio,
+  BookOpen,
+  Trash2,
+  ChevronRight,
+  ChevronDown,
+} from "lucide-react";
+import {
+  listSources,
+  deleteSource,
+  triggerIngest,
+} from "../../api/sourcesClient";
+import type { SourceEntry } from "../../api/sourcesClient";
+import { SourcePreview } from "./SourcePreview";
+import { UploadZone } from "../ingest/UploadZone";
+import { showToast } from "../common/Toast";
+
+// ─── Category icon helper ─────────────────────────────────────────────────────
+
+function fileIcon(ext: string | undefined, size = 15) {
+  const e = (ext ?? "").toLowerCase();
+  if (/^\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/.test(e))
+    return <Image size={size} aria-hidden="true" />;
+  if (/^\.(mp4|mkv|mov|avi|webm)$/.test(e))
+    return <FileVideo size={size} aria-hidden="true" />;
+  if (/^\.(mp3|wav|ogg|flac|aac|m4a)$/.test(e))
+    return <FileAudio size={size} aria-hidden="true" />;
+  if (/^\.(md|markdown|txt)$/.test(e))
+    return <FileText size={size} aria-hidden="true" />;
+  return <File size={size} aria-hidden="true" />;
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024)         return `${n} B`;
+  if (n < 1024 * 1024)  return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatMtime(mtime: string): string {
+  // Backend returns an ISO-8601 string (e.g. "2026-06-28T07:27:37+00:00"), not an epoch.
+  const d = new Date(mtime);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+// ─── Tree-row types ───────────────────────────────────────────────────────────
+
+interface FolderRow {
+  kind: "folder";
+  path: string;
+  name: string;
+  depth: number;
+  childCount: number;
+  collapsed: boolean;
+}
+
+interface FileRow {
+  kind: "file";
+  path: string;
+  name: string;
+  ext: string | undefined;
+  size_bytes: number | undefined;
+  mtime: string | undefined;
+  depth: number;
+}
+
+type TreeRow = FolderRow | FileRow;
+
+// ─── Build flat virtualizer-ready rows from SourceEntry[] ─────────────────────
+
+function buildRows(
+  entries: SourceEntry[],
+  collapsedFolders: Set<string>,
+): TreeRow[] {
+  // Group entries by parent directory
+  const byParent = new Map<string, SourceEntry[]>();
+  for (const e of entries) {
+    const parent = e.path.includes("/")
+      ? e.path.slice(0, e.path.lastIndexOf("/"))
+      : "";
+    if (!byParent.has(parent)) byParent.set(parent, []);
+    const bucket = byParent.get(parent);
+    if (bucket) bucket.push(e);
+  }
+
+  const rows: TreeRow[] = [];
+
+  function visit(parentPath: string, depth: number) {
+    const children = byParent.get(parentPath) ?? [];
+    // Sort: folders first, then files alphabetically
+    const sorted = [...children].sort((a, b) => {
+      if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    for (const entry of sorted) {
+      if (entry.is_dir) {
+        const childEntries = byParent.get(entry.path) ?? [];
+        rows.push({
+          kind: "folder",
+          path: entry.path,
+          name: entry.name,
+          depth,
+          childCount: childEntries.length,
+          collapsed: collapsedFolders.has(entry.path),
+        });
+        if (!collapsedFolders.has(entry.path)) {
+          visit(entry.path, depth + 1);
+        }
+      } else {
+        rows.push({
+          kind: "file",
+          path: entry.path,
+          name: entry.name,
+          ext: entry.ext,
+          size_bytes: entry.size_bytes,
+          mtime: entry.mtime,
+          depth,
+        });
+      }
+    }
+  }
+
+  visit("", 0);
+  return rows;
+}
+
+// ─── Row heights ──────────────────────────────────────────────────────────────
+
+const FOLDER_ROW_H = 30;
+const FILE_ROW_H   = 30;
+const DISARM_DELAY = 5000; // ms
+
+// ─── SourcesView ──────────────────────────────────────────────────────────────
+
+export function SourcesView() {
+  const { t } = useTranslation();
+
+  const [entries, setEntries]               = useState<SourceEntry[]>([]);
+  const [loading, setLoading]               = useState(false);
+  const [error, setError]                   = useState<string | null>(null);
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
+  const [selectedPath, setSelectedPath]     = useState<string | null>(null);
+  const [showImport, setShowImport]         = useState(false);
+  // Two-stage delete
+  const [armedPath, setArmedPath]           = useState<string | null>(null);
+  const [deletingPath, setDeletingPath]     = useState<string | null>(null);
+  // Per-file ingest in-flight
+  const [ingestingPath, setIngestingPath]   = useState<string | null>(null);
+  // Disarm timer ref
+  const disarmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Fetch ────────────────────────────────────────────────────────────────────
+
+  const fetchSources = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await listSources(signal);
+      setEntries(res.entries);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    void fetchSources(ctrl.signal);
+    return () => ctrl.abort();
+  }, [fetchSources]);
+
+  // ── Two-stage delete helpers ─────────────────────────────────────────────────
+
+  const armDelete = useCallback(
+    (path: string) => {
+      if (disarmTimerRef.current) clearTimeout(disarmTimerRef.current);
+      setArmedPath(path);
+      disarmTimerRef.current = setTimeout(() => setArmedPath(null), DISARM_DELAY);
+    },
+    [],
+  );
+
+  const handleDeleteClick = useCallback(
+    async (path: string) => {
+      if (armedPath !== path) {
+        armDelete(path);
+        return;
+      }
+      // Second click — fire delete
+      if (disarmTimerRef.current) clearTimeout(disarmTimerRef.current);
+      setArmedPath(null);
+      setDeletingPath(path);
+      try {
+        const res = await deleteSource(path);
+        showToast(
+          t("sources.deletedToast", { pages: res.pages_deleted }),
+          "success",
+        );
+        if (selectedPath === path) setSelectedPath(null);
+        await fetchSources();
+      } catch (err: unknown) {
+        showToast(err instanceof Error ? err.message : String(err), "error");
+      } finally {
+        setDeletingPath(null);
+      }
+    },
+    [armedPath, armDelete, fetchSources, selectedPath, t],
+  );
+
+  // ── Ingest ───────────────────────────────────────────────────────────────────
+
+  const handleIngest = useCallback(
+    async (path: string) => {
+      setIngestingPath(path);
+      try {
+        await triggerIngest(`raw/sources/${path}`);
+        showToast(t("sources.ingestedToast"), "success");
+      } catch (err: unknown) {
+        showToast(err instanceof Error ? err.message : String(err), "error");
+      } finally {
+        setIngestingPath(null);
+      }
+    },
+    [t],
+  );
+
+  // ── Tree rows ────────────────────────────────────────────────────────────────
+
+  const rows = buildRows(entries, collapsedFolders);
+
+  const toggleFolder = useCallback((path: string) => {
+    setCollapsedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
+
+  // ── Virtualizer ──────────────────────────────────────────────────────────────
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (i) => {
+      const r = rows[i];
+      return r?.kind === "folder" ? FOLDER_ROW_H : FILE_ROW_H;
+    },
+    overscan: 8,
+  });
+
+  // ── Empty / Error states ──────────────────────────────────────────────────────
+
+  const isEmpty = !loading && !error && entries.length === 0;
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+
+  return (
+    <div
+      data-testid="sources-view"
+      style={OUTER_STYLE}
+    >
+      {/* ── Header ── */}
+      <div style={HEADER_STYLE}>
+        <span style={{ fontWeight: 600, fontSize: 15, color: "var(--syn-text)" }}>
+          {t("sources.title")}
+        </span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            data-testid="source-refresh"
+            style={HEADER_BTN_STYLE}
+            onClick={() => { void fetchSources(); }}
+            title={t("sources.refresh")}
+            disabled={loading}
+          >
+            <RefreshCw size={14} aria-hidden="true" />
+            {t("sources.refresh")}
+          </button>
+          <button
+            style={IMPORT_BTN_STYLE}
+            onClick={() => setShowImport((v) => !v)}
+            title={t("sources.import")}
+          >
+            <Upload size={14} aria-hidden="true" />
+            {t("sources.import")}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Import zone (collapsible) ── */}
+      {showImport && (
+        <div style={{ borderBottom: "1px solid var(--syn-border)", paddingBottom: 8 }}>
+          <UploadZone onSuccess={() => { setShowImport(false); void fetchSources(); }} />
+        </div>
+      )}
+
+      {/* ── Body: tree + preview ── */}
+      <div style={BODY_STYLE}>
+        {/* ─ Tree ─ */}
+        <div style={TREE_PANEL_STYLE}>
+          {loading && (
+            <div style={CENTER_STYLE}>
+              <span style={{ color: "var(--syn-text-dim)", fontSize: 12 }}>{t("common.loading")}</span>
+            </div>
+          )}
+          {error && (
+            <div style={CENTER_STYLE}>
+              <span style={{ color: "var(--syn-danger, #e53e3e)", fontSize: 12 }}>{error}</span>
+            </div>
+          )}
+          {isEmpty && (
+            <div style={EMPTY_STYLE}>
+              <Folder size={28} aria-hidden="true" style={{ color: "var(--syn-text-dim)", marginBottom: 8 }} />
+              <span style={{ color: "var(--syn-text-dim)", fontSize: 13, textAlign: "center" }}>
+                {t("sources.emptyHint")}
+              </span>
+              <button
+                style={IMPORT_BTN_STYLE}
+                onClick={() => setShowImport(true)}
+              >
+                <Upload size={13} aria-hidden="true" />
+                {t("sources.import")}
+              </button>
+            </div>
+          )}
+          {!loading && !error && rows.length > 0 && (
+            <nav
+              data-testid="sources-tree"
+              aria-label={t("sources.title")}
+              style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}
+            >
+              <div
+                ref={scrollRef}
+                style={{ overflow: "auto", flex: 1, minHeight: 0 }}
+              >
+                <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+                  {virtualizer.getVirtualItems().map((vRow) => {
+                    const row = rows[vRow.index] as TreeRow;
+                    const style: CSSProperties = {
+                      position: "absolute",
+                      top: vRow.start,
+                      width: "100%",
+                    };
+                    if (row.kind === "folder") {
+                      return (
+                        <FolderRowItem
+                          key={row.path}
+                          row={row}
+                          style={style}
+                          onToggle={toggleFolder}
+                        />
+                      );
+                    }
+                    return (
+                      <FileRowItem
+                        key={row.path}
+                        row={row}
+                        selected={row.path === selectedPath}
+                        armed={armedPath === row.path}
+                        deleting={deletingPath === row.path}
+                        ingesting={ingestingPath === row.path}
+                        style={style}
+                        onClick={() => setSelectedPath(row.path)}
+                        onIngest={handleIngest}
+                        onDelete={handleDeleteClick}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            </nav>
+          )}
+        </div>
+
+        {/* ─ Divider ─ */}
+        <div style={DIVIDER_STYLE} />
+
+        {/* ─ Preview ─ */}
+        <div style={PREVIEW_PANEL_STYLE}>
+          <SourcePreview path={selectedPath} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── FolderRowItem ────────────────────────────────────────────────────────────
+
+interface FolderRowItemProps {
+  row: FolderRow;
+  style: CSSProperties;
+  onToggle: (path: string) => void;
+}
+
+function FolderRowItem({ row, style, onToggle }: FolderRowItemProps) {
+  const { t } = useTranslation();
+  const indent = 8 + row.depth * 16;
+  const expanded = !row.collapsed;
+  return (
+    <button
+      style={{
+        ...style,
+        display: "flex",
+        alignItems: "center",
+        width: "100%",
+        height: FOLDER_ROW_H,
+        padding: `0 8px 0 ${indent}px`,
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        textAlign: "left",
+        gap: 5,
+        color: "var(--syn-text-muted)",
+        fontSize: 12,
+        fontWeight: 600,
+        userSelect: "none",
+      }}
+      aria-expanded={expanded}
+      aria-label={`${row.name}, ${row.childCount} ${t("sources.folder")}`}
+      onClick={() => onToggle(row.path)}
+    >
+      {expanded
+        ? <ChevronDown size={12} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />
+        : <ChevronRight size={12} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />}
+      {expanded
+        ? <FolderOpen size={14} aria-hidden="true" style={{ color: "var(--syn-accent)", flexShrink: 0 }} />
+        : <Folder size={14} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />}
+      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {row.name}
+      </span>
+      <span style={{
+        fontSize: 10,
+        color: "var(--syn-text-dim)",
+        background: "var(--syn-surface-sunken)",
+        border: "1px solid var(--syn-border-subtle)",
+        borderRadius: 10,
+        padding: "1px 5px",
+        flexShrink: 0,
+      }}>
+        {row.childCount}
+      </span>
+    </button>
+  );
+}
+
+// ─── FileRowItem ──────────────────────────────────────────────────────────────
+
+interface FileRowItemProps {
+  row: FileRow;
+  selected: boolean;
+  armed: boolean;
+  deleting: boolean;
+  ingesting: boolean;
+  style: CSSProperties;
+  onClick: () => void;
+  onIngest: (path: string) => void;
+  onDelete: (path: string) => Promise<void>;
+}
+
+function FileRowItem({
+  row,
+  selected,
+  armed,
+  deleting,
+  ingesting,
+  style,
+  onClick,
+  onIngest,
+  onDelete,
+}: FileRowItemProps) {
+  const { t } = useTranslation();
+  const indent = 8 + row.depth * 16;
+
+  return (
+    <div
+      data-testid="source-row"
+      style={{
+        ...style,
+        display: "flex",
+        alignItems: "center",
+        height: FILE_ROW_H,
+        padding: `0 6px 0 ${indent}px`,
+        background: selected ? "var(--syn-accent-soft)" : "transparent",
+        cursor: "pointer",
+        gap: 5,
+        transition: "background 0.1s ease",
+      }}
+      onClick={onClick}
+      role="row"
+      aria-selected={selected}
+      data-path={row.path}
+    >
+      {/* Icon */}
+      <span style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}>
+        {fileIcon(row.ext)}
+      </span>
+      {/* Name */}
+      <span
+        style={{
+          flex: 1,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          fontSize: 12,
+          color: selected ? "var(--syn-accent)" : "var(--syn-text-muted)",
+        }}
+        title={row.path}
+      >
+        {row.name}
+      </span>
+      {/* Size */}
+      {row.size_bytes !== undefined && (
+        <span style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}>
+          {formatBytes(row.size_bytes)}
+        </span>
+      )}
+      {/* Mtime */}
+      {row.mtime !== undefined && (
+        <span style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0, marginRight: 2 }}>
+          {formatMtime(row.mtime)}
+        </span>
+      )}
+
+      {/* Action buttons — always rendered (accessible via keyboard/screen reader) */}
+      <div
+        style={{ display: "flex", gap: 3, flexShrink: 0 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Ingest */}
+        <button
+          data-testid="source-ingest"
+          style={{
+            ...ACTION_BTN_BASE,
+            color: "var(--syn-accent)",
+            opacity: ingesting ? 0.5 : 1,
+          }}
+          disabled={ingesting}
+          onClick={(e) => { e.stopPropagation(); onIngest(row.path); }}
+          title={t("sources.ingest")}
+          aria-label={`${t("sources.ingest")} ${row.name}`}
+        >
+          <BookOpen size={12} aria-hidden="true" />
+        </button>
+
+        {/* Delete (two-stage) */}
+        <button
+          data-testid="source-delete"
+          style={{
+            ...ACTION_BTN_BASE,
+            color: armed
+              ? "var(--syn-danger, #e53e3e)"
+              : "var(--syn-text-dim)",
+            background: armed
+              ? "color-mix(in srgb, var(--syn-danger, #e53e3e) 10%, transparent 90%)"
+              : "transparent",
+            opacity: deleting ? 0.5 : 1,
+            minWidth: armed ? 64 : undefined,
+            fontSize: armed ? 10 : undefined,
+            fontWeight: armed ? 700 : undefined,
+            transition: "color 0.15s, background 0.15s",
+          }}
+          disabled={deleting}
+          onClick={(e) => { e.stopPropagation(); void onDelete(row.path); }}
+          title={armed ? t("sources.confirmDelete") : t("sources.delete")}
+          aria-label={armed
+            ? `${t("sources.confirmDelete")} ${row.name}`
+            : `${t("sources.delete")} ${row.name}`}
+        >
+          {armed ? t("sources.confirmDelete") : <Trash2 size={12} aria-hidden="true" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Inline styles ────────────────────────────────────────────────────────────
+
+const OUTER_STYLE: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  flex: 1,
+  width: "100%",
+  height: "100%",
+  overflow: "hidden",
+  background: "var(--syn-bg)",
+};
+
+const HEADER_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "10px 16px",
+  borderBottom: "1px solid var(--syn-border)",
+  background: "var(--syn-bg-soft)",
+  flexShrink: 0,
+  gap: 8,
+};
+
+const BODY_STYLE: CSSProperties = {
+  display: "flex",
+  flex: 1,
+  overflow: "hidden",
+};
+
+const TREE_PANEL_STYLE: CSSProperties = {
+  width: 280,
+  flexShrink: 0,
+  borderRight: "1px solid var(--syn-border)",
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
+  background: "var(--syn-bg-soft)",
+};
+
+const DIVIDER_STYLE: CSSProperties = {
+  width: 1,
+  background: "var(--syn-border)",
+  flexShrink: 0,
+};
+
+const PREVIEW_PANEL_STYLE: CSSProperties = {
+  flex: 1,
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
+};
+
+const CENTER_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  height: "100%",
+};
+
+const EMPTY_STYLE: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  height: "100%",
+  gap: 8,
+  padding: 24,
+};
+
+const HEADER_BTN_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+  fontSize: 12,
+  padding: "5px 10px",
+  border: "1px solid var(--syn-border)",
+  borderRadius: "var(--syn-radius-md, 6px)",
+  background: "transparent",
+  color: "var(--syn-text-muted)",
+  cursor: "pointer",
+};
+
+const IMPORT_BTN_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+  fontSize: 12,
+  padding: "5px 10px",
+  border: "1px solid var(--syn-accent)",
+  borderRadius: "var(--syn-radius-md, 6px)",
+  background: "var(--syn-accent-soft)",
+  color: "var(--syn-accent)",
+  cursor: "pointer",
+};
+
+const ACTION_BTN_BASE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  border: "none",
+  borderRadius: "var(--syn-radius-sm, 4px)",
+  background: "transparent",
+  cursor: "pointer",
+  padding: "3px 5px",
+};

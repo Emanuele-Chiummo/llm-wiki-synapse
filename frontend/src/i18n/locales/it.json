@@ -4,7 +4,7 @@
     "wiki": "Wiki",
     "pages": "Wiki",
     "sources": "Sorgenti",
-    "ingest": "Sorgenti",
+    "ingest": "Importazione",
     "search": "Cerca",
     "graph": "Grafo",
     "lint": "Lint",
@@ -605,6 +605,24 @@
     "score": "Punteggio",
     "phaseVector": "vettore",
     "phaseExpansion": "espansione"
+  },
+  "sources": {
+    "title": "Sorgenti",
+    "import": "Importa",
+    "refresh": "Aggiorna",
+    "ingest": "Importa",
+    "delete": "Elimina",
+    "confirmDelete": "Conferma",
+    "ingested": "Importata",
+    "notIngested": "Non importata",
+    "derivedPages": "pagine",
+    "empty": "Seleziona un file per visualizzarlo",
+    "emptyHint": "Nessun file sorgente. Importa un documento per iniziare.",
+    "noPreview": "Nessuna anteprima disponibile per questo tipo di file.",
+    "deletedToast": "Eliminato. {{pages}} pagina/e wiki rimossa/e.",
+    "ingestedToast": "Importazione avviata.",
+    "folder": "elementi",
+    "file": "Apri file grezzo"
   },
   "providerGate": {
     "title": "Nessun provider configurato",

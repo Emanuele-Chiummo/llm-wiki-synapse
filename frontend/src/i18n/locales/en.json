@@ -4,7 +4,7 @@
     "wiki": "Wiki",
     "pages": "Wiki",
     "sources": "Sources",
-    "ingest": "Sources",
+    "ingest": "Ingest",
     "search": "Search",
     "graph": "Graph",
     "lint": "Lint",
@@ -605,6 +605,24 @@
     "score": "Score",
     "phaseVector": "vector",
     "phaseExpansion": "expansion"
+  },
+  "sources": {
+    "title": "Sources",
+    "import": "Import",
+    "refresh": "Refresh",
+    "ingest": "Ingest",
+    "delete": "Delete",
+    "confirmDelete": "Confirm",
+    "ingested": "Ingested",
+    "notIngested": "Not ingested",
+    "derivedPages": "pages",
+    "empty": "Select a file to preview it",
+    "emptyHint": "No source files yet. Import a document to get started.",
+    "noPreview": "No preview available for this file type.",
+    "deletedToast": "Deleted. {{pages}} wiki page(s) removed.",
+    "ingestedToast": "Ingest started.",
+    "folder": "items",
+    "file": "Open raw file"
   },
   "providerGate": {
     "title": "No provider configured",

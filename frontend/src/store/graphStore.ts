@@ -27,10 +27,12 @@ export type CenterTab = "graph" | "chat";
  * Top-level navigation section.
  * ADR-0018 §2 / ADR-0019 §3: "chat" enabled in Phase 3.
  * Scalar, Object.is comparison — no shallow needed.
+ * v0.6 [F11]: "sources" added for raw-source file browser; "ingest" retained for run-history.
  */
 export type Section =
   | "chat"
   | "pages"
+  | "sources"
   | "ingest"
   | "search"
   | "graph"
