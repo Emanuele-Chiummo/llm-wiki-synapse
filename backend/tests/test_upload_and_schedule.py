@@ -217,6 +217,7 @@ async def upload_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
         sa.Column("qdrant_point_id", sa.String(36), nullable=True),
         sa.Column("x", sa.Float, nullable=True),
         sa.Column("y", sa.Float, nullable=True),
+        sa.Column("community", sa.Integer, nullable=True),  # G-P0-2: Louvain community id
         sa.Column("pinned", sa.Integer, nullable=False, server_default=sa.text("0")),
         sa.Column("deleted_at", sa.Text, nullable=True),
         sa.Column("created_at", sa.Text, nullable=False, server_default=sa.text("datetime('now')")),

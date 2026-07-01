@@ -216,6 +216,17 @@ class Page(Base):
         comment="FR y-coordinate (DOUBLE PRECISION); NULL until first layout (ADR-0013)",
     )
 
+    # ── Louvain community id (G-P0-2, migration 0020) ────────────────────────
+    community: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment=(
+            "Louvain community id, re-numbered by size (largest=0). "
+            "NULL until first GraphEngine.recompute() after migration 0020 (G-P0-2). "
+            "Persisted alongside x/y; exposed in GET /graph nodes (I2)."
+        ),
+    )
+
     # ── Manual position pin (Feature A) ──────────────────────────────────────
     pinned: Mapped[bool] = mapped_column(
         Boolean,

@@ -245,6 +245,7 @@ class TestEmbeddingToggleSideEffectFree:
                     qdrant_point_id TEXT,
                     x REAL,
                     y REAL,
+                    community INTEGER,
                     pinned INTEGER NOT NULL DEFAULT 0,
                     deleted_at TEXT,
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),

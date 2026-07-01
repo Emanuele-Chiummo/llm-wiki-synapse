@@ -26,12 +26,16 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class PageType(StrEnum):
     """
-    The five user-content wiki page types (v0.2-architecture.md §2). A str-Enum (ADR-0011):
+    The six user-content wiki page types (v0.2-architecture.md §2). A str-Enum (ADR-0011):
     `PageType.CONCEPT == "concept"` and serializes to its value for Obsidian-valid YAML (I5).
 
     `overview` and `index` are reserved for the K3/F3 auto-generated catalogue writers and
     are NOT valid `suggested_pages` / `WikiPage` types — the catalogue writers use the
     OVERVIEW_TYPE / INDEX_TYPE string constants below directly, bypassing this enum.
+
+    QUERY is the saved-chat-answer type (G-P0-1, nashsu/llm_wiki F6 parity).
+    Written to wiki/queries/<slug>.md by POST /chat/save-to-wiki (never generated
+    by an InferenceProvider — it is a human-curated K8 artefact).
     """
 
     ENTITY = "entity"
@@ -39,6 +43,7 @@ class PageType(StrEnum):
     SOURCE = "source"
     SYNTHESIS = "synthesis"
     COMPARISON = "comparison"
+    QUERY = "query"
 
 
 # Reserved catalogue types — auto-generated only, never provider output (K3/F3).
@@ -52,6 +57,7 @@ _TYPE_DIR: dict[PageType, str] = {
     PageType.SOURCE: "sources",
     PageType.SYNTHESIS: "synthesis",
     PageType.COMPARISON: "comparisons",
+    PageType.QUERY: "queries",
 }
 
 

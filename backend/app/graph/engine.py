@@ -83,6 +83,23 @@ class NodeSnapshot:
     y: float
     degree: int = 0
     size: float = 1.0
+    community: int = -1  # -1 = unassigned; set by Louvain (G-P0-2)
+
+
+@dataclass
+class CommunitySnapshot:
+    """
+    Per-community summary for GET /graph (G-P0-2).
+
+    id      : re-numbered id (0 = largest community)
+    size    : number of nodes in this community
+    cohesion: intra-edge density = intraEdges / (size*(size-1)/2), in [0,1].
+              Used for low-cohesion warnings on the client-side legend.
+    """
+
+    id: int
+    size: int
+    cohesion: float
 
 
 @dataclass
@@ -101,11 +118,13 @@ class GraphSnapshot:
     Complete graph payload produced by one recompute (ADR-0014 §6).
 
     Returned by GraphCache.get_graph(); serialised into the GET /graph response.
+    communities: per-community summary list (G-P0-2); empty until Louvain runs.
     """
 
     nodes: list[NodeSnapshot] = field(default_factory=list)
     edges: list[EdgeSnapshot] = field(default_factory=list)
     data_version: int = 0
+    communities: list[CommunitySnapshot] = field(default_factory=list)
 
 
 # ── GraphEngine ────────────────────────────────────────────────────────────────
@@ -332,6 +351,38 @@ class GraphEngine:
             if nd["pinned"] and nd["stored_x"] is not None and nd["stored_y"] is not None:
                 coords[i] = (float(nd["stored_x"]), float(nd["stored_y"]))
 
+        # ── 4d. Louvain community detection (G-P0-2, I2) ─────────────────────
+        # Run community_multilevel (Louvain) on the weighted structural graph.
+        # Re-number communities by size (largest = 0) for stable coloring, matching
+        # the nashsu/llm_wiki convention (R1). Bounded: single O(n log n) pass on the
+        # server-side graph; never called on the client (I2).
+        # Isolated nodes (degree-0 in g_weighted) form their own singleton communities.
+        community_assignments: list[int] = _compute_louvain_communities(g_weighted, node_ids)
+
+        # Per-community cohesion: intra-edge density (intraEdges / possibleEdges).
+        # possibleEdges for a community of size s = s*(s-1)/2.  Zero for singletons.
+        # Collect which structural edge pairs share a community for cohesion calc.
+        community_intra_edges: dict[int, int] = {}
+        community_sizes: dict[int, int] = {}
+        for cid in community_assignments:
+            community_sizes[cid] = community_sizes.get(cid, 0) + 1
+        for a, b, _w, _s, _k in weighted_edges:
+            ca = community_assignments[a]
+            cb = community_assignments[b]
+            if ca == cb:
+                community_intra_edges[ca] = community_intra_edges.get(ca, 0) + 1
+
+        community_snapshots: list[CommunitySnapshot] = []
+        for cid, size in sorted(community_sizes.items()):
+            possible = size * (size - 1) / 2
+            intra = community_intra_edges.get(cid, 0)
+            cohesion = (intra / possible) if possible > 0 else 0.0
+            community_snapshots.append(
+                CommunitySnapshot(id=cid, size=size, cohesion=round(cohesion, 4))
+            )
+        # Sort by id ascending (id 0 = largest community, already ordered by _compute_louvain)
+        community_snapshots.sort(key=lambda c: c.id)
+
         # ── 5. Assemble result lists ───────────────────────────────────────────
         # structural_degree = count of distinct incident structural edges (ADR-0016 §2).
         # After removing (c)/(d) from candidate_pairs, g_weighted IS the structural graph,
@@ -358,6 +409,7 @@ class GraphEngine:
                     y=coords[i][1],
                     degree=deg,
                     size=size,
+                    community=community_assignments[i],
                 )
             )
 
@@ -379,22 +431,29 @@ class GraphEngine:
                 }
             )
 
-        # ── 6. Persist coords + edges in ONE transaction ───────────────────────
+        # ── 6. Persist coords + edges + community in ONE transaction ──────────
         coord_rows: list[dict[str, Any]] = [
-            {"id": ns.id, "x": ns.x, "y": ns.y} for ns in node_snapshots
+            {"id": ns.id, "x": ns.x, "y": ns.y, "community": ns.community}
+            for ns in node_snapshots
         ]
         await self._persist_results(vault_id, coord_rows, edge_db_rows, session)
 
         elapsed = time.perf_counter() - t0
         logger.info(
-            "GraphEngine.recompute: done vault_id=%r nodes=%d edges=%d elapsed=%.3fs",
+            "GraphEngine.recompute: done vault_id=%r nodes=%d edges=%d"
+            " communities=%d elapsed=%.3fs",
             vault_id,
             len(node_snapshots),
             len(edge_snapshots),
+            len(community_snapshots),
             elapsed,
         )
 
-        return GraphSnapshot(nodes=node_snapshots, edges=edge_snapshots)
+        return GraphSnapshot(
+            nodes=node_snapshots,
+            edges=edge_snapshots,
+            communities=community_snapshots,
+        )
 
     # ── Private helpers ────────────────────────────────────────────────────────
 
@@ -452,12 +511,18 @@ class GraphEngine:
         """
 
         async def _run(sess: AsyncSession) -> None:
-            # Update coords for each node
+            # Update coords + community for each node (G-P0-2: community persisted alongside x/y)
             for row in coord_rows:
                 await sess.execute(
                     sa_text(
-                        "UPDATE pages SET x = :x, y = :y WHERE id = CAST(:id AS uuid)"
-                    ).bindparams(id=str(row["id"]), x=row["x"], y=row["y"])
+                        "UPDATE pages SET x = :x, y = :y, community = :community"
+                        " WHERE id = CAST(:id AS uuid)"
+                    ).bindparams(
+                        id=str(row["id"]),
+                        x=row["x"],
+                        y=row["y"],
+                        community=row.get("community", -1),
+                    )
                 )
 
             # Replace edges for this vault (delete-then-insert)
@@ -568,6 +633,45 @@ def _json_dumps(obj: object) -> str:
     import json
 
     return json.dumps(obj)
+
+
+def _compute_louvain_communities(
+    g_weighted: Any,
+    node_ids: list[str],
+) -> list[int]:
+    """
+    Run Louvain community detection on g_weighted and return a re-numbered
+    community-id list (index = node index, value = community id).
+
+    Re-numbering convention (matching nashsu/llm_wiki, R1):
+      community 0 = the LARGEST community (most members).
+      Ties broken by the natural ordering from igraph (stable within one run).
+
+    Isolated nodes (no edges) are each placed in their own singleton community.
+
+    Bounded: single O(n log n) pass (igraph community_multilevel). Never called
+    on the client (I2). No RNG seeding needed — Louvain result is deterministic
+    enough for our use (color stability within a run; re-runs may differ by 1-2
+    nodes on the boundary but that is acceptable for graph coloring).
+    """
+    from collections import Counter
+
+    n = g_weighted.vcount()
+    if n == 0:
+        return []
+
+    has_edges = g_weighted.ecount() > 0
+    has_weight_attr = has_edges and "weight" in g_weighted.es.attributes()
+    weights = g_weighted.es["weight"] if has_weight_attr else None
+    # community_multilevel = Louvain algorithm (Blondel et al., 2008)
+    membership: list[int] = g_weighted.community_multilevel(weights=weights).membership
+
+    # Re-number by descending community size (largest → 0)
+    # membership is a list[int] of length n; values are raw igraph community ids.
+    counts: Counter[int] = Counter(membership)
+    # sorted descending by count → assign new id 0, 1, 2, …
+    ranked = {old_id: new_id for new_id, (old_id, _) in enumerate(counts.most_common())}
+    return [ranked[m] for m in membership]
 
 
 # ── Seedable RNG adapter for igraph ──────────────────────────────────────────
