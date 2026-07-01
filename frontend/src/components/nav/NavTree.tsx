@@ -8,12 +8,26 @@
  * INVARIANT I3: subscribes to graphStore only via typed selectors + useShallow.
  *
  * Light design (llm_wiki parity): white/--syn-bg-soft background, --syn-text labels,
- * per-type colored dots from --syn-type-* tokens, selected row = --syn-accent-soft bg
+ * per-type Lucide icons colored from --syn-type-* tokens, selected row = --syn-accent-soft bg
  * + --syn-accent text.
+ *
+ * Icons: lucide-react tree-shaken named imports [F1].
+ * Group headers: type icon (16px) colored by var(--syn-type-*) replaces the colored dot.
+ * Page rows: small type dot retained (6px) — consistent with llm_wiki file-row style.
  */
 
-import { useRef, type CSSProperties } from "react";
+import { useRef, type CSSProperties, type ElementType } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  LayoutDashboard,
+  Lightbulb,
+  Users,
+  BookOpen,
+  GitBranch,
+  BarChart3,
+  HelpCircle,
+  File,
+} from "lucide-react";
 import {
   useGraphStore,
   useTreeCollapsed,
@@ -37,6 +51,21 @@ const TYPE_COLOR: Record<KnownType, string> = {
   comparison: "var(--syn-type-comparison)",
   query:      "var(--syn-type-query)",
   other:      "var(--syn-type-other)",
+};
+
+/**
+ * Lucide icon component per type — colored by the matching --syn-type-* token.
+ * Used in GroupHeader only; PageRow retains a small colored dot for compactness.
+ */
+const TYPE_ICON: Record<KnownType, ElementType> = {
+  overview:   LayoutDashboard,
+  concept:    Lightbulb,
+  entity:     Users,
+  source:     BookOpen,
+  synthesis:  GitBranch,
+  comparison: BarChart3,
+  query:      HelpCircle,
+  other:      File,
 };
 
 const TYPE_LABEL: Record<KnownType, string> = {
@@ -173,6 +202,7 @@ function GroupHeader({ row, style, onToggle }: GroupHeaderProps) {
   const color = TYPE_COLOR[row.type];
   const label = TYPE_LABEL[row.type];
   const ariaExpanded = !row.collapsed;
+  const TypeIcon = TYPE_ICON[row.type];
 
   return (
     <button
@@ -201,16 +231,12 @@ function GroupHeader({ row, style, onToggle }: GroupHeaderProps) {
       onClick={onToggle}
       data-type={row.type}
     >
-      {/* Colour dot — uses per-type CSS variable */}
-      <span
+      {/* Type icon — replaces the colored dot; uses per-type CSS variable */}
+      <TypeIcon
+        size={14}
         aria-hidden="true"
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          background: color,
-          flexShrink: 0,
-        }}
+        style={{ color, flexShrink: 0 }}
+        data-testid={`type-icon-${row.type}`}
       />
       {/* Label */}
       <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -286,7 +312,7 @@ function PageRow({ row, selected, style, onClick }: PageRowProps) {
       data-page-id={row.id}
       data-type={row.type}
     >
-      {/* Type dot */}
+      {/* Type dot — compact file-row indicator; matches llm_wiki file-row style */}
       <span
         aria-hidden="true"
         style={{
