@@ -7,6 +7,17 @@ Invariants:
   - I6: model id from ProviderSettings (provider_config), NEVER hardcoded; API key from the
     environment inside THIS module only (§12). Routing reaches this class via capabilities()
     (supports_agentic_loop=True), never via isinstance/type.
+  - Auth (§12, ADR-0008 §3): the CLI backend resolves ONE of two auth modes from the environment
+    (never a stored secret) via three signals. If ANTHROPIC_API_KEY is set (non-empty) the SDK
+    bills per token (mode "api-key"). Otherwise the SDK authenticates via the Claude Code (Pro/Max)
+    subscription with NO API key (mode "subscription", marginal cost genuinely $0 per the ADR-0009
+    convention) when EITHER CLAUDE_CODE_OAUTH_TOKEN is set (the container-friendly long-lived token
+    from `claude setup-token`, passed into the container as env) OR CLAUDE_CODE_USE_SUBSCRIPTION is
+    truthy (ambient host login / mounted creds). We only detect PRESENCE — the token VALUE is never
+    read or forwarded; the SDK's spawned `claude` CLI inherits it from the process environment.
+    With none set we fail fast (ValueError) BEFORE any stream/loop opens (Do-NOT #9), naming all
+    three options. We NEVER mutate os.environ — an empty ANTHROPIC_API_KEY would silently override
+    the subscription and bill per token, so it is treated as "unset".
   - I7: the SDK is given a token_budget (ADR-0009: 100k default for CLI); the provider aborts
     if the SDK reports the budget exceeded. The orchestrator records ONE ingest_runs row.
   - ADR-0009 (as amended by NB-4): record the REAL cost the SDK reports. claude-agent-sdk
@@ -44,6 +55,16 @@ from app.ingest.schemas import (
 logger = logging.getLogger(__name__)
 
 _ANTHROPIC_KEY_ENV = "ANTHROPIC_API_KEY"
+# Container-friendly long-lived subscription OAuth token, produced on the host by
+# `claude setup-token` and passed into the container as env (§12, ADR-0008 §3). The SDK's spawned
+# `claude` CLI reads it from the inherited process environment; the provider only detects its
+# PRESENCE to pass the auth gate — it NEVER reads or forwards the token value.
+_OAUTH_TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"  # noqa: S105 — env-var NAME, not a secret value
+# Opt-in flag to drive the CLI backend with a logged-in Claude Code (Pro/Max) subscription
+# session (ambient host login / mounted creds) instead of a pay-per-token API key. Truthy accepts
+# 1/true/yes/on (case-insensitive). See _resolve_cli_auth_mode.
+_SUBSCRIPTION_ENV = "CLAUDE_CODE_USE_SUBSCRIPTION"
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
 _DEFAULT_MAX_CONTEXT = 200_000
 
 # I7 third bound for CLI chat (ADR-0022 §2.7 / AQ-v0.5-7): caps the SDK agent loop turns.
@@ -57,6 +78,41 @@ _DEFAULT_CHAT_AGENT_MAX_TURNS = 8
 # backend-engineer (backend/app/mcp/server.py). cli.py references them by name and receives
 # the constructed server via the `mcp_server` integration seam (see delegate_ingest).
 MCP_TOOL_NAMES: tuple[str, ...] = ("search_wiki", "write_page", "get_page", "list_pages")
+
+
+def _resolve_cli_auth_mode() -> str:
+    """
+    Resolve the CLI backend's auth mode from the environment, fail-fast (§12, ADR-0008 §3).
+
+    Precedence (never mutates os.environ; never reads a token VALUE — presence only):
+      1. ANTHROPIC_API_KEY set & non-empty      → "api-key"      (billed per token; real cost)
+      2. CLAUDE_CODE_OAUTH_TOKEN set & non-empty → "subscription" (container-friendly long-lived
+         subscription token from `claude setup-token`; NO API key; marginal cost genuinely $0 per
+         the ADR-0009 convention)
+      3. CLAUDE_CODE_USE_SUBSCRIPTION truthy     → "subscription" (ambient host login / mounted
+         creds; same $0 convention)
+      4. none                                    → raise ValueError naming ALL THREE options
+
+    Signals (2) and (3) both resolve to "subscription": there is no behavioural difference in the
+    provider (the SDK's spawned `claude` CLI picks the token up from the inherited environment; we
+    only detect PRESENCE to pass the gate). An empty ANTHROPIC_API_KEY is treated as "unset" so it
+    cannot silently override the subscription and bill per token. Called BEFORE any SDK stream/loop
+    opens so a misconfiguration surfaces as a clean pre-stream/pre-loop error, never a fake/half-
+    open stream (Do-NOT #9).
+    """
+    if os.environ.get(_ANTHROPIC_KEY_ENV):  # non-empty
+        return "api-key"
+    if os.environ.get(_OAUTH_TOKEN_ENV):  # non-empty container-friendly OAuth token
+        return "subscription"
+    if os.environ.get(_SUBSCRIPTION_ENV, "").strip().lower() in _TRUTHY:
+        return "subscription"
+    raise ValueError(
+        "CLI provider auth not configured (§12, ADR-0008): set ANTHROPIC_API_KEY to bill per "
+        "token, OR (subscription, $0 marginal cost) set CLAUDE_CODE_OAUTH_TOKEN — produced by "
+        "`claude setup-token` on the host, container-friendly — OR set "
+        "CLAUDE_CODE_USE_SUBSCRIPTION=true after logging in with `claude` (Claude Code) on the "
+        "host."
+    )
 
 
 @dataclass
@@ -121,14 +177,13 @@ class CliAgentProvider(InferenceProvider):
           2. timeout_seconds — enforced by run_chat_stream around consumption (existing);
           3. CHAT_AGENT_MAX_TURNS (env, default 8) — passed to the SDK as max_turns here.
 
-        With no ANTHROPIC_API_KEY this raises a CLEAN pre-stream config error (ValueError) BEFORE
-        returning the generator — never a fake stream (Do-NOT #9). Because this is a coroutine
-        (awaited by run_chat_stream before iteration), the raise surfaces as a normal provider
-        error event, not a half-open stream. Dev default stays Ollama.
+        With NEITHER ANTHROPIC_API_KEY nor CLAUDE_CODE_USE_SUBSCRIPTION this raises a CLEAN
+        pre-stream config error (ValueError) BEFORE returning the generator — never a fake stream
+        (Do-NOT #9). Because this is a coroutine (awaited by run_chat_stream before iteration), the
+        raise surfaces as a normal provider error event, not a half-open stream. Dev default stays
+        Ollama.
         """
-        api_key = os.environ.get(_ANTHROPIC_KEY_ENV)
-        if not api_key:
-            raise ValueError(f"{_ANTHROPIC_KEY_ENV} not set in environment (§12, ADR-0008)")
+        auth_mode = _resolve_cli_auth_mode()  # raises if neither API key nor subscription is set
 
         # Lazy SDK import here too, so a missing SDK is a clean pre-stream error (not mid-stream).
         try:
@@ -141,7 +196,7 @@ class CliAgentProvider(InferenceProvider):
 
         max_turns = _chat_agent_max_turns()
         return self._chat_stream(
-            ClaudeAgentOptions, ClaudeSDKClient, messages, retrieval_context, max_turns
+            ClaudeAgentOptions, ClaudeSDKClient, messages, retrieval_context, max_turns, auth_mode
         )
 
     async def _chat_stream(
@@ -151,6 +206,7 @@ class CliAgentProvider(InferenceProvider):
         messages: list[Message],
         retrieval_context: str,
         max_turns: int,
+        auth_mode: str,
     ) -> AsyncIterator[str]:
         """
         The actual SDK streaming session. Read-only: no write_page / filesystem-write tools are
@@ -180,7 +236,7 @@ class CliAgentProvider(InferenceProvider):
                     if msg_cost is not None:
                         sdk_cost_usd = msg_cost
         finally:
-            self._record_usage(_finalize_chat_usage(usage, sdk_cost_usd))
+            self._record_usage(_finalize_chat_usage(usage, sdk_cost_usd, auth_mode))
 
     # ── Delegated ingest (the agentic route) ────────────────────────────────────
 
@@ -202,11 +258,11 @@ class CliAgentProvider(InferenceProvider):
             mcp_server:    the FastMCP server object exposing MCP_TOOL_NAMES (built by
                            backend-engineer in app/mcp/server.py). See the INTEGRATION SEAM.
 
-        Returns DelegatedIngestResult. Records Usage (cost $0.00 by convention, ADR-0009).
+        Returns DelegatedIngestResult. Records Usage (real SDK cost under "api-key" auth, else
+        $0.00 by the subscription/OAuth convention, ADR-0009). Raises a clean pre-loop ValueError
+        if NEITHER ANTHROPIC_API_KEY nor CLAUDE_CODE_USE_SUBSCRIPTION is set (Do-NOT #9).
         """
-        api_key = os.environ.get(_ANTHROPIC_KEY_ENV)
-        if not api_key:
-            raise ValueError(f"{_ANTHROPIC_KEY_ENV} not set in environment (§12, ADR-0008)")
+        auth_mode = _resolve_cli_auth_mode()  # raises if neither API key nor subscription is set
 
         # ── Lazy SDK import (keeps the package import-clean without the SDK installed) ──
         try:
@@ -273,11 +329,18 @@ class CliAgentProvider(InferenceProvider):
             total_cost_usd = sdk_cost_usd
         else:
             total_cost_usd = 0.0
-            logger.warning(
-                "CliAgentProvider: SDK reported no billable cost "
-                "(subscription/OAuth auth or unavailable) — recording total_cost_usd=$0.00 "
-                "by the build-time-credit convention (ADR-0009)"
-            )
+            if auth_mode == "subscription":
+                # Expected & intended: subscription (Pro/Max OAuth) has $0 marginal cost.
+                logger.info(
+                    "CliAgentProvider: subscription auth (CLAUDE_CODE_USE_SUBSCRIPTION) — "
+                    "recording total_cost_usd=$0.00 as intended (ADR-0009 convention)"
+                )
+            else:
+                logger.warning(
+                    "CliAgentProvider: SDK reported no billable cost "
+                    "(subscription/OAuth auth or unavailable) — recording total_cost_usd=$0.00 "
+                    "by the build-time-credit convention (ADR-0009)"
+                )
 
         usage = Usage(
             input_tokens=usage.input_tokens,
@@ -359,17 +422,25 @@ def _extract_text_deltas(message: Any) -> list[str]:
     return []
 
 
-def _finalize_chat_usage(usage: Usage, sdk_cost_usd: float | None) -> Usage:
+def _finalize_chat_usage(usage: Usage, sdk_cost_usd: float | None, auth_mode: str) -> Usage:
     """
     Apply the NB-4 cost convention (ADR-0009) to a chat run's accumulated Usage:
       - SDK-reported cost present and > 0 (API-key billing) → record it truthfully;
-      - otherwise (subscription/OAuth, or SDK exposed none) → total_cost_usd = 0.00 + WARNING.
+      - otherwise (subscription/OAuth, or SDK exposed none) → total_cost_usd = 0.00. When
+        auth_mode == "subscription" the $0 is expected & intended (INFO); otherwise it is logged
+        as a WARNING (an anomaly worth noticing).
     Token counts are carried through; a WARNING is logged if the SDK exposed none. Never raises.
     """
     if usage.input_tokens == 0 and usage.output_tokens == 0:
         logger.warning("CliAgentProvider.chat: SDK exposed no token counts — recording tokens=0")
     if sdk_cost_usd is not None and sdk_cost_usd > 0.0:
         total_cost_usd = sdk_cost_usd
+    elif auth_mode == "subscription":
+        total_cost_usd = 0.0
+        logger.info(
+            "CliAgentProvider.chat: subscription auth (CLAUDE_CODE_USE_SUBSCRIPTION) — "
+            "recording total_cost_usd=$0.00 as intended (ADR-0009 convention)"
+        )
     else:
         total_cost_usd = 0.0
         logger.warning(
@@ -451,4 +522,5 @@ __all__ = [
     "DelegatedIngestResult",
     "MCP_TOOL_NAMES",
     "UsageAccumulator",
+    "_resolve_cli_auth_mode",
 ]

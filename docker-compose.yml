@@ -85,11 +85,27 @@ services:
       # Deep Research returns 503 until a URL is available (env here, or DB via the UI).
       SEARXNG_URL: ${SEARXNG_URL:-}
 
-      # Anthropic API key — required to use Claude as the inference AI (F17):
-      #   - "API" provider  (Anthropic Messages API — the simple path)
-      #   - "CLI" provider  (claude-agent-sdk — also needs the SDK in the image)
-      # Set ANTHROPIC_API_KEY in .env. NEVER commit a real key.
+      # ── Inference provider authentication (F17, ADR-0042) ───────────────────────────────
+      # Choose ONE of these three auth methods — they are mutually exclusive:
+      #
+      # 1. ANTHROPIC_API_KEY (billed, per-token cost):
+      #    Use for API provider (Anthropic Messages API) or CLI provider.
+      #    Caveat: if ANTHROPIC_API_KEY is set (even to empty), it takes PRECEDENCE
+      #    and forces per-token billing. Must be UNSET for subscription auth to work.
+      #
+      # 2. CLAUDE_CODE_OAUTH_TOKEN (subscription mode, $0 marginal cost):
+      #    Use for CLI provider with Pro/Max subscription. Obtained via `claude setup-token`
+      #    on the host; a 1-year OAuth token printed once (sk-ant-oat01-...).
+      #    Requires ANTHROPIC_API_KEY to be UNSET for this to take effect.
+      #
+      # 3. CLAUDE_CODE_USE_SUBSCRIPTION (ambient auth, subscription mode):
+      #    Alternative flag for subscription auth; works if host login is mounted.
+      #    Requires ANTHROPIC_API_KEY to be UNSET.
+      #
+      # Set these in .env. NEVER commit real credentials.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      CLAUDE_CODE_USE_SUBSCRIPTION: ${CLAUDE_CODE_USE_SUBSCRIPTION:-}
 
       # Vault identity and path
       VAULT_ID: default

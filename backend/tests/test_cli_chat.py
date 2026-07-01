@@ -336,19 +336,22 @@ async def test_chat_no_cost_metadata_does_not_raise(monkeypatch: pytest.MonkeyPa
     assert acc.total_cost_usd == 0.0  # NB-4 fallback, no crash
 
 
-# ── No-API-key: clean pre-stream config error (Do-NOT #9) ────────────────────────
+# ── No auth configured: clean pre-stream config error (Do-NOT #9) ────────────────
 
 
 @pytest.mark.asyncio
-async def test_chat_no_api_key_raises_clean_config_error_not_fake_stream(
+async def test_chat_no_auth_raises_clean_config_error_not_fake_stream(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    With no ANTHROPIC_API_KEY, chat() raises a clean ValueError BEFORE returning a stream —
-    never a fake stream (Do-NOT #9). The raise happens in the awaited coroutine, so it surfaces
-    as a normal provider error (not a half-open generator).
+    With NEITHER ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN nor CLAUDE_CODE_USE_SUBSCRIPTION,
+    chat() raises a clean ValueError BEFORE returning a stream — never a fake stream (Do-NOT #9).
+    The message names all three options. The raise happens in the awaited coroutine, so it
+    surfaces as a normal provider error (not a half-open generator).
     """
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)
     recorder = _Recorder()
     _install_fake_sdk(
         monkeypatch,
@@ -359,8 +362,40 @@ async def test_chat_no_api_key_raises_clean_config_error_not_fake_stream(
     provider = CliAgentProvider(_settings())
     provider.bind_accumulator(UsageAccumulator())
 
-    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY not set"):
+    with pytest.raises(ValueError) as excinfo:
         await provider.chat([Message(role="user", content="hi")], "ctx")
+    assert "ANTHROPIC_API_KEY" in str(excinfo.value)
+    assert "CLAUDE_CODE_OAUTH_TOKEN" in str(excinfo.value)
+    assert "CLAUDE_CODE_USE_SUBSCRIPTION" in str(excinfo.value)
 
     # The SDK client was never constructed — no fake stream was opened.
     assert recorder.options is None
+
+
+@pytest.mark.asyncio
+async def test_chat_subscription_mode_does_not_raise_auth_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    With CLAUDE_CODE_USE_SUBSCRIPTION=true and NO API key, chat() must NOT raise the auth
+    ValueError — it proceeds to open the (faked) SDK stream and records $0.00 as intended.
+    """
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    monkeypatch.setenv("CLAUDE_CODE_USE_SUBSCRIPTION", "true")
+    recorder = _Recorder()
+    _install_fake_sdk(
+        monkeypatch,
+        [_FakeAssistantMessage("hi"), _FakeResultMessage(total_cost_usd=None)],
+        recorder,
+    )
+
+    provider = CliAgentProvider(_settings())
+    acc = UsageAccumulator()
+    provider.bind_accumulator(acc)
+
+    deltas = await _drain(await provider.chat([Message(role="user", content="hi")], "ctx"))
+
+    assert deltas == ["hi"]
+    assert recorder.options is not None  # the SDK session was opened (auth gate passed)
+    assert acc.total_cost_usd == 0.0  # subscription → $0 by convention
