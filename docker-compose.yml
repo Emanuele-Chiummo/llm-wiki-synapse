@@ -1,8 +1,17 @@
-# Synapse Docker Compose — Sprint v0.1 walking skeleton
+# Synapse Docker Compose — PRODUCTION profile (TrueNAS / homelab)
+#
+# Synapse is a CLIENT/SERVER app (not a self-contained desktop app): the web/PWA/Tauri
+# UI is a thin client that talks to this FastAPI backend over HTTP. Launching the UI
+# alone does nothing until this backend stack is up.
 #
 # SERVICES DEFINED HERE:
-#   - synapse-backend: FastAPI app (builds from backend/)
+#   - synapse-backend: FastAPI app (builds from backend/) — includes all M6 endpoints
 #   - postgres: PostgreSQL 16 (single vault data)
+#   NO frontend service here (production serves the built UI separately / behind a proxy).
+#
+# For a ONE-COMMAND FULL STACK on your Mac (frontend + backend + postgres + qdrant),
+# use the dev override instead — it adds a Qdrant container + the Vite frontend:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up     (or: make dev)
 #
 # EXTERNAL SERVICES (already running on TrueNAS — I9):
 #   - Ollama (RTX 3060): http://host.docker.internal:11434
@@ -70,6 +79,11 @@ services:
       # Generative Ollama base URL for the Local InferenceProvider (F17, I9 — NB-5).
       # Same Ollama instance, used for analyze/generate (e.g. qwen2.5). External, not containerized.
       OLLAMA_URL: http://host.docker.internal:11434
+
+      # SearXNG web search backend (external TrueNAS service — I9, not containerized).
+      # Optional here: can also be configured at runtime in Settings → Web Search.
+      # Deep Research returns 503 until a URL is available (env here, or DB via the UI).
+      SEARXNG_URL: ${SEARXNG_URL:-}
 
       # Vault identity and path
       VAULT_ID: default

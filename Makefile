@@ -1,11 +1,16 @@
-.PHONY: help up down migrate logs test lint typecheck fmt er openapi clean
+.PHONY: help up down dev dev-down migrate logs test lint typecheck fmt er openapi clean
 
 # Default target
 help:
-	@echo "Synapse v0.1 Makefile targets:"
+	@echo "Synapse Makefile targets:"
 	@echo ""
-	@echo "Docker Compose (requires docker-compose):"
-	@echo "  make up         - Start all services (postgres, synapse-backend)"
+	@echo "Local FULL STACK on your Mac (one command — frontend + backend + postgres + qdrant):"
+	@echo "  make dev        - Start the full dev stack (needs Ollama at localhost:11434)"
+	@echo "                    → UI http://localhost:5173 · API http://localhost:8000"
+	@echo "  make dev-down   - Stop the full dev stack"
+	@echo ""
+	@echo "Production compose (TrueNAS: backend + postgres only; Qdrant/Ollama/SearXNG external):"
+	@echo "  make up         - Start backend + postgres (no frontend container)"
 	@echo "  make down       - Stop all services"
 	@echo "  make migrate    - Run Alembic migrations (alembic upgrade head)"
 	@echo "  make logs       - Tail logs from all services"
@@ -33,6 +38,15 @@ up:
 
 down:
 	docker compose down
+
+# Full local stack (prod compose + dev override): frontend + backend(reload) + postgres + qdrant.
+# Only external dependency is Ollama at localhost:11434 (Ollama.app). This is the
+# closest thing to "just launch the app" — one command brings up the whole client/server stack.
+dev:
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+dev-down:
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 
 migrate:
 	docker compose exec synapse-backend alembic upgrade head
