@@ -8,6 +8,7 @@
  * EXPANDED PANEL (upward, above the 28px bar):
  *   Progress bar · Pause/Resume · Cancel All · Retry Failed
  *   Per-task rows grouped processing → pending → failed.
+ *   Each processing row shows: phase label · per-task progress bar · ETA.
  *
  * Polling strategy: delegates to activityStore.startPolling() — single
  * setTimeout chain, fast (1500ms) while active, slow (5000ms) when idle (I3).
@@ -31,6 +32,12 @@ import {
   PlayCircle,
 } from "lucide-react";
 
+// ─── Module-level reduced-motion detection (mirrors GraphViewer pattern) ───────
+
+const reducedMotion: boolean =
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
 import { useGraphMeta } from "../../store/graphStore";
 import { fetchStatus } from "../../api/pagesClient";
@@ -52,6 +59,24 @@ import type { QueueTask } from "../../api/types";
 
 const STATUS_POLL_MS = 30_000;
 
+// ─── Known phase keys — maps backend phase string to i18n key ─────────────────
+
+const PHASE_KEY_MAP: Record<string, string> = {
+  analyzing: "activity.phase.analyzing",
+  validating: "activity.phase.validating",
+  writing: "activity.phase.writing",
+  queued: "activity.phase.queued",
+  failed: "activity.phase.failed",
+  "agent running": "activity.phase.agentRunning",
+};
+
+/** Resolve a phase string to its display label (i18n key for known phases,
+ *  raw string for unknown ones like "generating (2/3)"). */
+function resolvePhaseLabel(phase: string, t: (key: string) => string): string {
+  if (phase.startsWith("generating")) return phase; // e.g. "generating (2/3)" — show raw
+  return PHASE_KEY_MAP[phase] ? t(PHASE_KEY_MAP[phase]) : phase;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatUptime(s: number | null): string {
@@ -60,6 +85,21 @@ function formatUptime(s: number | null): string {
   const m = Math.floor((s % 3600) / 60);
   if (h > 0) return `${h}h ${m}m`;
   return `${m}m`;
+}
+
+/**
+ * Format a duration in seconds to compact "Xm Ys" / "Xs" format.
+ * Used for both ETA and elapsed display.
+ * Returns empty string for null/undefined/negative.
+ */
+export function formatDuration(s: number | null | undefined): string {
+  if (s == null || s < 0) return "";
+  const secs = Math.round(s);
+  if (secs < 60) return `${secs}s`;
+  const m = Math.floor(secs / 60);
+  const rem = secs % 60;
+  if (rem === 0) return `${m}m`;
+  return `${m}m ${rem}s`;
 }
 
 function progressPercent(
@@ -106,6 +146,23 @@ function TaskRow({ task, isCancelling, onCancel, onRetry }: TaskRowProps) {
   }, [task.run_id, onCancel]);
 
   const isMaxRetries = task.retry_count >= 3;
+  const isProcessing = task.status === "processing";
+
+  // ── Phase / progress / ETA (only meaningful for processing tasks) ────────────
+  const phaseLabel =
+    isProcessing && task.phase != null
+      ? resolvePhaseLabel(task.phase, t)
+      : null;
+
+  // progress: number → determinate; null → indeterminate; absent → hide bar entirely
+  const hasProgressBar = isProcessing && task.phase != null; // show bar when phase is known
+  const progressValue: number | null =
+    task.progress != null ? Math.min(1, Math.max(0, task.progress)) : null;
+
+  const elapsedStr = formatDuration(task.elapsed_seconds);
+  const etaStr = formatDuration(task.eta_seconds);
+  const hasEta = isProcessing && task.eta_seconds != null;
+  const hasElapsed = isProcessing && task.elapsed_seconds != null && task.elapsed_seconds > 0;
 
   return (
     <div
@@ -120,7 +177,7 @@ function TaskRow({ task, isCancelling, onCancel, onRetry }: TaskRowProps) {
     >
       {/* Status icon */}
       <span style={{ flexShrink: 0, paddingTop: 1 }}>
-        {task.status === "processing" ? (
+        {isProcessing ? (
           <Loader2
             size={13}
             style={{ animation: "spin 1s linear infinite", color: "var(--syn-accent)" }}
@@ -132,7 +189,7 @@ function TaskRow({ task, isCancelling, onCancel, onRetry }: TaskRowProps) {
         )}
       </span>
 
-      {/* File info */}
+      {/* File info + phase + progress bar + ETA */}
       <span style={{ flex: 1, minWidth: 0 }}>
         <span
           style={{
@@ -151,7 +208,95 @@ function TaskRow({ task, isCancelling, onCancel, onRetry }: TaskRowProps) {
             task.filename
           )}
         </span>
-        {(task.error ?? task.source_path) && (
+
+        {/* Phase label (processing tasks only, when phase is non-null) */}
+        {phaseLabel != null && (
+          <span
+            data-testid="activity-task-phase"
+            style={{
+              display: "block",
+              fontSize: 10,
+              color: "var(--syn-text-dim)",
+              marginTop: 1,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {phaseLabel}
+          </span>
+        )}
+
+        {/* Per-task progress bar (shown when phase is known for processing tasks) */}
+        {hasProgressBar && (
+          <div
+            data-testid="activity-task-progress"
+            style={{
+              marginTop: 3,
+              height: 3,
+              borderRadius: 2,
+              background: "var(--syn-border)",
+              overflow: "hidden",
+            }}
+          >
+            {progressValue != null ? (
+              /* Determinate bar */
+              <div
+                style={{
+                  height: "100%",
+                  width: `${progressValue * 100}%`,
+                  background: "var(--syn-accent)",
+                  borderRadius: 2,
+                  transition: "width 0.3s ease",
+                }}
+              />
+            ) : (
+              /* Indeterminate bar — animated sweep unless reduced-motion */
+              <div
+                style={{
+                  height: "100%",
+                  width: reducedMotion ? "100%" : "40%",
+                  background: "var(--syn-accent)",
+                  borderRadius: 2,
+                  opacity: reducedMotion ? 0.4 : 1,
+                  animation: reducedMotion
+                    ? undefined
+                    : "taskBarSweep 1.4s ease-in-out infinite",
+                }}
+              />
+            )}
+          </div>
+        )}
+
+        {/* ETA / elapsed */}
+        {(hasElapsed || hasEta) && (
+          <span
+            data-testid="activity-task-eta"
+            style={{
+              display: "block",
+              fontSize: 10,
+              color: "var(--syn-text-dim)",
+              marginTop: 2,
+            }}
+          >
+            {hasElapsed && (
+              <span aria-label={t("activity.elapsed")}>
+                {elapsedStr}
+              </span>
+            )}
+            {hasElapsed && hasEta && (
+              <span aria-hidden="true"> · </span>
+            )}
+            {hasEta && (
+              <span>
+                {t("activity.etaLeft", { eta: etaStr })}
+              </span>
+            )}
+          </span>
+        )}
+
+        {/* Error / source path (error takes priority) */}
+        {(task.error ?? (!isProcessing ? task.source_path : null)) && (
           <span
             style={{
               display: "block",
@@ -655,8 +800,15 @@ export function ActivityBar() {
         </span>
       </footer>
 
-      {/* Keyframe for spinner (injected once via style tag) */}
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      {/* Keyframes for spinner + indeterminate task bar sweep (injected once via style tag) */}
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes taskBarSweep {
+          0%   { transform: translateX(-150%); }
+          50%  { transform: translateX(150%); }
+          100% { transform: translateX(350%); }
+        }
+      `}</style>
     </div>
   );
 }

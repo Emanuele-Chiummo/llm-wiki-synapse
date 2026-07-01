@@ -725,6 +725,16 @@ export type QueueTaskStatus = "pending" | "processing" | "failed";
  * run_id is only present when the task is being actively processed (status=processing).
  * error is only present when status=failed.
  * started_at is only present when status=processing.
+ *
+ * v0.6 additions (phase/progress/timing):
+ *   phase           — human-readable current step (e.g. "analyzing", "generating (2/3)",
+ *                     "validating", "writing", "agent running", "queued", "failed");
+ *                     null when not yet available or not applicable.
+ *   progress        — coarse 0..1 fraction for orchestrated route; null for
+ *                     indeterminate/delegated (CLI) tasks — show spinner, NOT a 0% bar.
+ *   elapsed_seconds — seconds since task started; null when not started.
+ *   eta_seconds     — best-effort estimate of seconds remaining; null = unknown
+ *                     (no history yet — do NOT render "~0s"; render nothing).
  */
 export interface QueueTask {
   run_id?: string | undefined;
@@ -734,6 +744,14 @@ export interface QueueTask {
   retry_count: number;
   error?: string | undefined;
   started_at?: string | undefined;
+  /** Current ingest phase label; null when not available. */
+  phase?: string | null;
+  /** Coarse progress 0..1 (orchestrated); null = indeterminate (delegated/CLI). */
+  progress?: number | null;
+  /** Elapsed seconds since task start; null when not started. */
+  elapsed_seconds?: number | null;
+  /** Best-effort ETA in seconds remaining; null = unknown. */
+  eta_seconds?: number | null;
 }
 
 /**

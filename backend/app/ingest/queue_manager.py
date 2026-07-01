@@ -54,6 +54,8 @@ class RunHandle:
     written_page_ids: list[uuid.UUID] = field(default_factory=list)
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     status: str = "running"  # "running" | "cancelling"
+    phase: str = "queued"  # human-facing short key: "queued" | "analyzing" | "generating (N/M)" | "validating" | "writing" | "agent running"
+    route: str | None = None  # "orchestrated" | "delegated" — set by orchestrator before routing
 
 
 @dataclass
@@ -74,6 +76,35 @@ class FailedEntry:
     error: str | None
     retry_count: int
     started_at: datetime | None
+
+
+# ── Phase → progress mapping ──────────────────────────────────────────────────
+# Coarse 0..1 progress values for the orchestrated route. Derived from the current
+# phase string so the UI can show a determinate progress bar on orchestrated runs.
+# Delegated route ("agent running") → None (indeterminate spinner, I6 — the CLI
+# agent loop is opaque; a fake % would be misleading).
+_PHASE_PROGRESS: dict[str, float] = {
+    "queued": 0.0,
+    "analyzing": 0.2,
+    "validating": 0.8,
+    "writing": 0.95,
+}
+
+
+def _phase_to_progress(phase: str) -> float | None:
+    """
+    Map a phase string to a coarse 0..1 progress value.
+
+    "generating (N/M)" is handled by prefix match → 0.5 regardless of N/M.
+    Unknown phases and delegated-route phases ("agent running") return None
+    so the UI renders a spinner rather than a fake percentage.
+    """
+    if phase in _PHASE_PROGRESS:
+        return _PHASE_PROGRESS[phase]
+    if phase.startswith("generating"):
+        return 0.5
+    # "agent running", "failed", or any other opaque phase → indeterminate
+    return None
 
 
 # ── Queue manager ─────────────────────────────────────────────────────────────
@@ -251,6 +282,39 @@ class IngestQueueManager:
             return None
         return self._active.get(path)
 
+    def set_phase(self, run_id: uuid.UUID, phase: str) -> None:
+        """
+        Update the human-facing phase string on the RunHandle (no-op if run absent).
+
+        Phase strings (short keys):
+          "queued"              — registered but not yet started
+          "analyzing"           — provider.analyze() in progress
+          "generating (N/M)"   — provider.generate() iteration N of M
+          "validating"          — validate_pages() running
+          "writing"             — write_wiki_page() loop
+          "agent running"       — delegated/CLI agent loop (opaque, I6)
+        Called from the orchestrated loop (via on_phase callback) and the orchestrator
+        delegated branch. The phase is surfaced in GET /ingest/queue task items.
+        """
+        path = self._run_id_to_path.get(run_id)
+        if path is None:
+            return
+        handle = self._active.get(path)
+        if handle is not None:
+            handle.phase = phase
+
+    def set_route(self, run_id: uuid.UUID, route: str) -> None:
+        """
+        Store the resolved route on the RunHandle so snapshot() can derive the ETA
+        without an extra DB look-up. No-op if run is absent.
+        """
+        path = self._run_id_to_path.get(run_id)
+        if path is None:
+            return
+        handle = self._active.get(path)
+        if handle is not None:
+            handle.route = route
+
     # ── Retry ──────────────────────────────────────────────────────────────────
 
     def request_retry(self, run_id: uuid.UUID) -> tuple[str, int] | None:
@@ -374,7 +438,7 @@ class IngestQueueManager:
 
     # ── Snapshot (GET /ingest/queue) ───────────────────────────────────────────
 
-    def snapshot(self) -> dict:
+    def snapshot(self, avg_duration_by_route: dict[str, float] | None = None) -> dict:
         """
         Pure in-memory summary for GET /ingest/queue (ADR-0046 §6, no DB scan).
 
@@ -382,12 +446,28 @@ class IngestQueueManager:
           "processing"  — in _active (running or cancelling)
           "pending"     — parked in _pending (paused queue)
           "failed"      — in _recent_failed
+
+        avg_duration_by_route: optional dict mapping route ("orchestrated"|"delegated") →
+          average completed-run duration in seconds (from ingest_runs history). When supplied,
+          eta_seconds is computed for active tasks as max(0, avg - elapsed). None means no
+          history available for that route → eta_seconds stays None. The endpoint (main.py)
+          performs the DB query and passes the result in; snapshot() stays DB-free (I1).
         """
+        now_utc = datetime.now(UTC)
+        avg_by_route: dict[str, float] = avg_duration_by_route or {}
+
         tasks: list[dict] = []
 
         for source_path, handle in self._active.items():
             display = self._display_path(source_path)
             filename = Path(source_path).name
+            elapsed = (now_utc - handle.started_at).total_seconds()
+            progress = _phase_to_progress(handle.phase)
+            route = handle.route
+            eta: int | None = None
+            if route is not None and route in avg_by_route:
+                avg = avg_by_route[route]
+                eta = max(0, round(avg - elapsed))
             tasks.append(
                 {
                     "run_id": str(handle.run_id),
@@ -397,6 +477,10 @@ class IngestQueueManager:
                     "retry_count": self._retry_counts.get(source_path, 0),
                     "error": None,
                     "started_at": handle.started_at.isoformat(),
+                    "phase": handle.phase,
+                    "progress": progress,
+                    "elapsed_seconds": round(elapsed),
+                    "eta_seconds": eta,
                 }
             )
 
@@ -412,6 +496,10 @@ class IngestQueueManager:
                     "retry_count": self._retry_counts.get(source_path, 0),
                     "error": None,
                     "started_at": None,
+                    "phase": "queued",
+                    "progress": 0.0,
+                    "elapsed_seconds": None,
+                    "eta_seconds": None,
                 }
             )
 
@@ -427,6 +515,10 @@ class IngestQueueManager:
                     "retry_count": entry.retry_count,
                     "error": entry.error,
                     "started_at": entry.started_at.isoformat() if entry.started_at else None,
+                    "phase": "failed",
+                    "progress": None,
+                    "elapsed_seconds": None,
+                    "eta_seconds": None,
                 }
             )
 

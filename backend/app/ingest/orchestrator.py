@@ -48,6 +48,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any, Literal
 
 import frontmatter  # python-frontmatter
@@ -386,6 +387,11 @@ async def run_ingest_pipeline(
     handle = ingest_queue.open_run(run_id, _queue_key)
     cancel_event = handle.cancel_event
 
+    # ── Store resolved route on the handle so snapshot() can compute ETA ─────
+    # Set before the route try-block so the handle always has a route when active.
+    # Will be overwritten to "delegated" inside the try-block if the CLI path is taken.
+    ingest_queue.set_route(run_id, route)
+
     # ── ROUTE: the single capability check (I6) ──────────────────────────────
     # Wrapped so a route failure still persists an ingest_runs row with status="failed" and the
     # error_message + accumulated cost (BUG A2 / I7), then re-raises so the REST/watcher caller
@@ -401,6 +407,9 @@ async def run_ingest_pipeline(
     try:
         if caps.supports_agentic_loop:
             route = "delegated"
+            ingest_queue.set_route(run_id, route)
+            # Coarse phase for delegated/CLI runs (opaque agent loop — I6 forbids finer phases)
+            ingest_queue.set_phase(run_id, "agent running")
             converged, delegated_pages_written, delegated_page_ids = await _delegate_ingest(
                 provider=provider,
                 source_text=source_text,
@@ -470,6 +479,7 @@ async def run_ingest_pipeline(
                 config_row=provider_config_row,
                 vault_context=ingest_context,
                 cancel_event=cancel_event,
+                on_phase=lambda p: ingest_queue.set_phase(run_id, p),
             )
             pages = loop_result.pages
             analysis = loop_result.analysis
@@ -477,6 +487,7 @@ async def run_ingest_pipeline(
             converged = loop_result.converged
             # Guarantee a source-summary page (F3) even if the provider omitted it.
             pages = _ensure_source_summary(pages, analysis, origin_source)
+            ingest_queue.set_phase(run_id, "writing")
             written_pages: list[Page] = []
             for page in pages:
                 written_page = await write_wiki_page(None, page, origin_source)
@@ -724,6 +735,7 @@ async def _run_orchestrated(
     config_row: object,
     vault_context: str | None = None,
     cancel_event: asyncio.Event | None = None,
+    on_phase: Callable[[str], None] | None = None,
 ) -> LoopResult:
     """Run the bounded loop with optional single fallback (I7, ADR-0009 §4).
 
@@ -735,6 +747,10 @@ async def _run_orchestrated(
     existing-pages catalogue) and threaded in so the same context reaches primary AND fallback.
     Falls back to purpose+schema only (no catalogue) when the caller omits it — this keeps
     direct callers working without a DB round-trip.
+
+    on_phase: optional callback threaded from run_ingest_pipeline (phase reporting, pure
+    reporting — no loop semantics changed). Passed through to both the primary and fallback
+    run_orchestrated_loop calls so phases remain visible across the fallback transition.
     """
     max_iter = int(getattr(config_row, "max_iter", None) or 3)
     token_budget = int(getattr(config_row, "token_budget", None) or 60_000)
@@ -753,6 +769,7 @@ async def _run_orchestrated(
             max_iter=max_iter,
             token_budget=token_budget,
             cancel_event=cancel_event,
+            on_phase=on_phase,
         )
     except IngestCancelled:
         # Cooperative cancel is not a provider fault — propagate directly without fallback.
@@ -779,6 +796,7 @@ async def _run_orchestrated(
                 max_iter=int(getattr(fallback_row, "max_iter", None) or 3),
                 token_budget=int(getattr(fallback_row, "token_budget", None) or 60_000),
                 cancel_event=cancel_event,
+                on_phase=on_phase,
             )
         except IngestCancelled:
             raise

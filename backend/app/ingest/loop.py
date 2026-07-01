@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from pydantic import ValidationError
@@ -137,6 +138,7 @@ async def run_orchestrated_loop(
     max_iter: int,
     token_budget: int,
     cancel_event: asyncio.Event | None = None,
+    on_phase: Callable[[str], None] | None = None,
 ) -> LoopResult:
     """
     Run analyze-once → generate → validate → augment&retry, bounded by max_iter AND
@@ -155,6 +157,8 @@ async def run_orchestrated_loop(
     provider.bind_accumulator(accumulator)
 
     # analyze() ONCE per run (AQ-v0.2-1).
+    if on_phase is not None:
+        on_phase("analyzing")
     analysis = await provider.analyze(source_text, vault_context)
 
     ctx = retrieval_context
@@ -184,8 +188,12 @@ async def run_orchestrated_loop(
             break
 
         iterations = i
+        if on_phase is not None:
+            on_phase(f"generating ({i}/{max_iter})")
         try:
             pages = await provider.generate(analysis, ctx)
+            if on_phase is not None:
+                on_phase("validating")
             errors = validate_pages(pages, origin_source)
         except ValidationError as exc:
             # Malformed provider JSON → treat as a generation defect; retry with errors.

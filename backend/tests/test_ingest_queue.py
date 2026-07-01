@@ -555,3 +555,329 @@ class TestIngestCancelledException:
                 )
 
         asyncio.run(run())
+
+
+# ── Phase tracking (set_phase / set_route / snapshot) ────────────────────────
+
+
+class TestPhaseTracking:
+    def test_set_phase_updates_handle(self) -> None:
+        """set_phase updates RunHandle.phase; snapshot reflects it."""
+        mgr = make_manager()
+        run_id = uuid.uuid4()
+        handle = mgr.open_run(run_id, "/vault/raw/sources/doc.md")
+        assert handle.phase == "queued"  # default
+
+        mgr.set_phase(run_id, "analyzing")
+        assert handle.phase == "analyzing"
+
+        mgr.set_phase(run_id, "generating (1/3)")
+        assert handle.phase == "generating (1/3)"
+
+    def test_set_phase_reflected_in_snapshot(self) -> None:
+        """snapshot task reflects the current phase set via set_phase."""
+        mgr = make_manager()
+        run_id = uuid.uuid4()
+        mgr.open_run(run_id, "/vault/raw/sources/doc.md")
+        mgr.set_phase(run_id, "validating")
+
+        snap = mgr.snapshot()
+        assert snap["tasks"][0]["phase"] == "validating"
+
+    def test_set_phase_unknown_run_id_noop(self) -> None:
+        """set_phase with an unknown run_id must not raise."""
+        mgr = make_manager()
+        mgr.set_phase(uuid.uuid4(), "analyzing")  # should not raise
+
+    def test_set_route_updates_handle(self) -> None:
+        """set_route stores the route string on the handle."""
+        mgr = make_manager()
+        run_id = uuid.uuid4()
+        handle = mgr.open_run(run_id, "/vault/raw/sources/doc.md")
+        assert handle.route is None  # default
+
+        mgr.set_route(run_id, "orchestrated")
+        assert handle.route == "orchestrated"
+
+    def test_set_route_unknown_run_id_noop(self) -> None:
+        """set_route with an unknown run_id must not raise."""
+        mgr = make_manager()
+        mgr.set_route(uuid.uuid4(), "delegated")  # should not raise
+
+    def test_pending_task_phase_is_queued(self) -> None:
+        """Pending (parked) tasks always have phase='queued' and progress=0.0."""
+        mgr = make_manager()
+        mgr.pause()
+        mgr.admit("/vault/raw/sources/x.md", "ingest")
+        snap = mgr.snapshot()
+        task = snap["tasks"][0]
+        assert task["phase"] == "queued"
+        assert task["progress"] == 0.0
+        assert task["elapsed_seconds"] is None
+        assert task["eta_seconds"] is None
+
+    def test_failed_task_phase_is_failed(self) -> None:
+        """Failed tasks carry phase='failed' and no progress/elapsed/eta."""
+        mgr = make_manager()
+        run_id = uuid.uuid4()
+        mgr.open_run(run_id, "/vault/raw/sources/bad.md")
+        mgr.finalize(run_id, "failed", error="oops")
+        snap = mgr.snapshot()
+        task = snap["tasks"][0]
+        assert task["phase"] == "failed"
+        assert task["progress"] is None
+        assert task["elapsed_seconds"] is None
+        assert task["eta_seconds"] is None
+
+
+# ── Phase → progress mapping ──────────────────────────────────────────────────
+
+
+class TestPhaseToProgress:
+    """Unit-test the _phase_to_progress helper directly."""
+
+    def test_queued(self) -> None:
+        from app.ingest.queue_manager import _phase_to_progress
+        assert _phase_to_progress("queued") == 0.0
+
+    def test_analyzing(self) -> None:
+        from app.ingest.queue_manager import _phase_to_progress
+        assert _phase_to_progress("analyzing") == 0.2
+
+    def test_generating_prefix(self) -> None:
+        from app.ingest.queue_manager import _phase_to_progress
+        assert _phase_to_progress("generating (1/3)") == 0.5
+        assert _phase_to_progress("generating (2/3)") == 0.5
+
+    def test_validating(self) -> None:
+        from app.ingest.queue_manager import _phase_to_progress
+        assert _phase_to_progress("validating") == 0.8
+
+    def test_writing(self) -> None:
+        from app.ingest.queue_manager import _phase_to_progress
+        assert _phase_to_progress("writing") == 0.95
+
+    def test_agent_running_is_none(self) -> None:
+        from app.ingest.queue_manager import _phase_to_progress
+        assert _phase_to_progress("agent running") is None
+
+    def test_unknown_phase_is_none(self) -> None:
+        from app.ingest.queue_manager import _phase_to_progress
+        assert _phase_to_progress("something_unknown") is None
+
+    def test_failed_phase_is_none(self) -> None:
+        from app.ingest.queue_manager import _phase_to_progress
+        assert _phase_to_progress("failed") is None
+
+
+# ── ETA helper unit tests ──────────────────────────────────────────────────────
+
+
+class TestEtaComputation:
+    """
+    Unit-tests for ETA logic: snapshot(avg_duration_by_route=...) enriches active
+    tasks with eta_seconds = max(0, round(avg - elapsed)).
+
+    These tests inject the avg directly (no DB) to keep them pure-unit.
+    """
+
+    def test_eta_computed_when_avg_available(self) -> None:
+        """eta_seconds = max(0, round(avg_duration - elapsed))."""
+        import time
+        from datetime import UTC, datetime, timedelta
+
+        mgr = make_manager()
+        run_id = uuid.uuid4()
+        handle = mgr.open_run(run_id, "/vault/raw/sources/doc.md")
+        # Simulate a run that started 30 seconds ago
+        handle.started_at = datetime.now(UTC) - timedelta(seconds=30)
+        handle.route = "orchestrated"
+        mgr.set_phase(run_id, "analyzing")
+
+        snap = mgr.snapshot(avg_duration_by_route={"orchestrated": 90.0})
+        task = snap["tasks"][0]
+        assert task["eta_seconds"] is not None
+        # avg=90, elapsed≈30 → eta≈60; allow ±2s for test timing
+        assert 58 <= task["eta_seconds"] <= 62
+
+    def test_eta_zero_when_elapsed_exceeds_avg(self) -> None:
+        """eta_seconds floors at 0 when elapsed > avg (run took longer than expected)."""
+        from datetime import UTC, datetime, timedelta
+
+        mgr = make_manager()
+        run_id = uuid.uuid4()
+        handle = mgr.open_run(run_id, "/vault/raw/sources/doc.md")
+        handle.started_at = datetime.now(UTC) - timedelta(seconds=120)
+        handle.route = "orchestrated"
+
+        snap = mgr.snapshot(avg_duration_by_route={"orchestrated": 60.0})
+        task = snap["tasks"][0]
+        assert task["eta_seconds"] == 0
+
+    def test_eta_none_when_no_history_for_route(self) -> None:
+        """eta_seconds is None when avg_duration_by_route does not contain the task's route."""
+        mgr = make_manager()
+        run_id = uuid.uuid4()
+        handle = mgr.open_run(run_id, "/vault/raw/sources/doc.md")
+        handle.route = "orchestrated"
+
+        snap = mgr.snapshot(avg_duration_by_route={"delegated": 45.0})
+        task = snap["tasks"][0]
+        assert task["eta_seconds"] is None
+
+    def test_eta_none_when_route_not_set(self) -> None:
+        """eta_seconds is None when handle.route is None (route not yet resolved)."""
+        mgr = make_manager()
+        run_id = uuid.uuid4()
+        mgr.open_run(run_id, "/vault/raw/sources/doc.md")
+        # route defaults to None
+
+        snap = mgr.snapshot(avg_duration_by_route={"orchestrated": 90.0})
+        task = snap["tasks"][0]
+        assert task["eta_seconds"] is None
+
+    def test_elapsed_seconds_increases_over_time(self) -> None:
+        """elapsed_seconds reflects wall-clock time since started_at."""
+        from datetime import UTC, datetime, timedelta
+
+        mgr = make_manager()
+        run_id = uuid.uuid4()
+        handle = mgr.open_run(run_id, "/vault/raw/sources/doc.md")
+        handle.started_at = datetime.now(UTC) - timedelta(seconds=15)
+
+        snap = mgr.snapshot()
+        task = snap["tasks"][0]
+        assert task["elapsed_seconds"] is not None
+        assert 14 <= task["elapsed_seconds"] <= 17
+
+    def test_snapshot_no_avg_provided_eta_none(self) -> None:
+        """When avg_duration_by_route is not passed, eta_seconds is None."""
+        mgr = make_manager()
+        run_id = uuid.uuid4()
+        handle = mgr.open_run(run_id, "/vault/raw/sources/doc.md")
+        handle.route = "orchestrated"
+
+        snap = mgr.snapshot()  # no avg argument
+        task = snap["tasks"][0]
+        assert task["eta_seconds"] is None
+
+
+# ── on_phase callback in run_orchestrated_loop ────────────────────────────────
+
+
+class TestOnPhaseCallback:
+    """Verify on_phase is called at the correct loop boundaries."""
+
+    def test_on_phase_called_with_correct_phases(self) -> None:
+        import asyncio
+
+        from app.ingest.loop import run_orchestrated_loop
+        from app.ingest.provider.base import UsageAccumulator
+        from app.ingest.schemas import Analysis, PageType, SuggestedPage, WikiFrontmatter, WikiPage
+
+        phases_seen: list[str] = []
+
+        class _QuickProvider:
+            def bind_accumulator(self, acc: object) -> None:
+                pass
+
+            async def analyze(self, source_text: str, vault_context: str) -> Analysis:
+                return Analysis(
+                    topics=["t"],
+                    entities=[],
+                    language="en",
+                    suggested_pages=[SuggestedPage(title="T", type=PageType.CONCEPT)],
+                    summary=None,
+                )
+
+            async def generate(self, analysis: Analysis, ctx: str) -> list[WikiPage]:
+                fm = WikiFrontmatter(
+                    type=PageType.CONCEPT,
+                    title="T",
+                    sources=["raw/sources/doc.md"],
+                    lang="en",
+                )
+                return [
+                    WikiPage(
+                        title="T",
+                        type=PageType.CONCEPT,
+                        content="content",
+                        frontmatter=fm,
+                    )
+                ]
+
+        async def run() -> None:
+            await run_orchestrated_loop(
+                provider=_QuickProvider(),  # type: ignore[arg-type]
+                accumulator=UsageAccumulator(),
+                source_text="test",
+                vault_context="",
+                retrieval_context="",
+                origin_source="raw/sources/doc.md",
+                max_iter=2,
+                token_budget=60000,
+                on_phase=phases_seen.append,
+            )
+
+        asyncio.run(run())
+        # Must have seen: analyzing, then at least one generating+validating pair
+        assert "analyzing" in phases_seen
+        assert any(p.startswith("generating") for p in phases_seen)
+        assert "validating" in phases_seen
+        # Order: analyzing comes before generating
+        assert phases_seen.index("analyzing") < next(
+            i for i, p in enumerate(phases_seen) if p.startswith("generating")
+        )
+
+    def test_on_phase_none_does_not_raise(self) -> None:
+        """on_phase=None (default) must not cause any error."""
+        import asyncio
+
+        from app.ingest.loop import run_orchestrated_loop
+        from app.ingest.provider.base import UsageAccumulator
+        from app.ingest.schemas import Analysis, PageType, SuggestedPage, WikiFrontmatter, WikiPage
+
+        class _QuickProvider:
+            def bind_accumulator(self, acc: object) -> None:
+                pass
+
+            async def analyze(self, source_text: str, vault_context: str) -> Analysis:
+                return Analysis(
+                    topics=["t"],
+                    entities=[],
+                    language="en",
+                    suggested_pages=[SuggestedPage(title="T", type=PageType.CONCEPT)],
+                    summary=None,
+                )
+
+            async def generate(self, analysis: Analysis, ctx: str) -> list[WikiPage]:
+                fm = WikiFrontmatter(
+                    type=PageType.CONCEPT,
+                    title="T",
+                    sources=["raw/sources/doc.md"],
+                    lang="en",
+                )
+                return [
+                    WikiPage(
+                        title="T",
+                        type=PageType.CONCEPT,
+                        content="content",
+                        frontmatter=fm,
+                    )
+                ]
+
+        async def run() -> None:
+            result = await run_orchestrated_loop(
+                provider=_QuickProvider(),  # type: ignore[arg-type]
+                accumulator=UsageAccumulator(),
+                source_text="test",
+                vault_context="",
+                retrieval_context="",
+                origin_source="raw/sources/doc.md",
+                max_iter=1,
+                token_budget=60000,
+                # on_phase not passed — defaults to None
+            )
+            assert result.converged is True
+
+        asyncio.run(run())
