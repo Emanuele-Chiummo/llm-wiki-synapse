@@ -66,6 +66,7 @@ def _build_lint_meta() -> MetaData:
         Column("qdrant_point_id", String(36), nullable=True),
         Column("x", Float, nullable=True),
         Column("y", Float, nullable=True),
+        Column("community", Integer, nullable=True),  # G-P0-2: Louvain community id
         Column("pinned", Integer, nullable=False, server_default=sa_text("0")),
         Column("deleted_at", Text, nullable=True),
         Column("created_at", Text, nullable=False, server_default=sa_text("datetime('now')")),

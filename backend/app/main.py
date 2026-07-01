@@ -21,6 +21,7 @@ Endpoints:
   GET  /conversations/{id}/messages — ordered message history (F6)
   DELETE /conversations/{id}  — soft-delete a conversation (F6)
   POST /chat/stream           — bounded NDJSON streaming chat turn (F6/F7, I6/I7, ADR-0019/0022)
+  POST /chat/save-to-wiki     — save cleaned assistant answer to wiki/queries/<slug>.md (G-P0-1)
   GET  /import-schedule       — scheduled folder import config + last-run (ADR-0020 Feature S)
   PUT  /import-schedule       — upsert import schedule config (Feature S)
   POST /import-schedule/run-now — trigger one bounded scan immediately (Feature S)
@@ -73,6 +74,7 @@ import hashlib
 import hmac
 import ipaddress
 import logging
+import re as _re
 import secrets
 import uuid
 from collections.abc import AsyncGenerator
@@ -3710,6 +3712,153 @@ async def chat_stream(body: ChatRequest) -> StreamingResponse:
     )
 
 
+# ── POST /chat/save-to-wiki (G-P0-1) ──────────────────────────────────────────
+# Mirror of nashsu/llm_wiki F6 "Save to Wiki": routes a chat assistant answer into
+# wiki/queries/<slug>.md as a typed "query" page (I1/I5/I6/I7):
+#   I1 — single write via write_wiki_page (one data_version bump, no rescan)
+#   I5 — Obsidian-valid frontmatter (type=query, sources=[])
+#   I6 — NO provider call; pure DB/file write
+#   I7 — no loop; single bounded operation
+
+
+_THINK_BLOCK_RE = _re.compile(r"<think>.*?</think>", _re.DOTALL | _re.IGNORECASE)
+_CITED_TRAILER_RE = _re.compile(r"<!--\s*cited:.*?-->", _re.DOTALL | _re.IGNORECASE)
+
+
+def _clean_chat_content(content: str) -> str:
+    """
+    Strip <think>…</think> blocks and <!-- cited: … --> trailers from a chat
+    assistant message before saving it to the wiki (G-P0-1).
+
+    Both patterns are injected server-side during streaming (F7/F5) and MUST NOT
+    appear in the saved wiki page (they are transport artifacts, not human-readable
+    content — I5 Obsidian-valid frontmatter / body rule).
+    """
+    cleaned = _THINK_BLOCK_RE.sub("", content)
+    cleaned = _CITED_TRAILER_RE.sub("", cleaned)
+    return cleaned.strip()
+
+
+class SaveToWikiRequest(BaseModel):
+    """
+    Request body for POST /chat/save-to-wiki (G-P0-1).
+
+    Saves a cleaned chat assistant answer as a wiki/queries/<slug>.md page.
+    No inference provider is called (I6); this is a pure DB+file write (I7).
+    """
+
+    vault_id: str | None = Field(default=None, description="Defaults to settings.vault_id")
+    title: str = Field(..., min_length=1, description="Page title (required)")
+    content: str = Field(..., min_length=1, description="Page content (required)")
+    sources: list[str] | None = Field(
+        default=None,
+        description="Optional source references to attach to the page frontmatter",
+    )
+    conversation_id: str | None = Field(
+        default=None,
+        description="Optional conversation UUID for provenance reference",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "title": "What is bge-m3?",
+                "content": "bge-m3 is a multi-lingual dense embedding model...",
+                "sources": ["raw/sources/chat-123.md"],
+                "conversation_id": "00000000-0000-0000-0000-000000000001",
+            }
+        }
+    }
+
+
+class SaveToWikiResponse(BaseModel):
+    """201 response for POST /chat/save-to-wiki (G-P0-1)."""
+
+    page_id: uuid.UUID = Field(..., description="UUID of the created/updated wiki/queries page")
+    file_path: str = Field(..., description="Relative path in the vault (wiki/queries/<slug>.md)")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "page_id": "00000000-0000-0000-0000-000000000001",
+                "file_path": "wiki/queries/what-is-bge-m3.md",
+            }
+        }
+    }
+
+
+@app.post(
+    "/chat/save-to-wiki",
+    response_model=SaveToWikiResponse,
+    status_code=201,
+    summary="Save a chat answer to the wiki as a query page (G-P0-1)",
+    description=(
+        "Mirrors nashsu/llm_wiki F6 'Save to Wiki': saves a cleaned assistant answer as "
+        "wiki/queries/<slug(title)>.md with type=query frontmatter (I5). "
+        "Strips <think>…</think> and <!-- cited: … --> transport artifacts before saving. "
+        "Persists via the single write_wiki_page seam (I1 — one data_version bump, no rescan). "
+        "No inference provider is called (I6/I7). "
+        "Returns {page_id, file_path}. 422 if title/content is missing."
+    ),
+    responses={
+        201: {"description": "Page created or updated"},
+        422: {"description": "title or content is missing / empty"},
+    },
+)
+async def save_chat_to_wiki(body: SaveToWikiRequest) -> SaveToWikiResponse:
+    """
+    POST /chat/save-to-wiki — save a chat answer as a wiki/queries page (G-P0-1).
+
+    Invariant compliance:
+      I1 — single write_wiki_page call → one data_version bump, no rescan.
+      I5 — Obsidian-valid YAML frontmatter (type=query, sources list, lang=en).
+      I6 — NO provider call; pure DB/file write.
+      I7 — no loop; single bounded operation.
+    """
+    from app.ingest.orchestrator import write_wiki_page
+    from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+
+    # Clean transport artifacts from content before writing to the wiki (G-P0-1)
+    cleaned_content = _clean_chat_content(body.content)
+    if not cleaned_content:
+        raise HTTPException(
+            status_code=422,
+            detail="content is empty after stripping think/citation blocks",
+        )
+
+    # Build sources list (conversation provenance as a pseudo-source reference)
+    sources: list[str] = list(body.sources) if body.sources else []
+    if body.conversation_id:
+        conv_ref = f"conversation/{body.conversation_id}"
+        if conv_ref not in sources:
+            sources.append(conv_ref)
+    # Ensure at least one source so WikiFrontmatter validator passes (F3 traceability)
+    if not sources:
+        sources = ["chat"]
+
+    fm = WikiFrontmatter(
+        type=PageType.QUERY,
+        title=body.title,
+        sources=sources,
+        lang="en",
+    )
+    wiki_page = WikiPage(
+        title=body.title,
+        type=PageType.QUERY,
+        content=cleaned_content,
+        frontmatter=fm,
+    )
+
+    # Single write seam (I1): persists file, Postgres row, Qdrant vector, links, index.md,
+    # bumps data_version once. No provider call (I6/I7).
+    persisted = await write_wiki_page(None, wiki_page, "")
+
+    return SaveToWikiResponse(
+        page_id=persisted.id,
+        file_path=persisted.file_path,
+    )
+
+
 # ── GET /graph ─────────────────────────────────────────────────────────────────
 
 
@@ -3719,6 +3868,7 @@ class GraphNodeResponse(BaseModel):
 
     Required: id, title, type, x, y.
     Optional rendering hints (derived server-side): size, degree.
+    community: Louvain community id (G-P0-2); -1 when not yet assigned.
     """
 
     id: str
@@ -3737,6 +3887,13 @@ class GraphNodeResponse(BaseModel):
             "(direct-link or shared-source); drives size (ADR-0016 §2/§4)"
         ),
     )
+    community: int = Field(
+        default=-1,
+        description=(
+            "Louvain community id (G-P0-2, I2). Re-numbered by size (0 = largest). "
+            "-1 when not yet assigned (first recompute pending)."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -3748,6 +3905,7 @@ class GraphNodeResponse(BaseModel):
                 "y": -0.45,
                 "size": 2.1,
                 "degree": 3,
+                "community": 0,
             }
         }
     }
@@ -3774,11 +3932,34 @@ class GraphEdgeResponse(BaseModel):
     )
 
 
+class GraphCommunityResponse(BaseModel):
+    """
+    Per-community summary in the GET /graph response (G-P0-2).
+
+    id      : re-numbered Louvain community id (0 = largest community).
+    size    : number of member nodes.
+    cohesion: intra-edge density in [0, 1]; 0 for singleton communities.
+              Low cohesion (<0.1) signals a loosely-connected community
+              suitable for a warning in the client legend.
+    """
+
+    id: int
+    size: int
+    cohesion: float = Field(description="Intra-edge density [0,1]; 0 for singletons")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {"id": 0, "size": 12, "cohesion": 0.42}
+        }
+    }
+
+
 class GraphResponse(BaseModel):
     """
     GET /graph response payload (ADR-0014 §6, AC-F4-3, AC-D4v3-1).
 
-    cached: true on a HIT (no FA2 this request), false on a MISS (FA2 ran inline).
+    cached     : true on a HIT (no FA2 this request), false on a MISS (FA2 ran inline).
+    communities: Louvain community summary list (G-P0-2); empty until first recompute.
     Header X-Graph-Cache: hit|miss mirrors cached (ADR-0014 §5).
     """
 
@@ -3786,6 +3967,13 @@ class GraphResponse(BaseModel):
     edges: list[GraphEdgeResponse]
     data_version: int
     cached: bool
+    communities: list[GraphCommunityResponse] = Field(
+        default_factory=list,
+        description=(
+            "Per-community summary (G-P0-2, I2): id, size, cohesion. "
+            "Ordered by id (0 = largest). Empty until first graph recompute."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -3799,6 +3987,7 @@ class GraphResponse(BaseModel):
                         "y": -0.45,
                         "size": 2.1,
                         "degree": 3,
+                        "community": 0,
                     }
                 ],
                 "edges": [
@@ -3811,6 +4000,7 @@ class GraphResponse(BaseModel):
                 ],
                 "data_version": 7,
                 "cached": True,
+                "communities": [{"id": 0, "size": 2, "cohesion": 1.0}],
             }
         }
     }
@@ -3868,7 +4058,7 @@ async def get_graph() -> Response:
 
     snapshot, cached = await _graph_cache.get_graph(current_version)
 
-    # Build response payload (ADR-0014 §6)
+    # Build response payload (ADR-0014 §6, G-P0-2)
     nodes: list[GraphNodeResponse] = [
         GraphNodeResponse(
             id=n.id,
@@ -3878,6 +4068,7 @@ async def get_graph() -> Response:
             y=n.y,
             size=n.size,
             degree=n.degree,
+            community=n.community,
         )
         for n in snapshot.nodes
     ]
@@ -3885,11 +4076,16 @@ async def get_graph() -> Response:
         GraphEdgeResponse(source=e.source, target=e.target, weight=e.weight, kind=e.kind)
         for e in snapshot.edges
     ]
+    communities: list[GraphCommunityResponse] = [
+        GraphCommunityResponse(id=c.id, size=c.size, cohesion=c.cohesion)
+        for c in snapshot.communities
+    ]
     payload = GraphResponse(
         nodes=nodes,
         edges=edges,
         data_version=current_version,
         cached=cached,
+        communities=communities,
     )
 
     cache_header = "hit" if cached else "miss"
