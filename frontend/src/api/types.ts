@@ -439,6 +439,115 @@ export interface ImportSchedulePutResponse extends ImportSchedule {
   dir_message: string | null;
 }
 
+// ─── GET/PUT /clip/config (F11, ADR-0040) ────────────────────────────────────
+
+/**
+ * Response from GET /clip/config (ADR-0040 §2.3).
+ * Mirrors McpInfoResponse structure: posture-only, token value NEVER returned.
+ */
+export interface ClipConfigResponse {
+  /** Resolved enabled state (DB clip_enabled_db if set, else CLIP_ENABLED env). */
+  enabled: boolean;
+  /** True iff a token is available (DB hash OR CLIP_TOKEN env). NEVER the token value. */
+  token_configured: boolean;
+  /**
+   * Which token source is authoritative:
+   *   "db"  — token set via PUT /clip/config
+   *   "env" — CLIP_TOKEN env bootstrap
+   *   "none" — no token configured
+   */
+  token_source: "db" | "env" | "none";
+  /** Resolved allowed-origins list (DB if set, else CLIP_ALLOWED_ORIGINS env). */
+  allowed_origins: string[];
+  /** CLIP_MAX_BODY_BYTES env — not runtime-settable. */
+  max_body_bytes: number;
+}
+
+/**
+ * Request body for PUT /clip/config (ADR-0040 §2.4).
+ * All fields optional; omitting leaves that aspect unchanged.
+ */
+export interface ClipConfigRequest {
+  /** Generate a new high-entropy token; return plaintext ONCE in generated_token. */
+  rotate_token?: boolean | null;
+  /** Clear DB token hash (falls back to CLIP_TOKEN env or none). */
+  clear_token?: boolean | null;
+  /** Set clip_enabled_db (DB wins over CLIP_ENABLED env when set). */
+  set_enabled?: boolean | null;
+  /** Replace DB allowed-origins (comma-separated string; "" clears to env fallback). */
+  set_allowed_origins?: string | null;
+}
+
+/**
+ * Response from PUT /clip/config (ADR-0040 §2.4).
+ * Always reflects post-write posture.
+ * generated_token ONLY present when rotate_token=true — show ONCE, then discard.
+ */
+export interface ClipConfigStateResponse {
+  enabled: boolean;
+  token_configured: boolean;
+  token_source: "db" | "env" | "none";
+  allowed_origins: string[];
+  max_body_bytes: number;
+  /**
+   * The generated token plaintext — present ONLY for rotate_token:true requests.
+   * Show once, discard, never store in Zustand or localStorage (ADR-0040 §2.1).
+   */
+  generated_token?: string | null;
+}
+
+// ─── GET/PUT /web-search/config (F10, ADR-0041) ──────────────────────────────
+
+/**
+ * Response from GET /web-search/config (ADR-0041 §2.3).
+ * The SearXNG URL is NOT a secret — it IS returned in full (unlike clip/mcp tokens).
+ * SearXNG is the ONLY supported web-search backend (I9).
+ */
+export interface WebSearchConfigResponse {
+  /** True iff a SearXNG URL is available (DB or env). */
+  configured: boolean;
+  /** Resolved SearXNG base URL (DB wins over env). null when neither is set. */
+  url: string | null;
+  /** Resolved SearXNG categories list. */
+  categories: string[];
+  /** Resolved max queries per deep-research iteration (1–50). */
+  max_queries: number;
+  /**
+   * Which URL source is authoritative:
+   *   "db"  — URL set via PUT /web-search/config
+   *   "env" — SEARXNG_URL env var
+   *   "none" — no URL configured
+   */
+  source: "db" | "env" | "none";
+}
+
+/**
+ * Request body for PUT /web-search/config (ADR-0041 §2.4).
+ * All fields optional. No provider field — SearXNG is the ONLY backend (I9).
+ */
+export interface WebSearchConfigRequest {
+  /** Set the SearXNG base URL (must be a valid http/https URL). */
+  set_url?: string | null;
+  /** Comma-separated categories (e.g. "general,news"). "" clears to default. */
+  set_categories?: string | null;
+  /** Max queries per deep-research iteration (1–50). */
+  set_max_queries?: number | null;
+  /** Clear ALL DB overrides; falls back to env / code defaults. */
+  clear?: boolean | null;
+}
+
+/**
+ * Response from PUT /web-search/config (ADR-0041 §2.4).
+ * Always reflects post-write posture. Same shape as WebSearchConfigResponse.
+ */
+export interface WebSearchConfigStateResponse {
+  configured: boolean;
+  url: string | null;
+  categories: string[];
+  max_queries: number;
+  source: "db" | "env" | "none";
+}
+
 // ─── POST /lint/scan + GET /lint/runs + GET /lint/findings (K2, ADR-0037 §6) ──
 
 /** Lint finding categories (ADR-0037 §6). */
