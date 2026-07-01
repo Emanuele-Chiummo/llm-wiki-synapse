@@ -1,0 +1,476 @@
+"""
+Live ingest activity queue manager (ADR-0046 §3/§4/§5).
+
+Singleton `ingest_queue` mirrors the `_watcher` singleton pattern (watcher.py:243).
+All state mutations happen on the asyncio loop thread — no cross-await locks needed
+(same contract as the watcher's _pending/_inflight/_dirty maps, watcher.py:65-76).
+
+Responsibilities:
+  • Track in-flight runs (RunHandle keyed by source_path AND run_id).
+  • Gate new dispatches while paused (admit/park in _pending).
+  • Provide cooperative cancel via cancel_event per run.
+  • Cap retries at MAX_INGEST_RETRIES=3 (I7).
+  • Suppress re-fire of cancelled paths for 2×WATCH_DEBOUNCE_SECONDS (I1).
+  • Expose snapshot() for the GET /ingest/queue endpoint (pure in-memory, no DB scan).
+
+This module is a STATUS MIRROR ONLY — it never enumerates the vault, never scans the
+filesystem, and never calls the DB directly (I1 / ADR-0046 §3 last paragraph).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+import time
+import uuid
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# ── Constants ─────────────────────────────────────────────────────────────────
+
+MAX_INGEST_RETRIES: int = 3  # I7 hard cap (ADR-0046 §5)
+
+# Cancel-suppression window: 2× the watcher debounce so the cascade_delete file
+# mutations and any editor re-touch do not immediately re-queue (ADR-0046 §3).
+_DEBOUNCE_SECONDS: float = float(os.environ.get("WATCH_DEBOUNCE_SECONDS", "1.5"))
+_SUPPRESS_WINDOW: float = 2.0 * _DEBOUNCE_SECONDS
+
+
+# ── Data classes ──────────────────────────────────────────────────────────────
+
+
+@dataclass
+class RunHandle:
+    """Tracks a single in-flight ingest run (ADR-0046 §3 `RunHandle`)."""
+
+    run_id: uuid.UUID
+    source_path: str  # absolute path — canonical queue key (ADR-0046 path-normalization fix)
+    cancel_event: asyncio.Event
+    written_page_ids: list[uuid.UUID] = field(default_factory=list)
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    status: str = "running"  # "running" | "cancelling"
+
+
+@dataclass
+class PendingEntry:
+    """A FS event parked while the queue is paused (ADR-0046 §4)."""
+
+    source_path: str  # absolute path — canonical queue key (ADR-0046 path-normalization fix)
+    action: str  # "ingest" | "delete"
+    first_seen_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class FailedEntry:
+    """A recently-failed run retained for retry (ADR-0046 §4 `_recent_failed`)."""
+
+    run_id: uuid.UUID
+    source_path: str  # absolute path — canonical queue key (ADR-0046 path-normalization fix)
+    error: str | None
+    retry_count: int
+    started_at: datetime | None
+
+
+# ── Queue manager ─────────────────────────────────────────────────────────────
+
+
+class IngestQueueManager:
+    """
+    In-process singleton that tracks ingest queue state for the live activity panel.
+
+    Thread-safety contract (same as watcher.py):
+      All mutations happen on the asyncio event loop thread — either called from
+      async code (already on the loop) or via call_soon_threadsafe from watchdog.
+      No asyncio.Lock needed as long as NO mutation crosses an await point.
+    """
+
+    def __init__(self) -> None:
+        # source_path → RunHandle (in-flight runs)
+        self._active: dict[str, RunHandle] = {}
+        # run_id → source_path reverse index (for cancel by run_id)
+        self._run_id_to_path: dict[uuid.UUID, str] = {}
+
+        # source_path → PendingEntry (parked while paused)
+        self._pending: dict[str, PendingEntry] = {}
+
+        # source_path → retries so far (cleared on success, I7)
+        self._retry_counts: dict[str, int] = {}
+
+        # source_path → FailedEntry (retained for retry, dropped on retry/success)
+        self._recent_failed: dict[str, FailedEntry] = {}
+
+        self._paused: bool = False
+        self._completed_since_idle: int = 0
+
+        # source_path → monotonic deadline (cancel suppression window)
+        self._suppress: dict[str, float] = {}
+
+        # Back-reference to the watcher handler (set by set_watcher_handler())
+        self._watcher_handler: Any | None = None  # _MarkdownHandler
+
+    # ── Watcher back-reference ─────────────────────────────────────────────────
+
+    def set_watcher_handler(self, handler: Any) -> None:
+        """Called from watcher.py after the handler is constructed (lifespan, main.py)."""
+        self._watcher_handler = handler
+
+    # ── Run lifecycle ──────────────────────────────────────────────────────────
+
+    def open_run(self, run_id: uuid.UUID, source_path: str) -> RunHandle:
+        """
+        Register a new in-flight run.  Called from _open_ingest_run in orchestrator.py
+        BEFORE the route try-block (ADR-0046 §2).
+
+        Returns the RunHandle so the orchestrator can pass cancel_event down the call stack.
+        """
+        handle = RunHandle(
+            run_id=run_id,
+            source_path=source_path,
+            cancel_event=asyncio.Event(),
+            started_at=datetime.now(UTC),
+        )
+        self._active[source_path] = handle
+        self._run_id_to_path[run_id] = source_path
+        # A previously-failed entry is superseded by the new run
+        self._recent_failed.pop(source_path, None)
+        logger.debug("queue: open run_id=%s path=%s", run_id, source_path)
+        return handle
+
+    def record_written(self, run_id: uuid.UUID, page_id: uuid.UUID) -> None:
+        """
+        Append a page_id to the run's written list.  Called from orchestrator.py
+        after each successful write_wiki_page() so cancel can clean up (ADR-0046 §3).
+        """
+        path = self._run_id_to_path.get(run_id)
+        if path is None:
+            return
+        handle = self._active.get(path)
+        if handle is not None:
+            handle.written_page_ids.append(page_id)
+
+    def finalize(
+        self,
+        run_id: uuid.UUID,
+        status: str,
+        error: str | None = None,
+    ) -> None:
+        """
+        Mark a run terminal and remove it from _active (ADR-0046 §2).
+
+        status: "completed" | "failed" | "converged_false" | "cancelled"
+
+        On success: bump _completed_since_idle; clear _retry_counts for this path.
+        On failure/cancelled: retain as FailedEntry in _recent_failed.
+        When both _active and _pending empty after this call: do NOT reset
+        _completed_since_idle (the ADR says reset on idle TRANSITION — we just let
+        snapshot() return the accumulated count until the queue goes idle again
+        from a subsequent admit→finalize cycle with zero remaining).
+        """
+        path = self._run_id_to_path.pop(run_id, None)
+        if path is None:
+            logger.debug("queue: finalize called for unknown run_id=%s", run_id)
+            return
+        handle = self._active.pop(path, None)
+
+        is_success = status in ("completed", "converged_false")
+
+        if is_success:
+            self._completed_since_idle += 1
+            self._retry_counts.pop(path, None)
+            logger.debug(
+                "queue: finalize OK run_id=%s status=%s completed_since_idle=%d",
+                run_id,
+                status,
+                self._completed_since_idle,
+            )
+        else:
+            # Retain for retry visibility
+            started_at = handle.started_at if handle is not None else None
+            retry_count = self._retry_counts.get(path, 0)
+            self._recent_failed[path] = FailedEntry(
+                run_id=run_id,
+                source_path=path,
+                error=error,
+                retry_count=retry_count,
+                started_at=started_at,
+            )
+            logger.debug(
+                "queue: finalize FAIL run_id=%s status=%s error=%s",
+                run_id,
+                status,
+                error,
+            )
+
+        # If the queue transitions to idle, reset completed_since_idle
+        if not self._active and not self._pending:
+            logger.debug(
+                "queue: idle — reset completed_since_idle from %d to 0",
+                self._completed_since_idle,
+            )
+            self._completed_since_idle = 0
+
+    # ── Cancel ─────────────────────────────────────────────────────────────────
+
+    def cancel(self, run_id: uuid.UUID) -> bool:
+        """
+        Request cancellation of an in-flight run (ADR-0046 §3).
+
+        Sets the cancel_event; the orchestrated loop checks it at the top of each
+        iteration (loop.py). Returns True if the run was found and in flight.
+        """
+        path = self._run_id_to_path.get(run_id)
+        if path is None:
+            return False
+        handle = self._active.get(path)
+        if handle is None:
+            return False
+        handle.cancel_event.set()
+        handle.status = "cancelling"
+        logger.info("queue: cancel requested run_id=%s path=%s", run_id, path)
+        # Arm the suppress window so cascade_delete mutations don't re-trigger ingest
+        self._suppress[path] = time.monotonic() + _SUPPRESS_WINDOW
+        return True
+
+    def get_cancel_event(self, run_id: uuid.UUID) -> asyncio.Event | None:
+        """Return the cancel_event for a run, or None if not found."""
+        path = self._run_id_to_path.get(run_id)
+        if path is None:
+            return None
+        handle = self._active.get(path)
+        return handle.cancel_event if handle is not None else None
+
+    def get_handle(self, run_id: uuid.UUID) -> RunHandle | None:
+        """Return the RunHandle for a run_id, or None."""
+        path = self._run_id_to_path.get(run_id)
+        if path is None:
+            return None
+        return self._active.get(path)
+
+    # ── Retry ──────────────────────────────────────────────────────────────────
+
+    def request_retry(self, run_id: uuid.UUID) -> tuple[str, int] | None:
+        """
+        Increment retry counter and re-dispatch the failed source_path (ADR-0046 §5).
+
+        Returns (abs_source_path, new_retry_count) on success.
+        Returns None if run_id unknown.
+        Raises ValueError("max_retries_exceeded") if count >= MAX_INGEST_RETRIES.
+        Raises ValueError("not_retryable") if run is not in _recent_failed (e.g. still running).
+        """
+        # Find entry — either in _recent_failed (normal path) or active (sanity)
+        source_path: str | None = None
+
+        # Check failed first
+        for _path, entry in self._recent_failed.items():
+            if entry.run_id == run_id:
+                source_path = _path
+                break
+
+        if source_path is None:
+            # Also check _run_id_to_path (in case still active)
+            if run_id in self._run_id_to_path:
+                raise ValueError("not_retryable")
+            return None  # unknown run_id
+
+        current_count = self._retry_counts.get(source_path, 0)
+        if current_count >= MAX_INGEST_RETRIES:
+            raise ValueError("max_retries_exceeded")
+
+        new_count = current_count + 1
+        self._retry_counts[source_path] = new_count
+        self._recent_failed.pop(source_path, None)
+
+        # Re-dispatch via the watcher _arm seam
+        if self._watcher_handler is not None:
+            self._watcher_handler._arm(source_path, "ingest")
+            logger.info(
+                "queue: retry dispatched run_id=%s path=%s retry_count=%d",
+                run_id,
+                source_path,
+                new_count,
+            )
+        else:
+            # Watcher not yet attached (test environment or early startup)
+            logger.warning(
+                "queue: retry — watcher handler not set; cannot re-dispatch path=%s",
+                source_path,
+            )
+
+        return source_path, new_count
+
+    def get_retry_count(self, source_path: str) -> int:
+        """Return the current retry count for a source_path (0 if absent)."""
+        return self._retry_counts.get(source_path, 0)
+
+    # ── Pause / resume ─────────────────────────────────────────────────────────
+
+    def pause(self) -> None:
+        """Pause dispatch — new FS events are parked in _pending (ADR-0046 §4)."""
+        if not self._paused:
+            self._paused = True
+            logger.info("queue: paused")
+
+    def resume(self) -> int:
+        """
+        Resume dispatch — drain _pending by calling the watcher's _arm seam
+        (ADR-0046 §4). Returns the number of pending entries replayed.
+        """
+        if self._paused:
+            self._paused = False
+        pending = dict(self._pending)
+        self._pending.clear()
+        count = 0
+        for _path, entry in pending.items():
+            if self._watcher_handler is not None:
+                self._watcher_handler._arm(entry.source_path, entry.action)
+                count += 1
+            else:
+                logger.warning(
+                    "queue: resume — watcher handler not set; cannot replay path=%s",
+                    entry.source_path,
+                )
+        if count:
+            logger.info("queue: resumed, replayed %d pending entries", count)
+        return count
+
+    # ── Admit / suppress ───────────────────────────────────────────────────────
+
+    def admit(self, path: str, action: str) -> bool:
+        """
+        Called from watcher._fire() before dispatching an event (ADR-0046 §4).
+
+        Returns True  → proceed with dispatch (queue is not paused).
+        Returns False → path is parked in _pending; watcher must NOT dispatch.
+        """
+        if not self._paused:
+            return True
+        # Paused: park the event; last-writer-wins on duplicate paths.
+        self._pending[path] = PendingEntry(source_path=path, action=action)
+        logger.debug("queue: admit parked (paused) path=%s action=%s", path, action)
+        return False
+
+    def should_skip(self, path: str) -> bool:
+        """
+        Return True if *path* is in the cancel-suppression window (ADR-0046 §3).
+
+        The watcher's _fire() checks this BEFORE dispatching. If True, the event
+        is dropped silently; the suppression entry is also cleared since it fired.
+        """
+        deadline = self._suppress.get(path)
+        if deadline is None:
+            return False
+        now = time.monotonic()
+        if now < deadline:
+            logger.debug("queue: suppress hit for path=%s (%.2fs remaining)", path, deadline - now)
+            return True
+        # Window expired — clear and allow
+        self._suppress.pop(path, None)
+        return False
+
+    # ── Snapshot (GET /ingest/queue) ───────────────────────────────────────────
+
+    def snapshot(self) -> dict:
+        """
+        Pure in-memory summary for GET /ingest/queue (ADR-0046 §6, no DB scan).
+
+        task `status` values returned:
+          "processing"  — in _active (running or cancelling)
+          "pending"     — parked in _pending (paused queue)
+          "failed"      — in _recent_failed
+        """
+        tasks: list[dict] = []
+
+        for source_path, handle in self._active.items():
+            display = self._display_path(source_path)
+            filename = Path(source_path).name
+            tasks.append(
+                {
+                    "run_id": str(handle.run_id),
+                    "source_path": display,
+                    "filename": filename,
+                    "status": "processing",
+                    "retry_count": self._retry_counts.get(source_path, 0),
+                    "error": None,
+                    "started_at": handle.started_at.isoformat(),
+                }
+            )
+
+        for source_path, entry in self._pending.items():
+            display = self._display_path(source_path)
+            filename = Path(source_path).name
+            tasks.append(
+                {
+                    "run_id": None,
+                    "source_path": display,
+                    "filename": filename,
+                    "status": "pending",
+                    "retry_count": self._retry_counts.get(source_path, 0),
+                    "error": None,
+                    "started_at": None,
+                }
+            )
+
+        for source_path, entry in self._recent_failed.items():
+            display = self._display_path(source_path)
+            filename = Path(source_path).name
+            tasks.append(
+                {
+                    "run_id": str(entry.run_id),
+                    "source_path": display,
+                    "filename": filename,
+                    "status": "failed",
+                    "retry_count": entry.retry_count,
+                    "error": entry.error,
+                    "started_at": entry.started_at.isoformat() if entry.started_at else None,
+                }
+            )
+
+        return {
+            "paused": self._paused,
+            "pending": len(self._pending),
+            "processing": len(self._active),
+            "failed": len(self._recent_failed),
+            "completed_since_idle": self._completed_since_idle,
+            "total": len(self._pending) + len(self._active) + len(self._recent_failed),
+            "tasks": tasks,
+        }
+
+    # ── Utilities ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _display_path(abs_path: str) -> str:
+        """
+        Convert an absolute internal path to a clean relative display form for the UI.
+
+        Internal keys are always absolute (ADR-0046 path-normalization fix). The UI
+        subtitle must show a readable ``raw/sources/...`` form, not ``/vault/raw/...``.
+
+        Strategy: find the ``raw/sources/`` marker and take the suffix; fall back to
+        ``Path(p).name`` if the marker is absent (e.g. a non-standard path).
+        """
+        marker = "raw/sources/"
+        idx = abs_path.find(marker)
+        if idx != -1:
+            return abs_path[idx:]
+        return Path(abs_path).name
+
+    def find_failed_by_run_id(self, run_id: uuid.UUID) -> FailedEntry | None:
+        """Look up a FailedEntry by its run_id (O(n) scan; list is short)."""
+        for entry in self._recent_failed.values():
+            if entry.run_id == run_id:
+                return entry
+        return None
+
+    def is_run_active(self, run_id: uuid.UUID) -> bool:
+        """Return True if run_id is currently in _active."""
+        return run_id in self._run_id_to_path
+
+
+# ── Module-level singleton ─────────────────────────────────────────────────────
+
+ingest_queue: IngestQueueManager = IngestQueueManager()

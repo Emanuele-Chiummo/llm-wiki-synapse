@@ -707,6 +707,28 @@ class IngestRun(Base):
         ),
     )
 
+    # ── v0.6 queue fields (ADR-0046, migration 0021) ──────────────────────────
+
+    source_path: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Relative raw source path (raw/sources/…) the run is ingesting. "
+            "NULL for historical rows written before migration 0021 (ADR-0046 §1)."
+        ),
+    )
+
+    retry_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sa_text("0"),
+        comment=(
+            "Times this source has been retried. Enforces MAX_INGEST_RETRIES=3 (I7, ADR-0046 §5). "
+            "Incremented by the queue manager on each re-dispatch; 0 for the initial attempt."
+        ),
+    )
+
     def __repr__(self) -> str:
         return (
             f"<IngestRun provider={self.provider_name!r} route={self.route!r} "

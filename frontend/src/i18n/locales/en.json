@@ -611,6 +611,26 @@
     "body": "Configure an AI provider in Settings before using chat or ingest.",
     "cta": "Open Settings"
   },
+  "activity": {
+    "queueStatus": "Queue",
+    "processing": "Processing",
+    "pending": "Pending",
+    "failed": "Failed",
+    "paused": "Paused",
+    "pauseQueue": "Pause",
+    "resumeQueue": "Resume",
+    "cancelAll": "Cancel all",
+    "cancelAllConfirm": "Cancel all active and pending tasks?",
+    "retryFailed": "Retry failed",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "cancelling": "Cancelling…",
+    "maxRetriesReached": "Max retries reached",
+    "completedCount": "{{completed}}/{{total}}",
+    "expand": "Expand activity panel",
+    "collapse": "Collapse activity panel",
+    "emptyQueue": "Queue is empty"
+  },
   "common": {
     "loading": "Loading…",
     "retry": "Retry",

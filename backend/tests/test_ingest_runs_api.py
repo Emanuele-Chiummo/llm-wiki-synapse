@@ -95,7 +95,7 @@ def _build_sqlite_meta() -> MetaData:
         Column("updated_at", Text, nullable=False),
     )
 
-    # Full ingest_runs table including migration 0006 columns
+    # Full ingest_runs table including migration 0006 + 0021 columns
     Table(
         "ingest_runs",
         meta,
@@ -117,6 +117,9 @@ def _build_sqlite_meta() -> MetaData:
         Column("status", Text, nullable=False, server_default=sa_text("'completed'")),
         Column("pages_created", Integer, nullable=False, default=0),
         Column("error_message", Text, nullable=True),
+        # migration 0021 fields (ADR-0046)
+        Column("source_path", Text, nullable=True),
+        Column("retry_count", Integer, nullable=False, server_default=sa_text("0")),
     )
 
     return meta

@@ -127,26 +127,64 @@ class _Row:
 
 @pytest.fixture()
 def _patch_persistence(monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
-    """Stub out all I/O so routing can be tested infra-free."""
+    """Stub out all I/O so routing can be tested infra-free (ADR-0046: uses open/finalize)."""
+    import asyncio as _asyncio
+    import uuid as _uuid
+
     written: list = []
     runs: list = []
 
+    import uuid as _uuid
+
     async def fake_write_wiki_page(session, page, origin):  # type: ignore[no-untyped-def]
         written.append(page)
-        return page
+        # Return a stub with .id so record_written() doesn't fail (ADR-0046)
+        class _PageStub:
+            id = _uuid.uuid4()
+        return _PageStub()
 
     async def fake_update_overview(analysis, origin):  # type: ignore[no-untyped-def]
         return None
 
-    async def fake_write_ingest_run(**kwargs):  # type: ignore[no-untyped-def]
+    async def fake_open_ingest_run(**kwargs):  # type: ignore[no-untyped-def]
+        return _uuid.uuid4()
+
+    async def fake_finalize_ingest_run(**kwargs):  # type: ignore[no-untyped-def]
         runs.append(kwargs)
 
     def fake_vault_context() -> str:
         return ""
 
+    # Patch queue_manager.open_run / finalize to avoid asyncio.Event needing a loop
+    from app.ingest.queue_manager import IngestQueueManager
+
+    class _FakeHandle:
+        run_id = _uuid.uuid4()
+        source_path = "raw/sources/x.md"
+        cancel_event = _asyncio.Event()
+        written_page_ids: list = []
+        status = "running"
+
+    fake_queue = IngestQueueManager.__new__(IngestQueueManager)
+    fake_queue._active = {}  # type: ignore[attr-defined]
+    fake_queue._run_id_to_path = {}  # type: ignore[attr-defined]
+    fake_queue._pending = {}  # type: ignore[attr-defined]
+    fake_queue._retry_counts = {}  # type: ignore[attr-defined]
+    fake_queue._recent_failed = {}  # type: ignore[attr-defined]
+    fake_queue._paused = False  # type: ignore[attr-defined]
+    fake_queue._completed_since_idle = 0  # type: ignore[attr-defined]
+    fake_queue._suppress = {}  # type: ignore[attr-defined]
+    fake_queue._watcher_handler = None  # type: ignore[attr-defined]
+    fake_queue.open_run = lambda run_id, source_path: _FakeHandle()  # type: ignore[attr-defined]
+    fake_queue.finalize = lambda *a, **kw: None  # type: ignore[attr-defined]
+    fake_queue.get_retry_count = lambda path: 0  # type: ignore[attr-defined]
+    fake_queue.record_written = lambda *a, **kw: None  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(orch, "ingest_queue", fake_queue)
     monkeypatch.setattr(orch, "write_wiki_page", fake_write_wiki_page)
     monkeypatch.setattr(orch, "_update_overview", fake_update_overview)
-    monkeypatch.setattr(orch, "_write_ingest_run", fake_write_ingest_run)
+    monkeypatch.setattr(orch, "_open_ingest_run", fake_open_ingest_run)
+    monkeypatch.setattr(orch, "_finalize_ingest_run", fake_finalize_ingest_run)
     monkeypatch.setattr(orch, "_load_vault_context", fake_vault_context)
     return {"written": written, "runs": runs}
 

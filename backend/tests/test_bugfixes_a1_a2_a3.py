@@ -198,32 +198,69 @@ def test_derive_run_status_failed_takes_precedence() -> None:
     assert _derive_run_status(converged=False, error_message="boom") == "failed"
 
 
-@pytest.mark.asyncio
-async def test_write_ingest_run_persists_pages_and_status(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """_write_ingest_run must build an IngestRun with pages_created/status/error_message set."""
-    from datetime import UTC, datetime
+def _make_finalize_test_helpers() -> tuple:
+    """
+    Return (FakeSession class, captured dict) for _finalize_ingest_run tests.
 
-    import app.ingest.orchestrator as orch
-
+    _finalize_ingest_run uses sa_update(...).values(...) which is a compiled
+    SQLAlchemy UPDATE statement.  We intercept it via a fake execute() that
+    calls _finalize_ingest_run directly with captured kwargs instead.
+    """
+    # The simplest way: monkey-patch _derive_run_status indirectly by calling
+    # _finalize_ingest_run with a patched get_session that records the values dict
+    # from the Update statement.  SQLAlchemy stores .values as BindParameter objects;
+    # strip the table prefix from the key name.
     captured: dict[str, Any] = {}
 
+    class _FakeCursor:
+        def fetchall(self) -> list:
+            return []
+
     class _FakeSession:
-        async def __aenter__(self) -> _FakeSession:
+        async def __aenter__(self) -> "_FakeSession":
             return self
 
         async def __aexit__(self, *exc: object) -> None:
             return None
 
-        def add(self, obj: Any) -> None:
-            captured["run"] = obj
+        async def execute(self, stmt: Any) -> _FakeCursor:
+            # Extract .values from the SQLAlchemy Update statement.
+            # Keys are Column objects or BindParameter; call .key on them
+            # (Column has .key; BindParameter has .key too).
+            if hasattr(stmt, "_values"):
+                for col, bind in stmt._values.items():
+                    # col can be a Column (col.key = column name) or a string
+                    col_name = getattr(col, "key", str(col))
+                    # Strip table prefix e.g. "ingest_runs.status" → "status"
+                    if "." in col_name:
+                        col_name = col_name.split(".")[-1]
+                    # bind can be a BindParameter (has .value) or a plain value
+                    val = getattr(bind, "value", bind)
+                    captured[col_name] = val
+            return _FakeCursor()
 
+    return _FakeSession, captured
+
+
+@pytest.mark.asyncio
+async def test_write_ingest_run_persists_pages_and_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    _finalize_ingest_run (ADR-0046, replaces _write_ingest_run) must persist
+    pages_created / status / error_message from the real run outcome.
+    """
+    import uuid as _uuid
+    from datetime import UTC, datetime
+
+    import app.ingest.orchestrator as orch
+
+    _FakeSession, captured = _make_finalize_test_helpers()
     monkeypatch.setattr(orch, "get_session", lambda: _FakeSession())
 
     now = datetime.now(UTC)
-    await orch._write_ingest_run(
-        page_id=None,
+    await orch._finalize_ingest_run(
+        run_id=_uuid.uuid4(),
         provider_name="OllamaProvider",
         provider_type="local",
         model_id="m",
@@ -233,40 +270,28 @@ async def test_write_ingest_run_persists_pages_and_status(
         total_cost_usd=0.0,
         converged=True,
         cost_anomaly=False,
-        started_at=now,
         finished_at=now,
         pages_created=4,
     )
 
-    run = captured["run"]
-    assert run.pages_created == 4
-    assert run.status == "completed"
-    assert run.error_message is None
+    assert captured.get("pages_created") == 4, f"captured={captured}"
+    assert captured.get("status") == "completed", f"captured={captured}"
+    assert captured.get("error_message") is None, f"captured={captured}"
 
 
 @pytest.mark.asyncio
 async def test_write_ingest_run_records_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    import uuid as _uuid
     from datetime import UTC, datetime
 
     import app.ingest.orchestrator as orch
 
-    captured: dict[str, Any] = {}
-
-    class _FakeSession:
-        async def __aenter__(self) -> _FakeSession:
-            return self
-
-        async def __aexit__(self, *exc: object) -> None:
-            return None
-
-        def add(self, obj: Any) -> None:
-            captured["run"] = obj
-
+    _FakeSession, captured = _make_finalize_test_helpers()
     monkeypatch.setattr(orch, "get_session", lambda: _FakeSession())
 
     now = datetime.now(UTC)
-    await orch._write_ingest_run(
-        page_id=None,
+    await orch._finalize_ingest_run(
+        run_id=_uuid.uuid4(),
         provider_name="ApiProvider",
         provider_type="api",
         model_id="m",
@@ -276,50 +301,37 @@ async def test_write_ingest_run_records_failure(monkeypatch: pytest.MonkeyPatch)
         total_cost_usd=0.0,
         converged=False,
         cost_anomaly=False,
-        started_at=now,
         finished_at=now,
         pages_created=0,
         error_message="connection reset",
     )
 
-    run = captured["run"]
-    assert run.status == "failed"
-    assert run.error_message == "connection reset"
-    assert run.pages_created == 0
+    assert captured.get("status") == "failed", f"captured={captured}"
+    assert captured.get("error_message") == "connection reset", f"captured={captured}"
+    assert captured.get("pages_created") == 0, f"captured={captured}"
 
 
 @pytest.mark.asyncio
 async def test_write_ingest_run_records_converged_false(monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    _write_ingest_run with converged=False + no error_message must persist status='converged_false'.
+    _finalize_ingest_run (ADR-0046, replaces _write_ingest_run) with converged=False +
+    no error_message must persist status='converged_false'.
 
     This is the non-convergence path: the loop ran but never produced a valid batch
     (max_iter / token_budget exhausted). It is distinct from both "completed" (converged=True)
-    and "failed" (error_message set). Previously untested as an integration path through
-    _write_ingest_run (the unit test for _derive_run_status covered the pure function;
-    this test closes the gap for the full persist path — A2 / ADR-0018 §7).
+    and "failed" (error_message set). (A2 / ADR-0018 §7)
     """
+    import uuid as _uuid
     from datetime import UTC, datetime
 
     import app.ingest.orchestrator as orch
 
-    captured: dict[str, Any] = {}
-
-    class _FakeSession:
-        async def __aenter__(self) -> _FakeSession:
-            return self
-
-        async def __aexit__(self, *exc: object) -> None:
-            return None
-
-        def add(self, obj: Any) -> None:
-            captured["run"] = obj
-
+    _FakeSession, captured = _make_finalize_test_helpers()
     monkeypatch.setattr(orch, "get_session", lambda: _FakeSession())
 
     now = datetime.now(UTC)
-    await orch._write_ingest_run(
-        page_id=None,
+    await orch._finalize_ingest_run(
+        run_id=_uuid.uuid4(),
         provider_name="OllamaProvider",
         provider_type="local",
         model_id="m",
@@ -329,21 +341,18 @@ async def test_write_ingest_run_records_converged_false(monkeypatch: pytest.Monk
         total_cost_usd=0.0,
         converged=False,
         cost_anomaly=False,
-        started_at=now,
         finished_at=now,
         pages_created=0,
         # error_message deliberately absent (None) — non-convergence, not a failure
     )
 
-    run = captured["run"]
-    assert (
-        run.status == "converged_false"
-    ), f"Non-converged run must get status='converged_false'; got {run.status!r}"
-    assert (
-        run.error_message is None
-    ), f"Non-converged run must NOT have error_message set; got {run.error_message!r}"
-    assert run.pages_created == 0
-    assert run.converged is False
+    assert captured.get("status") == "converged_false", (
+        f"Non-converged run must get status='converged_false'; captured={captured}"
+    )
+    assert captured.get("error_message") is None, (
+        f"Non-converged run must NOT have error_message set; captured={captured}"
+    )
+    assert captured.get("pages_created") == 0, f"captured={captured}"
 
 
 # ── A3: citation marker prompt ───────────────────────────────────────────────────

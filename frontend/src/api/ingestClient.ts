@@ -8,8 +8,24 @@
  * No provider/model literals hardcoded (I6).
  */
 
-import type { IngestRunListResponse, UploadResponse } from "./types";
+import type {
+  IngestRunListResponse,
+  UploadResponse,
+  IngestQueueSnapshot,
+  CancelRunResponse,
+  RetryRunResponse,
+  PauseQueueResponse,
+  ResumeQueueResponse,
+} from "./types";
 import { ApiError } from "./graphClient";
+
+/** Sentinel error thrown when retry is refused because retry_count >= 3 */
+export class MaxRetriesExceededError extends Error {
+  constructor() {
+    super("max_retries_exceeded");
+    this.name = "MaxRetriesExceededError";
+  }
+}
 
 const API_BASE: string =
   (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
@@ -60,6 +76,87 @@ export async function triggerIngest(
     ...(signal !== undefined ? { signal } : {}),
   });
   await checkResponse(res);
+}
+
+// ─── Live ingest queue endpoints (Activity Panel, F1) ─────────────────────────
+
+/**
+ * Fetch the live ingest queue snapshot.
+ * GET /ingest/queue
+ */
+export async function getIngestQueue(signal?: AbortSignal): Promise<IngestQueueSnapshot> {
+  const url = `${API_BASE}/ingest/queue`;
+  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as IngestQueueSnapshot;
+}
+
+/**
+ * Cancel an active ingest run.
+ * POST /ingest/runs/{id}/cancel
+ * Returns 202 Accepted; 404 if unknown; 409 if already terminal.
+ */
+export async function cancelIngestRun(
+  id: string,
+  signal?: AbortSignal,
+): Promise<CancelRunResponse> {
+  const url = `${API_BASE}/ingest/runs/${encodeURIComponent(id)}/cancel`;
+  const res = await fetch(url, {
+    method: "POST",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as CancelRunResponse;
+}
+
+/**
+ * Retry a failed ingest run.
+ * POST /ingest/runs/{id}/retry
+ * Returns 202 Accepted; 409 with detail:"max_retries_exceeded" when retry_count >= 3; 404 unknown.
+ * Throws MaxRetriesExceededError on 409.
+ */
+export async function retryIngestRun(
+  id: string,
+  signal?: AbortSignal,
+): Promise<RetryRunResponse> {
+  const url = `${API_BASE}/ingest/runs/${encodeURIComponent(id)}/retry`;
+  const res = await fetch(url, {
+    method: "POST",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  if (res.status === 409) {
+    throw new MaxRetriesExceededError();
+  }
+  await checkResponse(res);
+  return (await res.json()) as RetryRunResponse;
+}
+
+/**
+ * Pause the ingest queue (idempotent).
+ * POST /ingest/queue/pause
+ */
+export async function pauseIngestQueue(signal?: AbortSignal): Promise<PauseQueueResponse> {
+  const url = `${API_BASE}/ingest/queue/pause`;
+  const res = await fetch(url, {
+    method: "POST",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as PauseQueueResponse;
+}
+
+/**
+ * Resume the ingest queue (idempotent).
+ * POST /ingest/queue/resume
+ */
+export async function resumeIngestQueue(signal?: AbortSignal): Promise<ResumeQueueResponse> {
+  const url = `${API_BASE}/ingest/queue/resume`;
+  const res = await fetch(url, {
+    method: "POST",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as ResumeQueueResponse;
 }
 
 /**
