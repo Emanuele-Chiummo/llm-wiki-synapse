@@ -70,6 +70,11 @@ def main() -> None:
         "/clip",
         # F11 Web Clipper runtime config (ADR-0040)
         "/clip/config",
+        # Sources view (nashsu/llm_wiki parity)
+        "/sources",
+        "/sources/content",
+        "/sources/raw",
+        "/sources/derived-pages",
     ]:
         assert required_path in paths, f"Missing path {required_path!r} in openapi.json"
 
@@ -136,8 +141,9 @@ def main() -> None:
         ), f"SECURITY: field {field_name!r} must not appear in ClipConfigStateResponse (ADR-0040)"
 
     print(
-        "Sanity check passed: all 21 required endpoints present (incl. /clip, /clip/config — "
-        "ADR-0038, ADR-0040); embeddings_enabled, http_enabled, remote_write_enabled confirmed "
+        "Sanity check passed: all 25 required endpoints present (incl. /clip, /clip/config — "
+        "ADR-0038, ADR-0040; /sources/* — Sources view); "
+        "embeddings_enabled, http_enabled, remote_write_enabled confirmed "
         "(ADR-0029, ADR-0030); token_source, allow_without_token confirmed in McpInfoResponse + "
         "McpAuthStateResponse (ADR-0033); token_configured, token_source confirmed in "
         "ClipConfigResponse (ADR-0040); no token/hash/salt field exposed (no-leak check PASS)"

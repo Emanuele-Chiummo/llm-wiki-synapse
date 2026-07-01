@@ -6,6 +6,202 @@
     "version": "0.6.0"
   },
   "paths": {
+    "/sources": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "List raw-sources tree",
+        "description": "Recursively lists all files and directories under vault/raw/sources/. Returns SourceEntry objects with path (relative to raw/sources/), name, is_dir, size_bytes, ext (lowercased), mtime (ISO-8601). Read-only (I1). Capped at SOURCES_LIST_MAX=5000 entries (I7); truncated=true if hit. Returns empty list when raw/sources/ does not exist.",
+        "operationId": "list_sources_sources_get",
+        "responses": {
+          "200": {
+            "description": "Directory listing (may be empty or truncated)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcesListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Delete a raw source file and cascade-delete its derived pages",
+        "description": "Deletes the raw source file from disk and cascade-deletes all derived wiki pages (soft-delete pages, remove Qdrant points, clean dead [[wikilinks]], update index.md). Reuses the existing cascade-delete machinery (ops/cascade_delete.py \u2014 F13/ADR-0026). Bumps data_version + notifies GraphCache (I2). path must be relative to vault/raw/sources/ \u2014 resolved via resolve_under_sources(). 404 when path escapes or file is absent. If the source has no derived pages, the raw file is still deleted. To re-ingest: POST /ingest/trigger with {\"file_path\": \"<absolute-or-relative-path>\"}.",
+        "operationId": "delete_source_sources_delete",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Relative path under vault/raw/sources/",
+              "title": "Path"
+            },
+            "description": "Relative path under vault/raw/sources/"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Source deleted; derived pages cascade-deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceDeleteResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source file not found or path outside raw/sources/"
+          },
+          "422": {
+            "description": "Path traversal attempt"
+          }
+        }
+      }
+    },
+    "/sources/content": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Metadata + preview payload for one source file",
+        "description": "Returns metadata and preview payload for a single raw source file. path must be relative to vault/raw/sources/ \u2014 resolved via resolve_under_sources() (ADR-0020 \u00a72.2 traversal guard). 404 if path escapes or file is absent. category: one of text/markdown/image/pdf/document/data/code/av/other. For text/markdown/code/data: includes raw text (capped at SOURCES_TEXT_MAX_CHARS). For pdf/docx/pptx/xlsx: includes extracted text (via ingest/extract.py, F12). For image/av/other: no text, is_text=false (use GET /sources/raw for bytes). ingested + page_ids: derived-page linkage via sources[] JSONB pivot (K6/F13).",
+        "operationId": "source_content_sources_content_get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Relative path under vault/raw/sources/",
+              "title": "Path"
+            },
+            "description": "Relative path under vault/raw/sources/"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File metadata + preview payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceContentResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found or path outside raw/sources/"
+          },
+          "422": {
+            "description": "Path traversal attempt"
+          }
+        }
+      }
+    },
+    "/sources/raw": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Stream raw bytes of a source file for inline preview",
+        "description": "Streams the raw bytes of a source file for inline browser preview (images, PDFs, text). path must be relative to vault/raw/sources/ \u2014 resolved via resolve_under_sources() (ADR-0020 \u00a72.2 traversal guard). 404 if absent/outside. Returns 413 if file exceeds SOURCES_RAW_MAX_BYTES=52428800 bytes (I7). Content-Type derived from extension. Content-Disposition: inline.",
+        "operationId": "source_raw_sources_raw_get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Relative path under vault/raw/sources/",
+              "title": "Path"
+            },
+            "description": "Relative path under vault/raw/sources/"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw file bytes with correct Content-Type",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "description": "File not found or path outside raw/sources/"
+          },
+          "413": {
+            "description": "File exceeds SOURCES_RAW_MAX_BYTES limit"
+          },
+          "422": {
+            "description": "Path traversal attempt"
+          }
+        }
+      }
+    },
+    "/sources/derived-pages": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "List wiki pages derived from a raw source",
+        "description": "Returns the wiki pages whose sources[] JSONB contains the given source path. path must be relative to vault/raw/sources/ \u2014 resolved via resolve_under_sources(). Returns an empty list when no pages are derived from this source. Non-deleted pages only. 404 when path escapes or file is absent.",
+        "operationId": "source_derived_pages_sources_derived_pages_get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Relative path under vault/raw/sources/",
+              "title": "Path"
+            },
+            "description": "Relative path under vault/raw/sources/"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of derived wiki pages (may be empty)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SourceDerivedPage"
+                  },
+                  "title": "Response Source Derived Pages Sources Derived Pages Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source file not found or path outside raw/sources/"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/status": {
       "get": {
         "summary": "Service health + data_version",
@@ -6520,6 +6716,218 @@
           "slug": "homelab-setup",
           "title": "Homelab Setup"
         }
+      },
+      "SourceContentResponse": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ext": {
+            "type": "string",
+            "title": "Ext"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "mtime": {
+            "type": "string",
+            "title": "Mtime"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "is_text": {
+            "type": "boolean",
+            "title": "Is Text"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "ingested": {
+            "type": "boolean",
+            "title": "Ingested"
+          },
+          "page_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Page Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "name",
+          "ext",
+          "size_bytes",
+          "mtime",
+          "category",
+          "is_text",
+          "ingested",
+          "page_ids"
+        ],
+        "title": "SourceContentResponse",
+        "description": "Response for GET /sources/content."
+      },
+      "SourceDeleteResponse": {
+        "properties": {
+          "deleted_source": {
+            "type": "string",
+            "title": "Deleted Source"
+          },
+          "pages_deleted": {
+            "type": "integer",
+            "title": "Pages Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted_source",
+          "pages_deleted"
+        ],
+        "title": "SourceDeleteResponse",
+        "description": "Response for DELETE /sources."
+      },
+      "SourceDerivedPage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "page_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Type"
+          },
+          "file_path": {
+            "type": "string",
+            "title": "File Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "file_path"
+        ],
+        "title": "SourceDerivedPage",
+        "description": "One derived page row for GET /sources/derived-pages and GET /sources/content."
+      },
+      "SourceEntry": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "is_dir": {
+            "type": "boolean",
+            "title": "Is Dir"
+          },
+          "ext": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ext"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "mtime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mtime"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "name",
+          "is_dir"
+        ],
+        "title": "SourceEntry",
+        "description": "One file or directory entry in the sources tree."
+      },
+      "SourcesListResponse": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/SourceEntry"
+            },
+            "type": "array",
+            "title": "Entries"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entries",
+          "total",
+          "truncated"
+        ],
+        "title": "SourcesListResponse",
+        "description": "Response for GET /sources."
       },
       "StatusResponse": {
         "properties": {

@@ -120,6 +120,7 @@ from app.models import (
     VaultState,
 )
 from app.qdrant_client import ensure_collection
+from app.sources import router as sources_router
 from app.upload import resolve_under_sources, safe_source_name
 from app.vault import bootstrap_vault
 from app.watcher import start_watcher, stop_watcher
@@ -934,6 +935,9 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Graph-Cache"],  # so the viewer can read cache hit/miss (ADR-0014)
 )
+
+# ── Sources router (raw-source file browser — nashsu/llm_wiki parity) ────────
+app.include_router(sources_router)
 
 # ── MCP HTTP mount (ADR-0033 §2.4 — always-mount; gate is the sole arbiter) ──
 # Mounted at MCP_MOUNT_PATH — always, regardless of token configuration.
