@@ -1,6 +1,7 @@
 /**
  * Header.tsx — top bar: branding + provider-selector (F17).
  *
+ * Light design: var(--syn-bg) background, var(--syn-border) divider, var(--syn-text) labels.
  * Phase 2 (v0.5): Provider Selector slot wired to real <ProviderSelector/>.
  */
 
@@ -16,8 +17,8 @@ export function Header() {
         alignItems: "center",
         height: 48,
         padding: "0 16px",
-        background: "#161b22",
-        borderBottom: "1px solid #21262d",
+        background: "var(--syn-bg)",
+        borderBottom: "1px solid var(--syn-border)",
         flexShrink: 0,
         gap: 16,
       }}
@@ -38,7 +39,7 @@ export function Header() {
             fontSize: 15,
             fontWeight: 700,
             letterSpacing: "-0.02em",
-            color: "#e6edf3",
+            color: "var(--syn-text)",
           }}
         >
           Synapse
@@ -46,7 +47,7 @@ export function Header() {
         <span
           style={{
             fontSize: 11,
-            color: "#484f58",
+            color: "var(--syn-text-dim)",
             fontWeight: 400,
           }}
         >

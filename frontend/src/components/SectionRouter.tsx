@@ -12,6 +12,9 @@
  *   deep-search → placeholder (M5)
  *   settings    → <SettingsPanel/> (single column)
  *
+ * Light design: var(--syn-bg) content areas, var(--syn-bg-soft) side detail panels,
+ * var(--syn-border) dividers, var(--syn-text-dim) placeholder text.
+ *
  * INVARIANT I2: GraphPanel is reused verbatim — no layout/force code added here.
  * INVARIANT I3: reads only activeSection (scalar) — no unrelated store keys subscribed.
  */
@@ -41,16 +44,16 @@ function ComingSoonPlaceholder({ titleKey, descKey }: { titleKey: string; descKe
         alignItems: "center",
         justifyContent: "center",
         gap: 12,
-        color: "#484f58",
+        color: "var(--syn-text-dim)",
         fontSize: 13,
         userSelect: "none",
       }}
     >
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#30363d" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--syn-border)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"/>
       </svg>
-      <span style={{ fontSize: 14, fontWeight: 600, color: "#30363d" }}>{t(titleKey)}</span>
-      <span style={{ fontSize: 12, color: "#30363d", maxWidth: 280, textAlign: "center" }}>{t(descKey)}</span>
+      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--syn-text-muted)" }}>{t(titleKey)}</span>
+      <span style={{ fontSize: 12, color: "var(--syn-text-dim)", maxWidth: 280, textAlign: "center" }}>{t(descKey)}</span>
     </div>
   );
 }
@@ -82,19 +85,21 @@ export function SectionRouter() {
   if (activeSection === "ingest") {
     return (
       <div
+        className="ingest-section"
         style={{ display: "flex", flex: 1, overflow: "hidden", width: "100%", height: "100%" }}
         data-testid="section-ingest"
       >
-        <div style={{ flex: 1, overflow: "hidden", minWidth: 0, background: "#0d1117" }}>
+        <div style={{ flex: 1, overflow: "hidden", minWidth: 0, background: "var(--syn-bg)" }}>
           <IngestView />
         </div>
         <div
+          className="ingest-section__detail"
           style={{
             width: 320,
             flexShrink: 0,
             overflow: "hidden",
-            background: "#161b22",
-            borderLeft: "1px solid #21262d",
+            background: "var(--syn-bg-soft)",
+            borderLeft: "1px solid var(--syn-border)",
           }}
         >
           <IngestRunDetail />
@@ -106,7 +111,7 @@ export function SectionRouter() {
   if (activeSection === "settings") {
     return (
       <div
-        style={{ flex: 1, overflow: "auto", width: "100%", height: "100%", background: "#0d1117" }}
+        style={{ flex: 1, overflow: "auto", width: "100%", height: "100%", background: "var(--syn-bg)" }}
         data-testid="section-settings"
       >
         <SettingsPanel />
@@ -117,7 +122,7 @@ export function SectionRouter() {
   // M5 placeholder sections
   if (activeSection === "search") {
     return (
-      <div style={{ flex: 1, display: "flex", background: "#0d1117" }} data-testid="section-search">
+      <div style={{ flex: 1, display: "flex", background: "var(--syn-bg)" }} data-testid="section-search">
         <ComingSoonPlaceholder titleKey="nav.search" descKey="nav.comingSoon" />
       </div>
     );
@@ -125,7 +130,7 @@ export function SectionRouter() {
 
   if (activeSection === "lint") {
     return (
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "#0d1117" }} data-testid="section-lint">
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--syn-bg)" }} data-testid="section-lint">
         <LintView />
       </div>
     );
@@ -133,7 +138,7 @@ export function SectionRouter() {
 
   if (activeSection === "review") {
     return (
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "#0d1117" }} data-testid="section-review">
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--syn-bg)" }} data-testid="section-review">
         <ReviewQueueView />
       </div>
     );
@@ -141,7 +146,7 @@ export function SectionRouter() {
 
   if (activeSection === "deep-search") {
     return (
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "#0d1117" }} data-testid="section-deep-search">
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--syn-bg)" }} data-testid="section-deep-search">
         <DeepSearchView />
       </div>
     );

@@ -4,13 +4,20 @@
  * Order (top → bottom):
  *   Logo (branding, non-nav)
  *   Chat · Wiki · Sources · Graph  (TOP_ITEMS)
+ *   [separator]
+ *   Lint · Review · Deep Search    (M5_ITEMS)
  *   [spacer]
  *   Settings  (pinned bottom)
  *
- * CHANGE F1-HARD-M5-PLACEHOLDER: Search, Lint, Review, Deep Search removed from
- * rail entirely (Point B ruling). M5_ITEMS emptied; separator removed.
- * i18n keys nav.search / nav.lint / nav.review / nav.deepSearch / nav.comingSoon
- * are RETAINED in en.json/it.json — do NOT delete them.
+ * Light design (llm_wiki parity):
+ *   - Rail bg: var(--syn-bg-soft); border: var(--syn-border)
+ *   - Inactive icons: var(--syn-text-dim)
+ *   - Active: var(--syn-accent-soft) bg + var(--syn-accent) icon/text
+ *   - Hover: var(--syn-surface-hover) (via theme.css .nav-rail__item:hover)
+ *   - Rounded: var(--syn-radius-md)
+ *
+ * CHANGE F1-HARD-M5-PLACEHOLDER: Search removed from rail (Point B ruling).
+ * i18n keys nav.search / nav.comingSoon retained in en.json/it.json for M5.
  * The Section type in graphStore.ts is UNCHANGED.
  *
  * CHANGE F1-HARD-NAV-LABELS: rail widened to 72px; each button renders the icon
@@ -147,13 +154,14 @@ function Logo() {
       style={{
         width: 32,
         height: 32,
-        borderRadius: 8,
-        background: "linear-gradient(135deg, #1f6feb 0%, #58a6ff 100%)",
+        borderRadius: "var(--syn-radius-md)",
+        background: "linear-gradient(135deg, var(--syn-accent) 0%, color-mix(in srgb, var(--syn-accent) 60%, white 40%) 100%)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         flexShrink: 0,
         margin: "4px 0 8px",
+        boxShadow: "var(--syn-shadow-soft)",
       }}
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -213,8 +221,8 @@ export function NavRail() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        background: "#161b22",
-        borderRight: "1px solid #21262d",
+        background: "var(--syn-bg-soft)",
+        borderRight: "1px solid var(--syn-border)",
         paddingTop: 8,
         paddingBottom: 8,
         gap: 2,
@@ -238,10 +246,10 @@ export function NavRail() {
         ))}
       </div>
 
-      {/* M5 items (Deep Search active; Search/Lint/Review come in subsequent phases) */}
+      {/* M5 items (Lint + Review + Deep Search) */}
       {M5_ITEMS.length > 0 && (
         <>
-          <div style={{ width: 40, height: 1, background: "#21262d", margin: "4px 0 2px" }} />
+          <div style={{ width: 40, height: 1, background: "var(--syn-border)", margin: "4px 0 2px" }} />
           <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center", width: "100%" }}>
             {M5_ITEMS.map((item) => (
               <RailButton
@@ -307,14 +315,15 @@ function RailButton({ item, isActive, badge, label, onClick }: RailButtonProps) 
         width: 64,
         height: 52,
         border: "none",
-        borderRadius: 8,
-        background: isActive ? "#1f2937" : "transparent",
-        color: isActive ? "#e6edf3" : "#6e7681",
+        borderRadius: "var(--syn-radius-md)",
+        // Active: accent-soft bg + accent color; inactive: transparent + dim text
+        background: isActive ? "var(--syn-accent-soft)" : "transparent",
+        color: isActive ? "var(--syn-accent)" : "var(--syn-text-dim)",
         cursor: "pointer",
         padding: "6px 4px 4px",
         gap: 3,
         transition: "background 0.1s ease, color 0.1s ease",
-        outline: isActive ? "1px solid #21262d" : "none",
+        outline: isActive ? `1px solid color-mix(in srgb, var(--syn-accent) 20%, transparent 80%)` : "none",
       }}
     >
       {item.icon}
@@ -345,8 +354,8 @@ function RailButton({ item, isActive, badge, label, onClick }: RailButtonProps) 
             width: 14,
             height: 14,
             borderRadius: "50%",
-            background: "#1f6feb",
-            color: "#e6edf3",
+            background: "var(--syn-accent)",
+            color: "#ffffff",
             fontSize: 9,
             fontWeight: 700,
             display: "flex",
