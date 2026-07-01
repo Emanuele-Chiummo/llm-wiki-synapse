@@ -66,6 +66,11 @@ v0.6-ADR-0040: vault_state.clip_enabled_db + vault_state.clip_access_token +
     vault_state.clip_allowed_origins_db added in Alembic migration 0015 (ADR-0040 §3 —
     runtime configuration for the web clipper ingress; DB wins over CLIP_* env when set).
 
+v0.6-ADR-0041: vault_state.searxng_url_db + vault_state.searxng_categories_db +
+    vault_state.searxng_max_queries_db added in Alembic migration 0016 (ADR-0041 §3 —
+    runtime configuration for the SearXNG web-search backend; DB wins over SEARXNG_URL /
+    DEEP_RESEARCH_* env when set; URL is NOT a secret and IS returned by GET /web-search/config).
+
 Run `make er` to regenerate docs/er/schema.mmd from this file (I8).
 """
 
@@ -355,6 +360,44 @@ class VaultState(Base):
             "Comma-separated Origin allowlist for POST /clip (ADR-0040 §3). "
             "NULL = fall back to CLIP_ALLOWED_ORIGINS env var. "
             "When set, DB value wins over env. Migration 0015."
+        ),
+    )
+
+    # ── ADR-0041: SearXNG web-search runtime configuration ───────────────────────
+    searxng_url_db: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+        comment=(
+            "Runtime SearXNG base URL (ADR-0041 §3). "
+            "NULL = not set in DB; fall back to SEARXNG_URL env var. "
+            "When set, DB value wins over env. "
+            "NOT a secret — returned by GET /web-search/config (no masking). "
+            "Migration 0016."
+        ),
+    )
+
+    searxng_categories_db: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+        comment=(
+            "Comma-separated SearXNG categories (ADR-0041 §3). "
+            "NULL = not set in DB; fall back to env / code defaults. "
+            "When set, DB value wins over env. "
+            "Migration 0016."
+        ),
+    )
+
+    searxng_max_queries_db: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        default=None,
+        comment=(
+            "Max SearXNG queries per deep-research iteration (ADR-0041 §3). "
+            "NULL = not set in DB; fall back to DEEP_RESEARCH_MAX_QUERIES env. "
+            "When set, DB value wins over env. "
+            "Migration 0016."
         ),
     )
 

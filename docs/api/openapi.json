@@ -1987,7 +1987,7 @@
       },
       "put": {
         "summary": "Set, rotate, or clear the clip ingress token + enabled/origins (ADR-0040)",
-        "description": "ADR-0040 \u00a72.4 \u2014 runtime web clipper configuration. rotate_token=true: generate a new token (secrets.token_urlsafe(32)), store it in vault_state.clip_access_token, return plaintext ONCE in generated_token. clear_token=true: set DB token to NULL (falls back to CLIP_TOKEN env or none). set_enabled: set clip_enabled_db (DB wins over CLIP_ENABLED env when set). set_allowed_origins: replace DB origins (empty string \"\" clears to env fallback). Same-origin / unauthenticated \u2014 consistent with PUT /mcp/auth (ADR-0033 \u00a72.5). NEVER returns or stores the token plaintext (except the one-time generated_token). F11-clip-config (ADR-0040).",
+        "description": "ADR-0040 \u00a72.4 \u2014 runtime web clipper configuration. rotate_token=true: generate a new token (secrets.token_urlsafe(32)), store its PBKDF2-SHA256 hash in vault_state.clip_access_token, return plaintext ONCE in generated_token (never stored). clear_token=true: set DB token to NULL (falls back to CLIP_TOKEN env or none). set_enabled: set clip_enabled_db (DB wins over CLIP_ENABLED env when set). set_allowed_origins: replace DB origins (empty string \"\" clears to env fallback). Same-origin / unauthenticated \u2014 consistent with PUT /mcp/auth (ADR-0033 \u00a72.5). NEVER returns or stores the token plaintext (except the one-time generated_token). F11-clip-config (ADR-0040).",
         "operationId": "put_clip_config_clip_config_put",
         "requestBody": {
           "content": {
@@ -2006,6 +2006,62 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ClipConfigStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/web-search/config": {
+      "get": {
+        "summary": "Read-only SearXNG web-search posture (ADR-0041)",
+        "description": "Returns the current SearXNG configuration: configured flag, resolved URL, categories, max_queries, and source (db|env|none). DB value wins over env when set (ADR-0041 \u00a72.2). The URL is NOT a secret and IS returned in full. F10-web-search-config (ADR-0041).",
+        "operationId": "get_web_search_config_web_search_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSearchConfigResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set or clear the SearXNG web-search configuration (ADR-0041)",
+        "description": "ADR-0041 \u00a72.4 \u2014 runtime SearXNG configuration. set_url: set searxng_url_db (validates http/https; DB wins over SEARXNG_URL env). set_categories: set searxng_categories_db (comma-separated; empty string clears). set_max_queries: set searxng_max_queries_db (1\u201350; DB wins over env). clear=true: clear ALL three DB columns (falls back to env / code defaults). I9 invariant: SearXNG is the ONLY web-search backend. No provider field accepted \u2014 any attempt to configure a non-SearXNG provider is rejected. F10-web-search-config (ADR-0041).",
+        "operationId": "put_web_search_config_web_search_config_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebSearchConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSearchConfigStateResponse"
                 }
               }
             }
@@ -2432,7 +2488,7 @@
               }
             ],
             "title": "Rotate Token",
-            "description": "true \u21d2 generate a new high-entropy token (secrets.token_urlsafe(32)), store it in clip_access_token, return plaintext ONCE in generated_token. The plaintext is NEVER returned again after this call."
+            "description": "true \u21d2 generate a new high-entropy token (secrets.token_urlsafe(32)), store its PBKDF2-SHA256 hash in clip_access_token (never the raw value), return plaintext ONCE in generated_token. The plaintext is NEVER stored or returned again after this call."
           },
           "clear_token": {
             "anyOf": [
@@ -2485,7 +2541,7 @@
           "token_configured": {
             "type": "boolean",
             "title": "Token Configured",
-            "description": "True iff a token is available (DB clip_access_token set OR CLIP_TOKEN env set). NEVER contains the token value."
+            "description": "True iff a token is available (DB clip_access_token PBKDF2 hash set OR CLIP_TOKEN env set). NEVER contains the token value."
           },
           "token_source": {
             "type": "string",
@@ -5337,6 +5393,161 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WebSearchConfigRequest": {
+        "properties": {
+          "set_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set Url",
+            "description": "Set the SearXNG base URL in vault_state (DB wins over env). Must be a valid http(s) URL. Set to null to clear the DB URL (falls back to SEARXNG_URL env)."
+          },
+          "set_categories": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set Categories",
+            "description": "Comma-separated SearXNG categories (e.g. 'general,news'). Empty string \"\" clears to default. Omit to leave unchanged."
+          },
+          "set_max_queries": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 50.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set Max Queries",
+            "description": "Max SearXNG queries per deep-research iteration (1\u201350). Omit to leave unchanged."
+          },
+          "clear": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clear",
+            "description": "If true, clear ALL DB overrides (url, categories, max_queries). After clear, all three fall back to env / code defaults. Applied FIRST; then set_* fields are applied."
+          }
+        },
+        "type": "object",
+        "title": "WebSearchConfigRequest",
+        "description": "Request body for PUT /web-search/config (ADR-0041 \u00a72.4).\n\nAll fields are optional; omitting a field leaves that aspect unchanged.\nNo provider field \u2014 SearXNG is the ONLY web-search backend (I9).\nPassing any non-SearXNG provider name is rejected with 422 (I9 guard)."
+      },
+      "WebSearchConfigResponse": {
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "title": "Configured",
+            "description": "True iff a SearXNG URL is available (DB or env). POST /research/start returns 503 when false."
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url",
+            "description": "Resolved SearXNG base URL (DB wins over env; ADR-0041 \u00a72.2). None when neither DB nor env is set. NOT a secret \u2014 returned in full (unlike clip/mcp tokens)."
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories",
+            "description": "Resolved SearXNG categories list (DB wins over env/default; ADR-0041 \u00a72.2). Empty list when neither DB nor env sets this \u2014 SearXNG uses its own default."
+          },
+          "max_queries": {
+            "type": "integer",
+            "title": "Max Queries",
+            "description": "Resolved max SearXNG queries per deep-research iteration (DB wins over DEEP_RESEARCH_MAX_QUERIES env; ADR-0041 \u00a72.2)."
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "\"db\" | \"env\" | \"none\" \u2014 which URL source is authoritative (ADR-0041 \u00a72.2). \"db\": URL set via PUT /web-search/config. \"env\": SEARXNG_URL env var. \"none\": no URL configured."
+          }
+        },
+        "type": "object",
+        "required": [
+          "configured",
+          "url",
+          "categories",
+          "max_queries",
+          "source"
+        ],
+        "title": "WebSearchConfigResponse",
+        "description": "Response model for GET /web-search/config (ADR-0041 \u00a72.3).\n\nThe SearXNG URL is NOT a secret \u2014 it IS returned (unlike the clip token).\nsource values: \"db\" | \"env\" | \"none\"."
+      },
+      "WebSearchConfigStateResponse": {
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "title": "Configured",
+            "description": "True iff a SearXNG URL is now available."
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url",
+            "description": "Resolved SearXNG URL post-write (not a secret)."
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories",
+            "description": "Resolved categories list post-write."
+          },
+          "max_queries": {
+            "type": "integer",
+            "title": "Max Queries",
+            "description": "Resolved max_queries post-write."
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "\"db\" | \"env\" | \"none\" \u2014 URL source post-write."
+          }
+        },
+        "type": "object",
+        "required": [
+          "configured",
+          "url",
+          "categories",
+          "max_queries",
+          "source"
+        ],
+        "title": "WebSearchConfigStateResponse",
+        "description": "Response body for PUT /web-search/config (ADR-0041 \u00a72.4).\n\nAlways reflects post-write posture."
       }
     }
   }

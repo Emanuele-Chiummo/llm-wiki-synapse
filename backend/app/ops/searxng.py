@@ -7,8 +7,13 @@ Test AC-F10-3 performs a static scan of all ops/ .py files and fails if any forb
 third-party search-library names are found (see test_deep_research.py for the guard
 test: test_no_forbidden_search_imports).
 
-Config: base URL from env SEARXNG_URL only (settings.searxng_url).
+Config: base URL from runtime config cache (ADR-0041) or env SEARXNG_URL fallback.
 No API key. No fallback engine — a SearXNG failure degrades to fewer/zero hits, logged.
+
+URL resolution precedence (ADR-0041 §2.2):
+  1. DB vault_state.searxng_url_db (if set via PUT /web-search/config) — wins.
+  2. SEARXNG_URL env var (settings.searxng_url) — fallback.
+  3. None — not configured; search returns []; POST /research/start returns 503.
 """
 
 from __future__ import annotations
@@ -31,6 +36,29 @@ CONCURRENCY: int = 3
 _semaphore: asyncio.Semaphore = asyncio.Semaphore(CONCURRENCY)
 
 
+def _resolve_searxng_url() -> str | None:
+    """
+    Resolve the active SearXNG base URL with DB-over-env precedence (ADR-0041 §2.2).
+
+    Precedence:
+      1. DB vault_state.searxng_url_db (if set) — from _web_search_config_cache.
+      2. SEARXNG_URL env var (settings.searxng_url) — fallback.
+      3. None — neither configured.
+
+    The import of _web_search_config_cache from app.main is deferred to avoid a
+    circular import (main → ops/searxng → main). It is lazy-safe: if the cache
+    singleton does not yet exist (e.g., tests that do not start the lifespan), the
+    ImportError is caught and we fall back to the env var.
+    """
+    try:
+        from app.main import _web_search_config_cache  # noqa: PLC0415
+
+        return _web_search_config_cache.resolved_url()
+    except (ImportError, AttributeError):
+        # Fall back to env if main has not been imported (e.g., isolated unit tests).
+        return settings.searxng_url
+
+
 class SearchHit(BaseModel):
     """One result from SearXNG (ADR-0024 §4)."""
 
@@ -42,12 +70,12 @@ class SearchHit(BaseModel):
 
 async def searxng_search(query: str, *, max_results: int = 10) -> list[SearchHit]:
     """
-    ONE SearXNG query → JSON results. Base URL from env SEARXNG_URL ONLY (I9).
+    ONE SearXNG query → JSON results. URL resolved via ADR-0041 precedence (I9).
 
     Calls GET {SEARXNG_URL}/search?q=<query>&format=json (SearXNG JSON API, R8).
     No API key. On non-200 → [] (logged), never an alternative backend.
     """
-    base_url = settings.searxng_url
+    base_url = _resolve_searxng_url()
     if not base_url:
         logger.warning("searxng_search: SEARXNG_URL is not set — returning empty results (I9)")
         return []

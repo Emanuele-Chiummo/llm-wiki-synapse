@@ -47,6 +47,8 @@ Endpoints:
   GET  /clip/config                — read-only clip ingress posture (ADR-0040)
   PUT  /clip/config                — set/rotate/clear clip token + enabled/origins (ADR-0040)
   POST /clip                       — Chrome MV3 web clipper ingress; secure; 202 (F11, ADR-0038)
+  GET  /web-search/config          — read-only SearXNG web-search posture (ADR-0041)
+  PUT  /web-search/config          — set/clear SearXNG URL + categories + max_queries (ADR-0041)
 
 Startup sequence (ordered, per v0.1-architecture §2.5):
   1. Vault skeleton bootstrap (vault.py) — AC-K7-1, I5
@@ -518,6 +520,106 @@ class _ClipConfigCache:
 # Module-level singleton — initialised in lifespan.
 _clip_config_cache: _ClipConfigCache = _ClipConfigCache()
 
+
+class _WebSearchConfigCache:
+    """
+    In-process cache for vault_state SearXNG runtime config columns (ADR-0041 §3).
+
+    Loaded from vault_state at startup; refreshed on PUT /web-search/config writes.
+    All handlers read resolved values O(1) per request (no DB round-trip).
+    Precedence (DB wins when set, else env fallback — ADR-0041 §2.2):
+      searxng_url:        DB searxng_url_db (if not None) else SEARXNG_URL env
+      searxng_categories: DB searxng_categories_db (if not None) else env/code default
+      searxng_max_queries: DB searxng_max_queries_db (if not None) else
+                          DEEP_RESEARCH_MAX_QUERIES env
+
+    KEY DIFFERENCE FROM CLIP: The SearXNG URL is NOT a secret.
+      - It IS returned by GET /web-search/config (no masking, no token_configured pattern).
+      - No PBKDF2, no one-time-reveal, no hash storage.
+      - DB value is plain text; same blast-radius as the .env file.
+    """
+
+    def __init__(self) -> None:
+        self._url_db: str | None = None  # None = fall back to SEARXNG_URL env
+        self._categories_db: str | None = None  # None = fall back to code default
+        self._max_queries_db: int | None = None  # None = fall back to env
+        self._lock: asyncio.Lock = asyncio.Lock()
+
+    # ── Resolved accessors (apply env fallback) ──────────────────────────────
+
+    def resolved_url(self) -> str | None:
+        """Return DB searxng_url_db if set, else settings.searxng_url (env)."""
+        if self._url_db is not None:
+            return self._url_db
+        return settings.searxng_url
+
+    def resolved_categories(self) -> list[str]:
+        """Return DB categories list if set, else empty list (caller decides default)."""
+        if self._categories_db is not None:
+            return [c.strip() for c in self._categories_db.split(",") if c.strip()]
+        return []
+
+    def resolved_max_queries(self) -> int:
+        """Return DB max_queries if set, else settings.deep_research_max_queries (env)."""
+        if self._max_queries_db is not None:
+            return self._max_queries_db
+        return settings.deep_research_max_queries
+
+    # ── Source helpers ────────────────────────────────────────────────────────
+
+    def url_source(self) -> str:
+        """'db' | 'env' | 'none' — which URL source is authoritative."""
+        if self._url_db is not None:
+            return "db"
+        if settings.searxng_url:
+            return "env"
+        return "none"
+
+    def configured(self) -> bool:
+        """True iff a SearXNG URL is available (DB or env)."""
+        return self.resolved_url() is not None
+
+    def categories_source(self) -> str:
+        """'db' | 'default' — which categories source is authoritative."""
+        return "db" if self._categories_db is not None else "default"
+
+    def max_queries_source(self) -> str:
+        """'db' | 'env' — which max_queries source is authoritative."""
+        return "db" if self._max_queries_db is not None else "env"
+
+    # ── Cache management ──────────────────────────────────────────────────────
+
+    async def load(
+        self,
+        url_db: str | None,
+        categories_db: str | None,
+        max_queries_db: int | None,
+    ) -> None:
+        """Load from DB at startup (or full reload)."""
+        async with self._lock:
+            self._url_db = url_db
+            self._categories_db = categories_db
+            self._max_queries_db = max_queries_db
+
+    async def set_url_db(self, value: str | None) -> None:
+        """Update cached url_db after DB write."""
+        async with self._lock:
+            self._url_db = value
+
+    async def set_categories_db(self, value: str | None) -> None:
+        """Update cached categories_db after DB write."""
+        async with self._lock:
+            self._categories_db = value
+
+    async def set_max_queries_db(self, value: int | None) -> None:
+        """Update cached max_queries_db after DB write."""
+        async with self._lock:
+            self._max_queries_db = value
+
+
+# Module-level singleton — initialised in lifespan.
+_web_search_config_cache: _WebSearchConfigCache = _WebSearchConfigCache()
+
 # ── MCP HTTP surface (ADR-0033 §2.4 — always-mount) ──────────────────────────
 # Built unconditionally at module load (ADR-0033 §2.4: mount condition is no longer
 # "token set"). The _McpGate middleware is the sole per-request arbiter.
@@ -719,11 +821,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 1. Vault skeleton (K1, I5, AC-K7-1)
     bootstrap_vault()
 
-    # 2. Seed vault_state (ADR-0005, AC-F16dv-1) + load runtime caches (ADR-0032/0033/0040)
+    # 2. Seed vault_state (ADR-0005, AC-F16dv-1) + load runtime caches (ADR-0032/0033/0040/0041)
     await _seed_vault_state()
     await _load_remote_mcp_flag()
     await _load_mcp_auth_cache()
     await _load_clip_config_cache()
+    await _load_web_search_config_cache()
 
     # 3. Validate EMBEDDING_DIM vs live bge-m3 + ensure collection (ADR-0004).
     #    Skipped when EMBEDDINGS_ENABLED=false (ADR-0030 §2.5) so the app boots
@@ -3748,13 +3851,15 @@ async def research_start(body: ResearchStartRequest) -> ResearchStartResponse:
     3. Schedule run_deep_research(...) as asyncio background task.
     4. Return 202 {run_id} immediately.
     """
-    # ── I9: SEARXNG_URL required before creating a run row (ADR-0024 §8.1) ────
-    if not settings.searxng_url:
+    # ── I9: SearXNG URL required before creating a run row (ADR-0024 §8.1, ADR-0041) ────
+    # Resolution: DB vault_state.searxng_url_db wins over SEARXNG_URL env (ADR-0041 §2.2).
+    if not _web_search_config_cache.configured():
         raise HTTPException(
             status_code=503,
             detail=(
-                "SEARXNG_URL is not configured. Set SEARXNG_URL to the SearXNG instance "
-                "base URL (e.g. http://searxng:8080) to enable deep research (I9)."
+                "SEARXNG_URL is not configured. Set SEARXNG_URL env var or use "
+                "PUT /web-search/config to set the SearXNG instance URL at runtime "
+                "(e.g. http://searxng:8080) to enable deep research (I9, ADR-0041)."
             ),
         )
 
@@ -5074,6 +5179,241 @@ async def put_clip_config(body: ClipConfigRequest) -> ClipConfigStateResponse:
     )
 
 
+# ── GET /web-search/config — read-only SearXNG posture (ADR-0041) ─────────────
+
+
+class WebSearchConfigResponse(BaseModel):
+    """
+    Response model for GET /web-search/config (ADR-0041 §2.3).
+
+    The SearXNG URL is NOT a secret — it IS returned (unlike the clip token).
+    source values: "db" | "env" | "none".
+    """
+
+    configured: bool = Field(
+        description=(
+            "True iff a SearXNG URL is available (DB or env). "
+            "POST /research/start returns 503 when false."
+        )
+    )
+    url: str | None = Field(
+        description=(
+            "Resolved SearXNG base URL (DB wins over env; ADR-0041 §2.2). "
+            "None when neither DB nor env is set. "
+            "NOT a secret — returned in full (unlike clip/mcp tokens)."
+        )
+    )
+    categories: list[str] = Field(
+        description=(
+            "Resolved SearXNG categories list (DB wins over env/default; ADR-0041 §2.2). "
+            "Empty list when neither DB nor env sets this — SearXNG uses its own default."
+        )
+    )
+    max_queries: int = Field(
+        description=(
+            "Resolved max SearXNG queries per deep-research iteration "
+            "(DB wins over DEEP_RESEARCH_MAX_QUERIES env; ADR-0041 §2.2)."
+        )
+    )
+    source: str = Field(
+        description=(
+            '"db" | "env" | "none" — which URL source is authoritative (ADR-0041 §2.2). '
+            '"db": URL set via PUT /web-search/config. '
+            '"env": SEARXNG_URL env var. '
+            '"none": no URL configured.'
+        )
+    )
+
+
+@app.get(
+    "/web-search/config",
+    response_model=WebSearchConfigResponse,
+    summary="Read-only SearXNG web-search posture (ADR-0041)",
+    description=(
+        "Returns the current SearXNG configuration: configured flag, resolved URL, "
+        "categories, max_queries, and source (db|env|none). "
+        "DB value wins over env when set (ADR-0041 §2.2). "
+        "The URL is NOT a secret and IS returned in full. "
+        "F10-web-search-config (ADR-0041)."
+    ),
+)
+async def get_web_search_config() -> WebSearchConfigResponse:
+    """
+    GET /web-search/config — read-only SearXNG web-search posture (ADR-0041).
+
+    All values derived from the in-process _web_search_config_cache (loaded from
+    vault_state at startup and refreshed on PUT /web-search/config writes).
+    No DB query on each GET. The URL IS returned (not a secret — ADR-0041 §2.1).
+    """
+    return WebSearchConfigResponse(
+        configured=_web_search_config_cache.configured(),
+        url=_web_search_config_cache.resolved_url(),
+        categories=_web_search_config_cache.resolved_categories(),
+        max_queries=_web_search_config_cache.resolved_max_queries(),
+        source=_web_search_config_cache.url_source(),
+    )
+
+
+# ── PUT /web-search/config — set/clear SearXNG URL + categories + max_queries (ADR-0041) ─
+
+
+class WebSearchConfigRequest(BaseModel):
+    """
+    Request body for PUT /web-search/config (ADR-0041 §2.4).
+
+    All fields are optional; omitting a field leaves that aspect unchanged.
+    No provider field — SearXNG is the ONLY web-search backend (I9).
+    Passing any non-SearXNG provider name is rejected with 422 (I9 guard).
+    """
+
+    set_url: str | None = Field(
+        default=None,
+        description=(
+            "Set the SearXNG base URL in vault_state (DB wins over env). "
+            "Must be a valid http(s) URL. "
+            "Set to null to clear the DB URL (falls back to SEARXNG_URL env)."
+        ),
+    )
+    set_categories: str | None = Field(
+        default=None,
+        description=(
+            "Comma-separated SearXNG categories (e.g. 'general,news'). "
+            'Empty string "" clears to default. '
+            "Omit to leave unchanged."
+        ),
+    )
+    set_max_queries: int | None = Field(
+        default=None,
+        ge=1,
+        le=50,
+        description=(
+            "Max SearXNG queries per deep-research iteration (1–50). " "Omit to leave unchanged."
+        ),
+    )
+    clear: bool | None = Field(
+        default=None,
+        description=(
+            "If true, clear ALL DB overrides (url, categories, max_queries). "
+            "After clear, all three fall back to env / code defaults. "
+            "Applied FIRST; then set_* fields are applied."
+        ),
+    )
+
+
+class WebSearchConfigStateResponse(BaseModel):
+    """
+    Response body for PUT /web-search/config (ADR-0041 §2.4).
+
+    Always reflects post-write posture.
+    """
+
+    configured: bool = Field(description="True iff a SearXNG URL is now available.")
+    url: str | None = Field(description="Resolved SearXNG URL post-write (not a secret).")
+    categories: list[str] = Field(description="Resolved categories list post-write.")
+    max_queries: int = Field(description="Resolved max_queries post-write.")
+    source: str = Field(description='"db" | "env" | "none" — URL source post-write.')
+
+
+@app.put(
+    "/web-search/config",
+    response_model=WebSearchConfigStateResponse,
+    summary="Set or clear the SearXNG web-search configuration (ADR-0041)",
+    description=(
+        "ADR-0041 §2.4 — runtime SearXNG configuration. "
+        "set_url: set searxng_url_db (validates http/https; DB wins over SEARXNG_URL env). "
+        "set_categories: set searxng_categories_db (comma-separated; empty string clears). "
+        "set_max_queries: set searxng_max_queries_db (1–50; DB wins over env). "
+        "clear=true: clear ALL three DB columns (falls back to env / code defaults). "
+        "I9 invariant: SearXNG is the ONLY web-search backend. "
+        "No provider field accepted — any attempt to configure a non-SearXNG provider is rejected. "
+        "F10-web-search-config (ADR-0041)."
+    ),
+)
+async def put_web_search_config(body: WebSearchConfigRequest) -> WebSearchConfigStateResponse:
+    """
+    PUT /web-search/config — runtime SearXNG configuration (ADR-0041 §2.4).
+
+    Applies changes in this order:
+      1. clear=true (if set) → set all three DB columns to NULL.
+      2. set_url (if set) → validate + persist searxng_url_db.
+      3. set_categories (if set) → persist searxng_categories_db (empty = NULL).
+      4. set_max_queries (if set) → persist searxng_max_queries_db.
+      5. Refresh in-process _web_search_config_cache.
+      6. Return WebSearchConfigStateResponse.
+
+    I9: SearXNG is the ONLY web-search backend. No provider routing here.
+    """
+    import re
+
+    def _validate_url(url: str) -> str:
+        """Validate that the URL is a plausible http(s) URL."""
+        url = url.strip()
+        if not re.match(r"^https?://", url, re.IGNORECASE):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Invalid SearXNG URL {url!r}: must start with http:// or https://. "
+                    "SearXNG is the ONLY web-search backend (I9 — ADR-0041)."
+                ),
+            )
+        return url
+
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is None:
+            raise HTTPException(status_code=500, detail="vault_state row not found")
+
+        # 1. clear=true → null all three DB columns
+        if body.clear:
+            state.searxng_url_db = None
+            state.searxng_categories_db = None
+            state.searxng_max_queries_db = None
+
+        # 2. set_url (if provided)
+        if body.set_url is not None:
+            state.searxng_url_db = _validate_url(body.set_url)
+
+        # 3. set_categories (if provided)
+        if body.set_categories is not None:
+            # Empty string → NULL (falls back to default)
+            stripped = body.set_categories.strip()
+            state.searxng_categories_db = stripped if stripped else None
+
+        # 4. set_max_queries (if provided)
+        if body.set_max_queries is not None:
+            state.searxng_max_queries_db = body.set_max_queries
+
+        final_url_db: str | None = state.searxng_url_db
+        final_categories_db: str | None = state.searxng_categories_db
+        final_max_queries_db: int | None = state.searxng_max_queries_db
+
+    # 5. Refresh in-process cache (outside session — DB write committed).
+    await _web_search_config_cache.set_url_db(final_url_db)
+    await _web_search_config_cache.set_categories_db(final_categories_db)
+    await _web_search_config_cache.set_max_queries_db(final_max_queries_db)
+
+    logger.info(
+        "PUT /web-search/config: url_source=%s categories_source=%s "
+        "max_queries_source=%s configured=%s (ADR-0041)",
+        _web_search_config_cache.url_source(),
+        _web_search_config_cache.categories_source(),
+        _web_search_config_cache.max_queries_source(),
+        _web_search_config_cache.configured(),
+    )
+
+    # 6. Return posture.
+    return WebSearchConfigStateResponse(
+        configured=_web_search_config_cache.configured(),
+        url=_web_search_config_cache.resolved_url(),
+        categories=_web_search_config_cache.resolved_categories(),
+        max_queries=_web_search_config_cache.resolved_max_queries(),
+        source=_web_search_config_cache.url_source(),
+    )
+
+
 _CLIP_LOOPBACK_ORIGINS: frozenset[str] = frozenset(
     {
         "http://localhost",
@@ -5543,6 +5883,41 @@ async def _load_clip_config_cache() -> None:
         _clip_config_cache.token_source(),
         _clip_config_cache.origins_source(),
         # NEVER log the token value
+    )
+
+
+async def _load_web_search_config_cache() -> None:
+    """
+    Load vault_state SearXNG runtime config into _web_search_config_cache at startup (ADR-0041 §3).
+
+    Called once in lifespan after _seed_vault_state().  Mirrors the _load_clip_config_cache
+    pattern: DB is source of truth; in-process cache is O(1) per request.
+    The URL is NOT a secret and IS logged here (unlike the clip token).
+    """
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is not None:
+            # Use getattr with defaults for columns that may not exist on old DB schemas
+            # (before migration 0016 is applied). Fail-open defaults = env governs.
+            url_db: str | None = getattr(state, "searxng_url_db", None)
+            categories_db: str | None = getattr(state, "searxng_categories_db", None)
+            max_queries_db: int | None = getattr(state, "searxng_max_queries_db", None)
+        else:
+            url_db = None
+            categories_db = None
+            max_queries_db = None
+
+    await _web_search_config_cache.load(url_db, categories_db, max_queries_db)
+    logger.info(
+        "WebSearchConfigCache loaded from DB: url_source=%s categories_source=%s "
+        "max_queries_source=%s configured=%s (ADR-0041)",
+        _web_search_config_cache.url_source(),
+        _web_search_config_cache.categories_source(),
+        _web_search_config_cache.max_queries_source(),
+        _web_search_config_cache.configured(),
     )
 
 

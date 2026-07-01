@@ -82,6 +82,9 @@ erDiagram
         boolean clip_enabled_db "Runtime enabled-gate for POST /clip ingress (ADR-0040 §3). NULL = not set in DB; env CLIP_ENABLED is the fallback. When NOT NULL, DB value is authoritative (overrides CLIP_ENABLED env). Migration 0015."
         string clip_access_token "Plaintext bearer token for POST /clip (ADR-0040 §3). NULL = no DB token; fall back to CLIP_TOKEN env bootstrap or none. When set, DB value wins over CLIP_TOKEN env. Shown once at generation time (one-time reveal in PUT /clip/config generated_token). NEVER logged. Migration 0015."
         string clip_allowed_origins_db "Comma-separated Origin allowlist for POST /clip (ADR-0040 §3). NULL = fall back to CLIP_ALLOWED_ORIGINS env var. When set, DB value wins over env. Migration 0015."
+        string searxng_url_db "Runtime SearXNG base URL (ADR-0041 §3). NULL = not set in DB; fall back to SEARXNG_URL env var. When set, DB value wins over env. NOT a secret — returned by GET /web-search/config (no masking). Migration 0016."
+        string searxng_categories_db "Comma-separated SearXNG categories (ADR-0041 §3). NULL = not set in DB; fall back to env / code defaults. When set, DB value wins over env. Migration 0016."
+        int searxng_max_queries_db "Max SearXNG queries per deep-research iteration (ADR-0041 §3). NULL = not set in DB; fall back to DEEP_RESEARCH_MAX_QUERIES env. When set, DB value wins over env. Migration 0016."
         timestamptz updated_at "Last bump time"
     }
 
