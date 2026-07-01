@@ -227,6 +227,37 @@ class Settings(BaseSettings):
     Env var: REVIEW_SWEEP_MAX_ITEMS.
     """
 
+    # ── F3: auto-maintained Overview (nashsu/llm_wiki parity) ────────────────────
+    # The single overview.md note is REGENERATED (full overwrite) on every ingest via ONE
+    # bounded provider call (I6/I7), then indexed as a Page(type=overview). Degrade-safe:
+    # on any failure the previous overview.md is kept and ingest still succeeds.
+
+    overview_title: str = "Overview"
+    """
+    Frontmatter title for the auto-maintained overview.md note (F3, I5). The wiki's big-picture
+    page; shown under the nav "Overview" section (count 1). Env var: OVERVIEW_TITLE.
+    """
+
+    overview_max_titles: int = 200
+    """
+    Max existing page titles+types fed into the overview regeneration prompt (bounded indexed
+    read — I1, no vault re-scan). Env var: OVERVIEW_MAX_TITLES.
+    """
+
+    overview_token_budget: int = 3_000
+    """
+    Fallback token budget for the single overview regeneration call (I7) when the resolved
+    provider row carries none. Small: the overview is a concise narrative. Env var:
+    OVERVIEW_TOKEN_BUDGET.
+    """
+
+    overview_timeout_seconds: float = 30.0
+    """
+    Timeout (seconds) wrapping the single overview regeneration provider call (I7). On timeout
+    the previous overview.md is kept (degrade, never fail ingest). Env var:
+    OVERVIEW_TIMEOUT_SECONDS.
+    """
+
     review_sweep_llm_enabled: bool = True
     """
     Gate for the sweep Pass-2 conservative LLM judgment (ADR-0034 §6.3). Default on (a single
