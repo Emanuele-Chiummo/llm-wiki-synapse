@@ -504,7 +504,11 @@
     "staleConflict": "La nota è cambiata su disco — ricarica prima di modificare",
     "reload": "Ricarica",
     "loadError": "Impossibile caricare il contenuto della pagina",
-    "saving": "Salvataggio…"
+    "saving": "Salvataggio…",
+    "wikilinkNotFound": "Pagina non trovata: {{title}}",
+    "sources": "Sorgenti",
+    "related": "Correlate ({{count}})",
+    "relatedError": "Impossibile caricare le pagine correlate"
   },
   "lint": {
     "title": "Lint",

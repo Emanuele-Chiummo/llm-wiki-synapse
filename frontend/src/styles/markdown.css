@@ -1,0 +1,251 @@
+/**
+ * markdown.css — GitHub-dark prose styles for rendered markdown.
+ *
+ * Scoped to .note-view__body (wiki page reader, Task B) and
+ * .synapse-markdown__body (chat message renderer) to keep specificity low.
+ *
+ * Design language: GitHub dark aesthetic — backgrounds from #0d1117 palette,
+ * borders from #21262d / #30363d, accent #58a6ff, text #e6edf3 / #8b949e.
+ *
+ * Do NOT add layout properties (flex, overflow, height) here — those live in
+ * NoteView.tsx inline styles so the outer scroll container stays intact.
+ */
+
+/* ── Shared scope ──────────────────────────────────────────────────────────── */
+
+.note-view__body,
+.synapse-markdown__body {
+  color: #e6edf3;
+  font-size: 14px;
+  line-height: 1.7;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+/* ── Headings ──────────────────────────────────────────────────────────────── */
+
+.note-view__body h1,
+.synapse-markdown__body h1 {
+  font-size: 1.75em;
+  font-weight: 700;
+  margin: 1.25em 0 0.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #21262d;
+  color: #e6edf3;
+  line-height: 1.25;
+}
+
+.note-view__body h2,
+.synapse-markdown__body h2 {
+  font-size: 1.375em;
+  font-weight: 600;
+  margin: 1.1em 0 0.4em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid #21262d;
+  color: #e6edf3;
+  line-height: 1.3;
+}
+
+.note-view__body h3,
+.synapse-markdown__body h3 {
+  font-size: 1.125em;
+  font-weight: 600;
+  margin: 1em 0 0.35em;
+  color: #cdd9e5;
+  line-height: 1.35;
+}
+
+.note-view__body h4,
+.synapse-markdown__body h4 {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 0.9em 0 0.3em;
+  color: #cdd9e5;
+  line-height: 1.4;
+}
+
+/* ── First heading at top of a page should not get extra top margin ───────── */
+
+.note-view__body > h1:first-child,
+.note-view__body > h2:first-child,
+.note-view__body > h3:first-child,
+.note-view__body > h4:first-child,
+.synapse-markdown__body > h1:first-child,
+.synapse-markdown__body > h2:first-child,
+.synapse-markdown__body > h3:first-child,
+.synapse-markdown__body > h4:first-child {
+  margin-top: 0;
+}
+
+/* ── Paragraphs ────────────────────────────────────────────────────────────── */
+
+.note-view__body p,
+.synapse-markdown__body p {
+  margin: 0.6em 0;
+}
+
+.note-view__body p:first-child,
+.synapse-markdown__body p:first-child {
+  margin-top: 0;
+}
+
+/* ── Lists ─────────────────────────────────────────────────────────────────── */
+
+.note-view__body ul,
+.note-view__body ol,
+.synapse-markdown__body ul,
+.synapse-markdown__body ol {
+  padding-left: 1.75em;
+  margin: 0.5em 0;
+}
+
+.note-view__body li,
+.synapse-markdown__body li {
+  margin: 0.25em 0;
+  line-height: 1.65;
+}
+
+/* Nested lists: tighter indent */
+.note-view__body li > ul,
+.note-view__body li > ol,
+.synapse-markdown__body li > ul,
+.synapse-markdown__body li > ol {
+  margin: 0.2em 0;
+}
+
+/* ── Code ──────────────────────────────────────────────────────────────────── */
+
+.note-view__body code,
+.synapse-markdown__body code {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  color: #e6edf3;
+}
+
+.note-view__body pre,
+.synapse-markdown__body pre {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 0.85em 0;
+  line-height: 1.5;
+}
+
+/* Inside a <pre>, the <code> block resets the inline-code styling */
+.note-view__body pre code,
+.synapse-markdown__body pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.85em;
+  color: #e6edf3;
+}
+
+/* ── Blockquote ────────────────────────────────────────────────────────────── */
+
+.note-view__body blockquote,
+.synapse-markdown__body blockquote {
+  border-left: 3px solid #30363d;
+  padding: 0.25em 0 0.25em 1em;
+  margin: 0.65em 0;
+  color: #8b949e;
+  font-style: italic;
+}
+
+.note-view__body blockquote p,
+.synapse-markdown__body blockquote p {
+  margin: 0.2em 0;
+}
+
+/* ── Tables ────────────────────────────────────────────────────────────────── */
+
+.note-view__body table,
+.synapse-markdown__body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.85em 0;
+  font-size: 0.875em;
+  overflow-x: auto;
+  display: block;
+}
+
+.note-view__body th,
+.note-view__body td,
+.synapse-markdown__body th,
+.synapse-markdown__body td {
+  border: 1px solid #30363d;
+  padding: 7px 13px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.note-view__body thead tr,
+.synapse-markdown__body thead tr {
+  background: #161b22;
+}
+
+.note-view__body th,
+.synapse-markdown__body th {
+  font-weight: 600;
+  color: #cdd9e5;
+  background: #161b22;
+}
+
+/* Zebra rows */
+.note-view__body tbody tr:nth-child(even),
+.synapse-markdown__body tbody tr:nth-child(even) {
+  background: rgba(22, 27, 34, 0.5);
+}
+
+/* ── Horizontal rule ───────────────────────────────────────────────────────── */
+
+.note-view__body hr,
+.synapse-markdown__body hr {
+  border: none;
+  border-top: 1px solid #21262d;
+  margin: 1.25em 0;
+}
+
+/* ── Links ─────────────────────────────────────────────────────────────────── */
+
+.note-view__body a,
+.synapse-markdown__body a {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.note-view__body a:hover,
+.synapse-markdown__body a:hover {
+  text-decoration: underline;
+}
+
+/* ── Wikilinks — visually distinct from external links ─────────────────────── */
+/*
+ * .wikilink anchors are emitted by wikilinkTransform() in renderMarkdown.ts.
+ * They have NO href attribute — click handling is done via event delegation in
+ * NoteView.tsx (handleWikilinkClick). The cursor:pointer is therefore essential.
+ *
+ * Visual cue: slightly brighter blue + dashed underline to distinguish from
+ * regular href links (which use solid underline on hover).
+ */
+
+.note-view__body a.wikilink,
+.synapse-markdown__body a.wikilink {
+  color: #79c0ff;
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.note-view__body a.wikilink:hover,
+.synapse-markdown__body a.wikilink:hover {
+  color: #a5d6ff;
+  text-decoration-style: solid;
+}

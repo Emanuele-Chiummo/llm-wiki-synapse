@@ -51,6 +51,9 @@ vi.mock("../api/pagesClient", () => ({
   savePageContent: vi.fn(),
   fetchPages: vi.fn(),
   fetchStatus: vi.fn(),
+  // fetchRelatedPages must be present; return empty response so related panel
+  // stays hidden and does not interfere with existing test assertions.
+  fetchRelatedPages: vi.fn().mockResolvedValue({ items: [], total: 0 }),
 }));
 
 import * as pagesClient from "../api/pagesClient";
@@ -83,11 +86,25 @@ vi.mock("react-i18next", () => {
     "noteView.reload": "Reload",
     "noteView.loadError": "Could not load page content",
     "noteView.saving": "Saving…",
+    "noteView.sources": "Sources",
+    "noteView.related": "Related ({{count}})",
+    "noteView.relatedError": "Could not load related pages",
     "common.loading": "Loading…",
     "common.retry": "Retry",
   };
   // Singleton — same object reference returned on every useTranslation() call.
-  const singleton = { t: (key: string) => map[key] ?? key, i18n: { language: "en" } };
+  const singleton = {
+    t: (key: string, vars?: Record<string, string | number>) => {
+      let val = map[key] ?? key;
+      if (vars) {
+        for (const [k, v] of Object.entries(vars)) {
+          val = val.replace(`{{${k}}}`, String(v));
+        }
+      }
+      return val;
+    },
+    i18n: { language: "en" },
+  };
   return { useTranslation: () => singleton };
 });
 
@@ -96,6 +113,7 @@ vi.mock("react-i18next", () => {
 const mockRenderMarkdown = vi.fn((raw: string) => `<p>${raw}</p>`);
 vi.mock("../components/chat/renderMarkdown", () => ({
   renderMarkdown: (raw: string) => mockRenderMarkdown(raw),
+  stripLeadingFrontmatter: (raw: string) => raw,
 }));
 
 // ─── Mock ApiError — defined inline to avoid hoist-before-init ───────────────
@@ -112,13 +130,30 @@ vi.mock("../api/graphClient", () => ({
 }));
 
 // ─── Mock graphStore ──────────────────────────────────────────────────────────
+// NoteView now also reads nodes (for wikilink resolution + type badge) and
+// selectPage action. These tests don't exercise those features, so we return
+// stable empty defaults.
 
 let _selectedNodeId: string | null = null;
+const _mockSelectPage = vi.fn();
 
 vi.mock("../store/graphStore", () => ({
-  useGraphStore: (selector: (s: { selectedNodeId: string | null }) => unknown) =>
-    selector({ selectedNodeId: _selectedNodeId }),
+  useGraphStore: (selector: (s: {
+    selectedNodeId: string | null;
+    nodes: [];
+    selectPage: typeof _mockSelectPage;
+  }) => unknown) =>
+    selector({ selectedNodeId: _selectedNodeId, nodes: [], selectPage: _mockSelectPage }),
   selectSelectedNodeId: (s: { selectedNodeId: string | null }) => s.selectedNodeId,
+  selectNodes: (s: { nodes: [] }) => s.nodes,
+  selectSelectPage: (s: { selectPage: typeof _mockSelectPage }) => s.selectPage,
+}));
+
+// useShallow is called by NoteView to wrap the selectNodes selector.
+// In the jsdom test environment we don't need the real shallow comparison;
+// returning the selector function directly is equivalent.
+vi.mock("zustand/react/shallow", () => ({
+  useShallow: (fn: unknown) => fn,
 }));
 
 // ─── Import component and ApiError AFTER all mocks ────────────────────────────
