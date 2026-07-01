@@ -149,9 +149,9 @@ export function UploadZone({ onSuccess }: UploadZoneProps) {
         gap: 6,
         padding: "14px 16px",
         margin: "0 16px 0",
-        border: `1px dashed ${isActive ? "#58a6ff" : "#30363d"}`,
+        border: `1px dashed ${isActive ? "var(--syn-accent)" : "var(--syn-border)"}`,
         borderRadius: 8,
-        background: isActive ? "#1f2937" : "#0d1117",
+        background: isActive ? "var(--syn-accent-soft)" : "var(--syn-surface-sunken)",
         cursor: uploading ? "wait" : "pointer",
         transition: "border-color 0.12s ease, background 0.12s ease",
         userSelect: "none",
@@ -176,7 +176,7 @@ export function UploadZone({ onSuccess }: UploadZoneProps) {
         height="20"
         viewBox="0 0 24 24"
         fill="none"
-        stroke={uploading ? "#484f58" : isActive ? "#58a6ff" : "#6e7681"}
+        stroke={uploading ? "var(--syn-text-dim)" : isActive ? "var(--syn-accent)" : "var(--syn-text-muted)"}
         strokeWidth="1.75"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -188,12 +188,12 @@ export function UploadZone({ onSuccess }: UploadZoneProps) {
       </svg>
 
       {/* Primary label */}
-      <span style={{ fontSize: 12, fontWeight: 500, color: uploading ? "#484f58" : "#8b949e" }}>
+      <span style={{ fontSize: 12, fontWeight: 500, color: uploading ? "var(--syn-text-dim)" : "var(--syn-text-muted)" }}>
         {uploading ? t("common.loading") : t("ingest.upload.drop")}
       </span>
 
       {/* Accepted types hint (F12: PDF/DOCX/PPTX/XLSX now accepted — ADR-0025 §4) */}
-      <span style={{ fontSize: 11, color: "#484f58" }} data-testid="upload-hint">
+      <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }} data-testid="upload-hint">
         {t("ingest.upload.hint")}
       </span>
     </div>

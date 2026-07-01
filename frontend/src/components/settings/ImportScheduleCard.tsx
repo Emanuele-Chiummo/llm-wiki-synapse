@@ -140,11 +140,11 @@ export function ImportScheduleCard() {
 
   function statusColor(status: string | null): string {
     switch (status) {
-      case "ok": return "#2ea043";
-      case "running": return "#1f6feb";
+      case "ok": return "var(--syn-green)";
+      case "running": return "var(--syn-accent)";
       case "error":
-      case "dir_missing": return "#f85149";
-      default: return "#484f58";
+      case "dir_missing": return "var(--syn-red)";
+      default: return "var(--syn-text-dim)";
     }
   }
 
@@ -153,16 +153,16 @@ export function ImportScheduleCard() {
   return (
     <div data-testid="import-schedule-card">
       {/* Title */}
-      <p style={{ margin: "0 0 12px", fontSize: 12, color: "#6e7681" }}>
+      <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--syn-text-muted)" }}>
         {t("settings.import.title")}
       </p>
 
       {loading && (
-        <p style={{ fontSize: 12, color: "#484f58" }}>{t("common.loading")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("common.loading")}</p>
       )}
 
       {fetchError && !loading && (
-        <p role="alert" style={{ fontSize: 12, color: "#f85149", margin: "0 0 12px" }}>
+        <p role="alert" style={{ fontSize: 12, color: "var(--syn-red)", margin: "0 0 12px" }}>
           {fetchError}
         </p>
       )}
@@ -177,14 +177,14 @@ export function ImportScheduleCard() {
               gap: 10,
               cursor: "pointer",
               fontSize: 12,
-              color: "#e6edf3",
+              color: "var(--syn-text)",
             }}
           >
             <input
               type="checkbox"
               checked={enabled}
               onChange={(e) => setEnabled(e.target.checked)}
-              style={{ width: 14, height: 14, cursor: "pointer", accentColor: "#1f6feb" }}
+              style={{ width: 14, height: 14, cursor: "pointer", accentColor: "var(--syn-accent)" }}
               aria-label={t("settings.import.enabled")}
             />
             {t("settings.import.enabled")}
@@ -194,7 +194,7 @@ export function ImportScheduleCard() {
           <div>
             <label
               htmlFor="import-source-dir"
-              style={{ display: "block", fontSize: 12, fontWeight: 500, color: "#8b949e", marginBottom: 4 }}
+              style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)", marginBottom: 4 }}
             >
               {t("settings.import.sourceDir")}
             </label>
@@ -208,17 +208,17 @@ export function ImportScheduleCard() {
               style={{
                 width: "100%",
                 padding: "6px 10px",
-                background: "#161b22",
-                border: `1px solid ${dirOk === false ? "#f85149" : "#21262d"}`,
+                background: "var(--syn-bg)",
+                border: `1px solid ${dirOk === false ? "var(--syn-red)" : "var(--syn-border)"}`,
                 borderRadius: 6,
-                color: "#e6edf3",
+                color: "var(--syn-text)",
                 fontSize: 12,
                 fontFamily: "monospace",
                 outline: "none",
                 boxSizing: "border-box",
               }}
             />
-            <p style={{ margin: "3px 0 0", fontSize: 11, color: "#484f58" }}>
+            <p style={{ margin: "3px 0 0", fontSize: 11, color: "var(--syn-text-dim)" }}>
               {t("settings.import.dirHint")}
             </p>
 
@@ -226,7 +226,7 @@ export function ImportScheduleCard() {
             {dirOk === false && dirMessage && (
               <p
                 role="alert"
-                style={{ margin: "4px 0 0", fontSize: 11, color: "#f85149" }}
+                style={{ margin: "4px 0 0", fontSize: 11, color: "var(--syn-red)" }}
               >
                 {t("settings.import.dirWarning", { dir: dirMessage })}
               </p>
@@ -237,7 +237,7 @@ export function ImportScheduleCard() {
           <div>
             <label
               htmlFor="import-frequency"
-              style={{ display: "block", fontSize: 12, fontWeight: 500, color: "#8b949e", marginBottom: 4 }}
+              style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)", marginBottom: 4 }}
             >
               {t("settings.import.frequency")}
             </label>
@@ -248,10 +248,10 @@ export function ImportScheduleCard() {
               disabled={saving}
               style={{
                 padding: "6px 10px",
-                background: "#161b22",
-                border: "1px solid #21262d",
+                background: "var(--syn-bg)",
+                border: "1px solid var(--syn-border)",
                 borderRadius: 6,
-                color: "#e6edf3",
+                color: "var(--syn-text)",
                 fontSize: 12,
                 cursor: saving ? "not-allowed" : "pointer",
               }}
@@ -267,7 +267,7 @@ export function ImportScheduleCard() {
           {/* Last run status */}
           {schedule && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
-              <span style={{ color: "#484f58" }}>{t("settings.import.lastRun")}:</span>
+              <span style={{ color: "var(--syn-text-dim)" }}>{t("settings.import.lastRun")}:</span>
               <span
                 style={{
                   padding: "1px 6px",
@@ -281,12 +281,12 @@ export function ImportScheduleCard() {
                 {statusLabel(schedule.last_status)}
               </span>
               {schedule.last_run_at && (
-                <span style={{ color: "#6e7681" }}>
+                <span style={{ color: "var(--syn-text-muted)" }}>
                   {formatRelativeTime(schedule.last_run_at, lang)}
                 </span>
               )}
               {schedule.last_imported_count > 0 && (
-                <span style={{ color: "#484f58" }}>
+                <span style={{ color: "var(--syn-text-dim)" }}>
                   — {schedule.last_imported_count} {t("settings.import.imported")}
                 </span>
               )}
@@ -295,7 +295,7 @@ export function ImportScheduleCard() {
 
           {/* Save error */}
           {saveError && (
-            <p role="alert" style={{ margin: 0, fontSize: 11, color: "#f85149" }}>
+            <p role="alert" style={{ margin: 0, fontSize: 11, color: "var(--syn-red)" }}>
               {saveError}
             </p>
           )}
@@ -308,10 +308,10 @@ export function ImportScheduleCard() {
               aria-label={t("settings.import.save")}
               style={{
                 padding: "6px 16px",
-                border: "none",
+                border: "1px solid var(--syn-accent-strong)",
                 borderRadius: 6,
-                background: saving ? "#21262d" : "#1f6feb",
-                color: saving ? "#484f58" : "#e6edf3",
+                background: saving ? "var(--syn-surface-hover)" : "var(--syn-accent)",
+                color: saving ? "var(--syn-text-dim)" : "#ffffff",
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: saving ? "not-allowed" : "pointer",
@@ -332,10 +332,10 @@ export function ImportScheduleCard() {
               }
               style={{
                 padding: "6px 16px",
-                border: "1px solid #21262d",
+                border: "1px solid var(--syn-border)",
                 borderRadius: 6,
                 background: "transparent",
-                color: running || saving || !schedule?.enabled ? "#484f58" : "#58a6ff",
+                color: running || saving || !schedule?.enabled ? "var(--syn-text-dim)" : "var(--syn-accent)",
                 fontSize: 12,
                 fontWeight: 500,
                 cursor: running || saving || !schedule?.enabled ? "not-allowed" : "pointer",

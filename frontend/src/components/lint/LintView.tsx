@@ -60,11 +60,11 @@ function formatCost(usd: number): string {
 // ─── Category badge ───────────────────────────────────────────────────────────
 
 const CATEGORY_COLORS: Record<string, { color: string; bg: string }> = {
-  "orphan-page":   { color: "#8b949e", bg: "#8b949e22" },
-  "missing-xref":  { color: "#d29922", bg: "#d2992222" },
-  "contradiction": { color: "#f85149", bg: "#f8514922" },
-  "stale-claim":   { color: "#bc8cff", bg: "#bc8cff22" },
-  "missing-page":  { color: "#3fb950", bg: "#3fb95022" },
+  "orphan-page":   { color: "var(--syn-text-muted)",  bg: "var(--syn-surface-hover)" },
+  "missing-xref":  { color: "var(--syn-amber)",        bg: "color-mix(in srgb, var(--syn-amber) 10%, white 90%)" },
+  "contradiction": { color: "var(--syn-red)",          bg: "color-mix(in srgb, var(--syn-red) 10%, white 90%)" },
+  "stale-claim":   { color: "var(--syn-type-concept)", bg: "color-mix(in srgb, var(--syn-type-concept) 10%, white 90%)" },
+  "missing-page":  { color: "var(--syn-green)",        bg: "color-mix(in srgb, var(--syn-green) 10%, white 90%)" },
 };
 
 interface CategoryBadgeProps {
@@ -73,7 +73,7 @@ interface CategoryBadgeProps {
 }
 
 function CategoryBadge({ category, t }: CategoryBadgeProps) {
-  const { color, bg } = CATEGORY_COLORS[category] ?? { color: "#8b949e", bg: "#8b949e22" };
+  const { color, bg } = CATEGORY_COLORS[category] ?? { color: "var(--syn-text-muted)", bg: "var(--syn-surface-hover)" };
   return (
     <span
       style={{
@@ -83,7 +83,7 @@ function CategoryBadge({ category, t }: CategoryBadgeProps) {
         fontWeight: 600,
         color,
         background: bg,
-        border: `1px solid ${color}4d`,
+        border: `1px solid color-mix(in srgb, ${color} 30%, transparent 70%)`,
         borderRadius: 8,
         padding: "1px 6px",
         whiteSpace: "nowrap",
@@ -99,9 +99,9 @@ function CategoryBadge({ category, t }: CategoryBadgeProps) {
 // ─── Severity chip ────────────────────────────────────────────────────────────
 
 const SEVERITY_COLORS: Record<string, string> = {
-  info:    "#8b949e",
-  warning: "#d29922",
-  error:   "#f85149",
+  info:    "var(--syn-text-muted)",
+  warning: "var(--syn-amber)",
+  error:   "var(--syn-red)",
 };
 
 interface SeverityChipProps {
@@ -109,7 +109,7 @@ interface SeverityChipProps {
 }
 
 function SeverityChip({ severity }: SeverityChipProps) {
-  const color = SEVERITY_COLORS[severity] ?? "#8b949e";
+  const color = SEVERITY_COLORS[severity] ?? "var(--syn-text-muted)";
   return (
     <span
       style={{
@@ -118,8 +118,8 @@ function SeverityChip({ severity }: SeverityChipProps) {
         fontSize: 9,
         fontWeight: 700,
         color,
-        background: `${color}1a`,
-        border: `1px solid ${color}4d`,
+        background: `color-mix(in srgb, ${color} 12%, white 88%)`,
+        border: `1px solid color-mix(in srgb, ${color} 30%, transparent 70%)`,
         borderRadius: 4,
         padding: "0 5px",
         whiteSpace: "nowrap",
@@ -146,9 +146,9 @@ interface LintActionButtonProps {
 
 function LintActionButton({ label, onClick, disabled, loading, variant }: LintActionButtonProps) {
   const COLORS: Record<string, { border: string; color: string }> = {
-    apply:       { border: "#3fb950", color: "#3fb950" },
-    acknowledge: { border: "#58a6ff", color: "#58a6ff" },
-    dismiss:     { border: "#484f58", color: "#8b949e" },
+    apply:       { border: "var(--syn-green)",      color: "var(--syn-green)" },
+    acknowledge: { border: "var(--syn-accent)",     color: "var(--syn-accent)" },
+    dismiss:     { border: "var(--syn-border)",     color: "var(--syn-text-muted)" },
   };
   const { border, color } = COLORS[variant] ?? (COLORS["dismiss"] as { border: string; color: string });
   const isDisabled = disabled || loading;
@@ -166,10 +166,10 @@ function LintActionButton({ label, onClick, disabled, loading, variant }: LintAc
         padding: "3px 10px",
         fontSize: 11,
         fontWeight: 600,
-        border: `1px solid ${isDisabled ? "#21262d" : border}`,
+        border: `1px solid ${isDisabled ? "var(--syn-border)" : border}`,
         borderRadius: 5,
         background: "transparent",
-        color: isDisabled ? "#484f58" : color,
+        color: isDisabled ? "var(--syn-text-dim)" : color,
         cursor: isDisabled ? "not-allowed" : "pointer",
         whiteSpace: "nowrap",
         transition: "opacity 0.1s",
@@ -253,7 +253,7 @@ function FindingRow({
         ...style,
         height: ROW_HEIGHT,
         padding: "8px 16px",
-        borderBottom: "1px solid #21262d",
+        borderBottom: "1px solid var(--syn-border)",
         display: "flex",
         flexDirection: "column",
         gap: 3,
@@ -268,7 +268,7 @@ function FindingRow({
           style={{
             fontSize: 12,
             fontWeight: 600,
-            color: "#e6edf3",
+            color: "var(--syn-text)",
             flex: 1,
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -280,7 +280,7 @@ function FindingRow({
           {finding.target_title ?? t("lint.noTarget")}
         </span>
         <span
-          style={{ fontSize: 10, color: "#484f58", flexShrink: 0 }}
+          style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}
           title={finding.created_at}
         >
           {relTime}
@@ -291,7 +291,7 @@ function FindingRow({
       <div
         style={{
           fontSize: 11,
-          color: "#8b949e",
+          color: "var(--syn-text-muted)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -306,7 +306,7 @@ function FindingRow({
         <div
           style={{
             fontSize: 10,
-            color: "#58a6ff",
+            color: "var(--syn-accent)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -323,7 +323,7 @@ function FindingRow({
         <div
           style={{
             fontSize: 10,
-            color: "#484f58",
+            color: "var(--syn-text-dim)",
             fontStyle: "italic",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -353,7 +353,7 @@ function FindingRow({
         {actionErr && (
           <span
             role="alert"
-            style={{ fontSize: 10, color: "#f85149", marginLeft: 4 }}
+            style={{ fontSize: 10, color: "var(--syn-red)", marginLeft: 4 }}
           >
             {actionErr}
           </span>
@@ -453,10 +453,10 @@ function FindingsList({ vaultId }: FindingsListProps) {
               right: 0,
               height: 40,
               margin: "4px 16px",
-              border: "1px solid #21262d",
+              border: "1px solid var(--syn-border)",
               borderRadius: 6,
-              background: "#161b22",
-              color: "#8b949e",
+              background: "var(--syn-bg-soft)",
+              color: "var(--syn-text-muted)",
               fontSize: 12,
               cursor: loading ? "wait" : "pointer",
             }}
@@ -520,7 +520,7 @@ export function LintView() {
         overflow: "hidden",
         width: "100%",
         height: "100%",
-        background: "#0d1117",
+        background: "var(--syn-bg)",
       }}
     >
       {/* Spinner keyframe — injected once */}
@@ -533,9 +533,9 @@ export function LintView() {
           alignItems: "center",
           gap: 8,
           padding: "10px 16px",
-          borderBottom: "1px solid #21262d",
+          borderBottom: "1px solid var(--syn-border)",
           flexShrink: 0,
-          background: "#161b22",
+          background: "var(--syn-bg-soft)",
         }}
       >
         <h2
@@ -543,7 +543,7 @@ export function LintView() {
             margin: 0,
             fontSize: 13,
             fontWeight: 600,
-            color: "#e6edf3",
+            color: "var(--syn-text)",
             flex: 1,
           }}
         >
@@ -560,8 +560,8 @@ export function LintView() {
                 height: 18,
                 padding: "0 5px",
                 borderRadius: 9,
-                background: "#f85149",
-                color: "#0d1117",
+                background: "var(--syn-red)",
+                color: "#ffffff",
                 fontSize: 10,
                 fontWeight: 700,
               }}
@@ -585,10 +585,10 @@ export function LintView() {
             padding: "4px 10px",
             fontSize: 11,
             fontWeight: 600,
-            border: "1px solid #3fb950",
+            border: "1px solid var(--syn-green)",
             borderRadius: 5,
             background: "transparent",
-            color: scanning ? "#484f58" : "#3fb950",
+            color: scanning ? "var(--syn-text-dim)" : "var(--syn-green)",
             cursor: scanning ? "wait" : "pointer",
             transition: "opacity 0.1s",
           }}
@@ -620,10 +620,10 @@ export function LintView() {
           style={{
             padding: "4px 10px",
             fontSize: 11,
-            border: "1px solid #21262d",
+            border: "1px solid var(--syn-border)",
             borderRadius: 5,
             background: "transparent",
-            color: findingsLoading || scanning ? "#484f58" : "#8b949e",
+            color: findingsLoading || scanning ? "var(--syn-text-dim)" : "var(--syn-text-muted)",
             cursor: findingsLoading || scanning ? "wait" : "pointer",
           }}
         >
@@ -640,21 +640,21 @@ export function LintView() {
             alignItems: "center",
             gap: 8,
             padding: "5px 16px",
-            borderBottom: "1px solid #21262d",
+            borderBottom: "1px solid var(--syn-border)",
             flexShrink: 0,
             fontSize: 11,
-            color: "#484f58",
-            background: "#0d1117",
+            color: "var(--syn-text-dim)",
+            background: "var(--syn-bg)",
           }}
         >
-          <span style={{ color: currentRun.status === "error" ? "#f85149" : "#8b949e" }}>
+          <span style={{ color: currentRun.status === "error" ? "var(--syn-red)" : "var(--syn-text-muted)" }}>
             {t(`lint.runStatus.${currentRun.status}`)}
           </span>
-          <span style={{ color: "#30363d" }}>&middot;</span>
+          <span style={{ color: "var(--syn-border)" }}>&middot;</span>
           <span>{t("lint.cost")}: {formatCost(currentRun.total_cost_usd)}</span>
-          <span style={{ color: "#30363d" }}>&middot;</span>
+          <span style={{ color: "var(--syn-border)" }}>&middot;</span>
           <span>{t("lint.findings")}: {currentRun.findings_count}</span>
-          <span style={{ color: "#30363d" }}>&middot;</span>
+          <span style={{ color: "var(--syn-border)" }}>&middot;</span>
           <span>{t("lint.iterations")}: {currentRun.iterations_used}</span>
         </div>
       )}
@@ -669,19 +669,19 @@ export function LintView() {
             alignItems: "center",
             gap: 8,
             padding: "8px 16px",
-            borderBottom: "1px solid #f8514933",
-            background: "#1a0f0f",
+            borderBottom: "1px solid color-mix(in srgb, var(--syn-red) 25%, transparent 75%)",
+            background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 12, color: "#f85149", flex: 1 }}>
+          <span style={{ fontSize: 12, color: "var(--syn-red)", flex: 1 }}>
             {scanError}
           </span>
           <button
             onClick={clearScanError}
             style={{
               fontSize: 11,
-              color: "#8b949e",
+              color: "var(--syn-text-muted)",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -701,11 +701,11 @@ export function LintView() {
           data-testid="lint-findings-error"
           style={{
             padding: "8px 16px",
-            borderBottom: "1px solid #21262d",
+            borderBottom: "1px solid var(--syn-border)",
             flexShrink: 0,
             fontSize: 12,
-            color: "#f85149",
-            background: "#1a0f0f",
+            color: "var(--syn-red)",
+            background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
             display: "flex",
             alignItems: "center",
             gap: 8,
@@ -717,7 +717,7 @@ export function LintView() {
             style={{
               marginLeft: 4,
               fontSize: 12,
-              color: "#8b949e",
+              color: "var(--syn-text-muted)",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -736,9 +736,9 @@ export function LintView() {
           style={{
             padding: "6px 16px",
             flexShrink: 0,
-            borderBottom: "1px solid #21262d",
+            borderBottom: "1px solid var(--syn-border)",
             fontSize: 11,
-            color: "#484f58",
+            color: "var(--syn-text-dim)",
           }}
         >
           {t("lint.hint")}

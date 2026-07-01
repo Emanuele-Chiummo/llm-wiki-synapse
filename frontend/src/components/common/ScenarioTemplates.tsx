@@ -52,7 +52,7 @@ export function ScenarioTemplates() {
         flexDirection: "column",
         gap: 4,
         padding: "8px 8px",
-        borderBottom: "1px solid #21262d",
+        borderBottom: "1px solid var(--syn-border)",
       }}
     >
       <span
@@ -61,7 +61,7 @@ export function ScenarioTemplates() {
           fontWeight: 600,
           letterSpacing: "0.05em",
           textTransform: "uppercase",
-          color: "#484f58",
+          color: "var(--syn-text-dim)",
           padding: "0 4px",
         }}
       >
@@ -72,14 +72,12 @@ export function ScenarioTemplates() {
         label="Most connected node"
         description="Jump to the highest-degree node in the graph"
         onClick={handleExploreHighDegree}
-        color="#58a6ff"
       />
 
       <TemplateButton
         label="First concept"
         description="Navigate to the first concept-type page"
         onClick={handleExploreConcept}
-        color="#58a6ff"
       />
     </div>
   );
@@ -91,10 +89,9 @@ interface TemplateButtonProps {
   label: string;
   description: string;
   onClick: () => void;
-  color: string;
 }
 
-function TemplateButton({ label, description, onClick, color }: TemplateButtonProps) {
+function TemplateButton({ label, description, onClick }: TemplateButtonProps) {
   return (
     <button
       className="scenario-templates__btn"
@@ -107,22 +104,24 @@ function TemplateButton({ label, description, onClick, color }: TemplateButtonPr
         gap: 8,
         width: "100%",
         padding: "5px 8px",
-        border: "1px solid #21262d",
+        border: "1px solid var(--syn-border)",
         borderRadius: 6,
-        background: "#161b22",
+        background: "var(--syn-surface)",
         cursor: "pointer",
         textAlign: "left",
-        color: "#8b949e",
+        color: "var(--syn-text-muted)",
         fontSize: 12,
         transition: "background 0.1s ease, border-color 0.1s ease",
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background = "#1f2937";
-        (e.currentTarget as HTMLButtonElement).style.borderColor = color;
+        (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-accent-soft)";
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-accent)";
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-accent)";
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background = "#161b22";
-        (e.currentTarget as HTMLButtonElement).style.borderColor = "#21262d";
+        (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface)";
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-border)";
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-muted)";
       }}
     >
       <span
@@ -131,7 +130,7 @@ function TemplateButton({ label, description, onClick, color }: TemplateButtonPr
           width: 8,
           height: 8,
           borderRadius: "50%",
-          background: color,
+          background: "var(--syn-accent)",
           flexShrink: 0,
         }}
       />

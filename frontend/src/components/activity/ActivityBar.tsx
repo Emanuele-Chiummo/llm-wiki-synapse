@@ -82,10 +82,10 @@ export function ActivityBar() {
         gap: 16,
         padding: "0 12px",
         height: 28,
-        background: "#0d1117",
-        borderTop: "1px solid #21262d",
+        background: "var(--syn-bg-soft)",
+        borderTop: "1px solid var(--syn-border)",
         fontSize: 11,
-        color: "#484f58",
+        color: "var(--syn-text-dim)",
         flexShrink: 0,
         overflow: "hidden",
       }}
@@ -96,7 +96,7 @@ export function ActivityBar() {
         style={{ display: "flex", alignItems: "center", gap: 4 }}
       >
         <span aria-hidden="true" style={{ opacity: 0.5 }}>&#128193;</span>
-        <span style={{ color: "#6e7681" }}>{vaultId}</span>
+        <span style={{ color: "var(--syn-text-muted)" }}>{vaultId}</span>
       </span>
 
       {/* Data version */}
@@ -105,7 +105,7 @@ export function ActivityBar() {
         style={{ display: "flex", alignItems: "center", gap: 4 }}
       >
         <span aria-hidden="true" style={{ opacity: 0.5 }}>v</span>
-        <span style={{ fontFamily: "monospace", color: "#6e7681" }}>
+        <span style={{ fontFamily: "monospace", color: "var(--syn-text-muted)" }}>
           {displayVersion ?? "–"}
         </span>
       </span>
@@ -117,7 +117,7 @@ export function ActivityBar() {
           style={{ display: "flex", alignItems: "center", gap: 4 }}
         >
           <span aria-hidden="true" style={{ opacity: 0.5 }}>&#8679;</span>
-          <span style={{ color: "#484f58" }}>{formatUptime(status.uptimeSeconds)}</span>
+          <span style={{ color: "var(--syn-text-dim)" }}>{formatUptime(status.uptimeSeconds)}</span>
         </span>
       )}
 
@@ -132,7 +132,7 @@ export function ActivityBar() {
             width: 6,
             height: 6,
             borderRadius: "50%",
-            background: pollError ? "#f85149" : "#3fb950",
+            background: pollError ? "var(--syn-red)" : "var(--syn-green)",
             display: "inline-block",
           }}
         />
@@ -144,7 +144,7 @@ export function ActivityBar() {
       {/* Active provider indicator (F17) */}
       <span
         aria-label={`Active provider: ${activeProvider?.provider_type ?? "none"}`}
-        style={{ color: activeProvider ? "#6e7681" : "#484f58", cursor: "default" }}
+        style={{ color: activeProvider ? "var(--syn-text-muted)" : "var(--syn-text-dim)", cursor: "default" }}
       >
         {activeProvider
           ? `${activeProvider.provider_type}${activeProvider.model_id ? ` / ${activeProvider.model_id}` : ""}`

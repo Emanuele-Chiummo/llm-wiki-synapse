@@ -28,7 +28,7 @@ export function StreamingMessage(): ReactNode {
   return (
     <div
       className="synapse-streaming-message"
-      style={{ color: "#e6edf3", lineHeight: 1.6 }}
+      style={{ color: "var(--syn-text)", lineHeight: 1.6 }}
       aria-live="polite"
       aria-atomic="false"
     >
@@ -51,7 +51,7 @@ export function StreamingMessage(): ReactNode {
             display: "inline-block",
             width: 7,
             height: 14,
-            background: "#58a6ff",
+            background: "var(--syn-accent)",
             marginLeft: 2,
             verticalAlign: "text-bottom",
             animation: "synapse-blink 1s step-end infinite",

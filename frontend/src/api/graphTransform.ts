@@ -130,25 +130,30 @@ function computeNormalizedWeights(edges: GraphEdge[]): Float64Array {
 
 /**
  * Build resting-state edge color from normalized weight and kind.
- * Very faint at rest — edges light up only on hover (via edgeReducer override).
+ * Light theme: edges are light gray at rest — they darken on hover via edgeReducer.
  *
  * IMPORTANT: sigma v3's default edge program renders the edge RGB at full opacity and
- * effectively IGNORES the alpha channel — so an `rgba(...,0.1)` edge draws as a solid
- * light-grey line (which read as bright white clutter). We therefore bake the faintness
- * into the RGB itself: a near-background dark grey at low weight ramping to a muted
- * medium grey at high weight, on the #0d1117 canvas. kind="source" gets a cooler blue tint.
+ * effectively IGNORES the alpha channel. On a white (#ffffff) canvas we bake faintness
+ * into the RGB directly: light gray at low weight ramping to a medium gray at high weight.
+ * kind="source" gets a subtle blue-gray tint vs the neutral link gray.
+ *
+ * Resting range (light theme):
+ *   low weight  → #dde0e4  (very light near --syn-border)
+ *   high weight → #a8b0ba  (medium gray — still clearly visible on white)
  */
 function edgeColor(normalizedWeight: number, kind: "link" | "source"): string {
   const t = Math.max(0, Math.min(1, normalizedWeight));
   if (kind === "source") {
-    const r = Math.round(34 + 28 * t);
-    const g = Math.round(42 + 38 * t);
-    const b = Math.round(54 + 52 * t);
+    // Blue-gray tint: low=#d8dff0, high=#9aaac8
+    const r = Math.round(216 - 30 * t);
+    const g = Math.round(223 - 23 * t);
+    const b = Math.round(240 - 32 * t);
     return `rgb(${r},${g},${b})`;
   }
-  const r = Math.round(38 + 40 * t);
-  const g = Math.round(44 + 44 * t);
-  const b = Math.round(52 + 48 * t);
+  // Neutral gray: low=#dde0e4, high=#a8b0ba
+  const r = Math.round(221 - 37 * t);
+  const g = Math.round(224 - 36 * t);
+  const b = Math.round(228 - 34 * t);
   return `rgb(${r},${g},${b})`;
 }
 
@@ -213,7 +218,7 @@ export function buildGraphologyGraph(nodes: GraphNode[], edges: GraphEdge[]): Sy
     graph.addEdge(edge.source, edge.target, {
       weight: edge.weight,
       normalizedWeight: nw,
-      size: 0.25 + nw * 1.0,
+      size: 0.5 + nw * 1.5, // slightly thicker for better visibility on light background
       color: edgeColor(nw, kind),
       kind,
     });
