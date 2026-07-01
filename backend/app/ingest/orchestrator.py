@@ -56,9 +56,10 @@ import httpx
 from app.config import settings
 from app.db import get_session
 from app.embeddings import get_embedding_client
-from app.ingest.loop import LoopResult, run_orchestrated_loop
+from app.ingest.loop import IngestCancelled, LoopResult, run_orchestrated_loop
 from app.ingest.provider import resolve_provider
 from app.ingest.provider.base import InferenceProvider, UsageAccumulator
+from app.ingest.queue_manager import ingest_queue
 from app.ingest.schemas import (
     Analysis,
     WikiPage,
@@ -158,10 +159,14 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
     provider_cfg = await _resolve_ingest_provider_config()
     if provider_cfg is not None:
         source_text = raw_bytes.decode("utf-8", errors="replace")
+        # abs_source is the canonical queue key (ADR-0046 path-normalization fix).
+        # path.resolve() is the absolute path; rel stays relative for DB storage (I1/I5).
+        abs_source = str(path.resolve())
         await run_ingest_pipeline(
             provider_config_row=provider_cfg,
             source_text=source_text,
             origin_source=rel,
+            abs_source=abs_source,
         )
 
     # ── Persist metadata to Postgres (step 3) ─────────────────────────────────
@@ -321,6 +326,7 @@ async def run_ingest_pipeline(
     provider_config_row: object,
     source_text: str,
     origin_source: str,
+    abs_source: str | None = None,
 ) -> IngestRunResult:
     """
     Capability-aware ingest (F17 / I6). Resolves the provider from config, reads
@@ -333,6 +339,18 @@ async def run_ingest_pipeline(
     provider_type (the I6 hard rule, ADR-0007 §3). Writes each produced WikiPage via the
     shared `write_wiki_page` primitive (I1/I5), updates overview.md (F3), writes one
     `ingest_runs` row (I7), and runs the inline $1 cost-anomaly check (AQ-v0.2-8).
+
+    ADR-0046: inserts a `status="running"` row at the START of the pipeline (before the route
+    try-block), registers the run with ingest_queue, and UPDATE-finalises at both terminal sites
+    instead of INSERT-ing a new row at the end.  This makes in-flight runs visible to
+    GET /ingest/runs and enables cooperative cancel via the queue manager.
+
+    ``abs_source`` is the absolute path used as the canonical queue key (ADR-0046
+    path-normalization fix). When not provided (e.g. tests or direct REST callers that
+    pass a relative origin_source), it falls back to resolving origin_source against
+    the process CWD — callers that hold the absolute path should always supply it.
+    The ingest_runs DB column (source_path) is set from ``origin_source`` (relative)
+    and is never changed by this parameter.
     """
     provider = resolve_provider(provider_config_row)
     accumulator = UsageAccumulator()
@@ -347,6 +365,25 @@ async def run_ingest_pipeline(
     converged = False
     route: Literal["orchestrated", "delegated"] = "orchestrated"
 
+    # ── ADR-0046 path-normalization fix: derive the absolute queue key ────────
+    # The watcher passes absolute paths to admit/should_skip; the queue must use
+    # the SAME key end-to-end so cancel suppression matches (ADR-0046 fix).
+    # origin_source (relative) is kept for ALL DB / file / log uses below.
+    _queue_key: str = abs_source if abs_source is not None else str(Path(origin_source).resolve())
+
+    # ── ADR-0046: open a "running" row + register with the queue manager ──────
+    run_id = await _open_ingest_run(
+        origin_source=origin_source,
+        provider_name=caps.name,
+        provider_type=caps.mode,
+        model_id=str(getattr(provider_config_row, "model_id", "")),
+        route=route,  # will be overwritten on delegate; the row uses the resolved value
+        started_at=started_at,
+        retry_count=ingest_queue.get_retry_count(_queue_key),
+    )
+    handle = ingest_queue.open_run(run_id, _queue_key)
+    cancel_event = handle.cancel_event
+
     # ── ROUTE: the single capability check (I6) ──────────────────────────────
     # Wrapped so a route failure still persists an ingest_runs row with status="failed" and the
     # error_message + accumulated cost (BUG A2 / I7), then re-raises so the REST/watcher caller
@@ -359,6 +396,14 @@ async def run_ingest_pipeline(
                 source_text=source_text,
                 origin_source=origin_source,
             )
+            # ── ADR-0046 §3: deferred cancel check for delegated route (I6) ──────────
+            # We cannot inject a cancel boundary into the provider's own agent loop (I6
+            # forbids touching provider internals). Check once after _delegate_ingest
+            # returns, BEFORE post-write hooks — if set, skip hooks and raise to the
+            # IngestCancelled handler above.
+            if cancel_event.is_set():
+                raise IngestCancelled(origin_source)
+
             # ── F3 delegated-route overview regen (nashsu/llm_wiki parity) ──────────────
             # The CLI agent writes pages via MCP write_page but does NOT maintain overview.md.
             # Drive the SAME bounded, degrade-safe overview seam once after its run so the single
@@ -412,6 +457,7 @@ async def run_ingest_pipeline(
                 source_text=source_text,
                 origin_source=origin_source,
                 config_row=provider_config_row,
+                cancel_event=cancel_event,
             )
             pages = loop_result.pages
             analysis = loop_result.analysis
@@ -423,6 +469,8 @@ async def run_ingest_pipeline(
             for page in pages:
                 written_page = await write_wiki_page(None, page, origin_source)
                 written_pages.append(written_page)
+                # ADR-0046: record the page_id so cancel can cascade-delete it
+                ingest_queue.record_written(run_id, written_page.id)
             await _update_overview(analysis, origin_source)
 
             # ── F4 post-write hook: wikilink enrichment (ADR-0036) ───────────────────
@@ -478,12 +526,38 @@ async def run_ingest_pipeline(
                     "run_ingest_pipeline: F9 sweep_reviews hook failed (non-fatal): %s",
                     _sweep_exc,
                 )
-    except Exception as exc:
-        # Persist a failed-run row (I7 ledger stays truthful: cost incurred before the failure is
-        # still recorded) then re-raise so the caller's error handling is unchanged.
+    except IngestCancelled as _cancelled_exc:
+        # ── ADR-0046 §3: cooperative cancel — cascade-delete partial output (I1) ──
         finished_at = datetime.now(UTC)
-        await _write_ingest_run(
-            page_id=None,
+        _written_ids = handle.written_page_ids[:]
+        logger.info(
+            "ingest_run CANCELLED provider=%s origin=%s written_pages=%d",
+            caps.name,
+            origin_source,
+            len(_written_ids),
+        )
+        # Cascade-delete each derived page written so far, excluding raw/sources/ pages
+        # (the raw source file stays so the user can retry — ADR-0046 §3).
+        for _pid in _written_ids:
+            try:
+                if not await _is_raw_sources_page(_pid):
+                    from app.ops.cascade_delete import cascade_delete as _cascade_delete
+
+                    await _cascade_delete(_pid)
+                else:
+                    logger.debug(
+                        "cancel cleanup: skipping raw/sources/ page_id=%s (ADR-0046 §3)", _pid
+                    )
+            except Exception as _cd_exc:  # noqa: BLE001
+                # Non-fatal: log and continue; the ledger records cancellation regardless.
+                logger.warning(
+                    "cancel cleanup: cascade_delete page_id=%s failed (non-fatal): %s",
+                    _pid,
+                    _cd_exc,
+                )
+        # Finalize the run as cancelled (I7: cost incurred before abort still recorded)
+        await _finalize_ingest_run(
+            run_id=run_id,
             provider_name=caps.name,
             provider_type=caps.mode,
             model_id=str(getattr(provider_config_row, "model_id", "")),
@@ -493,11 +567,42 @@ async def run_ingest_pipeline(
             total_cost_usd=round(accumulator.total_cost_usd, 4),
             converged=False,
             cost_anomaly=round(accumulator.total_cost_usd, 4) > COST_ANOMALY_THRESHOLD_USD,
-            started_at=started_at,
+            finished_at=finished_at,
+            pages_created=0,
+            error_message="cancelled by user",
+            status_override="cancelled",
+        )
+        ingest_queue.finalize(run_id, "cancelled", error="cancelled by user")
+        # Do NOT re-raise — cancel is a normal, user-initiated terminal state (ADR-0046 §3).
+        return IngestRunResult(
+            route=route,
+            pages_written=0,
+            total_tokens=accumulator.total_tokens,
+            total_cost_usd=round(accumulator.total_cost_usd, 4),
+            converged=False,
+            cost_anomaly=round(accumulator.total_cost_usd, 4) > COST_ANOMALY_THRESHOLD_USD,
+        )
+
+    except Exception as exc:
+        # Persist a failed-run UPDATE (I7 ledger stays truthful: cost incurred before the failure is
+        # still recorded) then re-raise so the caller's error handling is unchanged.
+        finished_at = datetime.now(UTC)
+        await _finalize_ingest_run(
+            run_id=run_id,
+            provider_name=caps.name,
+            provider_type=caps.mode,
+            model_id=str(getattr(provider_config_row, "model_id", "")),
+            route=route,
+            max_iter_used=iterations,
+            total_tokens=accumulator.total_tokens,
+            total_cost_usd=round(accumulator.total_cost_usd, 4),
+            converged=False,
+            cost_anomaly=round(accumulator.total_cost_usd, 4) > COST_ANOMALY_THRESHOLD_USD,
             finished_at=finished_at,
             pages_created=0,
             error_message=str(exc) or exc.__class__.__name__,
         )
+        ingest_queue.finalize(run_id, "failed", error=str(exc) or exc.__class__.__name__)
         logger.warning(
             "ingest_run FAILED provider=%s origin=%s error=%s",
             caps.name,
@@ -512,13 +617,13 @@ async def run_ingest_pipeline(
     # (post source-summary guarantee); the delegated branch reports its own count.
     pages_written = delegated_pages_written if caps.supports_agentic_loop else len(pages)
 
-    # ── Finalize accumulator → ingest_runs row (I7, ADR-0008 §4) ──────────────
+    # ── Finalize accumulator → ingest_runs row UPDATE (I7, ADR-0008 §4 / ADR-0046 §2) ──────
     total_tokens = accumulator.total_tokens
     total_cost_usd = round(accumulator.total_cost_usd, 4)
     cost_anomaly = total_cost_usd > COST_ANOMALY_THRESHOLD_USD
 
-    await _write_ingest_run(
-        page_id=None,
+    await _finalize_ingest_run(
+        run_id=run_id,
         provider_name=caps.name,
         provider_type=caps.mode,
         model_id=str(getattr(provider_config_row, "model_id", "")),
@@ -528,10 +633,13 @@ async def run_ingest_pipeline(
         total_cost_usd=total_cost_usd,
         converged=converged,
         cost_anomaly=cost_anomaly,
-        started_at=started_at,
         finished_at=finished_at,
         pages_created=pages_written,
     )
+
+    # ── ADR-0046: notify queue manager of terminal success ────────────────────
+    terminal_status = _derive_run_status(converged=converged, error_message=None)
+    ingest_queue.finalize(run_id, terminal_status)
 
     # Structured log line for live tail (ADR-0008 §4).
     logger.info(
@@ -602,8 +710,14 @@ async def _run_orchestrated(
     source_text: str,
     origin_source: str,
     config_row: object,
+    cancel_event: "asyncio.Event | None" = None,
 ) -> LoopResult:
-    """Run the bounded loop with optional single fallback (I7, ADR-0009 §4)."""
+    """Run the bounded loop with optional single fallback (I7, ADR-0009 §4).
+
+    cancel_event is threaded from run_ingest_pipeline (ADR-0046 §3); passed to
+    run_orchestrated_loop so IngestCancelled is raised at loop boundaries only.
+    IngestCancelled propagates up — it is NOT a fallback-eligible exception.
+    """
     max_iter = int(getattr(config_row, "max_iter", None) or 3)
     token_budget = int(getattr(config_row, "token_budget", None) or 60_000)
     vault_context = _load_vault_context()
@@ -619,7 +733,11 @@ async def _run_orchestrated(
             origin_source=origin_source,
             max_iter=max_iter,
             token_budget=token_budget,
+            cancel_event=cancel_event,
         )
+    except IngestCancelled:
+        # Cooperative cancel is not a provider fault — propagate directly without fallback.
+        raise
     except Exception as exc:
         # Provider fallback — bounded to EXACTLY ONCE (I7, ADR-0009 §4). Only timeouts,
         # connection errors, and HTTP 5xx are eligible (NB-1); 4xx and anything else re-raise.
@@ -641,7 +759,10 @@ async def _run_orchestrated(
                 origin_source=origin_source,
                 max_iter=int(getattr(fallback_row, "max_iter", None) or 3),
                 token_budget=int(getattr(fallback_row, "token_budget", None) or 60_000),
+                cancel_event=cancel_event,
             )
+        except IngestCancelled:
+            raise
         except Exception as exc2:  # no chains (AC-K2-7) — one attempt only
             if not _is_fallback_eligible(exc2):
                 raise
@@ -1417,6 +1538,112 @@ def _derive_run_status(*, converged: bool, error_message: str | None) -> str:
     return "completed"
 
 
+async def _open_ingest_run(
+    *,
+    origin_source: str,
+    provider_name: str,
+    provider_type: str,
+    model_id: str,
+    route: str,
+    started_at: datetime,
+    retry_count: int = 0,
+) -> uuid.UUID:
+    """
+    INSERT a status="running" row at the START of the pipeline (ADR-0046 §2).
+
+    Returns the generated run_id so the pipeline can thread it to the queue manager
+    and to the terminal UPDATE in _finalize_ingest_run.
+
+    finished_at is set to started_at as a placeholder (the ADR says non-null; the
+    terminal UPDATE overwrites it).  GET /ingest/runs already nulls completed_at when
+    status == "running" (main.py _ingest_run_to_response — no change needed there).
+    """
+    run_id = uuid.uuid4()
+    async with get_session() as session:
+        session.add(
+            IngestRun(
+                id=run_id,
+                vault_id=settings.vault_id,
+                page_id=None,
+                provider_name=provider_name,
+                provider_type=provider_type,
+                model_id=model_id,
+                route=route,
+                max_iter_used=0,
+                total_tokens=0,
+                total_cost_usd=0,
+                converged=False,
+                cost_anomaly=False,
+                started_at=started_at,
+                finished_at=started_at,  # placeholder; overwritten by _finalize_ingest_run
+                pages_created=0,
+                status="running",
+                error_message=None,
+                source_path=origin_source,
+                retry_count=retry_count,
+            )
+        )
+    logger.debug("_open_ingest_run: run_id=%s source=%s", run_id, origin_source)
+    return run_id
+
+
+async def _finalize_ingest_run(
+    *,
+    run_id: uuid.UUID,
+    provider_name: str,
+    provider_type: str,
+    model_id: str,
+    route: str,
+    max_iter_used: int,
+    total_tokens: int,
+    total_cost_usd: float,
+    converged: bool,
+    cost_anomaly: bool,
+    finished_at: datetime,
+    pages_created: int,
+    error_message: str | None = None,
+    status_override: str | None = None,
+) -> None:
+    """
+    UPDATE the ingest_runs row opened by _open_ingest_run (ADR-0046 §2).
+
+    Sets all terminal fields — status, finished_at, cost, tokens, pages_created,
+    converged, cost_anomaly, error_message.  status_override lets the cancel path
+    write status="cancelled" directly without going through _derive_run_status.
+
+    Preserves the provider/cost accounting: the I7 cost ledger is truthful because
+    accumulated cost (even partial, from before a cancel or failure) is recorded.
+    """
+    from sqlalchemy import update as sa_update
+
+    if status_override is not None:
+        status = status_override
+    else:
+        status = _derive_run_status(converged=converged, error_message=error_message)
+
+    async with get_session() as session:
+        await session.execute(
+            sa_update(IngestRun)
+            .where(IngestRun.id == run_id)
+            .values(
+                provider_name=provider_name,
+                provider_type=provider_type,
+                model_id=model_id,
+                route=route,
+                max_iter_used=max_iter_used,
+                total_tokens=total_tokens,
+                total_cost_usd=total_cost_usd,
+                converged=converged,
+                cost_anomaly=cost_anomaly,
+                finished_at=finished_at,
+                pages_created=pages_created,
+                status=status,
+                error_message=error_message,
+            )
+        )
+    logger.debug("_finalize_ingest_run: run_id=%s status=%s", run_id, status)
+
+
 async def _write_ingest_run(
     *,
     page_id: uuid.UUID | None,
@@ -1435,11 +1662,17 @@ async def _write_ingest_run(
     error_message: str | None = None,
 ) -> None:
     """
-    Persist one ingest_runs row — the cost-audit system of record (I7, ADR-0008 §4).
+    Persist ONE terminal ingest_runs row in a single INSERT — the cost-audit system of
+    record (I7, ADR-0008 §4).
 
-    Sets pages_created/status/error_message from the actual run outcome (BUG A2): previously
-    these defaulted to 0/"completed"/NULL regardless of reality, so successful multi-page runs
-    and failed/non-converged runs were indistinguishable in the REST view (ADR-0018 §7).
+    This is the standalone (open+finalize collapsed) variant, retained for callers that
+    are NOT watcher/queue-driven and therefore have no live "running" row to update —
+    notably the review-create generation path (ops/review.py). The watcher/orchestrator
+    ingest lifecycle uses _open_ingest_run + _finalize_ingest_run instead (ADR-0046 §2);
+    those runs appear in the live activity queue, whereas review-create runs do not.
+
+    source_path / retry_count are left at their column defaults (NULL / 0) — a review-create
+    run has no raw source file in the queue.
     """
     status = _derive_run_status(converged=converged, error_message=error_message)
     async with get_session() as session:
@@ -1464,6 +1697,25 @@ async def _write_ingest_run(
                 error_message=error_message,
             )
         )
+    logger.debug("_write_ingest_run: standalone terminal row status=%s route=%s", status, route)
+
+
+async def _is_raw_sources_page(page_id: uuid.UUID) -> bool:
+    """
+    Return True if the page's file_path starts with "raw/sources/" (ADR-0046 §3).
+
+    These pages must NOT be cascade-deleted on cancel — the raw source file stays
+    so the user can retry.  The source-summary page (if any) is in wiki/sources/,
+    not raw/sources/, so this guard only protects the mechanical source index row.
+    """
+    from sqlalchemy import select
+
+    async with get_session() as session:
+        row = await session.execute(select(Page.file_path).where(Page.id == page_id))
+        file_path = row.scalar_one_or_none()
+    if file_path is None:
+        return False
+    return file_path.startswith("raw/sources/")
 
 
 def _load_vault_context() -> str:

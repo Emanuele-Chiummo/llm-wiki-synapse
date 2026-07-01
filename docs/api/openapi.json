@@ -640,6 +640,157 @@
         }
       }
     },
+    "/ingest/queue": {
+      "get": {
+        "summary": "Live ingest activity queue snapshot",
+        "description": "Returns the live in-memory queue state: processing (in-flight), pending (paused), failed (retained for retry), completed_since_idle, and per-task details. Pure in-memory \u2014 no DB scan. Safe to poll every 5 s (ADR-0046 \u00a76, I3). (ADR-0046)",
+        "operationId": "get_ingest_queue_ingest_queue_get",
+        "responses": {
+          "200": {
+            "description": "Queue snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueSnapshotResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ingest/runs/{run_id}/cancel": {
+      "post": {
+        "summary": "Request cancellation of an in-flight ingest run",
+        "description": "Sets the cooperative cancel event for the run. The loop checks the event at the next iteration boundary (never mid-provider-call, I7/I6). Cascade-deletes any pages written so far (I1) once the boundary is reached. 202 = cancel requested. 404 = run_id unknown. 409 = run already in a terminal state. (ADR-0046 \u00a73/\u00a76)",
+        "operationId": "cancel_ingest_run_ingest_runs__run_id__cancel_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Cancel requested \u2014 cleanup happens asynchronously",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueCancelResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "run_id not found in the active queue"
+          },
+          "409": {
+            "description": "Run is already in a terminal state (completed/failed/cancelled)"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ingest/runs/{run_id}/retry": {
+      "post": {
+        "summary": "Retry a failed ingest run",
+        "description": "Re-dispatches the source file for re-ingest, incrementing retry_count. Hard cap: 3 retries (I7). 202 = re-dispatch accepted. 404 = run_id unknown. 409 detail='max_retries_exceeded' when retry_count >= 3. 409 detail='not_retryable' when run is still active. (ADR-0046 \u00a75/\u00a76)",
+        "operationId": "retry_ingest_run_ingest_runs__run_id__retry_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Retry dispatched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueRetryResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "run_id unknown"
+          },
+          "409": {
+            "description": "max_retries_exceeded or run is not in a retryable state"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ingest/queue/pause": {
+      "post": {
+        "summary": "Pause the ingest queue",
+        "description": "Pauses dispatch \u2014 new FS events are parked in memory until resume. Idempotent; calling while already paused is a no-op. (ADR-0046 \u00a74)",
+        "operationId": "pause_ingest_queue_ingest_queue_pause_post",
+        "responses": {
+          "200": {
+            "description": "Queue paused (idempotent)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuePauseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ingest/queue/resume": {
+      "post": {
+        "summary": "Resume the ingest queue",
+        "description": "Resumes dispatch and drains any parked pending events through the watcher's normal debounce path. Idempotent; calling while not paused replays any stale pending entries. (ADR-0046 \u00a74)",
+        "operationId": "resume_ingest_queue_ingest_queue_resume_post",
+        "responses": {
+          "200": {
+            "description": "Queue resumed; pending entries replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueResumeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/provider/config": {
       "get": {
         "summary": "List provider_config rows",
@@ -1187,6 +1338,38 @@
           },
           "503": {
             "description": "No chat provider_config resolves (I6)"
+          }
+        }
+      }
+    },
+    "/chat/save-to-wiki": {
+      "post": {
+        "summary": "Save a chat answer to the wiki as a query page (G-P0-1)",
+        "description": "Mirrors nashsu/llm_wiki F6 'Save to Wiki': saves a cleaned assistant answer as wiki/queries/<slug(title)>.md with type=query frontmatter (I5). Strips <think>\u2026</think> and <!-- cited: \u2026 --> transport artifacts before saving. Persists via the single write_wiki_page seam (I1 \u2014 one data_version bump, no rescan). No inference provider is called (I6/I7). Returns {page_id, file_path}. 422 if title/content is missing.",
+        "operationId": "save_chat_to_wiki_chat_save_to_wiki_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveToWikiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Page created or updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveToWikiResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "title or content is missing / empty"
           }
         }
       }
@@ -3141,6 +3324,36 @@
         ],
         "title": "EmbeddingConfigResponse"
       },
+      "GraphCommunityResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "cohesion": {
+            "type": "number",
+            "title": "Cohesion",
+            "description": "Intra-edge density [0,1]; 0 for singletons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "size",
+          "cohesion"
+        ],
+        "title": "GraphCommunityResponse",
+        "description": "Per-community summary in the GET /graph response (G-P0-2).\n\nid      : re-numbered Louvain community id (0 = largest community).\nsize    : number of member nodes.\ncohesion: intra-edge density in [0, 1]; 0 for singleton communities.\n          Low cohesion (<0.1) signals a loosely-connected community\n          suitable for a warning in the client legend.",
+        "example": {
+          "cohesion": 0.42,
+          "id": 0,
+          "size": 12
+        }
+      },
       "GraphEdgeResponse": {
         "properties": {
           "source": {
@@ -3218,6 +3431,12 @@
             "title": "Degree",
             "description": "Structural degree: count of distinct incident structural edges (direct-link or shared-source); drives size (ADR-0016 \u00a72/\u00a74)",
             "default": 0
+          },
+          "community": {
+            "type": "integer",
+            "title": "Community",
+            "description": "Louvain community id (G-P0-2, I2). Re-numbered by size (0 = largest). -1 when not yet assigned (first recompute pending).",
+            "default": -1
           }
         },
         "type": "object",
@@ -3229,8 +3448,9 @@
           "y"
         ],
         "title": "GraphNodeResponse",
-        "description": "One graph node in the GET /graph response (ADR-0014 \u00a76, AC-F4-3, ADR-0016 \u00a74).\n\nRequired: id, title, type, x, y.\nOptional rendering hints (derived server-side): size, degree.",
+        "description": "One graph node in the GET /graph response (ADR-0014 \u00a76, AC-F4-3, ADR-0016 \u00a74).\n\nRequired: id, title, type, x, y.\nOptional rendering hints (derived server-side): size, degree.\ncommunity: Louvain community id (G-P0-2); -1 when not yet assigned.",
         "example": {
+          "community": 0,
           "degree": 3,
           "id": "00000000-0000-0000-0000-000000000001",
           "size": 2.1,
@@ -3263,6 +3483,14 @@
           "cached": {
             "type": "boolean",
             "title": "Cached"
+          },
+          "communities": {
+            "items": {
+              "$ref": "#/components/schemas/GraphCommunityResponse"
+            },
+            "type": "array",
+            "title": "Communities",
+            "description": "Per-community summary (G-P0-2, I2): id, size, cohesion. Ordered by id (0 = largest). Empty until first graph recompute."
           }
         },
         "type": "object",
@@ -3273,9 +3501,16 @@
           "cached"
         ],
         "title": "GraphResponse",
-        "description": "GET /graph response payload (ADR-0014 \u00a76, AC-F4-3, AC-D4v3-1).\n\ncached: true on a HIT (no FA2 this request), false on a MISS (FA2 ran inline).\nHeader X-Graph-Cache: hit|miss mirrors cached (ADR-0014 \u00a75).",
+        "description": "GET /graph response payload (ADR-0014 \u00a76, AC-F4-3, AC-D4v3-1).\n\ncached     : true on a HIT (no FA2 this request), false on a MISS (FA2 ran inline).\ncommunities: Louvain community summary list (G-P0-2); empty until first recompute.\nHeader X-Graph-Cache: hit|miss mirrors cached (ADR-0014 \u00a75).",
         "example": {
           "cached": true,
+          "communities": [
+            {
+              "cohesion": 1.0,
+              "id": 0,
+              "size": 2
+            }
+          ],
           "data_version": 7,
           "edges": [
             {
@@ -3287,6 +3522,7 @@
           ],
           "nodes": [
             {
+              "community": 0,
               "degree": 3,
               "id": "00000000-0000-0000-0000-000000000001",
               "size": 2.1,
@@ -4904,6 +5140,226 @@
         "title": "ProviderConfigResponse",
         "description": "API response shape for a provider_config row (\u00a712: no api_key field)."
       },
+      "QueueCancelResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "'cancelling' \u2014 abort requested; cleanup completes async"
+          },
+          "cleaned_pages": {
+            "type": "integer",
+            "title": "Cleaned Pages",
+            "description": "Always 0 at request time; cascade cleanup happens at the next loop boundary",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "status"
+        ],
+        "title": "QueueCancelResponse",
+        "description": "Response for POST /ingest/runs/{id}/cancel (ADR-0046 \u00a76)."
+      },
+      "QueuePauseResponse": {
+        "properties": {
+          "paused": {
+            "type": "boolean",
+            "title": "Paused",
+            "description": "Always true; idempotent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "paused"
+        ],
+        "title": "QueuePauseResponse",
+        "description": "Response for POST /ingest/queue/pause (ADR-0046 \u00a76)."
+      },
+      "QueueResumeResponse": {
+        "properties": {
+          "paused": {
+            "type": "boolean",
+            "title": "Paused",
+            "description": "Always false; idempotent"
+          },
+          "drained": {
+            "type": "integer",
+            "title": "Drained",
+            "description": "Number of pending entries replayed to the watcher"
+          }
+        },
+        "type": "object",
+        "required": [
+          "paused",
+          "drained"
+        ],
+        "title": "QueueResumeResponse",
+        "description": "Response for POST /ingest/queue/resume (ADR-0046 \u00a76)."
+      },
+      "QueueRetryResponse": {
+        "properties": {
+          "run_id_prev": {
+            "type": "string",
+            "title": "Run Id Prev",
+            "description": "UUID of the failed run that was retried"
+          },
+          "source_path": {
+            "type": "string",
+            "title": "Source Path"
+          },
+          "retry_count": {
+            "type": "integer",
+            "title": "Retry Count",
+            "description": "New retry count (1..3); I7 hard cap = 3"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "'queued' \u2014 re-dispatch accepted",
+            "default": "queued"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id_prev",
+          "source_path",
+          "retry_count"
+        ],
+        "title": "QueueRetryResponse",
+        "description": "Response for POST /ingest/runs/{id}/retry (ADR-0046 \u00a76)."
+      },
+      "QueueSnapshotResponse": {
+        "properties": {
+          "paused": {
+            "type": "boolean",
+            "title": "Paused",
+            "description": "True when the queue is paused (no new dispatches)"
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending",
+            "description": "Number of FS events parked while queue is paused"
+          },
+          "processing": {
+            "type": "integer",
+            "title": "Processing",
+            "description": "Number of currently in-flight ingest runs"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed",
+            "description": "Number of recently-failed tasks retained for retry"
+          },
+          "completed_since_idle": {
+            "type": "integer",
+            "title": "Completed Since Idle",
+            "description": "Successful completions since the queue last went idle"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "pending + processing + failed"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/QueueTaskItem"
+            },
+            "type": "array",
+            "title": "Tasks",
+            "description": "All visible tasks (pending+processing+failed)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "paused",
+          "pending",
+          "processing",
+          "failed",
+          "completed_since_idle",
+          "total",
+          "tasks"
+        ],
+        "title": "QueueSnapshotResponse",
+        "description": "Live activity queue snapshot for GET /ingest/queue (ADR-0046 \u00a76)."
+      },
+      "QueueTaskItem": {
+        "properties": {
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id",
+            "description": "UUID of the in-flight run; null for pending (not yet dispatched) tasks"
+          },
+          "source_path": {
+            "type": "string",
+            "title": "Source Path",
+            "description": "Relative raw source path (raw/sources/\u2026)"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename",
+            "description": "Basename of source_path"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "pending | processing | failed"
+          },
+          "retry_count": {
+            "type": "integer",
+            "title": "Retry Count",
+            "description": "Times this source has been retried (I7, max 3)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Error detail for failed tasks; null otherwise"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At",
+            "description": "ISO-8601 start time; null for pending tasks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "source_path",
+          "filename",
+          "status",
+          "retry_count",
+          "error",
+          "started_at"
+        ],
+        "title": "QueueTaskItem",
+        "description": "One task in the live ingest queue snapshot (ADR-0046 \u00a76)."
+      },
       "ReferencedPage": {
         "properties": {
           "id": {
@@ -5757,6 +6213,102 @@
         "type": "object",
         "title": "RunNowResponse",
         "description": "202 response body for POST /import-schedule/run-now (ADR-0020 \u00a74.6)."
+      },
+      "SaveToWikiRequest": {
+        "properties": {
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id",
+            "description": "Defaults to settings.vault_id"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title",
+            "description": "Page title (required)"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Content",
+            "description": "Page content (required)"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources",
+            "description": "Optional source references to attach to the page frontmatter"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id",
+            "description": "Optional conversation UUID for provenance reference"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "content"
+        ],
+        "title": "SaveToWikiRequest",
+        "description": "Request body for POST /chat/save-to-wiki (G-P0-1).\n\nSaves a cleaned chat assistant answer as a wiki/queries/<slug>.md page.\nNo inference provider is called (I6); this is a pure DB+file write (I7).",
+        "example": {
+          "content": "bge-m3 is a multi-lingual dense embedding model...",
+          "conversation_id": "00000000-0000-0000-0000-000000000001",
+          "sources": [
+            "raw/sources/chat-123.md"
+          ],
+          "title": "What is bge-m3?"
+        }
+      },
+      "SaveToWikiResponse": {
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Page Id",
+            "description": "UUID of the created/updated wiki/queries page"
+          },
+          "file_path": {
+            "type": "string",
+            "title": "File Path",
+            "description": "Relative path in the vault (wiki/queries/<slug>.md)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page_id",
+          "file_path"
+        ],
+        "title": "SaveToWikiResponse",
+        "description": "201 response for POST /chat/save-to-wiki (G-P0-1).",
+        "example": {
+          "file_path": "wiki/queries/what-is-bge-m3.md",
+          "page_id": "00000000-0000-0000-0000-000000000001"
+        }
       },
       "SearchResponse": {
         "properties": {

@@ -22,6 +22,7 @@ cost-anomaly check are the orchestrator's job (ADR-0009 §3). The shared validat
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 
@@ -31,6 +32,24 @@ from app.ingest.provider.base import InferenceProvider, UsageAccumulator
 from app.ingest.schemas import Analysis, PageType, WikiPage
 
 logger = logging.getLogger(__name__)
+
+
+# ── Cooperative cancellation exception (ADR-0046 §3) ─────────────────────────
+
+
+class IngestCancelled(Exception):
+    """
+    Raised at the top of each orchestrated-loop iteration when the run's
+    cancel_event is set (ADR-0046 §3 / I6: never raised inside a provider call).
+
+    Carries the origin_source for logging.  Caught by run_ingest_pipeline in
+    orchestrator.py, which performs cascade cleanup then finalises the run as
+    status="cancelled".
+    """
+
+    def __init__(self, origin_source: str) -> None:
+        self.origin_source = origin_source
+        super().__init__(f"ingest cancelled: {origin_source}")
 
 
 # ── Shared validator (ADR-0007 §5 / ADR-0010 §2 — ONE validator) ────────────────
@@ -117,10 +136,17 @@ async def run_orchestrated_loop(
     origin_source: str,
     max_iter: int,
     token_budget: int,
+    cancel_event: asyncio.Event | None = None,
 ) -> LoopResult:
     """
     Run analyze-once → generate → validate → augment&retry, bounded by max_iter AND
     token_budget (I7). Pushes Usage to *accumulator* via the provider's out-of-band recording.
+
+    cancel_event: optional asyncio.Event set by the queue manager when the user requests
+    cancellation (ADR-0046 §3). Checked at the TOP of each iteration — NEVER inside a
+    provider call — so at most one in-flight generate() completes before abort. Raises
+    IngestCancelled(origin_source) on cancellation; the orchestrator catches it and
+    performs cascade cleanup.
 
     Returns the last produced batch with converged/stop_reason set; the caller decides whether
     to persist (the architecture writes the last batch even on non-convergence so a
@@ -138,6 +164,13 @@ async def run_orchestrated_loop(
     stop_reason = "max_iter"
 
     for i in range(1, max_iter + 1):
+        # ── Cooperative cancel check (ADR-0046 §3 / I7) ──────────────────────────
+        # Checked at the loop BOUNDARY, before any provider call, so we never tear a
+        # half-written page (I1). At most one generate() completes after the event is set.
+        if cancel_event is not None and cancel_event.is_set():
+            stop_reason = "cancelled"
+            raise IngestCancelled(origin_source)
+
         # I7 bound #2: pre-call token-budget check (ADR-0009 §1 — never make a call we can't
         # afford). Checked before generate() because analyze() already spent some budget.
         if accumulator.total_tokens >= token_budget:

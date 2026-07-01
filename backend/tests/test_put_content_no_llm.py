@@ -264,10 +264,10 @@ class TestPutPageContentNoLLM:
         """
         T-PC-P1b: PUT /pages/{id}/content must NOT create a new ingest_runs row.
 
-        An ingest_runs row is only created by run_ingest_pipeline (via _write_ingest_run).
-        If a row IS created by PUT, the LLM pipeline was invoked — data loss risk.
+        An ingest_runs row is only opened by run_ingest_pipeline (via _open_ingest_run /
+        ADR-0046). If it IS called by PUT, the LLM pipeline was invoked — data loss risk.
 
-        We verify this by counting _write_ingest_run calls: it must be 0 for a wiki PUT.
+        We verify this by counting _open_ingest_run calls: it must be 0 for a wiki PUT.
         """
         import app.ingest.orchestrator as orch
 
@@ -281,13 +281,13 @@ class TestPutPageContentNoLLM:
 
         # AFTER fixture: install spies and guards for the PUT call only.
         write_run_calls: list[dict[str, Any]] = []
-        original_write_run = orch._write_ingest_run  # type: ignore[attr-defined]
+        original_open_run = orch._open_ingest_run  # type: ignore[attr-defined]
 
         async def spy_write_run(**kwargs: Any) -> None:
             write_run_calls.append(kwargs)
-            await original_write_run(**kwargs)
+            await original_open_run(**kwargs)
 
-        monkeypatch.setattr(orch, "_write_ingest_run", spy_write_run)
+        monkeypatch.setattr(orch, "_open_ingest_run", spy_write_run)
 
         # Provider configured — simulates production
         fake_config = MagicMock()

@@ -35,6 +35,7 @@ from watchdog.events import (
 from watchdog.observers import Observer
 
 from app.config import settings
+from app.ingest.queue_manager import ingest_queue
 
 # Single source of truth for accepted extensions (shared with upload.py, import_scheduler.py).
 # Import lazily to avoid circular imports at module load; accessed only in _is_text_file().
@@ -120,6 +121,20 @@ class _MarkdownHandler(FileSystemEventHandler):
     def _fire(self, path: str, action: str) -> None:
         """Quiet period elapsed — launch the coalesced ingest/delete once per path."""
         self._pending.pop(path, None)
+
+        # ── ADR-0046 §3: cancel-suppression check ────────────────────────────
+        # Drop FS events for paths currently in the cancel-suppression window
+        # (post-cancel cascade_delete mutations / editor re-touch).
+        if ingest_queue.should_skip(path):
+            logger.debug("watcher: suppressing event for cancelled path %s", path)
+            return
+
+        # ── ADR-0046 §4: pause gate ───────────────────────────────────────────
+        # If the queue is paused, admit() parks the event and returns False.
+        if not ingest_queue.admit(path, action):
+            logger.debug("watcher: admit returned False (paused) — parked path=%s", path)
+            return
+
         if path in self._inflight:
             # An ingest for this path is still running; remember the latest action
             # and replay it exactly once when that run finishes (coalesced trailing).
@@ -203,6 +218,9 @@ class VaultWatcher:
         self._emit_startup_notice(watch_dir)
 
         handler = _MarkdownHandler(loop)
+        # ── ADR-0046 §4/§5: register handler so queue_manager can call _arm for resume/retry ──
+        ingest_queue.set_watcher_handler(handler)
+
         observer = Observer()
         observer.schedule(handler, str(watch_dir), recursive=True)
         observer.start()

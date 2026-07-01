@@ -450,20 +450,55 @@ async def _run_smoke_backend(backend: str, tmp_vault: Path) -> SmokeResult:
     async def _fake_bump_version() -> None:
         pass
 
-    async def _fake_write_ingest_run(**kwargs: object) -> None:
+    import uuid as _smoke_uuid
+
+    async def _fake_open_ingest_run(**kwargs: object) -> object:
+        return _smoke_uuid.uuid4()
+
+    async def _fake_finalize_ingest_run(**kwargs: object) -> None:
         ingest_run_args.update(kwargs)
+
+    # ADR-0046: also stub ingest_queue so run_ingest_pipeline doesn't need a live event loop
+    from app.ingest.queue_manager import IngestQueueManager
+    import asyncio as _smoke_asyncio
+
+    class _FakeQueueHandle:
+        run_id = _smoke_uuid.uuid4()
+        source_path = FIXTURE_ORIGIN
+        cancel_event = _smoke_asyncio.Event()
+        written_page_ids: list = []
+        status = "running"
+
+    _fake_queue = IngestQueueManager.__new__(IngestQueueManager)
+    _fake_queue._active = {}  # type: ignore[attr-defined]
+    _fake_queue._run_id_to_path = {}  # type: ignore[attr-defined]
+    _fake_queue._pending = {}  # type: ignore[attr-defined]
+    _fake_queue._retry_counts = {}  # type: ignore[attr-defined]
+    _fake_queue._recent_failed = {}  # type: ignore[attr-defined]
+    _fake_queue._paused = False  # type: ignore[attr-defined]
+    _fake_queue._completed_since_idle = 0  # type: ignore[attr-defined]
+    _fake_queue._suppress = {}  # type: ignore[attr-defined]
+    _fake_queue._watcher_handler = None  # type: ignore[attr-defined]
+    _fake_queue.open_run = lambda run_id, source_path: _FakeQueueHandle()  # type: ignore[attr-defined]
+    _fake_queue.finalize = lambda *a, **kw: None  # type: ignore[attr-defined]
+    _fake_queue.get_retry_count = lambda path: 0  # type: ignore[attr-defined]
+    _fake_queue.record_written = lambda *a, **kw: None  # type: ignore[attr-defined]
 
     # Patch primitives so we don't need Postgres/Qdrant for the smoke harness
     original_persist = orch.persist_metadata
     original_upsert = orch.upsert_vector
     original_log = orch.append_log
     original_bump = orch.bump_version
-    original_run = orch._write_ingest_run
+    original_open_run = orch._open_ingest_run  # type: ignore[attr-defined]
+    original_finalize_run = orch._finalize_ingest_run  # type: ignore[attr-defined]
+    original_ingest_queue = orch.ingest_queue  # type: ignore[attr-defined]
     orch.persist_metadata = _fake_persist_metadata  # type: ignore[assignment]
     orch.upsert_vector = _fake_upsert_vector  # type: ignore[assignment]
     orch.append_log = _fake_append_log  # type: ignore[assignment]
     orch.bump_version = _fake_bump_version  # type: ignore[assignment]
-    orch._write_ingest_run = _fake_write_ingest_run  # type: ignore[assignment]
+    orch._open_ingest_run = _fake_open_ingest_run  # type: ignore[assignment]
+    orch._finalize_ingest_run = _fake_finalize_ingest_run  # type: ignore[assignment]
+    orch.ingest_queue = _fake_queue  # type: ignore[assignment]
 
     # In mock mode also patch resolve_provider so the mock provider is used instead
     # of instantiating OllamaProvider/ApiProvider which require live infra (OLLAMA_URL,
@@ -511,7 +546,9 @@ async def _run_smoke_backend(backend: str, tmp_vault: Path) -> SmokeResult:
         orch.upsert_vector = original_upsert  # type: ignore[assignment]
         orch.append_log = original_log  # type: ignore[assignment]
         orch.bump_version = original_bump  # type: ignore[assignment]
-        orch._write_ingest_run = original_run  # type: ignore[assignment]
+        orch._open_ingest_run = original_open_run  # type: ignore[assignment]
+        orch._finalize_ingest_run = original_finalize_run  # type: ignore[assignment]
+        orch.ingest_queue = original_ingest_queue  # type: ignore[assignment]
         orch.resolve_provider = original_resolve_provider  # type: ignore[assignment]
 
     # ── Assertions ────────────────────────────────────────────────────────────
@@ -579,11 +616,11 @@ async def _run_smoke_backend(backend: str, tmp_vault: Path) -> SmokeResult:
         # tolerate for the CI mock path (the index.md test is covered in test_index_md.py)
         pass
 
-    # 7. ingest_runs row was written with cost info (I7)
+    # 7. ingest_runs row was finalized with cost info (I7, ADR-0046 uses _finalize_ingest_run)
     if "converged" not in ingest_run_args:
-        failures.append("ingest_runs row not written (no _write_ingest_run call recorded)")
+        failures.append("ingest_runs row not finalized (no _finalize_ingest_run call recorded)")
     elif not ingest_run_args.get("converged"):
-        failures.append("ingest_runs.converged=False in the row")
+        failures.append("ingest_runs.converged=False in the finalized row")
 
     passed = len(failures) == 0
     detail = "PASS" if passed else "; ".join(failures)

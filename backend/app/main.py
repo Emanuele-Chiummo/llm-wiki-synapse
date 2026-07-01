@@ -847,6 +847,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "validation (ADR-0030 §2.5). Retrieval will use lexical degrade (Feature B)."
         )
 
+    # 3b. Sweep orphan status="running" rows from a prior crash (ADR-0046 §3 consequences).
+    #     These are rows where the backend was killed mid-run so the row was never finalised.
+    #     We mark them failed — STATUS UPDATE ONLY: no re-ingest, no rescan (I1).
+    await _sweep_orphan_running_rows()
+
     # 4. Start watcher (I1)
     loop = asyncio.get_running_loop()
     start_watcher(loop)
@@ -1234,6 +1239,70 @@ class IngestRunListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# ── Queue Pydantic models (ADR-0046 §6) ───────────────────────────────────────
+
+
+class QueueTaskItem(BaseModel):
+    """One task in the live ingest queue snapshot (ADR-0046 §6)."""
+
+    run_id: str | None = Field(
+        description="UUID of the in-flight run; null for pending (not yet dispatched) tasks"
+    )
+    source_path: str = Field(description="Relative raw source path (raw/sources/…)")
+    filename: str = Field(description="Basename of source_path")
+    status: str = Field(description="pending | processing | failed")
+    retry_count: int = Field(description="Times this source has been retried (I7, max 3)")
+    error: str | None = Field(description="Error detail for failed tasks; null otherwise")
+    started_at: str | None = Field(description="ISO-8601 start time; null for pending tasks")
+
+
+class QueueSnapshotResponse(BaseModel):
+    """Live activity queue snapshot for GET /ingest/queue (ADR-0046 §6)."""
+
+    paused: bool = Field(description="True when the queue is paused (no new dispatches)")
+    pending: int = Field(description="Number of FS events parked while queue is paused")
+    processing: int = Field(description="Number of currently in-flight ingest runs")
+    failed: int = Field(description="Number of recently-failed tasks retained for retry")
+    completed_since_idle: int = Field(
+        description="Successful completions since the queue last went idle"
+    )
+    total: int = Field(description="pending + processing + failed")
+    tasks: list[QueueTaskItem] = Field(description="All visible tasks (pending+processing+failed)")
+
+
+class QueueCancelResponse(BaseModel):
+    """Response for POST /ingest/runs/{id}/cancel (ADR-0046 §6)."""
+
+    run_id: str
+    status: str = Field(description="'cancelling' — abort requested; cleanup completes async")
+    cleaned_pages: int = Field(
+        default=0,
+        description="Always 0 at request time; cascade cleanup happens at the next loop boundary",
+    )
+
+
+class QueueRetryResponse(BaseModel):
+    """Response for POST /ingest/runs/{id}/retry (ADR-0046 §6)."""
+
+    run_id_prev: str = Field(description="UUID of the failed run that was retried")
+    source_path: str
+    retry_count: int = Field(description="New retry count (1..3); I7 hard cap = 3")
+    status: str = Field(default="queued", description="'queued' — re-dispatch accepted")
+
+
+class QueuePauseResponse(BaseModel):
+    """Response for POST /ingest/queue/pause (ADR-0046 §6)."""
+
+    paused: bool = Field(description="Always true; idempotent")
+
+
+class QueueResumeResponse(BaseModel):
+    """Response for POST /ingest/queue/resume (ADR-0046 §6)."""
+
+    paused: bool = Field(description="Always false; idempotent")
+    drained: int = Field(description="Number of pending entries replayed to the watcher")
 
 
 # ── Upload Pydantic models (Feature U, ADR-0020 §2.1) ─────────────────────────
@@ -2750,6 +2819,167 @@ def _ingest_run_to_response(run: IngestRun) -> IngestRunResponse:
         completed_at=completed_at,
         error_message=run.error_message,
     )
+
+
+# ── GET /ingest/queue + POST /ingest/runs/{id}/cancel|retry + pause/resume ───
+# ADR-0046 §6 — live activity queue endpoints
+
+
+@app.get(
+    "/ingest/queue",
+    response_model=QueueSnapshotResponse,
+    summary="Live ingest activity queue snapshot",
+    description=(
+        "Returns the live in-memory queue state: processing (in-flight), pending (paused), "
+        "failed (retained for retry), completed_since_idle, and per-task details. "
+        "Pure in-memory — no DB scan. Safe to poll every 5 s (ADR-0046 §6, I3). "
+        "(ADR-0046)"
+    ),
+    responses={200: {"description": "Queue snapshot"}},
+)
+async def get_ingest_queue() -> QueueSnapshotResponse:
+    """GET /ingest/queue — live snapshot from the in-process queue manager (ADR-0046 §6)."""
+    from app.ingest.queue_manager import ingest_queue as _iq
+
+    snap = _iq.snapshot()
+    tasks = [QueueTaskItem(**t) for t in snap["tasks"]]
+    return QueueSnapshotResponse(
+        paused=snap["paused"],
+        pending=snap["pending"],
+        processing=snap["processing"],
+        failed=snap["failed"],
+        completed_since_idle=snap["completed_since_idle"],
+        total=snap["total"],
+        tasks=tasks,
+    )
+
+
+@app.post(
+    "/ingest/runs/{run_id}/cancel",
+    response_model=QueueCancelResponse,
+    status_code=202,
+    summary="Request cancellation of an in-flight ingest run",
+    description=(
+        "Sets the cooperative cancel event for the run. The loop checks the event at the "
+        "next iteration boundary (never mid-provider-call, I7/I6). Cascade-deletes any pages "
+        "written so far (I1) once the boundary is reached. 202 = cancel requested. "
+        "404 = run_id unknown. 409 = run already in a terminal state. (ADR-0046 §3/§6)"
+    ),
+    responses={
+        202: {"description": "Cancel requested — cleanup happens asynchronously"},
+        404: {"description": "run_id not found in the active queue"},
+        409: {"description": "Run is already in a terminal state (completed/failed/cancelled)"},
+    },
+)
+async def cancel_ingest_run(run_id: uuid.UUID) -> QueueCancelResponse:
+    """POST /ingest/runs/{id}/cancel — request cooperative cancellation (ADR-0046 §3)."""
+    from app.ingest.queue_manager import ingest_queue as _iq
+
+    # Check if the run exists at all (active or recently failed/completed in DB)
+    if _iq.is_run_active(run_id):
+        cancelled = _iq.cancel(run_id)
+        if not cancelled:
+            # Should not happen given is_run_active check, but guard anyway
+            raise HTTPException(status_code=409, detail="Run is not in a cancellable state")
+        return QueueCancelResponse(run_id=str(run_id), status="cancelling", cleaned_pages=0)
+
+    # Not in active map — check if it's a known failed entry
+    failed_entry = _iq.find_failed_by_run_id(run_id)
+    if failed_entry is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Run is already in a terminal state and cannot be cancelled",
+        )
+
+    # Unknown run_id
+    raise HTTPException(status_code=404, detail="run_id not found in the active queue")
+
+
+@app.post(
+    "/ingest/runs/{run_id}/retry",
+    response_model=QueueRetryResponse,
+    status_code=202,
+    summary="Retry a failed ingest run",
+    description=(
+        "Re-dispatches the source file for re-ingest, incrementing retry_count. "
+        "Hard cap: 3 retries (I7). "
+        "202 = re-dispatch accepted. "
+        "404 = run_id unknown. "
+        "409 detail='max_retries_exceeded' when retry_count >= 3. "
+        "409 detail='not_retryable' when run is still active. (ADR-0046 §5/§6)"
+    ),
+    responses={
+        202: {"description": "Retry dispatched"},
+        404: {"description": "run_id unknown"},
+        409: {"description": "max_retries_exceeded or run is not in a retryable state"},
+    },
+)
+async def retry_ingest_run(run_id: uuid.UUID) -> QueueRetryResponse:
+    """POST /ingest/runs/{id}/retry — re-dispatch a failed source file (ADR-0046 §5)."""
+    from app.ingest.queue_manager import ingest_queue as _iq
+
+    try:
+        result = _iq.request_retry(run_id)
+    except ValueError as exc:
+        detail = str(exc)
+        if detail == "max_retries_exceeded":
+            raise HTTPException(status_code=409, detail="max_retries_exceeded") from exc
+        if detail == "not_retryable":
+            raise HTTPException(
+                status_code=409,
+                detail="Run is currently active and cannot be retried; cancel it first",
+            ) from exc
+        raise HTTPException(status_code=409, detail=detail) from exc
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="run_id not found")
+
+    source_path, new_retry_count = result
+    return QueueRetryResponse(
+        run_id_prev=str(run_id),
+        source_path=source_path,
+        retry_count=new_retry_count,
+        status="queued",
+    )
+
+
+@app.post(
+    "/ingest/queue/pause",
+    response_model=QueuePauseResponse,
+    status_code=200,
+    summary="Pause the ingest queue",
+    description=(
+        "Pauses dispatch — new FS events are parked in memory until resume. "
+        "Idempotent; calling while already paused is a no-op. (ADR-0046 §4)"
+    ),
+    responses={200: {"description": "Queue paused (idempotent)"}},
+)
+async def pause_ingest_queue() -> QueuePauseResponse:
+    """POST /ingest/queue/pause — gate new dispatches (ADR-0046 §4)."""
+    from app.ingest.queue_manager import ingest_queue as _iq
+
+    _iq.pause()
+    return QueuePauseResponse(paused=True)
+
+
+@app.post(
+    "/ingest/queue/resume",
+    response_model=QueueResumeResponse,
+    status_code=200,
+    summary="Resume the ingest queue",
+    description=(
+        "Resumes dispatch and drains any parked pending events through the watcher's "
+        "normal debounce path. Idempotent; calling while not paused replays any stale "
+        "pending entries. (ADR-0046 §4)"
+    ),
+    responses={200: {"description": "Queue resumed; pending entries replayed"}},
+)
+async def resume_ingest_queue() -> QueueResumeResponse:
+    """POST /ingest/queue/resume — drain pending entries (ADR-0046 §4)."""
+    from app.ingest.queue_manager import ingest_queue as _iq
+
+    drained = _iq.resume()
+    return QueueResumeResponse(paused=False, drained=drained)
 
 
 # ── GET /provider/config ───────────────────────────────────────────────────────
@@ -6610,6 +6840,52 @@ async def clip_ingest(
 
 
 # ── Startup helpers ────────────────────────────────────────────────────────────
+
+
+async def _sweep_orphan_running_rows() -> None:
+    """
+    Mark any orphaned status="running" rows as failed on startup (ADR-0046 §3 consequences).
+
+    These arise when the backend was killed mid-ingest: the _open_ingest_run INSERT succeeded
+    but _finalize_ingest_run never ran, leaving a permanent "running" row that would show up
+    as ghost processing tasks in GET /ingest/queue.
+
+    Detection: finished_at == started_at (the placeholder value set by _open_ingest_run)
+    AND status="running".  This avoids false positives on rows that legitimately have
+    finished_at == started_at for other reasons (there are none; the placeholder pattern is
+    unique to ADR-0046 rows).
+
+    NEVER re-ingests or rescans (I1).  Status-only UPDATE.
+    """
+    from sqlalchemy import update as sa_update
+
+    try:
+        async with get_session() as session:
+            result = await session.execute(
+                sa_update(IngestRun)
+                .where(
+                    IngestRun.status == "running",
+                    IngestRun.finished_at == IngestRun.started_at,
+                )
+                .values(
+                    status="failed",
+                    error_message="interrupted (backend restart)",
+                )
+                .returning(IngestRun.id)
+            )
+            swept = result.fetchall()
+            if swept:
+                logger.warning(
+                    "startup: swept %d orphan running ingest_runs rows → failed "
+                    "(ADR-0046 restart-recovery): %s",
+                    len(swept),
+                    [str(r[0]) for r in swept],
+                )
+            else:
+                logger.debug("startup: no orphan running ingest_runs rows found")
+    except Exception as exc:  # noqa: BLE001
+        # Non-fatal: log and continue — startup must not fail because of this sweep.
+        logger.warning("startup: orphan running-row sweep failed (non-fatal): %s", exc)
 
 
 async def _seed_vault_state() -> None:

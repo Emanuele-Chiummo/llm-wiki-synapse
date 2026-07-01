@@ -611,6 +611,26 @@
     "body": "Configura un provider AI nelle Impostazioni prima di usare chat o importazione.",
     "cta": "Apri Impostazioni"
   },
+  "activity": {
+    "queueStatus": "Coda",
+    "processing": "In elaborazione",
+    "pending": "In attesa",
+    "failed": "Falliti",
+    "paused": "In pausa",
+    "pauseQueue": "Pausa",
+    "resumeQueue": "Riprendi",
+    "cancelAll": "Annulla tutti",
+    "cancelAllConfirm": "Annullare tutti i task attivi e in attesa?",
+    "retryFailed": "Riprova falliti",
+    "cancel": "Annulla",
+    "retry": "Riprova",
+    "cancelling": "Annullamento…",
+    "maxRetriesReached": "Tentativi massimi raggiunti",
+    "completedCount": "{{completed}}/{{total}}",
+    "expand": "Espandi pannello attività",
+    "collapse": "Comprimi pannello attività",
+    "emptyQueue": "Coda vuota"
+  },
   "common": {
     "loading": "Caricamento…",
     "retry": "Riprova",

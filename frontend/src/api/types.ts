@@ -715,6 +715,67 @@ export interface CliAuthUpdateRequest {
   clear?: boolean;
 }
 
+// ─── GET /ingest/queue (Activity Panel, F1) ──────────────────────────────────
+
+/** Status of an individual task in the live ingest queue. */
+export type QueueTaskStatus = "pending" | "processing" | "failed";
+
+/**
+ * One live task entry from GET /ingest/queue.
+ * run_id is only present when the task is being actively processed (status=processing).
+ * error is only present when status=failed.
+ * started_at is only present when status=processing.
+ */
+export interface QueueTask {
+  run_id?: string | undefined;
+  source_path: string;
+  filename: string;
+  status: QueueTaskStatus;
+  retry_count: number;
+  error?: string | undefined;
+  started_at?: string | undefined;
+}
+
+/**
+ * Response from GET /ingest/queue.
+ * completed_since_idle resets when the queue becomes idle again.
+ */
+export interface IngestQueueSnapshot {
+  paused: boolean;
+  pending: number;
+  processing: number;
+  failed: number;
+  completed_since_idle: number;
+  total: number;
+  tasks: QueueTask[];
+}
+
+/** 202 response from POST /ingest/runs/{id}/cancel */
+export interface CancelRunResponse {
+  run_id: string;
+  status: "cancelling";
+  cleaned_pages: number;
+}
+
+/** 202 response from POST /ingest/runs/{id}/retry */
+export interface RetryRunResponse {
+  run_id_prev: string;
+  source_path: string;
+  retry_count: number;
+  status: "queued";
+}
+
+/** 200 response from POST /ingest/queue/pause */
+export interface PauseQueueResponse {
+  paused: true;
+}
+
+/** 200 response from POST /ingest/queue/resume */
+export interface ResumeQueueResponse {
+  paused: false;
+  drained: number;
+}
+
 // ─── POST /lint/scan + GET /lint/runs + GET /lint/findings (K2, ADR-0037 §6) ──
 
 /** Lint finding categories (ADR-0037 §6). */
