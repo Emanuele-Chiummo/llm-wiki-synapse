@@ -30,7 +30,9 @@ GENERATE_SYSTEM = (
     "a list of wiki pages. Each page is "
     "{title: str, type: entity|concept|source|synthesis|comparison, content: markdown body, "
     "frontmatter: {type, title, sources: non-empty list[str] including the origin source "
-    "path, lang: ISO-639-1}}. Every page MUST cite its sources (traceability). "
+    "path, lang: ISO-639-1, tags: 3-6 concise lowercase reusable tags}}. "
+    "Every page MUST cite its sources (traceability) and assign 3-6 concise, lowercase, "
+    "reusable frontmatter 'tags' for navigation. "
     "'content' is the markdown body WITHOUT the frontmatter block. Return no prose, only JSON."
 )
 

@@ -107,7 +107,8 @@ def bootstrap_vault() -> None:
         "|-------|------|----------|-------|\n"
         "| `type` | string | yes | entity, concept, source, query, synthesis, comparison |\n"
         "| `title` | string | yes | Human-readable page title |\n"
-        "| `sources` | list[string] | no | Source file paths or URLs |\n\n"
+        "| `sources` | list[string] | no | Source file paths or URLs |\n"
+        "| `tags` | list[string] | no | 3–6 concise, lowercase, reusable navigation tags (K6) |\n\n"
         "Wikilink style: `[[PageTitle]]` (Obsidian-compatible, I5).\n\n"
         "YAML frontmatter block must be delimited by `---` at lines 1 and N.\n",
     )

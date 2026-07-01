@@ -103,6 +103,14 @@ class WikiFrontmatter(BaseModel):
     title: str = Field(..., min_length=1)
     sources: list[str] = Field(..., min_length=1)
     lang: str = Field(..., min_length=2, description="ISO-639-1; == Analysis.language")
+    tags: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Optional K6 navigation tags (nashsu/llm_wiki parity). Additive; absent → []. "
+            "Normalized at the schema boundary: trimmed, lowercased, de-duplicated (order "
+            "preserved), each ≤ 40 chars, capped at 12 tags. Serializes as a YAML list (I5)."
+        ),
+    )
 
     @field_validator("sources")
     @classmethod
@@ -110,6 +118,37 @@ class WikiFrontmatter(BaseModel):
         cleaned = [s for s in v if isinstance(s, str) and s.strip()]
         if not cleaned:
             raise ValueError("sources[] must be a non-empty list of non-empty strings (F3)")
+        return cleaned
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _normalize_tags(cls, v: object) -> list[str]:
+        """
+        Coerce → clean → cap the tags list (K6 navigation, additive/backward-compatible).
+
+        Absent/None → []. Accepts a scalar string (treated as one tag) or a list. Each item is
+        stringified, trimmed, lowercased; blanks dropped; each truncated to ≤ 40 chars; the list
+        de-duplicated (first occurrence wins, order preserved) and capped at 12 tags. Never
+        raises — a malformed value degrades to a best-effort clean list so tags never fail a
+        page (they are navigation metadata, not the F3 traceability guarantee).
+        """
+        max_tags = 12
+        max_len = 40
+        if v is None:
+            return []
+        items = v if isinstance(v, (list, tuple)) else [v]
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for item in items:
+            if item is None:
+                continue
+            tag = str(item).strip().lower()[:max_len].strip()
+            if not tag or tag in seen:
+                continue
+            seen.add(tag)
+            cleaned.append(tag)
+            if len(cleaned) >= max_tags:
+                break
         return cleaned
 
 

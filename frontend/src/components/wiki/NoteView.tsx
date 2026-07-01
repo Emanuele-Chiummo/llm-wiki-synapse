@@ -468,6 +468,9 @@ export function NoteView() {
   const sources =
     data.sources && data.sources.length > 0 ? data.sources : null;
 
+  // Non-empty tags list from the content response (tags phase).
+  const tags = data.tags && data.tags.length > 0 ? data.tags : null;
+
   return (
     <div data-testid="note-view" style={ROOT_STYLE}>
       {/* ── Toolbar ── */}
@@ -545,7 +548,7 @@ export function NoteView() {
           Falls back to the graph node type (already set in effectiveType).
           Sources row: shown when data.sources is non-empty (Task B).
           SEAM: <TagChips page={data} /> goes here (future tags phase). */}
-      {(effectiveType || sources) && (
+      {(effectiveType || sources || tags) && (
         <div data-testid="note-meta-row" style={META_ROW_STYLE}>
           {effectiveType && (
             <span
@@ -563,7 +566,12 @@ export function NoteView() {
               {t("noteView.sources")}: {sources.join(", ")}
             </span>
           )}
-          {/* SEAM: <TagChips page={data} /> */}
+          {tags &&
+            tags.map((tag) => (
+              <span key={tag} data-testid="note-tag-chip" style={TAG_CHIP_STYLE}>
+                #{tag}
+              </span>
+            ))}
         </div>
       )}
 
@@ -688,7 +696,18 @@ const META_ROW_STYLE: CSSProperties = {
   flexShrink: 0,
   minHeight: 30,
   flexWrap: "wrap",
-  // SEAM: when tags are added, they go here alongside the type badge.
+};
+
+// Tag chips (tags phase) — sit alongside the type badge in the metadata row.
+const TAG_CHIP_STYLE: CSSProperties = {
+  display: "inline-block",
+  fontSize: 11,
+  color: "#79c0ff",
+  background: "#132132",
+  border: "1px solid #1f3350",
+  borderRadius: 10,
+  padding: "1px 8px",
+  whiteSpace: "nowrap",
 };
 
 const TYPE_BADGE_BASE: CSSProperties = {

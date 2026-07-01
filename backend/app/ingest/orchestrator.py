@@ -174,6 +174,12 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
     _sources: list[str] | None = (
         [str(s) for s in _sources_raw] if isinstance(_sources_raw, list) else None
     )
+    # K6 navigation tags — round-trip any tags present in a raw source's frontmatter (additive;
+    # absent → NULL). Kept tolerant/mechanical here, exactly like sources.
+    _tags_raw = meta.get("tags")
+    _tags: list[str] | None = (
+        [str(t) for t in _tags_raw] if isinstance(_tags_raw, list) else None
+    )
     await persist_metadata(
         page_id=page_id,
         vault_id=settings.vault_id,
@@ -181,6 +187,7 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
         title=_title,
         page_type=_type,
         sources=_sources,
+        tags=_tags,
         content_hash=current_hash,
         source_mtime_ns=current_mtime_ns,
     )
@@ -770,6 +777,14 @@ async def write_wiki_page(
     fm_dump = page.frontmatter.model_dump()
     fm_dump["sources"] = sources
     fm_dump["type"] = page_type  # serialize enum as its string value for Obsidian (I5)
+    # K6 navigation tags (nashsu/llm_wiki parity): the WikiFrontmatter validator already
+    # trimmed/lowercased/deduped/capped them. Serialize as an Obsidian-valid YAML list ONLY when
+    # non-empty so pages without tags keep a clean, minimal frontmatter block (I5).
+    tags = list(page.frontmatter.tags)
+    if tags:
+        fm_dump["tags"] = tags
+    else:
+        fm_dump.pop("tags", None)
     post = frontmatter.Post(body, **fm_dump)
     serialized = frontmatter.dumps(post)
     # content_hash MUST hash the exact bytes written to disk (serialized + trailing newline), NOT
@@ -787,6 +802,7 @@ async def write_wiki_page(
         title=page.title,
         page_type=page_type,
         sources=sources,
+        tags=tags or None,
         content_hash=_sha256(file_text.encode("utf-8")),
         source_mtime_ns=0,
     )
@@ -883,6 +899,7 @@ async def reindex_wiki_page_body(
         title=page.title,
         page_type=page.page_type,
         sources=page.sources,
+        tags=page.tags,
         content_hash=_sha256(new_bytes),
         source_mtime_ns=page.source_mtime_ns or 0,
     )
@@ -1054,12 +1071,17 @@ async def persist_metadata(
     sources: list[str] | None,
     content_hash: str,
     source_mtime_ns: int,
+    tags: list[str] | None = None,
 ) -> None:
     """
     Upsert the `pages` row for *page_id* inside a single Postgres transaction.
 
     Handles both INSERT (new page) and UPDATE (re-ingest of existing page).
     Clears deleted_at on resurrection (ADR-0005 — same file_path recreated).
+
+    `tags` (K6 navigation, nashsu/llm_wiki parity) is persisted exactly like `sources`
+    (JSONB list; None when absent). Additive keyword — existing callers that omit it write
+    NULL, preserving backward compatibility.
     """
     from sqlalchemy import select
 
@@ -1077,6 +1099,7 @@ async def persist_metadata(
                 title=title,
                 page_type=page_type,
                 sources=sources,
+                tags=tags,
                 content_hash=content_hash,
                 source_mtime_ns=source_mtime_ns,
                 qdrant_point_id=page_id,  # == pages.id (ADR-0002)
@@ -1089,6 +1112,7 @@ async def persist_metadata(
             page.title = title
             page.page_type = page_type
             page.sources = sources
+            page.tags = tags
             page.content_hash = content_hash
             page.source_mtime_ns = source_mtime_ns
             page.qdrant_point_id = page_id

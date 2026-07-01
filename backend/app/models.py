@@ -4,6 +4,8 @@ SQLAlchemy 2 ORM models — single source of truth for D2 ER diagram (I8 / AC-PG
 Tables defined here:
   - pages             : one row per source file; soft-deletable (ADR-0005).
                         v0.3: adds pages.x / pages.y (FA2 layout coords, ADR-0013 / AQ-6).
+                        v0.6: adds pages.tags (K6 navigation tags; JSONB, mirrors sources;
+                        Alembic migration 0018).
   - vault_state       : one row per vault; holds the monotonic data_version (ADR-0005).
                         v0.5-ADR-0032: adds remote_mcp_enabled (Alembic migration 0011).
                         v0.5-ADR-0033: adds mcp_access_token_hash + mcp_allow_without_token
@@ -170,6 +172,15 @@ class Page(Base):
         JSONB,
         nullable=True,
         comment="YAML frontmatter 'sources[]' as JSONB array; NULL if absent (K6)",
+    )
+
+    tags: Mapped[list[str] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "YAML frontmatter 'tags[]' as JSONB array; NULL if absent (K6 navigation, "
+            "nashsu/llm_wiki parity). Mirrors `sources` storage. Migration 0018."
+        ),
     )
 
     # ── Change-detection ──────────────────────────────────────────────────────

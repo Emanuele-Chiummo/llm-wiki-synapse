@@ -392,6 +392,8 @@ export interface PageContentResponse {
   type?: string | null;
   /** Source document IDs referenced by this page — may be null or absent on old servers. */
   sources?: string[] | null;
+  /** Frontmatter tags — may be null or absent on old servers / pages predating tags. */
+  tags?: string[] | null;
 }
 
 // ─── GET /pages/{id}/related ─────────────────────────────────────────────────
