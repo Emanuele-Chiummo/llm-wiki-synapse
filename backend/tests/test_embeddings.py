@@ -118,6 +118,45 @@ async def test_ollama_malformed_response_raises(monkeypatch: pytest.MonkeyPatch)
         await client.embed("x")
 
 
+# ── oversize input truncation (I7 — embed_max_chars guard) ───────────────────
+
+
+@pytest.mark.asyncio
+async def test_embed_truncates_oversize_input(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Input longer than embed_max_chars is truncated before hitting the endpoint (I7).
+
+    Guards against a whole multi-MB source file 500-ing bge-m3 and crashing the ingest.
+    """
+    monkeypatch.setattr(embeddings_mod.settings, "embed_max_chars", 100)
+    capture = _Capture()
+    _install_mock_transport(monkeypatch, capture, {"embedding": [0.1]})
+
+    client = HttpEmbeddingClient(
+        embedding_url="http://embed.test/api/embeddings", embedding_format="ollama"
+    )
+    await client.embed("x" * 5000)
+
+    assert capture.body is not None
+    # Only the first embed_max_chars characters were sent, not all 5000.
+    assert len(capture.body["prompt"]) == 100
+
+
+@pytest.mark.asyncio
+async def test_embed_does_not_truncate_short_input(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Input at/under embed_max_chars is sent verbatim (no truncation)."""
+    monkeypatch.setattr(embeddings_mod.settings, "embed_max_chars", 100)
+    capture = _Capture()
+    _install_mock_transport(monkeypatch, capture, {"embedding": [0.1]})
+
+    client = HttpEmbeddingClient(
+        embedding_url="http://embed.test/api/embeddings", embedding_format="ollama"
+    )
+    await client.embed("hello world")
+
+    assert capture.body is not None
+    assert capture.body["prompt"] == "hello world"
+
+
 # ── openai mode ──────────────────────────────────────────────────────────────
 
 
