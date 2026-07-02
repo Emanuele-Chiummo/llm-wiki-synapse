@@ -1,0 +1,36 @@
+<svg viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Synapse logo">
+  <defs>
+    <linearGradient id="synGrad" x1="40" y1="216" x2="216" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="0.55" stop-color="#5b4de0"/>
+      <stop offset="1" stop-color="#8250df"/>
+    </linearGradient>
+    <linearGradient id="synGradSoft" x1="40" y1="216" x2="216" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2563eb" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#8250df" stop-opacity="0.35"/>
+    </linearGradient>
+  </defs>
+
+  <!-- satellite edges (thin, soft) -->
+  <path d="M186 62 L224 34" stroke="url(#synGradSoft)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M70 194 L32 222" stroke="url(#synGradSoft)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M128 128 L206 150" stroke="url(#synGradSoft)" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- main synaptic S-path through the three core nodes -->
+  <path d="M186 62 C 112 50 74 96 128 128 C 182 160 144 206 70 194"
+        stroke="url(#synGrad)" stroke-width="22" stroke-linecap="round" fill="none"/>
+
+  <!-- core nodes (degree-proportional, echoing the knowledge graph) -->
+  <circle cx="186" cy="62" r="26" fill="url(#synGrad)"/>
+  <circle cx="70" cy="194" r="26" fill="url(#synGrad)"/>
+  <circle cx="128" cy="128" r="15" fill="url(#synGrad)"/>
+
+  <!-- satellite nodes -->
+  <circle cx="224" cy="34" r="10" fill="#8250df"/>
+  <circle cx="32" cy="222" r="10" fill="#2563eb"/>
+  <circle cx="206" cy="150" r="8" fill="#6157e2"/>
+
+  <!-- synaptic spark highlights -->
+  <circle cx="186" cy="62" r="9" fill="#ffffff" fill-opacity="0.92"/>
+  <circle cx="70" cy="194" r="9" fill="#ffffff" fill-opacity="0.92"/>
+</svg>
