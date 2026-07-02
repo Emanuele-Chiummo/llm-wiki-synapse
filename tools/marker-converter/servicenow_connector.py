@@ -260,13 +260,21 @@ def _page_label(start: int, end: int) -> str:
 
 
 def render_page(sec: Section, source_label: str, source_url: str | None) -> str:
+    """
+    Render ONE section as a raw SOURCE file for the normal Synapse ingest.
+
+    Source-only by design: NO ``type`` (the ingest LLM classifies pages into valid wiki types —
+    forcing e.g. ``type: reference`` breaks the type system), NO hub pages, NO forced
+    ``[[wikilinks]]`` (linking to [[ServiceNow]]/modules is LLM-driven via the ingest context).
+    We DO keep tool/module/feature as frontmatter *hints* (harmless — persist_metadata ignores
+    unknown fields) and the page citation in the body so the LLM preserves provenance.
+    """
     pages = _page_label(sec.start_page, sec.end_page)
     src = f"{source_label}, {pages}"
     if source_url:
         src += f" ({source_url})"
     fm = [
         "---",
-        "type: reference",
         f'title: "{sec.title}"',
         f"tool: {VENDOR}",
         f"module: {sec.module_code}",
@@ -277,63 +285,16 @@ def render_page(sec: Section, source_label: str, source_url: str | None) -> str:
     fm += [
         "sources:",
         f'  - "{src}"',
-        f"tags: [servicenow, {sec.module_code.lower()}, {sec.feature_code.lower()}, reference]",
+        f"tags: [servicenow, {sec.module_code.lower()}, {sec.feature_code.lower()}]",
         "---",
     ]
-    breadcrumb = (
-        f"**[[{VENDOR}]] › [[{sec.module_title}|{sec.module_code}]] "
-        f"› [[{sec.feature_title}|{sec.feature_code}]]**"
+    # Plain-text context (NOT wikilinks) so the ingest LLM can link ServiceNow/module/feature.
+    context = (
+        f"> Source: {VENDOR} · {sec.module_title} ({sec.module_code}) "
+        f"· {sec.feature_title} ({sec.feature_code})"
     )
-    footer = (
-        f"---\n> **Fonte:** {source_label}, {pages}. "
-        f"Tool: [[{VENDOR}]] · Modulo: {sec.module_code} · Funzionalità: {sec.feature_code}."
-    )
-    return "\n".join(fm) + f"\n\n{breadcrumb}\n\n# {sec.title}\n\n{sec.body}\n\n{footer}\n"
-
-
-def render_hub_vendor(modules: list[str]) -> str:
-    links = " · ".join(f"[[{m}]]" for m in sorted(set(modules)))
-    return (
-        "---\ntype: entity\n"
-        f'title: "{VENDOR}"\n'
-        "tags: [servicenow, tool, vendor]\n---\n\n"
-        f"# {VENDOR}\n\n"
-        f"{VENDOR} è la piattaforma di riferimento per questa knowledge base. "
-        "Ogni modulo e funzionalità importati dalla documentazione ufficiale è collegato qui.\n\n"
-        f"**Moduli:** {links}\n"
-    )
-
-
-def render_hub_module(module_title: str, module_code: str, features: list[tuple[str, str]]) -> str:
-    links = " · ".join(f"[[{t}|{c}]]" for t, c in sorted(set(features)))
-    return (
-        "---\ntype: concept\n"
-        f'title: "{module_title}"\n'
-        f"tool: {VENDOR}\n"
-        f"module: {module_code}\n"
-        f"tags: [servicenow, {module_code.lower()}, module]\n---\n\n"
-        f"**[[{VENDOR}]] › {module_code}**\n\n"
-        f"# {module_title} ({module_code})\n\n"
-        f"Modulo {VENDOR}. Funzionalità: {links}\n"
-    )
-
-
-def render_hub_feature(sec_example: Section, section_titles: list[str]) -> str:
-    items = "\n".join(f"- [[{t}]]" for t in section_titles)
-    return (
-        "---\ntype: concept\n"
-        f'title: "{sec_example.feature_title}"\n'
-        f"tool: {VENDOR}\n"
-        f"module: {sec_example.module_code}\n"
-        f"feature: {sec_example.feature_code}\n"
-        f"tags: [servicenow, {sec_example.module_code.lower()}, "
-        f"{sec_example.feature_code.lower()}, feature]\n---\n\n"
-        f"**[[{VENDOR}]] › [[{sec_example.module_title}|{sec_example.module_code}]] "
-        f"› {sec_example.feature_code}**\n\n"
-        f"# {sec_example.feature_title} ({sec_example.feature_code})\n\n"
-        f"Funzionalità del modulo [[{sec_example.module_title}|{sec_example.module_code}]] "
-        f"({VENDOR}).\n\n## Sezioni\n{items}\n"
-    )
+    footer = f"---\n> **Fonte:** {source_label}, {pages}."
+    return "\n".join(fm) + f"\n\n{context}\n\n# {sec.title}\n\n{sec.body}\n\n{footer}\n"
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────────
@@ -381,10 +342,6 @@ def main() -> int:
     convert = make_converter_factory()
 
     base = args.out / "servicenow"
-    features_seen: dict[str, tuple[str, str]] = {}
-    sections_by_feature: dict[str, list[str]] = {}
-    module_title = sections[0].module_title
-    module_code = sections[0].module_code
 
     for s in sections:
         print(f"→ converting {s.title} ({_page_label(s.start_page, s.end_page)}) …", flush=True)
@@ -396,23 +353,11 @@ def main() -> int:
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / f"{_slug(s.title)}.md").write_text(page, encoding="utf-8")
 
-        features_seen[s.feature_code] = (s.feature_title, s.feature_code)
-        sections_by_feature.setdefault(s.feature_code, []).append(s.title)
-
-    # hub pages
-    (base).mkdir(parents=True, exist_ok=True)
-    (base / f"{VENDOR}.md").write_text(render_hub_vendor([module_title]), encoding="utf-8")
-    (base / module_code.lower()).mkdir(parents=True, exist_ok=True)
-    (base / module_code.lower() / f"{module_title}.md").write_text(
-        render_hub_module(module_title, module_code, list(features_seen.values())), encoding="utf-8"
-    )
-    for s in sections:
-        fdir = base / s.module_code.lower() / s.feature_code.lower()
-        (fdir / f"{s.feature_title}.md").write_text(
-            render_hub_feature(s, sections_by_feature[s.feature_code]), encoding="utf-8"
-        )
-
     print(f"\nDone → {base}")
+    print(
+        "Sources written. To index them, place under vault/raw/sources/ and run the NORMAL "
+        "ingest (watcher / POST /sources/ingest-all) — the LLM assigns wiki types + links."
+    )
     return 0
 
 
