@@ -102,6 +102,7 @@ def select_sections(
     module_title: str,
     module_code: str,
     feature_filter: str | None,
+    group_filter: str | None,
     file_depth: int,
     section_names: list[str] | None,
 ) -> list[Section]:
@@ -134,6 +135,8 @@ def select_sections(
         if module.title != module_title:
             continue
         if feature_filter and feature.title != feature_filter:
+            continue
+        if group_filter and (group is None or group.title != group_filter):
             continue
         if section_names and bm.title not in section_names:
             continue
@@ -341,6 +344,7 @@ def main() -> int:
     ap.add_argument("--module-title", default="IT Asset Management")
     ap.add_argument("--module-code", default="ITAM")
     ap.add_argument("--feature", default=None, help="Only this L1 feature title (e.g. 'Software Asset Management')")
+    ap.add_argument("--group", default=None, help="Only this L2 group title (e.g. 'Exploring Software Asset Management')")
     ap.add_argument("--file-depth", type=int, default=3)
     ap.add_argument("--sections", default=None, help="Comma list of section titles to limit (demo)")
     ap.add_argument("--source-url", default="https://docs.servicenow.com")
@@ -361,6 +365,7 @@ def main() -> int:
         module_title=args.module_title,
         module_code=args.module_code,
         feature_filter=args.feature,
+        group_filter=args.group,
         file_depth=args.file_depth,
         section_names=section_names,
     )
