@@ -19,9 +19,8 @@
 
 import { fetchWithTimeout } from "./http";
 import { ApiError } from "./graphClient";
-
-const API_BASE: string =
-  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
+import { apiBase } from "./base";
+// API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 const SEARCH_TIMEOUT_MS = 15_000;
 
@@ -105,7 +104,7 @@ export async function searchWiki(
   if (opts.context_window != null)
     params.set("context_window", String(opts.context_window));
 
-  const url = `${API_BASE}/search?${params.toString()}`;
+  const url = `${apiBase()}/search?${params.toString()}`;
 
   const res = await fetchWithTimeout(
     url,

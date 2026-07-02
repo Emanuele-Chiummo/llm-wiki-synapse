@@ -1,6 +1,6 @@
 # Synapse Deployment Guide
 
-<!-- Generated: v0.6-M6-docs-gate | 2026-06-30 -->
+<!-- Generated: v0.6 sprint 6 | 2026-07-02 -->
 
 > Target: TrueNAS SCALE 25.10 "Goldeye" + Docker Compose (backend) + PWA or Tauri v2 desktop (client)
 > Version: v0.6 — covers M6 feature set (M5 + Lint, Web Clipper, PWA, Tauri v2 desktop, Lint)
@@ -571,9 +571,194 @@ M6). Other file types are silently skipped.
 
 ---
 
-## 7. TrueNAS SCALE deployment
+## 7. Desktop app (macOS / Windows) {#desktop-app}
 
-### 7.1 Deploy via SSH
+This section covers the Tauri v2 desktop binaries (F15, ADR-0047). The desktop app is
+optional — the PWA served from the backend is the primary distribution and requires no
+build step. The desktop app is the right choice when you want a native window on a single
+machine and prefer not to keep a browser tab open.
+
+> **Scope:** macOS and Windows only. Linux targets from ADR-0039 remain defined but are
+> not shipped in v0.6 and are not covered here.
+
+### 7.1 Install from a GitHub release (recommended)
+
+Unsigned pre-built binaries are attached to every release tagged `desktop-v*`:
+
+```
+https://github.com/<owner>/synapse/releases
+```
+
+Download the installer for your OS:
+
+| OS | Artifact | Install |
+|----|----------|---------|
+| **macOS (Apple Silicon)** | `Synapse_<ver>_aarch64.dmg` | Open the DMG, drag to Applications |
+| **macOS (Intel)** | `Synapse_<ver>_x64.dmg` | Open the DMG, drag to Applications |
+| **Windows** | `Synapse_<ver>_x64_en-US.nsis.exe` | Run the installer |
+
+#### Unsigned-binary warnings (expected — read before installing)
+
+The v0.6 binaries are **not code-signed or notarized**. First launch on both operating
+systems will show a security warning. This is expected. Follow the steps for your OS:
+
+**macOS (Gatekeeper):**
+
+1. In Finder, right-click the app icon and choose **Open** (do not double-click).
+2. A dialog appears warning that the developer is not verified. Click **Open** again.
+3. If the dialog does not offer an Open button, go to **System Settings → Privacy &
+   Security** and look for the "Synapse was blocked" message, then click **Open Anyway**.
+
+> macOS 15 (Sequoia) moves the Privacy & Security prompt. If "Open Anyway" does not
+> appear in the expected location, use the right-click → Open path described above.
+
+**Windows (SmartScreen):**
+
+1. Run the installer. Windows Defender SmartScreen will say "Windows protected your PC".
+2. Click **More info**, then **Run anyway**.
+
+### 7.2 First-launch Connect screen
+
+The desktop app does not know the address of your Synapse backend at install time.
+On the very first launch (and any time the stored URL is cleared), you will see a
+full-screen branded **Connect** screen.
+
+**What to enter:**
+
+- The base URL of your running Synapse backend, e.g.:
+  - `http://localhost:8000` — backend on the same machine
+  - `http://truenas:8000` — backend on your TrueNAS via Tailscale MagicDNS
+  - `https://synapse.yourdomain.com` — backend behind a Cloudflare Tunnel (HTTPS)
+- No trailing slash. Scheme (`http://` or `https://`) is required.
+
+**What happens on Connect:**
+
+1. The app sends a `GET /status` probe to the URL you entered.
+2. If the probe returns 2xx within the timeout, the URL is saved to the app's local
+   storage (`synapse.serverUrl`) and the full Synapse interface loads.
+3. If the probe fails or times out, a `connect.error.*` message appears and the Connect
+   screen stays open — the URL is **not** saved. Check that the backend is running and
+   reachable from your machine, then try again.
+
+**The URL is never saved until the probe succeeds**, so a wrong address cannot brick the
+app. To start over, use the **Change server** button in the header (see §7.3).
+
+The Connect screen only appears in the Tauri desktop app. The PWA and browser-based
+access are unaffected — they continue to use a relative URL and never show this screen.
+
+### 7.3 Header server chip and Change server
+
+Once connected, the header bar shows a small chip with the connected backend hostname.
+Clicking the chip (or choosing **Change server** from the chip's dropdown) clears the
+stored URL and returns to the Connect screen. Use this to:
+
+- Switch to a different backend (e.g. from `localhost` while developing to your TrueNAS
+  backend when deploying).
+- Re-enter the URL after changing your network setup.
+
+The change-server action is only visible in the Tauri desktop app.
+
+### 7.4 CORS — required backend configuration
+
+The Tauri webview issues cross-origin requests to your backend (`tauri://localhost` →
+`http://…:8000`), so the backend's CORS allow-list must include the webview origins.
+
+The default `CORS_ALLOW_ORIGINS` already includes them:
+
+```
+tauri://localhost          (macOS / Linux WebKit)
+http://tauri.localhost     (Windows WebView2)
+```
+
+**If you override `CORS_ALLOW_ORIGINS`** in your `.env`, you MUST keep both webview
+origins in the list. Example for TrueNAS with a Cloudflare Tunnel:
+
+```env
+CORS_ALLOW_ORIGINS=tauri://localhost,http://tauri.localhost,https://synapse.yourdomain.com
+```
+
+> **Critical:** the backend middleware runs with `allow_credentials=True`. The CORS
+> spec forbids the `*` wildcard when credentials are involved — origins must be listed
+> explicitly. A `*` wildcard will silently break all authenticated requests from the
+> desktop app. Never use `*` here.
+
+### 7.5 macOS mixed-content note
+
+On macOS, the Tauri webview origin is `tauri://` (a secure context). If your backend
+runs on plain `http://` (not HTTPS), WebKit's mixed-content policy **may block the
+connection** — the same restriction that prevents `https://` sites from loading `http://`
+resources.
+
+**If requests are blocked on macOS against an `http://` backend:**
+
+- Prefer HTTPS: expose the backend via a Cloudflare Tunnel or Tailscale with TLS. HTTPS
+  backends (`https://`) are not affected by mixed-content restrictions.
+- Fallback (development only): the documented code path is `@tauri-apps/plugin-http`,
+  which routes requests through the Rust layer, bypassing WebKit's mixed-content gate.
+  This is not wired in v0.6 — it is the documented next step if the live macOS build
+  blocks `http://` backends (ADR-0047 §2.4, risk 1).
+
+### 7.6 Build from source
+
+If you prefer to build the desktop app yourself (required for code-signing with your own
+certificate or for local development iteration):
+
+**Prerequisites:**
+
+```bash
+# Install Rust toolchain via rustup (once per machine)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+
+# Verify
+rustc --version
+cargo --version
+```
+
+macOS and Windows ship a native WebKit/WebView2 runtime; no additional WebView
+development libraries are needed.
+
+**Build:**
+
+```bash
+# From the repo root
+source "$HOME/.cargo/env"          # ensure Rust is on PATH (add to .bashrc/.zshrc to make permanent)
+npm ci --prefix frontend           # install JS dependencies
+npm --prefix frontend run tauri:build
+```
+
+Build artifacts land in `src-tauri/target/release/bundle/`:
+
+| OS | Path | Contents |
+|----|------|----------|
+| macOS | `bundle/dmg/` | `.dmg` installer |
+| macOS | `bundle/macos/` | `.app` bundle (for direct drag-to-Applications) |
+| Windows | `bundle/nsis/` | `.nsis.exe` NSIS installer |
+
+> The build produces the same unsigned binaries as the CI release. If you need signed
+> artifacts for distribution (code-signing / notarization), see
+> `docs/adr/0047-desktop-runtime-server-url-and-connect-gate.md` §4 (risk 2) for
+> what is deferred and why.
+
+### 7.7 CI desktop release
+
+Pushing a tag that matches `desktop-v*` (e.g. `desktop-v0.6.0`) or triggering a manual
+run of `.github/workflows/desktop-release.yml` starts the release matrix:
+
+| Runner | Target | Artifacts |
+|--------|--------|-----------|
+| `macos-latest` | `dmg` + `macos` app bundle | Attached to the GitHub release |
+| `windows-latest` | `nsis` installer | Attached to the GitHub release |
+
+The workflow uses `tauri-apps/tauri-action`. Artifacts are unsigned and attached
+automatically to a draft GitHub release. Promote the draft to a published release when
+you are ready to share binaries.
+
+---
+
+## 8. TrueNAS SCALE deployment
+
+### 8.1 Deploy via SSH
 
 ```bash
 ssh admin@truenas.local
@@ -589,7 +774,7 @@ docker compose up -d
 docker compose logs -f synapse-backend
 ```
 
-### 7.2 Vault bind mount
+### 8.2 Vault bind mount
 
 The `vault/` directory in the repo root is bind-mounted at `/vault` inside the
 `synapse-backend` container (see `docker-compose.yml`). On TrueNAS you may want to
@@ -602,7 +787,7 @@ volumes:
   - /mnt/pool/synapse/vault:/vault
 ```
 
-### 7.3 Networking
+### 8.3 Networking
 
 **Tailscale (internal):** all TrueNAS services are on the same Tailscale mesh. Access
 the backend API at `http://truenas-node-ip:8000` or `http://truenas.local:8000`.
@@ -615,7 +800,7 @@ the backend API at `http://truenas-node-ip:8000` or `http://truenas.local:8000`.
 
 ---
 
-## 8. Useful make targets
+## 9. Useful make targets
 
 ```bash
 make er         # Regenerate docs/er/schema.mmd from SQLAlchemy models
@@ -631,9 +816,9 @@ The docs gate CI job will fail on drift.
 
 ---
 
-## 9. Backup strategy
+## 10. Backup strategy
 
-### 9.1 Postgres
+### 10.1 Postgres
 
 ```bash
 # Dump from inside the container
@@ -644,7 +829,7 @@ docker compose exec -T postgres pg_dump \
 
 Automate with a TrueNAS periodic task or cron job.
 
-### 9.2 Vault filesystem
+### 10.2 Vault filesystem
 
 The `vault/` directory contains the raw documents and AI-generated wiki pages. Back
 it up with a ZFS snapshot:
@@ -655,9 +840,9 @@ zfs snapshot pool/synapse@backup-$(date +%Y%m%d)
 
 ---
 
-## 10. CI/CD
+## 11. CI/CD
 
-### 10.1 CI stages
+### 11.1 CI stages
 
 | Stage | Trigger | Required | Purpose |
 |-------|---------|----------|---------|
@@ -667,7 +852,7 @@ zfs snapshot pool/synapse@backup-$(date +%Y%m%d)
 | `docs` | push / PR | Yes | ER + OpenAPI drift check; mmdc Mermaid render |
 | `integration` | manual | Optional | docker-compose E2E (requires live TrueNAS services) |
 
-### 10.2 Docs gate
+### 11.2 Docs gate
 
 The `docs` stage runs `make er` and `make openapi`, then diffs the output against the
 committed files. A mismatch fails the PR. Fix it with:
@@ -681,9 +866,9 @@ git commit -m "docs: refresh ER and OpenAPI [I8]"
 
 ---
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
-### 11.1 "connection refused" on EMBEDDING_URL or QDRANT_URL
+### 12.1 "connection refused" on EMBEDDING_URL or QDRANT_URL
 
 Cause: the external service is not running or the Docker container cannot reach the
 host network.
@@ -697,7 +882,7 @@ curl -s http://100.x.x.x:6333/health
 docker run --rm alpine ping -c 1 host.docker.internal
 ```
 
-### 11.2 EMBEDDING_DIM mismatch
+### 12.2 EMBEDDING_DIM mismatch
 
 Cause: the `EMBEDDING_DIM` env var does not match the actual output of the embedding
 model.
@@ -718,7 +903,7 @@ endpoint requires authentication. A malformed response (wrong format setting) su
 as an `EmbeddingError` in the backend logs. See §2.1 env var reference for the
 `EMBEDDING_FORMAT` and `EMBEDDING_API_KEY` variables. (ADR-0031)
 
-### 11.3 Pre-existing files are not ingested on startup
+### 12.3 Pre-existing files are not ingested on startup
 
 By design (incremental index — the watcher picks up new and modified files only).
 To ingest files that existed before Synapse started, trigger a run manually:
@@ -729,19 +914,19 @@ curl -X POST http://localhost:8000/ingest/trigger
 
 Or use the **Run Ingest** button in the Ingest section of the web UI.
 
-### 11.4 No provider_config row — hard error on ingest or chat
+### 12.4 No provider_config row — hard error on ingest or chat
 
 If the application logs "no provider_config found for scope=global", insert at least
 one global row (see §4). A missing global row is never silently ignored.
 
-### 11.5 Chat provider returns an error with CLI backend
+### 12.5 Chat provider returns an error with CLI backend
 
 `CliAgentProvider.chat()` is implemented in v0.5 as delegated streaming chat (bounded
 by `CHAT_AGENT_MAX_TURNS`, `token_budget`, and `timeout_seconds`). If it errors, check
 that `ANTHROPIC_API_KEY` is set (the CLI backend requires it), and that the model ID in
 `provider_config` is a valid Claude model name. Ingest with CLI works independently.
 
-### 11.6 Scheduled import: last_status="dir_missing"
+### 12.6 Scheduled import: last_status="dir_missing"
 
 The import schedule is enabled and a `source_dir` is configured, but scans report
 `dir_missing`.
@@ -750,7 +935,7 @@ Cause: the path is not visible inside the container. The backend can only see mo
 paths.
 
 Fix:
-1. Verify the volume mount is in `docker-compose.yml` (see §5.2).
+1. Verify the volume mount is in `docker-compose.yml` (see §6.2).
 2. Restart the stack: `docker compose down && docker compose up -d`.
 3. Verify the path exists inside the container:
 
@@ -761,7 +946,7 @@ docker compose exec synapse-backend ls /import
 4. In Settings → Automatic import, confirm the `source_dir` field shows the container
    path (e.g. `/import`), not a host path.
 
-### 11.7 Uploaded file is rejected with 415
+### 12.7 Uploaded file is rejected with 415
 
 Cause: the file extension is not in the accepted list.
 
@@ -772,72 +957,12 @@ the extension and the acceptance list explicitly.
 
 ---
 
-## 7. Desktop app (Tauri v2) deployment
-
-This section applies to v0.6 onwards. The desktop app is optional — the PWA is the
-primary distribution for multi-device and mobile access.
-
-### 7.1 Download and install the Tauri desktop app
-
-Desktop binaries are attached to GitHub releases (v0.6+). Visit:
-
-```
-https://github.com/yourusername/synapse/releases
-```
-
-And download the installer for your operating system:
-
-- **Linux:** `synapse_0.6.0_amd64.deb` or `synapse_0.6.0_amd64.AppImage`
-- **macOS:** `Synapse_0.6.0_aarch64.dmg` (Apple Silicon) or `Synapse_0.6.0_x64.dmg` (Intel)
-- **Windows:** `Synapse_0.6.0_x64_en-US.msi` or `.nsis` installer
-
-Install as you would any native app for your OS. Uninstall via system settings
-(Add/Remove Programs on Windows, Applications folder on macOS, etc.).
-
-### 7.2 First run and backend configuration
-
-On first launch, the Tauri window attempts to connect to the FastAPI backend at
-`http://localhost:8000` (or your configured API base).
-
-If the backend is on a different host (e.g. TrueNAS via Tailscale), update the backend
-URL via browser dev tools or future Settings panel (not yet exposed in v0.6; this is a
-deferred UX enhancement).
-
-**For TrueNAS local use:** Ensure the backend is running:
-
-```bash
-# On TrueNAS, in the Synapse project directory:
-docker compose up -d
-```
-
-The app will connect automatically once the backend is ready.
-
-### 7.3 Offline capabilities
-
-The Tauri desktop app includes the same service worker (PWA cache) as the browser PWA.
-When the backend is unreachable, the app displays cached pages and conversation history
-(read-only). Creating new content or performing ingest requires a live backend connection.
-
-### 7.4 Close behavior
-
-Closing the main window quits the app (standard desktop behavior). A future Settings
-toggle (v0.7+) will allow "minimize to system tray on close" for those who prefer it
-(K8 principle: user decides, not hardcoded).
-
-### 7.5 Building the desktop app locally (development)
-
-If you are a developer or want to build the desktop app yourself, see ADR-0039 §7
-"Local development" for the Tauri v2 build instructions. Requires Rust toolchain +
-system WebKit development libraries (Linux only; macOS and Windows have pre-installed
-WebKit).
-
----
-
-## 12. References
+## 13. References
 
 - `CLAUDE.md` — project context, invariants (I1–I9), and feature inventory
 - `docs/er/schema.mmd` — ER diagram (auto-generated by `make er`)
 - `docs/api/openapi.json` — API reference (auto-generated by `make openapi`)
-- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0039; index in `docs/adr/README.md`; ADR-0037 Lint, ADR-0038 Web Clipper, ADR-0039 Tauri)
-- `docs/adr/0039-tauri-v2-desktop-shell.md` — Tauri v2 desktop shell decision and implementation
+- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0047; index in `docs/adr/README.md`; ADR-0037 Lint, ADR-0038 Web Clipper, ADR-0039 Tauri v2 shell, ADR-0047 Desktop Connect gate)
+- `docs/adr/0039-tauri-v2-desktop-shell.md` — Tauri v2 desktop shell scaffold and CI
+- `docs/adr/0047-desktop-runtime-server-url-and-connect-gate.md` — runtime server URL binding, Connect screen, CORS extension (§7 of this guide)
 - `docs/USER.md` — end-user guide

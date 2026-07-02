@@ -10,9 +10,8 @@
 
 import type { CascadePreviewResponse, CascadeDeleteResult } from "./types";
 import { ApiError } from "./graphClient";
-
-const API_BASE: string =
-  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
+import { apiBase } from "./base";
+// API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 async function checkResponse(res: Response): Promise<void> {
   if (!res.ok) {
@@ -36,7 +35,7 @@ export async function previewCascadeDelete(
   pageId: string,
   signal?: AbortSignal,
 ): Promise<CascadePreviewResponse> {
-  const url = `${API_BASE}/pages/${encodeURIComponent(pageId)}/cascade-delete/preview`;
+  const url = `${apiBase()}/pages/${encodeURIComponent(pageId)}/cascade-delete/preview`;
   const res = await fetch(url, {
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
@@ -54,7 +53,7 @@ export async function cascadeDelete(
   pageId: string,
   signal?: AbortSignal,
 ): Promise<CascadeDeleteResult> {
-  const url = `${API_BASE}/pages/${encodeURIComponent(pageId)}`;
+  const url = `${apiBase()}/pages/${encodeURIComponent(pageId)}`;
   const res = await fetch(url, {
     method: "DELETE",
     ...(signal !== undefined ? { signal } : {}),

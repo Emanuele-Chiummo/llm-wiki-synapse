@@ -2,10 +2,12 @@
  * settingsStore.ts — Zustand store for user settings (ADR-0018 §5 / F14 + F16-rest).
  *
  * Persists: language (synapse.lang) + contextWindowTokens (synapse.settings) to localStorage.
+ * Also persists: serverUrl (synapse.serverUrl) for Tauri desktop runtime (ADR-0047 §2.1).
  * INVARIANT I3: separate from graphStore so settings changes never cause the graph to re-render.
  */
 
 import { create } from "zustand";
+import { getServerUrl, setServerUrl as baseSetServerUrl, clearServerUrl as baseClearServerUrl } from "../api/base";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -112,12 +114,26 @@ interface SettingsState {
   language: string;
   contextWindowTokens: ContextWindowTokens;
   conversationHistoryLength: ConvHistoryLength;
+  /** Desktop server URL (Tauri runtime, ADR-0047 §2.1). Null in web/PWA mode. */
+  serverUrl: string | null;
 }
 
 interface SettingsActions {
   setLanguage: (lang: string) => void;
   setContextWindow: (tokens: ContextWindowTokens) => void;
   setConversationHistoryLength: (n: ConvHistoryLength) => void;
+  /**
+   * Persist a validated server URL (Tauri only, ADR-0047 §2.7.1).
+   * Delegates to base.ts setServerUrl (validates scheme, strips trailing slash),
+   * then updates the store so gate reactivity fires.
+   * ConnectScreen must call this ONLY after a successful /status probe (ADR-0047 §2.7.2).
+   */
+  setServerUrl: (url: string) => void;
+  /**
+   * Clear the persisted server URL and return to the Connect gate (Tauri only).
+   * Called by the "change server" action in Header.
+   */
+  clearServerUrl: () => void;
   reset: () => void;
 }
 
@@ -127,6 +143,7 @@ const initial = loadSettings();
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
   ...initial,
+  serverUrl: getServerUrl(),
 
   setLanguage: (language) => {
     try { localStorage.setItem(LS_LANG, language); } catch { /* ignore */ }
@@ -141,6 +158,17 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setConversationHistoryLength: (conversationHistoryLength) => {
     saveSettings(get().contextWindowTokens, conversationHistoryLength);
     set({ conversationHistoryLength });
+  },
+
+  setServerUrl: (url) => {
+    // Delegates validation + storage to base.ts (ADR-0047 §2.7.1)
+    baseSetServerUrl(url);
+    set({ serverUrl: getServerUrl() });
+  },
+
+  clearServerUrl: () => {
+    baseClearServerUrl();
+    set({ serverUrl: null });
   },
 
   reset: () => {
@@ -187,4 +215,16 @@ export function selectSetConversationHistoryLength(
 
 export function selectResetSettings(s: SettingsStore): SettingsActions["reset"] {
   return s.reset;
+}
+
+export function selectServerUrl(s: SettingsStore): string | null {
+  return s.serverUrl;
+}
+
+export function selectSetServerUrl(s: SettingsStore): SettingsActions["setServerUrl"] {
+  return s.setServerUrl;
+}
+
+export function selectClearServerUrl(s: SettingsStore): SettingsActions["clearServerUrl"] {
+  return s.clearServerUrl;
 }

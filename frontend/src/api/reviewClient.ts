@@ -27,9 +27,8 @@ import type {
   ReviewClearResolvedResponse,
 } from "./types";
 import { ApiError } from "./graphClient";
-
-const API_BASE: string =
-  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
+import { apiBase } from "./base";
+// API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 async function checkResponse(res: Response): Promise<void> {
   if (!res.ok) {
@@ -71,7 +70,7 @@ export async function fetchReviewQueue(
   signal?: AbortSignal,
 ): Promise<ReviewQueueResponse> {
   const { vaultId, status = "pending", limit = 50, offset = 0 } = options;
-  const url = `${API_BASE}/review/queue?vault_id=${encodeURIComponent(vaultId)}&status=${encodeURIComponent(status)}&limit=${limit}&offset=${offset}`;
+  const url = `${apiBase()}/review/queue?vault_id=${encodeURIComponent(vaultId)}&status=${encodeURIComponent(status)}&limit=${limit}&offset=${offset}`;
   const res = await fetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as ReviewQueueResponse;
@@ -90,7 +89,7 @@ export async function fetchReviewQueue(
  * The UI must handle 502 gracefully and keep the item in the list.
  */
 export async function createReviewItem(itemId: string): Promise<ReviewItem> {
-  const url = `${API_BASE}/review/queue/${encodeURIComponent(itemId)}/create`;
+  const url = `${apiBase()}/review/queue/${encodeURIComponent(itemId)}/create`;
   const res = await fetch(url, { method: "POST" });
   await checkResponse(res);
   return (await res.json()) as ReviewItem;
@@ -101,7 +100,7 @@ export async function createReviewItem(itemId: string): Promise<ReviewItem> {
  * POST /review/queue/{id}/skip → 200 ReviewItem
  */
 export async function skipReviewItem(itemId: string): Promise<ReviewItem> {
-  const url = `${API_BASE}/review/queue/${encodeURIComponent(itemId)}/skip`;
+  const url = `${apiBase()}/review/queue/${encodeURIComponent(itemId)}/skip`;
   const res = await fetch(url, { method: "POST" });
   await checkResponse(res);
   return (await res.json()) as ReviewItem;
@@ -115,7 +114,7 @@ export async function skipReviewItem(itemId: string): Promise<ReviewItem> {
  * Both are terminal; both cleared by clearResolved.
  */
 export async function dismissReviewItem(itemId: string): Promise<ReviewItem> {
-  const url = `${API_BASE}/review/queue/${encodeURIComponent(itemId)}/dismiss`;
+  const url = `${apiBase()}/review/queue/${encodeURIComponent(itemId)}/dismiss`;
   const res = await fetch(url, { method: "POST" });
   await checkResponse(res);
   return (await res.json()) as ReviewItem;
@@ -132,7 +131,7 @@ export async function dismissReviewItem(itemId: string): Promise<ReviewItem> {
 export async function deepResearchReviewItem(
   itemId: string,
 ): Promise<ReviewDeepResearchResponse> {
-  const url = `${API_BASE}/review/queue/${encodeURIComponent(itemId)}/deep-research`;
+  const url = `${apiBase()}/review/queue/${encodeURIComponent(itemId)}/deep-research`;
   const res = await fetch(url, { method: "POST" });
   await checkResponse(res);
   return (await res.json()) as ReviewDeepResearchResponse;
@@ -148,7 +147,7 @@ export async function deepResearchReviewItem(
  * No provider call — pure bounded DB write.
  */
 export async function bulkReview(request: ReviewBulkRequest): Promise<ReviewBulkResponse> {
-  const url = `${API_BASE}/review/queue/bulk`;
+  const url = `${apiBase()}/review/queue/bulk`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -168,7 +167,7 @@ export async function bulkReview(request: ReviewBulkRequest): Promise<ReviewBulk
 export async function sweepReviewQueue(
   vaultId: string,
 ): Promise<ReviewSweepResponse> {
-  const url = `${API_BASE}/review/queue/sweep?vault_id=${encodeURIComponent(vaultId)}`;
+  const url = `${apiBase()}/review/queue/sweep?vault_id=${encodeURIComponent(vaultId)}`;
   const res = await fetch(url, { method: "POST" });
   await checkResponse(res);
   return (await res.json()) as ReviewSweepResponse;
@@ -185,7 +184,7 @@ export async function sweepReviewQueue(
 export async function clearResolved(
   vaultId: string,
 ): Promise<ReviewClearResolvedResponse> {
-  const url = `${API_BASE}/review/queue/resolved?vault_id=${encodeURIComponent(vaultId)}`;
+  const url = `${apiBase()}/review/queue/resolved?vault_id=${encodeURIComponent(vaultId)}`;
   const res = await fetch(url, { method: "DELETE" });
   await checkResponse(res);
   return (await res.json()) as ReviewClearResolvedResponse;

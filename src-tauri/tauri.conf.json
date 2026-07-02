@@ -28,35 +28,21 @@
   "bundle": {
     "active": true,
     "targets": [
-      "deb",
-      "appimage",
+      "app",
       "dmg",
-      "msi",
       "nsis"
     ],
-    "deb": {
-      "dependsOn": [
-        "libwebkit2gtk-4.1",
-        "libappindicator3",
-        "librsvg2"
-      ]
-    },
-    "nsis": {
-      "installerIcon": null,
-      "installerHeaderIcon": null,
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": null
-    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "macOS": {
       "frameworks": [],
       "minimumSystemVersion": ""
     },
-    "resources": [],
-    "windows": [
-      {
-        "skipWebpack": true
-      }
-    ]
+    "resources": []
   }
 }

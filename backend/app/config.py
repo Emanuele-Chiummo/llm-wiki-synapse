@@ -117,11 +117,29 @@ class Settings(BaseSettings):
     """
 
     # ── Frontend / CORS ─────────────────────────────────────────────────────────
-    cors_allow_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_allow_origins: str = (
+        "http://localhost:5173,"
+        "http://127.0.0.1:5173,"
+        "tauri://localhost,"
+        "http://tauri.localhost"
+    )
     """
     Comma-separated list of browser origins allowed to call the API (CORS).
-    Default covers the Vite dev server; set CORS_ALLOW_ORIGINS in prod (PWA/Tauri origin).
-    Use "*" to allow any origin (dev only).
+
+    Default covers:
+      - http://localhost:5173      Vite dev server (all platforms)
+      - http://127.0.0.1:5173     Vite dev server (explicit loopback)
+      - tauri://localhost          Tauri v2 packaged webview on macOS/Linux (WebKit)
+      - http://tauri.localhost     Tauri v2 packaged webview on Windows (WebView2)
+
+    IMPORTANT — credentials constraint (ADR-0047 §2.4 / risk 3):
+    The CORS middleware runs with ``allow_credentials=True``. Under the CORS spec this
+    FORBIDS the ``*`` wildcard — a ``*`` default would silently break all credentialed
+    preflight requests. Origins MUST always be listed explicitly. Override via
+    CORS_ALLOW_ORIGINS env var in production (tunnel, Tailscale, etc.), but NEVER use
+    a bare ``*``.
+
+    Env var: CORS_ALLOW_ORIGINS.
     """
 
     @property

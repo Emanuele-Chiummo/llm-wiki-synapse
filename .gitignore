@@ -65,5 +65,11 @@ node_modules/
 frontend/dist/
 frontend/.vite/
 
+# Tauri (Rust)
+src-tauri/target/
+
 # macOS
 .DS_Store
+
+# Tauri generated schemas (build-time)
+src-tauri/gen/schemas/

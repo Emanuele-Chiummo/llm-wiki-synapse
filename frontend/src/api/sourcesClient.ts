@@ -19,13 +19,12 @@
  */
 
 import { ApiError } from "./graphClient";
+import { apiBase } from "./base";
 
 export { triggerIngest } from "./ingestClient";
 
 // ─── Base URL ─────────────────────────────────────────────────────────────────
-
-const API_BASE: string =
-  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
+// API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -150,7 +149,7 @@ async function checkResponse(res: Response): Promise<void> {
  * GET /sources → SourceListResponse
  */
 export async function listSources(signal?: AbortSignal): Promise<SourceListResponse> {
-  const url = `${API_BASE}/sources`;
+  const url = `${apiBase()}/sources`;
   const res = await fetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as SourceListResponse;
@@ -165,7 +164,7 @@ export async function getSourceContent(
   path: string,
   signal?: AbortSignal,
 ): Promise<SourceContentResponse> {
-  const url = `${API_BASE}/sources/content?path=${encodeURIComponent(path)}`;
+  const url = `${apiBase()}/sources/content?path=${encodeURIComponent(path)}`;
   const res = await fetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as SourceContentResponse;
@@ -179,7 +178,7 @@ export async function getSourceDerivedPages(
   path: string,
   signal?: AbortSignal,
 ): Promise<SourceDerivedPage[]> {
-  const url = `${API_BASE}/sources/derived-pages?path=${encodeURIComponent(path)}`;
+  const url = `${apiBase()}/sources/derived-pages?path=${encodeURIComponent(path)}`;
   const res = await fetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as SourceDerivedPage[];
@@ -193,7 +192,7 @@ export async function deleteSource(
   path: string,
   signal?: AbortSignal,
 ): Promise<SourceDeleteResponse> {
-  const url = `${API_BASE}/sources?path=${encodeURIComponent(path)}`;
+  const url = `${apiBase()}/sources?path=${encodeURIComponent(path)}`;
   const res = await fetch(url, {
     method: "DELETE",
     ...(signal !== undefined ? { signal } : {}),
@@ -208,7 +207,7 @@ export async function deleteSource(
  * INVARIANT I3: never load raw bytes into JS; pass the URL to DOM elements only.
  */
 export function sourceRawUrl(path: string): string {
-  return `${API_BASE}/sources/raw?path=${encodeURIComponent(path)}`;
+  return `${apiBase()}/sources/raw?path=${encodeURIComponent(path)}`;
 }
 
 /**
@@ -218,7 +217,7 @@ export function sourceRawUrl(path: string): string {
  * INVARIANT I3: pure async, no side effects beyond the network call.
  */
 export async function ingestAllSources(signal?: AbortSignal): Promise<IngestAllResponse> {
-  const url = `${API_BASE}/sources/ingest-all`;
+  const url = `${apiBase()}/sources/ingest-all`;
   const res = await fetch(url, {
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
@@ -237,7 +236,7 @@ export async function ingestAllSources(signal?: AbortSignal): Promise<IngestAllR
  * INVARIANT I3: pure async, no side effects.
  */
 export async function getIngestAllStatus(signal?: AbortSignal): Promise<IngestAllStatusResponse> {
-  const url = `${API_BASE}/sources/ingest-all/status`;
+  const url = `${apiBase()}/sources/ingest-all/status`;
   const res = await fetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as IngestAllStatusResponse;

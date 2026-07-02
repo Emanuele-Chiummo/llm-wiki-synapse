@@ -1,0 +1,62 @@
+name: Desktop release
+
+on:
+  push:
+    tags:
+      - desktop-v*
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          # Native builds per runner: macos-latest is Apple Silicon (aarch64),
+          # windows-latest is x86_64. No cross-compilation.
+          - runner: macos-latest
+            artifact: synapse-macos-arm64
+          - runner: windows-latest
+            artifact: synapse-windows-x64
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies (npm)
+        run: npm ci --prefix frontend
+
+      # tauri-action runs `<tauriScript> build` from the repo root, where the
+      # CLI finds ./src-tauri. `npm --prefix frontend run ...` would chdir into
+      # frontend/ and break project detection — invoke the pinned CLI directly.
+      # Release params are set only on desktop-v* tag pushes; a workflow_dispatch
+      # run just builds and uploads artifacts (empty tagName = no release).
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        with:
+          tauriScript: node frontend/node_modules/@tauri-apps/cli/tauri.js
+          tagName: ${{ startsWith(github.ref, 'refs/tags/desktop-v') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/desktop-v') && github.ref_name || '' }}
+          releaseDraft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: src-tauri/target/release/bundle/
+          retention-days: 7
