@@ -98,6 +98,40 @@ the engine.
 already pip-installed in the production container; the pyproject entry makes it explicit
 for CI and reproducible builds. `fa2_modified` transitively requires `scipy` and `tqdm`.
 
+### 5. Runaway-outlier clamp (post-pinning) — added later
+
+Removing the disc-compression post-pass (§3) left FA2's occasional **runaway outliers**
+untamed: on large graphs (few iterations) or with loosely-connected nodes, a handful of
+nodes land at extreme coordinates (observed: |x|,|y| up to ~2 million while ~95% of nodes
+sit within radius ~90 of the center). Sigma's fit-to-view then zooms out to include the
+outliers, collapsing the dense core to a dot — reported by the user as *"the graph is all
+collapsed in the center"*.
+
+Fix: `_clamp_outliers(coords)` runs as the **last** step of the coordinate pipeline, AFTER
+pinned-node restore (§Feature A). Algorithm (deterministic, O(n log n)):
+
+1. Center on the **median** (x, y) — robust to the outliers we are taming (the centroid
+   would be dragged toward them).
+2. `radius_i = dist(node_i, median_center)`.
+3. `r_ref` = the **p90** radius (the edge of the dense core — robust to a minority of
+   runaways; a higher percentile like p98 would itself land on an outlier once >2% of
+   nodes run away, making the cap useless). `cap = 3.0 * r_ref`.
+4. Nodes with `radius > cap` are rescaled radially onto the cap (angle preserved); all
+   other nodes are returned **unchanged** — so the organic core spread (the whole reason
+   §3 removed disc-compression) and legitimate in-view pins are preserved exactly.
+
+Running it **after** pinning (not before) makes it also tame runaway *pinned* coords — e.g.
+a mobile tap with slight touch-jitter that registers as a drag and pins a node at its
+current (runaway) position (the observed root cause). Because the clamped coords are what
+get persisted, runaway stored coords self-heal on the next recompute. A frontend
+`DRAG_THRESHOLD_PX` (5px) is the complementary prevention: sub-threshold pointer movement
+no longer counts as a drag, so a tap can no longer pin.
+
+Force path: `POST /graph/recompute` (`GraphCache.force_recompute`) lets the user re-run the
+layout on demand (the "Regenerate graph" button) — it reconnects dangling cross-ingest
+wikilinks then invalidates the cache marker so FA2 re-runs even when `data_version` is
+unchanged, applying this clamp. Still one inline FA2 run under the in-flight guard (I2).
+
 ## Consequences
 
 - (+) Graph layout now matches the organic clustered look of nashsu/llm_wiki (R1/R2).

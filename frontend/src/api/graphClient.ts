@@ -141,3 +141,68 @@ export async function patchNodePosition(
   });
   await checkResponse(res);
 }
+
+/** Response body for POST /links/reresolve. */
+export interface ReresolveLinksResult {
+  /** Number of previously-dangling wikilinks reconnected to a live page. */
+  reconnected: number;
+  /** Number of wikilinks still dangling after the pass. */
+  remaining_dangling: number;
+}
+
+/**
+ * Re-resolve dangling wikilinks against current pages (POST /links/reresolve).
+ *
+ * Reconnects historical cross-ingest [[wikilinks]] whose target now matches a live
+ * page (tolerant matcher: exact → case-insensitive → slug). When anything reconnects,
+ * the backend bumps data_version once so the server-side FA2 layout recomputes with the
+ * new edges (I2). This is the "Regenerate graph" action's backend call.
+ *
+ * INVARIANT I2: the client never computes layout — it only asks the server to reconnect
+ * links + recompute, then refetches the precomputed coords via fetchGraph().
+ *
+ * @param signal - Optional AbortSignal for cancellation.
+ */
+export async function reresolveLinks(signal?: AbortSignal): Promise<ReresolveLinksResult> {
+  const url = `${API_BASE}/links/reresolve`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as ReresolveLinksResult;
+}
+
+/** Response body for POST /graph/recompute. */
+export interface RegenerateGraphResult {
+  reconnected: number;
+  remaining_dangling: number;
+  nodes: number;
+  edges: number;
+  data_version: number;
+}
+
+/**
+ * Regenerate the graph (POST /graph/recompute): reconnect cross-ingest wikilinks AND force a
+ * fresh server-side ForceAtlas2 recompute — even when data_version has not changed.
+ *
+ * This is what the "Regenerate graph" button calls. Unlike reresolveLinks() (which only
+ * recomputes when links actually changed), this ALWAYS re-runs the layout, so a layout change
+ * (e.g. the outlier clamp that stops the graph collapsing to a dot) takes effect on demand.
+ *
+ * INVARIANT I2: layout is computed server-side; the client only asks for the recompute and
+ * then refetches the precomputed coords via fetchGraph().
+ *
+ * @param signal - Optional AbortSignal for cancellation.
+ */
+export async function recomputeGraph(signal?: AbortSignal): Promise<RegenerateGraphResult> {
+  const url = `${API_BASE}/graph/recompute`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as RegenerateGraphResult;
+}
