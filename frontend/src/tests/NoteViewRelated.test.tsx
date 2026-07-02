@@ -49,6 +49,7 @@ vi.mock("../api/pagesClient", () => ({
   fetchPageContent: vi.fn(),
   savePageContent: vi.fn(),
   fetchPages: vi.fn(),
+  fetchAllPages: vi.fn().mockResolvedValue({ items: [] }),
   fetchStatus: vi.fn(),
   fetchRelatedPages: vi.fn(),
 }));
@@ -137,6 +138,7 @@ vi.mock("../store/graphStore", () => ({
   selectNodes: (s: { nodes: GraphNode[] }) => s.nodes,
   selectSelectPage: (s: { selectPage: typeof _mockSelectPage }) => s.selectPage,
   selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) => s.setActiveSection,
+  selectVaultId: () => "default",
 }));
 
 vi.mock("zustand/react/shallow", () => ({
@@ -151,6 +153,7 @@ import { NoteView } from "../components/wiki/NoteView";
 import type { PageContentResponse } from "../api/types";
 
 const mockedFetchContent = pagesClientModule.fetchPageContent as ReturnType<typeof vi.fn>;
+const mockedFetchAllPages = pagesClientModule.fetchAllPages as ReturnType<typeof vi.fn>;
 const mockedFetchRelated = pagesClientModule.fetchRelatedPages as ReturnType<typeof vi.fn>;
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -248,6 +251,7 @@ describe("NoteView — related panel (Task C)", () => {
     _selectedNodeId = "page-abc";
     _nodes = GRAPH_NODES;
     vi.clearAllMocks();
+    mockedFetchAllPages.mockResolvedValue({ items: [] });
     mockedFetchContent.mockResolvedValue(PAGE_CONTENT_BASE);
   });
 
@@ -347,6 +351,7 @@ describe("NoteView — type badge preference (Task B)", () => {
   beforeEach(() => {
     _selectedNodeId = "page-abc";
     vi.clearAllMocks();
+    mockedFetchAllPages.mockResolvedValue({ items: [] });
     mockedFetchRelated.mockResolvedValue({ items: [], total: 0 });
   });
 
@@ -396,6 +401,7 @@ describe("NoteView — sources row (Task B)", () => {
     _selectedNodeId = "page-abc";
     _nodes = [];
     vi.clearAllMocks();
+    mockedFetchAllPages.mockResolvedValue({ items: [] });
     mockedFetchRelated.mockResolvedValue({ items: [], total: 0 });
   });
 

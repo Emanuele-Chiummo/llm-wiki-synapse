@@ -41,6 +41,7 @@ vi.mock("../api/pagesClient", () => ({
   fetchPageContent: vi.fn(),
   savePageContent: vi.fn(),
   fetchPages: vi.fn(),
+  fetchAllPages: vi.fn().mockResolvedValue({ items: [] }),
   fetchStatus: vi.fn(),
   fetchRelatedPages: vi.fn().mockResolvedValue({ items: [], total: 0 }),
 }));
@@ -133,6 +134,7 @@ vi.mock("../store/graphStore", () => ({
   selectNodes: (s: { nodes: GraphNode[] }) => s.nodes,
   selectSelectPage: (s: { selectPage: typeof _mockSelectPage }) => s.selectPage,
   selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) => s.setActiveSection,
+  selectVaultId: () => "default",
 }));
 
 // useShallow — in vitest/jsdom zustand's useShallow is not needed; identity works.

@@ -64,9 +64,15 @@ import {
   selectNodes,
   selectSelectPage,
   selectSetActiveSection,
+  selectVaultId,
 } from "../../store/graphStore";
 import type { RelatedPageItem, PageContentResponse } from "../../api/types";
-import { fetchPageContent, savePageContent, fetchRelatedPages } from "../../api/pagesClient";
+import {
+  fetchPageContent,
+  savePageContent,
+  fetchRelatedPages,
+  fetchAllPages,
+} from "../../api/pagesClient";
 import { ApiError } from "../../api/graphClient";
 import { renderMarkdown, stripLeadingFrontmatter } from "../chat/renderMarkdown";
 import { EmptyState } from "../common/EmptyState";
@@ -201,6 +207,7 @@ export function NoteView() {
   const nodes = useGraphStore(useShallow(selectNodes));
   const selectPage = useGraphStore(selectSelectPage);
   const setActiveSection = useGraphStore(selectSetActiveSection);
+  const vaultId = useGraphStore(selectVaultId);
 
   const [state, setState] = useState<NoteViewState>({
     phase: "idle",
@@ -219,6 +226,31 @@ export function NoteView() {
 
   // Handle to the CodeMirror editor — valid only while mode === "edit"
   const editorHandleRef = useRef<CodeMirrorEditorHandle | null>(null);
+
+  // Wikilink resolution index (lowercased title → page id), loaded ONCE on mount from the full
+  // page list. Wikilink clicks previously resolved against graphStore.nodes, which is only
+  // populated when the Graph view is opened — so reading the wiki without visiting the graph made
+  // EVERY [[link]] report "not found". This index is always available and complete (paginated).
+  const [titleIndex, setTitleIndex] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetchAllPages(vaultId, ctrl.signal)
+      .then((res) => {
+        const map = new Map<string, string>();
+        for (const p of res.items) {
+          if (p.title) map.set(p.title.toLowerCase(), p.id);
+        }
+        setTitleIndex(map);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name !== "AbortError") {
+          // Non-fatal: fall back to graph-node resolution.
+          console.warn("[NoteView] title index load failed:", err.message);
+        }
+      });
+    return () => ctrl.abort();
+  }, [vaultId]);
 
   // Memoised rendered HTML — computed ONCE when entering read mode (I3).
   // useMemo key: state.data reference changes only when we receive fresh content.
@@ -252,14 +284,17 @@ export function NoteView() {
       if (!wikilinkTitle) return;
 
       const titleLower = wikilinkTitle.toLowerCase();
-      const match = nodes.find((n) => n.title.toLowerCase() === titleLower);
-      if (match) {
-        selectPage(match.id, "tree");
+      // Resolve via the complete page index first (always loaded); fall back to graph nodes.
+      const id =
+        titleIndex.get(titleLower) ??
+        nodes.find((n) => n.title.toLowerCase() === titleLower)?.id;
+      if (id) {
+        selectPage(id, "tree");
       } else {
         showToast(t("noteView.wikilinkNotFound", { title: wikilinkTitle }), "error");
       }
     },
-    [nodes, selectPage, t],
+    [titleIndex, nodes, selectPage, t],
   );
 
   // ── Fetch page content on selection change ─────────────────────────────────
