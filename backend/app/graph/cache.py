@@ -241,6 +241,24 @@ class GraphCache:
                 return True
         return False
 
+    async def force_recompute(self, current_version: int) -> GraphSnapshot:
+        """
+        Force a fresh FA2 recompute NOW, bypassing the version-marker hit check.
+
+        Used by POST /graph/recompute (the "Regenerate graph" button) so the user can
+        re-run the server-side layout on demand — e.g. after a layout-algorithm change
+        (ADR-0045 §5 outlier clamp) whose effect is not reflected in the persisted coords
+        until the next recompute, even when data_version has not moved.
+
+        Invalidates the marker then delegates to get_graph(), which runs exactly one inline
+        recompute under the shared in-flight guard (never two concurrent FA2 runs — I2).
+        Returns the fresh snapshot.
+        """
+        logger.info("GraphCache.force_recompute: invalidating marker + recomputing FA2")
+        self._marker = None
+        snapshot, _ = await self.get_graph(current_version)
+        return snapshot
+
     def start_background_loop(self) -> None:
         """Launch the asyncio background tick task (called from FastAPI lifespan)."""
         if self._bg_task is None or self._bg_task.done():

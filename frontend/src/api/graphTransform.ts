@@ -36,7 +36,7 @@ export interface NodeAttributes {
   community: number;
   /**
    * Visual radius in pixels (normalized sqrt over degree range).
-   * MIN_R=4, MAX_R=22. t = (sqrt(d)-sqrt(dMin))/(sqrt(dMax)-sqrt(dMin));
+   * MIN_R=2.5, MAX_R=11. t = (sqrt(d)-sqrt(dMin))/(sqrt(dMax)-sqrt(dMin));
    * radius = MIN_R + t*(MAX_R-MIN_R). If dMax==dMin use (MIN_R+MAX_R)/2.
    * Recomputed over the full node set — never per-frame.
    */
@@ -65,9 +65,11 @@ export interface EdgeAttributes {
 export type SynapseGraph = Graph<NodeAttributes, EdgeAttributes>;
 
 // ─── Size constants ───────────────────────────────────────────────────────────
-
-const MIN_R = 4;
-const MAX_R = 22;
+// Node radius scales with sqrt(structural degree): more links → bigger node.
+// Retuned smaller (was 4–22) so a dense graph reads clearly without overlapping blobs;
+// the degree→size relationship is unchanged, only the px range is tighter.
+const MIN_R = 2.5;
+const MAX_R = 11;
 const MID_R = (MIN_R + MAX_R) / 2;
 
 // ─── Edge size constants (llm_wiki parity) ───────────────────────────────────

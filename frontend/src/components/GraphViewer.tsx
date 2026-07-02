@@ -34,7 +34,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   COMMUNITY_PALETTE,
@@ -47,7 +47,7 @@ import type { Attributes } from "graphology-types";
 import type { Settings } from "sigma/settings";
 import type { NodeDisplayData, PartialButFor } from "sigma/types";
 import { buildGraphologyGraph } from "../api/graphTransform";
-import { fetchGraph, fetchPageDetail, patchNodePosition } from "../api/graphClient";
+import { fetchGraph, fetchPageDetail, patchNodePosition, recomputeGraph } from "../api/graphClient";
 import type { GraphCommunity, PageDetail } from "../api/types";
 import {
   selectCommunities,
@@ -549,7 +549,19 @@ interface DragState {
   draggedNode: string | null;
   /** True once the pointer has moved enough to count as a drag (not a click) */
   hasMoved: boolean;
+  /** Viewport-space pointer position at drag start (for the movement threshold) */
+  downX: number;
+  downY: number;
 }
+
+/**
+ * Minimum viewport-pixel movement before a pointer-down on a node is treated as a
+ * drag (and thus persisted + pinned). Below this, it is a click/tap. This stops a
+ * mobile tap with slight touch jitter from accidentally pinning a node at its current
+ * (possibly runaway) coordinates — the root cause of the "graph collapsed to the
+ * center" bug (the server-side outlier clamp is the safety net; this is prevention).
+ */
+const DRAG_THRESHOLD_PX = 5;
 
 // ─── Main GraphViewer ──────────────────────────────────────────────────────────
 
@@ -598,6 +610,38 @@ export const GraphViewer: React.FC = () => {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   // Aria-live announcement text
   const [announcement, setAnnouncement] = useState<string>("");
+
+  // Regenerate-graph control state (reresolve links + recompute FA2, then refetch coords)
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenMsg, setRegenMsg] = useState<string | null>(null);
+
+  // ── Regenerate graph: reconnect cross-ingest links → server recomputes FA2 → refetch ──
+  const handleRegenerate = useCallback(async () => {
+    if (regenerating) return;
+    setRegenerating(true);
+    setRegenMsg(null);
+    try {
+      // 1. Reconnect cross-ingest links + FORCE a fresh server-side FA2 recompute (I2).
+      //    Forcing (not just reresolve) guarantees the layout re-runs — so the outlier
+      //    clamp takes effect and the graph stops collapsing to a dot.
+      const result = await recomputeGraph();
+      // 2. Refetch the freshly-computed precomputed coords (I2 — layout stays server-side).
+      const { data, cacheStatus } = await fetchGraph(vaultId);
+      setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? []);
+      setRegenMsg(
+        result.reconnected > 0
+          ? t("graph.regenerateDone", { count: result.reconnected })
+          : t("graph.regenerateNone"),
+      );
+    } catch (err: unknown) {
+      setRegenMsg(t("graph.regenerateError"));
+      if (err instanceof Error && err.name !== "AbortError") {
+        setError(err.message);
+      }
+    } finally {
+      setRegenerating(false);
+    }
+  }, [regenerating, vaultId, setGraph, setError, t]);
 
   // ── Fetch graph on mount / vaultId change ────────────────────────────────
 
@@ -776,7 +820,7 @@ export const GraphViewer: React.FC = () => {
     sigmaRef.current = sigma;
 
     // ── Drag state (closed-over plain object — no React re-render during drag) ─
-    const dragState: DragState = { draggedNode: null, hasMoved: false };
+    const dragState: DragState = { draggedNode: null, hasMoved: false, downX: 0, downY: 0 };
 
     // ── Event handlers ────────────────────────────────────────────────────
     // Mutate hoverState / dragState in-place, then call refresh.
@@ -799,9 +843,11 @@ export const GraphViewer: React.FC = () => {
 
     // ── Drag: downNode ────────────────────────────────────────────────────
     // I2: we record WHICH node is being dragged; no layout computed here.
-    sigma.on("downNode", ({ node }) => {
+    sigma.on("downNode", ({ node, event }) => {
       dragState.draggedNode = node;
       dragState.hasMoved = false;
+      dragState.downX = event.x;
+      dragState.downY = event.y;
       // Highlight the node visually during drag
       sigmaGraph.setNodeAttribute(node, "highlighted", true);
       // Disable the mouse captor so the stage doesn't pan while we drag
@@ -820,6 +866,11 @@ export const GraphViewer: React.FC = () => {
 
       // Convert screen coords → graph-space coords (sigma v3 API)
       const pos = sigma.viewportToGraph({ x: event.x, y: event.y });
+
+      // Ignore sub-threshold jitter so a tap doesn't register as a drag (mobile pin bug).
+      const dx = event.x - dragState.downX;
+      const dy = event.y - dragState.downY;
+      if (!dragState.hasMoved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
 
       // Write ONLY the dragged node's position — I2: no other node touched
       sigmaGraph.setNodeAttribute(dragState.draggedNode, "x", pos.x);
@@ -1000,6 +1051,64 @@ export const GraphViewer: React.FC = () => {
         }}
       >
         {announcement}
+      </div>
+
+      {/* Regenerate-graph control — top-left (top-right is the Insights panel).
+          Reconnects cross-ingest links + recomputes FA2. */}
+      <div
+        className="syn-card"
+        style={{
+          position: "absolute",
+          top: 12,
+          left: 12,
+          padding: "4px 6px",
+          zIndex: 6,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          userSelect: "none",
+        }}
+        data-testid="graph-regenerate-toolbar"
+      >
+        <style>{`@keyframes syn-spin { to { transform: rotate(360deg); } }`}</style>
+        {regenMsg !== null && (
+          <span
+            style={{ fontSize: 11, color: "var(--syn-text-muted)" }}
+            data-testid="graph-regenerate-msg"
+            role="status"
+          >
+            {regenMsg}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={handleRegenerate}
+          disabled={regenerating}
+          data-testid="graph-regenerate"
+          aria-label={t("graph.regenerate")}
+          title={t("graph.regenerateTitle")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 11,
+            padding: "4px 10px",
+            border: "1px solid var(--syn-border)",
+            borderRadius: 3,
+            background: "var(--syn-surface)",
+            color: "var(--syn-text)",
+            cursor: regenerating ? "default" : "pointer",
+            opacity: regenerating ? 0.6 : 1,
+          }}
+        >
+          <RefreshCw
+            size={13}
+            strokeWidth={1.8}
+            aria-hidden="true"
+            style={regenerating ? { animation: "syn-spin 0.9s linear infinite" } : undefined}
+          />
+          {regenerating ? t("graph.regenerating") : t("graph.regenerate")}
+        </button>
       </div>
 
       {/* Zoom / fit control cluster — bottom-right, above color-mode toolbar */}

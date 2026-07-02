@@ -1185,6 +1185,74 @@ class TestFeatureBDiscEnvelope:
             assert r < 0.01  # all still near the input centroid
 
 
+class TestClampOutliers:
+    """
+    Unit tests for _clamp_outliers (ADR-0045 §5).
+
+    The clamp tames FA2 runaway outliers so a few flung-out nodes don't collapse the
+    dense core in the viewer, WITHOUT squashing the organic core spread (the reason
+    _compress_to_disc was removed from the recompute path).
+    """
+
+    def test_pulls_in_extreme_outlier(self) -> None:
+        """A single millions-scale outlier is pulled onto the cap; core is untouched."""
+        from app.graph.engine import FA2_CLAMP_FACTOR, _clamp_outliers
+
+        # Dense core near origin + one runaway node at 1.4M (the observed bug).
+        coords = [(float(i % 10), float(i // 10)) for i in range(60)]
+        coords.append((1_400_000.0, 0.0))
+        result = _clamp_outliers(coords)
+
+        # Core nodes returned EXACTLY as-is (organic spread preserved).
+        for original, clamped in zip(coords[:60], result[:60], strict=True):
+            assert original == clamped
+
+        # The outlier was pulled far inward — nowhere near 1.4M anymore.
+        ox, oy = result[-1]
+        assert abs(ox) < 1000.0, f"Outlier not clamped: x={ox}"
+        assert abs(oy) < 1000.0, f"Outlier not clamped: y={oy}"
+        # And the overall span is now bounded (no millions-scale coordinate).
+        xs = [x for x, _ in result]
+        assert max(xs) - min(xs) < 1000.0
+
+    def test_preserves_outlier_angle(self) -> None:
+        """Clamping is radial from the median center — the outlier's direction is kept."""
+        from app.graph.engine import _clamp_outliers
+
+        coords = [(0.0, 0.0)] * 50 + [(3.0, 4.0)] * 1  # median center ~ origin
+        # Push one outlier along the (3,4) direction, magnified.
+        coords[-1] = (300000.0, 400000.0)
+        result = _clamp_outliers(coords)
+        ox, oy = result[-1]
+        # Direction preserved: y/x ≈ 4/3.
+        assert abs((oy / ox) - (4.0 / 3.0)) < 1e-6
+
+    def test_no_outliers_returns_unchanged(self) -> None:
+        """A well-behaved layout (no extreme radii) is returned unchanged."""
+        from app.graph.engine import _clamp_outliers
+
+        coords = [(float(i), float(-i)) for i in range(-20, 20)]
+        result = _clamp_outliers(coords)
+        assert result == coords
+
+    def test_small_and_degenerate_inputs(self) -> None:
+        """<=2 nodes and all-coincident inputs are returned unchanged."""
+        from app.graph.engine import _clamp_outliers
+
+        assert _clamp_outliers([]) == []
+        assert _clamp_outliers([(1.0, 2.0)]) == [(1.0, 2.0)]
+        assert _clamp_outliers([(1.0, 2.0), (3.0, 4.0)]) == [(1.0, 2.0), (3.0, 4.0)]
+        same = [(5.0, 5.0)] * 10
+        assert _clamp_outliers(same) == same
+
+    def test_deterministic(self) -> None:
+        """Two calls on identical input yield identical output (I2 determinism)."""
+        from app.graph.engine import _clamp_outliers
+
+        coords = [(float(i), float(i * 2)) for i in range(30)] + [(999999.0, -999999.0)]
+        assert _clamp_outliers(coords) == _clamp_outliers(coords)
+
+
 class TestGraphCachePatchNodePosition:
     """Feature A: GraphCache.patch_node_position mutates in-memory snapshot."""
 

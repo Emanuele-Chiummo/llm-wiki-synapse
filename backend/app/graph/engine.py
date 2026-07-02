@@ -44,12 +44,17 @@ ForceAtlas2 layout (ADR-0045 — supersedes FR in ADR-0013 §1/§2):
     Identical topology+weights → identical coordinates across any two recomputes.
   Layout post-processing (Feature B — disc compression) REMOVED (ADR-0045 §3):
     FA2's organic spread is the desired output; disc compression was fighting it.
-    Raw FA2 output is used directly.
+    Raw FA2 output is used directly, EXCEPT for the outlier clamp below.
+  Outlier clamp (ADR-0045 §5 — _clamp_outliers, runs LAST):
+    Pulls a few runaway nodes (|x|,|y| that would collapse the viewer's fit-to-view onto
+    a dot) radially onto a cap = 3× the p90 radius from the median center. In-cap nodes are
+    untouched, so the organic core spread is preserved. Runs AFTER pinning so it also tames
+    runaway pinned coords; the clamped coords are persisted, so bad coords self-heal.
 
 Node pinning (Feature A):
   pages.pinned=true → engine reads stored (x,y) from DB and overwrites FA2 coords.
-  Applied AFTER FA2 layout; PATCH /pages/{id}/position sets the flag.
-  Pinned nodes stay put across every subsequent recompute.
+  Applied AFTER FA2 layout (then the outlier clamp runs); PATCH /pages/{id}/position sets
+  the flag. Pinned nodes stay put across every subsequent recompute (within the clamp cap).
 """
 
 from __future__ import annotations
@@ -86,6 +91,23 @@ FA2_ITERS_HUGE: int = 28     # n > 2500
 # scalingRatio increases for larger graphs to counter crowding (ADR-0045 §1)
 FA2_SCALING_RATIO_SMALL: float = 2.0   # n <= 400
 FA2_SCALING_RATIO_LARGE: float = 3.0   # n > 400
+
+# ── Outlier clamp (ADR-0045 §5 — tames FA2 runaway nodes without squashing spread) ──
+# FA2 (esp. large graphs with few iterations) can fling a handful of loosely-connected
+# nodes to extreme coordinates (|x|,|y| in the millions).  Sigma's fit-to-view then zooms
+# out so far that the dense core collapses to a dot ("everything collapsed at the center").
+# We clamp ONLY nodes whose radius exceeds FA2_CLAMP_FACTOR × the FA2_CLAMP_PERCENTILE-th
+# percentile radius (measured from the MEDIAN center — robust to the outliers themselves),
+# pulling them radially onto that cap.  Every node inside the cap is left EXACTLY where FA2
+# put it, so the organic core spread (the reason disc-compression was removed) is preserved.
+#
+# Params: the reference is the p90 radius (the EDGE of the dense core — robust to a minority
+# of runaway nodes, which are what we want to tame; a higher percentile like p98 would itself
+# land on an outlier when >2% of nodes run away, making the cap useless). factor=3 keeps a
+# healthy organic layout untouched (nothing sits at 3× the core-edge radius there) while
+# crushing millions-scale runaways down to ~3× the core radius, so the core fills the view.
+FA2_CLAMP_PERCENTILE: float = 90.0
+FA2_CLAMP_FACTOR: float = 3.0
 
 # ── Type-affinity matrix — 4th weight signal (G-P1-7, llm_wiki parity) ────────
 # Mirrors nashsu/llm_wiki src/lib/graph-relevance.ts TYPE_AFFINITY: a MODULATOR of
@@ -385,7 +407,7 @@ class GraphEngine:
         )
 
         # ── 4b. Feature B (disc-compression) REMOVED (ADR-0045 §3) ──────────
-        # FA2's organic spread is the desired output.  Raw FA2 coords used directly.
+        # FA2's organic spread is the desired output — raw FA2 coords used directly.
         coords = list(raw_coords)
 
         # ── 4c. Feature A — preserve pinned nodes ─────────────────────────────
@@ -397,7 +419,17 @@ class GraphEngine:
             if nd["pinned"] and nd["stored_x"] is not None and nd["stored_y"] is not None:
                 coords[i] = (float(nd["stored_x"]), float(nd["stored_y"]))
 
-        # ── 4d. Louvain community detection (G-P0-2, I2) ─────────────────────
+        # ── 4d. Outlier clamp (ADR-0045 §5) — LAST, so it also tames runaway PINNED
+        # coords, not just FA2 outliers.  A handful of flung-out nodes (or nodes
+        # accidentally pinned at runaway coords, e.g. a mobile tap-jitter drag) would
+        # otherwise dominate sigma's fit-to-view and collapse the dense core to a dot.
+        # The clamp leaves every in-cap node EXACTLY where it was (organic spread + legit
+        # in-view pins preserved); only nodes beyond the cap are pulled radially onto it.
+        # Running it here (after pinning) makes the layout self-healing: the clamped coords
+        # are what get persisted, so runaway stored coords are repaired on the next recompute.
+        coords = _clamp_outliers(coords)
+
+        # ── 4e. Louvain community detection (G-P0-2, I2) ─────────────────────
         # Run community_multilevel (Louvain) on the weighted structural graph.
         # Re-number communities by size (largest = 0) for stable coloring, matching
         # the nashsu/llm_wiki convention (R1). Bounded: single O(n log n) pass on the
@@ -674,6 +706,57 @@ def _forceatlas2_layout(
     )
 
     return [(pos[0], pos[1]) for pos in layout]
+
+
+def _clamp_outliers(
+    coords: list[tuple[float, float]],
+    *,
+    percentile: float = FA2_CLAMP_PERCENTILE,
+    factor: float = FA2_CLAMP_FACTOR,
+) -> list[tuple[float, float]]:
+    """
+    Pull FA2 runaway outliers inward without touching the organic core (ADR-0045 §5).
+
+    Unlike _compress_to_disc (which radially rescales EVERY node and squashes the spread),
+    this leaves every node inside the cap EXACTLY where FA2 placed it and only clamps the
+    few extreme outliers that would otherwise dominate sigma's fit-to-view.
+
+    Algorithm (deterministic, bounded, O(n log n) for the percentile sort):
+      1. Center on the MEDIAN (x, y) — robust to the outliers we are trying to tame
+         (the centroid would be dragged toward them).
+      2. radius_i = dist(node_i, median_center).
+      3. r_ref = the `percentile`-th percentile radius; cap = factor * r_ref.
+      4. For nodes with radius > cap: rescale radially onto the cap (angle preserved).
+         All other nodes returned unchanged.
+
+    Degenerate inputs (<=2 nodes, all-coincident, zero reference radius) are returned as-is.
+    """
+    if len(coords) <= 2:
+        return coords
+
+    xs_sorted = sorted(x for x, _ in coords)
+    ys_sorted = sorted(y for _, y in coords)
+    mid = len(coords) // 2
+    cx = xs_sorted[mid]
+    cy = ys_sorted[mid]
+
+    radii = [math.hypot(x - cx, y - cy) for x, y in coords]
+    sorted_r = sorted(radii)
+    idx = int(math.ceil(percentile / 100.0 * len(sorted_r))) - 1
+    idx = max(0, min(idx, len(sorted_r) - 1))
+    r_ref = sorted_r[idx]
+    if r_ref < 1e-9:
+        return coords
+
+    cap = factor * r_ref
+    out: list[tuple[float, float]] = []
+    for (x, y), r in zip(coords, radii, strict=True):
+        if r > cap and r > 1e-9:
+            scale = cap / r
+            out.append((cx + (x - cx) * scale, cy + (y - cy) * scale))
+        else:
+            out.append((x, y))
+    return out
 
 
 def _compress_to_disc(

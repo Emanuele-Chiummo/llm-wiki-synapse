@@ -4639,6 +4639,95 @@ async def get_graph() -> Response:
     )
 
 
+class RegenerateGraphResponse(BaseModel):
+    """Response for POST /graph/recompute (the 'Regenerate graph' action)."""
+
+    reconnected: int = Field(
+        ..., description="Previously-dangling wikilinks reconnected to a live page this pass."
+    )
+    remaining_dangling: int = Field(
+        ..., description="Wikilinks still dangling after the reconnect pass."
+    )
+    nodes: int = Field(..., description="Node count in the freshly recomputed snapshot.")
+    edges: int = Field(..., description="Edge count in the freshly recomputed snapshot.")
+    data_version: int = Field(..., description="data_version after the operation.")
+
+
+@app.post(
+    "/graph/recompute",
+    response_model=RegenerateGraphResponse,
+    status_code=200,
+    summary="Regenerate the graph: reconnect cross-ingest links + force FA2 recompute (F4/I2)",
+    description=(
+        "The 'Regenerate graph' action. Two bounded steps: "
+        "(1) re-resolve dangling [[wikilinks]] against current pages (tolerant matcher: "
+        "exact → case-insensitive → slug) so ingests link to each other; "
+        "(2) FORCE a fresh server-side ForceAtlas2 recompute (I2) — invalidating the cache "
+        "marker so the layout re-runs even when data_version has not changed. The recompute "
+        "applies the ADR-0045 §5 outlier clamp, which tames FA2 runaway nodes that would "
+        "otherwise collapse the dense core in the viewer. "
+        "Layout stays server-side (I2 — never on the client); the recompute is a single inline "
+        "FA2 run under the cache in-flight guard (no concurrent FA2). "
+        "Returns reconnected/remaining_dangling counts + fresh node/edge counts."
+    ),
+    responses={200: {"description": "Links reconnected + graph recomputed"}},
+)
+async def recompute_graph() -> RegenerateGraphResponse:
+    """
+    POST /graph/recompute — reconnect dangling links + force an FA2 layout recompute (F4/I2).
+
+    Invariant compliance:
+      I1 — reresolve only touches Link rows that resolve; no page rescan.
+      I2 — layout runs server-side; force_recompute uses the shared in-flight guard (no
+           concurrent FA2). Bumps data_version once IFF links were reconnected.
+      I6 — no InferenceProvider call.
+      I7 — reresolve is a single bounded pass; recompute is one bounded FA2 run.
+    """
+    from sqlalchemy import func
+
+    from app.ingest.orchestrator import bump_version
+    from app.models import Link
+    from app.wiki.links import reresolve_dangling_links
+
+    global _graph_cache
+
+    # ── Step 1: reconnect dangling wikilinks (K3/F3 cross-ingest connectivity) ──
+    async with get_session() as session:
+        reconnected = await reresolve_dangling_links(session)
+        await session.flush()
+        remaining_row = await session.execute(
+            select(func.count()).select_from(Link).where(Link.dangling.is_(True))
+        )
+        remaining_dangling = int(remaining_row.scalar_one() or 0)
+
+    # Bump data_version once if links changed (so any HIT elsewhere invalidates too).
+    if reconnected:
+        await bump_version()
+
+    # ── Read the (possibly bumped) current data_version ──────────────────────
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        current_version = state.data_version if state is not None else 0
+
+    # Initialise cache lazily (e.g. in test environments that bypass lifespan)
+    if _graph_cache is None:
+        _graph_cache = GraphCache(engine=GraphEngine(), vault_id=settings.vault_id)
+
+    # ── Step 2: FORCE a fresh FA2 recompute (applies the outlier clamp) ──────
+    snapshot = await _graph_cache.force_recompute(current_version)
+
+    return RegenerateGraphResponse(
+        reconnected=reconnected,
+        remaining_dangling=remaining_dangling,
+        nodes=len(snapshot.nodes),
+        edges=len(snapshot.edges),
+        data_version=current_version,
+    )
+
+
 # ── Deep Research REST (F10, ADR-0024 §8) ─────────────────────────────────────
 
 

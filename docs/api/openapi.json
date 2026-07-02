@@ -1682,6 +1682,25 @@
         }
       }
     },
+    "/graph/recompute": {
+      "post": {
+        "summary": "Regenerate the graph: reconnect cross-ingest links + force FA2 recompute (F4/I2)",
+        "description": "The 'Regenerate graph' action. Two bounded steps: (1) re-resolve dangling [[wikilinks]] against current pages (tolerant matcher: exact \u2192 case-insensitive \u2192 slug) so ingests link to each other; (2) FORCE a fresh server-side ForceAtlas2 recompute (I2) \u2014 invalidating the cache marker so the layout re-runs even when data_version has not changed. The recompute applies the ADR-0045 \u00a75 outlier clamp, which tames FA2 runaway nodes that would otherwise collapse the dense core in the viewer. Layout stays server-side (I2 \u2014 never on the client); the recompute is a single inline FA2 run under the cache in-flight guard (no concurrent FA2). Returns reconnected/remaining_dangling counts + fresh node/edge counts.",
+        "operationId": "recompute_graph_graph_recompute_post",
+        "responses": {
+          "200": {
+            "description": "Links reconnected + graph recomputed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegenerateGraphResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/research/start": {
       "post": {
         "summary": "Start a bounded deep-research run",
@@ -5818,6 +5837,45 @@
         ],
         "title": "ReferencedPage",
         "description": "Convenience join for a referenced_page_ids entry (ADR-0044 \u00a76.1)."
+      },
+      "RegenerateGraphResponse": {
+        "properties": {
+          "reconnected": {
+            "type": "integer",
+            "title": "Reconnected",
+            "description": "Previously-dangling wikilinks reconnected to a live page this pass."
+          },
+          "remaining_dangling": {
+            "type": "integer",
+            "title": "Remaining Dangling",
+            "description": "Wikilinks still dangling after the reconnect pass."
+          },
+          "nodes": {
+            "type": "integer",
+            "title": "Nodes",
+            "description": "Node count in the freshly recomputed snapshot."
+          },
+          "edges": {
+            "type": "integer",
+            "title": "Edges",
+            "description": "Edge count in the freshly recomputed snapshot."
+          },
+          "data_version": {
+            "type": "integer",
+            "title": "Data Version",
+            "description": "data_version after the operation."
+          }
+        },
+        "type": "object",
+        "required": [
+          "reconnected",
+          "remaining_dangling",
+          "nodes",
+          "edges",
+          "data_version"
+        ],
+        "title": "RegenerateGraphResponse",
+        "description": "Response for POST /graph/recompute (the 'Regenerate graph' action)."
       },
       "RegenerateOverviewResponse": {
         "properties": {
