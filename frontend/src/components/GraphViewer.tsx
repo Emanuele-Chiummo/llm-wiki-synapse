@@ -738,9 +738,15 @@ export const GraphViewer: React.FC = () => {
       labelSize: 13,
       labelWeight: "600",
       labelColor: { color: "#1f2328" }, // --syn-text
-      labelDensity: 0.4,
-      labelGridCellSize: 80,
-      labelRenderedSizeThreshold: 14,
+      // Obsidian-style labels: hidden when zoomed out (just dots), fade in as you zoom.
+      // Node rendered size scales with camera zoom; a label shows only once a node's
+      // on-screen size passes labelRenderedSizeThreshold. With the small node range
+      // (2.5–11px) this threshold keeps the fit/zoomed-out view label-free, and labels
+      // appear progressively (hubs first) as the user zooms in. labelDensity raised so
+      // more labels reveal when eligible.
+      labelDensity: 0.7,
+      labelGridCellSize: 70,
+      labelRenderedSizeThreshold: 13,
 
       // Custom halo drawers (AAA contrast)
       defaultDrawNodeLabel: drawHaloNodeLabel,
