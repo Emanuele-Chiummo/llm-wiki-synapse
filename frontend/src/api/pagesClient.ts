@@ -7,6 +7,7 @@
  */
 
 import type {
+  PageListItem,
   PageListResponse,
   PageContentResponse,
   PageContentPutResponse,
@@ -50,6 +51,31 @@ export async function fetchPages(
   const res = await fetchWithTimeout(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as PageListResponse;
+}
+
+/**
+ * Fetch ALL pages for a vault by paginating GET /pages (which caps at limit=500).
+ *
+ * The nav tree must show every page — with a single limit=500 call, once a vault grows past
+ * 500 pages the OLDEST pages (GET /pages orders created_at DESC) silently drop out, including
+ * the singleton `overview` entry-point. This loops offset until a short page is returned.
+ * Bounded (≤ maxPages requests) so a runaway can never loop forever.
+ */
+export async function fetchAllPages(
+  vaultId: string = "default",
+  signal?: AbortSignal,
+  pageSize = 500,
+  maxPages = 50,
+): Promise<PageListResponse> {
+  const items: PageListItem[] = [];
+  let offset = 0;
+  for (let i = 0; i < maxPages; i++) {
+    const res = await fetchPages(vaultId, { limit: pageSize, offset }, signal);
+    items.push(...res.items);
+    if (res.items.length < pageSize) break;
+    offset += pageSize;
+  }
+  return { items };
 }
 
 /**
