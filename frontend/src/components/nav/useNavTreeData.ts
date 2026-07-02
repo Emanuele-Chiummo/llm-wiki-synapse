@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchPages } from "../../api/pagesClient";
+import { fetchAllPages } from "../../api/pagesClient";
 import type { PageListItem, PageType } from "../../api/types";
 
 // ─── Tree row model (ADR-0017 §3) ─────────────────────────────────────────────
@@ -156,7 +156,9 @@ export function useNavTreeData(
     setLoading(true);
     setError(null);
 
-    fetchPages(vaultId, { limit: 500 }, ctrl.signal)
+    // fetchAllPages paginates (GET /pages caps at 500) so EVERY page shows in the tree —
+    // past 500 pages the oldest ones (incl. the singleton overview) would otherwise vanish.
+    fetchAllPages(vaultId, ctrl.signal)
       .then((res) => {
         setGrouped(groupPagesByType(res.items));
         setLoading(false);
