@@ -84,16 +84,16 @@ class Settings(BaseSettings):
     bulk re-embed (I1). Env var: EMBEDDINGS_ENABLED.
     """
 
-    embed_max_chars: int = 20_000
+    embed_max_chars: int = 8_000
     """
     Hard cap on characters sent to the embedding endpoint in ONE request (I7 — oversize guard).
-    bge-m3 accepts ~8192 tokens; sending a whole 5 MB source file (~1.4M tokens) makes the
-    embedding server (Ollama) return HTTP 500, which would otherwise crash the entire ingest
-    (upsert_vector) and roll it back → the file produces zero pages. Text longer than this is
-    TRUNCATED (a WARNING is logged) before embedding, so the vector represents the document's
-    head rather than failing outright. 20 000 chars ≈ 5–6.5k tokens — safely under bge-m3's
-    limit even for token-dense content. Query/wiki-page embeds are far shorter and unaffected.
-    Env var: EMBED_MAX_CHARS.
+    bge-m3 accepts ~8192 TOKENS; sending more makes the embedding server (Ollama) return HTTP 500,
+    which would otherwise crash the ingest (upsert_vector). Text longer than this is TRUNCATED (a
+    WARNING is logged) before embedding, so the vector represents the document's head rather than
+    failing. 8 000 chars is safe even for *token-dense* content (tables/technical prose can run
+    ~1.2 chars/token → ~6.5k tokens < 8192; empirically dense pages 500 above ~10k chars while
+    "8 000 chars" passes). Query/normal-page embeds are far shorter and unaffected. Callers that
+    still 500 degrade to a vector-less page (see connectors.importer). Env var: EMBED_MAX_CHARS.
     """
 
     # ── Vault ─────────────────────────────────────────────────────────────────
