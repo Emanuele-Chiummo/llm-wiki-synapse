@@ -1,0 +1,6 @@
+# ServiceNow doc connector — Increment 1 (offline core).
+# Install in a DEDICATED venv (decoupled from the FastAPI backend — heavy ML deps).
+#   python3.13 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
+# Marker pulls torch + surya-ocr; on Apple Silicon set TORCH_DEVICE=mps.
+marker-pdf>=1.10
+pypdfium2>=4.30
