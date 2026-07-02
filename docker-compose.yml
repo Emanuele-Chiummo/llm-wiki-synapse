@@ -111,6 +111,10 @@ services:
       VAULT_ID: default
       VAULT_PATH: /vault
 
+      # Force the OVERVIEW note language (F3) regardless of content language.
+      # Content here is English (ServiceNow docs) but the reader wants an Italian overview.
+      OVERVIEW_LANGUAGE: ${OVERVIEW_LANGUAGE:-it}
+
       # ── Feature U / S bounds (ADR-0020 §2.4 / §4.4) — all I7 caps, env-configurable ──
       MAX_UPLOAD_BYTES: "26214400"     # 25 MB upload cap (Feature U)
       IMPORT_SCAN_MAX_FILES: "200"     # per-scan file cap (Feature S, I7)

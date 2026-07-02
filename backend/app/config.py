@@ -96,6 +96,16 @@ class Settings(BaseSettings):
     still 500 degrade to a vector-less page (see connectors.importer). Env var: EMBED_MAX_CHARS.
     """
 
+    overview_language: str | None = None
+    """
+    Force the OVERVIEW note's language (F3), overriding auto-detection. ISO code, e.g. "it".
+    By default (None) the overview matches the vault's content language (the just-ingested
+    source's detected language, else the modal `lang` of recent pages). That means an
+    English-content vault (e.g. imported ServiceNow docs) yields an English overview. Set this
+    when you want the overview narrative in a FIXED language regardless of content — e.g. an
+    Italian user reading English source material. Env var: OVERVIEW_LANGUAGE.
+    """
+
     # ── Vault ─────────────────────────────────────────────────────────────────
     vault_id: str = "default"
     """Logical vault identifier (one vault in v0.1; supports multi-vault later)."""
@@ -263,11 +273,13 @@ class Settings(BaseSettings):
     OVERVIEW_TOKEN_BUDGET.
     """
 
-    overview_timeout_seconds: float = 30.0
+    overview_timeout_seconds: float = 90.0
     """
-    Timeout (seconds) wrapping the single overview regeneration provider call (I7). On timeout
-    the previous overview.md is kept (degrade, never fail ingest). Env var:
-    OVERVIEW_TIMEOUT_SECONDS.
+    Timeout (seconds) wrapping the single overview regeneration provider call (F3, I7). On
+    timeout the previous overview.md is kept (degrade, never fail ingest). The old 30 s default
+    was too tight for the CLI (claude-agent-sdk) route on a large vault (agent startup + a
+    200-title structured prompt), so every regen timed out and the overview stayed stale. 90 s
+    gives the CLI room to finish. Env var: OVERVIEW_TIMEOUT_SECONDS.
     """
 
     review_sweep_llm_enabled: bool = True

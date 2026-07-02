@@ -1296,8 +1296,13 @@ async def _update_overview(analysis: Analysis | None, origin_source: str) -> Non
         # (orchestrated route); otherwise (delegated route, analysis=None) detect the vault's
         # dominant content language from existing pages. If neither yields a language,
         # _build_overview_instruction falls back to the "match purpose + existing pages" directive.
-        if analysis is not None and getattr(analysis, "language", None):
-            overview_lang: str | None = analysis.language
+        # settings.overview_language (OVERVIEW_LANGUAGE) FORCES the language when set — e.g. an
+        # Italian user reading English source material wants an Italian overview regardless of
+        # the content's detected language. Falls back to analysis/detected language otherwise.
+        if settings.overview_language:
+            overview_lang: str | None = settings.overview_language
+        elif analysis is not None and getattr(analysis, "language", None):
+            overview_lang = analysis.language
         else:
             overview_lang = await _detect_vault_language()
         instruction = _build_overview_instruction(
@@ -1531,10 +1536,15 @@ def _build_overview_instruction(
         + "You maintain the single OVERVIEW note of a self-organizing wiki. Regenerate it now to "
         "capture the CURRENT big picture of the whole wiki: its main themes, how the pages relate, "
         "and the key context a reader needs before diving in.\n\n"
-        "Write a concise narrative (a few short paragraphs, and optionally a short bulleted list "
-        "of the main themes). Reference existing pages with [[wikilinks]] where natural. Do NOT "
-        "output YAML frontmatter, a top-level title heading, or any preamble like 'Here is' — "
-        "output ONLY the narrative body in Markdown.\n\n"
+        "FORMAT — produce a well-structured, scannable map (NOT one long wall of prose):\n"
+        "  1. Start with ONE short intro paragraph (2–3 sentences) on what this wiki covers.\n"
+        "  2. Then group the content into its main themes/domains, each as a `## Heading`.\n"
+        "  3. Under each heading, write 1–2 sentences of context, then a bulleted list of the "
+        "key pages as `- [[Page Title]] — short description`.\n"
+        "  4. Keep it concise; link generously with [[wikilinks]] to the existing pages below "
+        "(use their EXACT titles). Prefer bullets over long paragraphs.\n"
+        "Do NOT output YAML frontmatter, a top-level `#` title heading, or any preamble like "
+        "'Here is' — output ONLY the Markdown body (starting with the intro paragraph).\n\n"
         f"# Wiki purpose\n{purpose_block}\n\n"
         f"# Existing pages (title [type])\n{existing_digest}\n\n"
         f"# Most recent ingest analysis\n{analysis_block}\n"

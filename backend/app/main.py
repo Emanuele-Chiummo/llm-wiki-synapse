@@ -4296,7 +4296,8 @@ async def regenerate_overview() -> RegenerateOverviewResponse:
     # Compare the overview.md content before/after: a degrade-safe keep-previous leaves it
     # unchanged, a successful regen rewrites it.
     before = _read_overview()
-    detected = await _detect_vault_language()
+    # Report the language actually used: the OVERVIEW_LANGUAGE override wins, else auto-detect.
+    detected = settings.overview_language or await _detect_vault_language()
     # analysis=None → _update_overview detects the vault language internally (delegated-style).
     await _update_overview(None, "(manual regenerate)")
     after = _read_overview()
