@@ -50,6 +50,7 @@ vi.mock("../api/pagesClient", () => ({
   fetchPageContent: vi.fn(),
   savePageContent: vi.fn(),
   fetchPages: vi.fn(),
+  fetchAllPages: vi.fn().mockResolvedValue({ items: [] }),
   fetchStatus: vi.fn(),
   // fetchRelatedPages must be present; return empty response so related panel
   // stays hidden and does not interfere with existing test assertions.
@@ -151,6 +152,7 @@ vi.mock("../store/graphStore", () => ({
   selectNodes: (s: { nodes: [] }) => s.nodes,
   selectSelectPage: (s: { selectPage: typeof _mockSelectPage }) => s.selectPage,
   selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) => s.setActiveSection,
+  selectVaultId: () => "default",
 }));
 
 // useShallow is called by NoteView to wrap the selectNodes selector.
