@@ -127,7 +127,23 @@ class HttpEmbeddingClient(EmbeddingClient):
         return vector
 
     async def embed(self, text: str) -> list[float]:
-        """Fetch embedding vector for *text* from the embedding service (I9)."""
+        """
+        Fetch embedding vector for *text* from the embedding service (I9).
+
+        Truncates to settings.embed_max_chars first (I7): bge-m3 accepts ~8192 tokens, so a
+        whole multi-MB source file would make the endpoint 500 and crash the ingest. We embed
+        the document head instead of failing — a WARNING is logged when truncation happens.
+        """
+        max_chars = settings.embed_max_chars
+        if len(text) > max_chars:
+            logger.warning(
+                "EmbeddingClient.embed: input %d chars exceeds embed_max_chars=%d — "
+                "truncating before embedding (vector represents the document head only).",
+                len(text),
+                max_chars,
+            )
+            text = text[:max_chars]
+
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             try:
                 resp = await client.post(
