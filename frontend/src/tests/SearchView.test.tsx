@@ -16,31 +16,37 @@ import { render, screen, waitFor, act, fireEvent } from "@testing-library/react"
 
 // ─── Mock i18n ────────────────────────────────────────────────────────────────
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => {
-      const map: Record<string, string> = {
-        "search.title": "Search",
-        "search.inputLabel": "Search wiki",
-        "search.placeholder": "Search wiki pages…",
-        "search.clear": "Clear search",
-        "search.minCharsHint": "Type at least 2 characters",
-        "search.emptyTitle": "Search your wiki",
-        "search.emptyBody": "Start typing to find pages.",
-        "search.noResults": "No results",
-        "search.noResultsHint": "Try different keywords.",
-        "search.error": "Search error",
-        "search.resultsLabel": "Search results",
-        "search.score": "Score",
-        "search.phaseVector": "vector",
-        "search.phaseExpansion": "expansion",
-        "common.loading": "Loading…",
-        "common.unknown": "Unknown",
-      };
-      return map[key] ?? key;
-    },
-  }),
-}));
+// IMPORTANT: `t` (and the object returned by useTranslation) must be a STABLE reference
+// across renders. SearchView's debounce effect lists `t` in its dependency array; a fresh
+// `t` per render would re-run the effect every render, and on an empty query the effect
+// calls setResults([]) (a new array) → re-render → effect again → infinite loop that hangs
+// the whole test file. react-i18next's real `t` is memoized/stable, so production never
+// loops — this mock must mirror that stability. The factory runs once (module-cached), so
+// building the stable objects inside it and returning the same reference each call is safe
+// (and avoids the vi.mock hoisting trap of referencing outer variables).
+vi.mock("react-i18next", () => {
+  const map: Record<string, string> = {
+    "search.title": "Search",
+    "search.inputLabel": "Search wiki",
+    "search.placeholder": "Search wiki pages…",
+    "search.clear": "Clear search",
+    "search.minCharsHint": "Type at least 2 characters",
+    "search.emptyTitle": "Search your wiki",
+    "search.emptyBody": "Start typing to find pages.",
+    "search.noResults": "No results",
+    "search.noResultsHint": "Try different keywords.",
+    "search.error": "Search error",
+    "search.resultsLabel": "Search results",
+    "search.score": "Score",
+    "search.phaseVector": "vector",
+    "search.phaseExpansion": "expansion",
+    "common.loading": "Loading…",
+    "common.unknown": "Unknown",
+  };
+  const t = (key: string): string => map[key] ?? key;
+  const translation = { t };
+  return { useTranslation: () => translation };
+});
 
 // ─── Mock graphStore ──────────────────────────────────────────────────────────
 
@@ -187,14 +193,15 @@ describe("SearchView — initial state", () => {
 // ─── B. SearchView — query flow (using fake timers) ──────────────────────────
 
 describe("SearchView — query flow", () => {
+  // Real timers (NOT fake): fake timers deadlock with @testing-library's waitFor, which
+  // polls on timers that never advance under vi.useFakeTimers() — the whole file would hang.
+  // The debounce is short (~300ms), so waitFor's default polling naturally catches up.
   beforeEach(() => {
     mockSelectPage.mockClear();
     mockSetActiveSection.mockClear();
-    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -205,12 +212,10 @@ describe("SearchView — query flow", () => {
 
     render(<SearchView />);
     const input = screen.getByTestId("search-input");
+    fireEvent.change(input, { target: { value: "h" } });
 
-    await act(async () => {
-      fireEvent.change(input, { target: { value: "h" } });
-      vi.advanceTimersByTime(400);
-    });
-
+    // Wait past the debounce window with real time, then assert no call was made.
+    await new Promise((r) => setTimeout(r, 500));
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -221,18 +226,9 @@ describe("SearchView — query flow", () => {
 
     render(<SearchView />);
     const input = screen.getByTestId("search-input");
+    fireEvent.change(input, { target: { value: "ho" } });
 
-    await act(async () => {
-      fireEvent.change(input, { target: { value: "ho" } });
-      vi.advanceTimersByTime(400);
-    });
-
-    // Flush promises after timer fires
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(spy).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1), { timeout: 2000 });
     expect(spy).toHaveBeenCalledWith(
       "ho",
       expect.objectContaining({ vault_id: "vault-test" }),
@@ -244,17 +240,9 @@ describe("SearchView — query flow", () => {
 
     render(<SearchView />);
     const input = screen.getByTestId("search-input");
+    fireEvent.change(input, { target: { value: "homelab" } });
 
-    await act(async () => {
-      fireEvent.change(input, { target: { value: "homelab" } });
-      vi.advanceTimersByTime(400);
-    });
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    await waitFor(() => screen.getByTestId("search-results"));
+    await waitFor(() => screen.getByTestId("search-results"), { timeout: 2000 });
 
     const rows = screen.getAllByTestId("search-result-row");
     expect(rows).toHaveLength(2);
@@ -269,15 +257,9 @@ describe("SearchView — query flow", () => {
 
     render(<SearchView />);
     const input = screen.getByTestId("search-input");
+    fireEvent.change(input, { target: { value: "xyzabc" } });
 
-    await act(async () => {
-      fireEvent.change(input, { target: { value: "xyzabc" } });
-      vi.advanceTimersByTime(400);
-    });
-
-    await act(async () => { await Promise.resolve(); });
-
-    await waitFor(() => screen.getByTestId("search-no-results"));
+    await waitFor(() => screen.getByTestId("search-no-results"), { timeout: 2000 });
   });
 
   it("renders error state when search rejects", async () => {
@@ -287,15 +269,9 @@ describe("SearchView — query flow", () => {
 
     render(<SearchView />);
     const input = screen.getByTestId("search-input");
+    fireEvent.change(input, { target: { value: "query" } });
 
-    await act(async () => {
-      fireEvent.change(input, { target: { value: "query" } });
-      vi.advanceTimersByTime(400);
-    });
-
-    await act(async () => { await Promise.resolve(); });
-
-    await waitFor(() => screen.getByTestId("search-error"));
+    await waitFor(() => screen.getByTestId("search-error"), { timeout: 2000 });
   });
 
   it("clicking a result calls selectPage and navigates to 'pages' section", async () => {
@@ -303,18 +279,12 @@ describe("SearchView — query flow", () => {
 
     render(<SearchView />);
     const input = screen.getByTestId("search-input");
+    fireEvent.change(input, { target: { value: "homelab" } });
 
-    await act(async () => {
-      fireEvent.change(input, { target: { value: "homelab" } });
-      vi.advanceTimersByTime(400);
-    });
-
-    await act(async () => { await Promise.resolve(); });
-
-    await waitFor(() => screen.getAllByTestId("search-result-row"));
+    await waitFor(() => screen.getAllByTestId("search-result-row"), { timeout: 2000 });
 
     const firstRow = screen.getAllByTestId("search-result-row")[0]!;
-    await act(async () => { fireEvent.click(firstRow); });
+    fireEvent.click(firstRow);
 
     expect(mockSelectPage).toHaveBeenCalledWith("page-uuid-1", "tree");
     expect(mockSetActiveSection).toHaveBeenCalledWith("pages");
