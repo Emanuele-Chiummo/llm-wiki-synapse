@@ -17,6 +17,9 @@
  * INVARIANT I2: NavRail never imports graph layout code.
  * INVARIANT I3: NavRail reads only activeSection + runningCount (separate stores).
  * ToastHost renders here once — showToast() calls from anywhere are captured.
+ *
+ * ADR-0047 §2.3 (C3): if isTauri() && no serverUrl → render ConnectScreen instead.
+ * Web/PWA: isTauri() is false, so this gate is never visible in the browser.
  */
 
 import { Header } from "./Header";
@@ -24,8 +27,21 @@ import { NavRail } from "./nav/NavRail";
 import { SectionRouter } from "./SectionRouter";
 import { ActivityBar } from "./activity/ActivityBar";
 import { ToastHost } from "./common/Toast";
+import { ConnectScreen } from "./connect/ConnectScreen";
+import { isTauri } from "../api/base";
+import { useSettingsStore, selectServerUrl } from "../store/settingsStore";
 
 export function AppShell() {
+  // ADR-0047 §2.3: gate is active only in Tauri and only when no server URL is set.
+  // selectServerUrl reads the Zustand field (initialized from localStorage); when
+  // ConnectScreen calls storeSetServerUrl, the field updates and this re-renders.
+  const serverUrl = useSettingsStore(selectServerUrl);
+  const inTauri = isTauri();
+
+  if (inTauri && serverUrl === null) {
+    return <ConnectScreen />;
+  }
+
   return (
     <div
       className="app-shell"

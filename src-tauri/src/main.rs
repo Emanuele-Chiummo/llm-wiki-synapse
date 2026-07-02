@@ -3,11 +3,11 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::{Manager, WebviewWindowBuilder};
+use tauri::WebviewWindowBuilder;
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
+        // .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![])
         .setup(|app| {
             let window = WebviewWindowBuilder::new(app, "main", Default::default())

@@ -26,9 +26,8 @@ import type {
   LintFinding,
 } from "./types";
 import { ApiError } from "./graphClient";
-
-const API_BASE: string =
-  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
+import { apiBase } from "./base";
+// API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 async function checkResponse(res: Response): Promise<void> {
   if (!res.ok) {
@@ -53,7 +52,7 @@ export async function runLintScan(
   params: LintScanRequest,
   signal?: AbortSignal,
 ): Promise<LintScanResponse> {
-  const url = `${API_BASE}/lint/scan`;
+  const url = `${apiBase()}/lint/scan`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -73,7 +72,7 @@ export async function fetchLintRuns(
   signal?: AbortSignal,
 ): Promise<LintRunListResponse> {
   const { limit = 20, offset = 0, vaultId } = options;
-  let url = `${API_BASE}/lint/runs?limit=${limit}&offset=${offset}`;
+  let url = `${apiBase()}/lint/runs?limit=${limit}&offset=${offset}`;
   if (vaultId) url += `&vault_id=${encodeURIComponent(vaultId)}`;
   const res = await fetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
@@ -89,7 +88,7 @@ export async function fetchLintRun(
   runId: string,
   signal?: AbortSignal,
 ): Promise<LintRun> {
-  const url = `${API_BASE}/lint/runs/${encodeURIComponent(runId)}`;
+  const url = `${apiBase()}/lint/runs/${encodeURIComponent(runId)}`;
   const res = await fetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as LintRun;
@@ -112,7 +111,7 @@ export async function fetchLintFindings(
 ): Promise<LintFindingListResponse> {
   const { vaultId, status = "open", limit = 50, offset = 0 } = options;
   const url =
-    `${API_BASE}/lint/findings` +
+    `${apiBase()}/lint/findings` +
     `?vault_id=${encodeURIComponent(vaultId)}` +
     `&status=${encodeURIComponent(status)}` +
     `&limit=${limit}&offset=${offset}`;
@@ -130,7 +129,7 @@ export async function fetchLintFindings(
  * 409 if the finding is not open (already applied / dismissed).
  */
 export async function applyLintFinding(findingId: string): Promise<LintFinding> {
-  const url = `${API_BASE}/lint/findings/${encodeURIComponent(findingId)}/apply`;
+  const url = `${apiBase()}/lint/findings/${encodeURIComponent(findingId)}/apply`;
   const res = await fetch(url, { method: "POST" });
   await checkResponse(res);
   return (await res.json()) as LintFinding;
@@ -141,7 +140,7 @@ export async function applyLintFinding(findingId: string): Promise<LintFinding> 
  * POST /lint/findings/{id}/dismiss → 200 LintFinding
  */
 export async function dismissLintFinding(findingId: string): Promise<LintFinding> {
-  const url = `${API_BASE}/lint/findings/${encodeURIComponent(findingId)}/dismiss`;
+  const url = `${apiBase()}/lint/findings/${encodeURIComponent(findingId)}/dismiss`;
   const res = await fetch(url, { method: "POST" });
   await checkResponse(res);
   return (await res.json()) as LintFinding;

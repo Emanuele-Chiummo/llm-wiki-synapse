@@ -16,9 +16,8 @@ import type {
 } from "./types";
 import { ApiError } from "./graphClient";
 import { fetchWithTimeout } from "./http";
-
-const API_BASE: string =
-  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
+import { apiBase } from "./base";
+// API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 async function checkResponse(res: Response): Promise<void> {
   if (!res.ok) {
@@ -46,7 +45,7 @@ export async function fetchPages(
 ): Promise<PageListResponse> {
   const { limit = 500, offset = 0 } = options;
   const url =
-    `${API_BASE}/pages?vault_id=${encodeURIComponent(vaultId)}` +
+    `${apiBase()}/pages?vault_id=${encodeURIComponent(vaultId)}` +
     `&limit=${limit}&offset=${offset}`;
   const res = await fetchWithTimeout(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
@@ -91,7 +90,7 @@ export async function fetchPageContent(
   pageId: string,
   signal?: AbortSignal,
 ): Promise<PageContentResponse> {
-  const url = `${API_BASE}/pages/${encodeURIComponent(pageId)}/content`;
+  const url = `${apiBase()}/pages/${encodeURIComponent(pageId)}/content`;
   const res = await fetchWithTimeout(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as PageContentResponse;
@@ -111,7 +110,7 @@ export async function savePageContent(
   expectedHash: string | null,
   signal?: AbortSignal,
 ): Promise<PageContentPutResponse> {
-  const url = `${API_BASE}/pages/${encodeURIComponent(pageId)}/content`;
+  const url = `${apiBase()}/pages/${encodeURIComponent(pageId)}/content`;
   const body: { content: string; expected_hash: string | null } = {
     content,
     expected_hash: expectedHash,
@@ -143,7 +142,7 @@ export async function fetchRelatedPages(
   signal?: AbortSignal,
 ): Promise<RelatedPagesResponse> {
   const url =
-    `${API_BASE}/pages/${encodeURIComponent(pageId)}/related?limit=${limit}`;
+    `${apiBase()}/pages/${encodeURIComponent(pageId)}/related?limit=${limit}`;
   const res = await fetchWithTimeout(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as RelatedPagesResponse;
@@ -154,7 +153,7 @@ export async function fetchRelatedPages(
  * GET /status
  */
 export async function fetchStatus(signal?: AbortSignal): Promise<StatusResponse> {
-  const url = `${API_BASE}/status`;
+  const url = `${apiBase()}/status`;
   const res = await fetchWithTimeout(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as StatusResponse;

@@ -12,12 +12,10 @@
  */
 
 import type { CacheStatus, GraphResponse, PageDetail } from "./types";
+import { apiBase } from "./base";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
-
-/** Backend base URL — configurable via VITE_API_BASE, no trailing slash; default: "" (relative, proxied in dev / same-origin in prod) */
-const API_BASE: string =
-  (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
+// API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 
@@ -75,7 +73,7 @@ export async function fetchGraph(
   vaultId: string = "default",
   signal?: AbortSignal,
 ): Promise<FetchGraphResult> {
-  const url = `${API_BASE}/graph?vault_id=${encodeURIComponent(vaultId)}`;
+  const url = `${apiBase()}/graph?vault_id=${encodeURIComponent(vaultId)}`;
   const res = await fetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
 
@@ -104,7 +102,7 @@ export async function fetchPageDetail(
   pageId: string,
   signal?: AbortSignal,
 ): Promise<PageDetail> {
-  const url = `${API_BASE}/pages/${encodeURIComponent(pageId)}`;
+  const url = `${apiBase()}/pages/${encodeURIComponent(pageId)}`;
   const res = await fetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as PageDetail;
@@ -132,7 +130,7 @@ export async function patchNodePosition(
   y: number,
   signal?: AbortSignal,
 ): Promise<void> {
-  const url = `${API_BASE}/pages/${encodeURIComponent(pageId)}/position`;
+  const url = `${apiBase()}/pages/${encodeURIComponent(pageId)}/position`;
   const res = await fetch(url, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -164,7 +162,7 @@ export interface ReresolveLinksResult {
  * @param signal - Optional AbortSignal for cancellation.
  */
 export async function reresolveLinks(signal?: AbortSignal): Promise<ReresolveLinksResult> {
-  const url = `${API_BASE}/links/reresolve`;
+  const url = `${apiBase()}/links/reresolve`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -197,7 +195,7 @@ export interface RegenerateGraphResult {
  * @param signal - Optional AbortSignal for cancellation.
  */
 export async function recomputeGraph(signal?: AbortSignal): Promise<RegenerateGraphResult> {
-  const url = `${API_BASE}/graph/recompute`;
+  const url = `${apiBase()}/graph/recompute`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

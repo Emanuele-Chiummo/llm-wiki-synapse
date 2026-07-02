@@ -671,6 +671,21 @@
       "agentRunning": "agent running"
     }
   },
+  "connect": {
+    "title": "Synapse",
+    "subtitle": "Enter the address of your Synapse backend to get started.",
+    "urlLabel": "Backend URL",
+    "placeholder": "http://truenas:8000",
+    "connect": "Connect",
+    "connecting": "Connecting…",
+    "changeServer": "Change server",
+    "errors": {
+      "invalidUrl": "Please enter a valid URL.",
+      "scheme": "Only http:// and https:// URLs are accepted.",
+      "unreachable": "Could not reach the server. Check the address and try again.",
+      "status": "Server returned an error ({{status}}). Check the address and try again."
+    }
+  },
   "common": {
     "loading": "Loading…",
     "retry": "Retry",

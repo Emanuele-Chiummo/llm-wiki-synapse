@@ -1,6 +1,6 @@
 # Synapse User Guide
 
-<!-- Generated: v0.6 M6-docs-gate | 2026-06-30 -->
+<!-- Generated: v0.6 sprint 6 | 2026-07-02 -->
 
 > Version: v0.6 (M6 — "Shippable")
 > Language toggle: English / Italian available in Settings.
@@ -642,8 +642,57 @@ Home Screen" prompt.
 - The service worker is registered in production builds only. `npm run dev` (Vite HMR)
   does **not** activate it, so development is unaffected.
 - To uninstall: use the browser's "Manage apps" / site settings to remove the app.
-- The Tauri v2 desktop wrapper (AC-F15-2) ships later in v0.6 and provides the same
-  offline shell as a native window without an external browser.
+- The Tauri v2 desktop wrapper (F15) ships in v0.6 and provides the same offline shell
+  as a native window without an external browser — see the Desktop app section below.
+
+---
+
+## Desktop app (Tauri v2) {#desktop-app}
+
+The Synapse desktop app is a native Tauri v2 window for macOS and Windows that wraps
+the same frontend as the PWA (F15, ADR-0047). It is the right choice when you want a
+native OS window pinned to a specific Synapse backend, without keeping a browser tab
+open. All wiki, graph, and chat features available in the web UI are available in the
+desktop app without any feature differences.
+
+Download the latest installer from the GitHub releases page (look for tags beginning
+with `desktop-v`). See [DEPLOY.md §7](DEPLOY.md#desktop-app) for install instructions,
+unsigned-binary warnings, and build-from-source steps.
+
+### Connect screen (first launch)
+
+The desktop app does not know the address of your backend at install time. The first
+time you open it — and any time you click **Change server** in the header — you see a
+full-screen branded **Connect** screen.
+
+**What to enter:** the base URL of your Synapse backend, with a scheme and no trailing
+slash. Examples:
+
+| Backend location | URL to enter |
+|-----------------|--------------|
+| Same machine | `http://localhost:8000` |
+| TrueNAS via Tailscale | `http://truenas:8000` |
+| Cloudflare Tunnel | `https://synapse.yourdomain.com` |
+
+Click **Connect**. The app sends a `GET /status` probe to the URL. The `/status` probe
+checks that the backend is reachable and returns its vault ID and data version — it is
+a read-only, side-effect-free check. On a 2xx response, the URL is saved to local
+storage (`synapse.serverUrl`) and the full interface loads. If the probe fails or times
+out, an error message appears and the Connect screen stays open: the URL is **not** saved
+and you can correct it and try again.
+
+The Connect screen is only shown in the desktop app. Opening Synapse in a browser
+(PWA or tab) is unaffected — browsers use a relative URL to the same origin and never
+see this screen.
+
+### Server chip in the header
+
+Once connected, the header shows a small chip with the backend hostname. Click it to
+open a dropdown with a **Change server** option. Choosing **Change server** clears the
+stored URL and returns to the Connect screen. Use this to point the app at a different
+backend without reinstalling.
+
+The server chip is only visible in the desktop app.
 
 The following features also shipped in v0.6 (M6):
 

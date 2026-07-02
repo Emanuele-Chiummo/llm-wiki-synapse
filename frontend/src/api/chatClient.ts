@@ -14,8 +14,8 @@
  */
 
 import type { ConversationSummary, ChatMessage, CitationRef } from "../store/chatStore";
-
-const API_BASE = (import.meta.env["VITE_API_BASE"] as string | undefined) ?? "";
+import { apiBase } from "./base";
+// API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 // ─── REST helpers ─────────────────────────────────────────────────────────────
 
@@ -36,7 +36,7 @@ export async function fetchConversations(
   if (params?.vault_id) qs.set("vault_id", params.vault_id);
   if (params?.limit !== undefined) qs.set("limit", String(params.limit));
   if (params?.offset !== undefined) qs.set("offset", String(params.offset));
-  const url = `${API_BASE}/conversations${qs.toString() ? "?" + qs.toString() : ""}`;
+  const url = `${apiBase()}/conversations${qs.toString() ? "?" + qs.toString() : ""}`;
   const res = await fetch(url, { signal: signal ?? null });
   if (!res.ok) throw new Error(`GET /conversations: ${res.status}`);
   return res.json() as Promise<ConversationListResponse>;
@@ -46,7 +46,7 @@ export async function createConversation(
   body: { vault_id: string; title?: string },
   signal?: AbortSignal,
 ): Promise<ConversationSummary> {
-  const res = await fetch(`${API_BASE}/conversations`, {
+  const res = await fetch(`${apiBase()}/conversations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -60,7 +60,7 @@ export async function fetchMessages(
   conversationId: string,
   signal?: AbortSignal,
 ): Promise<MessageListResponse> {
-  const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
+  const res = await fetch(`${apiBase()}/conversations/${conversationId}/messages`, {
     signal: signal ?? null,
   });
   if (!res.ok) throw new Error(`GET /conversations/${conversationId}/messages: ${res.status}`);
@@ -80,7 +80,7 @@ export async function deleteConversation(
   conversationId: string,
   signal?: AbortSignal,
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/conversations/${conversationId}`, {
+  const res = await fetch(`${apiBase()}/conversations/${conversationId}`, {
     method: "DELETE",
     signal: signal ?? null,
   });
@@ -156,7 +156,7 @@ export async function openChatStream(
   body: ChatStreamRequest,
   signal: AbortSignal,
 ): Promise<Response> {
-  const res = await fetch(`${API_BASE}/chat/stream`, {
+  const res = await fetch(`${apiBase()}/chat/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -199,7 +199,7 @@ export async function saveToWiki(
 ): Promise<SaveToWikiResponse> {
   const body: Record<string, unknown> = { text };
   if (vaultId) body["vault_id"] = vaultId;
-  const res = await fetch(`${API_BASE}/ingest/from-text`, {
+  const res = await fetch(`${apiBase()}/ingest/from-text`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -265,7 +265,7 @@ export async function saveToWikiV2(
   req: SaveToWikiV2Request,
   signal?: AbortSignal,
 ): Promise<SaveToWikiV2Response> {
-  const res = await fetch(`${API_BASE}/chat/save-to-wiki`, {
+  const res = await fetch(`${apiBase()}/chat/save-to-wiki`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),

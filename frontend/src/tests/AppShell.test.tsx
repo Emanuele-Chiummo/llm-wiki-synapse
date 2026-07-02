@@ -87,6 +87,16 @@ vi.mock("../store/ingestStore", () => ({
   selectSetSelectedRunId: (s: { setSelectedRunId: unknown }) => s.setSelectedRunId,
 }));
 
+// ─── Mock api/base (ADR-0047) — isTauri() returns false in web tests ─────────
+
+vi.mock("../api/base", () => ({
+  isTauri: () => false,
+  apiBase: () => "",
+  getServerUrl: () => null,
+  setServerUrl: vi.fn(),
+  clearServerUrl: vi.fn(),
+}));
+
 // ─── Mock settingsStore ───────────────────────────────────────────────────────
 
 vi.mock("../store/settingsStore", () => ({
@@ -95,9 +105,12 @@ vi.mock("../store/settingsStore", () => ({
       language: "en",
       contextWindowTokens: 32768,
       conversationHistoryLength: 10,
+      serverUrl: null,
       setContextWindow: vi.fn(),
       setConversationHistoryLength: vi.fn(),
       setLanguage: vi.fn(),
+      setServerUrl: vi.fn(),
+      clearServerUrl: vi.fn(),
       reset: vi.fn(),
     }),
   selectLanguage: (s: { language: string }) => s.language,
@@ -109,6 +122,9 @@ vi.mock("../store/settingsStore", () => ({
     s.setConversationHistoryLength,
   selectSetLanguage: (s: { setLanguage: unknown }) => s.setLanguage,
   selectResetSettings: (s: { reset: unknown }) => s.reset,
+  selectServerUrl: (s: { serverUrl: string | null }) => s.serverUrl,
+  selectSetServerUrl: (s: { setServerUrl: unknown }) => s.setServerUrl,
+  selectClearServerUrl: (s: { clearServerUrl: unknown }) => s.clearServerUrl,
   CONTEXT_WINDOW_OPTIONS: [32768],
   CONV_HISTORY_OPTIONS: [2, 4, 6, 8, 10, 20],
   DEFAULT_CONTEXT_WINDOW: 32768,
@@ -225,6 +241,10 @@ vi.mock("../components/SectionRouter", () => ({
 
 vi.mock("../components/Header", () => ({
   Header: () => <header data-testid="app-header">Header</header>,
+}));
+
+vi.mock("../components/connect/ConnectScreen", () => ({
+  ConnectScreen: () => <div data-testid="connect-screen">ConnectScreen</div>,
 }));
 
 vi.mock("../components/activity/ActivityBar", () => ({
