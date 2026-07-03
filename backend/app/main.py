@@ -1166,6 +1166,103 @@ async def get_backfill_domains_status() -> BackfillDomainsStatusResponse:
     )
 
 
+# ── POST/GET /ops/reclassify-types — bounded page-type re-classification (SPRINT-v1.2 tail) ──
+# The TYPE twin of /ops/backfill-domains: re-assigns each page's `type` frontmatter per the
+# curated schema.md rules (K8). Background asyncio task + 202, single-flight (409 while running).
+# NO dormant-400 — schema.md always exists (the vault-context loader is tolerant). Strong task
+# reference kept in a module-level set — a bare create_task can be GC'd mid-run.
+
+_reclassify_tasks: set[asyncio.Task[Any]] = set()
+
+
+class ReclassifyTypesRequest(BaseModel):
+    """Request body for POST /ops/reclassify-types (SPRINT-v1.2 tail)."""
+
+    max_pages: int | None = Field(
+        default=None, ge=1, description="Cap on pages processed this run (clamped server-side)."
+    )
+    token_budget: int | None = Field(
+        default=None, ge=1, description="Token budget for the run (clamped server-side, I7)."
+    )
+    force: bool = Field(
+        default=False,
+        description=(
+            "Widen candidates from the suspicious set (NULL/untyped/concept) to ALL non-reserved "
+            "wiki pages (overview/index are never touched in either mode)."
+        ),
+    )
+
+
+class ReclassifyTypesStartResponse(BaseModel):
+    """202 response for POST /ops/reclassify-types."""
+
+    status: str = Field(default="started", description="'started' — reclassify runs in background")
+    max_pages: int = Field(description="Effective (clamped) page cap for this run")
+    token_budget: int = Field(description="Effective (clamped) token budget for this run")
+    force: bool = Field(description="Whether ALL non-reserved pages are candidates")
+
+
+class ReclassifyTypesStatusResponse(BaseModel):
+    """GET /ops/reclassify-types — single-flight state + last completed summary."""
+
+    running: bool = Field(description="True while a reclassify run is in flight")
+    last_summary: dict[str, Any] | None = Field(
+        default=None, description="Summary of the most recent completed run (null if never ran)"
+    )
+
+
+@app.post(
+    "/ops/reclassify-types",
+    status_code=202,
+    response_model=ReclassifyTypesStartResponse,
+    responses={409: {"description": "A reclassify run is already in flight"}},
+)
+async def start_reclassify_types(body: ReclassifyTypesRequest) -> ReclassifyTypesStartResponse:
+    """Start ONE bounded page-type re-classification over the vault (SPRINT-v1.2 tail, K8/I7)."""
+    from app.ops import reclassify_types as _rt
+
+    if _rt.is_running():
+        raise HTTPException(
+            status_code=409,
+            detail="A type re-classification is already running. Poll GET /ops/reclassify-types.",
+        )
+
+    mp, tb = _rt.clamp_bounds(body.max_pages, body.token_budget)
+
+    async def _run() -> None:
+        try:
+            await _rt.run_reclassify(
+                vault_id=settings.vault_id,
+                max_pages=body.max_pages,
+                token_budget=body.token_budget,
+                force=body.force,
+            )
+        except (
+            Exception
+        ) as exc:  # noqa: BLE001 — run_reclassify never raises by contract; belt+braces
+            logger.error("reclassify-types: unhandled error in background run: %s", exc)
+
+    task = asyncio.create_task(_run())
+    _reclassify_tasks.add(task)
+    task.add_done_callback(_reclassify_tasks.discard)
+
+    return ReclassifyTypesStartResponse(
+        status="started", max_pages=mp, token_budget=tb, force=body.force
+    )
+
+
+@app.get("/ops/reclassify-types", response_model=ReclassifyTypesStatusResponse)
+async def get_reclassify_types_status() -> ReclassifyTypesStatusResponse:
+    """Single-flight state + last summary of the type re-classification (SPRINT-v1.2 tail)."""
+    from app.ops import reclassify_types as _rt
+
+    last = _rt.get_last_summary()
+    return ReclassifyTypesStatusResponse(
+        running=_rt.is_running(),
+        last_summary=last.as_dict() if last is not None else None,
+    )
+
+
 # ── GET /ops/schedules + POST /ops/schedules/{op}/run-now (R12-7/A5) ─────────
 # OpsScheduler status + manual trigger. Schedule FREQUENCIES are set via the existing
 # PUT /config/app/{key} (S10 lint_schedule / S11 backfill_schedule — no new write endpoint).

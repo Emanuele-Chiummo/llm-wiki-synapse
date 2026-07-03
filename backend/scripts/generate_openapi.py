@@ -92,6 +92,10 @@ def main() -> None:
         # R12-7/A5: OpsScheduler — schedulable lint scan + domain backfill
         "/ops/schedules",
         "/ops/schedules/{op}/run-now",
+        # R12-2 twin: one-time bounded domain backfill (ADR-0054 §6)
+        "/ops/backfill-domains",
+        # SPRINT-v1.2 tail: bounded page-type re-classification (TYPE twin of backfill-domains)
+        "/ops/reclassify-types",
     ]:
         assert required_path in paths, f"Missing path {required_path!r} in openapi.json"
 
@@ -211,7 +215,7 @@ def main() -> None:
                 )
 
     print(
-        "Sanity check passed: all 36 required endpoints present (incl. /clip, /clip/config — "
+        "Sanity check passed: all 38 required endpoints present (incl. /clip, /clip/config — "
         "ADR-0038, ADR-0040; /sources/* — Sources view; /sources/ingest-all — ADR-0006); "
         "embeddings_enabled, http_enabled, remote_write_enabled confirmed "
         "(ADR-0029, ADR-0030); token_source, allow_without_token confirmed in McpInfoResponse + "
@@ -224,6 +228,8 @@ def main() -> None:
         "/stats/overview, /stats/sections (R12-1 / ADR-0054 §5, F18); "
         "/stats/groups (R12-1 A1 / SPRINT-v1.2-SCOPE §10 A1, F18); "
         "/ops/schedules, /ops/schedules/{op}/run-now (R12-7/A5 OpsScheduler); "
+        "/ops/backfill-domains (R12-2 / ADR-0054 §6); "
+        "/ops/reclassify-types (SPRINT-v1.2 tail — TYPE twin of backfill-domains); "
         "StatusResponse.version confirmed (ADR-0054 §6)"
     )
 

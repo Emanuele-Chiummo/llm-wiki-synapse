@@ -1573,6 +1573,64 @@ async def apply_domain_tags(page: Page, new_tags: list[str]) -> None:
     # NO bump_version() here — the ingest already bumped once (ADR-0054 §3.2, Do-NOT #3).
 
 
+async def apply_page_type(page: Page, new_type: str) -> None:
+    """
+    Rewrite *page*'s frontmatter ``type`` to *new_type* and persist ``pages.page_type`` (I1),
+    WITHOUT a ``data_version`` bump (the reclassify run bumps once for the whole batch).
+
+    The TYPE twin of :func:`apply_domain_tags`: reads the on-disk file, replaces ONLY the ``type``
+    key in the YAML frontmatter (title/sources/tags/lang preserved byte-exact via the
+    python-frontmatter round-trip), rewrites the file, refreshes ``pages.page_type`` +
+    ``content_hash`` via ``persist_metadata``, and re-embeds the body (unchanged text, but keeps
+    the Qdrant payload's ``type`` consistent). Only this page is touched (I1 — no re-scan). The
+    file is NOT moved between ``wiki/<type>/`` subdirectories: only the frontmatter + DB column
+    change, keeping the write byte-minimal and the wikilinks stable.
+    """
+    from app.ops.enrich_wikilinks import _rejoin, _split_frontmatter  # noqa: PLC0415
+
+    abs_path = (settings.vault_root / page.file_path).resolve()
+    text = abs_path.read_text(encoding="utf-8")
+    fm_block, body = _split_frontmatter(text)
+
+    # Parse the whole file so python-frontmatter round-trips every key; set type authoritatively.
+    post = frontmatter.loads(text)
+    post["type"] = new_type
+    new_file_text = frontmatter.dumps(post) + "\n"
+
+    # Fallback: if the parse-round-trip somehow lost the frontmatter block, keep the original
+    # split-and-rejoin body (defence-in-depth; never corrupt the page).
+    if not new_file_text.strip():
+        new_file_text = _rejoin(fm_block, body)
+
+    new_bytes = new_file_text.encode("utf-8")
+    abs_path.parent.mkdir(parents=True, exist_ok=True)
+    abs_path.write_text(new_file_text, encoding="utf-8")
+
+    await persist_metadata(
+        page_id=page.id,
+        vault_id=page.vault_id,
+        file_path=page.file_path,
+        title=page.title,
+        page_type=new_type,
+        sources=page.sources,
+        tags=page.tags,
+        content_hash=_sha256(new_bytes),
+        source_mtime_ns=page.source_mtime_ns or 0,
+    )
+    # Re-embed the body so the Qdrant payload's `type` reflects the new value (cheap, I1).
+    body_for_embedding = frontmatter.loads(new_file_text).content
+    await upsert_vector(
+        page_id=page.id,
+        text=body_for_embedding,
+        file_path=page.file_path,
+        title=page.title,
+        page_type=new_type,
+    )
+    # Reflect the new type on the in-memory ORM object so callers see the change.
+    page.page_type = new_type
+    # NO bump_version() here — the reclassify run bumps once at the end (batch, not per-page).
+
+
 async def _auto_tag_written_pages(
     *,
     provider: InferenceProvider,

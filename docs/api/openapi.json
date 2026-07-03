@@ -562,6 +562,75 @@
         ]
       }
     },
+    "/ops/reclassify-types": {
+      "get": {
+        "summary": "Get Reclassify Types Status",
+        "description": "Single-flight state + last summary of the type re-classification (SPRINT-v1.2 tail).",
+        "operationId": "get_reclassify_types_status_ops_reclassify_types_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReclassifyTypesStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Start Reclassify Types",
+        "description": "Start ONE bounded page-type re-classification over the vault (SPRINT-v1.2 tail, K8/I7).",
+        "operationId": "start_reclassify_types_ops_reclassify_types_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReclassifyTypesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReclassifyTypesStartResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A reclassify run is already in flight"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/ops/schedules": {
       "get": {
         "summary": "List schedulable ops with their effective schedule and last-run state (R12-7/A5)",
@@ -7582,6 +7651,106 @@
         ],
         "title": "QueueTaskItem",
         "description": "One task in the live ingest queue snapshot (ADR-0046 \u00a76)."
+      },
+      "ReclassifyTypesRequest": {
+        "properties": {
+          "max_pages": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Pages",
+            "description": "Cap on pages processed this run (clamped server-side)."
+          },
+          "token_budget": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Budget",
+            "description": "Token budget for the run (clamped server-side, I7)."
+          },
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "description": "Widen candidates from the suspicious set (NULL/untyped/concept) to ALL non-reserved wiki pages (overview/index are never touched in either mode).",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "ReclassifyTypesRequest",
+        "description": "Request body for POST /ops/reclassify-types (SPRINT-v1.2 tail)."
+      },
+      "ReclassifyTypesStartResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "'started' \u2014 reclassify runs in background",
+            "default": "started"
+          },
+          "max_pages": {
+            "type": "integer",
+            "title": "Max Pages",
+            "description": "Effective (clamped) page cap for this run"
+          },
+          "token_budget": {
+            "type": "integer",
+            "title": "Token Budget",
+            "description": "Effective (clamped) token budget for this run"
+          },
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "description": "Whether ALL non-reserved pages are candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "max_pages",
+          "token_budget",
+          "force"
+        ],
+        "title": "ReclassifyTypesStartResponse",
+        "description": "202 response for POST /ops/reclassify-types."
+      },
+      "ReclassifyTypesStatusResponse": {
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "title": "Running",
+            "description": "True while a reclassify run is in flight"
+          },
+          "last_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Summary",
+            "description": "Summary of the most recent completed run (null if never ran)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running"
+        ],
+        "title": "ReclassifyTypesStatusResponse",
+        "description": "GET /ops/reclassify-types \u2014 single-flight state + last completed summary."
       },
       "ReferencedPage": {
         "properties": {
