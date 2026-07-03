@@ -217,7 +217,7 @@ def _make_finalize_test_helpers() -> tuple:
             return []
 
     class _FakeSession:
-        async def __aenter__(self) -> "_FakeSession":
+        async def __aenter__(self) -> _FakeSession:
             return self
 
         async def __aexit__(self, *exc: object) -> None:
@@ -346,12 +346,12 @@ async def test_write_ingest_run_records_converged_false(monkeypatch: pytest.Monk
         # error_message deliberately absent (None) — non-convergence, not a failure
     )
 
-    assert captured.get("status") == "converged_false", (
-        f"Non-converged run must get status='converged_false'; captured={captured}"
-    )
-    assert captured.get("error_message") is None, (
-        f"Non-converged run must NOT have error_message set; captured={captured}"
-    )
+    assert (
+        captured.get("status") == "converged_false"
+    ), f"Non-converged run must get status='converged_false'; captured={captured}"
+    assert (
+        captured.get("error_message") is None
+    ), f"Non-converged run must NOT have error_message set; captured={captured}"
     assert captured.get("pages_created") == 0, f"captured={captured}"
 
 

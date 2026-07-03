@@ -33,7 +33,6 @@ import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, Response
@@ -56,6 +55,7 @@ async def _cascade_delete_page(page_uuid: uuid.UUID) -> None:
     from app.ops.cascade_delete import cascade_delete as _cd
 
     await _cd(page_uuid)
+
 
 # ── Bounds (I7) ───────────────────────────────────────────────────────────────
 
@@ -680,7 +680,7 @@ async def source_derived_pages(
         "path must be relative to vault/raw/sources/ — resolved via resolve_under_sources(). "
         "404 when path escapes or file is absent. "
         "If the source has no derived pages, the raw file is still deleted. "
-        "To re-ingest: POST /ingest/trigger with {\"file_path\": \"<absolute-or-relative-path>\"}."
+        'To re-ingest: POST /ingest/trigger with {"file_path": "<absolute-or-relative-path>"}.'
     ),
     responses={
         200: {"description": "Source deleted; derived pages cascade-deleted"},
@@ -738,9 +738,7 @@ async def delete_source(
                 )
             except PageNotFoundError:
                 # Already deleted in a previous iteration or by a race — skip
-                logger.debug(
-                    "sources.delete: page %s already deleted (skipping)", derived_page.id
-                )
+                logger.debug("sources.delete: page %s already deleted (skipping)", derived_page.id)
             except Exception as exc:  # noqa: BLE001
                 logger.error(
                     "sources.delete: cascade_delete failed for page %s: %s",

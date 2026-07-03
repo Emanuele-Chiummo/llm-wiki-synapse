@@ -239,7 +239,10 @@ async def retrieve(
         vector_candidates = await _phase1_vector_search(query, k=k)
     else:
         vector_candidates = await _phase1_lexical_search(
-            query, vault_id=vault_id, k=k, session=session,
+            query,
+            vault_id=vault_id,
+            k=k,
+            session=session,
             type_filter=effective_type_filter,
         )
 
@@ -875,9 +878,7 @@ async def _sort_citations_by_date(
     # Re-number n (1-based contiguous) to reflect the new order.
     renumbered: list[Citation] = []
     for new_n, cit in enumerate(sorted_citations, start=1):
-        renumbered.append(
-            Citation(n=new_n, ref=cit.ref, score=cit.score, phase=cit.phase)
-        )
+        renumbered.append(Citation(n=new_n, ref=cit.ref, score=cit.score, phase=cit.phase))
     return renumbered
 
 

@@ -89,9 +89,7 @@ class _FakeOverviewProvider:
     def capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities("local", False, False, 8192, "FakeOverview")
 
-    async def chat(
-        self, messages: list[Message], retrieval_context: str
-    ) -> AsyncIterator[str]:
+    async def chat(self, messages: list[Message], retrieval_context: str) -> AsyncIterator[str]:
         self.chat_calls += 1
         if self._acc is not None:
             self._acc.add(Usage(input_tokens=10, output_tokens=10, total_cost_usd=0.0))
@@ -107,9 +105,7 @@ class _FakeOverviewProvider:
 class _RaisingProvider(_FakeOverviewProvider):
     """chat() raises → exercises the degrade-safe path (previous overview kept)."""
 
-    async def chat(
-        self, messages: list[Message], retrieval_context: str
-    ) -> AsyncIterator[str]:
+    async def chat(self, messages: list[Message], retrieval_context: str) -> AsyncIterator[str]:
         self.chat_calls += 1
         raise RuntimeError("provider boom")
 
@@ -236,6 +232,7 @@ async def test_overview_no_provider_configured_keeps_previous(
     I6: with NO provider configured, _update_overview does not fabricate a backend — it keeps
     whatever overview.md exists and does not raise.
     """
+
     async def resolve_none() -> None:
         return None
 

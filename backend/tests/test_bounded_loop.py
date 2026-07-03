@@ -176,6 +176,7 @@ async def test_cost_anomaly_warning_and_flag(
         # Return a stub with .id so record_written() doesn't fail (ADR-0046)
         class _PageStub:
             id = _uuid_mod.uuid4()
+
         return _PageStub()
 
     async def fake_update_overview(analysis, origin):  # type: ignore[no-untyped-def]
@@ -189,8 +190,9 @@ async def test_cost_anomaly_warning_and_flag(
 
     # ADR-0046: queue_manager.open_run / finalize are called from run_ingest_pipeline;
     # patch them to no-ops so the test remains infra-free.
-    from app.ingest.queue_manager import IngestQueueManager
     import asyncio as _asyncio
+
+    from app.ingest.queue_manager import IngestQueueManager
 
     class _FakeHandle:
         run_id = _uuid_mod.uuid4()

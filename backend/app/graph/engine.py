@@ -82,15 +82,15 @@ FA2_SEED: int = int(os.environ.get("GRAPH_LAYOUT_SEED", str(_DEFAULT_SEED)))
 # ── ForceAtlas2 iteration taper by node count (ADR-0045 §1) ──────────────────
 # Mirrors nashsu/llm_wiki layoutIterations tuning: small graphs run more
 # iterations for quality; large graphs are capped to keep recompute bounded (I7).
-FA2_ITERS_SMALL: int = 140   # n <= 100
+FA2_ITERS_SMALL: int = 140  # n <= 100
 FA2_ITERS_MEDIUM: int = 100  # 100 < n <= 400
-FA2_ITERS_LARGE: int = 60    # 400 < n <= 1000
-FA2_ITERS_XLARGE: int = 40   # 1000 < n <= 2500
-FA2_ITERS_HUGE: int = 28     # n > 2500
+FA2_ITERS_LARGE: int = 60  # 400 < n <= 1000
+FA2_ITERS_XLARGE: int = 40  # 1000 < n <= 2500
+FA2_ITERS_HUGE: int = 28  # n > 2500
 
 # scalingRatio increases for larger graphs to counter crowding (ADR-0045 §1)
-FA2_SCALING_RATIO_SMALL: float = 2.0   # n <= 400
-FA2_SCALING_RATIO_LARGE: float = 3.0   # n > 400
+FA2_SCALING_RATIO_SMALL: float = 2.0  # n <= 400
+FA2_SCALING_RATIO_LARGE: float = 3.0  # n > 400
 
 # ── Outlier clamp (ADR-0045 §5 — tames FA2 runaway nodes without squashing spread) ──
 # FA2 (esp. large graphs with few iterations) can fling a handful of loosely-connected
@@ -402,9 +402,7 @@ class GraphEngine:
         igraph.set_random_number_generator(_SeedableRNG(FA2_SEED))
 
         # Run ForceAtlas2 layout (ADR-0045).  Determinism: circle-init pos + numpy seed.
-        raw_coords: list[tuple[float, float]] = _forceatlas2_layout(
-            g_weighted, edge_weights, n
-        )
+        raw_coords: list[tuple[float, float]] = _forceatlas2_layout(g_weighted, edge_weights, n)
 
         # ── 4b. Feature B (disc-compression) REMOVED (ADR-0045 §3) ──────────
         # FA2's organic spread is the desired output — raw FA2 coords used directly.
@@ -477,7 +475,7 @@ class GraphEngine:
         for i, nid in enumerate(node_ids):
             nd = node_index[nid]
             deg = structural_degrees[i]
-            size = max(1.0, _BASE + _GROWTH * math.sqrt(deg))
+            node_size: float = max(1.0, _BASE + _GROWTH * math.sqrt(deg))
             node_snapshots.append(
                 NodeSnapshot(
                     id=nid,
@@ -486,7 +484,7 @@ class GraphEngine:
                     x=coords[i][0],
                     y=coords[i][1],
                     degree=deg,
-                    size=size,
+                    size=node_size,
                     community=community_assignments[i],
                 )
             )
@@ -511,8 +509,7 @@ class GraphEngine:
 
         # ── 6. Persist coords + edges + community in ONE transaction ──────────
         coord_rows: list[dict[str, Any]] = [
-            {"id": ns.id, "x": ns.x, "y": ns.y, "community": ns.community}
-            for ns in node_snapshots
+            {"id": ns.id, "x": ns.x, "y": ns.y, "community": ns.community} for ns in node_snapshots
         ]
         await self._persist_results(vault_id, coord_rows, edge_db_rows, session)
 

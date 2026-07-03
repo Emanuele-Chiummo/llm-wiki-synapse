@@ -135,12 +135,7 @@ def _enable_vision(monkeypatch, *, enabled: bool = True, cap: int = 5) -> None:
 
 def test_migration_0022_chain() -> None:
     """T-R8V-001: migration 0022 imports; chain + callables correct."""
-    path = (
-        Path(__file__).resolve().parents[1]
-        / "alembic"
-        / "versions"
-        / "0022_image_captions.py"
-    )
+    path = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "0022_image_captions.py"
     assert path.exists(), f"migration not found: {path}"
     spec = importlib.util.spec_from_file_location("migration_0022", path)
     assert spec and spec.loader
@@ -158,9 +153,20 @@ def test_image_caption_model_columns() -> None:
 
     table = next(t for t in Base.metadata.sorted_tables if t.name == "image_captions")
     cols = {c.name for c in table.columns}
-    assert {"id", "vault_id", "sha256", "file_path", "caption", "provider_type", "created_at"} <= cols
-    uniques = {tuple(sorted(c.name for c in con.columns)) for con in table.constraints
-               if con.__class__.__name__ == "UniqueConstraint"}
+    assert {
+        "id",
+        "vault_id",
+        "sha256",
+        "file_path",
+        "caption",
+        "provider_type",
+        "created_at",
+    } <= cols
+    uniques = {
+        tuple(sorted(c.name for c in con.columns))
+        for con in table.constraints
+        if con.__class__.__name__ == "UniqueConstraint"
+    }
     assert ("sha256", "vault_id") in uniques or ("vault_id", "sha256") in uniques
 
 
@@ -260,8 +266,11 @@ async def test_abc_caption_image_default_raises() -> None:
     class _Bare(InferenceProvider):
         def capabilities(self) -> ProviderCapabilities:
             return ProviderCapabilities(
-                mode="local", supports_tools=False, supports_agentic_loop=False,
-                max_context=1, name="bare",
+                mode="local",
+                supports_tools=False,
+                supports_agentic_loop=False,
+                max_context=1,
+                name="bare",
             )
 
         async def analyze(self, source_text: str, vault_context: str) -> Analysis:
@@ -295,8 +304,12 @@ async def test_cache_hit_skips_provider(monkeypatch, sqlite_session_factory) -> 
     async with sqlite_session_factory() as sess:
         sess.add(
             ImageCaption(
-                id=uuid.uuid4(), vault_id="test-vault", sha256=digest,
-                file_path="raw/sources/x.png", caption="CACHED CAPTION", provider_type="api",
+                id=uuid.uuid4(),
+                vault_id="test-vault",
+                sha256=digest,
+                file_path="raw/sources/x.png",
+                caption="CACHED CAPTION",
+                provider_type="api",
             )
         )
         await sess.commit()

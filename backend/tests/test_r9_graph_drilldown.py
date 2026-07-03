@@ -41,10 +41,18 @@ _NODE_D = "dddddddd-dddd-dddd-dddd-dddddddddddd"
 # Community 1: D(deg=0) — singleton
 _SEEDED_SNAPSHOT = GraphSnapshot(
     nodes=[
-        NodeSnapshot(id=_NODE_A, title="Alpha", page_type="entity", x=0.0, y=0.0, degree=2, community=0),
-        NodeSnapshot(id=_NODE_B, title="Beta", page_type="concept", x=1.0, y=0.0, degree=2, community=0),
-        NodeSnapshot(id=_NODE_C, title="Gamma", page_type="source", x=0.5, y=1.0, degree=1, community=0),
-        NodeSnapshot(id=_NODE_D, title="Delta", page_type="entity", x=5.0, y=5.0, degree=0, community=1),
+        NodeSnapshot(
+            id=_NODE_A, title="Alpha", page_type="entity", x=0.0, y=0.0, degree=2, community=0
+        ),
+        NodeSnapshot(
+            id=_NODE_B, title="Beta", page_type="concept", x=1.0, y=0.0, degree=2, community=0
+        ),
+        NodeSnapshot(
+            id=_NODE_C, title="Gamma", page_type="source", x=0.5, y=1.0, degree=1, community=0
+        ),
+        NodeSnapshot(
+            id=_NODE_D, title="Delta", page_type="entity", x=5.0, y=5.0, degree=0, community=1
+        ),
     ],
     edges=[
         EdgeSnapshot(source=_NODE_A, target=_NODE_B, weight=11.0, kind="link"),
@@ -63,10 +71,10 @@ _COLD_SNAPSHOT: GraphSnapshot | None = None  # simulates a cold cache
 
 # Edge signals for the DB fixture (match engine.py key names: direct/source/aa/type)
 _EDGE_SIGNALS_AB: dict[str, float] = {
-    "direct": 6.0,   # 3.0 * 2 direct links
-    "source": 4.0,   # 4.0 * 1 shared source
-    "aa": 0.7,       # 1.5 * AA ≈ 0.467 but we seed a round value
-    "type": 0.5,     # type-affinity entity↔concept
+    "direct": 6.0,  # 3.0 * 2 direct links
+    "source": 4.0,  # 4.0 * 1 shared source
+    "aa": 0.7,  # 1.5 * AA ≈ 0.467 but we seed a round value
+    "type": 0.5,  # type-affinity entity↔concept
 }
 _EDGE_WEIGHT_AB: float = sum(_EDGE_SIGNALS_AB.values())  # = 11.2
 
@@ -83,27 +91,20 @@ async def db_engine():
         poolclass=StaticPool,
     )
     async with engine.begin() as conn:
-        await conn.execute(
-            sa_text(
-                """
+        await conn.execute(sa_text("""
                 CREATE TABLE vault_state (
                     id TEXT PRIMARY KEY,
                     vault_id TEXT NOT NULL UNIQUE,
                     data_version INTEGER NOT NULL DEFAULT 0,
                     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
                 )
-                """
-            )
-        )
+                """))
         await conn.execute(
             sa_text(
-                "INSERT INTO vault_state (id, vault_id, data_version) "
-                "VALUES (:id, 'test', 7)"
+                "INSERT INTO vault_state (id, vault_id, data_version) " "VALUES (:id, 'test', 7)"
             ).bindparams(id=str(uuid.uuid4()))
         )
-        await conn.execute(
-            sa_text(
-                """
+        await conn.execute(sa_text("""
                 CREATE TABLE edges (
                     id TEXT PRIMARY KEY,
                     vault_id TEXT NOT NULL,
@@ -114,9 +115,7 @@ async def db_engine():
                     kind TEXT,
                     created_at TEXT NOT NULL DEFAULT (datetime('now'))
                 )
-                """
-            )
-        )
+                """))
         import json
 
         # Insert edge A↔B with signals
@@ -309,22 +308,18 @@ class TestCommunityDrilldown:
 class TestColdCache409:
     """Cold cache returns 409 for community endpoint (AC-R9-5-5, I2)."""
 
-    async def test_community_cold_cache_409(
-        self, cold_cache_app: AsyncClient
-    ) -> None:
+    async def test_community_cold_cache_409(self, cold_cache_app: AsyncClient) -> None:
         """GET /graph/communities/0 with cold cache must return 409."""
         resp = await cold_cache_app.get("/graph/communities/0")
         assert resp.status_code == 409, f"Expected 409, got {resp.status_code}: {resp.text}"
 
-    async def test_cold_cache_409_message(
-        self, cold_cache_app: AsyncClient
-    ) -> None:
+    async def test_cold_cache_409_message(self, cold_cache_app: AsyncClient) -> None:
         """409 response must carry a clear message about running recompute first."""
         resp = await cold_cache_app.get("/graph/communities/0")
         detail = resp.json().get("detail", "")
-        assert "recompute" in detail.lower() or "graph" in detail.lower(), (
-            f"409 detail must mention recompute/graph: {detail!r}"
-        )
+        assert (
+            "recompute" in detail.lower() or "graph" in detail.lower()
+        ), f"409 detail must mention recompute/graph: {detail!r}"
 
 
 # ── 3. Cohesion formula on a known tiny graph ──────────────────────────────────
@@ -349,9 +344,9 @@ class TestCohesionFormula:
         body = resp.json()
         got = body["cohesion"]
         assert got is not None, "cohesion must not be null for a warm snapshot"
-        assert abs(got - self.EXPECTED_COHESION) < 1e-3, (
-            f"Expected cohesion ≈ {self.EXPECTED_COHESION}, got {got}"
-        )
+        assert (
+            abs(got - self.EXPECTED_COHESION) < 1e-3
+        ), f"Expected cohesion ≈ {self.EXPECTED_COHESION}, got {got}"
 
     async def test_cohesion_singleton_is_zero(self, drilldown_app: AsyncClient) -> None:
         """Singleton community cohesion must be 0.0 (no possible edges)."""
@@ -368,9 +363,9 @@ class TestCohesionFormula:
         monkeypatch.setattr(cfg.settings, "graph_cohesion_warn", 0.2)
         resp = await drilldown_app.get("/graph/communities/0")
         body = resp.json()
-        assert body["cohesion_warning"] is False, (
-            f"cohesion 0.6667 >= 0.2 must NOT trigger warning, got {body['cohesion_warning']}"
-        )
+        assert (
+            body["cohesion_warning"] is False
+        ), f"cohesion 0.6667 >= 0.2 must NOT trigger warning, got {body['cohesion_warning']}"
 
     async def test_cohesion_warning_below_threshold(
         self, drilldown_app: AsyncClient, monkeypatch: pytest.MonkeyPatch
@@ -421,9 +416,9 @@ class TestEdgeBreakdown:
         """Edge weight must match the seeded value."""
         resp = await drilldown_app.get(f"/graph/edges/{_NODE_A}/{_NODE_B}")
         body = resp.json()
-        assert abs(body["weight"] - _EDGE_WEIGHT_AB) < 1e-6, (
-            f"Expected weight {_EDGE_WEIGHT_AB}, got {body['weight']}"
-        )
+        assert (
+            abs(body["weight"] - _EDGE_WEIGHT_AB) < 1e-6
+        ), f"Expected weight {_EDGE_WEIGHT_AB}, got {body['weight']}"
 
     async def test_edge_ab_breakdown_keys(self, drilldown_app: AsyncClient) -> None:
         """breakdown must contain the 4 public signal keys."""
@@ -500,9 +495,9 @@ class TestI2Guard:
 
         resp = await drilldown_app.get("/graph/communities/0")
         assert resp.status_code == 200, resp.text
-        assert force_mock.call_count == 0, (
-            f"force_recompute must NOT be called; got {force_mock.call_count} call(s)"
-        )
+        assert (
+            force_mock.call_count == 0
+        ), f"force_recompute must NOT be called; got {force_mock.call_count} call(s)"
 
     async def test_community_endpoint_never_calls_engine_recompute(
         self,
@@ -517,9 +512,9 @@ class TestI2Guard:
 
         resp = await drilldown_app.get("/graph/communities/0")
         assert resp.status_code == 200, resp.text
-        assert recompute_mock.call_count == 0, (
-            f"GraphEngine.recompute must NOT be called; got {recompute_mock.call_count} call(s)"
-        )
+        assert (
+            recompute_mock.call_count == 0
+        ), f"GraphEngine.recompute must NOT be called; got {recompute_mock.call_count} call(s)"
 
     async def test_edge_endpoint_never_calls_engine_recompute(
         self,
@@ -534,9 +529,9 @@ class TestI2Guard:
 
         resp = await drilldown_app.get(f"/graph/edges/{_NODE_A}/{_NODE_B}")
         assert resp.status_code == 200, resp.text
-        assert recompute_mock.call_count == 0, (
-            f"GraphEngine.recompute must NOT be called; got {recompute_mock.call_count} call(s)"
-        )
+        assert (
+            recompute_mock.call_count == 0
+        ), f"GraphEngine.recompute must NOT be called; got {recompute_mock.call_count} call(s)"
 
     async def test_edge_endpoint_never_calls_get_graph(
         self,

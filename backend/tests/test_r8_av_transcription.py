@@ -211,7 +211,11 @@ class TestSuccessPath:
         call_args = mock_client.post.call_args
         assert call_args[0][0] == "http://whisper-test:8666/transcribe"
         # Verify multipart 'file' field is present
-        files = call_args[1].get("files") or call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("files")
+        files = (
+            call_args[1].get("files") or call_args[0][1]
+            if len(call_args[0]) > 1
+            else call_args[1].get("files")
+        )
         assert files is not None
         assert "file" in files
 
@@ -321,9 +325,7 @@ class TestMissingTextField:
     """T-R83-006: Enabled + missing/empty 'text' field in response → None."""
 
     @pytest.mark.asyncio
-    async def test_missing_text_field_returns_none(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_missing_text_field_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from app import config as cfg
         from app.ingest import transcription as tr_module
 
@@ -390,15 +392,9 @@ class TestPerRunCap:
         budget = AvRunBudget(max_files=2)
 
         with patch("httpx.AsyncClient", return_value=mock_client):
-            r1 = await maybe_transcribe_av(
-                raw_bytes=b"a1", origin_source="a1.mp3", budget=budget
-            )
-            r2 = await maybe_transcribe_av(
-                raw_bytes=b"a2", origin_source="a2.mp3", budget=budget
-            )
-            r3 = await maybe_transcribe_av(
-                raw_bytes=b"a3", origin_source="a3.mp3", budget=budget
-            )
+            r1 = await maybe_transcribe_av(raw_bytes=b"a1", origin_source="a1.mp3", budget=budget)
+            r2 = await maybe_transcribe_av(raw_bytes=b"a2", origin_source="a2.mp3", budget=budget)
+            r3 = await maybe_transcribe_av(raw_bytes=b"a3", origin_source="a3.mp3", budget=budget)
 
         assert r1 == "Transcript."
         assert r2 == "Transcript."
@@ -477,9 +473,7 @@ class TestWhisperServiceHandlers:
         import sys
 
         # Ensure the tools/whisper-service module is importable
-        tools_dir = str(
-            Path(__file__).parent.parent.parent / "tools" / "whisper-service"
-        )
+        tools_dir = str(Path(__file__).parent.parent.parent / "tools" / "whisper-service")
         if tools_dir not in sys.path:
             sys.path.insert(0, tools_dir)
 

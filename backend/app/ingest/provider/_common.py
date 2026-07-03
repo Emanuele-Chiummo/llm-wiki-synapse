@@ -69,6 +69,7 @@ def encode_image_base64(data: bytes) -> str:
     """Return the standard base64 (ASCII) encoding of image *data* for a provider vision block."""
     return base64.standard_b64encode(data).decode("ascii")
 
+
 # ── System prompts (provider-neutral) ───────────────────────────────────────────
 
 ANALYZE_SYSTEM = (

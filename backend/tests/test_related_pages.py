@@ -23,13 +23,11 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import pytest
 from httpx import AsyncClient
 from sqlalchemy import text as sa_text
 
 # Re-use the shared fixtures from test_api.py (auto-discovered by conftest.py)
 from tests.test_api import api_client, api_env  # noqa: F401
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -167,9 +165,7 @@ class TestGetRelatedPages:
         resp = await api_client.get(f"/pages/{unknown}/related")
         assert resp.status_code == 404, f"Expected 404, got {resp.status_code}: {resp.text}"
 
-    async def test_limit_respected(
-        self, api_client: AsyncClient, api_env: dict[str, Any]
-    ) -> None:
+    async def test_limit_respected(self, api_client: AsyncClient, api_env: dict[str, Any]) -> None:
         """T-REL-004: limit query param caps the number of items returned."""
         page_a = await _ingest_page(
             api_env,
@@ -281,9 +277,10 @@ class TestPageContentFrontmatter:
 
         # New frontmatter fields
         assert data["type"] == "concept", f"Expected type='concept', got {data.get('type')!r}"
-        assert data["sources"] == ["ref_a.pdf", "ref_b.docx"], (
-            f"Expected sources list, got {data.get('sources')!r}"
-        )
+        assert data["sources"] == [
+            "ref_a.pdf",
+            "ref_b.docx",
+        ], f"Expected sources list, got {data.get('sources')!r}"
 
     async def test_content_response_type_null_when_absent(
         self, api_client: AsyncClient, api_env: dict[str, Any]

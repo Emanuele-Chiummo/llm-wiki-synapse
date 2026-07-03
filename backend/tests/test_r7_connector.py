@@ -22,9 +22,7 @@ from pathlib import Path
 import pytest
 
 # Add the connector's parent to sys.path so we can import it directly
-_CONNECTOR_DIR = (
-    Path(__file__).resolve().parent.parent.parent / "tools" / "marker-converter"
-)
+_CONNECTOR_DIR = Path(__file__).resolve().parent.parent.parent / "tools" / "marker-converter"
 if str(_CONNECTOR_DIR) not in sys.path:
     sys.path.insert(0, str(_CONNECTOR_DIR))
 
@@ -153,9 +151,9 @@ def test_tick_hash_gate(watch_env: Any) -> None:
         out_dir=watch_env.out_dir,
         convert_fn=watch_env.convert_fn,
     )
-    assert result2["total_files_converted"] == 0, (
-        "AC-R7-7-2: Already-converted PDF must be skipped on the next tick (hash gate, I1 spirit)"
-    )
+    assert (
+        result2["total_files_converted"] == 0
+    ), "AC-R7-7-2: Already-converted PDF must be skipped on the next tick (hash gate, I1 spirit)"
 
 
 # ── R7-7-2 — I7 cap: max_per_tick limits PDFs processed ───────────────────────
@@ -169,9 +167,7 @@ def test_tick_cap_enforced(watch_env: Any) -> None:
 
     # Create 5 fake PDFs, but cap at 2
     for i in range(5):
-        (watch_env.watch_dir / f"doc-{i}.pdf").write_bytes(
-            f"%PDF-1.4 document {i}".encode()
-        )
+        (watch_env.watch_dir / f"doc-{i}.pdf").write_bytes(f"%PDF-1.4 document {i}".encode())
 
     result = sc.run_watch_tick(
         watch_dir=watch_env.watch_dir,
@@ -181,9 +177,9 @@ def test_tick_cap_enforced(watch_env: Any) -> None:
     )
 
     # Only 2 should be converted despite 5+1 available (the original fake + 5 new)
-    assert result["total_files_converted"] <= 2, (
-        f"AC-R7-7-2: max_per_tick=2 cap must be enforced; got {result['total_files_converted']}"
-    )
+    assert (
+        result["total_files_converted"] <= 2
+    ), f"AC-R7-7-2: max_per_tick=2 cap must be enforced; got {result['total_files_converted']}"
 
 
 # ── R7-7-4 — auto-download stub logs a warning ─────────────────────────────────
@@ -199,9 +195,9 @@ def test_auto_download_stub(capsys: pytest.CaptureFixture) -> None:  # type: ign
     sc._auto_download_stub()
     captured = capsys.readouterr()
     # Must log to stderr and mention "not implemented" (case-insensitive)
-    assert "not implemented" in captured.err.lower() or "not implemented" in captured.out.lower(), (
-        "AC-R7-7-4: _auto_download_stub must log a clear 'not implemented' warning"
-    )
+    assert (
+        "not implemented" in captured.err.lower() or "not implemented" in captured.out.lower()
+    ), "AC-R7-7-4: _auto_download_stub must log a clear 'not implemented' warning"
 
 
 # ── --help smoke check ─────────────────────────────────────────────────────────

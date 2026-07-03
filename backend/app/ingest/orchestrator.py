@@ -247,9 +247,7 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
     # K6 navigation tags — round-trip any tags present in a raw source's frontmatter (additive;
     # absent → NULL). Kept tolerant/mechanical here, exactly like sources.
     _tags_raw = meta.get("tags")
-    _tags: list[str] | None = (
-        [str(t) for t in _tags_raw] if isinstance(_tags_raw, list) else None
-    )
+    _tags: list[str] | None = [str(t) for t in _tags_raw] if isinstance(_tags_raw, list) else None
     await persist_metadata(
         page_id=page_id,
         vault_id=settings.vault_id,
@@ -490,9 +488,7 @@ async def run_ingest_pipeline(
     # in the STRING, not provider code). "" when the source has no subfolder path.
     _folder_block = _folder_context_block(origin_source)
     if _folder_block:
-        ingest_context = (
-            f"{_folder_block}\n\n{ingest_context}" if ingest_context else _folder_block
-        )
+        ingest_context = f"{_folder_block}\n\n{ingest_context}" if ingest_context else _folder_block
 
     try:
         if caps.supports_agentic_loop:
@@ -1101,9 +1097,7 @@ async def _propose_reviews_for_delegated(
         topics=titles[:8] or ["ingest"],
         entities=[],
         language="en",
-        suggested_pages=[
-            SuggestedPage(title=t, type=PageType.CONCEPT) for t in titles[:1]
-        ]
+        suggested_pages=[SuggestedPage(title=t, type=PageType.CONCEPT) for t in titles[:1]]
         or [SuggestedPage(title="(delegated ingest)", type=PageType.CONCEPT)],
         summary=None,
     )
@@ -1579,10 +1573,10 @@ async def _update_overview(analysis: Analysis | None, origin_source: str) -> Non
             analysis=analysis, existing_digest=existing, lang=overview_lang
         )
 
-        token_budget = int(
-            getattr(config_row, "token_budget", None)
-            or getattr(settings, "overview_token_budget", 3_000)
+        _raw_budget: Any = getattr(config_row, "token_budget", None) or getattr(
+            settings, "overview_token_budget", 3_000
         )
+        token_budget = int(_raw_budget) if _raw_budget is not None else 3_000
         timeout_s = float(getattr(settings, "overview_timeout_seconds", 30.0))
 
         # ── Bind a run-scoped Usage ledger (I7 — cost logged out of band) ──────────
@@ -2178,8 +2172,7 @@ async def _load_existing_pages_catalogue() -> str:
 
     async with get_session() as session:
         result = await session.execute(
-            select(Page.title, Page.page_type)
-            .where(
+            select(Page.title, Page.page_type).where(
                 Page.deleted_at.is_(None),
                 Page.title.is_not(None),
                 Page.page_type.not_in(_CATALOGUE_EXCLUDED_TYPES),

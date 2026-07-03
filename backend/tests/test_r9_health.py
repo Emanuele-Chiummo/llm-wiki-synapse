@@ -32,6 +32,7 @@ from httpx import ASGITransport, AsyncClient
 
 # ── Build a minimal test app ───────────────────────────────────────────────────
 
+
 def _build_test_app() -> FastAPI:
     """
     Create a minimal FastAPI app with only the health router mounted.
@@ -56,6 +57,7 @@ async def _client(app: FastAPI) -> AsyncIterator[AsyncClient]:
 
 
 # ── Helpers for common patch patterns ─────────────────────────────────────────
+
 
 def _fast_db() -> dict[str, Any]:
     return {"ok": True, "latency_ms": 1.5}
@@ -92,7 +94,10 @@ async def test_health_shape(app: FastAPI) -> None:
     with (
         patch("app.health._probe_db", new=AsyncMock(return_value=_fast_db())),
         patch("app.health._probe_qdrant", new=AsyncMock(return_value=_fast_qdrant())),
-        patch("app.health._probe_watcher", new=AsyncMock(return_value={"alive": True, "last_event_at": None})),
+        patch(
+            "app.health._probe_watcher",
+            new=AsyncMock(return_value={"alive": True, "last_event_at": None}),
+        ),
         patch("app.health._probe_import_scheduler", new=AsyncMock(return_value=_sched_enabled())),
         patch("app.health._probe_ingest_queue", return_value=_queue_idle()),
         patch("app.health._probe_graph_cache", return_value=_graph_cold()),
@@ -142,8 +147,13 @@ async def test_status_ok_when_all_probes_succeed(app: FastAPI) -> None:
     """T-HEALTH-002: overall status is 'ok' when all probes succeed with low latency."""
     with (
         patch("app.health._probe_db", new=AsyncMock(return_value={"ok": True, "latency_ms": 5.0})),
-        patch("app.health._probe_qdrant", new=AsyncMock(return_value={"ok": True, "latency_ms": 20.0})),
-        patch("app.health._probe_watcher", new=AsyncMock(return_value={"alive": True, "last_event_at": None})),
+        patch(
+            "app.health._probe_qdrant", new=AsyncMock(return_value={"ok": True, "latency_ms": 20.0})
+        ),
+        patch(
+            "app.health._probe_watcher",
+            new=AsyncMock(return_value={"alive": True, "last_event_at": None}),
+        ),
         patch("app.health._probe_import_scheduler", new=AsyncMock(return_value=_sched_enabled())),
         patch("app.health._probe_ingest_queue", return_value=_queue_idle()),
         patch("app.health._probe_graph_cache", return_value=_graph_cold()),
@@ -158,13 +168,17 @@ async def test_status_ok_when_all_probes_succeed(app: FastAPI) -> None:
 @pytest.mark.asyncio
 async def test_status_error_when_db_probe_raises(app: FastAPI) -> None:
     """T-HEALTH-003: overall status is 'error' when DB probe raises."""
+
     async def _failing_db() -> dict[str, Any]:
         raise ConnectionError("DB unreachable")
 
     with (
         patch("app.health._probe_db", new=AsyncMock(side_effect=ConnectionError("DB unreachable"))),
         patch("app.health._probe_qdrant", new=AsyncMock(return_value=_fast_qdrant())),
-        patch("app.health._probe_watcher", new=AsyncMock(return_value={"alive": True, "last_event_at": None})),
+        patch(
+            "app.health._probe_watcher",
+            new=AsyncMock(return_value={"alive": True, "last_event_at": None}),
+        ),
         patch("app.health._probe_import_scheduler", new=AsyncMock(return_value=_sched_enabled())),
         patch("app.health._probe_ingest_queue", return_value=_queue_idle()),
         patch("app.health._probe_graph_cache", return_value=_graph_cold()),
@@ -182,8 +196,13 @@ async def test_status_error_when_qdrant_probe_raises(app: FastAPI) -> None:
     with (
         patch("app.health.settings") as mock_settings,
         patch("app.health._probe_db", new=AsyncMock(return_value=_fast_db())),
-        patch("app.health._probe_qdrant", new=AsyncMock(side_effect=ConnectionError("Qdrant down"))),
-        patch("app.health._probe_watcher", new=AsyncMock(return_value={"alive": True, "last_event_at": None})),
+        patch(
+            "app.health._probe_qdrant", new=AsyncMock(side_effect=ConnectionError("Qdrant down"))
+        ),
+        patch(
+            "app.health._probe_watcher",
+            new=AsyncMock(return_value={"alive": True, "last_event_at": None}),
+        ),
         patch("app.health._probe_import_scheduler", new=AsyncMock(return_value=_sched_enabled())),
         patch("app.health._probe_ingest_queue", return_value=_queue_idle()),
         patch("app.health._probe_graph_cache", return_value=_graph_cold()),
@@ -202,9 +221,16 @@ async def test_status_error_when_qdrant_probe_raises(app: FastAPI) -> None:
 async def test_status_degraded_when_db_slow(app: FastAPI) -> None:
     """T-HEALTH-005: overall status is 'degraded' when DB latency exceeds 200 ms."""
     with (
-        patch("app.health._probe_db", new=AsyncMock(return_value={"ok": True, "latency_ms": 350.0})),
-        patch("app.health._probe_qdrant", new=AsyncMock(return_value={"ok": True, "latency_ms": 10.0})),
-        patch("app.health._probe_watcher", new=AsyncMock(return_value={"alive": True, "last_event_at": None})),
+        patch(
+            "app.health._probe_db", new=AsyncMock(return_value={"ok": True, "latency_ms": 350.0})
+        ),
+        patch(
+            "app.health._probe_qdrant", new=AsyncMock(return_value={"ok": True, "latency_ms": 10.0})
+        ),
+        patch(
+            "app.health._probe_watcher",
+            new=AsyncMock(return_value={"alive": True, "last_event_at": None}),
+        ),
         patch("app.health._probe_import_scheduler", new=AsyncMock(return_value=_sched_enabled())),
         patch("app.health._probe_ingest_queue", return_value=_queue_idle()),
         patch("app.health._probe_graph_cache", return_value=_graph_cold()),
@@ -221,8 +247,14 @@ async def test_status_degraded_when_qdrant_slow(app: FastAPI) -> None:
     """T-HEALTH-006: overall status is 'degraded' when Qdrant latency exceeds 500 ms."""
     with (
         patch("app.health._probe_db", new=AsyncMock(return_value={"ok": True, "latency_ms": 5.0})),
-        patch("app.health._probe_qdrant", new=AsyncMock(return_value={"ok": True, "latency_ms": 600.0})),
-        patch("app.health._probe_watcher", new=AsyncMock(return_value={"alive": True, "last_event_at": None})),
+        patch(
+            "app.health._probe_qdrant",
+            new=AsyncMock(return_value={"ok": True, "latency_ms": 600.0}),
+        ),
+        patch(
+            "app.health._probe_watcher",
+            new=AsyncMock(return_value={"alive": True, "last_event_at": None}),
+        ),
         patch("app.health._probe_import_scheduler", new=AsyncMock(return_value=_sched_enabled())),
         patch("app.health._probe_ingest_queue", return_value=_queue_idle()),
         patch("app.health._probe_graph_cache", return_value=_graph_cold()),
@@ -239,8 +271,14 @@ async def test_qdrant_skipped_when_embeddings_disabled(app: FastAPI) -> None:
     """T-HEALTH-007: Qdrant component shows ok='skipped' when EMBEDDINGS_ENABLED=false."""
     with (
         patch("app.health._probe_db", new=AsyncMock(return_value=_fast_db())),
-        patch("app.health._probe_qdrant", new=AsyncMock(return_value={"ok": "skipped", "latency_ms": None})),
-        patch("app.health._probe_watcher", new=AsyncMock(return_value={"alive": True, "last_event_at": None})),
+        patch(
+            "app.health._probe_qdrant",
+            new=AsyncMock(return_value={"ok": "skipped", "latency_ms": None}),
+        ),
+        patch(
+            "app.health._probe_watcher",
+            new=AsyncMock(return_value={"alive": True, "last_event_at": None}),
+        ),
         patch("app.health._probe_import_scheduler", new=AsyncMock(return_value=_sched_enabled())),
         patch("app.health._probe_ingest_queue", return_value=_queue_idle()),
         patch("app.health._probe_graph_cache", return_value=_graph_cold()),
@@ -259,8 +297,14 @@ async def test_embeddings_ok_skipped_when_disabled(app: FastAPI) -> None:
     """T-HEALTH-008: embeddings.ok='skipped' when EMBEDDINGS_ENABLED=false."""
     with (
         patch("app.health._probe_db", new=AsyncMock(return_value=_fast_db())),
-        patch("app.health._probe_qdrant", new=AsyncMock(return_value={"ok": "skipped", "latency_ms": None})),
-        patch("app.health._probe_watcher", new=AsyncMock(return_value={"alive": True, "last_event_at": None})),
+        patch(
+            "app.health._probe_qdrant",
+            new=AsyncMock(return_value={"ok": "skipped", "latency_ms": None}),
+        ),
+        patch(
+            "app.health._probe_watcher",
+            new=AsyncMock(return_value={"alive": True, "last_event_at": None}),
+        ),
         patch("app.health._probe_import_scheduler", new=AsyncMock(return_value=_sched_enabled())),
         patch("app.health._probe_ingest_queue", return_value=_queue_idle()),
         patch("app.health._probe_graph_cache", return_value=_graph_cold()),
@@ -282,8 +326,13 @@ async def test_endpoint_always_returns_200(app: FastAPI) -> None:
     with (
         patch("app.health._probe_db", new=AsyncMock(side_effect=RuntimeError("DB down"))),
         patch("app.health._probe_qdrant", new=AsyncMock(side_effect=RuntimeError("Qdrant down"))),
-        patch("app.health._probe_watcher", new=AsyncMock(side_effect=RuntimeError("Watcher broken"))),
-        patch("app.health._probe_import_scheduler", new=AsyncMock(side_effect=RuntimeError("Sched broken"))),
+        patch(
+            "app.health._probe_watcher", new=AsyncMock(side_effect=RuntimeError("Watcher broken"))
+        ),
+        patch(
+            "app.health._probe_import_scheduler",
+            new=AsyncMock(side_effect=RuntimeError("Sched broken")),
+        ),
         patch("app.health._probe_ingest_queue", side_effect=RuntimeError("Queue broken")),
         patch("app.health._probe_graph_cache", side_effect=RuntimeError("Cache broken")),
     ):
@@ -302,7 +351,10 @@ async def test_db_latency_present_and_numeric(app: FastAPI) -> None:
     with (
         patch("app.health._probe_db", new=AsyncMock(return_value={"ok": True, "latency_ms": 42.7})),
         patch("app.health._probe_qdrant", new=AsyncMock(return_value=_fast_qdrant())),
-        patch("app.health._probe_watcher", new=AsyncMock(return_value={"alive": True, "last_event_at": None})),
+        patch(
+            "app.health._probe_watcher",
+            new=AsyncMock(return_value={"alive": True, "last_event_at": None}),
+        ),
         patch("app.health._probe_import_scheduler", new=AsyncMock(return_value=_sched_enabled())),
         patch("app.health._probe_ingest_queue", return_value=_queue_idle()),
         patch("app.health._probe_graph_cache", return_value=_graph_cold()),
@@ -323,7 +375,10 @@ async def test_last_errors_list_present(app: FastAPI) -> None:
     with (
         patch("app.health._probe_db", new=AsyncMock(return_value=_fast_db())),
         patch("app.health._probe_qdrant", new=AsyncMock(return_value=_fast_qdrant())),
-        patch("app.health._probe_watcher", new=AsyncMock(return_value={"alive": True, "last_event_at": None})),
+        patch(
+            "app.health._probe_watcher",
+            new=AsyncMock(return_value={"alive": True, "last_event_at": None}),
+        ),
         patch("app.health._probe_import_scheduler", new=AsyncMock(return_value=_sched_enabled())),
         patch("app.health._probe_ingest_queue", return_value=_queue_idle()),
         patch("app.health._probe_graph_cache", return_value=_graph_cold()),
@@ -343,7 +398,10 @@ async def test_checked_at_is_iso_datetime(app: FastAPI) -> None:
     with (
         patch("app.health._probe_db", new=AsyncMock(return_value=_fast_db())),
         patch("app.health._probe_qdrant", new=AsyncMock(return_value=_fast_qdrant())),
-        patch("app.health._probe_watcher", new=AsyncMock(return_value={"alive": True, "last_event_at": None})),
+        patch(
+            "app.health._probe_watcher",
+            new=AsyncMock(return_value={"alive": True, "last_event_at": None}),
+        ),
         patch("app.health._probe_import_scheduler", new=AsyncMock(return_value=_sched_enabled())),
         patch("app.health._probe_ingest_queue", return_value=_queue_idle()),
         patch("app.health._probe_graph_cache", return_value=_graph_cold()),

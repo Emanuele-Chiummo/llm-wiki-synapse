@@ -485,8 +485,12 @@ class CliAgentProvider(InferenceProvider):
             image_path = Path(path_or_bytes)
         else:
             data, media_type = resolve_image_bytes_and_media_type(path_or_bytes)
-            suffix = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif",
-                      "image/webp": ".webp"}.get(media_type, ".png")
+            suffix = {
+                "image/png": ".png",
+                "image/jpeg": ".jpg",
+                "image/gif": ".gif",
+                "image/webp": ".webp",
+            }.get(media_type, ".png")
             fd, name = tempfile.mkstemp(suffix=suffix, prefix="synapse_caption_")
             with os.fdopen(fd, "wb") as fh:
                 fh.write(data)

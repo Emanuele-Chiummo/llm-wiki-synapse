@@ -305,9 +305,7 @@ async def cost_env(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[dict[str, A
     test_app = FastAPI(lifespan=lifespan)
     test_app.include_router(costs_router)
 
-    async with AsyncClient(
-        transport=ASGITransport(app=test_app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=test_app), base_url="http://test") as client:
         yield {
             "client": client,
             "session_factory": session_factory,
@@ -433,9 +431,9 @@ async def test_month_calculation_excludes_other_months(cost_env: dict[str, Any])
 
     ops = {item["operation"]: item for item in data["by_operation"]}
     # Last-month ingest row (99.99) must NOT appear
-    assert ops["ingest"]["total_usd"] < 1.0, (
-        f"Last-month row leaked into monthly total: ingest={ops['ingest']['total_usd']}"
-    )
+    assert (
+        ops["ingest"]["total_usd"] < 1.0
+    ), f"Last-month row leaked into monthly total: ingest={ops['ingest']['total_usd']}"
 
 
 @pytest.mark.asyncio
@@ -559,9 +557,7 @@ async def test_by_day_includes_recent_row(
 
     # The recent date must appear
     day_dates = [item["date"] for item in by_day]
-    assert _RECENT_DATE in day_dates, (
-        f"Expected {_RECENT_DATE!r} in by_day dates: {day_dates}"
-    )
+    assert _RECENT_DATE in day_dates, f"Expected {_RECENT_DATE!r} in by_day dates: {day_dates}"
 
     # Each item must have date + total_usd
     for item in by_day:
@@ -592,9 +588,7 @@ async def test_summary_shape_all_keys_present_seeded(cost_env: dict[str, Any]) -
         "threshold_usd",
         "threshold_alert",
     }
-    assert required_keys.issubset(data.keys()), (
-        f"Missing keys: {required_keys - data.keys()}"
-    )
+    assert required_keys.issubset(data.keys()), f"Missing keys: {required_keys - data.keys()}"
 
     # period format YYYY-MM
     assert len(data["period"]) == 7
