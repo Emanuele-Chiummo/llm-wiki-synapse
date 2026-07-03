@@ -1,26 +1,20 @@
 // Synapse Tauri v2 desktop application entry point.
 // This is a minimal shell that wraps the existing React/Vite frontend as a native app.
+// The main window is declared in tauri.conf.json (app.windows, label "main") —
+// creating it here too would panic at startup with "webview `main` already exists".
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::WebviewWindowBuilder;
-
 fn main() {
     tauri::Builder::default()
-        // .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![])
-        .setup(|app| {
-            let window = WebviewWindowBuilder::new(app, "main", Default::default())
-                .title("Synapse")
-                .inner_size(1400.0, 900.0)
-                .min_inner_size(800.0, 600.0)
-                .resizable(true)
-                .fullscreen(false)
-                .build()?;
-
+        .setup(|_app| {
             #[cfg(debug_assertions)]
             {
-                window.open_devtools();
+                use tauri::Manager;
+                if let Some(window) = _app.get_webview_window("main") {
+                    window.open_devtools();
+                }
             }
 
             Ok(())
