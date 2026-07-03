@@ -925,7 +925,7 @@ the backend API at `http://truenas-node-ip:8000` or `http://truenas.local:8000`.
 
 ---
 
-## 9. Updating Synapse
+## 9. Updating Synapse {#updating-synapse}
 
 ### 9.1 Manual updates
 
