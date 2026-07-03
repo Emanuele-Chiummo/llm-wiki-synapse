@@ -1,0 +1,804 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0031-openai-compatible-embeddings-adapter/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0031 — OpenAI-compatible embeddings adapter (explicit EMBEDDING_FORMAT, optional EMBEDDING_API_KEY) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0031-openai-compatible-embeddings-adapter-explicit-embedding_format-optional-embedding_api_key" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0031 — OpenAI-compatible embeddings adapter (explicit EMBEDDING_FORMAT, optional EMBEDDING_API_KEY)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-explicit-embedding_formatollamaopenai-recommended-over-auto-detect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Explicit EMBEDDING_FORMAT=ollama|openai (recommended over auto-detect)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-optional-embedding_api_key-authorization-bearer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Optional EMBEDDING_API_KEY → Authorization: Bearer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-one-client-two-adapters-inside-keep-the-abc-stable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 One client, two adapters inside — keep the ABC stable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-interaction-with-adr-0030-embeddings-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Interaction with ADR-0030 (embeddings off)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-new-config-env-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. New config / env / schema
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-acceptance-check-dod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Acceptance check (DoD)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-decision-the-owner-must-make-before-coding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Decision the owner must make before coding
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0031-openai-compatible-embeddings-adapter-explicit-embedding_format-optional-embedding_api_key">ADR-0031 — OpenAI-compatible embeddings adapter (explicit <code>EMBEDDING_FORMAT</code>, optional <code>EMBEDDING_API_KEY</code>)<a class="headerlink" href="#adr-0031-openai-compatible-embeddings-adapter-explicit-embedding_format-optional-embedding_api_key" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted (owner decided 2026-06-29: explicit <code>EMBEDDING_FORMAT=ollama|openai</code>; auto-detect rejected) — implemented</li>
+<li><strong>Date:</strong> 2026-06-29</li>
+<li><strong>Sprint:</strong> v0.5 (Feature C — OpenAI-compatible embeddings)</li>
+<li><strong>Feature:</strong> F17-adjacent (embedding data plane) · builds on ADR-0004 (EMBEDDING_DIM/probe) and the <code>EmbeddingClient</code> ABC (<code>backend/app/embeddings.py</code>)</li>
+<li><strong>Invariants owned:</strong> I9 (reuse the same embedding seam; do not add a parallel client) · I6-spirit (no hardcoded backend — request shape is config-driven)</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> ai-agent-engineer (the adapter inside the embedding seam — owns how the AI embeds) · backend-engineer (config keys) · tech-writer (D6b deploy note for the new env)</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p><code>HttpEmbeddingClient</code> (<code>backend/app/embeddings.py:59</code>) hardcodes the <strong>Ollama</strong> request/response
+shape:</p>
+<ul>
+<li>Request: <code>POST {"model": &lt;model&gt;, "prompt": &lt;text&gt;}</code></li>
+<li>Response: <code>{"embedding": [&lt;floats&gt;]}</code></li>
+</ul>
+<p>It sends no auth header (the local bge-m3 service is open on the internal network). The owner
+wants <code>EMBEDDING_URL</code> to be able to point at an <strong>OpenAI-style</strong> <code>/v1/embeddings</code> endpoint:</p>
+<ul>
+<li>Request: <code>POST {"model": &lt;model&gt;, "input": &lt;text&gt;}</code></li>
+<li>Response: <code>{"data": [{"embedding": [&lt;floats&gt;]}], ...}</code></li>
+</ul>
+<p>Hosted OpenAI-compatible providers also require <code>Authorization: Bearer &lt;key&gt;</code>. The
+<code>EmbeddingClient</code> ABC (<code>embed</code>, <code>probe_dimension</code>) is consumed everywhere (orchestrator,
+retrieval, MCP) via <code>get_embedding_client()</code> — so the ABC must stay stable and the change must
+live <strong>inside the seam</strong>, not at every call site.</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-explicit-embedding_formatollamaopenai-recommended-over-auto-detect">2.1 Explicit <code>EMBEDDING_FORMAT=ollama|openai</code> (recommended over auto-detect)<a class="headerlink" href="#21-explicit-embedding_formatollamaopenai-recommended-over-auto-detect" title="Permanent link">&para;</a></h3>
+<p>New env var <strong><code>EMBEDDING_FORMAT</code></strong> with values <code>ollama</code> (default) or <code>openai</code>, read in
+<code>config.py</code>. <code>HttpEmbeddingClient</code> branches on it for both request body and response parsing.</p>
+<p><strong>Rationale for explicit over auto-detect:</strong>
+- <strong>Determinism / fail-fast.</strong> Auto-detect would mean probing the endpoint and guessing from
+  the response shape, or trying one shape and falling back — that introduces an unbounded-ish
+  trial and a startup-time network dependency on guessing. Explicit config is unambiguous and
+  validated once (ADR-0004 already probes dimension at startup; format is known before the
+  probe).
+- <strong>No silent wrong-shape.</strong> A URL ending <code>/api/embeddings</code> vs <code>/v1/embeddings</code> is a weak signal;
+  some gateways proxy both. Guessing risks sending <code>prompt</code> to an <code>input</code> endpoint and getting a
+  confusing 400 deep in ingest. Explicit <code>EMBEDDING_FORMAT</code> makes the operator state intent.
+- <strong>Consistency with the project's config philosophy</strong> (CLAUDE.md §12, ADR-0004): everything is
+  explicit env, no magic, fail-fast on mismatch. Auto-detect contradicts that.</p>
+<p><strong>The auto-vs-explicit choice is the one owner decision (§6).</strong> Build proceeds explicit.</p>
+<h3 id="22-optional-embedding_api_key-authorization-bearer">2.2 Optional <code>EMBEDDING_API_KEY</code> → <code>Authorization: Bearer</code><a class="headerlink" href="#22-optional-embedding_api_key-authorization-bearer" title="Permanent link">&para;</a></h3>
+<p>New env var <strong><code>EMBEDDING_API_KEY</code></strong> (secret, optional, <strong>no default</strong>), read in <code>config.py</code>.
+When set, <code>HttpEmbeddingClient</code> adds <code>Authorization: Bearer &lt;key&gt;</code> to every embedding request.
+When unset (the local-bge-m3 case), no auth header is sent (unchanged behavior). The key is a
+secret: never logged, never returned by <code>GET /config/embedding</code>, sourced from env only (§12).</p>
+<p>This works for both formats (some local Ollama-compatible gateways also want a key), so the
+header is orthogonal to <code>EMBEDDING_FORMAT</code>.</p>
+<h3 id="23-one-client-two-adapters-inside-keep-the-abc-stable">2.3 One client, two adapters inside — keep the ABC stable<a class="headerlink" href="#23-one-client-two-adapters-inside-keep-the-abc-stable" title="Permanent link">&para;</a></h3>
+<p>The change lives <strong>inside <code>HttpEmbeddingClient</code></strong>, not as a sibling class:</p>
+<ul>
+<li><code>embed()</code> builds the request body and parses the response per <code>self._format</code>:</li>
+<li><code>ollama</code>: <code>{"model", "prompt"}</code> → <code>payload["embedding"]</code> (unchanged).</li>
+<li><code>openai</code>: <code>{"model", "input"}</code> → <code>payload["data"][0]["embedding"]</code>.</li>
+<li>Both paths reuse the same httpx call, error wrapping (<code>EmbeddingError</code>), and the auth header
+  from §2.2. Two tiny private helpers (<code>_build_request</code>, <code>_parse_response</code>) keyed on
+  <code>self._format</code> keep it readable; a sibling class would duplicate the httpx/error machinery for
+  no gain.</li>
+<li><code>probe_dimension()</code> is unchanged — it calls <code>embed("probe")</code> and measures length, so it works
+  for both formats automatically (ADR-0004 startup validation keeps working).</li>
+<li>The <strong><code>EmbeddingClient</code> ABC, <code>get_embedding_client()</code>, <code>set_embedding_client()</code>, and
+  <code>FakeEmbeddingClient</code> are untouched.</strong> No call site changes. I9 holds: still one seam.</li>
+</ul>
+<p><strong>Validation:</strong> on <code>openai</code> parse, if <code>payload["data"]</code> is missing/empty or the nested
+<code>embedding</code> is not a non-empty list, raise <code>EmbeddingError</code> with the offending payload (mirrors
+the existing ollama-shape guard at <code>embeddings.py:98</code>). No silent empty vector.</p>
+<h3 id="24-interaction-with-adr-0030-embeddings-off">2.4 Interaction with ADR-0030 (embeddings off)<a class="headerlink" href="#24-interaction-with-adr-0030-embeddings-off" title="Permanent link">&para;</a></h3>
+<p>Orthogonal. When <code>EMBEDDINGS_ENABLED=false</code> (ADR-0030), <code>HttpEmbeddingClient</code> is not called at
+all, so <code>EMBEDDING_FORMAT</code>/<code>EMBEDDING_API_KEY</code> are simply unused. When enabled, the adapter
+applies. No coupling beyond both touching the same file.</p>
+<hr />
+<h2 id="3-new-config-env-schema">3. New config / env / schema<a class="headerlink" href="#3-new-config-env-schema" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Name</th>
+<th>Type / default</th>
+<th>Read in</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>env</td>
+<td><code>EMBEDDING_FORMAT</code></td>
+<td><code>ollama</code> | <code>openai</code>, default <code>ollama</code></td>
+<td><code>config.py</code></td>
+<td>Selects request/response adapter. Validated to the two values.</td>
+</tr>
+<tr>
+<td>env</td>
+<td><code>EMBEDDING_API_KEY</code></td>
+<td>secret str, optional, no default</td>
+<td><code>config.py</code></td>
+<td>Adds <code>Authorization: Bearer</code> when set. Never logged/returned.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>No DB schema change. No migration. No D2 (ER) change.</strong> Pure config + in-seam adapter.</p>
+<hr />
+<h2 id="4-acceptance-check-dod">4. Acceptance check (DoD)<a class="headerlink" href="#4-acceptance-check-dod" title="Permanent link">&para;</a></h2>
+<ol>
+<li><code>EMBEDDING_FORMAT=openai</code> + an OpenAI-style endpoint: <code>embed("x")</code> posts
+   <code>{"model", "input"}</code> and parses <code>data[0].embedding</code>; <code>probe_dimension()</code> returns the right
+   length and ADR-0004 startup validation passes.</li>
+<li><code>EMBEDDING_FORMAT=ollama</code> (default): byte-for-byte identical to today (<code>{"model","prompt"}</code> →
+   <code>embedding</code>). No regression for the existing bge-m3 deployment.</li>
+<li><code>EMBEDDING_API_KEY</code> set: requests carry <code>Authorization: Bearer &lt;key&gt;</code>; unset: no auth header.</li>
+<li>A malformed <code>openai</code> response (no <code>data</code>, empty list) raises <code>EmbeddingError</code>, not a silent
+   bad vector.</li>
+<li>The <code>EmbeddingClient</code> ABC and <code>get_embedding_client()</code> signatures are unchanged; no call site
+   outside <code>embeddings.py</code> was modified.</li>
+<li><code>GET /config/embedding</code> does <strong>not</strong> expose <code>EMBEDDING_API_KEY</code>.</li>
+</ol>
+<hr />
+<h2 id="5-consequences">5. Consequences<a class="headerlink" href="#5-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong> — Synapse can use hosted/OpenAI-compatible embedding providers (and authed
+gateways) without touching ingest/retrieval/MCP; the seam stays single (I9); existing bge-m3
+deployments are unaffected (default <code>ollama</code>).</p>
+<p><strong>Trade-offs (explicit)</strong> — explicit <code>EMBEDDING_FORMAT</code> is one more env var the operator must set
+correctly (mitigated: clear default, two values, fail-fast on bad response). Only the
+single-string <code>input</code> form is supported (not batch arrays) — fine, since callers embed one text
+at a time; batch is a non-blocking future optimisation. A leaked <code>EMBEDDING_API_KEY</code> would expose
+the embedding provider — mitigated by the never-log/never-return rule (§12).</p>
+<p><strong>Invariant check</strong> — I9: one embedding seam, reused; no parallel client, no new service
+abstraction. I6-spirit: backend/request-shape is config-driven, never hardcoded. I1/I2/I3/I4/I5/
+I7/I8: untouched. <strong>No invariant is traded for convenience.</strong></p>
+<h2 id="6-decision-the-owner-must-make-before-coding">6. Decision the owner must make before coding<a class="headerlink" href="#6-decision-the-owner-must-make-before-coding" title="Permanent link">&para;</a></h2>
+<p><strong>Format detection.</strong> RECOMMENDED: <strong>explicit <code>EMBEDDING_FORMAT=ollama|openai</code></strong> (deterministic,
+fail-fast, matches the project's explicit-config philosophy). Alternative: <strong>auto-detect</strong> by
+probing response shape — rejected as the default (non-deterministic, risks wrong-shape errors
+deep in ingest), but the owner may override. Build proceeds explicit.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

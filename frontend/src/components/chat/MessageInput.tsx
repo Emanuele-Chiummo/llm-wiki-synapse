@@ -119,6 +119,7 @@ export function MessageInput({
           placeholder={isStreaming ? t("chat.inputPlaceholderStreaming") : t("chat.inputPlaceholder")}
           rows={1}
           aria-label={t("chat.inputLabel")}
+          className="chat-input-textarea"
           style={{
             flex: 1,
             resize: "none",
@@ -151,6 +152,7 @@ export function MessageInput({
             onClick={onStop}
             aria-label={t("chat.stop")}
             title={t("chat.stop")}
+            className="chat-stop-btn"
             style={{
               flexShrink: 0,
               padding: "8px 14px",
@@ -187,6 +189,7 @@ export function MessageInput({
             disabled={isInputDisabled || value.trim() === ""}
             aria-label={t("chat.send")}
             title={t("chat.send")}
+            className="chat-send-btn"
             style={{
               flexShrink: 0,
               padding: "8px 14px",

@@ -12,7 +12,7 @@
  */
 
 import type { CacheStatus, GraphResponse, PageDetail } from "./types";
-import { apiBase } from "./base";
+import { apiBase, apiFetch } from "./base";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
@@ -74,7 +74,7 @@ export async function fetchGraph(
   signal?: AbortSignal,
 ): Promise<FetchGraphResult> {
   const url = `${apiBase()}/graph?vault_id=${encodeURIComponent(vaultId)}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
 
   const cacheStatus = parseCacheHeader(res);
@@ -103,7 +103,7 @@ export async function fetchPageDetail(
   signal?: AbortSignal,
 ): Promise<PageDetail> {
   const url = `${apiBase()}/pages/${encodeURIComponent(pageId)}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as PageDetail;
 }
@@ -131,7 +131,7 @@ export async function patchNodePosition(
   signal?: AbortSignal,
 ): Promise<void> {
   const url = `${apiBase()}/pages/${encodeURIComponent(pageId)}/position`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ x, y }),
@@ -163,7 +163,7 @@ export interface ReresolveLinksResult {
  */
 export async function reresolveLinks(signal?: AbortSignal): Promise<ReresolveLinksResult> {
   const url = `${apiBase()}/links/reresolve`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     ...(signal !== undefined ? { signal } : {}),
@@ -196,7 +196,7 @@ export interface RegenerateGraphResult {
  */
 export async function recomputeGraph(signal?: AbortSignal): Promise<RegenerateGraphResult> {
   const url = `${apiBase()}/graph/recompute`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     ...(signal !== undefined ? { signal } : {}),
@@ -238,7 +238,7 @@ export async function fetchCommunityDetail(
   signal?: AbortSignal,
 ): Promise<CommunityDetail> {
   const url = `${apiBase()}/graph/communities/${encodeURIComponent(communityId)}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as CommunityDetail;
 }
@@ -255,6 +255,8 @@ export interface EdgeBreakdown {
 export interface EdgeDetail {
   weight: number;
   breakdown: EdgeBreakdown;
+  /** ISO-8601 timestamp when the edge weight was last computed; null if not yet persisted. */
+  computed_at?: string | null;
 }
 
 /**
@@ -271,7 +273,7 @@ export async function fetchEdgeDetail(
   signal?: AbortSignal,
 ): Promise<EdgeDetail> {
   const url = `${apiBase()}/graph/edges/${encodeURIComponent(srcId)}/${encodeURIComponent(tgtId)}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as EdgeDetail;
 }

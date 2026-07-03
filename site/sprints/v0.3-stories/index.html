@@ -1,0 +1,1887 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.3-stories/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint 3 — v0.3 — User Stories + Acceptance Criteria - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-3-v03-user-stories-acceptance-criteria" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint 3 — v0.3 — User Stories + Acceptance Criteria
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-read-this-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to read this document
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0-pre-start-prerequisite-stories-nb-hardening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Pre-start prerequisite stories (NB hardening)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0. Pre-start prerequisite stories (NB hardening)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-nb5-docker-compose-ollama_url-fix-pre-start-blocker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-NB5 — Docker Compose OLLAMA_URL fix (pre-start blocker)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us-nb1-fallback-except-clause-widened-to-httpxhttpstatuserror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-NB1 — Fallback except clause widened to httpx.HTTPStatusError
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us-nb2-t-cq-009-i6-guard-scoped-to-import-lines-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-NB2 — T-CQ-009 I6 guard scoped to import lines only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us-nb4-cli-cost-logging-uses-sdk-reported-cost-when-api-key-is-present" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-NB4 — CLI cost logging uses SDK-reported cost when API key is present
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-f4-graphengine-4-signal-edge-weighting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. F4 — GraphEngine: 4-signal edge weighting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. F4 — GraphEngine: 4-signal edge weighting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-f4-engine-4-signal-weighted-graph-construction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-F4-ENGINE — 4-signal weighted graph construction
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-f4-graphengine-fa2-server-side-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. F4 — GraphEngine: FA2 server-side layout
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. F4 — GraphEngine: FA2 server-side layout">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-f4-layout-server-side-fa2-layout-via-igraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-F4-LAYOUT — Server-side FA2 layout via igraph
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-f4-graph-cache-dataversion-debounced-recompute" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. F4 — Graph Cache: dataVersion-debounced recompute
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. F4 — Graph Cache: dataVersion-debounced recompute">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-f4-cache-debounced-fa2-recompute-on-dataversion-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-F4-CACHE — Debounced FA2 recompute on dataVersion change
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-f4-get-graph-rest-endpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. F4 — GET /graph REST endpoint
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. F4 — GET /graph REST endpoint">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-f4-api-get-graph-returns-precomputed-graph-payload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-F4-API — GET /graph returns precomputed graph payload
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-f4-incremental-graph-update-g1-proof" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. F4 — Incremental graph update (G1 proof)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. F4 — Incremental graph update (G1 proof)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-f4-g1-incremental-coord-update-preserves-unaffected-pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-F4-G1 — Incremental coord update preserves unaffected pages
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-f4-frontend-sigmajs-webgl-viewer-thin-read-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. F4 Frontend — sigma.js WebGL viewer (thin, read-only)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. F4 Frontend — sigma.js WebGL viewer (thin, read-only)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-fe-viewer-sigmajs-viewer-renders-precomputed-graph-coordinates-in-webgl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-FE-VIEWER — Sigma.js viewer renders precomputed graph coordinates in WebGL
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-f4-frontend-node-click-tooltip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. F4 Frontend — Node click / tooltip
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. F4 Frontend — Node click / tooltip">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-fe-click-node-click-shows-page-title-in-read-only-tooltip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-FE-CLICK — Node click shows page title in read-only tooltip
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-i2-g2-no-main-thread-freeze-playwright-perf-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. I2 / G2 — No main-thread freeze (Playwright perf test)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. I2 / G2 — No main-thread freeze (Playwright perf test)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-g2-perf-graph-render-imposes-no-long-tasks-on-the-browser-main-thread" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-G2-PERF — Graph render imposes no long tasks on the browser main thread
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-i4-g4-200-node-webgl-render-at-60fps-with-bounded-dom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. I4 / G4 — 200-node WebGL render at ≥60fps with bounded DOM
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. I4 / G4 — 200-node WebGL render at ≥60fps with bounded DOM">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-g4-perf-large-graph-renders-at-60fps-in-sigmajs-webgl-with-minimal-dom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-G4-PERF — Large graph renders at 60fps in sigma.js WebGL with minimal DOM
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-i5-k7-obsidian-compatibility-maintained-after-v03-schema-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. I5 / K7 — Obsidian compatibility maintained after v0.3 schema changes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. I5 / K7 — Obsidian compatibility maintained after v0.3 schema changes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-obs-compat-graph-schema-changes-do-not-corrupt-the-obsidian-vault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-OBS-COMPAT — Graph schema changes do not corrupt the Obsidian vault
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-d3-graph-recompute-sequence-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. D3 — Graph recompute sequence diagram
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="11. D3 — Graph recompute sequence diagram">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-d3-v3-graph-recomputemmd-documents-the-full-cache-debounce-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-D3-V3 — graph-recompute.mmd documents the full cache + debounce flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-d5-playwright-screenshots-first-required-sprint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. D5 — Playwright screenshots (first required sprint)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="12. D5 — Playwright screenshots (first required sprint)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-d5-playwright-captures-sigma-viewer-screenshots-as-docsscreens-artifacts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-D5 — Playwright captures sigma viewer screenshots as docs/screens/ artifacts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-d1d2d4-continuous-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. D1/D2/D4 continuous updates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="13. D1/D2/D4 continuous updates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-docs-v3-d1d2d4-artifacts-updated-to-reflect-v03-schema-and-api-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-DOCS-V3 — D1/D2/D4 artifacts updated to reflect v0.3 schema and API changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-ambiguities-flagged-to-solution-architect-aq-register-for-v03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Ambiguities flagged to solution-architect (AQ register for v0.3)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-a-story-to-ec-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix A — Story-to-EC mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-3-v03-user-stories-acceptance-criteria">Sprint 3 — v0.3 — User Stories + Acceptance Criteria<a class="headerlink" href="#sprint-3-v03-user-stories-acceptance-criteria" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Milestone: M3 — "Graph live, no main-thread freeze"
+Authored by: functional-analyst
+Date: 2026-06-28
+Source of truth for AC IDs: BACKLOG.md §Sprint 3
+Exit criteria reference: docs/sprints/v0.3-scope.md §6 (EC-M3-1..17)
+Invariants with heightened priority: I2 (server-side cached layout — HEADLINE), I4 (WebGL + virtualization)
+All 9 invariants apply.</p>
+</blockquote>
+<hr />
+<h2 id="how-to-read-this-document">How to read this document<a class="headerlink" href="#how-to-read-this-document" title="Permanent link">&para;</a></h2>
+<p>Each user story block contains:
+- Story header: "As a [role], I want [capability], so that [outcome]."
+- Given/When/Then acceptance criteria, each mapped to a BACKLOG.md AC ID.
+- Invariants touched — priming engineers on which non-negotiables are exercised.
+- D-artifacts impacted.
+- Planned test target(s) — forward reference for qa-test-engineer.</p>
+<p>Binary pass/fail interpretation: every AC is either fully met or not met. No partial credit.
+Criteria phrasing such as "correct" or "valid" is resolved by the exact assertions listed
+in the Given/When/Then body.</p>
+<hr />
+<h2 id="0-pre-start-prerequisite-stories-nb-hardening">0. Pre-start prerequisite stories (NB hardening)<a class="headerlink" href="#0-pre-start-prerequisite-stories-nb-hardening" title="Permanent link">&para;</a></h2>
+<p>These stories are carried from M2 non-blocking follow-ups (NB-1, NB-2, NB-4, NB-5).
+They are hardening tasks and not new feature IDs. They must be complete before any F4
+backend feature PR is merged.</p>
+<hr />
+<h3 id="us-nb5-docker-compose-ollama_url-fix-pre-start-blocker">US-NB5 — Docker Compose OLLAMA_URL fix (pre-start blocker)<a class="headerlink" href="#us-nb5-docker-compose-ollama_url-fix-pre-start-blocker" title="Permanent link">&para;</a></h3>
+<p>As the devops-engineer, I want OLLAMA_URL to be wired through docker-compose.yml into the
+synapse-backend container, so that the Local provider (OllamaProvider) is reachable when a
+developer runs <code>make up</code> and v0.3 graph-ingest testing can proceed via Docker.</p>
+<p><strong>Invariants touched:</strong> I9 (reuse existing Ollama service — requires correct env wiring).</p>
+<p><strong>D-artifacts:</strong> none.</p>
+<p><strong>AC-NB5-1</strong>
+Given docker-compose.yml has been updated,
+when the backend service starts,
+then the backend container environment block includes the entry <code>OLLAMA_URL: ${OLLAMA_URL}</code>.
+Test target: <code>test_docker_env.py</code> or static YAML parse in <code>test_code_quality.py</code>.</p>
+<p><strong>AC-NB5-2</strong>
+Given .env.example has been updated,
+when a developer inspects it,
+then the file contains the line <code>OLLAMA_URL=http://localhost:11434</code> with a comment explaining
+the default.
+Test target: static file assertion in <code>test_docs.py</code> or <code>test_code_quality.py</code>.</p>
+<p><strong>AC-NB5-3</strong>
+Given NB5-1 and NB5-2 are satisfied and a Local provider_config row is present,
+when <code>make up</code> is running and POST /ingest/trigger is called with a valid file path,
+then the backend container successfully calls Ollama (confirmed by response or Docker log
+entry containing "OllamaProvider" and no ConnectionRefused error).
+Test target: <code>test_smoke_providers.py</code> (@pytest.mark.live) or manual smoke on dev machine.</p>
+<hr />
+<h3 id="us-nb1-fallback-except-clause-widened-to-httpxhttpstatuserror">US-NB1 — Fallback except clause widened to httpx.HTTPStatusError<a class="headerlink" href="#us-nb1-fallback-except-clause-widened-to-httpxhttpstatuserror" title="Permanent link">&para;</a></h3>
+<p>As the backend-engineer, I want the provider fallback in orchestrator.py to also catch
+<code>httpx.HTTPStatusError</code>, so that an HTTP 503 from the inference provider correctly triggers
+the single fallback retry instead of surfacing as an IngestError without engaging the
+fallback.</p>
+<p><strong>Invariants touched:</strong> I7 (bounded fallback — exactly one retry, then surface).</p>
+<p><strong>D-artifacts:</strong> none.</p>
+<p><strong>AC-NB1-1</strong>
+Given the primary provider raises <code>httpx.HTTPStatusError</code> (e.g., HTTP 503),
+when the orchestrator executes the fallback clause,
+then the fallback provider is invoked exactly once; if the fallback also raises any
+exception, the error is surfaced as IngestError with no further retry.
+Test target: <code>test_bounded_loop.py</code> — mock primary raises HTTPStatusError(503), mock fallback
+also raises, assert IngestError raised, assert primary called exactly 1 time and fallback
+exactly 1 time.</p>
+<p><strong>AC-NB1-2</strong>
+Given the primary raises <code>httpx.HTTPStatusError</code> and the fallback succeeds,
+when the orchestrator executes,
+then the ingest result contains pages_written &gt; 0 and converged = True with no exception.
+Test target: <code>test_bounded_loop.py</code> — mock primary raises HTTPStatusError, mock fallback
+returns valid WikiPage list.</p>
+<hr />
+<h3 id="us-nb2-t-cq-009-i6-guard-scoped-to-import-lines-only">US-NB2 — T-CQ-009 I6 guard scoped to import lines only<a class="headerlink" href="#us-nb2-t-cq-009-i6-guard-scoped-to-import-lines-only" title="Permanent link">&para;</a></h3>
+<p>As the backend-engineer, I want the T-CQ-009 static guard to check only <code>^from</code> and
+<code>^import</code> lines (not entire file text), so that the word "InferenceProvider" may appear in
+docstrings and comments outside provider/ without triggering a false positive.</p>
+<p><strong>Invariants touched:</strong> I6 (the guard enforces I6 — must not weaken its detection power).</p>
+<p><strong>D-artifacts:</strong> none.</p>
+<p><strong>AC-NB2-1</strong>
+Given T-CQ-009 has been updated,
+when the file <code>backend/app/main.py</code> contains the word "InferenceProvider" in a docstring
+or comment (not an import),
+then T-CQ-009 passes without error.
+Test target: <code>test_code_quality.py</code> — inject a docstring containing "InferenceProvider" in
+a fixture module outside provider/; assert T-CQ-009 does not flag it.</p>
+<p><strong>AC-NB2-2</strong>
+Given T-CQ-009 has been updated,
+when any file outside <code>backend/app/ingest/provider/</code> contains a line matching
+<code>^from.*InferenceProvider</code> or <code>^import.*InferenceProvider</code>,
+then T-CQ-009 fails (negative test).
+Test target: <code>test_code_quality.py</code> — add a temporary fixture file with a forbidden import
+line; assert T-CQ-009 raises AssertionError on it.</p>
+<hr />
+<h3 id="us-nb4-cli-cost-logging-uses-sdk-reported-cost-when-api-key-is-present">US-NB4 — CLI cost logging uses SDK-reported cost when API key is present<a class="headerlink" href="#us-nb4-cli-cost-logging-uses-sdk-reported-cost-when-api-key-is-present" title="Permanent link">&para;</a></h3>
+<p>As the ai-agent-engineer, I want CliAgentProvider to use the SDK-reported <code>total_cost_usd</code>
+from ClaudeCodeOutput metadata when a real Anthropic API key is configured, so that the
+ingest_runs table reflects accurate cost for runtime CLI provider usage while preserving the
+$0.00 convention for build-time / no-key usage.</p>
+<p><strong>Invariants touched:</strong> I7 (cost accuracy for I7 cost-logging requirement).</p>
+<p><strong>D-artifacts:</strong> none.</p>
+<p><strong>AC-NB4-1</strong>
+Given SDK output metadata contains a cost field with a positive float value,
+when CliAgentProvider writes the ingest_runs row,
+then <code>ingest_runs.total_cost_usd</code> equals the SDK-reported value (not 0.00).
+Test target: <code>test_bounded_loop.py</code> or new <code>test_cli_cost.py</code> — mock SDK output with
+<code>total_cost_usd = 0.0342</code>; assert DB row has <code>total_cost_usd == Decimal("0.0342")</code>.</p>
+<p><strong>AC-NB4-2</strong>
+Given SDK output metadata is absent or cost equals 0 (build-time / no API key path),
+when CliAgentProvider writes the ingest_runs row,
+then <code>ingest_runs.total_cost_usd == Decimal("0.00")</code> and a WARNING log entry is emitted
+containing the text "total_cost_usd".
+Test target: <code>test_bounded_loop.py</code> or <code>test_cli_cost.py</code> — mock SDK output with no cost
+metadata; assert DB row has 0.00 and caplog contains WARNING with "total_cost_usd".</p>
+<p><strong>AC-NB4-3</strong>
+Given SDK output metadata contains cost = 0 exactly (not absent, but explicitly zero),
+when CliAgentProvider writes the ingest_runs row,
+then <code>ingest_runs.total_cost_usd == Decimal("0.00")</code> and the WARNING is emitted (same path
+as AC-NB4-2, the guard checks for absence OR zero).
+Test target: <code>test_cli_cost.py</code> — mock SDK output with <code>total_cost_usd = 0.0</code>; assert row
+has 0.00 and WARNING emitted.</p>
+<hr />
+<h2 id="1-f4-graphengine-4-signal-edge-weighting">1. F4 — GraphEngine: 4-signal edge weighting<a class="headerlink" href="#1-f4-graphengine-4-signal-edge-weighting" title="Permanent link">&para;</a></h2>
+<h3 id="us-f4-engine-4-signal-weighted-graph-construction">US-F4-ENGINE — 4-signal weighted graph construction<a class="headerlink" href="#us-f4-engine-4-signal-weighted-graph-construction" title="Permanent link">&para;</a></h3>
+<p>As the GraphEngine (backend/app/graph/engine.py), I want to compute edge weights between
+wiki pages using four independent, additive signals — direct-link (×3), source-overlap (×4),
+Adamic-Adar (×1.5), and type-affinity (×1) — so that the knowledge graph reflects the
+strength of relationships between pages in a principled, auditable way.</p>
+<p><strong>Invariants touched:</strong> I1 (graph is built from Postgres tables, no vault/ filesystem rescan),
+I9 (igraph is the specified library — R9).</p>
+<p><strong>D-artifacts:</strong> D2 (edges table added to schema), D3 (graph-recompute sequence touches
+engine).</p>
+<p><strong>Fixture specification for weight testing (QA must implement):</strong></p>
+<p>Use a 5-node fixture graph loaded directly into the pages and links tables. Nodes:</p>
+<table>
+<thead>
+<tr>
+<th>page_id</th>
+<th>title</th>
+<th>type</th>
+<th>sources[]</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P1</td>
+<td>"Alpha"</td>
+<td>entity</td>
+<td>["doc_a.md"]</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>"Beta"</td>
+<td>entity</td>
+<td>["doc_a.md"]</td>
+</tr>
+<tr>
+<td>P3</td>
+<td>"Gamma"</td>
+<td>concept</td>
+<td>["doc_b.md"]</td>
+</tr>
+<tr>
+<td>P4</td>
+<td>"Delta"</td>
+<td>entity</td>
+<td>["doc_a.md", "doc_b.md"]</td>
+</tr>
+<tr>
+<td>P5</td>
+<td>"Epsilon"</td>
+<td>concept</td>
+<td>["doc_c.md"]</td>
+</tr>
+</tbody>
+</table>
+<p>Links (wikilinks — rows in the links table):</p>
+<table>
+<thead>
+<tr>
+<th>source_page_id</th>
+<th>target_title</th>
+<th>dangling</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P1</td>
+<td>"Beta"</td>
+<td>False</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>"Alpha"</td>
+<td>False</td>
+</tr>
+<tr>
+<td>P3</td>
+<td>"Delta"</td>
+<td>False</td>
+</tr>
+<tr>
+<td>P4</td>
+<td>"Alpha"</td>
+<td>False</td>
+</tr>
+</tbody>
+</table>
+<p>Expected edge weights (additive — all applicable signals sum per edge):</p>
+<ul>
+<li>Edge P1-P2 (bidirectional links + shared source "doc_a.md" + same type "entity"):</li>
+<li>direct-link: P1→P2 exists (×3) + P2→P1 exists (×3) = 6</li>
+<li>source-overlap: both have "doc_a.md" (×4) = 4</li>
+<li>Adamic-Adar: common neighbours via links table — P4 links to P1, P3 links to P4 which
+    links to... (computed by igraph AA on the directed/undirected adjacency; exact value
+    depends on igraph implementation — see AQ-v0.3-2 below)</li>
+<li>type-affinity: both "entity" (×1) = 1</li>
+<li>Minimum expected weight (without AA contribution, AA adds &gt;= 0): 6 + 4 + 1 = 11 + AA</li>
+</ul>
+<p>The QA test must verify each signal's contribution INDEPENDENTLY by constructing edge pairs
+that isolate each signal. Specifically:</p>
+<ul>
+<li>Edge P3-P5 (no link, no shared source, different type): no contribution from any signal.
+  Expected weight = 0 (this edge should NOT appear in the edges table).</li>
+<li>Edge P1-P4 (P4→P1 link only, shared source "doc_a.md", same type "entity"):</li>
+<li>direct-link: P4→P1 exists (×3) = 3</li>
+<li>source-overlap: both have "doc_a.md" (×4) = 4</li>
+<li>type-affinity: both "entity" (×1) = 1</li>
+<li>Expected minimum weight: 8 + AA (AA from any shared neighbours)</li>
+<li>Edge P2-P4 (no direct link, shared source "doc_a.md", same type "entity"):</li>
+<li>direct-link: 0</li>
+<li>source-overlap: both have "doc_a.md" (×4) = 4</li>
+<li>type-affinity: both "entity" (×1) = 1</li>
+<li>Expected minimum weight: 5 (AA may add further)</li>
+</ul>
+<p>DESIGN QUESTION for architect (AQ-v0.3-1): Are the 4 signals always SUMMED per edge
+(additive model), or is any signal multiplicative / capped? The AC text above assumes
+additive. If the architect changes this to a different combining formula, the QA fixture
+expected values must be recomputed. Functional analyst flags this as AQ-v0.3-1.</p>
+<p><strong>AC-F4-1</strong>
+Given a fixture graph with 5 nodes and the links/sources/types described in the fixture
+specification above has been loaded into the test database,
+when GraphEngine.build_weights() is called,
+then:
+(a) The edges table contains a row for P1-P2 with weight &gt;= 11 (direct + source + type
+    minimum contribution, before AA).
+(b) The edges table contains a row for P1-P4 with weight &gt;= 8.
+(c) The edges table contains a row for P2-P4 with weight &gt;= 5.
+(d) The edges table does NOT contain a row for P3-P5 (or if it does, weight == 0).
+(e) Each signal's contribution to at least one edge is independently verifiable via a
+    pytest parametrize fixture that zeroes out all other signals and asserts non-zero
+    contribution of the target signal.
+Test target: <code>test_graph_engine.py</code> (new) — unit test with SQLite in-memory + fixture inserts.
+EC reference: EC-M3-1.</p>
+<hr />
+<h2 id="2-f4-graphengine-fa2-server-side-layout">2. F4 — GraphEngine: FA2 server-side layout<a class="headerlink" href="#2-f4-graphengine-fa2-server-side-layout" title="Permanent link">&para;</a></h2>
+<h3 id="us-f4-layout-server-side-fa2-layout-via-igraph">US-F4-LAYOUT — Server-side FA2 layout via igraph<a class="headerlink" href="#us-f4-layout-server-side-fa2-layout-via-igraph" title="Permanent link">&para;</a></h3>
+<p>As the GraphEngine, I want to run the ForceAtlas2 layout algorithm using python-igraph on
+the server, writing x and y float coordinates for every page to Postgres, so that the
+client can render the graph from precomputed positions without ever executing a layout
+algorithm in the browser (satisfying invariant I2 completely).</p>
+<p><strong>Invariants touched:</strong> I2 (FA2 runs server-side, coords in Postgres, NEVER in browser),
+I1 (coord update is incremental — only affected page rows updated), I9 (igraph R9 is the
+specified tool, not graph-tool, not d3-force).</p>
+<p><strong>D-artifacts:</strong> D2 (pages table gains x, y float columns; edges table is new — must appear
+in schema.mmd after <code>make er</code>), D3 (graph-recompute.mmd shows FA2 call).</p>
+<p><strong>AC-F4-2</strong>
+Given GraphEngine.recompute() has been called on a seeded test graph,
+when the Postgres pages table is queried,
+then every page that was in the igraph Graph object has a non-NULL x (float) and y (float)
+value in the pages table; no page has both x IS NULL and y IS NULL after a successful
+recompute.
+Test target: <code>test_graph_engine.py</code> — call engine.recompute() with 5-node fixture; assert
+all 5 pages have non-NULL x/y via SQLAlchemy query.
+EC reference: EC-M3-2.</p>
+<p><strong>AC-F4-2b</strong> (I2 no-client-layout static check)
+Given the frontend bundle has been built via <code>make build</code>,
+when the bundle output files (dist/) are scanned for forbidden strings,
+then NO file in the bundle contains any of the following substrings:
+<code>graphology-layout-forceatlas2</code>, <code>ForceAtlas2</code>, <code>d3-force</code>, <code>forceSimulation</code>,
+<code>requestAnimationFrame</code> when followed within 100 characters by <code>layout</code> or <code>force</code>.
+Test target: <code>test_graph_engine.py</code> or <code>frontend/tests/bundle-check.test.ts</code> — grep/scan the
+Vite build output directory.
+EC reference: EC-M3-5 (G2 static bundle check).</p>
+<p><strong>AC-F4-2c</strong> (igraph version pin and no alternative library)
+Given the backend requirements are installed,
+when the module <code>backend/app/graph/engine.py</code> is imported,
+then the import succeeds using <code>igraph</code> (python-igraph); the module does NOT import
+<code>graph_tool</code>, <code>networkx</code>, <code>vis</code>, <code>cytoscape</code>, or <code>d3</code>.
+Test target: <code>test_graph_engine.py</code> — assert <code>import igraph</code> succeeds; assert that
+<code>engine.py</code> source text does not contain the string "import graph_tool" or "import networkx"
+(static check).
+EC reference: EC-M3-2, I9.</p>
+<p><strong>DESIGN QUESTION for architect (AQ-v0.3-2):</strong> FA2 in igraph requires a seed for
+deterministic coordinate output. Should the engine always seed FA2 with a fixed integer
+(e.g., <code>seed=42</code>) so that two calls with identical graph topology produce identical
+coordinates (enabling byte-stable regression tests)? Or is non-determinism acceptable
+(test only checks non-NULL, not specific values)? Functional analyst flags this as
+AQ-v0.3-2. Impact: if seed is fixed, add <code>seed=42</code> parameter to igraph FA2 call and
+add a determinism assertion to the test. If non-deterministic, remove the determinism
+test and accept only non-NULL + range checks.</p>
+<hr />
+<h2 id="3-f4-graph-cache-dataversion-debounced-recompute">3. F4 — Graph Cache: dataVersion-debounced recompute<a class="headerlink" href="#3-f4-graph-cache-dataversion-debounced-recompute" title="Permanent link">&para;</a></h2>
+<h3 id="us-f4-cache-debounced-fa2-recompute-on-dataversion-change">US-F4-CACHE — Debounced FA2 recompute on dataVersion change<a class="headerlink" href="#us-f4-cache-debounced-fa2-recompute-on-dataversion-change" title="Permanent link">&para;</a></h3>
+<p>As the GraphCache (backend/app/graph/cache.py), I want to monitor vault_state.data_version
+and trigger exactly one FA2 recompute after a configurable debounce window when the version
+changes, collapsing bursts of rapid ingests into a single recompute run, so that the graph
+coordinates remain accurate without wasting compute on intermediate states and without any
+unbounded job queue (satisfying I2's "debounced on dataVersion" clause and I7's bounded-job
+requirement).</p>
+<p><strong>Invariants touched:</strong> I2 (cached + debounced), I7 (bounded queue — max 1 queued job),
+I1 (recompute reads DB tables, not filesystem).</p>
+<p><strong>D-artifacts:</strong> D3 (graph-recompute.mmd shows debounce collapse and cache-hit/miss paths).</p>
+<p><strong>AC-F16db-1</strong>
+Given vault_state.data_version is at version N,
+when data_version is updated to N+1 (simulated by direct DB write in test),
+then GraphCache detects the change (via polling or event) and, after the debounce window
+elapses, exactly one call to GraphEngine.recompute() is recorded.
+Test target: <code>test_graph_cache.py</code> (new) — mock GraphEngine.recompute(); mock clock; bump
+data_version once; advance clock past debounce window; assert recompute called exactly 1 time.
+EC reference: EC-M3-3.</p>
+<p><strong>AC-F16db-2</strong>
+Given GraphCache is monitoring data_version,
+when data_version is bumped 5 times in rapid succession within a single debounce window,
+then exactly 1 call to GraphEngine.recompute() is made (not 5), verified by a mock call
+counter.
+Test target: <code>test_graph_cache.py</code> — mock clock; bump version 5 times within debounce
+window; advance clock past window end; assert recompute called == 1.
+EC reference: EC-M3-3, I2 (debounce).</p>
+<p><strong>AC-F16db-3</strong>
+Given GraphEngine.recompute() is currently in-flight (simulated by a blocking mock),
+when data_version is bumped again during the in-flight recompute,
+then the in-flight recompute is NOT interrupted; after it completes, exactly 1 additional
+recompute is triggered (the deferred bump). Total calls: 2 (first + one deferred), not N.
+Test target: <code>test_graph_cache.py</code> — use asyncio or threading mock; assert the in-flight
+recompute completes before the second starts; assert exactly 2 total calls on the mock.
+EC reference: I7 (bounded queue), I2.</p>
+<p><strong>AC-F16db-4</strong>
+Given GraphCache is running,
+when GET /status is called,
+then the response JSON includes <code>data_version</code> equal to the current vault_state.data_version
+value (no regression from v0.1 AC-F16dv-3).
+Test target: <code>test_api.py</code> — extend existing T-API-004 to assert data_version still present
+after v0.3 changes.
+EC reference: v0.1 regression gate.</p>
+<hr />
+<h2 id="4-f4-get-graph-rest-endpoint">4. F4 — GET /graph REST endpoint<a class="headerlink" href="#4-f4-get-graph-rest-endpoint" title="Permanent link">&para;</a></h2>
+<h3 id="us-f4-api-get-graph-returns-precomputed-graph-payload">US-F4-API — GET /graph returns precomputed graph payload<a class="headerlink" href="#us-f4-api-get-graph-returns-precomputed-graph-payload" title="Permanent link">&para;</a></h3>
+<p>As the vault owner (Emanuele) querying the Synapse REST API, I want GET /graph to return
+a typed JSON payload containing precomputed node coordinates, weighted edges, the current
+data_version, and a cache-hit indicator, so that the frontend can render the graph
+immediately from server-computed data without triggering any layout computation.</p>
+<p><strong>Invariants touched:</strong> I2 (endpoint serves precomputed coords, emits cache header),
+I8 (D4 OpenAPI must document this endpoint and its response schema).</p>
+<p><strong>D-artifacts:</strong> D4 (openapi.json updated with GET /graph response schema).</p>
+<p><strong>Response schema (to be locked by architect — AQ-v0.3-3):</strong>
+The GET /graph response must conform to:
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;nodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;uuid&gt;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;string&gt;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;string&gt;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;x&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">&lt;</span><span class="kc">fl</span><span class="err">oa</span><span class="kc">t</span><span class="err">&gt;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;y&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">&lt;</span><span class="kc">fl</span><span class="err">oa</span><span class="kc">t</span><span class="err">&gt;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;edges&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;uuid&gt;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;uuid&gt;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;weight&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">&lt;</span><span class="kc">fl</span><span class="err">oa</span><span class="kc">t</span><span class="err">&gt;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;data_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">&lt;i</span><span class="kc">nt</span><span class="err">&gt;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;cached&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">&lt;bool&gt;</span>
+<span class="p">}</span>
+</code></pre></div>
+The <code>X-Graph-Cache</code> response header is set to <code>"hit"</code> when the response is served from
+cached coordinates (no FA2 recompute triggered) and <code>"miss"</code> when FA2 was triggered.</p>
+<p>DESIGN QUESTION for architect (AQ-v0.3-3): Should GET /graph block until FA2 is complete
+(synchronous), or return HTTP 202 with a job_id when FA2 is not yet done and coords are
+stale? Impact on test strategy is significant: if synchronous, test can assert full payload;
+if async, test must poll. Functional analyst recommends synchronous for v0.3 simplicity
+(graph is fast on igraph for the expected vault sizes), but flags this as AQ-v0.3-3 for
+architect decision before engineering begins.</p>
+<p><strong>AC-F4-3</strong>
+Given a seeded graph with at least 3 nodes and 2 edges in Postgres with x/y coords set,
+when GET /graph is called,
+then:
+(a) HTTP 200 is returned.
+(b) Response body is valid JSON with keys: <code>nodes</code>, <code>edges</code>, <code>data_version</code>, <code>cached</code>.
+(c) <code>nodes</code> is a non-empty array; each node object has keys: <code>id</code>, <code>title</code>, <code>type</code>, <code>x</code>, <code>y</code>
+    with correct types (string, string, string, float, float).
+(d) <code>edges</code> is a non-empty array; each edge object has keys: <code>source</code>, <code>target</code>, <code>weight</code>
+    with correct types (string, string, float).
+(e) <code>data_version</code> is an integer &gt;= 1.
+(f) <code>cached</code> is a boolean.
+Test target: <code>test_api.py</code> (extend) + <code>test_graph_api.py</code> (new) — ASGI integration test
+with pre-seeded pages/edges rows.
+EC reference: EC-M3-4.</p>
+<p><strong>AC-F4-4</strong>
+Given GET /graph has been called once (cache-miss, FA2 run logged),
+when GET /graph is called a second time without any data_version change,
+then:
+(a) Response <code>cached</code> field is <code>true</code>.
+(b) <code>X-Graph-Cache</code> response header equals <code>"hit"</code>.
+(c) Backend logs do NOT contain a second FA2 invocation (verified by asserting the mock
+    GraphEngine.recompute() call count remains 1 after the second GET /graph call).
+Test target: <code>test_graph_api.py</code> — use mock GraphEngine; call GET /graph twice; assert
+recompute called exactly once; assert second response has cached=True and header X-Graph-Cache=hit.
+EC reference: EC-M3-3 (cache-hit verification).</p>
+<p><strong>AC-D4v3-1</strong>
+Given GET /graph has been added to FastAPI and <code>make openapi</code> has been run,
+when docs/api/openapi.json is inspected,
+then the file contains a path entry for <code>/graph</code> with a GET operation that documents:
+- 200 response schema matching the structure above (nodes array, edges array,
+  data_version int, cached bool).
+- All node fields (id, title, type, x, y) typed in the schema.
+- All edge fields (source, target, weight) typed in the schema.
+Test target: <code>test_docs.py</code> (extend) — assert openapi.json contains <code>/graph</code> path with
+correct response schema; run via pytest or CI <code>make openapi</code> + parse check.
+EC reference: EC-M3-4, EC-M3-12, I8.</p>
+<hr />
+<h2 id="5-f4-incremental-graph-update-g1-proof">5. F4 — Incremental graph update (G1 proof)<a class="headerlink" href="#5-f4-incremental-graph-update-g1-proof" title="Permanent link">&para;</a></h2>
+<h3 id="us-f4-g1-incremental-coord-update-preserves-unaffected-pages">US-F4-G1 — Incremental coord update preserves unaffected pages<a class="headerlink" href="#us-f4-g1-incremental-coord-update-preserves-unaffected-pages" title="Permanent link">&para;</a></h3>
+<p>As the GraphEngine, I want to update only the page coordinate rows affected by a new ingest
+event, so that ingesting one file does not rewrite the entire pages table and the I1
+incremental-index invariant is preserved for graph coordinates.</p>
+<p><strong>Invariants touched:</strong> I1 (incremental only — no full table rewrite on a single ingest).</p>
+<p><strong>D-artifacts:</strong> none directly, but the graph-recompute.mmd (D3) should annotate that
+recompute writes coords to Postgres for all nodes in the igraph graph (which itself is
+built from DB rows). The "incremental" guarantee at the coord level means coord rows are
+not unnecessarily zeroed or rewritten for nodes unrelated to the triggering ingest.</p>
+<p>DESIGN CLARIFICATION (for architect — AQ-v0.3-4): The graph recompute is a full FA2 run
+over all current pages (the igraph graph includes all non-deleted pages). Coords for ALL
+nodes are therefore rewritten on every recompute. The "incremental" guarantee of I1 at the
+graph level means: (a) the recompute is DEBOUNCED (not triggered per-file-change), and
+(b) new page rows for newly-ingested files are added incrementally without deleting and
+recreating unrelated rows. The coord UPDATE (via FA2) touches all rows because FA2 is a
+global layout, but it does so only once per debounce window — not per ingest event.
+Functional analyst recommends the test assert that: after ingesting one new file, only one
+new pages row is added (the new file's page); no other pages rows are deleted or recreated.
+The coord columns (x, y) of existing pages may change after the debounced FA2 recompute —
+this is acceptable because FA2 is a global layout algorithm. Please confirm this
+interpretation via AQ-v0.3-4 before QA writes the test.</p>
+<p><strong>AC-F4-9</strong>
+Given a vault with N pre-existing pages all having non-NULL x/y coordinates in Postgres,
+when one new file is ingested via the watcher (adding one new page row),
+then:
+(a) Exactly one new row is added to the pages table (the new page); no existing page rows
+    are deleted or have their id, title, type, sources changed.
+(b) The new page row exists in the pages table with the correct file_path and title.
+(c) The Postgres pages table row count increases by exactly 1.
+Test target: <code>test_incremental_graph_update.py</code> (new) — seed N pages with x/y; trigger one
+ingest; assert table count N+1; assert all N pre-existing page ids still present with
+unchanged id/title/type.
+EC reference: EC-M3-8, G1.</p>
+<hr />
+<h2 id="6-f4-frontend-sigmajs-webgl-viewer-thin-read-only">6. F4 Frontend — sigma.js WebGL viewer (thin, read-only)<a class="headerlink" href="#6-f4-frontend-sigmajs-webgl-viewer-thin-read-only" title="Permanent link">&para;</a></h2>
+<h3 id="us-fe-viewer-sigmajs-viewer-renders-precomputed-graph-coordinates-in-webgl">US-FE-VIEWER — Sigma.js viewer renders precomputed graph coordinates in WebGL<a class="headerlink" href="#us-fe-viewer-sigmajs-viewer-renders-precomputed-graph-coordinates-in-webgl" title="Permanent link">&para;</a></h3>
+<p>As the vault owner (Emanuele) opening the graph viewer in a browser, I want to see all
+wiki pages rendered as nodes and all weighted links as edges in a WebGL canvas, with
+positions pre-calculated server-side, so that the browser never freezes on a layout
+computation and the graph is immediately visible without waiting for an in-browser physics
+simulation (satisfying I2 and I4 completely from the client side).</p>
+<p><strong>Invariants touched:</strong> I2 (client NEVER calls layout — receives precomputed coords only),
+I3 (Zustand selectors + shallow equality pre-wired — no whole-store subscription),
+I4 (sigma.js renders all nodes in one WebGL canvas element, not one DOM node per node).</p>
+<p><strong>D-artifacts:</strong> D5 (Playwright screenshots of the viewer — first required sprint).</p>
+<p><strong>AC-FE-1</strong>
+Given <code>make dev</code> has been run (Vite dev server started) and a seeded graph is available
+from GET /graph,
+when the viewer URL (/ or /graph) is loaded in a headless Playwright browser,
+then:
+(a) The page returns HTTP 200.
+(b) No console errors appear within 5 seconds of page load.
+(c) A <code>&lt;canvas&gt;</code> element is present in the DOM (sigma.js WebGL canvas).
+Test target: <code>frontend/tests/graph-viewer.spec.ts</code> (Playwright) — assert page loads,
+no console errors, canvas present.
+EC reference: EC-M3-7.</p>
+<p><strong>AC-FE-2</strong>
+Given the frontend bundle has been built via <code>make build</code>,
+when the contents of the dist/ directory are scanned,
+then NO file contains any of the following import strings or function calls:
+<code>graphology-layout-forceatlas2</code>, <code>@antv/layout</code>, <code>d3-force</code>, <code>forceSimulation</code>,
+<code>fa2Worker</code>, <code>randomLayout</code>, <code>circularLayout</code> called within a layout context.
+Test target: <code>frontend/tests/bundle-check.test.ts</code> (vitest) — read all .js files in dist/
+and assert none of the forbidden strings are present.
+EC reference: EC-M3-5 (I2 static bundle check, G2).</p>
+<p><strong>AC-FE-3</strong>
+Given the sigma viewer is loaded and the Zustand store for graph data is initialized,
+when the graph state is inspected via Playwright,
+then:
+(a) The Zustand store is created with a selector pattern (no whole-store <code>useStore()</code>
+    subscription without a selector function) — verified by vitest unit test on the store.
+(b) <code>Object.is</code> shallow equality is used as the equality function (not deep equality or
+    no-equality), verified by store unit test asserting that a re-render is NOT triggered
+    when an unrelated slice of state changes.
+Test target: <code>frontend/tests/graph-store.test.ts</code> (vitest) — unit test on the Zustand store.
+EC reference: I3 pre-compliance for v0.4 chat integration.</p>
+<p><strong>AC-FE-4</strong>
+Given the frontend TypeScript source is being checked,
+when <code>tsc --noEmit</code> and <code>eslint .</code> and <code>prettier --check .</code> are run on the frontend/src/
+directory,
+then all three tools exit with code 0 (no type errors, no lint errors, no formatting
+violations).
+Test target: CI <code>make lint-frontend</code> step or <code>frontend/tests/</code> vitest wrapper that calls
+these tools.
+EC reference: EC-M3-13 (QA gate — TypeScript strict + eslint + prettier).</p>
+<p><strong>AC-FE-5</strong>
+Given a mock GET /graph response is provided to the store in a vitest test environment,
+when the data transformation function (API response → graphology Graph object) is called,
+then:
+(a) Each node in the response is added to the graphology graph with id, x, y, label, type
+    properties.
+(b) Each edge in the response is added to the graphology graph with source, target, weight.
+(c) Node count in the graphology graph equals the node count in the mock response.
+(d) Edge count in the graphology graph equals the edge count in the mock response.
+Test target: <code>frontend/tests/graph-transform.test.ts</code> (vitest) — pure function unit test.
+EC reference: EC-M3-5, AC-FE-5 in BACKLOG.md.</p>
+<hr />
+<h2 id="7-f4-frontend-node-click-tooltip">7. F4 Frontend — Node click / tooltip<a class="headerlink" href="#7-f4-frontend-node-click-tooltip" title="Permanent link">&para;</a></h2>
+<h3 id="us-fe-click-node-click-shows-page-title-in-read-only-tooltip">US-FE-CLICK — Node click shows page title in read-only tooltip<a class="headerlink" href="#us-fe-click-node-click-shows-page-title-in-read-only-tooltip" title="Permanent link">&para;</a></h3>
+<p>As the vault owner, I want to click a graph node and see the corresponding wiki page's title
+and type displayed in a read-only tooltip or side drawer, so that I can identify what each
+node represents without leaving the graph view.</p>
+<p><strong>Invariants touched:</strong> I2 (node click triggers GET /pages/{id} fetch — not a re-layout),
+I4 (no editor surface introduced).</p>
+<p><strong>D-artifacts:</strong> D5 (graph-viewer-node-click.png if tooltip is implemented; optional per
+BACKLOG §D5 scope).</p>
+<p><strong>AC-F4-8</strong>
+Given the sigma viewer is loaded with a seeded graph and at least one node is visible,
+when a node is clicked (Playwright <code>page.locator('canvas').click({...})</code> or a simulated
+sigma click event),
+then:
+(a) A tooltip or side drawer element becomes visible in the DOM.
+(b) The tooltip/drawer contains the page title text matching the clicked node's title.
+(c) No edit controls (CodeMirror editor, textarea, contenteditable) are present in the tooltip.
+(d) No chat UI elements (chat input, message history) are present in the viewer page.
+Test target: <code>frontend/tests/graph-viewer.spec.ts</code> (Playwright) — click node; assert tooltip
+visible; assert title text present; assert no editor/chat elements.
+EC reference: EC-M3-7.</p>
+<hr />
+<h2 id="8-i2-g2-no-main-thread-freeze-playwright-perf-test">8. I2 / G2 — No main-thread freeze (Playwright perf test)<a class="headerlink" href="#8-i2-g2-no-main-thread-freeze-playwright-perf-test" title="Permanent link">&para;</a></h2>
+<h3 id="us-g2-perf-graph-render-imposes-no-long-tasks-on-the-browser-main-thread">US-G2-PERF — Graph render imposes no long tasks on the browser main thread<a class="headerlink" href="#us-g2-perf-graph-render-imposes-no-long-tasks-on-the-browser-main-thread" title="Permanent link">&para;</a></h3>
+<p>As the vault owner opening the graph viewer, I want graph rendering to produce no JavaScript
+long tasks exceeding 50ms on the main thread, so that the browser remains responsive and the
+bottleneck #2 from llm_wiki is demonstrably fixed.</p>
+<p><strong>Invariants touched:</strong> I2 (the invariant's raison d'etre — no client-side layout = no main
+thread freeze), I4 (WebGL rendering is off-main-thread for draw calls).</p>
+<p><strong>D-artifacts:</strong> D5 (G2 Playwright test is co-located in the screenshot E2E suite).</p>
+<p><strong>AC-F4-6</strong>
+Given the sigma viewer is loaded in Playwright with a 50-node / 100-edge fixture graph
+(sufficient to trigger any layout loop if one existed),
+when Playwright performance tracing is active during page load and initial graph render,
+then NO JavaScript long task exceeding 50ms duration is recorded on the main thread during
+the period between page navigation start and the sigma canvas first-paint event.
+(Implementation note: use <code>page.on('metrics', ...)</code> or Chrome Performance API via
+<code>page.evaluate</code> to collect long tasks; assert array of long tasks with duration &gt; 50 is
+empty.)
+Test target: <code>frontend/tests/perf.spec.ts</code> (Playwright) — co-located with screenshot suite.
+EC reference: EC-M3-5 (G2).</p>
+<hr />
+<h2 id="9-i4-g4-200-node-webgl-render-at-60fps-with-bounded-dom">9. I4 / G4 — 200-node WebGL render at ≥60fps with bounded DOM<a class="headerlink" href="#9-i4-g4-200-node-webgl-render-at-60fps-with-bounded-dom" title="Permanent link">&para;</a></h2>
+<h3 id="us-g4-perf-large-graph-renders-at-60fps-in-sigmajs-webgl-with-minimal-dom">US-G4-PERF — Large graph renders at 60fps in sigma.js WebGL with minimal DOM<a class="headerlink" href="#us-g4-perf-large-graph-renders-at-60fps-in-sigmajs-webgl-with-minimal-dom" title="Permanent link">&para;</a></h3>
+<p>As the vault owner viewing a large knowledge graph, I want the sigma.js renderer to sustain
+60fps (mean frame time ≤16ms) for a graph of 200 nodes and 500 edges, and to use a single
+WebGL canvas element rather than one DOM node per graph node, so that the UI remains fluid
+regardless of vault size.</p>
+<p><strong>Invariants touched:</strong> I4 (sigma WebGL renders in a single canvas — bounded DOM growth),
+I2 (all positions are precomputed — no layout computation during rendering).</p>
+<p><strong>D-artifacts:</strong> D5 (G4 Playwright test co-located in perf.spec.ts).</p>
+<p><strong>AC-F4-7</strong>
+Given a fixture graph of exactly 200 nodes and 500 edges has been seeded in Postgres with
+pre-set x/y coordinates (QA-generated synthetic fixture, no FA2 required for this test),
+when the sigma viewer is loaded in Playwright and the canvas is visible,
+then:
+(a) <code>page.evaluate(() =&gt; document.querySelectorAll('[data-graph-node]').length)</code> returns 0
+    OR the DOM node count within the sigma graph container element is &lt; 20 (all nodes are
+    WebGL-drawn, not DOM-represented).
+(b) Over 60 consecutive animation frames (measured via <code>requestAnimationFrame</code> in the page
+    context), the mean frame time is ≤16ms and no single frame time exceeds 33ms (2x budget).
+Test target: <code>frontend/tests/perf.spec.ts</code> (Playwright) — <code>page.evaluate</code> for DOM count
+and rAF timing loop.
+EC reference: EC-M3-6 (G4).</p>
+<hr />
+<h2 id="10-i5-k7-obsidian-compatibility-maintained-after-v03-schema-changes">10. I5 / K7 — Obsidian compatibility maintained after v0.3 schema changes<a class="headerlink" href="#10-i5-k7-obsidian-compatibility-maintained-after-v03-schema-changes" title="Permanent link">&para;</a></h2>
+<h3 id="us-obs-compat-graph-schema-changes-do-not-corrupt-the-obsidian-vault">US-OBS-COMPAT — Graph schema changes do not corrupt the Obsidian vault<a class="headerlink" href="#us-obs-compat-graph-schema-changes-do-not-corrupt-the-obsidian-vault" title="Permanent link">&para;</a></h3>
+<p>As the vault owner, I want the graph engine's changes to Postgres (adding x, y columns and
+the edges table) to have zero impact on the vault/ filesystem and the .md files in wiki/,
+so that vault/wiki/ remains a valid Obsidian vault after v0.3 is deployed.</p>
+<p><strong>Invariants touched:</strong> I5 (Obsidian compatibility is non-negotiable), I1 (graph coords
+live in Postgres, not in .md frontmatter).</p>
+<p><strong>D-artifacts:</strong> D2 (schema.mmd updated — but the .md files are unchanged).</p>
+<p><strong>AC-OBS-V0.3</strong>
+Given GraphEngine.recompute() has been run and coords have been written to Postgres,
+when the existing test_obsidian_check.py suite (15 tests from v0.2) is run,
+then all 15 tests pass with 0 failures (no regression from v0.2 green status).
+Test target: <code>backend/tests/test_obsidian_check.py</code> — existing suite, re-run unchanged.
+EC reference: EC-M3-9, I5.</p>
+<hr />
+<h2 id="11-d3-graph-recompute-sequence-diagram">11. D3 — Graph recompute sequence diagram<a class="headerlink" href="#11-d3-graph-recompute-sequence-diagram" title="Permanent link">&para;</a></h2>
+<h3 id="us-d3-v3-graph-recomputemmd-documents-the-full-cache-debounce-flow">US-D3-V3 — graph-recompute.mmd documents the full cache + debounce flow<a class="headerlink" href="#us-d3-v3-graph-recomputemmd-documents-the-full-cache-debounce-flow" title="Permanent link">&para;</a></h3>
+<p>As the tech-writer and future engineers reading the codebase, I want a Mermaid
+sequenceDiagram in docs/sequences/ that shows the complete graph recompute lifecycle —
+from watcher ingest through dataVersion bump, debounce collapse, FA2 execution, coord
+persistence, and both GET /graph paths (cache-hit and cache-miss) — so that the I2
+architecture is documented in code and any engineer can understand how to safely modify
+the graph pipeline.</p>
+<p><strong>Invariants touched:</strong> I8 (D3 is a mandatory DoD artifact from v0.3 onward).</p>
+<p><strong>D-artifacts:</strong> D3 (graph-recompute.mmd is new in this sprint).</p>
+<p><strong>AC-D3v3-1</strong>
+Given docs/sequences/graph-recompute.mmd has been authored,
+when the file is parsed as a Mermaid diagram,
+then:
+(a) The file exists at the exact path <code>docs/sequences/graph-recompute.mmd</code>.
+(b) The file contains the keyword <code>sequenceDiagram</code> on a non-comment line.
+(c) The diagram includes participant/actor labels for: Watcher, dataVersion, GraphCache,
+    GraphEngine, Postgres, and Client (or equivalent names).
+(d) The diagram contains two distinct paths annotated as cache-miss and cache-hit
+    (e.g., <code>alt cache-miss</code> / <code>else cache-hit</code> or equivalent Mermaid <code>opt</code>/<code>alt</code> blocks).
+(e) The diagram contains an annotation or note indicating the debounce collapse behaviour
+    (multiple dataVersion bumps → single recompute).
+(f) The diagram contains a note or annotation stating "FA2 runs ONLY server-side" or
+    equivalent wording (explicitly calling out the I2 constraint).
+Test target: <code>backend/tests/test_docs.py</code> (extend) — file existence + keyword checks.
+EC reference: EC-M3-10, I8.</p>
+<p><strong>AC-D3v3-2</strong>
+Given docs/sequences/graph-recompute.mmd exists,
+when the mmdc CLI render check is run (<code>mmdc -i docs/sequences/graph-recompute.mmd -o /tmp/check.png</code>),
+then the command exits with code 0 and produces a non-empty output file.
+(Note: this also resolves the v0.2 carry-forward AC-D3-3 for the existing sequence diagrams.)
+Test target: CI mmdc step (devops-engineer to wire in CI) — resolves v0.2 deferred item.
+EC reference: EC-M3-10, AC-D3v3-2 (mmdc CI carry-forward from v0.2).</p>
+<p><strong>AC-D3v3-3</strong>
+Given docs/sequences/graph-recompute.mmd exists and has been reviewed,
+when the solution-architect and tech-writer have reviewed it jointly,
+then both have confirmed in the gate sign-off register that the diagram is consistent with
+the implementation in graph/engine.py and graph/cache.py.
+Test target: MANUAL GATE — recorded in sign-off register.
+EC reference: EC-M3-10, EC-M3-14, EC-M3-15.</p>
+<hr />
+<h2 id="12-d5-playwright-screenshots-first-required-sprint">12. D5 — Playwright screenshots (first required sprint)<a class="headerlink" href="#12-d5-playwright-screenshots-first-required-sprint" title="Permanent link">&para;</a></h2>
+<h3 id="us-d5-playwright-captures-sigma-viewer-screenshots-as-docsscreens-artifacts">US-D5 — Playwright captures sigma viewer screenshots as docs/screens/ artifacts<a class="headerlink" href="#us-d5-playwright-captures-sigma-viewer-screenshots-as-docsscreens-artifacts" title="Permanent link">&para;</a></h3>
+<p>As the tech-writer and PM verifying the docs gate, I want Playwright E2E tests to
+automatically capture PNG screenshots of the sigma viewer and commit them to docs/screens/,
+so that D5 (UI screenshots) is satisfied for M3 and the milestone visual evidence is part
+of the repository.</p>
+<p><strong>Invariants touched:</strong> I8 (D5 is mandatory from v0.3; must be committed).</p>
+<p><strong>D-artifacts:</strong> D5 (<code>docs/screens/graph-viewer-initial.png</code>,
+<code>docs/screens/graph-viewer-rendered.png</code>).</p>
+<p><strong>AC-D5-1</strong>
+Given <code>make screenshots</code> (or <code>make test</code> with screenshot capture included) has been run,
+when docs/screens/graph-viewer-initial.png is inspected,
+then:
+(a) The file exists at <code>docs/screens/graph-viewer-initial.png</code>.
+(b) The file size is &gt; 0 bytes (non-empty PNG).
+(c) The file is committed to the repository (not gitignored).
+Test target: <code>backend/tests/test_docs.py</code> (extend) — assert file exists and is non-empty.
+EC reference: EC-M3-11, I8.</p>
+<p><strong>AC-D5-2</strong>
+Given <code>make screenshots</code> has been run against a sigma viewer with a seeded graph loaded,
+when docs/screens/graph-viewer-rendered.png is inspected,
+then:
+(a) The file exists at <code>docs/screens/graph-viewer-rendered.png</code>.
+(b) The file size is &gt; 0 bytes.
+(c) The file is committed to the repository.
+(Playwright screenshot capture of the rendered sigma canvas is considered sufficient proof
+that the canvas is present; pixel-level node count assertion is NOT required here — the G4
+test handles DOM/WebGL verification.)
+Test target: <code>backend/tests/test_docs.py</code> + <code>frontend/tests/graph-viewer.spec.ts</code>.
+EC reference: EC-M3-11, I8.</p>
+<p><strong>AC-D5-3</strong>
+Given the Playwright screenshot capture test exists,
+when <code>make screenshots</code> is run in headless mode (no display required),
+then the command exits with code 0 and both PNG files are written.
+Test target: <code>frontend/tests/graph-viewer.spec.ts</code> (Playwright headless) + <code>make screenshots</code>
+target in Makefile.
+EC reference: EC-M3-11.</p>
+<p><strong>AC-D5-4</strong>
+Given the G2 Playwright perf test (AC-F4-6) and G4 Playwright perf test (AC-F4-7) exist,
+when the full E2E suite is run via <code>make test</code> or a separate <code>make screenshots</code> target,
+then the screenshot capture and the performance assertions run in the same Playwright
+invocation (same <code>npx playwright test</code> command), sharing the browser context setup.
+Test target: <code>frontend/tests/perf.spec.ts</code> + <code>frontend/tests/graph-viewer.spec.ts</code> — both
+registered in playwright.config.ts.
+EC reference: EC-M3-11, BACKLOG AC-D5-4.</p>
+<hr />
+<h2 id="13-d1d2d4-continuous-updates">13. D1/D2/D4 continuous updates<a class="headerlink" href="#13-d1d2d4-continuous-updates" title="Permanent link">&para;</a></h2>
+<h3 id="us-docs-v3-d1d2d4-artifacts-updated-to-reflect-v03-schema-and-api-changes">US-DOCS-V3 — D1/D2/D4 artifacts updated to reflect v0.3 schema and API changes<a class="headerlink" href="#us-docs-v3-d1d2d4-artifacts-updated-to-reflect-v03-schema-and-api-changes" title="Permanent link">&para;</a></h3>
+<p>As the tech-writer and architect verifying the docs gate, I want the C4 component diagram,
+ER diagram, and OpenAPI reference to be updated for v0.3 schema additions (pages.x/y,
+edges table, GET /graph), so that D-artifacts remain the single source of truth for the
+system architecture and the I8 docs-as-DoD invariant is satisfied.</p>
+<p><strong>Invariants touched:</strong> I8 (every sprint must keep D-artifacts current).</p>
+<p><strong>D-artifacts:</strong> D1, D2, D4.</p>
+<p><strong>AC-D1v3-1</strong>
+Given docs/architecture/component.mmd has been updated,
+when the file is parsed as a Mermaid C4Component diagram,
+then:
+(a) The file contains a component representation labelled "GraphEngine" (or equivalent).
+(b) The file contains a component representation labelled "GraphCache" (or equivalent).
+(c) The file contains a component or boundary reference to the sigma viewer or frontend
+    graph route.
+(d) A solution-architect and tech-writer have jointly confirmed the diagram is consistent
+    with the implementation (MANUAL gate recorded in sign-off register).
+Test target: <code>backend/tests/test_docs.py</code> (extend) — assert component.mmd contains the
+required label strings; MANUAL gate for diagram accuracy.
+EC reference: EC-M3-12, I8.</p>
+<p><strong>AC-D2v3-1</strong>
+Given <code>make er</code> has been run after adding pages.x, pages.y (float columns) and the edges
+table (id, source_page_id, target_page_id, weight) to backend/app/models.py,
+when docs/er/schema.mmd is inspected,
+then:
+(a) The file was generated by <code>make er</code> (not hand-edited — verified by CI make er + diff).
+(b) The diagram contains an entity "pages" that includes the columns <code>x</code> and <code>y</code>.
+(c) The diagram contains an entity "edges" with at minimum columns <code>id</code>, <code>source_page_id</code>,
+    <code>target_page_id</code>, <code>weight</code>.
+(d) The ER diagram is consistent with the live Postgres schema after Alembic migration
+    (CI: run migrations + <code>make er</code> + compare against committed file — zero diff).
+Test target: <code>backend/tests/test_docs.py</code> + <code>backend/tests/test_models_schema.py</code> — extend
+to assert new columns; CI <code>make er</code> must produce identical output to committed schema.mmd.
+EC reference: EC-M3-12, I8.</p>
+<hr />
+<h2 id="14-ambiguities-flagged-to-solution-architect-aq-register-for-v03">14. Ambiguities flagged to solution-architect (AQ register for v0.3)<a class="headerlink" href="#14-ambiguities-flagged-to-solution-architect-aq-register-for-v03" title="Permanent link">&para;</a></h2>
+<p>The following design questions must be resolved by the solution-architect BEFORE engineering
+begins on the affected ACs. Until resolved, the ACs are considered BLOCKED.</p>
+<table>
+<thead>
+<tr>
+<th>AQ ID</th>
+<th>Blocks ACs</th>
+<th>Question</th>
+<th>Recommended resolution</th>
+<th>Urgency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AQ-v0.3-1</td>
+<td>AC-F4-1</td>
+<td>Are the 4 edge-weight signals ADDITIVE (summed per edge) or do they use a different combining formula (e.g., max, product, weighted product)? The AC fixture expected values assume additive. The BACKLOG.md spec says "×3", "×4", "×1.5", "×1" — these are multipliers on what base signal? Is it: base_signal=1 for presence, then multiplied? Or is weight = sum of (multiplier × signal_value) for each contributing signal?</td>
+<td>Functional analyst recommends: for presence-based signals (direct-link, source-overlap, type-affinity), base = 1 if condition is met, 0 otherwise; weight = sum over all contributing signals of (multiplier × base). For Adamic-Adar, multiply the igraph-computed AA coefficient by 1.5. Total edge weight = sum of all applicable signal contributions. Architect to confirm or revise formula and publish in ADR before test fixture values are finalized.</td>
+<td>P0 — blocks AC-F4-1 unit test values</td>
+</tr>
+<tr>
+<td>AQ-v0.3-2</td>
+<td>AC-F4-2</td>
+<td>Should igraph FA2 be seeded with a fixed integer (e.g., seed=42) for deterministic output, or is non-deterministic output acceptable?</td>
+<td>Recommend: fix seed=42 for reproducibility in tests and regression detection. Non-deterministic coords make regression testing harder. If architect wants non-deterministic (e.g., for better layout variety on vault changes), the unit test must only check non-NULL + coordinate range rather than exact values.</td>
+<td>P1 — blocks AC-F4-2 determinism assertion</td>
+</tr>
+<tr>
+<td>AQ-v0.3-3</td>
+<td>AC-F4-3, AC-F4-4</td>
+<td>Should GET /graph block (synchronous, return 200 with full payload only when FA2 is complete) or return HTTP 202 + job_id when FA2 is running and coords are stale?</td>
+<td>Functional analyst recommends: synchronous for v0.3. Graph recompute on igraph for expected vault sizes (&lt;500 nodes) should complete in &lt;2s. Return 200 when coords are ready. If no coords exist yet (first ever call), trigger FA2 synchronously and return 200. Add a "stale" indicator in the response if desired but do not return 202.</td>
+<td>P0 — blocks AC-F4-3 test design</td>
+</tr>
+<tr>
+<td>AQ-v0.3-4</td>
+<td>AC-F4-9</td>
+<td>"Incremental" at the graph coord level: FA2 is a global layout algorithm that repositions ALL nodes on every recompute. Does AC-F4-9 assert (a) only 1 new pages row is added per ingest (correct), or (b) only the new page's coords change while others remain frozen (incorrect — FA2 moves all nodes)?</td>
+<td>Confirm interpretation: AC-F4-9 tests row-level incrementality (exactly 1 new row added per file ingest), NOT coord-value stability across recomputes. Coord values for existing pages WILL change after FA2 reruns — this is expected and correct. Document this explicitly in test_incremental_graph_update.py to avoid confusion.</td>
+<td>P1 — clarifies AC-F4-9 assertion scope</td>
+</tr>
+<tr>
+<td>AQ-v0.3-5</td>
+<td>AC-F4-1, AC-D2v3-1</td>
+<td>Is the edges table stored persistently in Postgres (written after every FA2 run and read directly for GET /graph) or computed in-memory on every graph request?</td>
+<td>Recommend: store in Postgres edges table (as specified in BACKLOG.md §F4 scope). This enables GET /graph to be purely a read (no recompute) when cache=hit. In-memory computation would require FA2 on every GET /graph, violating I2 cache intent. Architect to confirm and lock schema: edges(id uuid pk, source_page_id uuid FK pages.id, target_page_id uuid FK pages.id, weight float, created_at timestamp).</td>
+<td>P0 — blocks D2 ER update and GET /graph implementation</td>
+</tr>
+<tr>
+<td>AQ-v0.3-6</td>
+<td>AC-F4-2, AC-D2v3-1</td>
+<td>Are x/y coordinates stored as columns on the existing pages table (pages.x float, pages.y float) or in a separate graph_coords table (page_id FK, x float, y float, layout_version int)?</td>
+<td>Functional analyst notes: BACKLOG.md explicitly says "pages.x, pages.y columns" and "coords stored in Postgres pages table". This resolves the AQ in favor of columns on pages. Architect to confirm no change to this decision. If a separate table is chosen instead, Alembic migration and D2 diagram must be updated accordingly.</td>
+<td>P1 — BACKLOG already specifies columns on pages; confirm no change</td>
+</tr>
+<tr>
+<td>AQ-v0.3-7</td>
+<td>AC-F16db-1</td>
+<td>How does GraphCache detect dataVersion changes: (a) polling vault_state table on a configurable interval (e.g., every 2 seconds), (b) Postgres LISTEN/NOTIFY, or (c) in-process event emitted by the watcher after each ingest?</td>
+<td>Recommend: polling (option a) for simplicity in v0.3; the watcher is in the same process, so option c is also viable. LISTEN/NOTIFY (option b) adds Postgres dependency complexity. Architect to decide and document in the ADR if this decision is not already covered by existing ADRs. Debounce window is configurable (default 5s per BACKLOG spec).</td>
+<td>P1 — affects GraphCache implementation and test mock strategy</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="appendix-a-story-to-ec-mapping">Appendix A — Story-to-EC mapping<a class="headerlink" href="#appendix-a-story-to-ec-mapping" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>User Story ID</th>
+<th>Feature ID</th>
+<th>EC-M3-#</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>US-NB5</td>
+<td>NB-5</td>
+<td>(pre-start; no EC)</td>
+</tr>
+<tr>
+<td>US-NB1</td>
+<td>NB-1</td>
+<td>(hardening; no EC)</td>
+</tr>
+<tr>
+<td>US-NB2</td>
+<td>NB-2</td>
+<td>(hardening; no EC)</td>
+</tr>
+<tr>
+<td>US-NB4</td>
+<td>NB-4</td>
+<td>(hardening; no EC)</td>
+</tr>
+<tr>
+<td>US-F4-ENGINE</td>
+<td>F4</td>
+<td>EC-M3-1</td>
+</tr>
+<tr>
+<td>US-F4-LAYOUT</td>
+<td>F4</td>
+<td>EC-M3-2, EC-M3-5</td>
+</tr>
+<tr>
+<td>US-F4-CACHE</td>
+<td>F4, F16</td>
+<td>EC-M3-3</td>
+</tr>
+<tr>
+<td>US-F4-API</td>
+<td>F4</td>
+<td>EC-M3-4</td>
+</tr>
+<tr>
+<td>US-F4-G1</td>
+<td>F4</td>
+<td>EC-M3-8</td>
+</tr>
+<tr>
+<td>US-FE-VIEWER</td>
+<td>F4 (frontend)</td>
+<td>EC-M3-5, EC-M3-6, EC-M3-7</td>
+</tr>
+<tr>
+<td>US-FE-CLICK</td>
+<td>F4 (frontend)</td>
+<td>EC-M3-7</td>
+</tr>
+<tr>
+<td>US-G2-PERF</td>
+<td>F4, I2</td>
+<td>EC-M3-5</td>
+</tr>
+<tr>
+<td>US-G4-PERF</td>
+<td>F4, I4</td>
+<td>EC-M3-6</td>
+</tr>
+<tr>
+<td>US-OBS-COMPAT</td>
+<td>K7, I5</td>
+<td>EC-M3-9</td>
+</tr>
+<tr>
+<td>US-D3-V3</td>
+<td>D3</td>
+<td>EC-M3-10</td>
+</tr>
+<tr>
+<td>US-D5</td>
+<td>D5</td>
+<td>EC-M3-11</td>
+</tr>
+<tr>
+<td>US-DOCS-V3</td>
+<td>D1, D2, D4</td>
+<td>EC-M3-12</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

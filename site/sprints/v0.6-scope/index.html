@@ -1,0 +1,870 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.6-scope/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint 6 — v0.6 → v1.0 — PM Scope Lock - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-6-v06-v10-pm-scope-lock" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint 6 — v0.6 → v1.0 — PM Scope Lock
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-sprint-objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Sprint Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-locked-feature-ids-for-v06" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Locked Feature IDs for v0.6
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-per-feature-acceptance-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Per-feature Acceptance Criteria
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Per-feature Acceptance Criteria">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#k2-lint-fix-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        K2 — Lint-fix loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f11-web-clipper-secure-clip-ingress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F11 — Web clipper + secure clip ingress
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f15-rest-pwa-tauri-v2-cicd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F15 (rest) — PWA + Tauri v2 + CI/CD
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f2-purposemd-as-provider-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F2 — purpose.md as provider context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d1d7-final-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D1–D7 final gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-out-of-scope-m6-never-invariants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Out of scope (M6) / never (invariants)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-deferred-follow-up-disposition-carried-into-m6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Deferred follow-up disposition (carried into M6)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-exit-criteria-ec-m6-v100" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Exit criteria (EC-M6) → v1.0.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-execution-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Execution model
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-6-v06-v10-pm-scope-lock">Sprint 6 — v0.6 → v1.0 — PM Scope Lock<a class="headerlink" href="#sprint-6-v06-v10-pm-scope-lock" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Milestone: M6 — "Shippable" (final milestone; tag target <strong>v1.0.0</strong>)
+Author: orchestrator (acting PM) — autonomous build
+Date: 2026-06-30
+Gate: Sprint start — formal scope confirmation
+Branch: <code>sprint/v0.6</code> (cut from <code>sprint/v0.5</code>; carries the <code>nashsu/llm_wiki</code> reference audit under <code>docs/reference/llm_wiki-audit/</code>)
+Prerequisite: M5 MET-PENDING-EC-M5-HCP (docs/sprints/v0.5-m5-exit-criteria.md). Baseline on cut: backend 926 pytest / frontend 621 vitest green.
+Inputs: CLAUDE.md §3/§4/§7/§8/§9, BACKLOG.md §"Sprint 6 — v0.6 — M6", docs/reference/llm_wiki-audit/* (parity reference).</p>
+</blockquote>
+<hr />
+<h2 id="1-sprint-objective">1. Sprint Objective<a class="headerlink" href="#1-sprint-objective" title="Permanent link">&para;</a></h2>
+<p>Take Synapse from "feature parity core" (M5) to <strong>shippable v1.0</strong>: a self-hosted product a
+new user can install and use day-one, at functional and graphical parity with the reference
+app <code>nashsu/llm_wiki</code>. The headline theme is <strong>closing the loop</strong>: the third Karpathy
+operation (Lint) lands; the ingress surface (web clipper) is added <strong>securely</strong>; the app is
+<strong>packaged</strong> (PWA + Tauri v2) with a CI/CD that actually runs the test suite; and the full
+D1–D7 documentation set is completed and consistent.</p>
+<p><strong>Headline invariants for M6:</strong>
+- <strong>I7 (bounded loops)</strong> — the new Lint-fix loop has <code>max_iter</code> + <code>token_budget</code> + cost log.
+- <strong>I6 (pluggable inference)</strong> — Lint's semantic pass routes through <code>InferenceProvider</code>; no hardcoded backend.
+- <strong>I8 (docs-as-DoD)</strong> — M6 is the final docs gate: every D-artifact complete and consistent, ER matches schema.
+- <strong>I9 (do not reinvent)</strong> — no Tavily/alt-search; SearXNG only; no local embedding reimplementation.</p>
+<p><strong>Parity-reference rule:</strong> the <code>llm_wiki</code> audit is advisory input, not a spec to copy.
+Where the reference app made a security/architecture mistake, Synapse must NOT repeat it.
+The audit's standout finding — the reference's clip server on <code>:19827</code> is unauthenticated,
+accepts drive-by cross-origin writes, and writes to an attacker-controlled base path — is an
+explicit <strong>anti-pattern</strong>: Synapse's F11 ingress MUST be authenticated, origin-checked,
+body-capped, and path-safe (see F11 ACs).</p>
+<hr />
+<h2 id="2-locked-feature-ids-for-v06">2. Locked Feature IDs for v0.6<a class="headerlink" href="#2-locked-feature-ids-for-v06" title="Permanent link">&para;</a></h2>
+<p>Exactly the following. Anything else is out of scope and requires explicit re-scope.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Feature</th>
+<th>Status at cut</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>K2</strong></td>
+<td>Lint-fix loop (3rd core operation)</td>
+<td>backend DONE on this branch; frontend in progress</td>
+</tr>
+<tr>
+<td><strong>F11</strong></td>
+<td>Chrome MV3 web clipper + secure local clip ingress + auto-ingest</td>
+<td>not started</td>
+</tr>
+<tr>
+<td><strong>F15 (rest)</strong></td>
+<td>PWA (manifest + service worker) + Tauri v2 shell + CI/CD multi-OS</td>
+<td>not started</td>
+</tr>
+<tr>
+<td><strong>F2</strong></td>
+<td><code>purpose.md</code> injected as provider context (verify/complete)</td>
+<td>partial — verify in ingest + chat</td>
+</tr>
+<tr>
+<td><strong>MkDocs</strong></td>
+<td>Optional docs site</td>
+<td>optional — only if it does not jeopardize the gate</td>
+</tr>
+<tr>
+<td><strong>D1–D7</strong></td>
+<td>All docs artifacts complete and consistent (final gate)</td>
+<td>continuous</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-per-feature-acceptance-criteria">3. Per-feature Acceptance Criteria<a class="headerlink" href="#3-per-feature-acceptance-criteria" title="Permanent link">&para;</a></h2>
+<h3 id="k2-lint-fix-loop">K2 — Lint-fix loop<a class="headerlink" href="#k2-lint-fix-loop" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>AC-K2-1</strong> <code>ops/lint.py</code> runs a bounded loop (<code>LINT_MAX_ITER</code>, <code>LINT_TOKEN_BUDGET</code>, <code>LINT_MAX_FINDINGS</code>); <code>total_cost_usd</code> logged 4dp; terminal status always written (I7). ✅ (test_lint.py)</li>
+<li><strong>AC-K2-2</strong> All LLM calls via <code>resolve_provider_config</code> — no hardcoded backend, no class-name branching (I6). ✅ static test.</li>
+<li><strong>AC-K2-3</strong> Scan reads only <code>pages</code>/<code>links</code> (no vault walk); apply touches only referencing pages; <code>data_version</code> bumped ≤1 per fix (I1). ✅</li>
+<li><strong>AC-K2-4</strong> Human gate: scan never applies a fix; <code>apply</code> only on explicit call. Flag-only categories (orphan/contradiction/stale) acknowledge without editing human-curated content (K8). ✅</li>
+<li><strong>AC-K2-5</strong> Frontend Lint section: Run-Lint action, findings grouped by category with Apply/Dismiss, cost line, empty state; nav slot activated; i18n EN+IT parity; vitest green; I3/I4 respected. ⏳ (in progress)</li>
+<li><strong>AC-K2-6</strong> ADR-0037 + <code>docs/sequences/lint-fix.mmd</code> present and valid; openapi.json + ER regenerated. ✅</li>
+</ul>
+<h3 id="f11-web-clipper-secure-clip-ingress">F11 — Web clipper + secure clip ingress<a class="headerlink" href="#f11-web-clipper-secure-clip-ingress" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>AC-F11-1</strong> Chrome MV3 extension under <code>extension/</code>: Readability + Turndown (HTML→Markdown, tables), popup with project/vault picker, posts to the local ingress.</li>
+<li><strong>AC-F11-2 (SECURITY — non-negotiable)</strong> The local clip ingress requires a <strong>token</strong> (rejects unauthenticated → 401); validates <strong>Origin/Host</strong> against an allowlist (<code>chrome-extension://&lt;id&gt;</code> + loopback); caps the body size; and writes only inside the vault via a <strong>safe-join</strong> path check (no attacker-controlled base path). A regression test proves each: unauth→401, bad origin→reject, oversized→413, traversal→reject. (Directly answers llm_wiki audit S-1…S-6.)</li>
+<li><strong>AC-F11-3</strong> A clipped page lands in <code>vault/raw/sources/</code> and is auto-ingested through the existing pipeline (I1/I5/K1) — no new ingest path.</li>
+<li><strong>AC-F11-4</strong> Clip content is sanitized before render; no unbounded polling race (use the existing watcher/queue, not a naive 3 s poll that double-ingests).</li>
+<li><strong>AC-F11-5</strong> ADR for the ingress security model; D3 sequence <code>web-clip.mmd</code>; openapi.json updated if an HTTP endpoint is added.</li>
+</ul>
+<h3 id="f15-rest-pwa-tauri-v2-cicd">F15 (rest) — PWA + Tauri v2 + CI/CD<a class="headerlink" href="#f15-rest-pwa-tauri-v2-cicd" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>AC-F15-1</strong> PWA: web manifest + service worker; the frontend is installable; offline shell loads. No violation of I2/I3/I4.</li>
+<li><strong>AC-F15-2</strong> Tauri v2 shell wraps the frontend as a desktop app (macOS/Windows/Linux targets configured). Close-behavior is a user setting (not hardcoded).</li>
+<li><strong>AC-F15-3 (CI HARDENING)</strong> CI runs on <code>sprint/**</code> + <code>main</code> (fix NB-9 branch filter) and <strong>executes the test suites</strong> (<code>pytest</code> + <code>vitest</code>) and the <strong>linters with pinned versions</strong> (resolve the ruff/black drift on v0.5 files), plus the mmdc Mermaid render check (GAP-v0.5-3). Multi-OS build matrix produces installable artifacts.</li>
+<li><strong>AC-F15-4</strong> Linter drift cleared: <code>ruff check</code> + <code>black --check</code> green tree-wide with pinned versions recorded in <code>pyproject.toml</code>/CI.</li>
+</ul>
+<h3 id="f2-purposemd-as-provider-context">F2 — purpose.md as provider context<a class="headerlink" href="#f2-purposemd-as-provider-context" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>AC-F2-1</strong> Confirm (and complete if missing) that <code>purpose.md</code> is injected into the ingest analysis/generation prompts and the chat/query context; add a test asserting its presence in the assembled provider input.</li>
+</ul>
+<h3 id="d1d7-final-gate">D1–D7 final gate<a class="headerlink" href="#d1d7-final-gate" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>AC-D-1</strong> All D-artifacts present and consistent; ER matches live schema (<code>make er</code> zero-drift); openapi.json current; D5 screenshots captured; ADR index complete; USER.md + DEPLOY.md cover all M6 additions (incl. <code>LINT_*</code>, clipper token/env, PWA/Tauri).</li>
+</ul>
+<hr />
+<h2 id="4-out-of-scope-m6-never-invariants">4. Out of scope (M6) / never (invariants)<a class="headerlink" href="#4-out-of-scope-m6-never-invariants" title="Permanent link">&para;</a></h2>
+<ul>
+<li>MinerU cloud PDF parsing, multimodal image captioning, Louvain communities + graph-insights, browser-extension for non-Chrome — <strong>not</strong> in M6 (post-v1.0 backlog; not part of the locked parity set).</li>
+<li>The "never" list stands (BACKLOG §"Out of scope — never"): full-rescan (I1), main-thread force layout (I2), per-token parse (I3), WYSIWYG editor (I4), hardcoded provider (I6), unbounded loops (I7), skipping D-artifacts (I8), Tavily/alt-search or local embedding reimpl (I9).</li>
+</ul>
+<hr />
+<h2 id="5-deferred-follow-up-disposition-carried-into-m6">5. Deferred follow-up disposition (carried into M6)<a class="headerlink" href="#5-deferred-follow-up-disposition-carried-into-m6" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>FU</th>
+<th>Item</th>
+<th>M6 disposition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GAP-v0.5-3</td>
+<td>mmdc Mermaid CI render check</td>
+<td>DO — folds into AC-F15-3</td>
+</tr>
+<tr>
+<td>NB-9</td>
+<td>CI branch filter (add sprint/v0.3+)</td>
+<td>DO — AC-F15-3</td>
+</tr>
+<tr>
+<td>NB-7 / NB-8</td>
+<td>cosmetic .mmd label fixes</td>
+<td>DO — docs gate</td>
+</tr>
+<tr>
+<td>FU-P3-2</td>
+<td>USER.md note: CLI path does not enqueue reviews</td>
+<td>DO — docs gate</td>
+</tr>
+<tr>
+<td>FU-P4-3</td>
+<td>ADR-0026: cascade_delete non-atomic/idempotent-on-retry note (or single-session wrap)</td>
+<td>DO — pick one; document</td>
+</tr>
+<tr>
+<td>FU-P4-4</td>
+<td>F13 <code>files_written</code> equality contract (<code>==</code> vs <code>&lt;=</code>)</td>
+<td>CONFIRM — align code/AC</td>
+</tr>
+<tr>
+<td>EC-M5-HCP / D5</td>
+<td>live-stack screenshots</td>
+<td>Fold into the M6 human checkpoint</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-exit-criteria-ec-m6-v100">6. Exit criteria (EC-M6) → v1.0.0<a class="headerlink" href="#6-exit-criteria-ec-m6-v100" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>EC-M6-1</strong> K2 complete (backend + frontend), all ACs green.</li>
+<li><strong>EC-M6-2</strong> F11 clipper + secure ingress, all security ACs proven by tests.</li>
+<li><strong>EC-M6-3</strong> F15: PWA + Tauri shell build; CI runs tests + pinned linters + mmdc on the right branches; multi-OS artifacts.</li>
+<li><strong>EC-M6-4</strong> F2 verified; deferred FUs disposed.</li>
+<li><strong>EC-M6-5</strong> Full suite green (pytest + vitest + Playwright); linters clean tree-wide.</li>
+<li><strong>EC-M6-6</strong> D1–D7 complete and consistent; ER zero-drift; ADR index complete.</li>
+<li><strong>EC-M6-7</strong> <code>wiki/</code> remains a valid Obsidian vault after all M6 ops (I5/K7).</li>
+<li><strong>EC-M6-HCP</strong> Human checkpoint (Emanuele) in a live browser/desktop build → then tag <strong>v1.0.0</strong>.</li>
+</ul>
+<hr />
+<h2 id="7-execution-model">7. Execution model<a class="headerlink" href="#7-execution-model" title="Permanent link">&para;</a></h2>
+<p>Autonomous, <strong>one vertical at a time</strong>, each landed as a verified green commit before the next:
+K2-frontend → F11 → F15 → F2 + deferred FUs → docs gate → v1.0.0 tag. Subagent team per
+CLAUDE.md §13: ai-agent-engineer (provider-touching loops), backend-engineer (endpoints/data),
+frontend-engineer (UI), qa-test-engineer (gates), solution-architect (ADRs/invariants),
+devops-engineer (CI/CD/packaging), tech-writer (docs gate). No conflicting agents on the same
+files concurrently.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

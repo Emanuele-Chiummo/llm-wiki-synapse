@@ -16,9 +16,9 @@
 
 import { useState, useCallback, useEffect, useRef, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 import logoUrl from "../../assets/synapse-logo.svg";
-import { getLastServerUrl, isTauri } from "../../api/base";
+import { getLastServerUrl, isTauri, setAuthToken, clearAuthToken, apiFetch, bearerHeadersFor } from "../../api/base";
 import { useSettingsStore, selectSetServerUrl } from "../../store/settingsStore";
 
 const PROBE_TIMEOUT_MS = 6_000;
@@ -37,6 +37,9 @@ export function ConnectScreen() {
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [detected, setDetected] = useState(false);
+  // ADR-0052 §4.4: token field shown unconditionally; password type with Eye toggle.
+  const [token, setToken] = useState("");
+  const [showToken, setShowToken] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   // First launch only (desktop, no previous server): silently probe a local
@@ -89,7 +92,8 @@ export function ConnectScreen() {
         return;
       }
 
-      // --- probe GET {url}/status (ADR-0047 §2.7.2) ---
+      // --- probe GET {url}/status (ADR-0047 §2.7.2, ADR-0052 §4.4) ---
+      // /status is exempt from auth — always answers when the server is reachable.
       setConnecting(true);
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -100,19 +104,44 @@ export function ConnectScreen() {
       }, PROBE_TIMEOUT_MS);
 
       try {
-        const probeUrl = `${trimmed}/status`;
-        const res = await fetch(probeUrl, { signal: controller.signal });
+        // Use raw fetch for the status probe — the server URL is not yet persisted
+        // so apiFetch's apiBase() would resolve wrong. Pass the token header manually
+        // here only (ADR-0052: this is the ONLY place outside base.ts where we handle
+        // the raw header construction during the initial connect flow).
+        const statusHeaders = bearerHeadersFor(token);
+        const statusRes = await fetch(`${trimmed}/status`, {
+          signal: controller.signal,
+          headers: statusHeaders,
+        });
         window.clearTimeout(timeoutId);
 
-        if (!res.ok) {
-          setError(t("connect.errors.status", { status: String(res.status) }));
+        if (!statusRes.ok) {
+          setError(t("connect.errors.status", { status: String(statusRes.status) }));
           return;
         }
 
-        // --- 2xx: persist and let app render ---
-        // storeSetServerUrl delegates to base.ts setServerUrl (validates + stores),
-        // then updates the Zustand store → AppShell re-renders without the gate.
+        // --- Persist URL + token, then do a secondary protected probe ---
+        // Persist the server URL first so apiFetch resolves the right base.
         storeSetServerUrl(trimmed);
+        // Persist the token (may be empty — that's fine, auth may be disabled).
+        if (token.trim()) {
+          setAuthToken(token);
+        } else {
+          clearAuthToken();
+        }
+
+        // Secondary probe: GET /provider/config (protected endpoint).
+        // ADR-0052 §4.4: if this 401s, auth is enabled and the token is missing/wrong.
+        const protectedRes = await apiFetch(`${trimmed}/provider/config`);
+        if (protectedRes.status === 401) {
+          // Roll back persisted URL (server exists but not yet authenticated)
+          // Leave the URL persisted so the user can re-attempt with a token.
+          clearAuthToken();
+          setError(t("connect.errors.authRequired"));
+          return;
+        }
+
+        // All good — gate dismisses (storeSetServerUrl already updated Zustand).
       } catch (err: unknown) {
         window.clearTimeout(timeoutId);
         if (err instanceof DOMException && err.name === "AbortError") {
@@ -124,7 +153,7 @@ export function ConnectScreen() {
         setConnecting(false);
       }
     },
-    [url, t, storeSetServerUrl],
+    [url, token, t, storeSetServerUrl],
   );
 
   return (
@@ -260,6 +289,66 @@ export function ConnectScreen() {
                 transition: "border-color 0.15s",
               }}
             />
+
+            {/* Token field — ADR-0052 §4.4: shown unconditionally (optional; leave blank if auth is disabled) */}
+            <label
+              htmlFor="connect-token"
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--syn-text, #0f172a)",
+                marginTop: 4,
+              }}
+            >
+              {t("connect.tokenLabel")}
+            </label>
+            <div style={{ position: "relative" }}>
+              <input
+                id="connect-token"
+                type={showToken ? "text" : "password"}
+                value={token}
+                onChange={(e) => {
+                  setToken(e.target.value);
+                  setError(null);
+                }}
+                placeholder={t("connect.tokenPlaceholder")}
+                disabled={connecting}
+                autoComplete="current-password"
+                style={{
+                  width: "100%",
+                  padding: "10px 40px 10px 14px",
+                  fontSize: 14,
+                  fontFamily: "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace",
+                  border: "1.5px solid var(--syn-border, #e2e8f0)",
+                  borderRadius: 8,
+                  background: "var(--syn-input-bg, #f8fafc)",
+                  color: "var(--syn-text, #0f172a)",
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken((v) => !v)}
+                aria-label={showToken ? t("connect.hideToken") : t("connect.showToken")}
+                tabIndex={0}
+                style={{
+                  position: "absolute",
+                  right: 10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 2,
+                  color: "var(--syn-text-dim, #64748b)",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
 
             {/* Local server detected hint — UXA-23: CheckCircle2 icon for visual cue */}
             {detected && error === null && (

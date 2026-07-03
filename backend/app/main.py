@@ -94,6 +94,7 @@ from starlette.responses import Response as StarletteResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app import cli_auth as _cli_auth
+from app.auth import SynapseAuthMiddleware
 from app.chat.stream import ChatStreamError, run_chat_stream
 from app.config import settings
 from app.db import dispose_engine, get_session
@@ -933,9 +934,26 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ── CORS ────────────────────────────────────────────────────────────────────────
-# Allow the browser frontend (Vite dev server / PWA / Tauri) to call the API.
-# Origins come from CORS_ALLOW_ORIGINS (env) — never hardcoded in prod (§12).
+# ── Auth + CORS middleware (ADR-0052 §2.4 — ORDER IS LOAD-BEARING) ─────────────
+# In Starlette, ``add_middleware`` wraps in REVERSE registration order:
+# the LAST registered middleware is the OUTERMOST layer (sees the request first
+# and the response last).  We need CORS outermost so that even a 401 from the
+# auth middleware carries ``Access-Control-Allow-Origin``.
+#
+#   REGISTRATION ORDER          EXECUTION ORDER (request in / response out)
+#   ──────────────────          ──────────────────────────────────────────
+#   1. SynapseAuthMiddleware  → INNER  (runs auth check; 401 exits up through CORS)
+#   2. CORSMiddleware (last)  → OUTER  (stamps CORS headers on EVERY response)
+#
+# The OPTIONS exemption in auth.py plus this ordering means preflights are answered
+# correctly (CORSMiddleware handles them before auth even sees them — OPTIONS passes
+# through the auth bypass, then CORS intercepts and replies with the preflight headers).
+#
+# DO NOT change this order without updating the CORS-on-401 test and ADR-0052 §2.4.
+app.add_middleware(
+    SynapseAuthMiddleware,
+    token=settings.auth_token,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -978,6 +996,58 @@ if _http_mcp_asgi_app is not None:
     )
     app.mount(MCP_MOUNT_PATH, _guarded_mcp_app)
     logger.info("MCP HTTP surface mounted at %s (ADR-0033 §2.4 always-mount)", MCP_MOUNT_PATH)
+
+
+# ── OpenAPI security scheme (ADR-0052 §2.5, I8, EC-M10-4) ────────────────────
+# Inject ``BearerAuth`` into the OpenAPI schema so docs/api/openapi.json declares
+# the security scheme and every route references it — except the exempt routes
+# (/status, /health/detailed) which carry ``security: []`` explicitly.
+#
+# This is a documentation concern, independent of the enforcement middleware above.
+# Implementation: override ``app.openapi()`` once after all routes are registered.
+#
+# Exempt from ``BearerAuth`` in the schema (matches the middleware exempt set §2.3;
+# /docs, /redoc, /openapi.json are framework-served and not in OpenAPI paths):
+_OPENAPI_SECURITY_EXEMPT: frozenset[str] = frozenset({"/status", "/health/detailed"})
+
+_original_openapi = app.openapi
+
+
+def _patched_openapi() -> dict[str, Any]:
+    """
+    Custom OpenAPI schema generator (ADR-0052 §2.5).
+
+    Adds:
+    - ``components.securitySchemes.BearerAuth``: HTTP bearer scheme.
+    - ``security: [{"BearerAuth": []}]`` on every non-exempt path+method.
+    - ``security: []`` on exempt paths (/status, /health/detailed).
+    """
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    schema: dict[str, Any] = _original_openapi()
+
+    # Inject BearerAuth scheme into components.securitySchemes.
+    components: dict[str, Any] = schema.setdefault("components", {})
+    security_schemes: dict[str, Any] = components.setdefault("securitySchemes", {})
+    security_schemes["BearerAuth"] = {"type": "http", "scheme": "bearer"}
+
+    # Annotate every path entry with the correct security marker.
+    bearer_security: list[dict[str, list[str]]] = [{"BearerAuth": []}]
+    no_security: list[dict[str, list[str]]] = []
+
+    for path, path_item in schema.get("paths", {}).items():
+        is_exempt = path in _OPENAPI_SECURITY_EXEMPT
+        sec = no_security if is_exempt else bearer_security
+        for method_obj in path_item.values():
+            if isinstance(method_obj, dict):
+                method_obj["security"] = sec
+
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = _patched_openapi  # type: ignore[method-assign]
 
 
 # ── Pydantic response models ───────────────────────────────────────────────────

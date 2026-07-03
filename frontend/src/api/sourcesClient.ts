@@ -19,7 +19,7 @@
  */
 
 import { ApiError } from "./graphClient";
-import { apiBase } from "./base";
+import { apiBase, apiFetch } from "./base";
 
 export { triggerIngest } from "./ingestClient";
 
@@ -150,7 +150,7 @@ async function checkResponse(res: Response): Promise<void> {
  */
 export async function listSources(signal?: AbortSignal): Promise<SourceListResponse> {
   const url = `${apiBase()}/sources`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as SourceListResponse;
 }
@@ -165,7 +165,7 @@ export async function getSourceContent(
   signal?: AbortSignal,
 ): Promise<SourceContentResponse> {
   const url = `${apiBase()}/sources/content?path=${encodeURIComponent(path)}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as SourceContentResponse;
 }
@@ -179,7 +179,7 @@ export async function getSourceDerivedPages(
   signal?: AbortSignal,
 ): Promise<SourceDerivedPage[]> {
   const url = `${apiBase()}/sources/derived-pages?path=${encodeURIComponent(path)}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as SourceDerivedPage[];
 }
@@ -193,7 +193,7 @@ export async function deleteSource(
   signal?: AbortSignal,
 ): Promise<SourceDeleteResponse> {
   const url = `${apiBase()}/sources?path=${encodeURIComponent(path)}`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "DELETE",
     ...(signal !== undefined ? { signal } : {}),
   });
@@ -218,7 +218,7 @@ export function sourceRawUrl(path: string): string {
  */
 export async function ingestAllSources(signal?: AbortSignal): Promise<IngestAllResponse> {
   const url = `${apiBase()}/sources/ingest-all`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
   });
@@ -237,7 +237,7 @@ export async function ingestAllSources(signal?: AbortSignal): Promise<IngestAllR
  */
 export async function getIngestAllStatus(signal?: AbortSignal): Promise<IngestAllStatusResponse> {
   const url = `${apiBase()}/sources/ingest-all/status`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as IngestAllStatusResponse;
 }

@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-07-03 (Sprint 9 / v0.9 scope locked — SPRINT-v0.9-SCOPE.md; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
+> Last updated: 2026-07-03 (Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -1954,6 +1954,209 @@ env var; D5 screenshots graph-community-panel.png + graph-edge-tooltip.png.
 Summary: 7 happy-path E2E specs (Connect/Ingest/Search/Chat/Review/Graph/Settings) using
 `SYNAPSE_FRONTEND_URL`; all pass in CI; D5 screenshots auto-committed; auto-title
 regression test (UXB-1 coverage); playwright-report/ gitignored.
+
+---
+
+---
+
+## Sprint 10 — v1.0 — M10 "Distribution & multi-user"
+
+**Sprint status: IN PROGRESS — scope locked 2026-07-03**
+Scope lock: docs/sprints/SPRINT-v1.0-SCOPE.md
+Branch: sprint/v1.0 (cut after v0.9.0 tag)
+Prerequisite: M9 exit criteria met (EC-M9-1..EC-M9-HCP confirmed by Emanuele).
+Duration: 3–4 weeks.
+QA gate rule: QA-test-engineer runs ci.yml exact commands verbatim (documented in
+SPRINT-v1.0-SCOPE.md §0 Rule 2) — no proxy commands.
+
+---
+
+### ADR-0052 — Auth token model (prerequisite gate)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F16, F15 |
+| Sprint | v1.0 |
+| Status | backlog — MUST be accepted before any R10-1 code is written |
+| Owner | ai-agent-engineer (authors ADR); solution-architect (accepts) |
+| Priority | P0 — hard blocker for R10-1 and R10-2 |
+
+**Scope:** `docs/adr/ADR-0052-auth-token-model.md` — documents: why shared token not
+OIDC, why OIDC is deferred to post-1.0, single-vault scope for 1.0, WebSocket auth
+approach, HTTPS responsibility model, excluded endpoints (`/health`, `/status`,
+`/health/detailed`), token rotation procedure.
+
+**Acceptance criteria:** AC-R10-1-0 (see SPRINT-v1.0-SCOPE.md §R10-1). ADR committed and
+in Accepted status before any backend auth code is written. Solution-architect sign-off
+is the gate.
+
+---
+
+### R10-1 — Authentication middleware (shared Bearer token)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F16, F15 |
+| Sprint | v1.0 |
+| Status | blocked — depends on ADR-0052 accepted |
+| Owner | backend-engineer (implementation); ai-agent-engineer (ADR lead) |
+| Priority | P0 — gates R10-2 |
+
+**Scope:** `SYNAPSE_AUTH_TOKEN` env var; FastAPI middleware or global `Depends(verify_token)`;
+all routes enforced except `GET /health`, `GET /status`, `GET /health/detailed`; WebSocket
+upgrade path protected; 401 body standardised; `backend/app/auth.py` extracted module;
+`BearerAuth` security scheme in OpenAPI spec; `docs/DEPLOY.md` Security section.
+
+**Acceptance criteria:** AC-R10-1-1 through AC-R10-1-6 (see SPRINT-v1.0-SCOPE.md §R10-1).
+Summary: backward-compat (empty = auth disabled); 3 excluded endpoints verified; WebSocket
+auth path chosen and tested; mypy strict on auth.py; openapi.json updated with security scheme.
+
+---
+
+### R10-2 — Auth UX (ConnectScreen token field + Settings rotation)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1, F16, F15 |
+| Sprint | v1.0 |
+| Status | blocked — depends on R10-1 merged |
+| Owner | frontend-engineer |
+| Priority | P0 |
+
+**Scope:** Single API client module injects `Authorization: Bearer` on every request;
+per-server token stored in `localStorage`; 401 response clears token + shows ConnectScreen
+with token field (password type + show/hide toggle); Settings > Security section for token
+rotation (client-side only); EN/IT i18n keys; D5 screenshot `connect-screen-auth.png`;
+coverage of health polling (R9-2) and WebSocket upgrade path.
+
+**Acceptance criteria:** AC-R10-2-1 through AC-R10-2-8 (see SPRINT-v1.0-SCOPE.md §R10-2).
+
+---
+
+### R10-3 — Code signing guide in DEPLOY.md
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F15, D6b |
+| Sprint | v1.0 |
+| Status | backlog |
+| Owner | tech-writer + devops-engineer |
+| Priority | P1 — docs-as-DoD; no CI implementation required |
+
+**Scope:** `docs/DEPLOY.md` "Code Signing" section covering macOS (Apple Developer, required
+GitHub Actions secrets, tauri.conf.json, notarization via xcrun notarytool) and Windows (EV
+cert, required secrets, tauri.conf.json). Also documents current unsigned-build workarounds
+(macOS xattr, Windows SmartScreen bypass) with security model explanation.
+
+**Acceptance criteria:** AC-R10-3-1 through AC-R10-3-2 (see SPRINT-v1.0-SCOPE.md §R10-3).
+No code changes. Tech-writer + devops-engineer review and approval required.
+
+---
+
+### R10-4 — Desktop auto-update verification
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F15 |
+| Sprint | v1.0 |
+| Status | done — shipped v0.8.1; verification step only at v1.0.0 release |
+| Owner | Emanuele (human verification) |
+| Priority | P1 — release checklist item |
+
+**Scope:** Verify v1.0.0 update chain: tag v1.0.0 → build → running v0.9.0 receives
+update prompt → updates successfully. Manual verification by Emanuele.
+
+**Acceptance criteria:** AC-R10-4-verify (see SPRINT-v1.0-SCOPE.md §R10-4). Result noted in
+release checklist. No code work.
+
+---
+
+### R10-5 — Mobile/PWA polish
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F15, F1 |
+| Sprint | v1.0 |
+| Status | backlog |
+| Owner | frontend-engineer |
+| Priority | P1 |
+
+**Scope (tightly bounded — 3 mechanical changes only):** (1) `@media (max-width: 767px)`
+CSS block: nav rail collapses (bottom tab bar or hamburger drawer) + panels stack vertically;
+(2) touch targets ≥44×44px for 5 critical interactive elements at 375px viewport (Playwright
+verified); (3) sigma graph canvas `touch-action: none` + pinch-zoom sanity check (Playwright
+or manual). D5 screenshot `graph-mobile.png` at 375px. USER.md "Mobile / PWA" section.
+
+**Acceptance criteria:** AC-R10-5-1 through AC-R10-5-5 (see SPRINT-v1.0-SCOPE.md §R10-5).
+
+---
+
+### R10-6 — MkDocs Material docs site
+
+| Field | Value |
+|-------|-------|
+| Feature ID | D1, D6, D7 (docs published), F15 |
+| Sprint | v1.0 |
+| Status | backlog |
+| Owner | tech-writer (content + nav); devops-engineer (CI job + Makefile) |
+| Priority | P1 — I8 culmination |
+
+**Scope:** `mkdocs.yml` at repo root (Material theme); nav covering USER.md, DEPLOY.md,
+architecture diagrams, ADR index, API reference; `make docs-serve` + `make docs-build`
+targets; `docs-site` CI job in ci.yml running `mkdocs build --strict` on every push
+(no auto-deploy — Pages enablement requires owner action, documented); `docs/adr/index.md`
+listing all ADRs; Mermaid rendering via pymdownx.superfences; USER.md and DEPLOY.md
+completed to v1.0 accuracy.
+
+**Acceptance criteria:** AC-R10-6-1 through AC-R10-6-6 (see SPRINT-v1.0-SCOPE.md §R10-6).
+
+---
+
+### QA-v0.9-leftovers — E2E test fixes carried from v0.9
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F15 (QA) |
+| Sprint | v1.0 |
+| Status | backlog — Wave 1 start (no dependencies) |
+| Owner | qa-test-engineer |
+| Priority | P0 — must fix before QA full pass |
+
+**Item LO-1 (E2E Cost testid/locator gap):** Add `data-testid="settings-cost-section"` and
+`data-testid="cost-monthly-total"` to Settings Cost section component; update Playwright spec
+to use `getByTestId()`; spec must pass against running backend with fixture cost run.
+
+**Item LO-2 (EdgeDetail `computed_at` field):** Align `GET /graph/edge/{src_id}/{dst_id}`
+Pydantic response model with OpenAPI schema (either add `computed_at: datetime | None`
+populated from `edges.updated_at`, or remove from both response model and schema);
+regenerate `docs/api/openapi.json`; pytest asserts response matches schema via
+`jsonschema.validate`.
+
+**Acceptance criteria:** AC-QA-LO-1 and AC-QA-LO-2 (see SPRINT-v1.0-SCOPE.md §QA-v0.9-leftovers).
+
+---
+
+### UX-v1.0 — P2/P3 quick items (3 items, PM-selected)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1, F16 |
+| Sprint | v1.0 |
+| Status | backlog — after R10-1 merged |
+| Owner | frontend-engineer |
+| Priority | P2 — de-scope as group if sprint runs over (de-scope priority 1) |
+
+**Selected items (PM judgment — cap at 3):**
+- UX-v1.0-A (UXA-08): Role labels in MessageList.tsx — 9px, `var(--syn-text-dim)`, no
+  uppercase; left-border stripe per turn.
+- UX-v1.0-B (UXA-15): ProviderSelector.tsx ARIA fix — `role="dialog" aria-modal="true"`;
+  remove incorrect `role="listbox"` from inner list.
+- UX-v1.0-C (UXA-18): ItemTypeBadge `item_type` normalisation — replace underscores with
+  hyphens before `t()` lookup.
+
+**Acceptance criteria:** AC-UX-A, AC-UX-B, AC-UX-C (see SPRINT-v1.0-SCOPE.md §UX-v1.0).
+De-scope trigger: if sprint falls behind after Wave 2, drop all three as a unit — no
+selective partial de-scope.
 
 ---
 

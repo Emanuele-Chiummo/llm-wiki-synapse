@@ -1,0 +1,883 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0043-ui-settable-cli-subscription-token/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0043 — UI-settable CLI subscription OAuth token (DB-stored, injected into the spawned claude CLI, API key scrubbed from the child env) (F17, I6/I7, §12) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0043-ui-settable-cli-subscription-oauth-token-db-stored-injected-into-the-spawned-claude-cli-api-key-scrubbed-from-the-child-env-f17-i6i7-12" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0043 — UI-settable CLI subscription OAuth token (DB-stored, injected into the spawned claude CLI, API key scrubbed from the child env) (F17, I6/I7, §12)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-the-cli-subscription-token-is-stored-plaintext-in-vault_state-12-is-amended-narrowly-for-this-one-credential" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 The CLI subscription token is stored PLAINTEXT in vault_state; §12 is amended NARROWLY for this one credential
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-storage-one-nullable-column-on-vault_state-via-alembic-0017" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Storage — one nullable column on vault_state via Alembic 0017
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-resolution-precedence-db-wins-over-env-supersedes-adr-0042-1-for-the-cli-provider-the-injection-api-key-scrub-is-the-safety-crux" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Resolution precedence — "DB wins over env" (supersedes ADR-0042 §1 for the CLI provider); the injection + API-key scrub is the safety crux
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-injection-mechanism-the-token-reaches-clipy-on-providersettings-never-via-db-access-in-clipy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Injection mechanism — the token reaches cli.py on ProviderSettings, never via DB access in cli.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-endpoints-getput-providercli-auth-posture-only-user-pastes-the-token-no-server-side-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Endpoints — GET/PUT /provider/cli-auth (posture only; user PASTES the token; no server-side generation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-ui-frontend-engineer-specification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 UI (frontend-engineer — specification)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-per-agent-file-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Per-agent file ownership
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-acceptance-checks-dod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Acceptance checks (DoD)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-do-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Do-NOT
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0043-ui-settable-cli-subscription-oauth-token-db-stored-injected-into-the-spawned-claude-cli-api-key-scrubbed-from-the-child-env-f17-i6i7-12">ADR-0043 — UI-settable CLI subscription OAuth token (DB-stored, injected into the spawned <code>claude</code> CLI, API key scrubbed from the child env) (F17, I6/I7, §12)<a class="headerlink" href="#adr-0043-ui-settable-cli-subscription-oauth-token-db-stored-injected-into-the-spawned-claude-cli-api-key-scrubbed-from-the-child-env-f17-i6i7-12" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-01</li>
+<li><strong>Sprint:</strong> v0.6 (Amendment — owner request: set the CLI provider's Claude subscription OAuth token from the UI, not env-only)</li>
+<li><strong>Feature:</strong> F17 (Inference Provider — CLI backend <code>CliAgentProvider</code>) · runtime-configuration parity with the clip token (ADR-0040) and MCP token (ADR-0033)</li>
+<li><strong>Invariants owned:</strong> <strong>I6</strong> (nothing hardcoded — no provider/model/backend literal; routing still via <code>capabilities()</code>) · <strong>I7</strong> (bounded loops + truthful cost — unchanged; subscription = $0 marginal, ADR-0009) · <strong>I8</strong> (D2 ER + D4 OpenAPI regenerated) · <strong>I9</strong> (reuse <code>vault_state</code> + the existing <code>CliAgentProvider</code>/<code>claude-agent-sdk</code> — no new process, no new dep) · <strong>§12</strong> (secrets via env only — <strong>narrowly amended for this one credential</strong>, §2.1)</li>
+<li><strong>Related / supersedes:</strong> <strong>Amends ADR-0042 §1</strong> (the pure-env resolver precedence) for the CLI provider — a DB-set token now takes precedence over env, and the token <strong>value</strong> is now read and injected (ADR-0042 forwarded no value). <strong>Mirrors ADR-0040</strong> (clip token: DB-plaintext, DB-wins-over-env, GET returns posture only) and <strong>ADR-0033</strong> (<code>vault_state</code> credential column, one-time posture, never returned by GET). ADR-0009 (subscription = $0.00 cost convention — unchanged). ADR-0007 (InferenceProvider ABC + capability routing). ADR-0008 §3 / §12 (secrets-via-env — the rule this ADR narrowly scopes).</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> backend-engineer (column + migration <code>0017</code> + <code>_CliAuthConfigCache</code> + <code>app/cli_auth.py</code> resolver + <code>GET/PUT /provider/cli-auth</code> + <code>ProviderSettings.subscription_token</code> + tests) · ai-agent-engineer (inject the token into the spawned CLI env + scrub <code>ANTHROPIC_API_KEY</code> from the child env in <code>cli.py</code>; wire <code>resolve_provider</code> to stamp the resolved token; auth-mode precedence tests) · frontend-engineer (Settings CLI-auth password field + Save/Clear + posture + mini-guide + i18n) · tech-writer (D2 ER regen, D4 OpenAPI, DEPLOY note, README row + amend ADR-0042 with a "Superseded in part" cross-ref)</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>ADR-0042 (commit <code>31269dd</code>) let the F17 CLI provider (<code>CliAgentProvider</code>, <code>backend/app/ingest/provider/cli.py</code>) run on a Claude Pro/Max <strong>subscription</strong> instead of a pay-per-token <code>ANTHROPIC_API_KEY</code>, including inside the Docker container, via a <strong>pure-env</strong> resolver <code>_resolve_cli_auth_mode()</code> with three signals (<code>ANTHROPIC_API_KEY</code> &gt; <code>CLAUDE_CODE_OAUTH_TOKEN</code> &gt; <code>CLAUDE_CODE_USE_SUBSCRIPTION</code>). It deliberately <strong>detected presence only</strong> and <strong>never read or forwarded a token value</strong> (§12 in its strict form): the SDK's spawned <code>claude</code> CLI inherited <code>CLAUDE_CODE_OAUTH_TOKEN</code> from the process environment.</p>
+<p><strong>Owner request (accepted, 2026-07-01):</strong> set the subscription OAuth token — the <code>sk-ant-oat01-…</code> value produced by <code>claude setup-token</code> on the host — <strong>from the web UI</strong> (Settings, when the Claude CLI provider is selected), instead of only via <code>.env</code> + container restart. The owner has <strong>explicitly accepted storing it in the DB in plaintext.</strong> This brings the CLI subscription credential to parity with the clip token (ADR-0040) and MCP token (ADR-0033), which are already UI-settable and stored in <code>vault_state</code>.</p>
+<p><strong>Why this needs an ADR (the §12 tension).</strong> CLAUDE.md §12 / ADR-0008 §3 say "<strong>no secrets in code or database</strong>; API keys are environment-only." This ADR must (a) read the token <strong>value</strong> (ADR-0042 never did) and (b) <strong>store it in Postgres</strong>. Both cross §12. This is a deliberate, owner-accepted trade for one credential, ratified here with the security posture kept explicit and the §12 amendment scoped <strong>as narrowly as possible</strong>.</p>
+<p><strong>Two facts that shape the design (from ADR-0042 §Context, re-verified):</strong>
+1. <strong>The subscription is the OAuth path; the API key outranks it.</strong> Claude Code's own documented credential precedence puts <code>ANTHROPIC_API_KEY</code> <strong>above</strong> the subscription — if it is set (even empty) in the spawned CLI's environment, it wins and bills per token. For a DB-set subscription token to actually be used, <code>ANTHROPIC_API_KEY</code> must be <strong>absent from the child process's environment</strong>.
+2. <strong>The token must be recoverable to be usable.</strong> Unlike the MCP token (ADR-0033, verified against an <em>incoming</em> request — so a one-way salted hash suffices) and unlike the clip token where a hash would also work, the subscription OAuth token is <strong>replayed outbound</strong> into the spawned <code>claude</code> CLI. Synapse must hand the CLI the <em>actual token value</em>. A hash is therefore <strong>impossible</strong> here — the credential must be stored recoverable.</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-the-cli-subscription-token-is-stored-plaintext-in-vault_state-12-is-amended-narrowly-for-this-one-credential">2.1 The CLI subscription token is stored PLAINTEXT in <code>vault_state</code>; §12 is amended NARROWLY for this one credential<a class="headerlink" href="#21-the-cli-subscription-token-is-stored-plaintext-in-vault_state-12-is-amended-narrowly-for-this-one-credential" title="Permanent link">&para;</a></h3>
+<p><strong>Why plaintext, not hashed (the load-bearing security reasoning).</strong> ADR-0033 stores the MCP token as a PBKDF2 salted hash and ADR-0040 could have too, because those tokens are <strong>verified against an incoming bearer</strong> — Synapse only needs to check a presented value against a stored one, so it can store a one-way hash and never keep the plaintext. The CLI subscription token is <strong>categorically different: it is replayed OUTBOUND</strong> — Synapse injects the literal token into the spawned <code>claude</code> CLI's environment as <code>CLAUDE_CODE_OAUTH_TOKEN</code>. A one-way hash cannot be replayed. Therefore the token <strong>must be stored recoverable (plaintext)</strong>; there is no hashed alternative that preserves the feature. (This is the same reason ADR-0040 §2.2 keeps the <em>env</em> clip token plaintext: a credential Synapse must present, not merely verify, cannot be hashed at rest.)</p>
+<p><strong>Blast radius — and why it is HIGHER than the clip token.</strong> Storing the token plaintext in <code>vault_state</code> means a <strong>DB dump / <code>pg_dump</code> / backup leak yields the live credential</strong> — exactly the risk §12 exists to prevent. We accept it with eyes open, but we note it is <strong>strictly worse than the clip/MCP case</strong>: the clip token grants "write one vault via <code>POST /clip</code>"; the <strong>CLI subscription token grants access to the user's entire Claude Pro/Max subscription</strong> (any Claude Code capability the token authorizes, until it expires or is revoked). The blast radius is therefore <strong>≈ an <code>.env</code> leak of <code>CLAUDE_CODE_OAUTH_TOKEN</code></strong> — the token was <em>already</em> going to live in <code>.env</code>/process-env under ADR-0042 (equally recoverable there); moving it to the DB does not create a new class of exposure, but it <strong>adds <code>pg_dump</code>/DB-backup to the leak surface</strong> that <code>.env</code> alone did not have. The owner has weighed this and accepted it for the UI convenience.</p>
+<p><strong>§12 amendment (scoped to exactly one column).</strong> §12 / ADR-0008 §3 continue to forbid storing <strong>third-party provider API keys</strong> (<code>ANTHROPIC_API_KEY</code>, OpenAI-compatible keys) in code or DB — those remain env-only, unchanged. This ADR carves out <strong>one</strong> narrow exception: <strong><code>vault_state.cli_oauth_token</code></strong> may hold the Claude subscription OAuth token in plaintext, because (a) it is <em>replayed</em>, not <em>verified</em>, so it cannot be hashed, and (b) the owner has explicitly accepted the trade. <strong>No other secret gains a DB home.</strong> The <code>ApiProvider</code> API key path is untouched and stays env-only.</p>
+<p><strong>Rotation &amp; revocation.</strong> There is <strong>no server-side rotation</strong> (Synapse does not mint this token — <code>claude setup-token</code> on the host does). Rotation = the owner runs <code>claude setup-token</code> again and <strong>pastes the new value</strong> (overwrites the column), or <strong>clears</strong> it (<code>PUT … {clear:true}</code> → column <code>NULL</code>). Revocation of a leaked token is done at Anthropic (the owner revokes the OAuth grant); clearing the column stops Synapse replaying it. The ~1-year token lifetime from ADR-0042 is unchanged.</p>
+<p><strong>Never logged, never returned.</strong> <code>cli_oauth_token</code> is <strong>never logged</strong> (not at load, not on PUT, not on inject) and is <strong>never returned by any GET or PUT</strong> (posture only — §2.5). This is the load-bearing invariant, tested explicitly.</p>
+<h3 id="22-storage-one-nullable-column-on-vault_state-via-alembic-0017">2.2 Storage — one nullable column on <code>vault_state</code> via Alembic <code>0017</code><a class="headerlink" href="#22-storage-one-nullable-column-on-vault_state-via-alembic-0017" title="Permanent link">&para;</a></h3>
+<p>Add <strong><code>vault_state.cli_oauth_token : Mapped[str | None]</code></strong> (<code>Text</code>, nullable, default <code>NULL</code>) — mirroring the <code>clip_access_token</code> shape (ADR-0040) but documented as <strong>plaintext, replayed outbound, never hashed</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Name</th>
+<th>Type / default</th>
+<th>Where</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DB column</td>
+<td><code>vault_state.cli_oauth_token</code></td>
+<td><code>TEXT NULL</code></td>
+<td><code>models.py</code> <code>VaultState</code></td>
+<td><strong>NEW — Alembic <code>0017</code>.</strong> Plaintext Claude subscription OAuth token (<code>sk-ant-oat01-…</code>, <code>claude setup-token</code>). NULL = no UI token; env governs. When set, injected into the spawned <code>claude</code> CLI as <code>CLAUDE_CODE_OAUTH_TOKEN</code> and takes precedence over env. <strong>NEVER logged; NEVER returned by any endpoint.</strong></td>
+</tr>
+<tr>
+<td>migration</td>
+<td><code>0017_vault_state_cli_oauth_token</code></td>
+<td>add 1 column</td>
+<td><code>backend/alembic/versions/</code></td>
+<td><code>revision = "0017"</code>, <code>down_revision = "0016"</code>. Downgrade drops the column. <code>make er</code> regenerated (I8).</td>
+</tr>
+</tbody>
+</table>
+<p>Column comment (implementer copies verbatim into <code>models.py</code> and the migration):</p>
+<blockquote>
+<p>Plaintext Claude subscription OAuth token for the CLI provider (ADR-0043 §2.1). Produced on the host by <code>claude setup-token</code> (<code>sk-ant-oat01-…</code>). NULL = no UI token; env <code>CLAUDE_CODE_OAUTH_TOKEN</code> / <code>CLAUDE_CODE_USE_SUBSCRIPTION</code> govern. When NOT NULL the DB value is authoritative: it is injected into the spawned <code>claude</code> CLI's env as <code>CLAUDE_CODE_OAUTH_TOKEN</code> AND <code>ANTHROPIC_API_KEY</code> is scrubbed from that child env so the subscription wins (ADR-0043 §2.3). Stored PLAINTEXT because it is replayed outbound to the CLI, not verified against an incoming request — a hash cannot be replayed (§12 narrowly amended for this one credential). NEVER logged; NEVER returned by any endpoint. Migration 0017.</p>
+</blockquote>
+<p><code>make er</code> regenerated to match the live schema (I8). Migration-free everywhere else.</p>
+<h3 id="23-resolution-precedence-db-wins-over-env-supersedes-adr-0042-1-for-the-cli-provider-the-injection-api-key-scrub-is-the-safety-crux">2.3 Resolution precedence — "DB wins over env" (supersedes ADR-0042 §1 for the CLI provider); the injection + API-key scrub is the safety crux<a class="headerlink" href="#23-resolution-precedence-db-wins-over-env-supersedes-adr-0042-1-for-the-cli-provider-the-injection-api-key-scrub-is-the-safety-crux" title="Permanent link">&para;</a></h3>
+<p>ADR-0042's resolver was pure-env with <code>ANTHROPIC_API_KEY</code> first. This ADR <strong>prepends a DB tier</strong> and makes it <strong>outrank the env API key</strong>, because a DB token set from the UI is an <strong>explicit, deliberate operator action</strong> ("use my subscription for the CLI"), and injection lets us <strong>guarantee</strong> the subscription is actually used (not silently out-billed by a stray env API key). The new precedence in <code>_resolve_cli_auth_mode()</code> (still called <strong>before any SDK stream/loop opens</strong>, Do-NOT #9):</p>
+<ol>
+<li><strong>DB <code>cli_oauth_token</code> set (non-empty) → <code>"subscription"</code>.</strong> The provider <strong>injects <code>CLAUDE_CODE_OAUTH_TOKEN=&lt;db value&gt;</code> into the spawned CLI's env</strong> AND <strong>scrubs <code>ANTHROPIC_API_KEY</code> from that child env</strong> (removes the key from the child's environment dict). <em>This scrub is the safety crux:</em> without it, Claude Code's own precedence (§1 fact 1) would let an inherited <code>ANTHROPIC_API_KEY</code> outrank the injected subscription token and <strong>bill per token</strong> despite the deliberate UI action. The scrub makes the subscription deterministically win.</li>
+<li>else <strong>env <code>ANTHROPIC_API_KEY</code> non-empty → <code>"api-key"</code></strong> (billed per token; real cost recorded — <strong>unchanged</strong> from ADR-0042).</li>
+<li>else <strong>env <code>CLAUDE_CODE_OAUTH_TOKEN</code> non-empty → <code>"subscription"</code></strong> (inherit from process env; <strong>unchanged</strong> — no injection needed, no scrub needed because tier 2 already established there is no env API key).</li>
+<li>else <strong>env <code>CLAUDE_CODE_USE_SUBSCRIPTION</code> truthy → <code>"subscription"</code></strong> (ambient host login / mounted creds; <strong>unchanged</strong>).</li>
+<li>else <strong>clean <code>ValueError</code></strong> naming all options (<strong>unchanged</strong>).</li>
+</ol>
+<p><strong>Why DB-token above env-API-key is correct (ratified).</strong> Tier 1 above tier 2 is a <strong>deliberate reordering</strong> relative to ADR-0042's env-only order. It is right because: (a) setting the token in the UI is an unambiguous, explicit intent to use the subscription, so it should not be silently overridden by a bootstrap env var; (b) we can only <em>guarantee</em> that intent by injecting the token AND scrubbing the API key from the child env — presence-detection alone (ADR-0042) could not, because it never touched the child env. An operator who genuinely wants API-key billing simply does not set (or clears) the DB token — then tiers 2–4 behave byte-for-byte as ADR-0042. <strong>The empty-string=unset rule from ADR-0042 still holds</strong> at every tier: an empty <code>cli_oauth_token</code> or empty <code>ANTHROPIC_API_KEY</code> is treated as unset (so a stray <code>export ANTHROPIC_API_KEY=""</code> cannot silently outrank the subscription).</p>
+<p><strong>Scope of the scrub (explicit).</strong> The API-key scrub applies <strong>only to the child environment dict Synapse builds for the spawned CLI</strong>, and <strong>only</strong> on tier 1 (DB-token path). Synapse <strong>NEVER mutates the parent <code>os.environ</code></strong> (Do-NOT). Tiers 2–4 build no injected env (they inherit), so no scrub occurs there — correct, because tier 2 by definition means the operator chose the API key.</p>
+<h3 id="24-injection-mechanism-the-token-reaches-clipy-on-providersettings-never-via-db-access-in-clipy">2.4 Injection mechanism — the token reaches <code>cli.py</code> on <code>ProviderSettings</code>, never via DB access in <code>cli.py</code><a class="headerlink" href="#24-injection-mechanism-the-token-reaches-clipy-on-providersettings-never-via-db-access-in-clipy" title="Permanent link">&para;</a></h3>
+<p><strong>Layering constraint (hard).</strong> <code>cli.py</code> (and the whole <code>app/ingest/provider/</code> package) must <strong>not</strong> acquire DB access — the package is deliberately ORM-free (<code>config.py</code> docstring: "the provider package never imports <code>models.py</code>"). So the DB token value must be <strong>resolved at a site where a DB-derived value is already available</strong> and <strong>carried into <code>cli.py</code> on the settings object</strong>.</p>
+<p><strong>Carrier — new field on <code>ProviderSettings</code>:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ProviderSettings</span><span class="p">:</span>
+    <span class="o">...</span>
+    <span class="c1"># ADR-0043: the resolved Claude subscription OAuth token for the CLI backend, injected</span>
+    <span class="c1"># into the spawned `claude` CLI env as CLAUDE_CODE_OAUTH_TOKEN when set. None = no DB token</span>
+    <span class="c1"># (env governs). Set ONLY for provider_type == &quot;cli&quot;; ignored by local/api. NEVER logged.</span>
+    <span class="n">subscription_token</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</code></pre></div>
+<p><strong>Field name:</strong> <code>subscription_token</code> · <strong>Type:</strong> <code>str | None</code> · <strong>Default:</strong> <code>None</code>.</p>
+<p><strong>Where it is populated (the DB-session-free resolution site).</strong> The token lives in <code>vault_state</code>, not <code>provider_config</code>, and <code>resolve_provider(row)</code> is <strong>synchronous</strong> and called from ~7 sites (orchestrator, chat/stream, ops/<em>). To keep every call site unchanged AND keep <code>resolve_provider</code> synchronous AND avoid a DB round-trip per provider build, the DB token is served from an </em><em>in-process cache loaded at startup</em>* (mirroring <code>_ClipConfigCache</code>), fronted by a tiny cycle-free resolver module:</p>
+<ul>
+<li><strong>New module <code>backend/app/cli_auth.py</code></strong> — imports only <code>app.config</code> (env fallback signals) + stdlib; holds the module-level singleton <code>_cli_auth_config_cache: _CliAuthConfigCache</code> and exposes <code>resolve_subscription_token() -&gt; str | None</code> (returns the cached DB token if non-empty, else <code>None</code> — env is handled inside <code>cli.py</code>'s resolver, this only surfaces the DB tier). <code>config.py</code> imports no app modules, so this module is <strong>import-cycle-free</strong> and safely importable from both <code>main.py</code> and <code>app/ingest/provider/__init__.py</code>.</li>
+<li><strong><code>resolve_provider()</code> (<code>app/ingest/provider/__init__.py</code>) stamps the token</strong> onto <code>ProviderSettings</code> <strong>only when <code>provider_type == "cli"</code></strong>: it calls <code>cli_auth.resolve_subscription_token()</code> and passes the result as <code>subscription_token=</code> into <code>_settings_from_row(...)</code> (or a post-construction copy). Non-CLI providers get <code>subscription_token=None</code>. <strong>All 7 existing <code>resolve_provider(row)</code> call sites stay unchanged</strong> (the token is resolved internally). This is the single injection point.</li>
+<li><strong><code>_CliAuthConfigCache</code></strong> (in <code>main.py</code>, mirroring <code>_ClipConfigCache</code>): holds <code>_token: str | None</code> under an <code>asyncio.Lock</code>; <code>load(token)</code> at startup, <code>set_token(token)</code> on PUT. Accessors: <code>get_token() -&gt; str | None</code> (NEVER log/return outside injection), <code>token_source() -&gt; "db"|"env"|"none"</code>, <code>token_configured() -&gt; bool</code>, <code>auth_mode() -&gt; "api-key"|"subscription"|"unconfigured"</code> (§2.5). The singleton lives in <code>main.py</code>; <code>app/cli_auth.py</code> holds the <strong>canonical</strong> singleton and <code>main.py</code> imports it (so the class may live in <code>cli_auth.py</code> to avoid <code>provider/__init__.py → main.py</code>; implementer places <code>_CliAuthConfigCache</code> <strong>in <code>app/cli_auth.py</code></strong> and <code>main.py</code> imports <code>_cli_auth_config_cache</code> + the load/set helpers). Loaded once in the lifespan via <code>_load_cli_auth_config_cache()</code> right after <code>_load_clip_config_cache()</code>.</li>
+</ul>
+<p><strong>What <code>cli.py</code> does with it (ai-agent-engineer).</strong> <code>cli.py</code>'s <code>_resolve_cli_auth_mode()</code> gains the DB tier (§2.3 tier 1) by reading <code>config.subscription_token</code> (passed in — <strong>no DB import</strong>), and when it is set:
+- builds a <strong>child env dict</strong> for <code>ClaudeAgentOptions</code> = a copy of the relevant inherited env <strong>plus</strong> <code>CLAUDE_CODE_OAUTH_TOKEN=&lt;config.subscription_token&gt;</code> <strong>minus</strong> <code>ANTHROPIC_API_KEY</code> (scrubbed), and passes it via <strong><code>ClaudeAgentOptions(env={...})</code></strong>.
+- <strong>SDK env param — verify + fallback.</strong> ai-agent-engineer MUST verify the installed <code>claude-agent-sdk</code> (<code>&gt;=0.2,&lt;0.3</code>, ADR-0042 §3) exposes an <code>env</code> (or equivalently named <code>environment</code>) parameter on <code>ClaudeAgentOptions</code> that sets the <strong>spawned CLI subprocess</strong> environment. <strong>If present:</strong> use it (this is the required, <code>os.environ</code>-safe path). <strong>If absent (fallback):</strong> wrap <strong>only the <code>ClaudeSDKClient(options=…)</code> context</strong> in a scoped, restored-in-<code>finally</code> environment override (a context manager that sets <code>CLAUDE_CODE_OAUTH_TOKEN</code> and deletes <code>ANTHROPIC_API_KEY</code> for the duration of the SDK session, then restores the prior values) — <strong>still never a permanent <code>os.environ</code> mutation</strong>, and documented in <code>cli.py</code> as the SDK-limitation fallback. The <code>env</code>-param path is strongly preferred; the fallback exists only if the SDK offers no per-spawn env hook. Either way: <strong>the parent <code>os.environ</code> is never permanently mutated</strong> (Do-NOT).
+- <code>_resolve_cli_auth_mode()</code> gains a parameter (e.g. <code>subscription_token: str | None</code>) rather than reading a global — keeping it a pure function of (env + injected token) and its existing infra-free tests trivial to extend.</p>
+<h3 id="25-endpoints-getput-providercli-auth-posture-only-user-pastes-the-token-no-server-side-generation">2.5 Endpoints — <code>GET/PUT /provider/cli-auth</code> (posture only; user PASTES the token; no server-side generation)<a class="headerlink" href="#25-endpoints-getput-providercli-auth-posture-only-user-pastes-the-token-no-server-side-generation" title="Permanent link">&para;</a></h3>
+<p>Mirrors <code>GET/PUT /clip/config</code> (ADR-0040) but <strong>simpler</strong>: the user pastes their own token, so there is <strong>no server-generated token, no <code>generated_token</code>, no rotate/one-time-reveal</strong>. Set = store the pasted value; clear = null it.</p>
+<p><strong><code>GET /provider/cli-auth</code></strong> — read-only posture; <strong>NEVER the token value</strong>:
+<div class="highlight"><pre><span></span><code>GET /provider/cli-auth
+  response: CliAuthConfigResponse {
+    token_configured: bool,                                  # DB or env signal present
+    token_source:     &quot;db&quot; | &quot;env&quot; | &quot;none&quot;,
+    auth_mode:        &quot;api-key&quot; | &quot;subscription&quot; | &quot;unconfigured&quot;
+  }
+</code></pre></div>
+- <strong><code>token_source</code>:</strong> <code>"db"</code> iff <code>cli_oauth_token</code> column is set (non-empty); else <code>"env"</code> iff <strong>any</strong> env signal is present (<code>ANTHROPIC_API_KEY</code> OR <code>CLAUDE_CODE_OAUTH_TOKEN</code> OR <code>CLAUDE_CODE_USE_SUBSCRIPTION</code> truthy); else <code>"none"</code>.
+- <strong><code>auth_mode</code></strong> (derived from the §2.3 precedence, presence-only — does not run the injection): DB token set → <code>"subscription"</code>; else env <code>ANTHROPIC_API_KEY</code> non-empty → <code>"api-key"</code>; else (<code>CLAUDE_CODE_OAUTH_TOKEN</code> non-empty OR <code>CLAUDE_CODE_USE_SUBSCRIPTION</code> truthy) → <code>"subscription"</code>; else → <code>"unconfigured"</code>.
+- <strong><code>token_configured</code></strong> = <code>token_source != "none"</code>.</p>
+<p><strong><code>PUT /provider/cli-auth</code></strong> — set or clear; returns the <strong>post-write posture</strong> (no value):
+<div class="highlight"><pre><span></span><code>PUT /provider/cli-auth
+  request body: CliAuthConfigRequest {
+    token?: str,     # set: store this pasted token into vault_state.cli_oauth_token
+    clear?: bool     # true ⇒ set cli_oauth_token = NULL (fall back to env / none)
+  }
+  response body: CliAuthConfigResponse   # same shape as GET; NEVER the token value
+</code></pre></div>
+Semantics + status codes:
+- <strong><code>clear:true</code></strong> → column <code>NULL</code>; refresh cache; <strong>200</strong> with post-write posture. (<code>clear</code> wins if both sent — deterministic.)
+- <strong><code>token:"&lt;value&gt;"</code></strong> → <strong>validate</strong>, then store to <code>cli_oauth_token</code>; refresh cache; <strong>200</strong> with post-write posture.
+- <strong>Validation (deliberately lenient — the owner pastes a real token; the CLI is the true validator).</strong> Reject with <strong>422</strong> only on clearly-wrong input: empty/whitespace-only string, or length outside a sane band (e.g. <code>&lt; 20</code> or <code>&gt; 500</code> chars). A <strong>soft prefix check</strong> — warn-but-accept if it does not start with <code>sk-ant-oat01-</code> — because Anthropic may change the prefix and we must not hard-block a token the CLI would accept; the <em>format</em> is not ours to gatekeep. (Rationale: a too-strict server-side format check would out-guess Anthropic and break on prefix changes; a length+non-empty floor catches paste errors without over-fitting.) Recommended: <strong>accept</strong> any non-empty, length-sane string; return <strong>422</strong> only for empty/whitespace or absurd length; do <strong>not</strong> hard-reject on prefix.
+- <strong>Neither <code>token</code> nor <code>clear</code> (empty body)</strong> → <strong>400</strong> (nothing to do) — mirror the clip/web-search "no-op request" handling if that pattern returns 400 there; otherwise <strong>200</strong> no-op is acceptable (implementer aligns with the existing <code>PUT /clip/config</code> empty-body behavior for consistency).
+- <strong>Endpoint auth:</strong> same-origin / unauthenticated, consistent with <code>PUT /clip/config</code> (ADR-0040 §2.3) and <code>PUT /mcp/auth</code> (ADR-0033 §2.5) — the network perimeter is the outer gate; the Settings UI is same-origin. Stated trade-off identical to ADR-0040.
+- <strong>Cache:</strong> in-process <code>_CliAuthConfigCache</code> singleton (§2.4), loaded at startup, <strong>refreshed on every PUT</strong>. The provider factory reads the DB token from this cache O(1) — no per-build DB round-trip.</p>
+<h3 id="26-ui-frontend-engineer-specification">2.6 UI (frontend-engineer — specification)<a class="headerlink" href="#26-ui-frontend-engineer-specification" title="Permanent link">&para;</a></h3>
+<p>Under the <strong>CLI provider</strong> in Settings, in the <strong>API + MCP</strong> area (the coherent home — it already hosts credential/connection posture panels per ADR-0027/0032/0033; the LLM Models section is provider-list CRUD and is the wrong home for a per-backend credential). Add a <strong>CLI Subscription Auth</strong> sub-block (local component state + fetch/PUT only — no Zustand, mirrors ADR-0033/0040 UI, I3):
+- A <strong>password field</strong> (masked) for the pasted token + <strong>Save</strong> (<code>PUT {token}</code>) + <strong>Clear</strong> (<code>PUT {clear:true}</code>) buttons. When a token is configured, show <strong>only</strong> <code>token_configured=true</code> + <code>token_source</code> + <code>auth_mode</code> — <strong>never</strong> the value (there is no reveal; GET never returns it).
+- <strong>Posture</strong> row from <code>GET /provider/cli-auth</code>: <code>token_source</code> (<code>db</code>/<code>env</code>/<code>none</code>) and <code>auth_mode</code> (<code>subscription</code>/<code>api-key</code>/<code>unconfigured</code>), so the owner can see at a glance which credential wins.
+- A <strong>mini-guide</strong> (i18n): run <code>claude setup-token</code> on the host → paste the printed <code>sk-ant-oat01-…</code> token here → <strong>leave <code>ANTHROPIC_API_KEY</code> unset</strong>, with the note: <em>"The DB token is injected into the Claude CLI and the API key is scrubbed from its environment, so the subscription wins even if <code>ANTHROPIC_API_KEY</code> is set elsewhere — but leaving it unset is clearest."</em>
+- A <strong>security caveat</strong> (i18n): this token is stored in the database in plaintext and grants your Claude subscription; treat DB backups accordingly; to rotate, re-run <code>claude setup-token</code> and paste the new value, or Clear to fall back to env.
+- i18n keys under <code>settings.cliAuth.*</code> in <code>en.json</code> + <code>it.json</code> (<strong>parity gate</strong>). The token value is <strong>never</strong> an i18n key or a rendered string.</p>
+<hr />
+<h2 id="3-per-agent-file-ownership">3. Per-agent file ownership<a class="headerlink" href="#3-per-agent-file-ownership" title="Permanent link">&para;</a></h2>
+<p><strong>backend-engineer:</strong>
+- <code>backend/app/models.py</code> — add <code>cli_oauth_token</code> (<code>Text</code>, nullable, comment per §2.2) to <code>VaultState</code>.
+- <code>backend/alembic/versions/0017_vault_state_cli_oauth_token.py</code> — add the column (<code>revision="0017"</code>, <code>down_revision="0016"</code>); downgrade drops it.
+- <code>backend/app/cli_auth.py</code> (<strong>new</strong>) — <code>_CliAuthConfigCache</code> (mirrors <code>_ClipConfigCache</code>: <code>_token</code> + <code>asyncio.Lock</code>; <code>load</code>/<code>set_token</code>/<code>get_token</code>/<code>token_source</code>/<code>token_configured</code>/<code>auth_mode</code>), the module-level singleton, <code>resolve_subscription_token() -&gt; str | None</code>, and <code>_load_cli_auth_config_cache()</code>. Imports only <code>app.config</code> + stdlib (cycle-free).
+- <code>backend/app/ingest/provider/config.py</code> — add <code>subscription_token: str | None = None</code> to <code>ProviderSettings</code>.
+- <code>backend/app/ingest/provider/__init__.py</code> — <code>resolve_provider()</code> stamps <code>subscription_token</code> from <code>cli_auth.resolve_subscription_token()</code> <strong>only when <code>provider_type == "cli"</code></strong>.
+- <code>backend/app/main.py</code> — <code>GET /provider/cli-auth</code> + <code>PUT /provider/cli-auth</code> (<code>CliAuthConfigRequest</code>/<code>CliAuthConfigResponse</code>); call <code>_load_cli_auth_config_cache()</code> in the lifespan after <code>_load_clip_config_cache()</code>; import the <code>cli_auth</code> singleton. Never log/return the token.
+- <code>backend/tests/</code> — token never returned by GET/PUT (grep + response assertions); <code>token_source</code>/<code>auth_mode</code> precedence matrix; PUT set/clear round-trip refreshes cache; empty/whitespace/absurd-length → 422; DB-token-wins-over-env-API-key at resolution.</p>
+<p><strong>ai-agent-engineer (F17 — the injection + scrub):</strong>
+- <code>backend/app/ingest/provider/cli.py</code> — extend <code>_resolve_cli_auth_mode()</code> to take the injected <code>subscription_token</code> and implement §2.3 tier 1 (DB token → <code>"subscription"</code>); build the child env dict (<code>+CLAUDE_CODE_OAUTH_TOKEN</code>, <code>−ANTHROPIC_API_KEY</code>) and pass it via <code>ClaudeAgentOptions(env=...)</code> in <strong>both</strong> <code>delegate_ingest()</code> and <code>_chat_stream()</code>; <strong>verify the SDK <code>env</code>/<code>environment</code> param</strong> and implement the scoped-restore fallback if absent (§2.4); <strong>never mutate parent <code>os.environ</code></strong>. Read <code>config.subscription_token</code> from the <code>ProviderSettings</code> passed to <code>__init__</code> — <strong>no DB import in <code>cli.py</code></strong>.
+- <code>backend/tests/</code> — DB-token path selects <code>"subscription"</code> even with <code>ANTHROPIC_API_KEY</code> set in env (scrub proven: the child env has no <code>ANTHROPIC_API_KEY</code> and has the injected <code>CLAUDE_CODE_OAUTH_TOKEN</code>); empty DB token treated as unset; parent <code>os.environ</code> unchanged after a run; env-only tiers 2–4 unchanged (ADR-0042 tests stay green).</p>
+<p><strong>frontend-engineer:</strong>
+- <code>frontend/src/api/providerClient.ts</code> (or the coherent API client) — <code>CliAuthConfigResponse</code>/<code>CliAuthConfigRequest</code> + <code>getCliAuth()</code>/<code>setCliAuth()</code>.
+- <code>frontend/src/components/settings/SettingsPanel.tsx</code> — the CLI Subscription Auth sub-block in the API + MCP section (password field + Save/Clear + posture + mini-guide + caveat; local state, I3).
+- <code>frontend/src/i18n/en.json</code>, <code>it.json</code> — <code>settings.cliAuth.*</code> (parity). Token value never rendered when configured.
+- <code>frontend/src/tests/</code> — vitest: token never rendered/returned; posture reflects <code>token_source</code>/<code>auth_mode</code>; Save/Clear PUT shapes.</p>
+<p><strong>tech-writer:</strong>
+- <code>docs/er/schema.mmd</code> — <code>make er</code> (D2; new <code>cli_oauth_token</code> column).
+- <code>docs/api/openapi.json</code> — <code>make openapi</code> (D4; <code>GET/PUT /provider/cli-auth</code>).
+- <code>docs/DEPLOY.md</code> — note the token is now UI-settable (env stays a bootstrap fallback; DB wins); document the plaintext-in-DB posture + backup caveat + rotation (re-<code>setup-token</code> + paste, or Clear).
+- <strong>Amend ADR-0042</strong> — add a "Superseded in part by ADR-0043 (§1 precedence + value handling)" cross-ref line (do not rewrite it).
+- <code>docs/adr/README.md</code> — header line + new <code>0043</code> table row.</p>
+<p><strong>devops-engineer:</strong> one-line note — migration applied by standard <code>alembic upgrade head</code>; no new service/port/env.</p>
+<hr />
+<h2 id="4-acceptance-checks-dod">4. Acceptance checks (DoD)<a class="headerlink" href="#4-acceptance-checks-dod" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Token never returned.</strong> <code>GET /provider/cli-auth</code> (and <code>PUT</code>) with a DB token set returns <code>token_source="db"</code>, <code>token_configured=true</code>, <code>auth_mode="subscription"</code>, and the token value <strong>never</strong> appears in any response body; grep proves it is never logged.</li>
+<li><strong>Set/clear round-trip.</strong> <code>PUT {token:"sk-ant-oat01-…"}</code> stores it and refreshes the cache (posture flips to <code>db</code>/<code>subscription</code>); <code>PUT {clear:true}</code> nulls it and posture falls back to env/none.</li>
+<li><strong>DB stored plaintext, replayable.</strong> After set, <code>vault_state.cli_oauth_token</code> equals the pasted value verbatim (no hash) — this is intended and asserted.</li>
+<li><strong>DB wins over env API key (the crux).</strong> With <code>cli_oauth_token</code> set AND <code>ANTHROPIC_API_KEY</code> set in env, <code>_resolve_cli_auth_mode()</code> returns <code>"subscription"</code>, the spawned CLI's child env contains the injected <code>CLAUDE_CODE_OAUTH_TOKEN</code> and <strong>no <code>ANTHROPIC_API_KEY</code></strong> (scrub proven), and cost logs at INFO (ADR-0009 $0).</li>
+<li><strong>Parent env untouched.</strong> After a CLI run on the DB-token path, <code>os.environ["ANTHROPIC_API_KEY"]</code> (if it was set) is unchanged and <code>CLAUDE_CODE_OAUTH_TOKEN</code> is not permanently injected into the parent.</li>
+<li><strong>Empty = unset.</strong> An empty/whitespace <code>cli_oauth_token</code> is treated as unset (env governs); empty <code>ANTHROPIC_API_KEY</code> still cannot outrank the subscription (ADR-0042 rule preserved).</li>
+<li><strong>Precedence matrix.</strong> <code>token_source</code>/<code>auth_mode</code> correct for every combination of {DB set/unset} × {<code>ANTHROPIC_API_KEY</code>, <code>CLAUDE_CODE_OAUTH_TOKEN</code>, <code>CLAUDE_CODE_USE_SUBSCRIPTION</code>} env presence.</li>
+<li><strong>Validation.</strong> Empty/whitespace or absurd-length token → 422; a plausible token → 200; prefix mismatch is accepted (soft, not hard-blocked).</li>
+<li><strong>Layering.</strong> <code>grep</code> proves <code>cli.py</code> (and <code>app/ingest/provider/*</code>) import no DB/<code>models</code>; the token reaches <code>cli.py</code> only via <code>ProviderSettings.subscription_token</code>.</li>
+<li><strong>SDK env param.</strong> A test/assertion documents whether <code>ClaudeAgentOptions</code> exposes <code>env</code>; the injection uses it, or the scoped-restore fallback, with parent env restored in <code>finally</code>.</li>
+<li><strong>ADR-0042 tests green.</strong> Env-only tiers 2–4 behave byte-for-byte as before.</li>
+<li><strong>Docs gate.</strong> <code>make er</code> matches live schema (new column); <code>make openapi</code> includes <code>GET/PUT /provider/cli-auth</code>; ADR-0042 amendment cross-ref added; i18n en/it parity (I8).</li>
+</ol>
+<hr />
+<h2 id="5-consequences">5. Consequences<a class="headerlink" href="#5-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong> — the owner sets the Claude subscription OAuth token from the UI (no <code>.env</code> edit, no container restart), at parity with the clip (ADR-0040) and MCP (ADR-0033) tokens. The <strong>injection + API-key scrub guarantees</strong> the subscription is actually used (deterministic $0 billing), closing ADR-0042's "operator must remember to unset <code>ANTHROPIC_API_KEY</code>" foot-gun for the DB-token path. Reuses <code>vault_state</code>, <code>CliAgentProvider</code>, and <code>claude-agent-sdk</code> — no new process, no new dep (I9). Env tiers stay as bootstrap fallback (zero breakage; ADR-0042 deployments untouched).</p>
+<p><strong>Trade-offs (explicit)</strong> —
+- <strong>Plaintext secret in Postgres</strong> — a DB dump/backup leak yields the live subscription credential (higher value than the clip token; blast radius ≈ <code>.env</code> leak <strong>plus</strong> the DB-backup surface). This is the §12 trade the owner explicitly accepted; it is <strong>unavoidable</strong> because the token is replayed, not verified (a hash cannot be replayed). Documented in the UI caveat and DEPLOY.
+- <strong>One migration, one column</strong> (D2/ER regen).
+- <strong>No server-side rotation/reveal</strong> — the owner rotates by re-running <code>claude setup-token</code> and pasting; a lost token is re-pasted, not recovered from the UI (never displayed). More secure UX by omission.
+- <strong>Single-process cache</strong> — on a multi-process deploy the cache is stale after PUT until restart. Acceptable for a personal single-process homelab (same as ADR-0040 §5).
+- <strong>SDK env-param dependency</strong> — the clean path needs <code>ClaudeAgentOptions(env=…)</code>; the scoped-restore fallback covers its absence but is heavier. Verified by ai-agent-engineer.</p>
+<p><strong>Invariant check</strong> — <strong>I6:</strong> no provider/model/backend hardcoded; routing still by <code>capabilities()</code>; <code>subscription_token</code> is data, not a routing decision. <strong>I7:</strong> loops/cost unchanged; subscription = $0 (ADR-0009). <strong>I8:</strong> migration → D2/ER regen + D4 OpenAPI + ADR-0042 amendment. <strong>I9:</strong> reuses <code>vault_state</code> + <code>CliAgentProvider</code> + the SDK — no new process/dep. <strong>§12:</strong> narrowly amended for exactly one column (<code>cli_oauth_token</code>), justified by replay-not-verify + owner acceptance; all third-party provider API keys stay env-only. <strong>I1/I2/I3/I4/I5:</strong> untouched (no ingest/graph/render/editor/vault-format change).</p>
+<hr />
+<h2 id="6-do-not">6. Do-NOT<a class="headerlink" href="#6-do-not" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Do <strong>not</strong> hash <code>cli_oauth_token</code> — it is replayed to the CLI, not verified; a hash cannot be replayed (§2.1). (This is the one place plaintext is correct.)</li>
+<li>Do <strong>not</strong> return or log the token value anywhere — GET/PUT expose posture only; no reveal, ever (§2.1/§2.5).</li>
+<li>Do <strong>not</strong> mutate the parent <code>os.environ</code> — inject via <code>ClaudeAgentOptions(env=…)</code> or a scoped-restore context; restore in <code>finally</code> (§2.4).</li>
+<li>Do <strong>not</strong> let <code>cli.py</code> (or <code>app/ingest/provider/*</code>) import DB/<code>models</code> — the token arrives only on <code>ProviderSettings.subscription_token</code> (§2.4).</li>
+<li>Do <strong>not</strong> skip the <code>ANTHROPIC_API_KEY</code> scrub on the DB-token path — without it the API key can out-bill the subscription (§2.3 crux).</li>
+<li>Do <strong>not</strong> treat an empty <code>cli_oauth_token</code> or empty <code>ANTHROPIC_API_KEY</code> as "set" (ADR-0042 rule preserved — §2.3).</li>
+<li>Do <strong>not</strong> generate a token server-side or add a <code>generated_token</code>/rotate-reveal — the user pastes their own (§2.5).</li>
+<li>Do <strong>not</strong> hard-block on token prefix/format — soft-check only; the CLI is the real validator (§2.5).</li>
+<li>Do <strong>not</strong> widen the §12 exception beyond this one column — provider API keys stay env-only (§2.1).</li>
+<li>Do <strong>not</strong> open an SDK stream/loop before <code>_resolve_cli_auth_mode()</code> — a misconfig must fail pre-stream (Do-NOT #9, ADR-0042).</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

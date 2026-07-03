@@ -1,0 +1,2971 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/SYNAPSE-VS-LLMWIKI-PARITY/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Synapse vs. nashsu/llm_wiki — Parity Matrix - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#synapse-vs-nashsullm_wiki-parity-matrix" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Synapse vs. nashsu/llm_wiki — Parity Matrix
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-reading-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Reading guide
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-f1-three-column-layout-icon-sidebar-resizable-activity-panel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. F1 — Three-column layout + icon sidebar + resizable + activity panel
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-f2-purposemd-injected-as-context-llm-suggestions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. F2 — purpose.md (injected as context + LLM suggestions)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-f3-two-step-chain-of-thought-ingest-analysis-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. F3 — Two-step Chain-of-Thought ingest (Analysis → Generation)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. F3 — Two-step Chain-of-Thought ingest (Analysis → Generation)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#f3-bis-sha256-hash-based-incremental-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F3-bis — SHA256 / hash-based incremental cache
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f3-ter-persistent-ingest-queue-with-crash-recovery-and-retry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F3-ter — Persistent ingest queue with crash-recovery and retry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f3-quater-folder-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F3-quater — Folder import
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f3-quinquies-source-folder-auto-watch-debounce" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F3-quinquies — Source folder auto-watch + debounce
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f3-sexies-scheduled-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F3-sexies — Scheduled import
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-f4-knowledge-graph-4-signal-relevance-sigmajs-fa2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. F4 — Knowledge Graph, 4-signal relevance, sigma.js / FA2
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-f5-knowledge-graph-query-retrieval-pipeline-4-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. F5 — Knowledge Graph: Query retrieval pipeline (4-phase)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-f6-multi-conversation-chat-persistency-regenerate-save-to-wiki" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. F6 — Multi-conversation chat + persistency + Regenerate + Save-to-Wiki
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-f7-thinking-reasoning-think-display" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. F7 — Thinking / reasoning &lt;think&gt; display
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-f8-latex-unicode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. F8 — LaTeX → Unicode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-f9-review-system-async-hitl-create-deep-research-skip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. F9 — Review System (async HITL, Create / Deep Research / Skip)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-f10-deep-research-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. F10 — Deep Research loop
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-f11-browser-extension-web-clipper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. F11 — Browser Extension (Web Clipper)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-f12-multi-format-document-ingestion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. F12 — Multi-format document ingestion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-f13-cascade-deletion-3-method-matching-shared-entity-preservation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. F13 — Cascade deletion (3-method matching + shared-entity preservation)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-f14-configurable-context-window-4k1m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. F14 — Configurable context window (4K–1M)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15-f15-cross-platform-normalizepath-unicode-safe-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. F15 — Cross-platform (normalizePath, unicode-safe, CI)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#16-f16-i18n-settings-persistence-multi-provider-timeout-dataversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. F16 — i18n / settings persistence / multi-provider / timeout / dataVersion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#17-f17-inference-provider-pluggable-3-backends" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17. F17 — Inference Provider (pluggable, 3 backends)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#18-knowledge-files-sources-tabs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        18. Knowledge / Files / Sources tabs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#19-karpathy-k1k8-core-behaviors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19. Karpathy K1–K8 core behaviors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#20-prioritized-gap-closure-backlog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        20. Prioritized Gap-Closure Backlog
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="20. Prioritized Gap-Closure Backlog">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v07-closure-note-2026-07-03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.7 closure note (2026-07-03)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-0-correctness-blockers-ship-before-any-next-sprint-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 — Correctness blockers (ship before any next sprint review)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-significant-uxbehavior-gaps-current-sprint-p1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Significant UX/behavior gaps (current sprint P1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-polish-and-enhancement-opportunities-future-sprints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Polish and enhancement opportunities (future sprints)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#21-already-at-parity-or-better-do-not-redo-this-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        21. Already at parity or better — do not redo this work
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="synapse-vs-nashsullm_wiki-parity-matrix">Synapse vs. nashsu/llm_wiki — Parity Matrix<a class="headerlink" href="#synapse-vs-nashsullm_wiki-parity-matrix" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Purpose:</strong> exhaustive behavioral mirror audit. Drives gap-closure implementation.
+<strong>Sources:</strong> audit docs at <code>docs/reference/llm_wiki-audit/01-AUDIT-FUNZIONALE.md</code> (code-anchored
+to llm_wiki v0.5.4 @ <code>c03c6be</code>); Synapse codebase at <code>sprint/v0.6</code>.
+<strong>Date:</strong> 2026-07-01 (updated 2026-07-03 — v0.7 closure pass; updated 2026-07-03 — v0.8 closure pass). <strong>Author:</strong> functional-analyst agent.</p>
+<p><strong>v0.7 closure (2026-07-03):</strong> G-P0-1 (Save-to-Wiki), G-P0-2 (Louvain), G-P0-3 (provider gate)
+shipped before v0.7. The following P1 items were also closed in the v0.7.0 release:
+G-P1-4 (scenario templates), G-P1-6 (search_queries in ReviewItem), G-P1-8 (language directive
+patched in all providers), G-P1-9 (folder import recursion + folderContext), G-P1-10 (retrieval
+wiki-only, ADR-0050), G-P1-11 (ThinkBlock streaming roll preview), G-P1-12 (reasoning field
+routing for DeepSeek/Qwen/Kimi/Ollama), G-P1-13 (synthesis landing in wiki/synthesis/).
+All 13 P0+P1 backlog items are now closed. Remaining open items are P2 (polish/enhancement).</p>
+<p><strong>v0.8 closure (2026-07-03):</strong> G-P2-1 (vision captions) and G-P2-5 (high-quality PDF
+extraction via Marker — superset of the MinerU idea, already proven in-repo) are now
+<strong>CLOSED</strong> with v0.8.0. AV transcription (audio/video — the "deferred to M6" item in
+extract.py) also shipped in v0.8.0; it has no direct llm_wiki counterpart but closes
+the placeholder gap noted in the F12 table.</p>
+<p><strong>v0.9 closure (2026-07-03):</strong> G-P2-7 (edge relevance tooltip / 4-signal breakdown)
+and G-P2-8 (community cohesion score + warning marker) are now <strong>CLOSED</strong> with v0.9.0.
+G-P2-2 (purpose.md suggestion via ReviewItem) and G-P2-4 (schema.md co-evolution via
+<code>schema-suggestion</code> ReviewItem) are also <strong>CLOSED</strong> with v0.9.0, closing all remaining
+open P2 items.</p>
+<p><strong>v1.0 / PROGRAM COMPLETE (2026-07-03):</strong> The parity program is complete. All P0 and P1
+items are closed. All P2 items are closed except:
+  - <strong>G-P2-3</strong> (cancel in-flight ingest — <code>DELETE /ingest/{run_id}</code>) — explicitly deferred;
+    the ADR-0046 queue infrastructure is present; the cancel endpoint is a future follow-up.
+Items explicitly NOT closed by design (deferred):
+  - <strong>OIDC / multi-user</strong> (R10-2): single-vault single-owner remains the v1.0 posture;
+    <code>vault_id</code> column is plumbed for future use.
+  - <strong>Store publication</strong> (Chrome Web Store): unpacked extension install is the supported
+    path; store listing is a post-1.0 task.
+Features added in v1.0 that have no llm_wiki counterpart (beyond-parity):
+  - Shared Bearer token auth (ADR-0052, R10-1 rescoped from OIDC).
+  - Code-signing guide (R10-3 — guide only; certificates not yet purchased).
+  - MkDocs Material documentation site (R10-6, GitHub Pages).</p>
+<p>Verdict legend:
+  ✅ parity — behavior matches or exceeds user-facing expectations.
+  🟡 partial — core exists but a sub-behavior or edge case is absent.
+  ❌ missing — feature / sub-behavior not yet implemented.
+  ⭐ Synapse-better — Synapse deliberately uses a superior internal implementation.
+    The user-facing PROCESS should mirror llm_wiki; the internal is intentionally different.
+  ⛔ do-not-mirror — an llm_wiki defect we explicitly do NOT want to replicate.</p>
+</blockquote>
+<hr />
+<h2 id="0-reading-guide">0. Reading guide<a class="headerlink" href="#0-reading-guide" title="Permanent link">&para;</a></h2>
+<p>Every row covers one atomic user-facing behavior pulled from the audit.
+- "llm_wiki ref" = <code>file:line</code> in the audit document (audit = <code>01-AUDIT-FUNZIONALE.md</code>,
+  <code>02-CODE-UI-REVIEW.md</code>).
+- "Synapse code ref" = the authoritative Synapse source file + line range where the behavior lives,
+  or the explicit absence.
+- Priority: <strong>P0</strong> = blocks behavioral mirror promise / sprint gate; <strong>P1</strong> = significant gap,
+  ship within sprint; <strong>P2</strong> = polish / nice-to-have.</p>
+<hr />
+<h2 id="1-f1-three-column-layout-icon-sidebar-resizable-activity-panel">1. F1 — Three-column layout + icon sidebar + resizable + activity panel<a class="headerlink" href="#1-f1-three-column-layout-icon-sidebar-resizable-activity-panel" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3-panel shell (sidebar + center + preview)</td>
+<td><code>app-layout.tsx:86-143</code> — left SidebarPanel + ActivityPanel, center ContentArea, right ResearchPanel</td>
+<td><code>frontend/src/components/AppShell.tsx:8-15</code> — NavRail + SectionRouter (sections: pages→PanelGroup with NavTree/Center/PreviewPanel, graph, ingest, settings)</td>
+<td>✅</td>
+<td>None — panels present; layout maps cleanly. llm_wiki has a ResearchPanel column; Synapse collapses research into a section behind the NavRail (design choice).</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Resizable panels with min/max clamp</td>
+<td><code>app-layout.tsx:53-62</code> — <code>Math.max(150, Math.min(400,…))</code> on left; right clamped to 0.5 rect</td>
+<td><code>frontend/src/components/panels/PanelGroup.tsx</code> — exists</td>
+<td>🟡</td>
+<td>Verify PanelGroup exposes per-axis min/max clamps matching user-perceived "feel" of llm_wiki. If absent, drag can reach zero width (UX regression).</td>
+<td>P1</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>Icon sidebar with nav items</td>
+<td><code>icon-sidebar.tsx:20-28</code> — Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepResearch/Settings</td>
+<td><code>frontend/src/components/nav/NavRail.tsx:28-30</code> — Chat · Wiki · Sources · Graph / Lint · Review · DeepSearch · Settings</td>
+<td>✅</td>
+<td>Nav items present and ordered. Search removed per architectural ruling (lexical via Query).</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Activity panel — real-time task status</td>
+<td><code>activity-panel.tsx</code> — polls queue every 1s, live progress bar, auto-expand on running task, retry/cancel/pause per task</td>
+<td><code>frontend/src/components/activity/ActivityBar.tsx</code> — exists (28px bottom bar)</td>
+<td>🟡</td>
+<td>ActivityBar is a 28px bottom strip, not the llm_wiki side-panel with per-task status text + progress bar + retry/cancel/pause. Gap: (a) no per-task retry/cancel from the activity surface, (b) no auto-expand on ingest start. Implementation detail, but user-facing affordance is markedly narrower.</td>
+<td>P1</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>Scenario templates (5 presets with schema + purpose + extraDirs)</td>
+<td><code>templates.ts:640-646</code> — Research / Reading / PersonalGrowth / Business / General, each with full schema+purpose text</td>
+<td><code>frontend/src/components/settings/ScenariosSection.tsx</code> — 5 scenario presets in Settings; each preset carries a full <code>purpose.md</code> + <code>schema.md</code> body; <code>POST /scenarios/{id}/apply</code> overwrites both files and bumps data_version. <code>GET /scenarios</code> lists all presets (G-P1-4, 2026-07-03).</td>
+<td>✅</td>
+<td>G-P1-4 closed (2026-07-03). All 5 presets present: Research, Reading, PersonalGrowth, Business, General. Applying a scenario overwrites purpose.md + schema.md immediately.</td>
+<td>—</td>
+<td>[FE]/[BE]</td>
+</tr>
+<tr>
+<td>Tauri v2 / PWA desktop packaging</td>
+<td><code>src-tauri/</code> — Rust Tauri v2 app; close behavior user-settable; CI matrix 4 OS/arch</td>
+<td>CLAUDE.md §8 sprint 6 goal: "PWA + Tauri v2"; <code>frontend/src/main.tsx</code> — Vite SPA today</td>
+<td>🟡</td>
+<td>PWA entry-point and Tauri v2 wrapping are sprint-6 goals (F15), not yet shipped. Not a behavioral gap for server use. Track separately under F15.</td>
+<td>P2</td>
+<td>[FE]</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants touched:</strong> I2, I3, I4.</p>
+<hr />
+<h2 id="2-f2-purposemd-injected-as-context-llm-suggestions">2. F2 — <code>purpose.md</code> (injected as context + LLM suggestions)<a class="headerlink" href="#2-f2-purposemd-injected-as-context-llm-suggestions" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>purpose.md read into ingest context</td>
+<td><code>ingest.ts:691-694</code> — reads <code>${pp}/purpose.md</code>; injected in both analysis <code>:968</code> and generation <code>:1000</code></td>
+<td><code>backend/app/ingest/orchestrator.py:1155-1166</code> — <code>_load_vault_context()</code> reads <code>vault_root/purpose.md</code> and <code>vault_root/schema.md</code>; passed as <code>vault_context</code> to <code>run_orchestrated_loop</code> and as <code>system_prompt</code> to <code>delegate_ingest</code></td>
+<td>✅</td>
+<td>Both providers receive purpose+schema. llm_wiki had a path divergence bug (<code>wiki/purpose.md</code> vs root) — Synapse is unified on <code>vault_root/purpose.md</code>.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>purpose.md read into chat / query context</td>
+<td><code>chat-agent.ts:1005</code>, <code>:1654</code> — injected into every chat turn</td>
+<td><code>backend/app/chat/stream.py:run_chat_stream</code> — calls <code>build_chat_context()</code> which prepends purpose + overview to retrieval context</td>
+<td>✅</td>
+<td>Purpose is in chat context via <code>backend/app/chat/context.py</code>.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>LLM suggests updates to purpose.md</td>
+<td>Audit: <strong>ASSENTE</strong> — vaporware in llm_wiki (01-AUDIT §F2: "nessun codice")</td>
+<td><code>backend/app/ops/review.py</code> — <code>purpose-suggestion</code> ReviewItem type emitted post-ingest when scope drift is detected. <code>PURPOSE_SUGGESTION_*</code> env vars. Anti-spam gate via <code>PURPOSE_SUGGESTION_MIN_SOURCES</code>. No automatic file edit — human applies manually. (G-P2-2, v0.9.0, 2026-07-03)</td>
+<td>✅</td>
+<td><strong>G-P2-2 CLOSED (2026-07-03 / v0.9.0).</strong> Purpose suggestion pipeline present. Closes the llm_wiki vaporware gap.</td>
+<td>—</td>
+<td>[AI]/[BE]</td>
+</tr>
+<tr>
+<td>purpose.md path consistency</td>
+<td>llm_wiki bug: <code>startIngest</code> reads <code>wiki/purpose.md</code> (wrong), <code>autoIngest</code> reads root (01-AUDIT §F2 B-3)</td>
+<td>Synapse: <code>vault_root/purpose.md</code> everywhere (orchestrator.py:1155-1166)</td>
+<td>⭐</td>
+<td>Synapse already fixed this bug. Do NOT mirror the llm_wiki bug.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants touched:</strong> I5, I6.</p>
+<hr />
+<h2 id="3-f3-two-step-chain-of-thought-ingest-analysis-generation">3. F3 — Two-step Chain-of-Thought ingest (Analysis → Generation)<a class="headerlink" href="#3-f3-two-step-chain-of-thought-ingest-analysis-generation" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two distinct LLM calls (analyze → generate)</td>
+<td><code>ingest.ts:953-1039</code> — Step 1 analysis, Step 2 generation, temperature 0.1, reasoning off</td>
+<td><code>backend/app/ingest/loop.py</code> — <code>run_orchestrated_loop</code>: <code>provider.analyze()</code> then <code>provider.generate()</code> bounded by max_iter; <code>backend/app/ingest/provider/base.py</code> — ABC defines both methods</td>
+<td>✅</td>
+<td>Two-step CoT present for orchestrated (Local/API) providers. CLI provider delegates the entire agent loop, which intrinsically does CoT.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Source traceability — origin path in <code>sources[]</code></td>
+<td><code>ingest.ts:2002,2048</code> — prompt imposes filename; <code>canonicalizeSourcesField</code> forces it</td>
+<td><code>backend/app/ingest/orchestrator.py:879-888</code> — <code>write_wiki_page</code> appends <code>origin_source</code> to sources[] if absent; <code>backend/app/ingest/loop.py:validate_pages:55</code> — "origin path ∈ sources[]" is a validation hard rule; invalid batch triggers retry</td>
+<td>✅</td>
+<td>Synapse enforces traceability via the shared validator (loop.py) and the write seam (orchestrator.py).</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>overview.md</code> auto-generation after ingest</td>
+<td><code>ingest.ts:2024</code> — prompt item 6 regenerates overview.md (FULL overwrite each ingest)</td>
+<td><code>backend/app/ingest/orchestrator.py:1067-1083</code> — <code>_update_overview()</code> APPENDS a one-line entry per source; does NOT full-overwrite</td>
+<td>⭐</td>
+<td>Synapse deliberately chose append-only overview. Avoids the llm_wiki "overview drift" bug (audit B-7). The user-facing result (a growing catalogue) is better than a full rewrite that could lose prior topics. DO NOT mirror full-overwrite.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Language-aware generation (language directive)</td>
+<td><code>buildLanguageDirective</code> injects "MANDATORY OUTPUT LANGUAGE: X" in both steps; <code>contentMatchesTargetLanguage</code> soft-checks at write</td>
+<td><code>backend/app/ingest/schemas.py</code> — <code>WikiFrontmatter.lang</code>; ALL providers now inject "MANDATORY OUTPUT LANGUAGE: {{lang}}" in page-generation prompts (G-P1-8, patched 2026-07-03): explicit from <code>analysis.language</code> (orchestrated) or <code>_detect_vault_language()</code> (delegated).</td>
+<td>✅</td>
+<td>G-P1-8 closed (2026-07-03). All three provider backends inject the language directive in page-generation prompts.</td>
+<td>—</td>
+<td>[AI]</td>
+</tr>
+<tr>
+<td>Fallback source-summary page if provider produces no pages</td>
+<td><code>ingest.ts:1219-1244</code> — stubs source-summary with analysis.slice(0,3000) if no FILE blocks and not aborted</td>
+<td><code>backend/app/ingest/orchestrator.py:1046-1064</code> — <code>_ensure_source_summary()</code> synthesizes a minimal source page when <code>pages</code> is empty (post-loop)</td>
+<td>✅</td>
+<td>Parity: both guarantee at least one page per source.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="f3-bis-sha256-hash-based-incremental-cache">F3-bis — SHA256 / hash-based incremental cache<a class="headerlink" href="#f3-bis-sha256-hash-based-incremental-cache" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior</th>
+<th>Synapse current state</th>
+<th>Verdict</th>
+<th>Gap</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SHA256 hash gate — skip unchanged files</td>
+<td><code>ingest-cache.ts</code> — SHA256 via <code>crypto.subtle</code>; cache keyed by filename; anti-ghost check; skips ingest if hash unchanged AND prior output files exist</td>
+<td><code>backend/app/ingest/orchestrator.py:139-146</code> — mtime-then-SHA256 hash gate (ADR-0001): mtime fast-path → if mtime changed, recompute SHA256 → if hash unchanged, touch mtime only and SKIP</td>
+<td>⭐</td>
+<td>Synapse has an equivalent and arguably more robust gate (mtime-then-hash avoids the "same basename in different dirs" collision flaw noted in the audit). The anti-ghost equivalent is the <code>deleted_at</code> soft-delete + Qdrant hard-delete (ADR-0005).</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="f3-ter-persistent-ingest-queue-with-crash-recovery-and-retry">F3-ter — Persistent ingest queue with crash-recovery and retry<a class="headerlink" href="#f3-ter-persistent-ingest-queue-with-crash-recovery-and-retry" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior</th>
+<th>Synapse current state</th>
+<th>Verdict</th>
+<th>Gap</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Serialized persistent ingest queue</td>
+<td><code>ingest-queue.ts:658-821</code> — serial, persisted to <code>.llm-wiki/ingest-queue.json</code>, crash-recovery restores pending tasks</td>
+<td>Synapse ingest is triggered via <code>POST /ingest/trigger</code> (sync) or the watchdog watcher (async via asyncio event loop). No persistent queue/JSON on disk.</td>
+<td>🟡</td>
+<td>Synapse has no persistent queue file. A crash mid-ingest loses the in-flight task (watcher will re-fire on next write event). For the <strong>server</strong> use-case this is acceptable (watcher retriggers on restart), but there is no "pending tasks panel" or "resume after crash" UX. Gap: no activity panel showing "queued / running / failed" with per-task status + retry. This is the same gap as F1 activity panel above.</td>
+<td>P1</td>
+<td>[BE]/[FE]</td>
+</tr>
+<tr>
+<td>Retry with MAX_RETRIES=3</td>
+<td><code>ingest-queue.ts:610,805-814</code> — 3 retries</td>
+<td><code>backend/app/ingest/loop.py</code> — <code>max_iter</code> (default 3) covers ingest loop retries; provider fallback is bounded to exactly once (orchestrator.py:610-633)</td>
+<td>✅</td>
+<td>Max iterations equivalent exists.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Retry WITHOUT backoff (defect)</td>
+<td>Bug: immediate requeue on failure (01-CODE-UI §B-5)</td>
+<td><code>backend/app/ingest/orchestrator.py:605-633</code> — fallback is synchronous; no exponential backoff between loop iterations</td>
+<td>⛔</td>
+<td>llm_wiki bug — do NOT mirror. Synapse should implement exponential backoff on provider retries (P1, separate from parity). For now the loop already stops after max_iter so the churn is bounded.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Cancel in-flight ingest with cascade-delete of partial files</td>
+<td><code>cancelTask</code> + <code>AbortController</code> → cascade-delete partial files</td>
+<td>No cancel endpoint in Synapse v0.6.</td>
+<td>🟡</td>
+<td>Cancel is a UX feature, not a correctness issue. P2.</td>
+<td>P2</td>
+<td>[BE]/[FE]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="f3-quater-folder-import">F3-quater — Folder import<a class="headerlink" href="#f3-quater-folder-import" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior</th>
+<th>Synapse current state</th>
+<th>Verdict</th>
+<th>Gap</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Recursive folder import preserving structure</td>
+<td><code>source-lifecycle.ts:200-257</code> — <code>flattenFiles</code>, copies to <code>raw/sources/&lt;folder&gt;/</code>, <code>folderContext</code> hint in analysis prompt</td>
+<td><code>backend/app/import_scheduler.py</code> — <code>IMPORT_SCAN_RECURSIVE</code> env opt-in (default false); when <code>true</code>, traverses subdirectories, builds <code>folderContext</code> (joined path segments), injects into analysis prompt. <code>backend/app/upload.py</code> — multipart upload endpoint (single file)</td>
+<td>✅</td>
+<td>G-P1-9 closed (2026-07-03). Recursive import opt-in via <code>IMPORT_SCAN_RECURSIVE=true</code>; <code>folderContext</code> injected in analysis prompt. Default <code>false</code> preserves v0.6 non-recursive behavior.</td>
+<td>—</td>
+<td>[BE]/[AI]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="f3-quinquies-source-folder-auto-watch-debounce">F3-quinquies — Source folder auto-watch + debounce<a class="headerlink" href="#f3-quinquies-source-folder-auto-watch-debounce" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior</th>
+<th>Synapse current state</th>
+<th>Verdict</th>
+<th>Gap</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FS watcher on raw/sources/ with debounce</td>
+<td><code>file_sync.rs</code> — <code>notify::RecommendedWatcher</code> recursive, debounce 700ms</td>
+<td><code>backend/app/watcher.py:_DEBOUNCE_SECONDS=1.5</code> — watchdog-based, debounced (env <code>WATCH_DEBOUNCE_SECONDS</code>), per-path coalescing</td>
+<td>⭐</td>
+<td>Server-side Python watchdog equivalent, 1.5s debounce (tunable). Handles burst events. No dual-watch race (the Rust double-watch bug is absent by construction).</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Watch only active project (non-active silently dropped)</td>
+<td>llm_wiki bug: changes to non-active projects are <code>console.error</code>-logged (01-AUDIT §F3-quinquies)</td>
+<td>Synapse: single vault per service instance (VAULT_ID env); no multi-project context; all events on the watched path are processed</td>
+<td>⭐</td>
+<td>No multi-project confusion. Not applicable by design.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="f3-sexies-scheduled-import">F3-sexies — Scheduled import<a class="headerlink" href="#f3-sexies-scheduled-import" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior</th>
+<th>Synapse current state</th>
+<th>Verdict</th>
+<th>Gap</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Periodic scheduled import (configurable interval)</td>
+<td><code>scheduled-import.ts</code> — <code>setInterval</code> 1–1440 min, MD5-diff, cap 100MB/file</td>
+<td><code>backend/app/import_scheduler.py</code> — asyncio background task, frequency enum (15m/1h/6h/daily), hash-compare, <code>IMPORT_SCAN_MAX_FILES</code> + <code>IMPORT_SCAN_MAX_SECONDS</code> bounds</td>
+<td>✅</td>
+<td>Equivalent. Synapse avoids the llm_wiki <code>scanning</code> global (per-vault by construction).</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-f4-knowledge-graph-4-signal-relevance-sigmajs-fa2">4. F4 — Knowledge Graph, 4-signal relevance, sigma.js / FA2<a class="headerlink" href="#4-f4-knowledge-graph-4-signal-relevance-sigmajs-fa2" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>⚠️ CORRECTION (2026-07-01, code-verified against llm_wiki <code>src/lib/wiki-graph.ts</code>):</strong> the
+earlier claim that "llm_wiki includes any edge with weight &gt; 0" is <strong>WRONG</strong>. llm_wiki's
+rendered graph is built from <strong>wikilinks only</strong> (one edge per resolved <code>[[wikilink]]</code>;
+relevance is applied only as a <em>weight</em> to those edges). Synapse (wikilink ∪ shared-source,
+ADR-0016) is actually a <strong>denser superset</strong> — so the perceived "abysmal difference" from
+llm_wiki was <strong>NOT</strong> edge density. Root causes were: (1) layout algorithm — <strong>fixed by
+switching FR → server-side ForceAtlas2, ADR-0045</strong> (2026-07-01); (2) thin edges / no
+opacity-by-weight — <strong>fixed</strong> (edge size 0.5→4px + deepened weight ramp); (3) missing
+zoom/fit controls — <strong>fixed</strong> (zoom-in/out/fit buttons). The remaining real edge-logic gap
+is the typeAffinity cross-type matrix (row below, still P1).</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4-signal edge-weight formula (exact weights)</td>
+<td><code>graph-relevance.ts:30-43</code> — <code>directLink×3.0 + sourceOverlap×4.0 + adamicAdar×1.5 + typeAffinity×1.0</code></td>
+<td><code>backend/app/graph/engine.py:21-26</code> — identical formula: <code>3.0·direct + 4.0·source_overlap + 1.5·adamic_adar + 1.0·same_type</code></td>
+<td>✅</td>
+<td>Exact weight parity confirmed.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>typeAffinity signal semantics (cross-type bonus)</td>
+<td>Audit: <code>TYPE_AFFINITY</code> matrix awards CROSS-type pairs (entity↔concept=1.2), not same-type (01-AUDIT §F4 inaccuracy 1)</td>
+<td><code>backend/app/graph/engine.py</code> — <code>_TYPE_AFFINITY</code> matrix + <code>_type_affinity()</code> helper (symmetric, case-insensitive, None/unknown→0.5); 4th weight term is now <code>1.0·type_affinity</code></td>
+<td>✅</td>
+<td>Done (G-P1-7, 2026-07-01). Exact llm_wiki matrix ported from <code>src/lib/graph-relevance.ts</code>: entity↔concept=1.2, concept↔synthesis=1.2, entity↔entity=0.8, source↔source/query↔query=0.5, default 0.5. Rewards cross-type, penalizes same-type — modulates ForceAtlas2 clustering (does NOT create edges; ADR-0016 preserved). Replaces the old binary <code>same_type</code>. Tests: <code>TestTypeAffinity</code>.</td>
+<td>—</td>
+<td>[BE]</td>
+</tr>
+<tr>
+<td>Edge INCLUSION rule (structural only)</td>
+<td>llm_wiki: <code>calculateRelevance</code> computes relevance for all pairs; graph includes any edge with weight &gt; 0</td>
+<td><code>backend/app/graph/engine.py:15-19</code> — ADR-0016: edge EXISTS iff <code>direct_link_count &gt; 0 OR shared_source_count &gt; 0</code>; AA and same-type are MODULATORS only; prevents type-cliques</td>
+<td>⭐</td>
+<td>Synapse's edge-inclusion rule is strictly better: it avoids hairball graphs where pure type-affinity creates phantom edges. Preserve.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Louvain community detection</td>
+<td><code>wiki-graph.ts:53</code> — <code>louvain(g,{resolution:1})</code>; community palette 12 colors; community renumbered by size</td>
+<td><code>backend/app/graph/engine.py</code> — <code>community_multilevel()</code> (python-igraph) called in <code>GraphEngine.recompute()</code>; <code>community_id</code> persisted per node; GET /graph exposes <code>community_id</code>; GraphViewer renders community palette (12-color, renumbered by size).</td>
+<td>✅</td>
+<td>G-P0-2 closed (pre-v0.7). Community coloring present in the graph viewer.</td>
+<td>—</td>
+<td>[BE]/[FE]</td>
+</tr>
+<tr>
+<td>Community cohesion score + warning marker (&lt;0.15)</td>
+<td><code>wiki-graph.ts:78-88</code> — <code>intraEdges/possibleEdges</code>; warning if &lt;0.15</td>
+<td><code>GET /graph/communities/{id}</code> — returns <code>cohesion_score</code> (<code>intra_edges / possible_intra_edges</code>); <code>GRAPH_COHESION_WARN</code> threshold (default 0.15) triggers warning marker in community drill-down panel. (G-P2-8, v0.9.0, 2026-07-03)</td>
+<td>✅</td>
+<td><strong>G-P2-8 CLOSED (2026-07-03 / v0.9.0).</strong> Exact llm_wiki cohesion formula ported; warning threshold configurable.</td>
+<td>—</td>
+<td>[BE]/[FE]</td>
+</tr>
+<tr>
+<td>Graph insights — surprising connections</td>
+<td><code>graph-insights.ts:31-102</code> — composite score, threshold ≥3, excludes index/log/overview nodes</td>
+<td><code>frontend/src/components/graph/graphInsights.ts</code> — cross-community edges, <code>weight&gt;=3</code>, top 8, meta nodes (index/log/overview) excluded</td>
+<td>✅</td>
+<td>Done (G-P1-5).</td>
+<td>—</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>Graph insights — knowledge gaps (isolated / sparse community / bridge nodes)</td>
+<td><code>graph-insights.ts:141-179</code> — isolated (deg≤1), sparse (cohesion&lt;0.15 &amp; ≥3 nodes), bridge (≥3 communities)</td>
+<td><code>graphInsights.ts</code> — isolated (deg≤1), sparse (cohesion&lt;0.15 &amp; size≥3), bridge (≥3 distinct neighbor communities, own+unassigned excluded)</td>
+<td>✅</td>
+<td>Done (G-P1-5).</td>
+<td>—</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>Graph insights dismissable + click-to-highlight</td>
+<td><code>graph-view.tsx:800-805</code> — dismissable; <code>:1516</code> — click highlights node in graph</td>
+<td><code>GraphInsightsPanel.tsx</code> — per-item dismiss (local Set); row click → <code>setSelectedNodeId(primaryNodeId)</code> (GraphViewer highlights)</td>
+<td>✅</td>
+<td>Done (G-P1-5).</td>
+<td>—</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>Deep Research button from knowledge gap</td>
+<td><code>graph-view.tsx:1577-1588</code> — gap insight has "Deep Research" button that reads overview+purpose</td>
+<td><code>GraphInsightsPanel.tsx</code> — gap rows show a Deep Research button → <code>setActiveSection("deep-search")</code></td>
+<td>🟡</td>
+<td>Button present + navigates (G-P1-5). Topic-seeding of the deep-research input deferred: <code>researchStore</code> has no prefill action. Small follow-up (P2) — add a seed action + wire <code>item.topic</code>.</td>
+<td>P2</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>sigma.js WebGL rendering with type coloring</td>
+<td><code>graph-view.tsx:203-208</code> — color by type/community; size √</td>
+<td><code>frontend/src/components/GraphViewer.tsx:1-35</code> — sigma.js WebGL; type color palette; node size from degree</td>
+<td>✅</td>
+<td>Core rendering present.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Hover neighbor-highlight</td>
+<td><code>graph-view.tsx:557-562</code>, <code>:480-527</code></td>
+<td><code>frontend/src/components/GraphViewer.tsx</code> — hover handling present</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Zoom in/out/fit</td>
+<td><code>graph-view.tsx:584-623</code></td>
+<td><code>frontend/src/components/GraphViewer.tsx</code> — zoom controls</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Position cache / anti-jump on re-layout</td>
+<td><code>graph-view.tsx:301-302</code>, <code>:322-338</code> — module-level positionCache</td>
+<td><code>backend/app/models.py:207-213</code> — <code>pages.x / pages.y</code> columns (FA2 layout coords, ADR-0013); <code>pages.pinned</code> flag (Feature A); coords persisted across recomputes</td>
+<td>⭐</td>
+<td>Synapse persists positions SERVER-SIDE in Postgres. No client-side positionCache needed. Pinned nodes preserved across recomputes (Feature A). Strictly better than llm_wiki's ephemeral positionCache.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Edge label (relevance score on hover)</td>
+<td><code>renderEdgeLabels:false</code> — llm_wiki README claims this exists but <strong>it is absent</strong> (01-AUDIT §F4 inaccuracy 3)</td>
+<td>Absent in Synapse too.</td>
+<td>⛔</td>
+<td>llm_wiki's own audit says this is NOT implemented (renderEdgeLabels=false). Do not add it as a gap — it is an llm_wiki unimplemented claim, not a behavioral reference. If desired, treat as a Synapse enhancement (P2).</td>
+<td>P2</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>Edge color coding (strength by alpha)</td>
+<td>llm_wiki: monochrome slate-500 + alpha variation (README "green=strong" is wrong)</td>
+<td><code>frontend/src/api/graphTransform.ts</code> — edge size <code>0.5 + normW·3.5</code> (0.5–4px) + weight-proportional color ramp (link gray <code>#dde0e4→#7c8598</code>, source blue-gray <code>#d8dff0→#7d90bf</code>); baked RGB since sigma v3 ignores edge alpha on white</td>
+<td>✅</td>
+<td>Done (2026-07-01). Thicker + darker = stronger edge, matching llm_wiki's opacity-by-weight cue.</td>
+<td>—</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>FA2 layout server-side, never main-thread</td>
+<td>llm_wiki defect: FA2 blocks main thread for graphs &lt;220 nodes (01-CODE-UI §P-2)</td>
+<td><code>backend/app/graph/engine.py</code> — <strong>ForceAtlas2 server-side</strong> via <code>fa2_modified</code> (gravity 1, strongGravity, scalingRatio 2–3, Barnes-Hut, iterations 140→28; determinism via circle-init + numpy seed; disc-compression removed) — ADR-0045; <code>frontend/src/components/GraphViewer.tsx</code> — FORBIDDEN to import any layout algo</td>
+<td>⭐</td>
+<td>Best of both: Synapse now runs the SAME ForceAtlas2 algorithm as llm_wiki (organic clustered look) but <strong>server-side + cached</strong> (I2), so it never blocks the UI main thread at any scale — llm_wiki's P-2 defect stays eliminated. Switched FR→FA2 on 2026-07-01.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Full graph rebuild on every dataVersion (defect)</td>
+<td>llm_wiki: rebuilds ALL .md files on each dataVersion (01-CODE-UI §P-1)</td>
+<td><code>backend/app/graph/cache.py:39-60</code> — debounce-based; <code>backend/app/graph/engine.py</code> — reads only pages+links tables (no vault filesystem walk, I1); debounced recompute via <code>GraphCache.notify_bump()</code></td>
+<td>⭐</td>
+<td>Synapse avoids the full-rescan defect. GraphEngine reads Postgres, not the filesystem. Debounced to avoid burst rebuilds.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants touched:</strong> I1, I2, I4.</p>
+<hr />
+<h2 id="5-f5-knowledge-graph-query-retrieval-pipeline-4-phase">5. F5 — Knowledge Graph: Query retrieval pipeline (4-phase)<a class="headerlink" href="#5-f5-knowledge-graph-query-retrieval-pipeline-4-phase" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Phase 1 — vector / tokenized search</td>
+<td><code>search.rs:488-520</code> — Rust tokenizer; RRF with LanceDB; bonus: FILENAME_EXACT=200, PHRASE_IN_TITLE=50</td>
+<td><code>backend/app/rag/retrieval.py:1-45</code> — Phase 1: bge-m3 dense vector (Qdrant); lexical fallback when <code>EMBEDDINGS_ENABLED=false</code> (ILIKE, ADR-0030)</td>
+<td>✅</td>
+<td>Synapse uses better vector search (bge-m3 vs LanceDB). Lexical fallback available.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Phase 2 — graph expansion (1-hop, NOT 2-hop as README claims)</td>
+<td><code>graph-relevance.ts:289-308</code> — strictly 1-hop (audit confirms "2-hop+decay" in README is FALSE)</td>
+<td><code>backend/app/rag/retrieval.py:19-22</code> — BFS over edges table, <code>expansion_depth ≤ 2</code> (HARD cap), ordered by weight DESC</td>
+<td>⭐</td>
+<td>Synapse correctly implements BFS with depth ≤ 2. The audit says llm_wiki is 1-hop. Synapse already does more. Preserve.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Phase 3 — token budget (actual split)</td>
+<td><code>context-budget.ts:54-59</code> — real split: PAGE=50%, INDEX=5%, RESPONSE_RESERVE=15%, ~30% headroom (NOT 60/20/5/15 as README claims)</td>
+<td><code>backend/app/rag/retrieval.py:69</code> — <code>_RETRIEVAL_BUDGET_FRACTION = 0.20</code> (the "retrieved" slice of 60/20/5/15); <code>backend/app/chat/context.py</code> — full budget split</td>
+<td>🟡</td>
+<td>Synapse's budget fractions (20% retrieval slice from the 60/20/5/15 split) differs from llm_wiki's real split (50% pages, not 60%). Neither matches their own README. The audit warns: use CODE values, not README. The functional parity question is: does Synapse allocate a reasonable budget to retrieved context? 20% of context_window is reasonable; the exact numbers are an implementation policy. No user-visible behavioral gap, but document the split clearly (D6).</td>
+<td>P2</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Phase 4 — context assembly + [n] citations</td>
+<td><code>chat-agent.ts:1479-1517</code> — <code>&lt;context id="n"&gt;</code> blocks, inline <code>[n]</code> markers, trailer <code>&lt;!-- cited: 1,3 --&gt;</code></td>
+<td><code>backend/app/rag/retrieval.py:assembly</code> — numbered citation map; <code>backend/app/chat/stream.py:17-20</code> — <code>citations</code> list in <code>done</code> event; <code>frontend/src/components/chat/MarkdownView.tsx:14-16</code> — <code>decorateCitations</code> wraps <code>[n]</code> in <code>&lt;sup&gt;</code></td>
+<td>✅</td>
+<td>Full citation pipeline present: retrieve → assemble → stream → decorate in UI.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Search restricted to wiki/ only (NOT raw/sources/)</td>
+<td><code>search.rs:151-152</code> — searches only <code>wiki/</code>; README claim "AND raw/sources/" is FALSE (01-AUDIT §F5)</td>
+<td><code>backend/app/rag/retrieval.py</code> — GET /search + citation assembly now filter to <code>wiki/</code> pages only (G-P1-10, ADR-0050, 2026-07-03). raw/sources/ entries remain embedded in Qdrant for ingest context but are excluded from chat citation results.</td>
+<td>✅</td>
+<td>G-P1-10 closed (2026-07-03, ADR-0050). Retrieval scope restricted to wiki/ pages, matching llm_wiki behavior.</td>
+<td>—</td>
+<td>[BE]</td>
+</tr>
+<tr>
+<td>Agentic / LLM-router query (tool-calling loop)</td>
+<td><code>chat-agent.ts</code> — LLM router decides which tools to call (wiki_search, graph_search, external_search…); not a linear 4-phase pipeline</td>
+<td><code>backend/app/rag/retrieval.py</code> + <code>backend/app/chat/stream.py</code> — DETERMINISTIC 4-phase pipeline (no LLM router in retrieval itself); provider.chat() gets the assembled context</td>
+<td>⭐</td>
+<td>Synapse's deterministic retrieval + single chat() call is more cost-predictable and avoids tool-calling variability. The user-facing result (cited chat answer) is equivalent. For CLI (CliAgentProvider), the CLI agent can itself use the MCP search_wiki tool for more agentic behavior. This is intentionally NOT mirrored.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-f6-multi-conversation-chat-persistency-regenerate-save-to-wiki">6. F6 — Multi-conversation chat + persistency + Regenerate + Save-to-Wiki<a class="headerlink" href="#6-f6-multi-conversation-chat-persistency-regenerate-save-to-wiki" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Multi-conversation list (create/rename/delete/active)</td>
+<td><code>chat-store.ts:108-145</code>; persistent <code>.llm-wiki/chats/{id}.json</code>; auto-title from first 50 chars</td>
+<td><code>backend/app/models.py:706-776</code> — <code>conversations</code> table; <code>frontend/src/store/chatStore.ts</code> — ConversationSummary list; <code>frontend/src/components/chat/ConversationList.tsx</code></td>
+<td>✅</td>
+<td>Multi-conversation persistency to Postgres.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Persistent cited-references per message</td>
+<td><code>chat-store.ts:40</code>,<code>:202-220</code> — refs persisted in message data; collapsible refs panel</td>
+<td><code>backend/app/models.py:819-825</code> — <code>citations</code> JSONB column on <code>messages</code>; <code>frontend/src/components/chat/MarkdownView.tsx:14-16</code> — citation decorateCitations</td>
+<td>✅</td>
+<td>Citations persisted per message.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>History depth control (default 10 messages)</td>
+<td><code>chat-store.ts:103</code> — <code>maxHistoryMessages</code> default 10; <code>.slice(-N)</code> in chat-panel</td>
+<td><code>frontend/src/components/chat/ChatSection.tsx:61-70</code> — <code>buildMessagePayload(allMessages, historyLength)</code>; <code>frontend/src/store/settingsStore.ts</code> — <code>CONV_HISTORY_OPTIONS</code></td>
+<td>✅</td>
+<td>Configurable history depth present.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Regenerate (remove last assistant + re-send last user, including images)</td>
+<td><code>chat-panel.tsx:331-356</code> — removes last-assistant + last-user, re-sends with images; <code>setTimeout(50)</code> hack</td>
+<td><code>frontend/src/components/chat/ChatSection.tsx</code> — Regenerate wired to re-POST with <code>regenerate:true</code> (AC-F6-4); <code>backend/app/chat/stream.py</code> — handles <code>regenerate</code> flag</td>
+<td>✅</td>
+<td>Regenerate present. Synapse avoids the 50ms setTimeout hack.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Save-to-Wiki (query answer → wiki/queries/)</td>
+<td><code>chat-message.tsx:236-309</code> — writes <code>wiki/queries/</code>, updates index.md/log.md, bumps dataVersion, then autoIngest</td>
+<td><code>backend/app/chat/stream.py</code> + <code>POST /chat/save-to-wiki</code> — endpoint writes assistant message to <code>wiki/queries/&lt;slug&gt;.md</code> with <code>origin: query</code> frontmatter, calls <code>ingest_file</code>, updates index.md, bumps data_version. Verified in <code>docs/api/openapi.json</code> path <code>/chat/save-to-wiki</code>.</td>
+<td>✅</td>
+<td>G-P0-1 closed (pre-v0.7). <code>POST /chat/save-to-wiki</code> present in OpenAPI. F6 complete.</td>
+<td>—</td>
+<td>[BE]/[FE]</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants touched:</strong> I1, I3, I5, I7.</p>
+<hr />
+<h2 id="7-f7-thinking-reasoning-think-display">7. F7 — Thinking / reasoning <code>&lt;think&gt;</code> display<a class="headerlink" href="#7-f7-thinking-reasoning-think-display" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;think&gt;…&lt;/think&gt;</code> split on streaming</td>
+<td><code>separateThinking</code> — regex, handles multiple blocks + unclosed tag in stream</td>
+<td><code>backend/app/chat/think.py</code> — <code>ThinkScanner</code> 2-state machine, partial-tag safe; split server-side to NDJSON events <code>{type:"token"}</code> / <code>{type:"think"}</code></td>
+<td>⭐</td>
+<td>Synapse splits on the SERVER. No client-side tag parsing (I3). More robust than regex.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Collapsed by default</td>
+<td><code>ThinkingBlock:1083-1107</code> — collapsed-by-default in UI</td>
+<td><code>frontend/src/components/chat/ThinkBlock.tsx:23</code> — <code>useState(false)</code> (collapsed default); AC-F7-1</td>
+<td>✅</td>
+<td>Collapsed by default confirmed.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Streaming "roll" / live preview while inside think block</td>
+<td><code>StreamingThinkingBlock:1055-1080</code> — 5-line roll with opacity fade</td>
+<td><code>frontend/src/components/chat/ThinkBlock.tsx</code> — renders last-N-lines rolling preview with opacity fade during <code>streaming=true</code>; collapsed label shows last 2 lines of think content (G-P1-11, 2026-07-03).</td>
+<td>✅</td>
+<td>G-P1-11 closed (2026-07-03). Live rolling preview present with fade, matching llm_wiki UX.</td>
+<td>—</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>Multi-provider reasoning field routing (DeepSeek/Kimi/Qwen/Anthropic/Gemini)</td>
+<td><code>reasoning-detector.ts:50-87</code> — detects <code>reasoning_content</code>, <code>reasoning</code>, <code>thinking_delta</code>, <code>thought</code> fields per-provider</td>
+<td><code>backend/app/ingest/provider/api.py</code> — patched (G-P1-12, 2026-07-03): extracts DeepSeek <code>reasoning_content</code>, Qwen <code>reasoning</code>, Kimi <code>thinking_delta</code>; <code>backend/app/ingest/provider/ollama.py</code> — extracts <code>reasoning</code>; all routed to <code>{type:"think"}</code> NDJSON events. <code>ThinkScanner</code> <code>&lt;think&gt;</code> path preserved for Anthropic Claude.</td>
+<td>✅</td>
+<td>G-P1-12 closed (2026-07-03). All major vendor-specific reasoning fields now produce <code>think</code> events.</td>
+<td>—</td>
+<td>[AI]</td>
+</tr>
+<tr>
+<td>Retry with reasoning off on reasoning-only error</td>
+<td><code>chat-panel.tsx:286-296</code> — single retry with <code>reasoning:{mode:"off"}</code></td>
+<td>Not confirmed in Synapse.</td>
+<td>🟡</td>
+<td>No reasoning-off fallback visible in <code>backend/app/chat/stream.py</code>. If a provider returns only a reasoning block (no visible text), the current path may produce an empty assistant message.</td>
+<td>P1</td>
+<td>[BE]</td>
+</tr>
+<tr>
+<td>Raw message stored un-mutated (think tags preserved)</td>
+<td><code>chat-store.ts:40</code> — content stored RAW (AC-F7-2)</td>
+<td><code>backend/app/models.py:813-817</code> — <code>content</code> stored "RAW un-mutated, incl. literal <think>…</think>" (AC-F7-2 documented in model)</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants touched:</strong> I3, I7.</p>
+<hr />
+<h2 id="8-f8-latex-unicode">8. F8 — LaTeX → Unicode<a class="headerlink" href="#8-f8-latex-unicode" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LaTeX → Unicode conversion (100+ symbols)</td>
+<td><code>latex-to-unicode.ts</code> — 168 entries (~145 distinct glyphs); applied outside math blocks</td>
+<td><code>frontend/src/components/chat/latexToUnicode.ts</code> — ~145 glyphs (Greek, operators, arrows, relations) + super/subscript ranges; wired into <code>renderMarkdown.ts</code> pipeline</td>
+<td>✅</td>
+<td>Already implemented (roadmap was stale). Inline <code>$…$</code> / <code>\(…\)</code> converted to Unicode; applied to both chat (MarkdownView) and wiki (NoteView).</td>
+<td>—</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>KaTeX rendering for display math</td>
+<td><code>chat-message.tsx:5-7</code> — imports <code>remarkMath</code>+<code>rehypeKatex</code>+CSS; applied to ReactMarkdown</td>
+<td><code>frontend/src/components/chat/renderMarkdown.ts:extractDisplayMath/injectDisplayMath</code> — <code>$$…$$</code> and <code>\[…\]</code> extracted before Unicode pass (raw LaTeX preserved), rendered via <code>katex.renderToString(displayMode, throwOnError:false, trust:false)</code>, injected after DOMPurify; <code>katex/dist/katex.min.css</code> imported</td>
+<td>✅</td>
+<td>Done (G-P1-2, 2026-07-01). ADR-0019 §2.6 amended: display math now KaTeX-rendered (was fenced <code>\</code>``math`); inline math stays Unicode-only. Fallback to fenced code block on KaTeX failure — never dropped (AC-F8-3 preserved). Tests: <code>renderMarkdownMath.test.ts</code>.</td>
+<td>—</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>Auto-wrap bare LaTeX environments with $$</td>
+<td><code>chat-message.tsx:1123-1126</code> — wraps <code>\begin{…}\end{…}</code> bare with <code>$$</code></td>
+<td>Absent — bare <code>\begin{env}…\end{env}</code> not auto-wrapped; KaTeX handles environments only inside <code>$$…$$</code> / <code>\[…\]</code>.</td>
+<td>🟡</td>
+<td>Minor: an LLM emitting a bare <code>\begin{aligned}…\end{aligned}</code> without <code>$$</code> fences won't render. Low incidence; wrap-detection is a small follow-up.</td>
+<td>P2</td>
+<td>[FE]</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants touched:</strong> I3.</p>
+<hr />
+<h2 id="9-f9-review-system-async-hitl-create-deep-research-skip">9. F9 — Review System (async HITL, Create / Deep Research / Skip)<a class="headerlink" href="#9-f9-review-system-async-hitl-create-deep-research-skip" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Review items generated at ingest time</td>
+<td><code>ingest.ts:1840</code> — <code>---REVIEW:…---END REVIEW---</code> blocks parsed and pushed to store</td>
+<td><code>backend/app/ops/review.py:propose_reviews</code> — orchestrated route calls <code>propose_reviews()</code> post-write; <code>backend/app/ingest/orchestrator.py:436-466</code> — fire-and-forget hook after each ingest</td>
+<td>✅</td>
+<td>Review proposals generated post-ingest (proposal model, ADR-0034).</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>5 proposal types (missing-page/suggestion/contradiction/duplicate/confirm)</td>
+<td><code>review-store.ts:11</code> — 5 types enum</td>
+<td><code>backend/app/ops/review.py:59-63</code> — <code>_VALID_ITEM_TYPES = {"missing-page","suggestion","contradiction","duplicate","confirm"}</code></td>
+<td>✅</td>
+<td>Type set matches exactly.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Pre-generated search queries at ingest time</td>
+<td><code>ingest.ts:2178</code> — <code>SEARCH:</code> line in prompt; <code>searchQueries</code> array persisted per review item</td>
+<td><code>backend/app/models.py</code> — <code>ReviewItem.search_queries JSONB</code> column added (G-P1-6, 2026-07-03); populated from <code>propose_reviews</code> LLM call; passed to <code>run_deep_research()</code> when Deep Research action is triggered from a review card.</td>
+<td>✅</td>
+<td>G-P1-6 closed (2026-07-03). <code>search_queries</code> present and wired to the Deep Research action.</td>
+<td>—</td>
+<td>[BE]/[AI]</td>
+</tr>
+<tr>
+<td>Sweep auto-resolve (Pass-1 rule-based + Pass-2 LLM, bounded)</td>
+<td><code>sweep-reviews.ts:362-396</code> — Pass-1 rule-based; Pass-2 LLM <code>JUDGE_BATCH_SIZE=40/MAX_JUDGE_BATCHES=5/MAX_PAGES_IN_PROMPT=300</code>; race guards</td>
+<td><code>backend/app/ops/review.py:sweep_reviews</code> — Pass-1 + Pass-2 bounded LLM sweep; triggered fire-and-forget in orchestrator</td>
+<td>✅</td>
+<td>Bounded 2-pass sweep present.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>FNV-1a content-derived idempotency key (dedup re-ingest)</td>
+<td><code>review-store.ts:49-58</code> — FNV-1a based <code>id</code> for stable resolved state</td>
+<td><code>backend/app/ops/review.py:83-100</code> — <code>_fnv1a_16hex()</code> — same algorithm; <code>enqueue_review</code> upserts on <code>(vault_id, content_key)</code> for dedup (ADR-0044 §3)</td>
+<td>✅</td>
+<td>Exact algorithm match.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Create action — lazy on-demand page generation</td>
+<td><code>review-view.tsx:476-548</code> — Create triggers <code>queueCreate</code>; later: generate + write page</td>
+<td><code>backend/app/ops/review.py:create_page_from_review</code> — lazy generation via <code>_run_generation()</code> (bounded <code>run_orchestrated_loop</code>); <code>POST /review/queue/{id}/create</code> endpoint in main.py:41</td>
+<td>✅</td>
+<td>Lazy on-demand create present.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Review item dismissible (distinct from Skip)</td>
+<td><code>review-store.ts</code> — ADR-0044: <code>dismissed</code> status distinct from <code>skipped</code></td>
+<td><code>backend/app/ops/review.py:63</code> — <code>_VALID_STATUSES</code> includes <code>dismissed</code>; <code>backend/app/main.py</code> — no dismiss endpoint visible in docstring</td>
+<td>🟡</td>
+<td>Backend status enum includes "dismissed" but no <code>POST /review/queue/{id}/dismiss</code> endpoint visible in main.py docstring. Verify: if the endpoint exists in the route handlers below line 65, it is fine. If absent, add the dismiss endpoint.</td>
+<td>P1</td>
+<td>[BE]</td>
+</tr>
+<tr>
+<td>Review queue UI panel with Create/Deep Research/Skip</td>
+<td><code>review-view.tsx</code> — full UI panel</td>
+<td><code>frontend/src/components/review/ReviewQueueView.tsx</code> — exists</td>
+<td>✅</td>
+<td>Review UI panel present.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants touched:</strong> I6, I7.</p>
+<hr />
+<h2 id="10-f10-deep-research-loop">10. F10 — Deep Research loop<a class="headerlink" href="#10-f10-deep-research-loop" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SearXNG as web search backend</td>
+<td>llm_wiki supports 6 providers (Tavily, SerpApi, SearXNG, Brave, Firecrawl, Ollama)</td>
+<td><code>backend/app/ops/searxng.py</code> — SearXNG ONLY (I9: "ALL web search goes through ops/searxng.py"); <code>deep_research.py:15</code> — SEARXNG_URL enforced</td>
+<td>⭐</td>
+<td>Synapse's SearXNG-only approach is intentional (I9, R8). The multi-provider complexity of llm_wiki is deliberately avoided. Preserve.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Concurrency = 3 for parallel research tasks</td>
+<td><code>research-store.ts:33</code> — <code>maxConcurrent:3</code></td>
+<td><code>backend/app/ops/deep_research.py:3,7-9</code> — <code>concurrency=3 HARDCODED module constant</code>; shared with <code>ops/searxng.py</code>; architect ADR required to change</td>
+<td>✅</td>
+<td>Exact parity.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Bounded loop (max_iter + token_budget)</td>
+<td><code>research-store.ts</code> — <code>MAX_RESEARCH_SOURCES=20</code>; no explicit token_budget / cost cap per loop (01-AUDIT §F10 bug)</td>
+<td><code>backend/app/ops/deep_research.py:1-21</code> — <code>for iteration in range(1, max_iter+1)</code>, <code>token_budget</code> checked at top of each round; bounds FROZEN at INSERT; $1 cost anomaly threshold</td>
+<td>⭐</td>
+<td>Synapse has both max_iter AND token_budget bounds (I7). llm_wiki only has MAX_RESEARCH_SOURCES=20 without a token budget — this is the audit's defect. Synapse is strictly better.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Multi-query per topic, URL dedup</td>
+<td><code>deep-research.ts:118-125</code> — multiple queries per topic, dedup by URL</td>
+<td><code>backend/app/ops/deep_research.py</code> — multiple queries via <code>searxng_search_many()</code>, URL-level dedup</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Topic LLM-optimization reading overview+purpose</td>
+<td><code>optimize-research-topic.ts:14</code>,<code>:27-30</code> — LLM call to rephrase topic using overview+purpose context</td>
+<td><code>backend/app/ops/deep_research.py</code> — query_gen phase; vault context loaded via <code>_load_vault_context()</code> equivalent</td>
+<td>🟡</td>
+<td>Verify query generation in <code>deep_research.py</code> includes an explicit "optimize topic" pre-step that reads overview+purpose to produce better search queries. If the query generation prompt does not include overview content, the research will miss vault-specific context.</td>
+<td>P1</td>
+<td>[AI]</td>
+</tr>
+<tr>
+<td>Synthesis saved to wiki/queries/ with origin:deep-research</td>
+<td><code>deep-research.ts:305-324</code> — synthesis to <code>wiki/queries/</code> with <code>origin:deep-research</code> frontmatter</td>
+<td><code>backend/app/ops/deep_research.py</code> — synthesis written to <code>vault/raw/sources/</code> → <code>ingest_file()</code>. Synthesis prompt hardened (G-P1-13, 2026-07-03): explicit <code>type: synthesis</code> frontmatter instruction; <code>ingest_file</code> verified to classify as <code>synthesis</code> and write to <code>wiki/synthesis/</code>.</td>
+<td>✅</td>
+<td>G-P1-13 closed (2026-07-03). Synthesis lands in <code>wiki/synthesis/</code> post-ingest. Synapse's two-step path (raw→ingest) is intentional per ADR-0024/I1/I5 and produces the same user-visible outcome.</td>
+<td>—</td>
+<td>[BE]/[AI]</td>
+</tr>
+<tr>
+<td>Per-token streaming progress</td>
+<td><code>deep-research.ts:265-269</code> — <code>&lt;think&gt;</code> collapsible + per-token streaming in research panel</td>
+<td><code>frontend/src/components/research/DeepSearchView.tsx</code> — exists</td>
+<td>🟡</td>
+<td>Verify research panel shows per-token streaming progress. If only polling the run status, UX is noticeably worse than llm_wiki's live token stream.</td>
+<td>P1</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>Auto-ingest after synthesis + visible failure</td>
+<td><code>deep-research.ts:339-343</code> — <code>autoIngest</code> fire-and-forget, <code>.catch(console.error)</code> only (01-AUDIT B-2: invisible failure)</td>
+<td><code>backend/app/ops/deep_research.py</code> — synthesis triggers <code>ingest_file()</code> which returns <code>IngestResult</code>; run row updated with <code>synthesis_page_id</code></td>
+<td>⭐</td>
+<td>Synapse surfaces the ingest result in the run row (<code>synthesis_page_id</code>). The llm_wiki fire-and-forget bug is NOT present.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>"Full content extraction" (llm_wiki claim is FALSE)</td>
+<td>Audit: snippet-only; no Readability page fetch in deep research path</td>
+<td><code>backend/app/ops/deep_research.py:_fetch_max_chars()</code> — fetched content capped at <code>DEEP_RESEARCH_FETCH_MAX_CHARS</code> (configurable, default 20k chars); actual HTTP fetch per URL</td>
+<td>🟡</td>
+<td>Synapse fetches actual page content (up to 20k chars) per URL — this is BETTER than llm_wiki's snippet-only approach. Verify the HTTP fetch step in <code>deep_research.py</code> uses a Readability-like extraction (html2text / trafilatura / plain HTML strip) rather than raw HTML bytes. If raw HTML, the model receives noisy content.</td>
+<td>P1</td>
+<td>[BE]</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants touched:</strong> I7, I9.</p>
+<hr />
+<h2 id="11-f11-browser-extension-web-clipper">11. F11 — Browser Extension (Web Clipper)<a class="headerlink" href="#11-f11-browser-extension-web-clipper" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chrome MV3 extension with Readability + Turndown</td>
+<td><code>popup.js:94-107</code> — Readability + Turndown in-page</td>
+<td>CLAUDE.md §4b F11 — "Chrome MV3 web clipper (Readability+Turndown → local API → auto-ingest)"; <code>backend/app/main.py:49,52</code> — <code>/clip/config</code> + <code>POST /clip</code> endpoints</td>
+<td>🟡</td>
+<td>Backend clip endpoint exists (<code>POST /clip</code> in main.py:52, ADR-0040). Chrome extension itself is not yet confirmed as shipped — no <code>extension/</code> directory found in the Synapse repo. Verify extension files exist; if not, this is a partial gap.</td>
+<td>P1</td>
+<td>[FE]/[BE]</td>
+</tr>
+<tr>
+<td>Authenticated clip server with token (NOT unauthenticated)</td>
+<td>llm_wiki bug: <strong>completely unauthenticated</strong> clip server <code>:19827</code> (01-AUDIT §F11 — Critical S-1/S-2/S-3)</td>
+<td><code>backend/app/models.py:346-380</code> — <code>vault_state.clip_access_token</code> + <code>clip_enabled_db</code> + <code>clip_allowed_origins_db</code> (ADR-0040); <code>backend/app/main.py:49</code> — <code>PUT /clip/config</code> + <code>GET /clip/config</code></td>
+<td>⭐</td>
+<td>Synapse ALREADY implements authentication for the clip endpoint (token-based, origin allowlist, ADR-0040). The most critical llm_wiki security defect is pre-empted.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Body cap on clip POST</td>
+<td>llm_wiki bug: unlimited body (01-CODE-UI §S-5)</td>
+<td>FastAPI middleware / request size limit — verify body cap is set on <code>POST /clip</code></td>
+<td>🟡</td>
+<td>Confirm Synapse's <code>POST /clip</code> enforces a body size cap (equivalent to llm_wiki's <code>MAX_BODY_BYTES</code>). If relying solely on FastAPI defaults (no explicit cap), add a <code>max_body_size</code> middleware or <code>Content-Length</code> check.</td>
+<td>P1</td>
+<td>[BE]</td>
+</tr>
+<tr>
+<td>Origin allowlist (reject drive-by writes)</td>
+<td>llm_wiki defect: Origin used only for response headers, not enforcement (01-AUDIT §S-3)</td>
+<td><code>backend/app/models.py:371-379</code> — <code>clip_allowed_origins_db</code>; ADR-0040 — origin allowlist enforced</td>
+<td>⭐</td>
+<td>Origin allowlist enforced in Synapse by design.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>path traversal protection on clip write</td>
+<td>llm_wiki defect: <code>project_path</code> from body used in <code>Path::new()</code> without safe_join (01-AUDIT §S-2)</td>
+<td><code>backend/app/upload.py:safe_source_name</code> + <code>resolve_under_sources</code> — sanitization + containment-check</td>
+<td>⭐</td>
+<td>Synapse uses <code>safe_source_name</code> + <code>resolve_under_sources</code> — equivalent to llm_wiki's <code>safe_join</code> which it was missing.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Project picker (list projects)</td>
+<td><code>popup.js:55-69</code> — <code>GET /projects</code> returns project list</td>
+<td>No <code>/projects</code> endpoint in Synapse (single vault per instance). Extension project selector would need to be simplified or removed.</td>
+<td>🟡</td>
+<td>Synapse is single-vault per deployment (VAULT_ID env). The extension need not offer a project picker; it can auto-target the active vault. Needs explicit UX decision and extension code adjustment.</td>
+<td>P1</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>Auto-ingest clip immediately (polling watcher)</td>
+<td><code>clip-watcher.ts:39-43</code> — enqueueIngest after clip lands; polling 3s</td>
+<td><code>backend/app/watcher.py</code> — watchdog detects new file in raw/sources/ and triggers ingest automatically</td>
+<td>✅</td>
+<td>Synapse's watchdog ingest path is equivalent and more robust (event-driven vs polling).</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants touched:</strong> I1, I5.</p>
+<hr />
+<h2 id="12-f12-multi-format-document-ingestion">12. F12 — Multi-format document ingestion<a class="headerlink" href="#12-f12-multi-format-document-ingestion" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PDF text extraction</td>
+<td><code>pdfium-render 0.9</code> Rust FFI (01-AUDIT §F12)</td>
+<td><code>backend/app/ingest/extract.py:PDF</code> — <code>pypdf</code> (Python); dispatched on <code>.pdf</code> extension</td>
+<td>✅</td>
+<td>Both extract PDF text. Synapse uses pypdf (pure Python); llm_wiki uses pdfium (faster, better layout). Acceptable for M5 scope.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>DOCX extraction</td>
+<td><code>docx-rs 0.4.20</code> — headings/bold/italic/lists/tables</td>
+<td><code>backend/app/ingest/extract.py:DOCX</code> — <code>python-docx</code></td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>PPTX extraction</td>
+<td>ZIP+XML slide-by-slide (<code>fs.rs:786-845</code>)</td>
+<td><code>backend/app/ingest/extract.py:PPTX</code> — <code>python-pptx</code></td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>XLSX extraction (multi-sheet, GFM tables)</td>
+<td><code>calamine 0.34</code> — multi-sheet, cell-type</td>
+<td><code>backend/app/ingest/extract.py:XLSX</code> — <code>openpyxl</code></td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Image ingestion with vision caption</td>
+<td><code>extract_images.rs:204/345/758</code> — extracts images from PDF (min 100px, max 500/doc); <code>vision-caption.ts</code> — vision LLM with SHA256 cache</td>
+<td><code>backend/app/ingest/extract.py</code> — <code>VISION_CAPTIONS_ENABLED</code> env opt-in; <code>InferenceProvider.chat()</code> caption call for <code>.png</code>/<code>.jpg</code>/<code>.jpeg</code>/<code>.webp</code> files when provider reports <code>supports_vision=True</code>; <code>image_captions</code> table caches captions by SHA-256 of raw file bytes (G-P2-1, v0.8.0, 2026-07-03).</td>
+<td>✅</td>
+<td><strong>G-P2-1 CLOSED (2026-07-03 / v0.8.0).</strong> Vision caption pipeline present and cached. Default opt-out (<code>VISION_CAPTIONS_ENABLED=false</code>) matches I7 cost-control principle. <code>VISION_MAX_IMAGES_PER_RUN</code> caps per-run load (I7).</td>
+<td>—</td>
+<td>[AI]/[BE]</td>
+</tr>
+<tr>
+<td>MinerU PDF extraction with fallback to pdfium</td>
+<td><code>ingest.ts:678-685</code> — tries MinerU, falls back to pdfium; abort not swallowed</td>
+<td><code>backend/app/ingest/extract.py</code> — <code>PDF_EXTRACTOR</code> env: <code>pypdf</code> (default) or <code>marker</code>; when <code>marker</code>, POSTs to Marker microservice (<code>tools/marker-converter/service.py</code>) at <code>MARKER_SERVICE_URL</code>; any failure → pypdf fallback (never removed); ADR-0051 (G-P2-5, v0.8.0, 2026-07-03).</td>
+<td>✅</td>
+<td><strong>G-P2-5 CLOSED (2026-07-03 / v0.8.0).</strong> Marker is the in-repo extractor (already proven via the ServiceNow connector); it supersedes the MinerU idea. pypdf fallback always present — failure-safe (ADR-0051). <code>MARKER_TIMEOUT_SECONDS</code> bounds the HTTP call (I7).</td>
+<td>—</td>
+<td>[BE]</td>
+</tr>
+<tr>
+<td>File caching (mtime-based, avoid re-extraction)</td>
+<td><code>fs.rs:147-172</code> — mtime-based cache for format extraction</td>
+<td><code>backend/app/ingest/orchestrator.py:129-146</code> — mtime-then-hash gate (ADR-0001) gates the ENTIRE ingest including extraction</td>
+<td>✅</td>
+<td>Extraction is gated by the mtime-then-hash check at the ingest level. No separate extraction-only cache needed.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="13-f13-cascade-deletion-3-method-matching-shared-entity-preservation">13. F13 — Cascade deletion (3-method matching + shared-entity preservation)<a class="headerlink" href="#13-f13-cascade-deletion-3-method-matching-shared-entity-preservation" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3-method source-to-page matching</td>
+<td>(1) filename in frontmatter sources; (2) source-summary page name; (3) full-text YAML scan</td>
+<td><code>backend/app/ops/cascade_delete.py:51-55</code> — uses links back-reference index (method 1); bounded full-text fallback <code>CASCADE_FULLTEXT_MAX_FILES</code> (method 3); source-summary detection via path convention</td>
+<td>✅</td>
+<td>Equivalent 3-method approach, backed by links table (faster than llm_wiki's Rust FS scan).</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Shared-entity preservation (sources[] rewrite)</td>
+<td><code>source-delete-decision.ts:33</code> — survivors&gt;0 → keep + rewrite sources[]; =0 → delete</td>
+<td><code>backend/app/ops/cascade_delete.py:27-28</code> — "Never delete a shared page whose sources[] retains another entry." (Do-NOT #6); sources[] rewrite path</td>
+<td>✅</td>
+<td>Shared-entity preservation by design.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>index.md cleanup (structural, not substring)</td>
+<td><code>wiki-cleanup.ts:cleanIndexListing:98</code> — structural parse, not substring replace</td>
+<td><code>backend/app/ops/cascade_delete.py</code> — cleanup referenced via invariant I5; python-frontmatter round-trip</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Dead wikilink replacement (→ plain text)</td>
+<td><code>wiki-cleanup.ts:stripDeletedWikilinks:123</code> — <code>[[deleted|alias]]</code> → <code>alias</code></td>
+<td><code>backend/app/ops/cascade_delete.py:56,CASCADE_DEAD_LINK_STYLE="plain"</code> — dead links replaced with plain text; regex anchored</td>
+<td>✅</td>
+<td>Behavioral parity.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Cascade-delete dry-run plan (preview)</td>
+<td>No explicit dry-run in llm_wiki; <code>collect_related_pages</code> is the implicit plan</td>
+<td><code>backend/app/ops/cascade_delete.py:plan_cascade_delete</code> + <code>POST /pages/{id}/cascade-delete/preview</code> — mandatory dry-run endpoint (Do-NOT #7)</td>
+<td>⭐</td>
+<td>Synapse adds a dry-run preview endpoint absent from llm_wiki. Strictly better.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Embeddings cleanup (Qdrant point removed)</td>
+<td><code>removePageEmbedding</code> in cleanup</td>
+<td><code>backend/app/ops/cascade_delete.py</code> — calls <code>qdrant_client.delete_point</code></td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>raw/sources/ file deletion</td>
+<td><code>wiki-page-delete.ts:93-106</code> — also deletes <code>wiki/media/&lt;slug&gt;/</code></td>
+<td><code>backend/app/ops/cascade_delete.py:9</code> — "Never leave the raw/sources/ file on disk" (Do-NOT #9); enforced</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants touched:</strong> I1, I2, I5, I7.</p>
+<hr />
+<h2 id="14-f14-configurable-context-window-4k1m">14. F14 — Configurable context window (4K–1M)<a class="headerlink" href="#14-f14-configurable-context-window-4k1m" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Discrete context window selector</td>
+<td><code>context-size-selector.tsx:1-12</code> — 4K/8K/…/1M</td>
+<td><code>frontend/src/store/settingsStore.ts:CONTEXT_WINDOW_OPTIONS</code> — context window options; <code>frontend/src/components/settings/SettingsPanel.tsx:26-36</code> — F14 in General section</td>
+<td>✅</td>
+<td>Discrete presets present.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Budget split display (label vs allocator mismatch)</td>
+<td>llm_wiki bug: label shows 60% but allocator gives 55% (01-AUDIT §F14)</td>
+<td><code>frontend/src/store/settingsStore.ts:computeBudgetSplit</code> — budget split computed from actual fractions</td>
+<td>✅</td>
+<td>Synapse computes the budget split programmatically from the actual fractions (no hardcoded label mismatch).</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="15-f15-cross-platform-normalizepath-unicode-safe-ci">15. F15 — Cross-platform (normalizePath, unicode-safe, CI)<a class="headerlink" href="#15-f15-cross-platform-normalizepath-unicode-safe-ci" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Path normalization (single consistent impl)</td>
+<td><code>path-utils.ts:5</code> — one <code>normalizePath()</code> referenced in 51 files; Rust has 3 divergent impls (01-CODE-UI §Q-Rust-1)</td>
+<td><code>backend/app/ingest/orchestrator.py:1342-1352</code> — <code>_relative_path()</code> uses <code>path.resolve().relative_to(vault_root)</code> (single impl); <code>backend/app/ops/cascade_delete.py:_slugify</code></td>
+<td>✅</td>
+<td>Single Python path utility. No divergent impls.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Unicode-safe slug / filename handling</td>
+<td><code>wiki-filename.ts:44</code> — <code>Array.from(slug).slice(0,50).join("")</code></td>
+<td><code>backend/app/ingest/orchestrator.py:1169-1175</code> — <code>_slugify()</code> via regex on lowercased title; no char-boundary issue in Python</td>
+<td>✅</td>
+<td>Python string slice is unicode-safe by default.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Multi-OS CI</td>
+<td>llm_wiki CI: 4 OS/arch matrix (but doesn't run tests! — 01-CODE-UI §Q-1)</td>
+<td><code>sprint/v0.6</code> — pytest + vitest configured; no multi-OS matrix confirmed in CI config</td>
+<td>🟡</td>
+<td>Synapse needs a CI matrix running tests on macOS/Linux (TrueNAS/Docker target). Not blocking for server deployment (always Linux), but important for correctness gate. Tests should run in CI (the llm_wiki defect we should NOT mirror).</td>
+<td>P1</td>
+<td>[DevOps]</td>
+</tr>
+<tr>
+<td>PWA + Tauri v2 packaging</td>
+<td>llm_wiki: Tauri v2 Rust app; CI bundles dmg/deb/AppImage/msi</td>
+<td>Synapse sprint-6 goal; not yet shipped</td>
+<td>🟡</td>
+<td>F15 target, tracked separately.</td>
+<td>P2</td>
+<td>[FE]</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="16-f16-i18n-settings-persistence-multi-provider-timeout-dataversion">16. F16 — i18n / settings persistence / multi-provider / timeout / dataVersion<a class="headerlink" href="#16-f16-i18n-settings-persistence-multi-provider-timeout-dataversion" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>i18n (EN + IT)</td>
+<td>llm_wiki: EN+ZH+JA+KO; <code>i18n-parity.test.ts</code> validates 673-key parity</td>
+<td><code>frontend/src/</code> — react-i18next; EN+IT (<code>en.json</code>, <code>it.json</code>) per CLAUDE.md; <code>frontend/src/store/settingsStore.ts</code> — language selector</td>
+<td>🟡</td>
+<td>EN+IT present. Need key-count parity test (equivalent to <code>i18n-parity.test.ts</code>). Without it, IT translation may drift.</td>
+<td>P1</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>Settings persistence across sessions</td>
+<td>llm_wiki: Tauri Store plugin (<code>project-store.ts:1,13</code>)</td>
+<td><code>frontend/src/store/settingsStore.ts</code> — Zustand store; persistence method (localStorage / Tauri Store) should be confirmed</td>
+<td>🟡</td>
+<td>Verify settings persist across browser refresh (localStorage write or indexedDB). If in-memory only, they reset on refresh.</td>
+<td>P1</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td><code>.obsidian/</code> auto-generated</td>
+<td><code>project.rs:196-233</code> — Rust generates <code>app.json</code>/<code>appearance.json</code>/<code>core-plugins.json</code></td>
+<td><code>backend/app/vault.py:40-46</code> — <code>_OBSIDIAN_APP_JSON</code> generated at bootstrap (AC-K7-1)</td>
+<td>✅</td>
+<td><code>.obsidian/app.json</code> auto-generated on startup.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>GFM rendering</td>
+<td><code>remark-gfm</code> in 4 renderers</td>
+<td><code>frontend/src/components/chat/MarkdownView.tsx</code> — uses remark-gfm</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Multi-provider chat (selectable per operation)</td>
+<td>llm_wiki: 7 providers (OpenAI/Anthropic/Google/Ollama/Azure/MiniMax/Custom) + CLI transport</td>
+<td><code>backend/app/models.py:453-555</code> — <code>provider_config</code> table; <code>frontend/src/components/provider/ProviderSelector.tsx</code> — UI selector; 3 backends (Local/API/CLI) as per F17</td>
+<td>✅</td>
+<td>Synapse's 3 backend abstraction (Local/API/CLI) maps cleanly. The API backend can point to any OpenAI-compatible endpoint.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Timeout (configurable, per provider)</td>
+<td>llm_wiki: 30 min hardcoded (<code>llm-client.ts:96</code>)</td>
+<td><code>backend/app/chat/stream.py:57</code> — <code>DEFAULT_CHAT_TIMEOUT_SECONDS = 60.0</code>; per-<code>provider_config</code> timeout</td>
+<td>⭐</td>
+<td>Synapse: default 60s, configurable per provider_config row. Avoids llm_wiki's 30min hardcoded timeout (a resource risk).</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>dataVersion — monotonic counter for graph/tree refresh</td>
+<td><code>wiki-store.ts:385/439/567</code> — <code>dataVersion</code> consumed by graph/tree/chat</td>
+<td><code>backend/app/models.py:296-302</code> — <code>vault_state.data_version</code> bumped per successful ingest; <code>backend/app/ingest/orchestrator.py:1305-1332</code> — <code>bump_version()</code>; <code>frontend/src/store/graphStore.ts</code> — consumed by GraphViewer</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="17-f17-inference-provider-pluggable-3-backends">17. F17 — Inference Provider (pluggable, 3 backends)<a class="headerlink" href="#17-f17-inference-provider-pluggable-3-backends" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>InferenceProvider ABC with analyze/generate/chat/capabilities()</td>
+<td>Not in llm_wiki (only Anthropic/OpenAI provider list)</td>
+<td><code>backend/app/ingest/provider/base.py</code> — <code>InferenceProvider</code> ABC; <code>analyze()</code>, <code>generate()</code>, <code>chat()</code>, <code>capabilities()</code></td>
+<td>⭐</td>
+<td>Synapse's pluggable provider is the defining F17 feature, beyond llm_wiki.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Local/Ollama backend</td>
+<td>llm_wiki: Ollama as one of its 7 providers</td>
+<td><code>backend/app/ingest/provider/ollama.py</code> — <code>OllamaProvider</code></td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>API/Anthropic + OpenAI-compatible backend</td>
+<td>llm_wiki: Anthropic + OpenAI-compat</td>
+<td><code>backend/app/ingest/provider/api.py</code> — <code>ApiProvider</code> (Anthropic Messages API + OpenAI-compat <code>base_url</code>)</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>CLI/claude-agent-sdk backend</td>
+<td>Not in llm_wiki</td>
+<td><code>backend/app/ingest/provider/cli.py</code> — <code>CliAgentProvider</code>; <code>delegate_ingest()</code> via claude-agent-sdk</td>
+<td>⭐</td>
+<td>Synapse-only feature.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Capability-aware routing (no isinstance branching)</td>
+<td>N/A</td>
+<td><code>backend/app/ingest/orchestrator.py:355</code> — routes on <code>caps.supports_agentic_loop</code> ONLY; no isinstance/type/class-name branching</td>
+<td>✅</td>
+<td>I6 enforced.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Provider config stored in DB, not code</td>
+<td>N/A</td>
+<td><code>backend/app/models.py:453-555</code> — <code>provider_config</code> table; model_id NEVER in code</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Fallback provider (bounded to one attempt)</td>
+<td>N/A</td>
+<td><code>backend/app/ingest/orchestrator.py:610-633</code> — single fallback attempt, <code>is_fallback=True</code> row</td>
+<td>✅</td>
+<td>I7 enforced.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>UI provider selector</td>
+<td>llm_wiki: settings UI with provider list</td>
+<td><code>frontend/src/components/provider/ProviderSelector.tsx</code> — exists; <code>frontend/src/components/settings/SettingsPanel.tsx</code> — LLM Models section</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>CLI OAuth token UI-settable (DB-stored, injected to subprocess)</td>
+<td>Not in llm_wiki</td>
+<td><code>backend/app/models.py:382-399</code> — <code>vault_state.cli_oauth_token</code>; ADR-0043; <code>backend/app/cli_auth.py</code></td>
+<td>⭐</td>
+<td>Sprint-6 feature, beyond llm_wiki.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="18-knowledge-files-sources-tabs">18. Knowledge / Files / Sources tabs<a class="headerlink" href="#18-knowledge-files-sources-tabs" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior (audit ref)</th>
+<th>Synapse current state (code ref)</th>
+<th>Verdict</th>
+<th>Gap (exact, actionable)</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wiki/Sources navigation tree</td>
+<td><code>icon-sidebar.tsx</code> — Wiki tab + Sources tab showing file tree</td>
+<td><code>frontend/src/components/nav/NavTree.tsx</code> — file tree; NavRail sections: Wiki, Sources</td>
+<td>✅</td>
+<td>Navigation tabs present.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>TanStack Virtual for large lists</td>
+<td>Not in llm_wiki (no virtualization mentioned)</td>
+<td><code>frontend/src/components/chat/MessageList.tsx</code> / NavTree — check for TanStack Virtual import</td>
+<td>🟡</td>
+<td>CLAUDE.md §3 I4: "All long lists (tree, message history) are virtualized (TanStack Virtual)". Verify MessageList and NavTree use TanStack Virtual. If not, long message histories / large vaults will cause render lag.</td>
+<td>P1</td>
+<td>[FE]</td>
+</tr>
+<tr>
+<td>CodeMirror 6 editor (not WYSIWYG)</td>
+<td>llm_wiki uses Milkdown (WYSIWYG/ProseMirror)</td>
+<td><code>frontend/src/components/wiki/CodeMirrorEditor.tsx</code> — CodeMirror 6</td>
+<td>⭐</td>
+<td>Synapse uses CodeMirror 6 (I4 invariant) — no WYSIWYG, no ProseMirror. This avoids the llm_wiki bottleneck of WYSIWYG on long documents. Strictly better.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Onboarding / empty-states with provider gate</td>
+<td>llm_wiki UX gap: <code>!hasUsableLlm</code> is a silent check, no blocking UI gate (01-CODE-UI §UX-1)</td>
+<td><code>frontend/src/components/common/EmptyState.tsx</code> — EmptyState component; IngestView + ChatSection render "Configure a provider to begin" CTA with link to Settings when no <code>provider_config</code> row exists.</td>
+<td>✅</td>
+<td>G-P0-3 closed (pre-v0.7). Explicit gate present.</td>
+<td>—</td>
+<td>[FE]</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="19-karpathy-k1k8-core-behaviors">19. Karpathy K1–K8 core behaviors<a class="headerlink" href="#19-karpathy-k1k8-core-behaviors" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>K-feature</th>
+<th>llm_wiki behavior</th>
+<th>Synapse current state</th>
+<th>Verdict</th>
+<th>Gap</th>
+<th>Priority</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>K1 — 3-layer vault (raw/wiki/schema.md)</td>
+<td>raw/ (immutable) → wiki/ (LLM-generated) → schema.md (rules)</td>
+<td><code>backend/app/vault.py:52-60</code> — bootstrap creates all 3 layers; I1 enforces immutability of raw/</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>K2 — 3 operations (Ingest/Query/Lint)</td>
+<td><code>lib/lint.ts</code> — lint present; ingest + chat</td>
+<td>Ingest: watcher + REST; Query: <code>/search</code> + <code>/chat/stream</code>; Lint: <code>backend/app/ops/lint.py</code> + <code>POST /lint/scan</code></td>
+<td>✅</td>
+<td>All 3 present.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>K3 — index.md catalogue</td>
+<td>Updated at every ingest (content catalog) AND <strong>fed to the LLM</strong> so it links to existing pages</td>
+<td><code>backend/app/wiki/index.py:update_index</code> (write) + <code>orchestrator.py:_load_existing_pages_catalogue()</code> (2026-07-01) injects existing page titles grouped by type into the ingest context (analyze + delegate), token-bounded (I7), instructing exact-title <code>[[wikilinks]]</code></td>
+<td>✅</td>
+<td>Fixed the cross-ingest fragmentation (was: catalogue updated but NOT fed back → LLM invented titles → 56% dangling links → isolated islands). Now the LLM reuses existing entities → connected web like llm_wiki.</td>
+<td>—</td>
+<td>[AI]</td>
+</tr>
+<tr>
+<td>K4 — log.md append-only</td>
+<td>Append-only log; parseable <code>## [date]</code> format</td>
+<td><code>backend/app/ingest/orchestrator.py:1284-1302</code> — <code>append_log()</code>: timestamp | INDEXED | path; never truncated (AC-K4-2)</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>K5 — <code>[[wikilink]]</code> syntax with dedicated parser</td>
+<td><code>wiki-graph.ts</code> / <code>graph-relevance.ts</code> — regex parser</td>
+<td><code>backend/app/wiki/links.py:parse_wikilinks</code> + <code>persist_links</code> (tolerant resolution 2026-07-01: exact→case-insensitive→slug, first-hit); <code>reresolve_dangling_links()</code> + <code>POST /links/reresolve</code> backfill; <code>frontend/src/components/wiki/NoteView.tsx</code> — wikilink render</td>
+<td>✅</td>
+<td>Resolution now catches near-miss titles (case/slug) → fewer dangling. Backfill endpoint re-resolves existing dangling links against current titles + bumps the graph, reconnecting the vault without re-ingest.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>K6 — YAML frontmatter (type/title/sources[]/tags[])</td>
+<td>Frontmatter pivot for graph + cascade-delete</td>
+<td><code>backend/app/models.py:156-184</code> — <code>page_type</code>, <code>sources</code>, <code>tags</code> columns (JSONB); <code>backend/app/ingest/orchestrator.py:1389-1417</code> — tolerant parser</td>
+<td>✅</td>
+<td><code>tags[]</code> added in migration 0018 (llm_wiki parity per model comment).</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>K7 — Obsidian compatibility</td>
+<td><code>wiki/</code> valid Obsidian vault; <code>.obsidian/</code> auto-generated</td>
+<td><code>backend/app/vault.py:40-46</code> — <code>.obsidian/app.json</code> auto-generated (AC-K7-1/2); I5 enforces valid frontmatter</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>K8 — Human curates, LLM maintains</td>
+<td>Review queue (F9) + human-gated lint (K2 ADR-0037)</td>
+<td>F9 review + lint human gate (Do-NOT: never auto-apply without human action)</td>
+<td>✅</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>schema.md co-evolution (LLM suggests schema updates)</td>
+<td>llm_wiki: schema.md static after creation (01-AUDIT §Karpathy cross-check)</td>
+<td><code>backend/app/ops/review.py</code> — <code>schema-suggestion</code> ReviewItem type; default off (<code>SCHEMA_SUGGESTION_ENABLED=false</code>); <code>SCHEMA_SUGGESTION_*</code> env vars. When enabled, proposes schema rule changes when emerging frontmatter patterns deviate from <code>schema.md</code>. Human applies changes manually. (G-P2-4, v0.9.0, 2026-07-03)</td>
+<td>✅</td>
+<td><strong>G-P2-4 CLOSED (2026-07-03 / v0.9.0).</strong> Default-off conservative opt-in (blast-radius note in DEPLOY.md §2.1). Closes the Karpathy K6 co-evolution principle gap.</td>
+<td>—</td>
+<td>[AI]/[BE]</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="20-prioritized-gap-closure-backlog">20. Prioritized Gap-Closure Backlog<a class="headerlink" href="#20-prioritized-gap-closure-backlog" title="Permanent link">&para;</a></h2>
+<h3 id="v07-closure-note-2026-07-03">v0.7 closure note (2026-07-03)<a class="headerlink" href="#v07-closure-note-2026-07-03" title="Permanent link">&para;</a></h3>
+<p>The following items that were open at the v0.6 gate are now <strong>CLOSED</strong> by commits in
+<code>sprint/v0.6</code> that shipped before the v0.7.0 release cut. Rows are struck-through below;
+the table summary follows.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Item</th>
+<th>CLOSED date</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>G-P0-1</td>
+<td>Save-to-Wiki</td>
+<td>pre-v0.7</td>
+<td><code>POST /chat/save-to-wiki</code> endpoint + Sources ingest run entry. F6 complete.</td>
+</tr>
+<tr>
+<td>G-P0-2</td>
+<td>Louvain community detection</td>
+<td>pre-v0.7</td>
+<td><code>community_multilevel()</code> in <code>GraphEngine.recompute()</code>; <code>community_id</code> in GET /graph; community palette in GraphViewer.</td>
+</tr>
+<tr>
+<td>G-P0-3</td>
+<td>Provider gate empty-state</td>
+<td>pre-v0.7</td>
+<td>IngestView + ChatSection show explicit "Configure a provider" CTA when no provider exists.</td>
+</tr>
+<tr>
+<td>G-P1-4</td>
+<td>Scenario templates</td>
+<td>2026-07-03</td>
+<td>5 presets (Research/Reading/PersonalGrowth/Business/General) in Settings, each overwrites purpose.md + schema.md at vault bootstrap.</td>
+</tr>
+<tr>
+<td>G-P1-6</td>
+<td>search_queries in ReviewItem</td>
+<td>2026-07-03</td>
+<td><code>search_queries JSONB</code> added; populated by propose_reviews; passed to deep_research action.</td>
+</tr>
+<tr>
+<td>G-P1-8</td>
+<td>Language directive</td>
+<td>2026-07-03</td>
+<td>Patched: ALL providers (ApiProvider/OllamaProvider/CliAgentProvider) now inject "MANDATORY OUTPUT LANGUAGE" directive in page-generation prompts.</td>
+</tr>
+<tr>
+<td>G-P1-9</td>
+<td>Folder import + folderContext</td>
+<td>2026-07-03</td>
+<td>Recursive import endpoint; <code>folderContext</code> (joined path segments) injected in analysis prompt. <code>IMPORT_SCAN_RECURSIVE</code> env controls opt-in.</td>
+</tr>
+<tr>
+<td>G-P1-10</td>
+<td>Retrieval wiki/ only (ADR-0050)</td>
+<td>2026-07-03</td>
+<td>GET /search + citation assembly now scoped to wiki/ pages only. ADR-0050 accepted.</td>
+</tr>
+<tr>
+<td>G-P1-11</td>
+<td>ThinkBlock streaming roll preview</td>
+<td>2026-07-03</td>
+<td>ThinkBlock renders last-N-lines rolling preview with opacity fade during <code>streaming=true</code>.</td>
+</tr>
+<tr>
+<td>G-P1-12</td>
+<td>Reasoning field routing</td>
+<td>2026-07-03</td>
+<td>Patched: ApiProvider/OllamaProvider extract DeepSeek <code>reasoning_content</code>, Qwen <code>reasoning</code>, Kimi <code>thinking_delta</code>, Anthropic <code>thinking</code> — all routed to <code>think</code> NDJSON events.</td>
+</tr>
+<tr>
+<td>G-P1-13</td>
+<td>Deep-research synthesis landing</td>
+<td>2026-07-03</td>
+<td>Synthesis prompt hardened: type tagged as <code>synthesis</code>; ingest_file verified to land in wiki/synthesis/ subdir.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="phase-0-correctness-blockers-ship-before-any-next-sprint-review">Phase 0 — Correctness blockers (ship before any next sprint review)<a class="headerlink" href="#phase-0-correctness-blockers-ship-before-any-next-sprint-review" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Gap</th>
+<th>Owner</th>
+<th>Effort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>~~G-P0-1~~</td>
+<td>✅ <strong>CLOSED (pre-v0.7).</strong> <code>POST /chat/save-to-wiki</code> endpoint writes assistant message to <code>wiki/queries/&lt;slug&gt;.md</code>, calls <code>ingest_file</code>, bumps data_version. F6 complete.</td>
+<td>[BE]/[FE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P0-2~~</td>
+<td>✅ <strong>CLOSED (pre-v0.7).</strong> <code>community_multilevel()</code> in <code>GraphEngine.recompute()</code>; <code>community_id</code> per node in GET /graph; community palette rendered in GraphViewer. F4 complete.</td>
+<td>[BE]/[FE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P0-3~~</td>
+<td>✅ <strong>CLOSED (pre-v0.7).</strong> IngestView + ChatSection show explicit "Configure a provider to begin" CTA when no <code>provider_config</code> row exists.</td>
+<td>[FE]</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="phase-1-significant-uxbehavior-gaps-current-sprint-p1">Phase 1 — Significant UX/behavior gaps (current sprint P1)<a class="headerlink" href="#phase-1-significant-uxbehavior-gaps-current-sprint-p1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Gap</th>
+<th>Owner</th>
+<th>Effort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>~~G-P1-1~~</td>
+<td>✅ <strong>DONE (was already implemented).</strong> <code>latexToUnicode.ts</code> (~145 glyphs) wired into <code>renderMarkdown</code>. Roadmap entry was stale.</td>
+<td>[FE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-2~~</td>
+<td>✅ <strong>DONE (2026-07-01).</strong> KaTeX display-math rendering via <code>extractDisplayMath</code>/<code>injectDisplayMath</code> in <code>renderMarkdown.ts</code>; ADR-0019 amended; <code>renderMarkdownMath.test.ts</code>. Bare-environment auto-wrap deferred to P2.</td>
+<td>[FE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-3~~</td>
+<td>✅ <strong>DONE (2026-07-01, ADR-0046).</strong> Live ingest activity queue: running-row at ingest start (migration 0021 + <code>source_path</code>/<code>retry_count</code>), <code>queue_manager.py</code> (cooperative cancel at loop boundary + cascade-delete of partials I1/I7, pause/resume via watcher gating, cancel-suppression), 5 endpoints (<code>GET /ingest/queue</code>, cancel/retry/pause/resume), orphan-running sweep on startup. <code>ActivityBar</code>→expandable panel (progress bar, per-task rows, retry/cancel, pause/resume, cancel-all, auto-expand). Preview-verified (live queue, pause, panel). NOTE: exceeds llm_wiki (server-side queue vs client JSON). Follow-up: per-task phase/progress/ETA.</td>
+<td>[FE]/[BE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-4~~</td>
+<td>✅ <strong>CLOSED (2026-07-03).</strong> 5 scenario presets (Research/Reading/PersonalGrowth/Business/General) in Settings. Each preset carries a full <code>purpose.md</code> + <code>schema.md</code> body; applying a scenario overwrites both files and bumps data_version.</td>
+<td>[FE]/[BE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-5~~</td>
+<td>✅ <strong>DONE (2026-07-01).</strong> Frontend-only (computed from existing GET /graph payload — no BE change, I2-safe). <code>frontend/src/components/graph/graphInsights.ts</code> (pure logic) + <code>GraphInsightsPanel.tsx</code> overlay in GraphPanel. Surprising connections (cross-community, weight≥3, top 8), knowledge gaps (isolated deg≤1, sparse cohesion&lt;0.15 &amp; size≥3, bridge ≥3 neighbor communities); meta nodes excluded; dismissable; click-to-highlight (setSelectedNodeId); Deep Research button on gaps → navigate to deep-search (researchStore has no seed action → navigate-only). i18n IT/EN. Tests: <code>graphInsights.test.ts</code>, <code>GraphInsightsPanel.test.tsx</code>. Verified in preview (all 4 kinds render, dismiss + navigation work).</td>
+<td>[FE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-6~~</td>
+<td>✅ <strong>CLOSED (2026-07-03).</strong> <code>search_queries JSONB</code> column added to <code>ReviewItem</code>; populated from <code>propose_reviews</code> LLM call; passed to <code>run_deep_research()</code> when Deep Research action is triggered from a review card.</td>
+<td>[BE]/[AI]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-7~~</td>
+<td>✅ <strong>DONE (2026-07-01).</strong> <code>_TYPE_AFFINITY</code> matrix + <code>_type_affinity()</code> in engine.py (exact llm_wiki values, symmetric, None/unknown→0.5); 4th weight term now <code>1.0·type_affinity</code>. Modulator only (ADR-0016 edge-inclusion preserved). Tests: <code>TestTypeAffinity</code>.</td>
+<td>[BE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-8~~</td>
+<td>✅ <strong>CLOSED (2026-07-03).</strong> Patched in ALL providers: <code>ApiProvider</code>, <code>OllamaProvider</code>, and <code>CliAgentProvider</code> delegate prompt now inject a "MANDATORY OUTPUT LANGUAGE: {{lang}}" directive in page-generation prompts (derived from <code>analysis.language</code> or vault modal lang).</td>
+<td>[AI]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-9~~</td>
+<td>✅ <strong>CLOSED (2026-07-03).</strong> Recursive folder import: <code>IMPORT_SCAN_RECURSIVE</code> env opt-in (default false, matching v0.6 non-recursive behavior); when <code>true</code>, import traverses subdirectories and builds a <code>folderContext</code> string (joined subdirectory path segments) injected into the analysis prompt alongside the source text.</td>
+<td>[BE]/[AI]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-10~~</td>
+<td>✅ <strong>CLOSED (2026-07-03, ADR-0050).</strong> Retrieval scope restricted to <code>wiki/</code> pages only. GET /search and the 4-phase citation assembly filter out <code>raw/sources/</code> entries. Matches llm_wiki behavior. ADR-0050 accepted.</td>
+<td>[BE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-11~~</td>
+<td>✅ <strong>CLOSED (2026-07-03).</strong> <code>ThinkBlock</code> renders last-N-lines rolling preview with opacity fade during <code>streaming=true</code>; collapsed label switches from "Thinking..." to the last 2 lines of think content.</td>
+<td>[FE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-12~~</td>
+<td>✅ <strong>CLOSED (2026-07-03).</strong> Patched: <code>ApiProvider</code> streaming handler extracts DeepSeek <code>reasoning_content</code>, Qwen <code>reasoning</code>, Kimi <code>thinking_delta</code>; <code>OllamaProvider</code> extracts <code>reasoning</code>. All routed to <code>{type:"think"}</code> NDJSON events. <code>ThinkScanner</code> <code>&lt;think&gt;</code> path preserved for models that use tag syntax (Anthropic Claude).</td>
+<td>[AI]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-13~~</td>
+<td>✅ <strong>CLOSED (2026-07-03).</strong> Deep-research synthesis prompt hardened: explicit <code>type: synthesis</code> frontmatter instruction; <code>ingest_file</code> verified to classify the page as <code>synthesis</code> and write it to <code>wiki/synthesis/</code>.</td>
+<td>[BE]/[AI]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-14~~</td>
+<td>✅ <strong>DONE.</strong> <code>clip_max_body_bytes</code> (2 MB, <code>CLIP_MAX_BODY_BYTES</code> env) — Content-Length + accumulated body → 413 (<code>main.py</code>, ADR-0038).</td>
+<td>[BE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-15~~</td>
+<td>✅ <strong>DONE.</strong> <code>frontend/src/tests/i18n-key-parity.test.ts</code> asserts EN/IT key-set parity.</td>
+<td>[FE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-16~~</td>
+<td>✅ <strong>DONE.</strong> <code>@tanstack/react-virtual</code> in MessageList, NavTree, ConversationList (I4).</td>
+<td>[FE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-17~~</td>
+<td>✅ <strong>DONE.</strong> <code>settingsStore</code> persists lang + settings to localStorage (<code>synapse.lang</code>, <code>synapse.settings</code>).</td>
+<td>[FE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P1-18~~</td>
+<td>✅ <strong>DONE.</strong> <code>.github/workflows/ci.yml</code>: ruff/black/mypy, pytest (stage 4), vitest + <code>tsc --noEmit</code> + eslint (stage 4b).</td>
+<td>[DevOps]</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="phase-2-polish-and-enhancement-opportunities-future-sprints">Phase 2 — Polish and enhancement opportunities (future sprints)<a class="headerlink" href="#phase-2-polish-and-enhancement-opportunities-future-sprints" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Gap or opportunity</th>
+<th>Owner</th>
+<th>Effort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>~~G-P2-1~~</td>
+<td>✅ <strong>CLOSED (2026-07-03 / v0.8.0).</strong> Vision caption pipeline: <code>VISION_CAPTIONS_ENABLED</code> opt-in; <code>provider.chat()</code> with <code>supports_vision=True</code> guard; <code>image_captions</code> table SHA-256 cache; <code>VISION_MAX_IMAGES_PER_RUN</code> I7 cap.</td>
+<td>[AI]/[BE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P2-2~~</td>
+<td>✅ <strong>CLOSED (2026-07-03 / v0.9.0).</strong> <code>purpose-suggestion</code> ReviewItem type: after each orchestrated ingest run, a single bounded provider call evaluates scope drift against <code>purpose.md</code> and emits a review card with rationale if drift is detected. Anti-spam gate via <code>PURPOSE_SUGGESTION_MIN_SOURCES</code>. <code>PURPOSE_SUGGESTION_*</code> env vars. No automatic file edits — human applies manually.</td>
+<td>[AI]/[BE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>G-P2-3</td>
+<td><strong>Cancel in-flight ingest.</strong> <code>DELETE /ingest/{run_id}</code> — aborts the running ingest_file coroutine; does NOT delete already-written pages.</td>
+<td>[BE]/[FE]</td>
+<td>M</td>
+</tr>
+<tr>
+<td>~~G-P2-4~~</td>
+<td>✅ <strong>CLOSED (2026-07-03 / v0.9.0).</strong> <code>schema-suggestion</code> ReviewItem type: default off (<code>SCHEMA_SUGGESTION_ENABLED=false</code>; blast-radius note documented in DEPLOY.md §2.1). When enabled, proposes schema rule changes when emerging frontmatter patterns deviate from <code>schema.md</code>. Human applies changes manually. <code>SCHEMA_SUGGESTION_*</code> env vars. Closes the Karpathy K6 schema co-evolution gap.</td>
+<td>[AI]/[BE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P2-5~~</td>
+<td>✅ <strong>CLOSED (2026-07-03 / v0.8.0).</strong> Marker pluggable PDF extractor (ADR-0051): <code>PDF_EXTRACTOR=marker</code> routes to Marker microservice at <code>MARKER_SERVICE_URL</code>; pypdf fallback always present; <code>MARKER_TIMEOUT_SECONDS</code> bounds the call (I7). Supersedes the MinerU idea — Marker is already proven in-repo.</td>
+<td>[BE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P2-6~~</td>
+<td>✅ <strong>CLOSED (v0.6/M6).</strong> PWA + Tauri v2 packaging shipped in sprint 6.</td>
+<td>[FE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P2-7~~</td>
+<td>✅ <strong>CLOSED (2026-07-03 / v0.9.0).</strong> Edge 4-signal breakdown panel: click any graph edge to see the decomposition into direct wikilinks (×3), shared sources (×4), Adamic-Adar (×1.5), type affinity (×1). Powered by <code>GET /graph/edges/{source_id}/{target_id}</code>.</td>
+<td>[FE]</td>
+<td>—</td>
+</tr>
+<tr>
+<td>~~G-P2-8~~</td>
+<td>✅ <strong>CLOSED (2026-07-03 / v0.9.0).</strong> Community cohesion score + warning marker: <code>GET /graph/communities/{id}</code> returns cohesion score; score &lt; <code>GRAPH_COHESION_WARN</code> (default 0.15) triggers a warning indicator in the community drill-down panel. Mirrors llm_wiki <code>graph-insights.ts:78-88</code>.</td>
+<td>[BE]/[FE]</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="21-already-at-parity-or-better-do-not-redo-this-work">21. Already at parity or better — do not redo this work<a class="headerlink" href="#21-already-at-parity-or-better-do-not-redo-this-work" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Why it is solved</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SHA256/mtime-then-hash incremental gate</td>
+<td>ADR-0001: faster and more correct than llm_wiki's basename-keyed cache.</td>
+</tr>
+<tr>
+<td>Graph layout server-side (I2 hard rule)</td>
+<td>Never blocks main thread. Eliminates llm_wiki P-2 defect entirely.</td>
+</tr>
+<tr>
+<td>Incremental graph reads (Postgres, no vault walk)</td>
+<td>I1: GraphEngine reads pages+links tables; zero filesystem scan on recompute.</td>
+</tr>
+<tr>
+<td>Bounded loops everywhere (I7)</td>
+<td>ingest loop, deep-research, lint, sweep-reviews, fallback: all have explicit max_iter + token_budget enforced at loop level, not just source count.</td>
+</tr>
+<tr>
+<td>Clip server authentication (ADR-0040)</td>
+<td>The llm_wiki Critical S-1/S-2/S-3/S-4/S-5 defects are pre-empted: token auth, origin allowlist, body cap, path safe_join — all present.</td>
+</tr>
+<tr>
+<td>purpose.md path consistency</td>
+<td>Unified on <code>vault_root/purpose.md</code>; llm_wiki B-3 bug absent.</td>
+</tr>
+<tr>
+<td>overview.md append (no drift)</td>
+<td>Append-only (not full-overwrite). llm_wiki B-7 bug not present.</td>
+</tr>
+<tr>
+<td>Shared-entity preservation in cascade delete</td>
+<td>ADR-0026 Do-NOT #6 + sources[] rewrite path. 87 test cases in llm_wiki audit; Synapse enforces by invariant.</td>
+</tr>
+<tr>
+<td>Cascade delete dry-run plan</td>
+<td><code>plan_cascade_delete</code> is a mandatory dry-run; llm_wiki has no equivalent.</td>
+</tr>
+<tr>
+<td>Per-run cost accounting (I7 ledger)</td>
+<td><code>ingest_runs</code> + <code>deep_research_runs</code> + per-message token columns; $1 anomaly warning. llm_wiki has no cost tracking.</td>
+</tr>
+<tr>
+<td>Provider capability-aware routing (no isinstance)</td>
+<td>I6 hard rule; only <code>supports_agentic_loop</code> is read.</td>
+</tr>
+<tr>
+<td>CodeMirror 6 editor (I4)</td>
+<td>No WYSIWYG; no ProseMirror bottleneck.</td>
+</tr>
+<tr>
+<td>Server-side think-tag splitting (I3)</td>
+<td>ThinkScanner on backend; zero client-side per-token parsing.</td>
+</tr>
+<tr>
+<td>Auto-generated <code>.obsidian/</code> (I5/K7)</td>
+<td>vault.py bootstrap; Obsidian compatibility on every startup.</td>
+</tr>
+<tr>
+<td>dataVersion debounce + GraphCache</td>
+<td>Single background loop; burst of bumps → one recompute.</td>
+</tr>
+<tr>
+<td>F13 raw/sources/ file deletion</td>
+<td>Do-NOT #9 enforced; no orphan source files.</td>
+</tr>
+<tr>
+<td>Single <code>write_wiki_page</code> seam (ADR-0010)</td>
+<td>MCP write_page and orchestrated loop share exactly one write path (I1/I5).</td>
+</tr>
+<tr>
+<td>FNV-1a dedup on ReviewItems (ADR-0044)</td>
+<td>Exact algorithm from llm_wiki; upsert on content_key prevents duplicate proposals on re-ingest.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>End of parity matrix.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

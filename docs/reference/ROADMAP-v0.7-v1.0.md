@@ -76,18 +76,18 @@ Theme: see what the AI does and what it costs; let the wiki improve itself.
 | R9-9 | **SectionErrorBoundary** — isolate section crashes, show Retry instead of blank screen | FE | S | reliability | ✅ |
 | R9-10 | **Dynamic version in UI** — version from backend runtime, not build constant | FE+BE | S | polish | ✅ (Settings > About) |
 
-## v1.0 — «Distribution & multi-user» (3–4 settimane)
+## v1.0 — «Distribution & multi-user» (3–4 settimane) ✅ SHIPPED 2026-07-03
 
 Theme: from personal tool to shippable product.
 
-| ID | Item | Area | Effort | Source |
-|----|------|------|--------|--------|
-| R10-1 | **Authentication layer** — token/OIDC login, request-scoped vault routing (unlocks multi-vault/multi-user; foundational, design ADR first) | BE+FE | XL | audit: no auth |
-| R10-2 | **Multi-vault UI** — vault switcher, per-vault provider config surfaced | FE+BE | L | vault_id plumbed |
-| R10-3 | **Code signing + notarization** (Apple Developer + Windows cert) | DevOps | M€ | ADR-0047 deferred |
-| R10-4 | **Desktop auto-update** — tauri-plugin-updater against GitHub releases (requires R10-3) | FE/DevOps | M | ADR-0039 v0.7+ note |
-| R10-5 | **Mobile/PWA polish** — real breakpoints, touch graph gestures | FE | M | UX audit |
-| R10-6 | **MkDocs Material docs site** — publish D1–D7 | Docs | M | CLAUDE.md v0.6 optional |
+| ID | Item | Area | Effort | Source | Status |
+|----|------|------|--------|--------|--------|
+| R10-1 | **Authentication layer** — rescoped from OIDC to shared Bearer token (`SYNAPSE_AUTH_TOKEN`); FastAPI middleware; ConnectScreen + Settings > Security UI; ADR-0052 | BE+FE | L | audit: no auth | ✅ (`SYNAPSE_AUTH_TOKEN`, `app/auth.py`, middleware, ConnectScreen token field, Settings > Security; ADR-0052 accepted) |
+| R10-2 | **Multi-vault UI** — vault switcher, per-vault provider config surfaced | FE+BE | L | vault_id plumbed | ⏭ DEFERRED post-1.0 (single-vault per instance remains the design; `vault_id` column preserved for future use) |
+| R10-3 | **Code signing + notarization** (Apple Developer + Windows cert) | DevOps | M€ | ADR-0047 deferred | ✅ Guide shipped in DEPLOY.md §14: full step-by-step for macOS (Developer ID Application cert, notarization via tauri-action envs, `APPLE_*` secrets) and Windows (OV/EV `.pfx`, `WINDOWS_CERTIFICATE*` secrets). Actual certificates not yet purchased; guide is complete and ready to follow. Unsigned-binary workaround (right-click → Open / SmartScreen) remains valid until certs are acquired. |
+| R10-4 | **Desktop auto-update** — tauri-plugin-updater against GitHub releases (requires R10-3) | FE/DevOps | M | ADR-0039 v0.7+ note | ✅ Shipped in v0.7.0 (ADR-0049). The unified `v*` release channel, `latest.json`, minisign verification, and the in-app banner are live. OS-level trust (Gatekeeper / SmartScreen) is separate from the minisign integrity check — auto-update works without OS code-signing; R10-3 certs remove the first-install warning only. |
+| R10-5 | **Mobile/PWA polish** — real breakpoints, touch graph gestures | FE | M | UX audit | ✅ (< 768 px: compact icon-only nav rail, stacked Wiki panels; sigma.js pinch-zoom + tap-select; PWA install instructions for iOS + Android) |
+| R10-6 | **MkDocs Material docs site** — publish D1–D7 | Docs | M | CLAUDE.md v0.6 optional | ✅ (`mkdocs.yml` + `pymdownx.superfences` Mermaid plugin; GitHub Pages at `https://emanuele-chiummo.github.io/llm-wiki-synapse/`; `make docs-serve` local preview; `--strict` CI gate) |
 
 ## Cross-cutting (every release)
 
@@ -102,3 +102,13 @@ v0.7 front-loads small, high-frequency UX wins (they compound daily) plus the
 ServiceNow scheduler you already asked for. v0.8 exploits the Marker investment.
 v0.9 makes AI activity legible before opening the product up. v1.0's auth is the
 only structural change — done last, with its own ADR, when everything else is calm.
+
+---
+
+## Roadmap COMPLETE
+
+All milestones M1–M10 (v0.1 through v1.0) are shipped as of 2026-07-03. R10-2 (multi-vault
+UI) and the purchase of OS code-signing certificates (R10-3) remain explicitly deferred —
+the guide is documented and ready to follow when the certificates are acquired. G-P2-3
+(cancel in-flight ingest endpoint) remains the only open P2 parity item. All other P0, P1,
+and P2 backlog items from the parity matrix are closed.

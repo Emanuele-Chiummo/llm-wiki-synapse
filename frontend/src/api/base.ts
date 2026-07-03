@@ -1,5 +1,6 @@
 /**
- * base.ts — runtime API base URL resolution (ADR-0047 §2.1).
+ * base.ts — runtime API base URL resolution (ADR-0047 §2.1) + auth token
+ * management (ADR-0052 §4 — THE single injection point for the Bearer token).
  *
  * Priority order (call-time, not module-load-time):
  *   1. localStorage["synapse.serverUrl"]  — desktop runtime (Tauri first-launch)
@@ -16,8 +17,15 @@
  *   first, max 5. Written only by addKnownServer(), called only from setServerUrl() after
  *   a validated successful connect. Never holds unvalidated or hostile URLs.
  *
+ * Auth token (ADR-0052 §4.1):
+ *   localStorage["synapse.authToken"] — shared Bearer token for the current server.
+ *   Never stored in Zustand (avoids accidental serialization). Read at request time.
+ *   ONE injection point: apiFetch() merges authHeaders() into every outgoing request.
+ *   No component may construct the Authorization header directly (ADR-0052 Do-NOT §10).
+ *
  * No secrets or API keys in this file (CLAUDE.md §12).
  * ADR-0047 §6 Do-NOT: never introduce a module-level const API_BASE in any client.
+ * ADR-0052 Do-NOT: never log the token; never construct Authorization outside this module.
  */
 
 const LS_SERVER_URL = "synapse.serverUrl";
@@ -204,6 +212,146 @@ export function clearServerUrl(): void {
     // ignore
   }
 }
+
+// ─── Auth token (ADR-0052 §4.1 — THE single source, never in Zustand) ───────
+
+/**
+ * localStorage key for the shared Bearer token (ADR-0052 §4.1).
+ * Namespaced like the other synapse.* keys. Never holds multi-server-keyed
+ * data — the current server URL is resolved by apiBase() independently.
+ */
+const LS_AUTH_TOKEN = "synapse.authToken";
+
+/**
+ * getAuthToken — read the stored Bearer token for the current server.
+ * Returns null when no token is stored (auth disabled or not yet entered).
+ * Read at request time — never cached (ADR-0052 §4.1).
+ */
+export function getAuthToken(): string | null {
+  try {
+    const v = localStorage.getItem(LS_AUTH_TOKEN);
+    return v && v.trim().length > 0 ? v.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * setAuthToken — store the Bearer token for the current server.
+ * Called by ConnectScreen (on successful connect with a token) and by
+ * Settings › Security "Update" action. Never called from components
+ * that construct the Authorization header themselves (ADR-0052 Do-NOT §10).
+ */
+/**
+ * bearerHeadersFor — build the Authorization header for an EXPLICIT token.
+ *
+ * Exists solely for the ConnectScreen bootstrap probe (ADR-0052 §4.4): the
+ * server URL is not yet persisted there, so apiFetch cannot be used, but the
+ * header construction must still live in this module (Do-NOT §10 — the final
+ * QA gate greps that no component builds "Authorization" itself).
+ */
+export function bearerHeadersFor(token: string): Record<string, string> {
+  const trimmed = token.trim();
+  return trimmed.length > 0 ? { Authorization: `Bearer ${trimmed}` } : {};
+}
+
+export function setAuthToken(token: string): void {
+  try {
+    const trimmed = token.trim();
+    if (trimmed.length > 0) {
+      localStorage.setItem(LS_AUTH_TOKEN, trimmed);
+    } else {
+      localStorage.removeItem(LS_AUTH_TOKEN);
+    }
+  } catch {
+    // ignore — storage unavailable
+  }
+}
+
+/**
+ * clearAuthToken — remove the stored token (e.g. on 401 from server,
+ * indicating the server token was rotated and the stored value is stale).
+ */
+export function clearAuthToken(): void {
+  try {
+    localStorage.removeItem(LS_AUTH_TOKEN);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * authHeaders — return the Authorization header for the current server.
+ * Returns { Authorization: "Bearer <token>" } when a token is stored,
+ * {} otherwise.  The ONLY place in the codebase that constructs this header
+ * (ADR-0052 §4.2 / Do-NOT §10). Consumed exclusively by apiFetch().
+ */
+export function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
+
+// ─── 401 callback (module-level, registered once by AppShell) ────────────────
+
+/**
+ * Module-level callback invoked by apiFetch() on every 401 response.
+ * Registered ONCE by AppShell (or the store bootstrap) via register401Handler().
+ * Using a module-level callback avoids importing from stores/components here,
+ * keeps the I3 boundary clean, and requires no Zustand subscription in base.ts.
+ */
+let _on401: (() => void) | null = null;
+
+/**
+ * register401Handler — register a callback to be fired when apiFetch receives
+ * a 401 response. Call this exactly ONCE from AppShell on mount.
+ * The callback should: clear the auth token and signal the app to show
+ * the token gate (e.g. set authRequired in settingsStore).
+ */
+export function register401Handler(cb: () => void): void {
+  _on401 = cb;
+}
+
+/**
+ * apiFetch — the SINGLE fetch wrapper that injects auth headers (ADR-0052 §4.2).
+ *
+ * Drop-in replacement for global fetch:
+ *   - merges authHeaders() into init.headers on every request
+ *   - on 401 response: clears the stored token and invokes the registered
+ *     401 callback (so AppShell can show the token gate without a redirect)
+ *   - does NOT throw on 401 — callers receive the Response and can inspect it
+ *   - streaming responses (NDJSON) pass through untouched (transport only, I3)
+ *
+ * MIGRATION: every frontend/src/api/*.ts client MUST use apiFetch instead of
+ * the global fetch. No component may call fetch() with an Authorization header.
+ */
+export async function apiFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+): Promise<Response> {
+  const merged: RequestInit = {
+    ...init,
+    headers: {
+      ...authHeaders(),
+      ...(init.headers as Record<string, string> | undefined ?? {}),
+    },
+  };
+
+  const res = await fetch(input, merged);
+
+  if (res.status === 401) {
+    // Clear the stale stored token (the server rotated it or it was wrong)
+    clearAuthToken();
+    // Notify the app layer once (the callback was registered by AppShell)
+    if (_on401) {
+      _on401();
+    }
+  }
+
+  return res;
+}
+
+// ─── isTauri ─────────────────────────────────────────────────────────────────
 
 /**
  * isTauri — detect whether the app is running inside a Tauri v2 webview.

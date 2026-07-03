@@ -26,7 +26,7 @@ import type {
   CliAuthUpdateRequest,
 } from "./types";
 import { ApiError } from "./graphClient";
-import { apiBase } from "./base";
+import { apiBase, apiFetch } from "./base";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 async function checkResponse(res: Response): Promise<void> {
@@ -50,7 +50,7 @@ export async function fetchProviderConfigs(
   signal?: AbortSignal,
 ): Promise<ProviderConfigListResponse> {
   const url = `${apiBase()}/provider/config`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as ProviderConfigListResponse;
 }
@@ -65,7 +65,7 @@ export async function createProviderConfig(
   signal?: AbortSignal,
 ): Promise<ProviderConfigItem> {
   const url = `${apiBase()}/provider/config`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -85,7 +85,7 @@ export async function deleteProviderConfig(
   signal?: AbortSignal,
 ): Promise<void> {
   const url = `${apiBase()}/provider/config/${encodeURIComponent(id)}`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "DELETE",
     ...(signal !== undefined ? { signal } : {}),
   });
@@ -108,7 +108,7 @@ export async function fetchEmbeddingConfig(
   signal?: AbortSignal,
 ): Promise<EmbeddingConfig> {
   const url = `${apiBase()}/config/embedding`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as EmbeddingConfig;
 }
@@ -258,7 +258,7 @@ export async function fetchMcpInfo(
   signal?: AbortSignal,
 ): Promise<McpInfoResponse> {
   const url = `${apiBase()}/mcp/info`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as McpInfoResponse;
 }
@@ -278,7 +278,7 @@ export async function setRemoteMcpEnabled(
   signal?: AbortSignal,
 ): Promise<McpRemoteStateResponse> {
   const url = `${apiBase()}/mcp/remote`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ enabled }),
@@ -305,7 +305,7 @@ export async function setMcpAuth(
   signal?: AbortSignal,
 ): Promise<McpAuthResponse> {
   const url = `${apiBase()}/mcp/auth`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -328,7 +328,7 @@ export async function fetchClipConfig(
   signal?: AbortSignal,
 ): Promise<ClipConfigResponse> {
   const url = `${apiBase()}/clip/config`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as ClipConfigResponse;
 }
@@ -347,7 +347,7 @@ export async function setClipConfig(
   signal?: AbortSignal,
 ): Promise<ClipConfigStateResponse> {
   const url = `${apiBase()}/clip/config`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -370,7 +370,7 @@ export async function fetchWebSearchConfig(
   signal?: AbortSignal,
 ): Promise<WebSearchConfigResponse> {
   const url = `${apiBase()}/web-search/config`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as WebSearchConfigResponse;
 }
@@ -389,7 +389,7 @@ export async function setWebSearchConfig(
   signal?: AbortSignal,
 ): Promise<WebSearchConfigStateResponse> {
   const url = `${apiBase()}/web-search/config`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -417,7 +417,7 @@ export async function getCliAuthConfig(
   signal?: AbortSignal,
 ): Promise<CliAuthConfig> {
   const url = `${apiBase()}/provider/cli-auth`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as CliAuthConfig;
 }
@@ -446,7 +446,7 @@ export async function setCliAuthConfig(
   signal?: AbortSignal,
 ): Promise<CliAuthConfig> {
   const url = `${apiBase()}/provider/cli-auth`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

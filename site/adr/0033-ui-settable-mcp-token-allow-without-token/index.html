@@ -1,0 +1,1243 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0033-ui-settable-mcp-token-allow-without-token/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0033 — UI-settable MCP access token + "allow without token" (loopback/private only); hashed storage in vault_state, public source always requires the token - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0033-ui-settable-mcp-access-token-allow-without-token-loopbackprivate-only-hashed-storage-in-vault_state-public-source-always-requires-the-token" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0033 — UI-settable MCP access token + "allow without token" (loopback/private only); hashed storage in vault_state, public source always requires the token
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-the-mcp-access-token-is-an-app-issued-access-credential-exempt-from-adr-0008s-provider-keys-rule-stored-as-a-salted-hash-in-vault_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 The MCP access token is an APP-ISSUED ACCESS CREDENTIAL — exempt from ADR-0008's "provider keys" rule; stored as a SALTED HASH in vault_state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-scope-the-token-gates-the-mcp-remote-surface-mcpserver-only-the-rest-of-the-api-stays-unauthenticated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Scope — the token gates the MCP REMOTE surface (/mcp/server) ONLY; the rest of the API stays unauthenticated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-allow-without-token-is-permitted-only-for-non-public-request-sources-a-public-source-always-requires-the-token-critical" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 "Allow without token" is permitted ONLY for non-public request sources; a public source ALWAYS requires the token (CRITICAL)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-mountgate-integration-the-gate-is-the-sole-arbiter-mount-whenever-the-surface-could-be-reachable-no-remount" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Mount/gate integration — the gate is the sole arbiter; mount whenever the surface could be reachable (no remount)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-endpoints-put-mcpauth-setrotate-token-allow-flag-adr-0032-put-mcpremote-retained-with-an-allow-aware-clamp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Endpoints — PUT /mcp/auth (set/rotate token + allow flag); ADR-0032 PUT /mcp/remote retained with an allow-aware clamp
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-ui-i3-no-heavy-render" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 UI (I3 — no heavy render)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-new-config-schema-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. New config / schema / migration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-per-agent-file-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Per-agent file ownership
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-acceptance-checks-dod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Acceptance checks (DoD)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-decisions-the-owner-must-make-before-coding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Decisions the owner must make before coding
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0033-ui-settable-mcp-access-token-allow-without-token-loopbackprivate-only-hashed-storage-in-vault_state-public-source-always-requires-the-token">ADR-0033 — UI-settable MCP access token + "allow without token" (loopback/private only); hashed storage in <code>vault_state</code>, public source always requires the token<a class="headerlink" href="#adr-0033-ui-settable-mcp-access-token-allow-without-token-loopbackprivate-only-hashed-storage-in-vault_state-public-source-always-requires-the-token" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Proposed (owner decision pending on two points — §7) — DESIGN ONLY, no implementation</li>
+<li><strong>Date:</strong> 2026-06-30</li>
+<li><strong>Sprint:</strong> v0.5 (Feature — adopt the nashsu/llm_wiki auth UX: token configurable from Settings + an "allow access without a token" option)</li>
+<li><strong>Feature:</strong> F1-MCP-UI (Amendment — owner request, Emanuele Chiummo) · supersedes the <em>env-only token</em> parts of <strong>ADR-0029 §2.2</strong> and integrates with <strong>ADR-0032</strong> (runtime toggle) · reconciles <strong>ADR-0008 / CLAUDE.md §12</strong> ("no secrets in DB")</li>
+<li><strong>Invariants owned:</strong> <strong>I6</strong> (nothing hardcoded — no provider touched; mount path + IP ranges are named constants) · <strong>I9</strong> (reuse <code>vault_state</code> + the existing ADR-0029 mount + existing FastMCP server; NO second process, NO new gateway, NO new tool, NO broadened tool set) · <strong>I3</strong> (UI: a token field + a switch + one PUT — local state, no store churn) · <strong>I1/I5</strong> (vault-write path unchanged — <code>write_page</code> still routes through <code>write_wiki_page</code>) · <strong>I7</strong> (no new loop)</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> backend-engineer (column + migration <code>0012</code> + token hashing + middleware source-trust gate + <code>PUT /mcp/auth</code> + <code>/mcp/info</code> fields) · frontend-engineer (token field + "allow without token" switch + one-time-token reveal + i18n) · tech-writer (D2 ER regen, D4 OpenAPI, D6b deploy note, D5 screenshot) · devops-engineer (one-line migration note; confirm the tunnel sets <code>CF-Connecting-IP</code> / trusted-proxy posture)</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>ADR-0029 shipped the remote MCP surface as an <strong>env-only fail-closed</strong> design:
+<code>MCP_AUTH_TOKEN</code> (env, no default) both (a) decides whether the FastMCP Streamable-HTTP
+sub-app is mounted at all (<code>main.py:367</code> — <code>if _http_mcp_asgi_app is not None and
+settings.mcp_auth_token is not None</code>) and (b) is the bearer secret enforced by
+<code>_BearerAuthMiddleware</code> (constant-time <code>hmac.compare_digest</code>, <code>main.py:225</code>). ADR-0032 added a
+persisted <code>vault_state.remote_mcp_enabled</code> runtime flag (Alembic <code>0011</code>) that 404-gates requests
+<strong>before</strong> the bearer check, with a token-floor clamp on <code>PUT /mcp/remote</code>.</p>
+<p><strong>Owner request (locked):</strong> adopt the nashsu/llm_wiki auth UX — <strong>only the auth parts</strong>:</p>
+<ol>
+<li>The access token is <strong>configured from the UI</strong> (Settings → API + MCP), not env-only.</li>
+<li>There is an <strong>"Allow access without a token"</strong> option; when on, a client may connect
+   unauthenticated.</li>
+<li>Security posture from the reference: bind loopback by default, file reads via allow-list,
+   never pass tokens on the CLI.</li>
+</ol>
+<p><strong>Explicitly NOT adopted</strong> (owner): separate "Enable HTTP API" / "Enable MCP access" toggles,
+a broader tool set, the separate-process proxy. <strong>KEEP:</strong> in-process FastMCP, the 4 tools, the
+ADR-0032 runtime toggle.</p>
+<p><strong>The deployment reality that makes "allow without token" dangerous.</strong> The owner reaches the
+single FastAPI origin over <strong>two</strong> networks (CLAUDE.md §1): <strong>Tailscale mesh</strong> (private, CGNAT
+<code>100.64.0.0/10</code>) <strong>and Cloudflare Tunnel</strong> (public internet). "Allow without token" is benign on
+loopback / Tailscale but is a <strong>vault-mutating-capable open endpoint on the public internet</strong>.
+The reference model assumes a <code>127.0.0.1</code> bind; we cannot assume that, because the same origin is
+deliberately published publicly. Therefore the "allow without token" option must be <strong>scoped to
+non-public request sources</strong> — this is the load-bearing security decision of this ADR (§2.3).</p>
+<p><strong>The ADR-0008 tension.</strong> ADR-0008 and CLAUDE.md §12 say "<strong>no secrets in code or database</strong>;
+API keys are environment-only." The owner now wants a <strong>UI-settable</strong> token, which implies the
+token is created/stored by the app, not pasted into env. §2.1 resolves this tension precisely.</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-the-mcp-access-token-is-an-app-issued-access-credential-exempt-from-adr-0008s-provider-keys-rule-stored-as-a-salted-hash-in-vault_state">2.1 The MCP access token is an APP-ISSUED ACCESS CREDENTIAL — exempt from ADR-0008's "provider keys" rule; stored as a SALTED HASH in <code>vault_state</code><a class="headerlink" href="#21-the-mcp-access-token-is-an-app-issued-access-credential-exempt-from-adr-0008s-provider-keys-rule-stored-as-a-salted-hash-in-vault_state" title="Permanent link">&para;</a></h3>
+<p><strong>Reconciliation with ADR-0008 / §12 (the key item).</strong> ADR-0008's "no secrets in DB" rule
+governs <strong>third-party provider API keys</strong> (Anthropic key, OpenAI-compatible key) — credentials
+that authenticate <em>Synapse to an external service</em>. Its rationale is: those keys are
+high-blast-radius bearer secrets for <em>someone else's</em> billed API, and leaking the DB must not
+leak them; env keeps them out of backups/git/<code>pg_dump</code>.</p>
+<p>The <strong>MCP access token is categorically different</strong>: it is a credential <strong>Synapse issues to
+authenticate callers to itself</strong> (like a session token or an app API key), scoped to one local
+surface, revocable in one click, with blast radius = "read/maybe-write this one vault." It is
+<strong>not</strong> a third-party provider key. <strong>Decision: the MCP access token is exempt from ADR-0008's
+provider-key rule</strong> — but we still honour the <em>spirit</em> of §12 (never store a recoverable secret
+in the DB) by storing <strong>only a salted hash</strong>, never the plaintext.</p>
+<p><strong>Storage decision — SALTED HASH, never plaintext (strongly weighted for security):</strong></p>
+<ul>
+<li>Add <strong><code>vault_state.mcp_access_token_hash : Mapped[str | None]</code></strong> (<code>Text</code>, nullable, default
+  <code>NULL</code>). Stores a salted, slow-ish KDF hash of the token (PBKDF2-HMAC-SHA256 via stdlib
+  <code>hashlib.pbkdf2_hmac</code>, or <code>argon2</code>/<code>bcrypt</code> if already vendored — <strong>no new heavy dep if
+  avoidable</strong>; PBKDF2 from stdlib is sufficient and dependency-free). Encoded as
+  <code>pbkdf2_sha256$&lt;iterations&gt;$&lt;salt_b64&gt;$&lt;hash_b64&gt;</code> so the verifier is self-describing.</li>
+<li>The token <strong>plaintext is shown exactly ONCE</strong>, at generation time, in the <code>PUT /mcp/auth</code>
+  response (or a dedicated rotate response). It is <strong>never re-displayed</strong> and <strong>never returned by
+  any GET</strong>. <code>/mcp/info</code> reports only <code>token_configured: bool</code> (derived
+  <code>mcp_access_token_hash IS NOT NULL</code>), never the value or the hash.</li>
+<li><strong>Why hash, not re-displayable plaintext:</strong> a re-displayable token requires storing a
+  recoverable secret in Postgres — exactly what §12 forbids in spirit, and it makes a DB
+  dump / backup leak the live credential. A salted hash means a DB leak yields no usable token
+  (the surface stays closed). The cost — the owner cannot "look up" a lost token and must
+  <strong>rotate</strong> instead — is acceptable and is in fact the more secure UX (matches "shown once" in
+  many app token UIs). This is the recommended option and the ADR builds it.</li>
+<li><strong>Constant-time verification:</strong> the middleware computes the candidate's PBKDF2 hash with the
+  stored salt+iterations and compares with <code>hmac.compare_digest</code> against the stored hash. (PBKDF2
+  is intentionally slow; the per-request cost is a one-time KDF on the <em>presented</em> token only when
+  a token is required — acceptable for a low-QPS personal MCP surface. If KDF latency is ever a
+  concern, an in-process verified-token cache keyed by a fast hash of the bearer can be added; not
+  needed at v0.5 volumes.)</li>
+</ul>
+<p><strong>Env <code>MCP_AUTH_TOKEN</code> stays as a BOOTSTRAP fallback (not removed).</strong>
+- If <code>vault_state.mcp_access_token_hash</code> is set, <strong>the DB hash is authoritative</strong> (the UI-set
+  token wins).
+- Else if <code>settings.mcp_auth_token</code> (env) is set, it is the <strong>bootstrap token</strong>: the middleware
+  verifies the bearer against the env value (plaintext compare, constant-time — unchanged
+  ADR-0029 path). This preserves every existing deployment and lets the owner seed a token before
+  the UI is reachable.
+- Else <strong>no token is configured</strong> (and "allow without token" governs reachability — §2.3).
+- This makes migration zero-friction: existing <code>MCP_AUTH_TOKEN</code> users keep working untouched;
+  the UI token is purely additive and, once set, takes precedence.</p>
+<p><strong>Migration: YES.</strong> New revision <strong><code>0012_vault_state_mcp_access_token_hash</code></strong> —
+<code>ALTER TABLE vault_state ADD COLUMN mcp_access_token_hash TEXT NULL</code>. <strong>D2/ER MUST regenerate</strong>
+(<code>make er</code>) and match the live schema (I8). This is the one and only schema change in this ADR.
+Default <code>NULL</code> ⇒ on upgrade, no UI token exists yet ⇒ env-or-none behaviour holds (no posture
+change on upgrade).</p>
+<h3 id="22-scope-the-token-gates-the-mcp-remote-surface-mcpserver-only-the-rest-of-the-api-stays-unauthenticated">2.2 Scope — the token gates the MCP REMOTE surface (<code>/mcp/server</code>) ONLY; the rest of the API stays unauthenticated<a class="headerlink" href="#22-scope-the-token-gates-the-mcp-remote-surface-mcpserver-only-the-rest-of-the-api-stays-unauthenticated" title="Permanent link">&para;</a></h3>
+<p>This is confirmed and explicit: the token gates <strong>only</strong> the <code>/mcp/server</code> sub-app, exactly as
+ADR-0029 scoped <code>_BearerAuthMiddleware</code>. The <strong>same-origin React web UI</strong> and the <strong>rest of the
+REST API</strong> stay <strong>unauthenticated</strong> (ADR-0028 relative base; the browser sends no auth). Adding
+auth to the whole API would break the browser UI and is out of scope.</p>
+<ul>
+<li>The MCP <strong>stdio</strong> server (<code>python -m app.mcp.server</code>, launched locally by Claude Desktop) is
+  unchanged and unauthenticated — it is local-only by construction (ADR-0010).</li>
+<li>An authenticated <em>external REST API</em> path is <strong>NOT</strong> built here. (Open question O3 §7 records it
+  if the owner ever wants it; default = MCP-surface-only.)</li>
+</ul>
+<h3 id="23-allow-without-token-is-permitted-only-for-non-public-request-sources-a-public-source-always-requires-the-token-critical">2.3 "Allow without token" is permitted ONLY for non-public request sources; a public source ALWAYS requires the token (CRITICAL)<a class="headerlink" href="#23-allow-without-token-is-permitted-only-for-non-public-request-sources-a-public-source-always-requires-the-token-critical" title="Permanent link">&para;</a></h3>
+<p>This is the load-bearing security decision. We classify every <code>/mcp/server</code> request as <strong>PRIVATE</strong>
+or <strong>PUBLIC</strong> and let "allow without token" relax auth <strong>only for PRIVATE</strong>.</p>
+<p><strong>A request is PUBLIC (token always required, regardless of <code>allow_without_token</code>) if ANY of:</strong>
+- It carries a Cloudflare edge header: <strong><code>CF-Connecting-IP</code></strong> or <strong><code>CF-Ray</code></strong> is present. The
+  owner's public path is Cloudflare Tunnel; cloudflared injects these on every edge request.
+  Their presence is a positive, hard signal of "this came through the public tunnel."
+- The resolved source IP (see trust model below) is <strong>not</strong> in a private/trusted range.</p>
+<p><strong>A request is PRIVATE (eligible for token-less access when <code>allow_without_token</code> is ON) only if
+BOTH:</strong>
+- It carries <strong>no</strong> Cloudflare edge header (<code>CF-Connecting-IP</code> / <code>CF-Ray</code> absent), AND
+- The resolved source IP is in a <strong>trusted private range</strong> (allow-list):
+  - <strong>loopback</strong> <code>127.0.0.0/8</code>, <code>::1</code>
+  - <strong>Tailscale CGNAT</strong> <code>100.64.0.0/10</code>
+  - <strong>RFC1918</strong> <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code>, <code>192.168.0.0/16</code>
+  - <strong>link-local</strong> <code>169.254.0.0/16</code>, <code>fe80::/10</code> (and ULA <code>fc00::/7</code> for IPv6 private)</p>
+<p><strong>Source-IP trust model (X-Forwarded-For spoofing — addressed):</strong>
+- <strong>Default and fail-safe: use the transport peer IP</strong> (<code>scope["client"][0]</code> — the actual TCP
+  peer ASGI reports). <strong>Do NOT trust <code>X-Forwarded-For</code> by default</strong>, because a public client can
+  forge it.
+- <code>X-Forwarded-For</code> / <code>Forwarded</code> are honoured <strong>only</strong> when the immediate peer is a configured
+  <strong>trusted proxy</strong> (<code>MCP_TRUSTED_PROXIES</code>, env, default <strong>empty</strong> ⇒ XFF ignored entirely). When
+  the peer is trusted, take the <strong>last</strong> XFF hop that the trusted proxy appended (the
+  proxy-attested client), not the leftmost (client-controlled) entry.
+- <strong><code>CF-Connecting-IP</code> is treated as a PUBLIC <em>signal</em>, never as a <em>trust</em> grant.</strong> Its mere
+  presence forces PUBLIC (token required). We never use it to <em>grant</em> private access. So even if
+  an attacker forges <code>CF-Connecting-IP</code>, the only effect is to make their request <em>more</em>
+  restricted (PUBLIC), never less — fail-safe by construction.
+- <strong>Fail-safe default = PUBLIC (require token) when uncertain.</strong> If the source cannot be resolved,
+  is ambiguous, or any classification step is unsure, the request is treated as PUBLIC and the
+  token is required. Token-less access is granted <strong>only</strong> on a positive PRIVATE determination.</p>
+<p><strong>Net effect:</strong> "Allow without token" is a convenience for loopback / LAN / Tailscale, and is
+<strong>structurally incapable</strong> of opening the surface to the Cloudflare-tunnel public path. The worst
+an <code>allow_without_token=ON</code> posture can do over the public tunnel is… nothing — the public path
+still demands the token (or 404s if no token is configured — §2.4 row).</p>
+<p><strong>Binding note (defence-in-depth, ops):</strong> the reference's "bind 127.0.0.1" is an <em>ops</em> hardening,
+not enforceable in-app here because the surface is mounted in the shared public FastAPI origin
+(I9 — one origin, one tunnel). We compensate at the application layer with the source-trust gate
+above. D6b documents that the owner MAY additionally put Cloudflare Access in front of
+<code>/mcp/server</code> for edge-enforced auth (pure-ops, no code) — the preferred extra layer.</p>
+<h3 id="24-mountgate-integration-the-gate-is-the-sole-arbiter-mount-whenever-the-surface-could-be-reachable-no-remount">2.4 Mount/gate integration — the gate is the sole arbiter; mount whenever the surface <em>could</em> be reachable (no remount)<a class="headerlink" href="#24-mountgate-integration-the-gate-is-the-sole-arbiter-mount-whenever-the-surface-could-be-reachable-no-remount" title="Permanent link">&para;</a></h3>
+<p><strong>Structural change from ADR-0029/0032.</strong> Today the sub-app is mounted <strong>only if a token is set</strong>
+(<code>main.py:367</code>). With "allow without token," the surface must be reachable <strong>without</strong> a token, so
+the mount condition can no longer be "token set." We move to: <strong>build + mount the sub-app once
+whenever the MCP HTTP capability is compiled in; the middleware decides per-request</strong> (still
+<strong>no remount</strong> — ADR-0032 §2.3 stands).</p>
+<ul>
+<li><strong>Mount condition (new):</strong> build <code>_http_mcp_asgi_app</code> and mount it under <code>MCP_MOUNT_PATH</code>
+  <strong>unconditionally at startup</strong> (the FastMCP lifespan/session-manager starts once, as ADR-0032
+  requires). The middleware now carries <code>token | None</code>, the <code>RemoteMcpFlag</code>, the
+  <code>allow_without_token</code> flag, and the source-classifier.</li>
+<li><code>_BearerAuthMiddleware</code> is extended (renamed conceptually to the <em>MCP access gate</em>) to the
+  decision table below. <strong>Order:</strong> runtime-flag check → source classification → token/allow logic.
+  Lifespan/WS scopes pass through unconditionally (unchanged).</li>
+</ul>
+<p><strong>Decision table</strong> (HTTP request to <code>/mcp/server</code>; <code>remote_enabled</code> = ADR-0032 flag;
+<code>token_configured</code> = DB hash set <strong>or</strong> env bootstrap set; <code>allow</code> = <code>allow_without_token</code>):</p>
+<table>
+<thead>
+<tr>
+<th><code>remote_enabled</code></th>
+<th>source</th>
+<th><code>token_configured</code></th>
+<th><code>allow</code></th>
+<th>bearer presented</th>
+<th><strong>Result</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>OFF</strong></td>
+<td>any</td>
+<td>any</td>
+<td>any</td>
+<td>any</td>
+<td><strong>404</strong> (ADR-0032 — indistinguishable from not-mounted)</td>
+</tr>
+<tr>
+<td>ON</td>
+<td>any</td>
+<td>any</td>
+<td>any</td>
+<td>valid token</td>
+<td><strong>PASS</strong> (a valid token always works)</td>
+</tr>
+<tr>
+<td>ON</td>
+<td>PRIVATE</td>
+<td>yes</td>
+<td>OFF</td>
+<td>none/bad</td>
+<td><strong>401</strong> (token required; private but allow is off)</td>
+</tr>
+<tr>
+<td>ON</td>
+<td>PRIVATE</td>
+<td>yes</td>
+<td><strong>ON</strong></td>
+<td>none</td>
+<td><strong>PASS</strong> (token-less allowed on private source)</td>
+</tr>
+<tr>
+<td>ON</td>
+<td>PRIVATE</td>
+<td><strong>no</strong></td>
+<td><strong>ON</strong></td>
+<td>none</td>
+<td><strong>PASS</strong> (open on private source — no token exists, allow is on)</td>
+</tr>
+<tr>
+<td>ON</td>
+<td>PRIVATE</td>
+<td><strong>no</strong></td>
+<td>OFF</td>
+<td>none</td>
+<td><strong>404</strong> (no token AND allow off ⇒ surface effectively closed; 404 not 401 to avoid the "protected thing exists" tell when nothing can authenticate)</td>
+</tr>
+<tr>
+<td>ON</td>
+<td><strong>PUBLIC</strong></td>
+<td>yes</td>
+<td>any</td>
+<td>none/bad</td>
+<td><strong>401</strong> (public ALWAYS requires the token — §2.3)</td>
+</tr>
+<tr>
+<td>ON</td>
+<td><strong>PUBLIC</strong></td>
+<td><strong>no</strong></td>
+<td>any</td>
+<td>any</td>
+<td><strong>404</strong> (public, no token can ever be presented ⇒ closed; never open the public surface token-lessly even if <code>allow=ON</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key rows restated for emphasis:</strong>
+- <strong>(b) allow ON + PUBLIC source ⇒ STILL 401/404</strong> — <code>allow_without_token</code> is <em>ignored</em> for public
+  sources (§2.3). This is the whole point.
+- <strong>(d) <code>remote_enabled</code> OFF ⇒ 404</strong> regardless of everything — ADR-0032 floor preserved.
+- The <strong>token-floor clamp of ADR-0032 §2.4 is REPLACED</strong> by an <code>allow</code>-aware floor (§2.5):
+  <code>remote_enabled=ON</code> is now permitted when <strong>either</strong> a token is configured <strong>or</strong>
+  <code>allow_without_token=ON</code> (because a token-less private posture is a legitimate, owner-chosen
+  configuration). Without <em>either</em>, enabling remote is pointless (the surface 404s for everyone),
+  so we clamp <code>remote_enabled</code> to OFF (preserving the "no misleading ON" property).</p>
+<h3 id="25-endpoints-put-mcpauth-setrotate-token-allow-flag-adr-0032-put-mcpremote-retained-with-an-allow-aware-clamp">2.5 Endpoints — <code>PUT /mcp/auth</code> (set/rotate token + allow flag); ADR-0032 <code>PUT /mcp/remote</code> retained with an <code>allow</code>-aware clamp<a class="headerlink" href="#25-endpoints-put-mcpauth-setrotate-token-allow-flag-adr-0032-put-mcpremote-retained-with-an-allow-aware-clamp" title="Permanent link">&para;</a></h3>
+<p><strong>New: <code>PUT /mcp/auth</code></strong> — sets/rotates the token and the allow-without-token flag.</p>
+<div class="highlight"><pre><span></span><code>PUT /mcp/auth
+  request body: McpAuthRequest {
+    rotate_token:        bool | None,   # true ⇒ generate a new random token, store its hash, return plaintext ONCE
+    token:               str  | None,   # OR set an explicit token (owner-supplied); stored as hash, NOT echoed
+    clear_token:         bool | None,   # true ⇒ delete the stored token (hash → NULL)
+    allow_without_token: bool | None    # set the allow flag; omitted ⇒ unchanged
+  }
+  response body: McpAuthStateResponse {
+    token_configured:    bool,          # hash set OR env bootstrap present
+    token_source:        &quot;db&quot; | &quot;env&quot; | &quot;none&quot;,
+    allow_without_token: bool,
+    remote_enabled:      bool,          # post-clamp (§2.4)
+    mount_path:          str,           # &quot;/mcp/server&quot;
+    generated_token:     str | None     # ONLY populated when rotate_token=true — shown ONCE, never again
+  }
+</code></pre></div>
+<p>Semantics:
+- <strong><code>rotate_token=true</code>:</strong> server generates a high-entropy token (<code>secrets.token_urlsafe(32)</code>),
+  stores <code>pbkdf2_sha256$...</code> in <code>mcp_access_token_hash</code>, and returns it <strong>once</strong> in
+  <code>generated_token</code>. Subsequent GET/PUT never return it.
+- <strong><code>token=&lt;value&gt;</code>:</strong> owner supplies their own token; server stores only its hash;
+  <code>generated_token</code> stays <code>null</code> (owner already knows it).
+- <strong><code>clear_token=true</code>:</strong> set hash <code>NULL</code>. If this leaves <code>token_configured=false</code> <strong>and</strong>
+  <code>allow_without_token=false</code>, the <code>remote_enabled</code> clamp may force it OFF (§2.4).
+- <strong><code>allow_without_token</code>:</strong> persisted (new column/field — §3); if turning <code>allow=OFF</code> would leave
+  no token AND remote ON, <code>remote_enabled</code> is clamped OFF and reported.
+- <strong>Plaintext token is NEVER stored and NEVER returned except the one-time <code>generated_token</code>.</strong>
+- <strong>Auth on the endpoint itself:</strong> same-origin / unauthenticated, <strong>consistent with ADR-0032
+  §2.4</strong> (the network perimeter + the bearer floor are the gates; the worst an unauthenticated
+  flip can do is expose a <em>token-protected</em> surface, or — for <code>allow_without_token</code> — a
+  <em>private-source-only</em> surface, never a public-open one). Stated trade-off identical to ADR-0032
+  §2.4; edge auth (Cloudflare Access) is the pure-ops hardening path. <strong>However</strong>, because
+  <code>allow_without_token</code> is a more sensitive flip than the plain toggle, this is flagged as
+  owner-decision <strong>O2 (§7)</strong>: hard-block public-open by design (chosen here) vs. add per-route auth
+  on <code>/mcp/auth</code>.</p>
+<p><strong>Retained: <code>PUT /mcp/remote</code></strong> (ADR-0032 §2.4) — unchanged shape, but its clamp becomes
+<code>allow</code>-aware (§2.4): enabling is permitted when <code>token_configured OR allow_without_token</code>.</p>
+<p><strong><code>/mcp/info</code> additions</strong> (<code>McpInfoResponse</code>, backend <code>main.py</code> + frontend <code>providerClient.ts</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Source</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>token_configured</code></td>
+<td>bool</td>
+<td><code>mcp_access_token_hash IS NOT NULL OR bool(env token)</code></td>
+<td><strong>retained</strong>; now true for DB-or-env token. Never the value.</td>
+</tr>
+<tr>
+<td><code>token_source</code></td>
+<td><code>"db"\|"env"\|"none"</code></td>
+<td>precedence resolver (§2.1)</td>
+<td>which token is authoritative (lets UI say "set in UI" vs "from env").</td>
+</tr>
+<tr>
+<td><code>allow_without_token</code></td>
+<td>bool</td>
+<td>persisted flag (§3)</td>
+<td>the new option's state.</td>
+</tr>
+<tr>
+<td><code>remote_enabled</code></td>
+<td>bool</td>
+<td><code>RemoteMcpFlag</code></td>
+<td>unchanged (ADR-0032).</td>
+</tr>
+<tr>
+<td><code>mount_path</code></td>
+<td>str</td>
+<td><code>MCP_MOUNT_PATH</code> constant</td>
+<td>unchanged (I6).</td>
+</tr>
+</tbody>
+</table>
+<p><code>http_enabled</code> / <code>remote_write_enabled</code> unchanged. <strong>No token, no hash, no salt is ever returned
+by any GET.</strong> (<code>http_enabled</code> was <code>bool(env token)</code>; it becomes <code>token_configured</code> semantics —
+retained as alias for backward compat, ADR-0032 §2.5.)</p>
+<h3 id="26-ui-i3-no-heavy-render">2.6 UI (I3 — no heavy render)<a class="headerlink" href="#26-ui-i3-no-heavy-render" title="Permanent link">&para;</a></h3>
+<p><code>SectionApiMcp</code> in <code>SettingsPanel.tsx</code> gains a small <strong>Access</strong> sub-block (local component state +
+fetch/PUT only — no Zustand, mirrors ADR-0027/0032):
+- A <strong>token control</strong>: "Generate token" (calls <code>PUT /mcp/auth {rotate_token:true}</code>, then shows the
+  returned <code>generated_token</code> <strong>once</strong> in a copy-once reveal with a "you won't see this again"
+  warning), "Rotate", and "Clear". When a token exists, show only <code>token_configured=true</code> +
+  <code>token_source</code> — <strong>never</strong> the value.
+- An <strong>"Allow access without a token"</strong> switch bound to <code>allow_without_token</code>. When ON, render an
+  inline <strong>security caveat</strong> (i18n) explaining it applies to <strong>private sources only</strong> (loopback /
+  LAN / Tailscale) and that the public tunnel still requires the token.
+- The existing ADR-0032 remote toggle + URL row stays; its three-state display now also honours
+  <code>allow_without_token</code> (remote can be ON with a token-less private posture).
+- i18n keys under <code>settings.apiMcp.access.*</code> in <code>en.json</code> + <code>it.json</code> (parity gate). The token
+  value and hash are <strong>never</strong> i18n keys.</p>
+<hr />
+<h2 id="3-new-config-schema-migration">3. New config / schema / migration<a class="headerlink" href="#3-new-config-schema-migration" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Name</th>
+<th>Type / default</th>
+<th>Where</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DB column</td>
+<td><code>vault_state.mcp_access_token_hash</code></td>
+<td><code>TEXT NULL</code></td>
+<td><code>models.py</code> <code>VaultState</code></td>
+<td><strong>NEW — Alembic <code>0012</code>; D2/ER MUST regenerate.</strong> Salted PBKDF2 hash; never plaintext.</td>
+</tr>
+<tr>
+<td>DB column</td>
+<td><code>vault_state.mcp_allow_without_token</code></td>
+<td><code>BOOLEAN NOT NULL DEFAULT false</code></td>
+<td><code>models.py</code> <code>VaultState</code></td>
+<td><strong>NEW (same migration <code>0012</code>).</strong> Persisted "allow without token" flag. Default OFF (fail-closed).</td>
+</tr>
+<tr>
+<td>migration</td>
+<td><code>0012_vault_state_mcp_access_token_and_allow</code></td>
+<td>add 2 columns</td>
+<td><code>backend/alembic/versions/</code></td>
+<td>Run by standard <code>alembic upgrade head</code>. D2/ER regen (I8).</td>
+</tr>
+<tr>
+<td>env (retained)</td>
+<td><code>MCP_AUTH_TOKEN</code></td>
+<td>secret str, no default</td>
+<td><code>config.py</code></td>
+<td><strong>Now a BOOTSTRAP fallback</strong> (§2.1): used iff DB hash is NULL. Existing deployments keep working.</td>
+</tr>
+<tr>
+<td>env (new)</td>
+<td><code>MCP_TRUSTED_PROXIES</code></td>
+<td>comma-list of CIDRs, default <strong>empty</strong></td>
+<td><code>config.py</code></td>
+<td>Peers whose <code>X-Forwarded-For</code> is trusted (§2.3). Empty ⇒ XFF ignored (fail-safe).</td>
+</tr>
+<tr>
+<td>constants</td>
+<td><code>MCP_PRIVATE_CIDRS</code></td>
+<td>tuple of CIDRs</td>
+<td><code>main.py</code>/module</td>
+<td>loopback/CGNAT/RFC1918/link-local/ULA (§2.3). Named constant (I6 — no scattered literals).</td>
+</tr>
+<tr>
+<td>route</td>
+<td><code>PUT /mcp/auth</code></td>
+<td><code>McpAuthRequest</code> → <code>McpAuthStateResponse</code></td>
+<td><code>main.py</code></td>
+<td>Set/rotate/clear token + allow flag. One-time <code>generated_token</code>.</td>
+</tr>
+<tr>
+<td>route (retained)</td>
+<td><code>PUT /mcp/remote</code></td>
+<td>unchanged shape</td>
+<td><code>main.py</code></td>
+<td>Clamp becomes <code>allow</code>-aware (§2.4).</td>
+</tr>
+<tr>
+<td>response fields</td>
+<td><code>McpInfoResponse.{token_source, allow_without_token}</code> (+ retained <code>token_configured</code>)</td>
+<td>str, bool</td>
+<td><code>main.py</code> + <code>providerClient.ts</code></td>
+<td>Token/hash NEVER returned.</td>
+</tr>
+<tr>
+<td>derived</td>
+<td><code>settings.mcp_http_enabled</code></td>
+<td>bool</td>
+<td><code>config.py</code></td>
+<td><strong>Now <code>True</code> unconditionally</strong> (capability compiled in) OR derived from "token-or-allow can ever apply" — implementer aligns with the new always-mount (§2.4). The <em>reachability</em> is decided by the gate, not by mount.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>One migration, two columns.</strong> Flagged for the docs gate: <code>make er</code> + <code>make openapi</code> + D5/D6b.</p>
+<hr />
+<h2 id="4-per-agent-file-ownership">4. Per-agent file ownership<a class="headerlink" href="#4-per-agent-file-ownership" title="Permanent link">&para;</a></h2>
+<p><strong>backend-engineer:</strong>
+- <code>backend/app/models.py</code> — add <code>mcp_access_token_hash</code> (Text, nullable) + <code>mcp_allow_without_token</code> (Bool, default false) to <code>VaultState</code>.
+- <code>backend/alembic/versions/0012_vault_state_mcp_access_token_and_allow.py</code> — add the two columns; downgrade drops them.
+- <code>backend/app/config.py</code> — keep <code>mcp_auth_token</code> as bootstrap; add <code>mcp_trusted_proxies</code> parse; align <code>mcp_http_enabled</code> with always-mount (§2.4/§3).
+- <code>backend/app/main.py</code> —
+  - token hashing/verification helpers (PBKDF2 via stdlib <code>hashlib</code>; <code>secrets.token_urlsafe</code> for generation; <code>hmac.compare_digest</code> on the hash);
+  - precedence resolver <code>db hash → env → none</code> + <code>token_source</code>;
+  - <strong>source classifier</strong> (peer-IP + CF-header → PRIVATE/PUBLIC; XFF only via <code>MCP_TRUSTED_PROXIES</code>; fail-safe PUBLIC) — <code>MCP_PRIVATE_CIDRS</code> named constant;
+  - extend the MCP access gate (formerly <code>_BearerAuthMiddleware</code>) to the §2.4 decision table; <strong>always-mount</strong> the sub-app (drop the token-conditional mount at <code>main.py:367</code>); keep no-remount;
+  - <code>PUT /mcp/auth</code> + <code>McpAuthRequest</code>/<code>McpAuthStateResponse</code> (one-time <code>generated_token</code>; never echo otherwise);
+  - make <code>PUT /mcp/remote</code> clamp <code>allow</code>-aware;
+  - add <code>token_source</code>, <code>allow_without_token</code> to <code>McpInfoResponse</code> + <code>get_mcp_info</code>; load <code>mcp_allow_without_token</code> into the in-process posture at startup (alongside <code>RemoteMcpFlag</code>).
+- <code>backend/tests/</code> — decision-table tests (every row of §2.4); PRIVATE vs PUBLIC classification (loopback/CGNAT/RFC1918 ⇒ PRIVATE; <code>CF-Connecting-IP</code>/<code>CF-Ray</code> present ⇒ PUBLIC even from a private peer; forged XFF ignored when peer untrusted; forged <code>CF-Connecting-IP</code> only ever <em>restricts</em>); token hash round-trip + constant-time verify; <strong>no token/hash in any response</strong> (grep); env-bootstrap precedence; clamp behaviour.</p>
+<p><strong>frontend-engineer:</strong>
+- <code>frontend/src/api/providerClient.ts</code> — extend <code>McpInfoResponse</code> (<code>token_source</code>, <code>allow_without_token</code>); add <code>McpAuthRequest</code>/<code>McpAuthStateResponse</code> + <code>setMcpAuth()</code>.
+- <code>frontend/src/components/settings/SettingsPanel.tsx</code> — <code>SectionApiMcp</code> Access sub-block: generate/rotate/clear token, one-time reveal, "allow without token" switch + security caveat; local state only (I3).
+- <code>frontend/src/i18n/en.json</code>, <code>it.json</code> — <code>settings.apiMcp.access.*</code> (parity).
+- <code>frontend/src/tests/</code> — vitest: token never rendered when configured; <code>generated_token</code> shown once; allow-switch caveat present; PUT shapes.</p>
+<p><strong>tech-writer:</strong>
+- <code>docs/er/schema.mmd</code> — <code>make er</code> (D2; two new columns).
+- <code>docs/api/openapi.json</code> — <code>make openapi</code> (D4; <code>PUT /mcp/auth</code>, new <code>/mcp/info</code> fields).
+- <code>docs/DEPLOY.md</code> (D6b) — token now UI-settable (env = bootstrap fallback); "allow without token" is <strong>private-source-only</strong>, public tunnel always needs the token; <code>MCP_TRUSTED_PROXIES</code> guidance; recommend optional Cloudflare Access on <code>/mcp/server</code>.
+- <code>docs/screens/settings-api-mcp.png</code> — refresh via Playwright (D5).
+- <strong>Amend ADR-0029 (§2.2) and ADR-0032 (§2.4 clamp):</strong> add a "Superseded in part by ADR-0033" note to each (token now DB-hash-with-env-bootstrap; clamp now allow-aware). One-line cross-refs only — do not rewrite them.</p>
+<p><strong>devops-engineer:</strong> one-line note — migration applied by standard <code>alembic upgrade head</code>; <strong>verify cloudflared sets <code>CF-Connecting-IP</code></strong> on tunnel requests (it does by default) and document the <code>MCP_TRUSTED_PROXIES</code> posture (default empty = trust only the transport peer). No new service/port/env beyond <code>MCP_TRUSTED_PROXIES</code>.</p>
+<hr />
+<h2 id="5-acceptance-checks-dod">5. Acceptance checks (DoD)<a class="headerlink" href="#5-acceptance-checks-dod" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Token UI round-trip.</strong> <code>PUT /mcp/auth {rotate_token:true}</code> returns <code>generated_token</code> once; a
+   subsequent bearer with that token reaches the tools; <code>/mcp/info</code> shows <code>token_configured=true</code>,
+   <code>token_source="db"</code>, and <strong>never</strong> the token/hash. A second GET/PUT never re-returns the value.</li>
+<li><strong>Hash storage, no plaintext.</strong> <code>mcp_access_token_hash</code> is a PBKDF2 string; <code>grep</code>/DB dump shows
+   no plaintext token anywhere; verification is constant-time.</li>
+<li><strong>Env bootstrap precedence.</strong> With DB hash NULL and <code>MCP_AUTH_TOKEN</code> set, the env token
+   authenticates (<code>token_source="env"</code>). After <code>PUT /mcp/auth</code> sets a DB token, the DB token wins
+   (<code>token_source="db"</code>); the env token no longer authenticates.</li>
+<li><strong>PRIVATE allow-without-token works.</strong> <code>remote_enabled=ON</code>, <code>allow_without_token=ON</code>, no token,
+   request from loopback/CGNAT/RFC1918 peer with <strong>no</strong> CF header ⇒ <strong>PASS</strong> (tools reachable).</li>
+<li><strong>PUBLIC always requires token (CRITICAL).</strong> Same posture but the request carries
+   <code>CF-Connecting-IP</code> (or <code>CF-Ray</code>), or comes from a non-private peer ⇒ <strong>401</strong> (if a token is
+   configured) or <strong>404</strong> (if none) — token-less PUBLIC access is <strong>impossible</strong>. Verified for both
+   "CF header present from a private peer" and "non-private peer, no CF header."</li>
+<li><strong>XFF spoof ignored.</strong> A request from an untrusted peer with a forged
+   <code>X-Forwarded-For: 127.0.0.1</code> is classified by the <strong>peer</strong> IP (PUBLIC) ⇒ token required. With a
+   peer listed in <code>MCP_TRUSTED_PROXIES</code>, the proxy-attested last hop is used.</li>
+<li><strong>CF-header forge only restricts.</strong> A request with a forged <code>CF-Connecting-IP</code> is forced PUBLIC
+   (never granted private access) — the forge cannot <em>relax</em> auth.</li>
+<li><strong>Decision table.</strong> Every row of §2.4 has a passing test, including <code>remote_enabled=OFF ⇒ 404</code>
+   (ADR-0032 floor) and <code>no token + allow OFF ⇒ 404</code>.</li>
+<li><strong>Allow-aware clamp.</strong> <code>PUT /mcp/remote {enabled:true}</code> succeeds when <code>allow_without_token=ON</code>
+   even with no token (private-open posture); clears to OFF when neither token nor allow is set.</li>
+<li><strong>No remount / session manager stable.</strong> Flipping any flag never restarts the StreamableHTTP
+    session manager (mounted+started once — ADR-0032 §2.3).</li>
+<li><strong>I1/I5 unchanged.</strong> <code>grep</code> proves HTTP <code>write_page</code> (when exposed) still routes through
+    <code>write_wiki_page</code>.</li>
+<li><strong>Docs gate.</strong> <code>make er</code> matches live schema (two new columns); <code>make openapi</code> includes
+    <code>PUT /mcp/auth</code> + new fields; D5 refreshed; ADR-0029/0032 amendment notes added (I8).</li>
+</ol>
+<hr />
+<h2 id="6-consequences">6. Consequences<a class="headerlink" href="#6-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong> — the owner gets the nashsu/llm_wiki auth UX (UI-settable token + "allow without
+token") without weakening the public surface: token-less access is <strong>structurally impossible</strong> over
+the Cloudflare tunnel (§2.3 fail-safe). The token is stored as a salted hash (a DB/backup leak
+yields no usable credential), honouring §12's spirit while correctly exempting an app-issued access
+credential from ADR-0008's <em>provider-key</em> rule. Env <code>MCP_AUTH_TOKEN</code> stays as a bootstrap ⇒ zero
+breakage for existing deployments. Reuses <code>vault_state</code> + the existing mount + FastMCP — no second
+process, no new tool, no broadened surface (I9). No remount (ADR-0032 §2.3 stands).</p>
+<p><strong>Trade-offs (explicit)</strong> —
+- <strong>One migration, two columns</strong> (the only schema change); D2/ER regen in the docs gate.
+- <strong>Lost tokens cannot be recovered — only rotated</strong> (hash storage). This is the more secure UX and
+  is intentional; the UI says so.
+- <strong>Per-request PBKDF2</strong> on the presented token when a token is required — negligible at personal
+  MCP volumes; an in-process verified-token cache is a documented escape hatch if ever needed.
+- <strong><code>allow_without_token</code> is owner-settable from an unauthenticated same-origin endpoint</strong> — but it
+  can only ever open a <strong>private-source-only</strong> posture (public stays token-gated), so the worst case
+  is bounded. Edge auth (Cloudflare Access) remains the pure-ops hardening path. See O2 (§7).
+- <strong>Source classification depends on <code>CF-Connecting-IP</code>/peer-IP correctness.</strong> Mitigated by the
+  fail-safe-PUBLIC default and by never trusting XFF or CF headers to <em>grant</em> access (only to
+  <em>restrict</em>). If the owner runs a different public proxy that does not set CF headers, they must
+  ensure that proxy is NOT in <code>MCP_PRIVATE_CIDRS</code> and is reached such that the peer IP is public
+  (documented in D6b).</p>
+<p><strong>Invariant check</strong> — <strong>I1/I5:</strong> vault-write path unchanged (same <code>write_wiki_page</code>; <code>write_page</code>
+posture still env-only per ADR-0029 §2.3, untouched here). <strong>I3:</strong> UI is a token field + a switch +
+one PUT, local state, no store churn. <strong>I6:</strong> mount path, private CIDRs, and IP ranges are named
+constants; no provider, host, or token hardcoded. <strong>I7:</strong> no new loop. <strong>I8:</strong> migration ⇒ D2/ER
+regen + D4/D5 refresh + ADR amendments. <strong>I9:</strong> reuses <code>vault_state</code> + the existing ADR-0029 mount +
+existing FastMCP server; adds NO MCP capability, NO second writer, NO second process, NO broadened
+tool set. <strong>I2/I4 untouched.</strong> The ADR-0008 tension is resolved by <em>categorising</em> the credential
+(app-issued access token ≠ third-party provider key) and by hashing — not by trading §12 away.</p>
+<hr />
+<h2 id="7-decisions-the-owner-must-make-before-coding">7. Decisions the owner must make before coding<a class="headerlink" href="#7-decisions-the-owner-must-make-before-coding" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>O1 — Token storage: salted HASH (recommended, built here) vs re-displayable PLAINTEXT.</strong> This
+  ADR builds the <strong>hash</strong> (DB-leak-safe; token shown once, then rotate-only). If the owner strongly
+  prefers being able to <em>re-view</em> the token in the UI later (plaintext in DB), that re-introduces a
+  recoverable secret in Postgres (against §12's spirit) and is <strong>not recommended</strong> — but it is the
+  owner's call. <strong>Default: hash.</strong></li>
+<li><strong>O2 — Should token-less PUBLIC be HARD-BLOCKED (chosen here) or ALLOWED-WITH-WARNING?</strong> This ADR
+  <strong>hard-blocks</strong> token-less public access by design (public always requires the token). The
+  alternative — allow public-open with a scary UI warning — is <strong>explicitly not recommended</strong>
+  (a vault-mutating-capable open endpoint on the public internet). Confirm the hard-block. <em>(Also:
+  do we additionally want per-route auth on <code>PUT /mcp/auth</code> itself, beyond the same-origin posture
+  ADR-0032 settled? Default = no, consistent with ADR-0032 §2.4.)</em></li>
+<li><strong>O3 — Authenticated external REST API (out of scope, noted).</strong> This ADR gates <strong>only</strong>
+  <code>/mcp/server</code>; the rest of the REST API stays unauthenticated (else the browser UI breaks). If the
+  owner ever wants an authenticated external REST path, that is a separate ADR. <strong>Default:
+  MCP-surface-only.</strong></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

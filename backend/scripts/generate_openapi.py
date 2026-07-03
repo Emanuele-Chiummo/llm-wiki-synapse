@@ -143,13 +143,50 @@ def main() -> None:
             field_name not in clip_state_props
         ), f"SECURITY: field {field_name!r} must not appear in ClipConfigStateResponse (ADR-0040)"
 
+    # ADR-0052 / EC-M10-4: BearerAuth security scheme must be declared.
+    security_schemes = schema.get("components", {}).get("securitySchemes", {})
+    assert (
+        "BearerAuth" in security_schemes
+    ), "Missing 'BearerAuth' securityScheme in components (ADR-0052 §2.5, EC-M10-4)"
+    bearer_scheme = security_schemes["BearerAuth"]
+    assert bearer_scheme.get("type") == "http", (
+        f"BearerAuth.type must be 'http', got {bearer_scheme.get('type')!r} (ADR-0052 §2.5)"
+    )
+    assert bearer_scheme.get("scheme") == "bearer", (
+        f"BearerAuth.scheme must be 'bearer', got {bearer_scheme.get('scheme')!r} (ADR-0052 §2.5)"
+    )
+
+    # ADR-0052 §2.5: all non-exempt routes reference BearerAuth; exempt routes have security:[].
+    _OPENAPI_SECURITY_EXEMPT_PATHS = {"/status", "/health/detailed"}
+    paths_missing_security: list[str] = []
+    exempt_paths_not_empty_security: list[str] = []
+    for path, path_item in paths.items():
+        for method, method_obj in path_item.items():
+            if not isinstance(method_obj, dict):
+                continue
+            sec = method_obj.get("security")
+            if path in _OPENAPI_SECURITY_EXEMPT_PATHS:
+                if sec != []:
+                    exempt_paths_not_empty_security.append(f"{method.upper()} {path}")
+            else:
+                if sec != [{"BearerAuth": []}]:
+                    paths_missing_security.append(f"{method.upper()} {path}")
+    assert not exempt_paths_not_empty_security, (
+        f"These exempt paths must have security=[] (ADR-0052 §2.5): {exempt_paths_not_empty_security}"
+    )
+    assert not paths_missing_security, (
+        f"These paths are missing BearerAuth security (ADR-0052 §2.5): {paths_missing_security[:10]}"
+    )
+
     print(
         "Sanity check passed: all 27 required endpoints present (incl. /clip, /clip/config — "
         "ADR-0038, ADR-0040; /sources/* — Sources view; /sources/ingest-all — ADR-0006); "
         "embeddings_enabled, http_enabled, remote_write_enabled confirmed "
         "(ADR-0029, ADR-0030); token_source, allow_without_token confirmed in McpInfoResponse + "
         "McpAuthStateResponse (ADR-0033); token_configured, token_source confirmed in "
-        "ClipConfigResponse (ADR-0040); no token/hash/salt field exposed (no-leak check PASS)"
+        "ClipConfigResponse (ADR-0040); no token/hash/salt field exposed (no-leak check PASS); "
+        "BearerAuth securityScheme declared + all non-exempt routes reference it + "
+        "/status and /health/detailed have security=[] (ADR-0052 §2.5, EC-M10-4)"
     )
 
 

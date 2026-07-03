@@ -1,10 +1,10 @@
 # Synapse Deployment Guide
 
-<!-- Generated: v0.9 sprint 8 | 2026-07-03 -->
+<!-- Generated: v1.0 sprint 9 | 2026-07-03 -->
 
 > Target: TrueNAS SCALE 25.10 "Goldeye" + Docker Compose (backend) + PWA or Tauri v2 desktop (client)
-> Version: v0.9 — covers v0.9.0 release (M8 — Trust & observability: cost dashboard, health endpoint, conversation auto-titles, purpose/schema suggestions, graph drill-down, UX audit fixes, SectionErrorBoundary, Playwright E2E)
-> Status: CURRENT — updated for v0.9.0 release
+> Version: v1.0 — covers v1.0.0 release (M10 — Distribution: shared-token auth, mobile/PWA polish, MkDocs site, code-signing guide)
+> Status: CURRENT — updated for v1.0.0 release
 
 ---
 
@@ -151,6 +151,7 @@ cp .env.example .env
 | `SCHEMA_SUGGESTION_MIN_SOURCES` | `5` | No | Minimum number of sources in the run before the schema-suggestion gate is considered. Higher than the purpose-suggestion threshold because schema proposals require a stronger pattern signal. (R9-4, I7 anti-spam gate) |
 | `SCHEMA_SUGGESTION_TIMEOUT_SECONDS` | `20.0` | No | Timeout (seconds) wrapping the schema-suggestion provider call. On timeout → no suggestion emitted. (R9-4, I7) |
 | `GRAPH_COHESION_WARN` | `0.15` | No | Cohesion score threshold below which a community is flagged with a warning indicator in the graph community panel (`GET /graph/communities/{id}`). Default `0.15` (mirrors the llm_wiki threshold). Communities with `cohesion < GRAPH_COHESION_WARN` are marked visually in the drill-down panel. (R9-5) |
+| `SYNAPSE_AUTH_TOKEN` | *(empty)* | No | Shared Bearer token for the REST API (ADR-0052). **Empty or absent = authentication DISABLED** (default; backward-compatible with all v0.9 and earlier deployments). When set to a non-empty string, every route except the exempt set (`GET /status`, `GET /health/detailed`, `GET /docs`, `GET /openapi.json`, `OPTIONS`, `/mcp/server/*`, `POST /clip`) requires `Authorization: Bearer <token>`. Compared constant-time; never stored, never hashed, never logged. Recommend at least 32 characters. Generate with `openssl rand -base64 32`. The MCP surface (`/mcp/server`) and the web-clipper ingress (`POST /clip`) keep their own independent tokens — `SYNAPSE_AUTH_TOKEN` does NOT gate them. |
 
 ### 2.2 Example .env for TrueNAS Docker deployment
 
@@ -1081,7 +1082,330 @@ full acceptance list explicitly. Files with unrecognized extensions are rejected
 
 ---
 
-## 13. ServiceNow doc connector (optional external tool)
+## 13. Security — Shared Bearer token (R10-1 / ADR-0052) {#security}
+
+### 13.1 Overview
+
+Synapse v1.0 adds an optional shared Bearer token that gates the entire REST API (ADR-0052).
+When `SYNAPSE_AUTH_TOKEN` is unset or empty, the API is fully open — identical behaviour to
+v0.9 and earlier. Setting it enables a single-middleware gate that adds zero overhead to the
+chat streaming path (one constant-time `secrets.compare_digest` per request, I3).
+
+**This is the recommended posture when exposing Synapse over a Cloudflare Tunnel or any
+non-Tailscale network.** For a Tailscale-only, private-network deployment behind no public
+entry point, leaving the token empty is reasonable.
+
+### 13.2 Enabling the token
+
+1. Generate a cryptographically secure token:
+
+   ```bash
+   openssl rand -base64 32
+   # Example output: wXt7bQkpLm3Zv9nR4jGsYaFe2cH0uTqO8dIyNoPx6A=
+   ```
+
+2. Add it to your `.env` (never commit `.env`):
+
+   ```env
+   SYNAPSE_AUTH_TOKEN=wXt7bQkpLm3Zv9nR4jGsYaFe2cH0uTqO8dIyNoPx6A=
+   ```
+
+3. Restart the stack:
+
+   ```bash
+   docker compose down && docker compose up -d
+   ```
+
+4. Verify the gate is active by calling a protected route without a token:
+
+   ```bash
+   curl -s -w "\nStatus: %{http_code}\n" http://localhost:8000/pages | tail -1
+   # Expected: Status: 401
+   ```
+
+   And with the token:
+
+   ```bash
+   curl -s -H "Authorization: Bearer <your-token>" http://localhost:8000/pages | head -5
+   # Expected: 200 with a JSON response
+   ```
+
+5. Exempt endpoints (always reachable, even with the token set):
+
+   | Endpoint | Why exempt |
+   |----------|-----------|
+   | `GET /status` | Liveness probe; desktop auto-detect; monitoring |
+   | `GET /health/detailed` | Component health; monitoring probes |
+   | `GET /docs`, `GET /openapi.json`, `GET /redoc` | API schema is public; not sensitive data |
+   | All `OPTIONS` requests | CORS preflight cannot carry an `Authorization` header |
+   | `/mcp/server/*` | MCP HTTP surface has its own bearer token (ADR-0033) |
+   | `POST /clip` | Web-clipper ingress has its own `CLIP_TOKEN` (ADR-0038) |
+
+### 13.3 Token rotation
+
+Server-side rotation requires an env change and a container restart — there is no
+rotation endpoint. There is deliberately no DB storage of this credential.
+
+1. Generate a new token (`openssl rand -base64 32`).
+2. Update `SYNAPSE_AUTH_TOKEN` in `.env` or `docker-compose.yml`.
+3. Restart: `docker compose down && docker compose up -d`.
+4. In the Synapse client (desktop or web), go to **Settings > Security** and paste the new token.
+
+The client stores the token per-server in `localStorage` (`synapse.authToken`). Entering the
+new token in Settings > Security is a client-side update only — it does not call the backend
+(§2.1 of ADR-0052).
+
+### 13.4 Client UX when auth is enabled
+
+- **Desktop (Tauri) ConnectScreen:** a password field labelled "Access token" appears below
+  the server URL field. Enter the token before clicking Connect. If the token is wrong, the
+  Connect screen stays open and shows an inline error.
+- **Web/PWA (browser):** if a 401 is received on any request, the app shows a token-entry
+  overlay. Entering the correct token re-attempts the request and proceeds automatically.
+- **Settings > Security:** update the stored client token at any time, e.g. after a server-side
+  rotation. The panel shows the current server URL (read-only) and a "Rotate token" field with
+  a show/hide toggle. A note explains the server-side rotation procedure (env + restart).
+- **MCP clients and web clipper are unaffected.** They use their own tokens (`MCP_AUTH_TOKEN` /
+  `CLIP_TOKEN`) and are never gated by `SYNAPSE_AUTH_TOKEN`.
+
+---
+
+## 14. Code signing and notarization (R10-3) {#code-signing}
+
+### 14.1 Why code signing
+
+The Tauri v2 desktop binaries included in GitHub Releases are **unsigned by default**.
+Unsigned binaries trigger OS security warnings on every install:
+
+- **macOS (Gatekeeper):** "Synapse.app is damaged or can't be opened" or "unidentified developer".
+- **Windows (SmartScreen):** "Windows protected your PC — unrecognized app".
+
+Users can bypass these warnings (right-click → Open on macOS; More info → Run anyway on Windows)
+but the warnings impede adoption. Code signing + notarization removes them entirely.
+
+---
+
+### 14.2 macOS — Apple Developer Program + notarization
+
+**Prerequisites:**
+
+- An Apple Developer Program membership (US$99/year). Enroll at
+  [developer.apple.com](https://developer.apple.com/programs/enroll/).
+- A **Developer ID Application** certificate. Create it in
+  Xcode > Settings > Accounts > Manage Certificates (or in the Apple Developer portal >
+  Certificates, Identifiers & Profiles). Export the `.p12` file with a password.
+
+**Secrets to configure in GitHub Actions:**
+
+Add the following via `gh secret set`:
+
+```bash
+gh secret set APPLE_CERTIFICATE         # base64-encoded .p12 file
+gh secret set APPLE_CERTIFICATE_PASSWORD # password for the .p12
+gh secret set APPLE_SIGNING_IDENTITY    # e.g. "Developer ID Application: Your Name (TEAMID)"
+gh secret set APPLE_ID                  # your Apple ID email
+gh secret set APPLE_PASSWORD            # app-specific password (not your Apple ID password)
+                                         # generate at appleid.apple.com > Sign-In and Security > App-Specific Passwords
+gh secret set APPLE_TEAM_ID            # 10-char team ID (visible in developer.apple.com top-right)
+```
+
+To encode the `.p12` as base64:
+
+```bash
+base64 -i ~/Certificates/DeveloperID.p12 | tr -d '\n' | pbcopy
+# Then: gh secret set APPLE_CERTIFICATE  (paste from clipboard)
+```
+
+**`tauri.conf.json` changes:**
+
+In `src-tauri/tauri.conf.json`, set the macOS signing identity and enable notarization:
+
+```json
+{
+  "bundle": {
+    "macOS": {
+      "signingIdentity": "$APPLE_SIGNING_IDENTITY",
+      "notarizationCredentials": {
+        "appleId": "$APPLE_ID",
+        "appleIdPassword": "$APPLE_PASSWORD",
+        "teamId": "$APPLE_TEAM_ID"
+      }
+    }
+  }
+}
+```
+
+`tauri-action` reads these from the environment at build time — no hardcoded values.
+
+**Workflow changes (`desktop-release.yml`):**
+
+The `tauri-action` step already accepts all notarization env vars. Add the secret references:
+
+```yaml
+- name: Build and release
+  uses: tauri-apps/tauri-action@v0
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+    APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+    APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+    APPLE_ID: ${{ secrets.APPLE_ID }}
+    APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+    APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+    TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+```
+
+**What signing + notarization does:**
+
+1. The macOS runner signs the `.app` bundle with the Developer ID certificate.
+2. `tauri-action` submits the signed `.dmg` to Apple's notarization service (using `notarytool`
+   under the hood). This step takes 1–5 minutes.
+3. Apple staples the notarization ticket to the `.dmg`.
+4. Users can now double-click the `.dmg` and drag `Synapse.app` to Applications with no Gatekeeper
+   warning on macOS 10.15 Catalina and later.
+
+> **Until the secrets are configured and a signed release is cut**, installs require the
+> right-click → Open workaround documented in §7.1.
+
+---
+
+### 14.3 Windows — OV or EV code-signing certificate
+
+**Prerequisites:**
+
+- A **code-signing certificate** from a trusted CA:
+  - **OV (Organization Validated):** issued to an organization; removes SmartScreen from
+    `.exe`/`.msi` after the certificate builds reputation. Cost: ~US$200–500/year.
+  - **EV (Extended Validation):** requires a hardware token (USB) or HSM; SmartScreen trust is
+    immediate. Cost: ~US$500+/year. For individual/hobby projects the OV route is usually
+    sufficient, though it takes longer to build reputation with Microsoft's SmartScreen ML model.
+- Export the certificate as a `.pfx` (PKCS#12) file with a password.
+
+**Secrets to configure in GitHub Actions:**
+
+```bash
+gh secret set WINDOWS_CERTIFICATE         # base64-encoded .pfx file
+gh secret set WINDOWS_CERTIFICATE_PASSWORD # password for the .pfx
+```
+
+To encode the `.pfx`:
+
+```bash
+base64 -i ~/Certificates/SynapseSign.pfx | tr -d '\n'
+# Copy the output and: gh secret set WINDOWS_CERTIFICATE
+```
+
+**`tauri.conf.json` changes:**
+
+```json
+{
+  "bundle": {
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com"
+    }
+  }
+}
+```
+
+`tauri-action` reads `WINDOWS_CERTIFICATE` and `WINDOWS_CERTIFICATE_PASSWORD` automatically and
+calls `signtool.exe` on the Windows runner to sign the NSIS `.exe` installer.
+
+**Workflow changes (`desktop-release.yml`):**
+
+Add the Windows secrets to the `tauri-action` env block:
+
+```yaml
+env:
+  WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+  WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+```
+
+**What signing does:**
+
+1. The Windows runner signs the NSIS `.exe` installer with `signtool.exe` using the certificate.
+2. SmartScreen reputation is tied to the certificate's fingerprint. With an EV cert, reputation
+   is immediate. With an OV cert, SmartScreen may still warn on the first few downloads until
+   reputation is established (typically a few hundred installs from diverse users).
+3. Once trusted, users see the signed publisher name in the SmartScreen prompt instead of
+   "Unknown Publisher", and eventually the warning disappears entirely.
+
+> **Until a signed release is cut**, users need the More info → Run anyway workaround in §7.1.
+
+---
+
+### 14.4 Summary — per-platform signing secret matrix
+
+| Secret | Platform | Where used |
+|--------|----------|-----------|
+| `APPLE_CERTIFICATE` | macOS | base64 `.p12` for signing |
+| `APPLE_CERTIFICATE_PASSWORD` | macOS | `.p12` export password |
+| `APPLE_SIGNING_IDENTITY` | macOS | `Developer ID Application: Name (TEAMID)` |
+| `APPLE_ID` | macOS | Apple ID email for notarization |
+| `APPLE_PASSWORD` | macOS | App-specific password (not Apple ID password) |
+| `APPLE_TEAM_ID` | macOS | 10-char team ID |
+| `WINDOWS_CERTIFICATE` | Windows | base64 `.pfx` for signing |
+| `WINDOWS_CERTIFICATE_PASSWORD` | Windows | `.pfx` export password |
+| `TAURI_SIGNING_PRIVATE_KEY` | Both | Minisign key for in-app auto-update (ADR-0049) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Both | Minisign key password |
+
+**Important:** `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (ADR-0049,
+§7.7 of this guide) are separate from the OS signing credentials. The minisign key signs the
+artifact for the in-app update integrity check; the OS credentials establish Gatekeeper /
+SmartScreen trust for the installer. Both sets of credentials must be present for a fully
+signed, auto-updatable release.
+
+---
+
+## 15. Documentation site (MkDocs Material) {#docs-site}
+
+Synapse v1.0 ships a full MkDocs Material documentation site (R10-6, CLAUDE.md §8 M6 optional).
+The site renders all Mermaid diagrams natively and is published to GitHub Pages.
+
+### 15.1 Live site
+
+The public documentation site is available at:
+
+```
+https://emanuele-chiummo.github.io/llm-wiki-synapse/
+```
+
+The site is published automatically on every push to the `main` branch via the GitHub Pages
+deployment workflow. The site is served from the `site/` directory (gitignored).
+
+### 15.2 Local preview
+
+To serve the docs site locally:
+
+```bash
+cd backend && .venv/bin/python -m mkdocs serve --config-file ../mkdocs.yml
+```
+
+Or use the make target:
+
+```bash
+make docs-serve
+```
+
+Navigate to `http://127.0.0.1:8000` to preview the site. Changes to files in `docs/` are
+reloaded automatically.
+
+### 15.3 Build and verify
+
+To build the site and check for broken links or invalid Mermaid:
+
+```bash
+cd backend && .venv/bin/python -m mkdocs build --strict --config-file ../mkdocs.yml
+```
+
+The `--strict` flag treats any warning (broken links, invalid config) as an error. This is the
+command run by the docs CI gate.
+
+---
+
+## 16. ServiceNow doc connector (optional external tool) {#servicenow}
 
 The ServiceNow connector is an external Python tool (`tools/marker-converter/`) that
 converts ServiceNow documentation PDFs (docs.servicenow.com exports) into structured
@@ -1142,7 +1466,7 @@ that broke the wiki type system.
 
 ---
 
-## 14. Backup & restore (R8-4)
+## 17. Backup & restore (R8-4) {#backup-restore}
 
 Synapse provides two export artifacts that together constitute a full vault backup.
 There is no import/restore endpoint in v0.8 — restore is a manual procedure documented
@@ -1234,16 +1558,19 @@ a live Postgres connection.
 
 ---
 
-## 15. References
+## 18. References
 
 - `CLAUDE.md` — project context, invariants (I1–I9), and feature inventory
 - `docs/er/schema.mmd` — ER diagram (auto-generated by `make er`)
 - `docs/api/openapi.json` — API reference (auto-generated by `make openapi`)
-- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0051; index in `docs/adr/README.md`; ADR-0037 Lint, ADR-0038 Web Clipper, ADR-0039 Tauri v2 shell, ADR-0047 Desktop Connect gate, ADR-0049 Desktop auto-update, ADR-0051 Pluggable PDF extractor seam)
+- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0052; index in `docs/adr/index.md`; ADR-0037 Lint, ADR-0038 Web Clipper, ADR-0039 Tauri v2 shell, ADR-0047 Desktop Connect gate, ADR-0049 Desktop auto-update, ADR-0051 Pluggable PDF extractor seam, ADR-0052 Shared Bearer token auth)
 - `docs/adr/0039-tauri-v2-desktop-shell.md` — Tauri v2 desktop shell scaffold and CI
 - `docs/adr/0047-desktop-runtime-server-url-and-connect-gate.md` — runtime server URL binding, Connect screen, CORS extension (§7 of this guide)
 - `docs/adr/0049-desktop-auto-update-github-releases.md` — unified v* release channel, minisign auto-update, key-loss caveat (§7.7 of this guide)
+- `docs/adr/0052-auth-token-model.md` — shared Bearer token (`SYNAPSE_AUTH_TOKEN`), middleware ordering, exempt set, client contract (§13 of this guide)
 - `tools/marker-converter/README.md` — Marker PDF microservice + ServiceNow doc connector full setup and scheduler daemon
 - `tools/whisper-service/README.md` — Whisper AV transcription microservice setup (required when `AV_TRANSCRIPTION_ENABLED=true`)
-- §14 (this guide) — Backup & restore: `GET /export` ZIP + `GET /export/data.json` metadata
+- §17 (this guide) — Backup & restore: `GET /export` ZIP + `GET /export/data.json` metadata
+- §14 (this guide) — Code signing and notarization: macOS Developer ID + notarization, Windows OV/EV cert, GitHub Actions secrets matrix
+- §15 (this guide) — Documentation site: MkDocs Material, `make docs-serve`, GitHub Pages URL
 - `docs/USER.md` — end-user guide

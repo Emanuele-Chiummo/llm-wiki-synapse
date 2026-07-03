@@ -1,0 +1,866 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.6-test-runbook/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Synapse v0.6 — Runbook di test (per Emanuele) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#synapse-v06-runbook-di-test-per-emanuele" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Synapse v0.6 — Runbook di test (per Emanuele)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-allinea-il-locale-a-github" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Allinea il locale a GitHub
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-prerequisiti" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Prerequisiti
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-configura-lambiente" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Configura l'ambiente
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-avvia-lo-stack-un-solo-comando-consigliato-per-il-mac" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Avvia lo stack (un solo comando) — consigliato per il Mac
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-usare-il-tuo-abbonamento-claude-provider-cli-costo-0-adr-0042" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Usare il tuo abbonamento Claude (provider CLI, costo $0) — ADR-0042
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-test-automatici-attesi-verdi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Test automatici (attesi verdi)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-smoke-manuale-ecm6hcp-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Smoke manuale (EC‑M6‑HCP) — checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-se-qualcosa-non-va-check-rapidi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Se qualcosa non va — check rapidi
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-quando-lo-smoke-e-ok-verso-v100" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Quando lo smoke è OK → verso v1.0.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="synapse-v06-runbook-di-test-per-emanuele">Synapse v0.6 — Runbook di test (per Emanuele)<a class="headerlink" href="#synapse-v06-runbook-di-test-per-emanuele" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Obiettivo: allineare il tuo Mac a GitHub e testare TUTTO ciò che è entrato in M6/v0.6.
+Branch di riferimento: <strong><code>sprint/v0.6</code></strong> — HEAD <code>cb55457</code>, 14 commit sopra <code>sprint/v0.5</code>.
+Nota: questo runbook gira sul TUO Mac (io sono in un container remoto e non vedo <code>/Users/...</code>).</p>
+</blockquote>
+<hr />
+<h2 id="0-allinea-il-locale-a-github">0. Allinea il locale a GitHub<a class="headerlink" href="#0-allinea-il-locale-a-github" title="Permanent link">&para;</a></h2>
+<p>Il tuo checkout è in <code>/Users/emanuelechiummo/Documents/00_Personal/00_Claude/LLM Wiki Project</code> (path con spazi → usa gli apici).</p>
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;/Users/emanuelechiummo/Documents/00_Personal/00_Claude/LLM Wiki Project&quot;</span>
+
+git<span class="w"> </span>fetch<span class="w"> </span>origin<span class="w"> </span>--prune
+git<span class="w"> </span>status<span class="w">                      </span><span class="c1"># committa/stasha eventuali modifiche locali PRIMA</span>
+git<span class="w"> </span>checkout<span class="w"> </span>sprint/v0.6
+git<span class="w"> </span>pull<span class="w"> </span>--ff-only<span class="w"> </span>origin<span class="w"> </span>sprint/v0.6
+</code></pre></div>
+<p><strong>Verifica di essere allineato (deve dire 0 / 0):</strong>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>rev-list<span class="w"> </span>--left-right<span class="w"> </span>--count<span class="w"> </span>origin/sprint/v0.6...HEAD<span class="w">   </span><span class="c1"># atteso: 0   0</span>
+git<span class="w"> </span>log<span class="w"> </span>--oneline<span class="w"> </span>-1<span class="w">                                          </span><span class="c1"># atteso: cb55457 feat(settings): Web Clipper + Web Search ...</span>
+</code></pre></div></p>
+<p>Se hai lavoro locale che vuoi buttare per allinearti esattamente a GitHub:
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>reset<span class="w"> </span>--hard<span class="w"> </span>origin/sprint/v0.6<span class="w">      </span><span class="c1"># ⚠️ distrugge le modifiche locali non committate</span>
+</code></pre></div></p>
+<p>Migrations attese nel repo (fino alla <strong>0016</strong>):
+<code>0014_lint_tables</code> · <code>0015_vault_state_clip_config</code> · <code>0016_vault_state_web_search_config</code>.</p>
+<hr />
+<h2 id="1-prerequisiti">1. Prerequisiti<a class="headerlink" href="#1-prerequisiti" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Docker Desktop</strong> (per Postgres + backend)</li>
+<li><strong>Node.js 20+</strong> e <strong>npm</strong> (frontend)</li>
+<li><strong>Python 3.11</strong> (solo se vuoi girare i test backend fuori da Docker)</li>
+<li><strong>Rust</strong> (<code>rustup</code>) — solo per il build desktop Tauri (su macOS il WebKit è di sistema, non servono librerie extra)</li>
+<li>Servizi già sul tuo TrueNAS/Tailscale: <strong>Ollama</strong> (+ <code>bge-m3</code>), <strong>Qdrant</strong>, <strong>SearXNG</strong></li>
+</ul>
+<hr />
+<h2 id="2-configura-lambiente">2. Configura l'ambiente<a class="headerlink" href="#2-configura-lambiente" title="Permanent link">&para;</a></h2>
+<p><div class="highlight"><pre><span></span><code>cp<span class="w"> </span>.env.example<span class="w"> </span>backend/.env<span class="w">      </span><span class="c1"># oppure ./.env, a seconda di come monti il compose</span>
+</code></pre></div>
+Nel <code>.env</code> punta ai TUOI servizi (localhost / Tailscale / host.docker.internal):
+<div class="highlight"><pre><span></span><code>DATABASE_URL=postgresql+asyncpg://synapse:synapse@postgres:5432/synapse
+QDRANT_URL=http://host.docker.internal:6333
+EMBEDDING_URL=http://host.docker.internal:11434/api/embeddings
+EMBEDDING_MODEL=bge-m3
+EMBEDDING_DIM=1024
+OLLAMA_URL=http://host.docker.internal:11434
+# opzionale ora: SEARXNG e CLIP si possono configurare anche dalle Impostazioni (UI)
+# SEARXNG_URL=http://host.docker.internal:8888
+VAULT_ID=default
+VAULT_PATH=/vault
+</code></pre></div></p>
+<blockquote>
+<p><code>CLIP_*</code> e <code>LINT_*</code> NON sono obbligatori nel <code>.env</code>: il clipper è <strong>disattivo di default</strong> e si configura da <strong>Impostazioni → Web Clipper</strong>; SearXNG si può impostare da <strong>Impostazioni → Web Search</strong>.</p>
+</blockquote>
+<hr />
+<h2 id="3-avvia-lo-stack-un-solo-comando-consigliato-per-il-mac">3. Avvia lo stack (un solo comando) — consigliato per il Mac<a class="headerlink" href="#3-avvia-lo-stack-un-solo-comando-consigliato-per-il-mac" title="Permanent link">&para;</a></h2>
+<p>Synapse è <strong>client/server</strong>: l'UI (web/PWA/desktop) è un client sottile, il motore è il backend +
+Postgres + Qdrant + Ollama. Quindi "aprire l'app" da solo non basta: serve lo stack su.
+Sul tuo Mac usa lo <strong>stack completo in un comando</strong> (frontend + backend + postgres + qdrant):</p>
+<p><div class="highlight"><pre><span></span><code>make<span class="w"> </span>dev<span class="w">            </span><span class="c1"># = docker compose -f docker-compose.yml -f docker-compose.dev.yml up</span>
+</code></pre></div>
+Requisito unico: <strong>Ollama</strong> attivo a <code>http://localhost:11434</code> (Ollama.app). Il container esegue
+da solo <code>alembic upgrade head</code> (quindi applica anche 0014/0015/0016).</p>
+<p>Poi apri <strong>http://localhost:5173</strong> (UI). API su <strong>http://localhost:8000</strong>.
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>localhost:8000/status<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w">          </span><span class="c1"># health check backend</span>
+</code></pre></div>
+Stop: <code>make dev-down</code>.</p>
+<blockquote>
+<p><strong>Alternativa "produzione TrueNAS"</strong> (backend + postgres in container; Qdrant/Ollama/SearXNG
+esterni; <strong>niente frontend containerizzato</strong> → il frontend lo servi a parte):
+<code>make up</code> + <code>make logs</code> + <code>make migrate</code>, e per l'UI <code>cd frontend &amp;&amp; npm ci &amp;&amp; npm run dev</code>
+(proxy → <code>:8000</code>, override con <code>BACKEND_PROXY_TARGET</code>).</p>
+</blockquote>
+<p>Verifica migration applicate (deve arrivare a <code>0016</code>):
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>-f<span class="w"> </span>docker-compose.dev.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>synapse-backend<span class="w"> </span>alembic<span class="w"> </span>current
+</code></pre></div></p>
+<p>Infine in UI: <strong>Impostazioni → LLM Models</strong> → aggiungi un provider (Local Ollama / API / CLI) —
+senza, ingest e chat non partono.</p>
+<hr />
+<h2 id="4-usare-il-tuo-abbonamento-claude-provider-cli-costo-0-adr-0042">4. Usare il tuo abbonamento Claude (provider CLI, costo $0) — ADR-0042<a class="headerlink" href="#4-usare-il-tuo-abbonamento-claude-provider-cli-costo-0-adr-0042" title="Permanent link">&para;</a></h2>
+<p>Il provider <strong>CLI</strong> (<code>claude-agent-sdk</code>) può girare sul tuo <strong>abbonamento Pro/Max</strong> invece che a
+consumo con una API key. Funziona <strong>anche dentro il container</strong>, via un token OAuth a lunga durata.</p>
+<p><strong>Passo 1 — genera il token (una volta, sul Mac loggato con l'account Pro/Max):</strong>
+<div class="highlight"><pre><span></span><code>claude<span class="w"> </span>setup-token<span class="w">          </span><span class="c1"># stampa un token OAuth (sk-ant-oat01-...), valido ~1 anno — copialo</span>
+</code></pre></div></p>
+<p><strong>Passo 2 — mettilo nel <code>.env</code> e NON impostare la API key:</strong>
+<div class="highlight"><pre><span></span><code>CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...     # il token del passo 1
+# ANTHROPIC_API_KEY  ← lascialo NON impostato (nemmeno vuoto)!
+</code></pre></div></p>
+<blockquote>
+<p>⚠️ <strong>Trappola di precedenza:</strong> se <code>ANTHROPIC_API_KEY</code> è impostata (anche <code>=""</code>), <strong>vince lei</strong> e
+ti fa pagare a token. Per l'abbonamento deve essere <strong>completamente assente</strong>.</p>
+</blockquote>
+<p><strong>Passo 3 — riavvia lo stack</strong> (<code>make dev</code>): il container legge <code>CLAUDE_CODE_OAUTH_TOKEN</code>, il <code>claude</code>
+CLI incluso nell'SDK autentica via abbonamento. Nell'ingest/chat il <code>total_cost_usd</code> sarà <strong>$0.00</strong>.</p>
+<p><strong>Passo 4 — in UI:</strong> <strong>Impostazioni → LLM Models</strong> → aggiungi un provider <strong>CLI</strong> e scegli il modello
+(es. <code>claude-opus-4-8</code>). Fai un ingest o una chat: costo $0 nell'Activity panel.</p>
+<p>I tre modi di autenticazione (ne scegli <strong>uno</strong>), documentati anche in <code>.env.example</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Variabile</th>
+<th>Provider</th>
+<th>Costo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ANTHROPIC_API_KEY</code></td>
+<td>API / CLI</td>
+<td>a token</td>
+</tr>
+<tr>
+<td><code>CLAUDE_CODE_OAUTH_TOKEN</code></td>
+<td><strong>CLI (abbonamento, in container)</strong> ✅</td>
+<td><strong>$0</strong></td>
+</tr>
+<tr>
+<td><code>CLAUDE_CODE_USE_SUBSCRIPTION=true</code></td>
+<td>CLI (login host/montato)</td>
+<td>$0</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Nota Tauri: il guscio desktop resta un client HTTP verso <code>localhost:8000</code> — non cambia nulla per
+l'auth. L'abbonamento è deciso dal <strong>backend</strong>, non da Tauri.</p>
+</blockquote>
+<hr />
+<h2 id="5-test-automatici-attesi-verdi">5. Test automatici (attesi verdi)<a class="headerlink" href="#5-test-automatici-attesi-verdi" title="Permanent link">&para;</a></h2>
+<p><strong>Backend</strong> (venv locale):
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>backend
+python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>.<span class="w"> </span>.venv/bin/activate
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w">          </span><span class="c1"># atteso: 1018 passed, 4 skipped</span>
+ruff<span class="w"> </span>check<span class="w"> </span>app<span class="w"> </span>tests<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>black<span class="w"> </span>--check<span class="w"> </span>app<span class="w"> </span>tests<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mypy<span class="w"> </span>app<span class="w">   </span><span class="c1"># tutto clean</span>
+</code></pre></div>
+<strong>Frontend:</strong>
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>frontend
+npm<span class="w"> </span>run<span class="w"> </span><span class="nb">test</span><span class="w">                 </span><span class="c1"># atteso: 742 passed</span>
+npx<span class="w"> </span>tsc<span class="w"> </span>--noEmit<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>lint<span class="w">    </span><span class="c1"># clean</span>
+</code></pre></div></p>
+<hr />
+<h2 id="6-smoke-manuale-ecm6hcp-checklist">6. Smoke manuale (EC‑M6‑HCP) — checklist<a class="headerlink" href="#6-smoke-manuale-ecm6hcp-checklist" title="Permanent link">&para;</a></h2>
+<p>Spunta ognuna nel browser/app:</p>
+<p><strong>Core (Ingest · Query · Lint)</strong>
+- [ ] Crea progetto → <strong>Sources</strong>: importa un documento → parte l'ingest (Activity panel).
+- [ ] Compaiono pagine wiki, entità/concetti; <strong>Graph</strong> mostra i nodi/archi.
+- [ ] <strong>Chat</strong>: fai una domanda → risposta con citazioni <code>[n]</code>.
+- [ ] <strong>Lint</strong> (nuovo): sezione Lint → <strong>Run Lint</strong> → compaiono findings (orphan/missing‑xref/contradiction/stale/missing‑page) → prova <strong>Fix</strong> (missing‑xref/missing‑page) e <strong>Acknowledge</strong> (gli altri) e <strong>Dismiss</strong>.</p>
+<p><strong>Web Search (nuovo pannello)</strong>
+- [ ] <strong>Impostazioni → Web Search</strong>: imposta l'URL SearXNG (es. <code>http://host.docker.internal:8888</code>), categorie, max query → salva; il badge "source" passa a <strong>db</strong>.
+- [ ] <strong>Deep Research</strong> su un gap → esegue query SearXNG → sintetizza → auto‑ingest.</p>
+<p><strong>Web Clipper (nuovo pannello + estensione)</strong>
+- [ ] <strong>Impostazioni → Web Clipper</strong>: <strong>Enable</strong> ON → <strong>Genera token</strong> (copia il valore mostrato una‑tantum).
+- [ ] Carica l'estensione: Chrome → <code>chrome://extensions</code> → <em>Modalità sviluppatore</em> → <em>Carica non pacchettizzata</em> → seleziona la cartella <strong><code>extension/</code></strong> → copia l'<strong>ID</strong> dell'estensione.
+- [ ] In Impostazioni → Web Clipper, aggiungi <code>chrome-extension://&lt;ID&gt;</code> in <strong>Allowed origins</strong> → salva.
+- [ ] Nell'estensione (Options): base URL <code>http://localhost:8000</code>, incolla il <strong>token</strong>.
+- [ ] Vai su una pagina web → clicca l'estensione → <strong>Clip</strong> → il markdown finisce in <code>vault/raw/sources/</code> e viene <strong>auto‑ingerito</strong> (lo vedi nell'Activity panel).
+- [ ] Prova gli errori attesi: token errato → 401; se disabiliti l'ingress → 503.</p>
+<p><strong>Altro</strong>
+- [ ] <strong>Review</strong> queue: un ingest genera proposte → Approve / Deep‑Research / Skip.
+- [ ] <strong>Cascade delete</strong>: elimina una source → la sua pagina wiki e i wikilink morti spariscono; entità condivise restano.</p>
+<p><strong>PWA</strong>
+- [ ] <code>cd frontend &amp;&amp; npm run build &amp;&amp; npm run preview</code> → apri l'URL → in Chrome <em>Installa app</em> → verifica shell offline; le chiamate API NON sono cachate (nessun dato stantìo).</p>
+<p><strong>Desktop (Tauri)</strong>
+- [ ] <code>cd frontend &amp;&amp; npm run tauri:build</code> (serve Rust) → installer in <code>src-tauri/target/release/bundle/…</code> → lancia l'app.
+- [ ] In alternativa: <code>npm run tauri:dev</code> per la finestra desktop in sviluppo.</p>
+<p><strong>Matrice 3 provider (I6)</strong>
+- [ ] Ripeti un ingest+chat con provider <strong>Local (Ollama)</strong>, <strong>API</strong>, <strong>CLI</strong>.</p>
+<hr />
+<h2 id="7-se-qualcosa-non-va-check-rapidi">7. Se qualcosa non va — check rapidi<a class="headerlink" href="#7-se-qualcosa-non-va-check-rapidi" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Sintomo</th>
+<th>Verifica</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/status</code> non risponde</td>
+<td><code>make logs</code>; Postgres su? <code>docker compose ps</code></td>
+</tr>
+<tr>
+<td>Ingest non parte</td>
+<td>provider configurato in Impostazioni → LLM Models? <code>EMBEDDING_URL</code>/<code>OLLAMA_URL</code> raggiungibili?</td>
+</tr>
+<tr>
+<td>Deep Research 503</td>
+<td>SearXNG impostato (Impostazioni → Web Search o <code>SEARXNG_URL</code>)?</td>
+</tr>
+<tr>
+<td>Clip 401</td>
+<td>token corretto nelle Options dell'estensione? Enable ON?</td>
+</tr>
+<tr>
+<td>Clip 403</td>
+<td><code>chrome-extension://&lt;ID&gt;</code> negli Allowed origins?</td>
+</tr>
+<tr>
+<td>Migrazioni mancanti</td>
+<td><code>docker compose exec synapse-backend alembic upgrade head</code></td>
+</tr>
+<tr>
+<td>Frontend non chiama il backend</td>
+<td>proxy: backend su <code>:8000</code>? <code>BACKEND_PROXY_TARGET</code> giusto?</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-quando-lo-smoke-e-ok-verso-v100">8. Quando lo smoke è OK → verso v1.0.0<a class="headerlink" href="#8-quando-lo-smoke-e-ok-verso-v100" title="Permanent link">&para;</a></h2>
+<p>Superata la checklist §6 (questa È l'EC‑M6‑HCP), il tag è meccanico:
+1. bump versione a <code>1.0.0</code> in <code>frontend/package.json</code>, <code>src-tauri/tauri.conf.json</code>, <code>backend/pyproject.toml</code>;
+2. cattura gli screenshot D5 in <code>docs/screens/</code>;
+3. <code>git tag v1.0.0 &amp;&amp; git push origin v1.0.0</code> (fa scattare il job CI build multi‑OS Tauri).</p>
+<p>Dimmi "vai" e faccio io i bump + il tag quando avrai dato l'OK allo smoke.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -5,7 +5,7 @@
  * I3: fetch once on mount; no background polling.
  */
 
-import { apiBase } from "./base";
+import { apiBase, apiFetch } from "./base";
 
 // ─── Response shape (mirrors backend GET /costs/summary) ─────────────────────
 
@@ -52,7 +52,7 @@ export async function fetchCostsSummary(
 ): Promise<CostsSummary> {
   const qs = month ? `?month=${encodeURIComponent(month)}` : "";
   const url = `${apiBase()}/costs/summary${qs}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   if (!res.ok) {
     let detail = `${res.status}`;
     try {

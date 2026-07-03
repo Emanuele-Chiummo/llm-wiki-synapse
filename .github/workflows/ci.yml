@@ -229,7 +229,80 @@ jobs:
           echo "All Mermaid diagrams are valid."
 
   # ──────────────────────────────────────────────────────────────────────
-  # Stage 6: Tauri v2 desktop app build (tag-only; informational)
+  # Stage 6: MkDocs Material build (docs site)
+  # Builds the documentation site with `mkdocs build --strict`.
+  # Catches broken links, missing files, and config errors.
+  # Failure blocks merge (strict mode enforcement).
+  # Note: Deployment to GitHub Pages requires Pages to be enabled in repo
+  # Settings → Pages → Source: GitHub Actions. The build artifact is
+  # created here; actual deployment is a separate step (not in v1.0).
+  # ──────────────────────────────────────────────────────────────────────
+  docs-site:
+    name: MkDocs Build (strict mode)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install MkDocs Material
+        run: pip install mkdocs-material mkdocs-swagger-ui-tag
+
+      - name: Build docs site (strict mode)
+        run: python -m mkdocs build --strict
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: mkdocs-site
+          path: site/
+          retention-days: 7
+          if-no-files-found: warn
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Stage 6b: Deploy docs site to GitHub Pages (main only).
+  # Pages is enabled repo-side with build_type=workflow (2026-07-03).
+  # Site: https://emanuele-chiummo.github.io/llm-wiki-synapse/
+  # ──────────────────────────────────────────────────────────────────────
+  docs-deploy:
+    name: Deploy Docs (GitHub Pages)
+    if: github.ref == 'refs/heads/main'
+    needs: docs-site
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build site
+        run: |
+          pip install mkdocs-material mkdocs-swagger-ui-tag
+          mkdocs build --strict
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Stage 7: Tauri v2 desktop app build (tag-only; informational)
   # Builds OS-specific native binaries: .deb/.AppImage (Linux), .dmg (macOS),
   # .msi/.nsis (Windows). Runs on version tags (v0.6+) to validate the desktop
   # shell; does not block merge (continue-on-error: true).
@@ -281,7 +354,7 @@ jobs:
           if-no-files-found: warn
 
   # ──────────────────────────────────────────────────────────────────────
-  # (Future) Stage 7: Integration tests (optional, manual trigger)
+  # (Future) Stage 8: Integration tests (optional, manual trigger)
   # Requires live Qdrant, Ollama, PostgreSQL on TrueNAS.
   # Gated behind a condition (allow-failure in v0.1).
   # ──────────────────────────────────────────────────────────────────────

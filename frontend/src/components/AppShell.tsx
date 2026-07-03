@@ -24,17 +24,23 @@
  * ADR-0048 §T2: CommandPalette + global shortcuts mounted here (single listener).
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Header } from "./Header";
 import { NavRail } from "./nav/NavRail";
 import { SectionRouter } from "./SectionRouter";
 import { ActivityBar } from "./activity/ActivityBar";
 import { ToastHost } from "./common/Toast";
 import { ConnectScreen } from "./connect/ConnectScreen";
+import { TokenGate } from "./connect/TokenGate";
 import { CommandPalette } from "./common/CommandPalette";
 import { UpdateBanner } from "./common/UpdateBanner";
-import { isTauri } from "../api/base";
-import { useSettingsStore, selectServerUrl } from "../store/settingsStore";
+import { isTauri, register401Handler } from "../api/base";
+import {
+  useSettingsStore,
+  selectServerUrl,
+  selectAuthRequired,
+  selectSetAuthRequired,
+} from "../store/settingsStore";
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
 import { useDesktopUpdater } from "../hooks/useDesktopUpdater";
 
@@ -44,6 +50,20 @@ export function AppShell() {
   // ConnectScreen calls storeSetServerUrl, the field updates and this re-renders.
   const serverUrl = useSettingsStore(selectServerUrl);
   const inTauri = isTauri();
+
+  // ADR-0052: web-only 401 gate.
+  const authRequired = useSettingsStore(selectAuthRequired);
+  const setAuthRequired = useSettingsStore(selectSetAuthRequired);
+
+  // Register the 401 callback once on mount (ADR-0052 §3.4).
+  // apiFetch fires this when any protected endpoint returns 401; the callback
+  // sets authRequired = true which causes TokenGate to overlay the shell.
+  // Registered once — safe to call multiple times (last registration wins per ADR-0052).
+  useEffect(() => {
+    register401Handler(() => {
+      setAuthRequired(true);
+    });
+  }, [setAuthRequired]);
 
   // ADR-0048 §T2: command palette open state.
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -61,6 +81,12 @@ export function AppShell() {
 
   if (inTauri && serverUrl === null) {
     return <ConnectScreen />;
+  }
+
+  // ADR-0052: web-only overlay — shown when any apiFetch call gets a 401.
+  // TokenGate clears authRequired on successful token submission.
+  if (!inTauri && authRequired) {
+    return <TokenGate onSuccess={() => setAuthRequired(false)} />;
   }
 
   return (

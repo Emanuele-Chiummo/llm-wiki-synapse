@@ -1,8 +1,8 @@
 # Synapse User Guide
 
-<!-- Generated: v0.9 sprint 8 | 2026-07-03 -->
+<!-- Generated: v1.0 sprint 9 | 2026-07-03 -->
 
-> Version: v0.9 (M8 — "Trust & observability")
+> Version: v1.0 (M10 — "Distribution": shared-token auth, mobile/PWA polish, MkDocs site)
 > Language toggle: English / Italian available in Settings.
 
 ---
@@ -376,6 +376,7 @@ The ten sections are:
 | **Maintenance** | Reset settings |
 | **About** | Version, build information, and dynamic version display |
 | **Costi** | Provider cost dashboard with monthly rollup and alert threshold (v0.9) |
+| **Security** | Update the client-side access token when the server `SYNAPSE_AUTH_TOKEN` changes (v1.0) |
 
 #### General
 
@@ -930,7 +931,7 @@ The ZIP is named `synapse-vault-{vault_id}-{date}.zip` and caps at 500 MB uncomp
 The JSON object contains the keys: `pages`, `links`, `edges`, `runs`, `review_items`,
 `exported_at`, `data_version`.
 
-**Restore:** there is no import endpoint in v0.8. See [DEPLOY.md §14](DEPLOY.md#14-backup--restore-r8-4)
+**Restore:** there is no import endpoint in v0.8. See [DEPLOY.md §17](DEPLOY.md#backup-restore)
 for the two restore paths: vault-directory-only re-ingest and full Postgres volume restore.
 
 ---
@@ -1013,6 +1014,104 @@ The operator sets `PDF_EXTRACTOR=marker` in `.env` and starts the Marker microse
 
 When `PDF_EXTRACTOR` is unset or set to `pypdf` (the default), behavior is identical
 to v0.7.
+
+---
+
+## Authentication (v1.0) {#authentication}
+
+Synapse v1.0 adds an optional shared Bearer token that the operator can configure via
+the `SYNAPSE_AUTH_TOKEN` environment variable. When the token is set, every API request
+must carry it. When it is unset (the default), Synapse behaves exactly as v0.9 — no
+prompts, no headers required.
+
+### When the server has a token configured
+
+**Desktop app (Tauri).** The Connect screen (shown on first launch and after "Change
+server") displays a password field labelled "Access token" below the server URL field.
+Enter the token before clicking **Connect**. The field has a show/hide toggle (`<Eye>`
+icon). If the token is wrong or missing, the Connect screen stays open and shows an
+inline error — the app does not proceed until the probe succeeds with a valid token.
+
+**Web browser / PWA.** If the server has a token and the browser does not have one
+stored, the next API call returns 401. The app immediately shows a token-entry overlay
+over the current view. Enter the token and submit; the request is retried automatically
+and the app continues normally. No page reload is required.
+
+### Settings > Security — updating the client token
+
+If the operator rotates `SYNAPSE_AUTH_TOKEN` (env change + container restart), the
+stored client token becomes stale. To update it:
+
+1. Open **Settings > Security** in the nav rail.
+2. In the "Rotate token" field, paste the new token.
+3. Click **Update**. The new token is saved to `localStorage` immediately — no server call.
+
+> The server's token is configured exclusively via the `SYNAPSE_AUTH_TOKEN` environment
+> variable. "Update" in the Settings UI updates the _client's stored copy_ only. To change
+> the server-side token, edit `.env` and restart the container (see DEPLOY.md §13).
+
+To clear the stored token (disconnect from an auth-enabled server intentionally):
+open **Settings > Security** and click **Clear token**.
+
+### Exempt endpoints (never require the token)
+
+The following endpoints are always reachable without a Bearer token, even when
+`SYNAPSE_AUTH_TOKEN` is set:
+
+| Endpoint | Notes |
+|----------|-------|
+| `GET /status` | Used by the desktop Connect screen auto-detect |
+| `GET /health/detailed` | Used by monitoring probes |
+| `GET /docs`, `GET /openapi.json` | API schema; not sensitive data |
+| `OPTIONS` (any path) | CORS preflight — cannot carry a Bearer header |
+| `/mcp/server/*` | MCP HTTP surface has its own token (ADR-0033) |
+| `POST /clip` | Web-clipper ingress has its own `CLIP_TOKEN` (ADR-0038) |
+
+---
+
+## Mobile and PWA (v1.0) {#mobile-pwa}
+
+Synapse v1.0 includes a round of mobile and PWA polish so the UI remains usable on
+phones and small-screen tablets (breakpoints at 768 px and below).
+
+### Compact navigation rail
+
+On screens narrower than 768 px, the navigation rail collapses to an icon-only strip
+(approximately 52 px wide). Labels are hidden to preserve horizontal space. The active
+section is still indicated by the same rounded-rectangle highlight. Tap any icon to
+switch sections — the label appears as a tooltip on long-press.
+
+On screens wider than 768 px, the labeled rail is shown in full (72 px, icon + label).
+The breakpoint is applied via a CSS media query and does not require any setting or
+toggle.
+
+### Stacked panels (single-column layout)
+
+On mobile (< 768 px), the three-panel Wiki section switches from a horizontal layout to
+a vertical stack: the page tree appears at the top (collapsible), the note reader/editor
+in the middle, and the inspector at the bottom (collapsible). Panel resize handles are
+hidden on mobile — panels snap to their natural content height.
+
+The Chat section, Sources section, and Graph section are single-panel by design and
+require no layout change on mobile.
+
+### Touch interactions on the graph
+
+The Graph section's sigma.js canvas supports pinch-to-zoom and two-finger pan on touch
+screens. Single-finger pan scrolls the canvas. Tap a node to select it (equivalent to a
+mouse click). The node-hover highlight is triggered by tap-and-hold.
+
+### PWA install on mobile
+
+On iOS (Safari 16.4+) and Android (Chrome), the app can be installed as a PWA:
+
+- **iOS:** tap the Share icon in Safari's toolbar, then choose **Add to Home Screen**.
+- **Android:** tap the browser menu (three dots), then choose **Install app** or
+  **Add to Home Screen**.
+
+Once installed, Synapse opens in standalone mode with no browser chrome. The service
+worker caches the app shell for instant load. All backend calls remain network-first —
+they are never served from cache (data is always fresh).
 
 ---
 
@@ -1247,3 +1346,12 @@ The following features shipped in v0.9 (M8 — "Trust & observability"):
 | SectionErrorBoundary (v0.9) | Each section now isolates errors; shows "Retry" instead of a blank white screen. |
 | Playwright E2E suite (v0.9, I8) | `npm run e2e:v09` covers all major views and refreshes D5 screenshots automatically. |
 | Dynamic version in UI | Settings > About shows the version read from the backend at runtime rather than from a build-time constant. |
+
+The following features shipped in v1.0 (M10 — "Distribution"):
+
+| Feature | Notes |
+|---------|-------|
+| Shared-token auth (R10-1, ADR-0052) | Optional `SYNAPSE_AUTH_TOKEN` gates all REST routes. Empty/absent = disabled (backward-compatible). Desktop ConnectScreen prompts for the token; web/PWA shows a token-entry overlay on 401; Settings > Security to update the client copy. |
+| Mobile/PWA polish (R10-5) | Compact icon-only nav rail on < 768 px; stacked single-column panels in Wiki section on mobile; pinch-to-zoom + tap-to-select on the graph canvas; PWA install instructions for iOS and Android. |
+| MkDocs Material documentation site (R10-6) | Published to GitHub Pages at `https://emanuele-chiummo.github.io/llm-wiki-synapse/`. Local preview via `make docs-serve`. All Mermaid diagrams render natively. |
+| Code-signing guide (R10-3) | DEPLOY.md §14: step-by-step Apple Developer ID + notarization (macOS) and OV/EV certificate (Windows) guide; GitHub Actions secrets matrix. |

@@ -304,9 +304,9 @@ function renderPanel() {
   return render(<SettingsPanel />);
 }
 
-// ─── 1. All 13 sub-nav items render ──────────────────────────────────────────
+// ─── 1. All 14 sub-nav items render ──────────────────────────────────────────
 
-describe("SettingsPanel — 13 sub-nav items (AC-HARD-SET-1/3)", () => {
+describe("SettingsPanel — 14 sub-nav items (AC-HARD-SET-1/3)", () => {
   beforeEach(() => {
     renderPanel();
   });
@@ -325,15 +325,16 @@ describe("SettingsPanel — 13 sub-nav items (AC-HARD-SET-1/3)", () => {
     "interface",
     "costs",
     "scenarios",
+    "security",
     "maintenance",
     "about",
   ] as const;
 
-  it("renders exactly 13 section buttons in the left nav aside", () => {
+  it("renders exactly 14 section buttons in the left nav aside", () => {
     const aside = document.querySelector("aside");
     expect(aside).not.toBeNull();
     const buttons = aside!.querySelectorAll("button");
-    expect(buttons).toHaveLength(13);
+    expect(buttons).toHaveLength(14);
   });
 
   EXPECTED_SECTION_IDS.forEach((sectionId) => {
@@ -538,10 +539,11 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
   it("ArrowDown cycles past 'about' (last) back to 'general' (first)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Navigate to "about" (index 12) — 12 ArrowDown presses from "general"
+    // Navigate to "about" (index 13) — 13 ArrowDown presses from "general"
     // NAV_ITEMS = general(0) llmModels(1) embeddings(2) sourceWatch(3) webSearch(4)
-    //             apiMcp(5) webClipper(6) output(7) interface(8) costs(9) scenarios(10) maintenance(11) about(12)
-    for (let i = 0; i < 12; i++) {
+    //             apiMcp(5) webClipper(6) output(7) interface(8) costs(9) scenarios(10)
+    //             security(11) maintenance(12) about(13)
+    for (let i = 0; i < 13; i++) {
       fireEvent.keyDown(aside, { key: "ArrowDown" });
     }
     expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");

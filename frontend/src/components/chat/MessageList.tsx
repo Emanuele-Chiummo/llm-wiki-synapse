@@ -489,12 +489,15 @@ function MessageRoleLabel({
   return (
     <div
       style={{
-        fontSize: 11,
+        fontSize: 9,
         fontWeight: 600,
-        color: isUser ? "var(--syn-accent)" : "var(--syn-green)",
+        color: "var(--syn-text-dim)",
         marginBottom: 4,
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
+        letterSpacing: "0.04em",
+        borderLeft: isUser
+          ? "3px solid var(--syn-accent-soft)"
+          : "3px solid var(--syn-notice-success-bg, #dcfce7)",
+        paddingLeft: 4,
       }}
     >
       {isUser ? t("chat.roleUser") : t("chat.roleAssistant")}

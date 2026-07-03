@@ -1,0 +1,1970 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-scope/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint 5 — v0.5 — PM Scope Lock - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-5-v05-pm-scope-lock" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint 5 — v0.5 — PM Scope Lock
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-sprint-objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Sprint Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-locked-feature-ids-for-v05" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Locked Feature IDs for v0.5
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Locked Feature IDs for v0.5">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#2a-primary-m5-features-per-claudemd-8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2a. Primary M5 features (per CLAUDE.md §8)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-documentation-deliverables-per-claudemd-9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2b. Documentation deliverables (per CLAUDE.md §9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2c-m4-carry-forward-deferrals-now-unblocked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2c. M4 carry-forward deferrals — now unblocked
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2d-m4-carry-forward-nits-non-blocking-polish-resolved-this-sprint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2d. M4 carry-forward nits (non-blocking polish, resolved this sprint)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-scope-lock-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Scope Lock Log
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-acceptance-criteria-per-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Acceptance Criteria Per Feature
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Acceptance Criteria Per Feature">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#f5-4-phase-rag-retrieval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F5 — 4-phase RAG retrieval
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f6-ac-f6-3-ac-f6-5-citations-and-save-to-wiki" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F6 (AC-F6-3 + AC-F6-5) — Citations and save-to-wiki
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f17-cliagentproviderchat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F17 — CliAgentProvider.chat()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f9-async-hitl-review-queue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F9 — Async HITL review queue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f10-deep-research-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F10 — Deep Research loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f12-multi-format-ingest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F12 — Multi-format ingest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f13-cascade-deletion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F13 — Cascade deletion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f1-mcp-ui-mcp-configuration-ui-amendment-a1-2026-06-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F1-MCP-UI — MCP Configuration UI (Amendment A1, 2026-06-29)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d3-update-sequence-diagrams-deep-research-and-cascade-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D3 (update) — Sequence diagrams: deep-research and cascade-delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d5-update-screenshots-refreshed-for-m5-ui-surfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D5 (update) — Screenshots refreshed for M5 UI surfaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-explicitly-out-of-scope-items-anti-scope-creep-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Explicitly Out-of-Scope Items (Anti-Scope-Creep Gate)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-invariants-in-force-i7-and-i9-are-first-class-this-sprint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Invariants in Force — I7 and I9 Are First-Class This Sprint
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Invariants in Force — I7 and I9 Are First-Class This Sprint">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#i7-loops-are-bounded-headline-for-m5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I7 — LOOPS ARE BOUNDED (headline for M5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i9-do-not-reinvent-headline-for-m5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I9 — DO NOT REINVENT (headline for M5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i1-incremental-index-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I1 — INCREMENTAL INDEX ONLY
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i6-pluggable-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I6 — PLUGGABLE INFERENCE
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i5-obsidian-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I5 — OBSIDIAN COMPATIBILITY
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i2-graph-layout-is-server-side-and-cached" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I2 — GRAPH LAYOUT IS SERVER-SIDE AND CACHED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i3-no-per-token-heavy-work-in-chat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I3 — NO PER-TOKEN HEAVY WORK IN CHAT
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-dependency-graph-and-phased-delivery-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Dependency Graph and Phased Delivery Plan
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Dependency Graph and Phased Delivery Plan">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dependency-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-retrieval-foundation-carry-forward-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Retrieval foundation + carry-forward resolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-deep-research-f10-d3-deep-research-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Deep Research (F10) + D3 deep-research diagram
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-hitl-review-queue-f9-multi-format-ingest-f12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — HITL Review Queue (F9) + multi-format ingest (F12)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-cascade-deletion-f13-final-docs-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 — Cascade deletion (F13) + final docs gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-mcp-configuration-ui-f1-mcp-ui-amendment-a1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5 — MCP Configuration UI (F1-MCP-UI) [Amendment A1]
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-m5-exit-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. M5 Exit Criteria
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-human-checkpoint-ec-m5-hcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Human Checkpoint (EC-M5-HCP)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-out-of-scope-boundary-reminders" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Out-of-Scope Boundary Reminders
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-velocity-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Velocity Note
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-5-v05-pm-scope-lock">Sprint 5 — v0.5 — PM Scope Lock<a class="headerlink" href="#sprint-5-v05-pm-scope-lock" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Milestone: M5 — "Feature parity core"
+Author: product-manager (claude-sonnet-4-6)
+Date: 2026-06-29
+Gate: Sprint start — formal scope confirmation
+Branch: sprint/v0.5 (cut from sprint/v0.4 after EC-M4-HCP cleared)
+Prerequisite: M4 CLOSED — docs/sprints/v0.4-m4-closure.md (EC-M4-HCP cleared 2026-06-29;
+  v0.4.0 tagged and released; all 4 gate sign-offs on record)
+Inputs: CLAUDE.md §3/§4/§7/§8/§9, BACKLOG.md §Sprint 5, docs/sprints/v0.4-m4-closure.md</p>
+</blockquote>
+<hr />
+<h2 id="1-sprint-objective">1. Sprint Objective<a class="headerlink" href="#1-sprint-objective" title="Permanent link">&para;</a></h2>
+<p>Deliver "feature parity core" — the set of features that transform Synapse from a usable
+prototype into a system that can handle real-world research workflows. The headline theme
+is <strong>depth over breadth</strong>: F5 retrieval closes the chat-quality loop; F10 Deep Research
+adds autonomous web-sourcing; F9 HITL review surfaces AI outputs for human curation; F12
+multi-format ingest removes the .txt/.md constraint; F13 cascade deletion makes the vault
+self-healing.</p>
+<p>The <strong>headline invariant</strong> for M5 is <strong>I7 (bounded loops)</strong>. F10 Deep Research is the most
+loop-intensive feature in the entire roadmap — its multi-query SearXNG loop has explicit
+max_iter and token_budget caps, an assess-sufficiency gate before each query, and a
+hardcoded concurrency ceiling of 3. Any PR that introduces an unbounded loop anywhere in
+M5 work is a P0 blocker.</p>
+<p>The <strong>headline reuse rule</strong> for M5 is <strong>I9</strong>: SearXNG is the only permitted web-search
+backend. Tavily must never be introduced. Qdrant + bge-m3 are the embedding stack. The
+existing OllamaProvider / ApiProvider / CliAgentProvider must not be bypassed — all new
+inference calls go through <code>InferenceProvider</code>.</p>
+<hr />
+<h2 id="2-locked-feature-ids-for-v05">2. Locked Feature IDs for v0.5<a class="headerlink" href="#2-locked-feature-ids-for-v05" title="Permanent link">&para;</a></h2>
+<p>Locked scope — exactly the following feature IDs. No other work is in scope. Any proposal
+outside this list must be escalated to the orchestrator and explicitly approved before a
+single line of code is written.</p>
+<h3 id="2a-primary-m5-features-per-claudemd-8">2a. Primary M5 features (per CLAUDE.md §8)<a class="headerlink" href="#2a-primary-m5-features-per-claudemd-8" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature ID</th>
+<th>Description</th>
+<th>Key invariants</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F5</td>
+<td>4-phase retrieval: tokenized keyword → graph-expansion → token-budget assembly → context assembly; <code>[n]</code> citation markers attached to retrieved passages</td>
+<td>I1 (no rescan), I3 (no per-token work), I9 (reuse Qdrant + bge-m3)</td>
+</tr>
+<tr>
+<td>F9</td>
+<td>Async HITL review queue: actions Create / Deep-Research / Skip; pre-generated queries per reviewed item; async queue management; K8 "human curates" principle</td>
+<td>I7 (queue is bounded), I6 (review calls go through InferenceProvider)</td>
+</tr>
+<tr>
+<td>F10</td>
+<td>Deep Research loop: SearXNG multi-query → fetch → assess sufficiency → refine → synthesize → auto-ingest; concurrency=3; I9: SearXNG only</td>
+<td>I7 (max_iter + token_budget; concurrency ≤3), I9 (SearXNG; never Tavily)</td>
+</tr>
+<tr>
+<td>F12</td>
+<td>Multi-format ingest: PDF (pypdf), DOCX (python-docx), PPTX (python-pptx), XLSX (openpyxl), images (unstructured), AV; extracted text fed into existing ingest pipeline</td>
+<td>I1 (incremental), I5 (raw/ layer preserved), I6 (InferenceProvider not bypassed)</td>
+</tr>
+<tr>
+<td>F13</td>
+<td>Cascade deletion: 3-method matching (exact title, slug, wikilink), preserve shared entities, cleanup index.md + dead wikilinks in vault/wiki/</td>
+<td>I1 (targeted deletions only; no rescan), I5 (vault integrity preserved)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2b-documentation-deliverables-per-claudemd-9">2b. Documentation deliverables (per CLAUDE.md §9)<a class="headerlink" href="#2b-documentation-deliverables-per-claudemd-9" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Artifact ID</th>
+<th>Description</th>
+<th>From sprint</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D3 (update)</td>
+<td>New sequence diagrams: <code>docs/sequences/deep-research.mmd</code> and <code>docs/sequences/cascade-delete.mmd</code>; both required before M5 sign-off</td>
+<td>v0.5 per §9</td>
+</tr>
+<tr>
+<td>D5 (update)</td>
+<td>Playwright screenshots refreshed for M5 UI surfaces: HITL review queue panel, Deep Research trigger + results, multi-format file upload, cascade delete confirmation</td>
+<td>v0.5</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2c-m4-carry-forward-deferrals-now-unblocked">2c. M4 carry-forward deferrals — now unblocked<a class="headerlink" href="#2c-m4-carry-forward-deferrals-now-unblocked" title="Permanent link">&para;</a></h3>
+<p>These items were deferred from M4 with PM approval and are now unlocked by the M5 primary
+features. They are part of the M5 locked scope.</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Feature ID</th>
+<th>M4 deferral reason</th>
+<th>M5 unblock condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[n]</code> citation population in chat messages</td>
+<td>F6 (AC-F6-3)</td>
+<td>Blocked on F5 retrieval</td>
+<td>F5 ships first in Phase 1; F6 AC-F6-3 completes in Phase 1</td>
+</tr>
+<tr>
+<td>save-to-wiki from chat</td>
+<td>F6 (AC-F6-5)</td>
+<td>Button disabled in M4 UI</td>
+<td>F5 context available; POST /ingest wiring straightforward</td>
+</tr>
+<tr>
+<td><code>CliAgentProvider.chat()</code> implementation</td>
+<td>F17</td>
+<td>NotImplementedError in M4; honest stub</td>
+<td>F5 retrieval context now available to pass to delegated chat loop</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2d-m4-carry-forward-nits-non-blocking-polish-resolved-this-sprint">2d. M4 carry-forward nits (non-blocking polish, resolved this sprint)<a class="headerlink" href="#2d-m4-carry-forward-nits-non-blocking-polish-resolved-this-sprint" title="Permanent link">&para;</a></h3>
+<p>These are cosmetic or low-risk items from M4. They do NOT hold M5 sign-off but must be
+disposed of by end of sprint.</p>
+<table>
+<thead>
+<tr>
+<th>Tracking ID</th>
+<th>Item</th>
+<th>Owner</th>
+<th>Target phase</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CF-HARD-1</td>
+<td>Recapture <code>docs/screens/shell-collapsed-panel.png</code> (root cause fixed; make screenshots needed)</td>
+<td>qa-test-engineer</td>
+<td>Phase 1 (quick win)</td>
+</tr>
+<tr>
+<td>NB-7</td>
+<td><code>graph-recompute.mmd</code> hit-path cosmetic — show in-process snapshot source</td>
+<td>tech-writer</td>
+<td>Phase 1</td>
+</tr>
+<tr>
+<td>NB-8</td>
+<td><code>component.mmd</code> store label → <code>store/graphStore.ts</code></td>
+<td>tech-writer</td>
+<td>Phase 1</td>
+</tr>
+<tr>
+<td>NB-9</td>
+<td>CI branch filter — add sprint/v0.3, sprint/v0.4</td>
+<td>devops-engineer</td>
+<td>Phase 1</td>
+</tr>
+<tr>
+<td>AC-HARD-SET-5</td>
+<td>Settings left-nav arrow-key handler</td>
+<td>frontend-engineer</td>
+<td>Phase 1</td>
+</tr>
+<tr>
+<td>GAP-HARD-1 / GAP-HARD-5</td>
+<td>TRACEABILITY.md stale PENDING rows</td>
+<td>functional-analyst</td>
+<td>Phase 1</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-scope-lock-log">3. Scope Lock Log<a class="headerlink" href="#3-scope-lock-log" title="Permanent link">&para;</a></h2>
+<p>Locked feature IDs for M5:</p>
+<p><strong>Primary:</strong> F5, F9, F10, F12, F13</p>
+<p><strong>Documentation:</strong> D3-update (deep-research.mmd + cascade-delete.mmd), D5-update</p>
+<p><strong>M4 carry-forward (AC-level):</strong> F6 AC-F6-3, F6 AC-F6-5, F17 CliAgentProvider.chat()</p>
+<p><strong>M4 carry-forward nits:</strong> CF-HARD-1, NB-7, NB-8, NB-9, AC-HARD-SET-5, GAP-HARD-1/GAP-HARD-5</p>
+<p>Total: 5 primary features + 2 doc artifacts + 3 AC carry-forwards + 7 nits = 17 items.</p>
+<p>Locked: 2026-06-29 by product-manager (claude-sonnet-4-6).</p>
+<p><strong>Amendment A1 — MCP Configuration UI (F1-MCP-UI)</strong>
+Amended: 2026-06-29
+Requested by: Emanuele Chiummo (developer / stakeholder — explicit request)
+Authorised by: product-manager (claude-sonnet-4-6)
+Amendment type: stakeholder-requested scope addition; formally recorded per anti-scope-creep gate rules.</p>
+<p>Rationale: The Settings &gt; API + MCP section currently shows a "coming in M5" placeholder
+(i18n key settings.apiMcp.comingSoon, stub <code>SectionApiMcp</code> in SettingsPanel.tsx) — a
+promise made during M4-HARD that was never placed in the M5 scope-lock. This amendment
+closes the gap by making the promise real. The MCP server itself (4 tools: search_wiki,
+write_page, get_page, list_pages; stdio transport; entry point <code>python -m app.mcp.server</code>)
+was fully delivered in M2 (v0.2). F1-MCP-UI surfaces the existing server — it does NOT
+add new MCP capability. A lightweight GET /mcp/info backend endpoint is required to
+provide server metadata to the UI at runtime (server name, transport, entry-point command,
+tool list with schemas). This is the only new backend work; it is read-only and additive.</p>
+<p>Scope addition: F1-MCP-UI (sub-item of F1 + F17; extension of existing Settings shell)
+Phase placement: new Phase 5 (after F13/Phase 4). See §7 amendment note.
+New EC-M5-HCP condition: EC-M5-HCP-7 added to §9.</p>
+<p>Updated total: 5 primary features + F1-MCP-UI + 2 doc artifacts + 3 AC carry-forwards + 7 nits = 18 items.</p>
+<hr />
+<h2 id="4-acceptance-criteria-per-feature">4. Acceptance Criteria Per Feature<a class="headerlink" href="#4-acceptance-criteria-per-feature" title="Permanent link">&para;</a></h2>
+<h3 id="f5-4-phase-rag-retrieval">F5 — 4-phase RAG retrieval<a class="headerlink" href="#f5-4-phase-rag-retrieval" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-F5-1: <code>backend/app/rag/retrieval.py</code> implements all 4 phases in sequence:
+  (1) tokenized keyword search over Qdrant (bge-m3 vectors + BM25 hybrid if available);
+  (2) graph-expansion: for each top-k result, follow edges in the graph (links + shared-source)
+  up to depth 1 or 2; (3) token-budget allocation per F14 20%-retrieved-context slot;
+  (4) context assembly — passages ranked by relevance, truncated to budget, returned as
+  <code>RetrievalContext</code> with page refs.</li>
+<li>AC-F5-2: Each retrieved passage carries a citation index <code>n</code> (1-based). The assembled
+  context string includes <code>[n]</code> markers inline. The <code>RetrievalContext</code> object maps each <code>n</code>
+  to a <code>PageRef</code> (id, title, url-friendly slug).</li>
+<li>AC-F5-3: The retrieval pipeline calls only Qdrant (bge-m3) and reads from the Postgres
+  <code>links</code> and <code>edges</code> tables — no new embedding service introduced (I9). Static import check
+  confirms no direct bge-m3 or Ollama embedding calls outside the existing Qdrant wrapper.</li>
+<li>AC-F5-4: The token budget for retrieved context (20% of configured window per F14) is
+  respected. If candidate passages exceed the budget, the lowest-ranked passages are dropped.
+  Unit test: 10 fixture passages totaling 2× budget → assert assembled context ≤ budget.</li>
+<li>AC-F5-5: Graph-expansion phase uses the existing <code>edges</code> table (Postgres) — does NOT
+  trigger a graph recompute or FA2 run (I2 preserved). Verified: data_version is unchanged
+  after a retrieval call.</li>
+<li>AC-F5-6: <code>GET /search?q=&lt;query&gt;&amp;vault_id=&lt;id&gt;</code> endpoint returns the top retrieval results
+  with citation indices. Response documented in openapi.json (D4 zero-drift gate).</li>
+<li>AC-F5-7: Unit tests cover: 0-result query, single-result, multi-page expansion, budget
+  overflow truncation. Integration test: seed 5 pages with known wikilinks → retrieval
+  returns linked pages in expansion phase.</li>
+<li>AC-F5-8: After F5 ships, the chat endpoint passes the assembled <code>RetrievalContext</code> to
+  the active provider's <code>chat()</code> call so that <code>[n]</code> markers appear in assistant messages
+  (unblocks F6 AC-F6-3 and F17 CliAgentProvider.chat()).</li>
+</ul>
+<h3 id="f6-ac-f6-3-ac-f6-5-citations-and-save-to-wiki">F6 (AC-F6-3 + AC-F6-5) — Citations and save-to-wiki<a class="headerlink" href="#f6-ac-f6-3-ac-f6-5-citations-and-save-to-wiki" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-F6-3: (Carry-forward unblocked by F5) Each assistant message in the chat UI displays
+  <code>[n]</code> citation markers that link to source pages. Citation data is stored with the message
+  in the <code>messages</code> table (JSONB citations field). On render, <code>[n]</code> is displayed as a
+  clickable superscript that shows the page title on hover.</li>
+<li>AC-F6-5: (Carry-forward) The "save to wiki" button on an assistant message is enabled and
+  wired. Clicking it calls POST /ingest with the message content as source text. On 202, an
+  inline status shows the resulting page title and wikilink. vitest test: mock POST /ingest
+  → assert status rendered.</li>
+</ul>
+<h3 id="f17-cliagentproviderchat">F17 — CliAgentProvider.chat()<a class="headerlink" href="#f17-cliagentproviderchat" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-F17-CHAT-1: <code>CliAgentProvider.chat(messages, retrieval_context)</code> is implemented (not
+  NotImplementedError). The method delegates the chat turn to the claude-agent-sdk subprocess
+  with the assembled <code>RetrievalContext</code> injected as a system tool or context message. The
+  agent loop is bounded by <code>max_iter</code> and <code>token_budget</code> per I7.</li>
+<li>AC-F17-CHAT-2: The streaming interface is consistent with OllamaProvider and ApiProvider:
+  the method yields token chunks; the chat endpoint SSE stream is unchanged.</li>
+<li>AC-F17-CHAT-3: Unit test: mock claude-agent-sdk output → verify stream chunks emitted,
+  <code>total_cost_usd</code> logged correctly (SDK metadata or $0 convention per NB-4).</li>
+</ul>
+<h3 id="f9-async-hitl-review-queue">F9 — Async HITL review queue<a class="headerlink" href="#f9-async-hitl-review-queue" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-F9-1: <code>backend/app/ops/review.py</code> implements an async review queue backed by a new
+  Postgres table <code>review_items</code>. Columns: id (uuid), vault_id (uuid FK), page_id (uuid FK →
+  pages, nullable), item_type (enum: new_page / update_page / deep_research_candidate),
+  status (enum: pending / approved / skipped / deep_researched), pre_generated_query (text
+  nullable), created_at, reviewed_at (nullable), reviewed_by (text nullable).</li>
+<li>AC-F9-2: The ingest pipeline enqueues a <code>review_item</code> for each newly generated wiki page
+  (item_type=new_page). This is non-blocking: the page is written to vault/wiki/ immediately
+  (existing behaviour); the review queue entry is advisory.</li>
+<li>AC-F9-3: REST endpoints:</li>
+<li><code>GET /review/queue</code> — list pending items (paginated, vault_id filter);</li>
+<li><code>POST /review/queue/{id}/approve</code> — sets status=approved, reviewed_at=now();</li>
+<li><code>POST /review/queue/{id}/skip</code> — sets status=skipped;</li>
+<li><code>POST /review/queue/{id}/deep-research</code> — sets status=deep_researched and triggers F10
+    deep research for the item's pre_generated_query (or the page topic if query absent).
+  All endpoints documented in openapi.json (D4 zero-drift gate).</li>
+<li>AC-F9-4: Pre-generated queries: when a review item is created, the ingest pipeline calls
+  the active InferenceProvider to generate 1–3 research questions for the new page. These
+  are stored in pre_generated_query (newline-separated). Bounded: max 1 generation call per
+  item; if it fails or times out, query is left null (I7). The generation call goes through
+  InferenceProvider (I6).</li>
+<li>AC-F9-5: Review queue UI: a "Review" nav section (previously showing "coming in M5"
+  placeholder) is activated. It renders the pending queue as a list with: page title /
+  item type / pre-generated query (if present) / action buttons (Approve, Skip,
+  Deep-Research). List is virtualized (TanStack Virtual) if &gt;50 items (I4).</li>
+<li>AC-F9-6: The review queue is NOT a blocker for normal operation. Pages are already written
+  to vault/wiki/ when they appear in the queue. Approve = human confirmation only; does not
+  re-trigger ingest. Skip = remove from queue. Deep-Research = trigger F10 and remove from
+  queue.</li>
+<li>AC-F9-7: Boundary from M4 Ingest View: the F1-INGEST-VIEW (ingest runs list + Run Ingest
+  button) is not modified. F9 review queue is a separate section on the nav rail, not a
+  modification of the Ingest section.</li>
+<li>AC-F9-8: Integration test: seed 2 review_items; call approve on 1, skip on 1; assert both
+  statuses updated; assert deep-research endpoint triggers F10 stub call.</li>
+</ul>
+<h3 id="f10-deep-research-loop">F10 — Deep Research loop<a class="headerlink" href="#f10-deep-research-loop" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-F10-1: <code>backend/app/ops/deep_research.py</code> implements the full loop:
+  (1) generate 2–5 SearXNG search queries from the research topic (via InferenceProvider);
+  (2) execute queries against SearXNG (I9: never any other search backend); concurrency=3
+  (asyncio gather with semaphore); (3) fetch and parse result pages (html → markdown);
+  (4) assess sufficiency: call InferenceProvider to judge whether collected content answers
+  the research topic; if yes → proceed to synthesize; if no → generate follow-up queries
+  (up to max_iter); (5) synthesize: call InferenceProvider to produce a synthesis document;
+  (6) auto-ingest: feed synthesis into the ingest pipeline (not directly into vault/wiki/;
+  must go through the orchestrated loop to satisfy I6).</li>
+<li>AC-F10-2 (I7 — headline invariant): Every deep research run is strictly bounded:
+  <code>max_iter</code> (configurable, default 3 refinement rounds), <code>token_budget</code> (configurable,
+  default 100K tokens), <code>max_queries_per_iter</code> (default 5), <code>concurrency</code> (hardcoded 3,
+  not configurable beyond 3 without architect approval). <code>total_cost_usd</code> logged per run
+  in a new <code>deep_research_runs</code> table. Any PR that removes or weakens these bounds is a
+  P0 blocker.</li>
+<li>AC-F10-3 (I9): SearXNG is the only web search backend. The SearXNG base URL is read from
+  <code>SEARXNG_URL</code> env var (already in the stack). No Tavily, DuckDuckGo, or Google API may be
+  introduced. Static import test: no <code>tavily</code>, <code>ddg</code>, or <code>google</code> package imports anywhere
+  in the codebase.</li>
+<li>AC-F10-4: The deep research run is triggered via:</li>
+<li>POST /research/start — body: {vault_id, topic, max_iter?, token_budget?}; returns HTTP
+    202 with {run_id: uuid};</li>
+<li>GET /research/runs — list of past runs with status + cost;</li>
+<li>GET /research/runs/{id} — details of a run including queries used, sources fetched,
+    synthesis text.
+  All endpoints in openapi.json (D4 zero-drift gate).</li>
+<li>AC-F10-5: F9 integration: when F9's "Deep-Research" action fires, it calls POST
+  /research/start with the pre_generated_query as topic. The run_id is stored on the
+  review_item row for traceability.</li>
+<li>AC-F10-6: New Postgres tables: <code>deep_research_runs</code> (id, vault_id, topic, status, queries
+  used JSONB, sources_fetched int, total_cost_usd, started_at, completed_at, error_message)
+  and <code>deep_research_sources</code> (id, run_id, url, title, fetched_content_md, relevance_score).
+  Alembic migration. D2 regenerated via <code>make er</code>.</li>
+<li>AC-F10-7: Unit tests: mock SearXNG returning 3 results → assert 3 fetch calls; mock
+  InferenceProvider returning "sufficient" on first assess → assert loop stops after 1
+  round; mock InferenceProvider returning "insufficient" for max_iter rounds → assert loop
+  stops at max_iter, status="max_iter_reached".</li>
+<li>AC-F10-8: Playwright E2E: navigate to "Deep Search" nav section (previously placeholder);
+  enter a topic; assert POST /research/start fires; assert run appears in runs list.</li>
+</ul>
+<h3 id="f12-multi-format-ingest">F12 — Multi-format ingest<a class="headerlink" href="#f12-multi-format-ingest" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-F12-1: The backend ingest pipeline accepts the following additional file types at POST
+  /ingest/upload (and via the watcher on vault/raw/sources/):</li>
+<li>PDF (.pdf): text extracted via pypdf; images in PDF are skipped with a log warning.</li>
+<li>DOCX (.docx): text + basic structure via python-docx.</li>
+<li>PPTX (.pptx): slide text via python-pptx (one logical document per presentation).</li>
+<li>XLSX (.xlsx): cell text (sheet name + row data as markdown table) via openpyxl.</li>
+<li>Images (.png, .jpg, .jpeg, .gif, .webp): OCR via unstructured (if available) or
+    "image file: no text extracted" placeholder if unstructured not installed.</li>
+<li>Audio/Video (.mp3, .mp4, .wav, .m4a): "AV file: transcript not available in this
+    release" placeholder (full transcription is out of scope).
+  The extracted text is passed into the existing <code>analyze()</code>/<code>generate()</code> ingest loop
+  unchanged — no new LLM calls are added for extraction.</li>
+<li>AC-F12-2: The server-side file-type gate in POST /ingest/upload is extended: the HTTP 415
+  rejection now only applies to file types with no extractor at all. The accepted MIME type
+  list is updated to include PDF, DOCX, PPTX, XLSX, and image MIME types. The F1-UPLOAD
+  client-side <code>accept</code> attribute is updated to match.</li>
+<li>AC-F12-3 (I1): Uploading the same multi-format file twice (same mtime/hash) does not
+  create a duplicate Postgres row or Qdrant vector. The existing content-hash check covers
+  this regardless of file type.</li>
+<li>AC-F12-4 (I5): Extracted text for multi-format files is stored in vault/raw/sources/ as
+  a companion <code>.extracted.md</code> file alongside the original binary. The original binary is
+  preserved. vault/wiki/ is only written by the ingest pipeline. K1 3-layer rule intact.</li>
+<li>AC-F12-5: New Python dependencies (pypdf, python-docx, python-pptx, openpyxl, unstructured)
+  are added to backend/pyproject.toml. Docker image rebuilds cleanly. All new dependencies
+  are pinned versions.</li>
+<li>AC-F12-6: Unit tests: fixture PDF with 2 pages → assert extracted text contains content
+  from both pages; fixture DOCX → assert paragraphs extracted; fixture XLSX → assert sheet
+  rows present as markdown table; unsupported file type → HTTP 415.</li>
+<li>AC-F12-7: The format extractor is in a new module <code>backend/app/ingest/extract.py</code> behind
+  a dispatch function <code>extract_text(file_path) -&gt; str</code>. Static guard: no format-specific
+  imports (pypdf, docx, pptx, openpyxl) outside <code>ingest/extract.py</code>.</li>
+</ul>
+<h3 id="f13-cascade-deletion">F13 — Cascade deletion<a class="headerlink" href="#f13-cascade-deletion" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-F13-1: <code>backend/app/ops/cascade_delete.py</code> implements <code>cascade_delete(page_id)</code>:
+  (1) identify the target page in Postgres; (2) find all wikilinks pointing TO this page
+  (links table, target_title match); (3) remove the target page's Postgres row (soft delete:
+  deleted_at = now()); (4) remove the Qdrant vector for the page; (5) remove the page's
+  entry from vault/wiki/index.md; (6) scan all pages in vault/wiki/ that contain
+  <code>[[&lt;target_title&gt;]]</code> wikilinks and replace them with <code>&lt;target_title&gt;</code> (dead wikilink
+  becomes plain text); (7) update the dangling=True flag on affected links table rows.</li>
+<li>AC-F13-2: 3-method matching for finding references: (a) exact wikilink title match in
+  links table; (b) slug-normalised match (lower-case, hyphenated); (c) full-text scan of
+  wiki/ .md files as fallback. Method used is logged per deletion.</li>
+<li>AC-F13-3: Shared entities are preserved: if a page being deleted has content that is
+  also referenced by other pages (via source overlap in the <code>edges</code> table), the deletion
+  logs a warning listing the sharing pages and proceeds — it does NOT block. The human
+  operator is responsible for reviewing the warning.</li>
+<li>AC-F13-4 (I1): Cascade delete only touches records related to the deleted page. It NEVER
+  triggers a full vault rescan or graph recompute (data_version IS bumped so the graph
+  eventually updates via the debounce, but no immediate FA2 run is forced).</li>
+<li>AC-F13-5: REST endpoint: <code>DELETE /pages/{id}</code> triggers cascade_delete(page_id). Response:
+  HTTP 200 with {deleted_page_id, wikilinks_cleaned int, index_entry_removed bool,
+  shared_entity_warnings list[str]}. Documented in openapi.json (D4 zero-drift gate).</li>
+<li>AC-F13-6: A "Delete page" action is available in the wiki page view (frontend). It shows
+  a confirmation modal listing any shared-entity warnings before executing. On confirm, calls
+  DELETE /pages/{id}; on success, navigates back to the page tree.</li>
+<li>AC-F13-7: Unit tests: delete a page with 3 incoming wikilinks → assert all 3 cleaned;
+  delete a page with shared source overlap → assert warning logged, deletion completes;
+  double-delete (page already deleted) → assert HTTP 404 gracefully.</li>
+</ul>
+<h3 id="f1-mcp-ui-mcp-configuration-ui-amendment-a1-2026-06-29">F1-MCP-UI — MCP Configuration UI (Amendment A1, 2026-06-29)<a class="headerlink" href="#f1-mcp-ui-mcp-configuration-ui-amendment-a1-2026-06-29" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p>Stakeholder request: Emanuele Chiummo. Surfaces the existing MCP server (v0.2/M2) in the
+Settings &gt; API + MCP section. Does NOT add new MCP capability (I9 — do not reinvent).</p>
+</blockquote>
+<ul>
+<li>AC-F1-MCP-UI-1 (backend — GET /mcp/info): A new read-only endpoint <code>GET /mcp/info</code> is
+  added to FastAPI. It returns a static JSON object derived from the running FastMCP server
+  instance (<code>app.mcp.server.mcp</code>): <code>{server_name, transport, entry_point_command,
+  tool_count, tools: [{name, description, input_schema}]}</code>. The response is static (no DB
+  query, no live MCP call) — it reflects the code-level tool registry at import time.
+  The tool list and schemas must be sourced from the REAL FastMCP tool registry
+  (not a hardcoded string array). Endpoint documented in openapi.json (D4 zero-drift gate).</li>
+<li>AC-F1-MCP-UI-2 (backend — no hardcoded values): The server name, entry-point command, and
+  tool descriptions shown in the response MUST be derived from the live <code>mcp</code> object and
+  <code>settings</code> (e.g., <code>settings.mcp_transport</code> or a new MCP_TRANSPORT env var, default
+  "stdio"). No string values about the MCP server may be hardcoded in the endpoint handler.</li>
+<li>AC-F1-MCP-UI-3 (UI — stub replaced): The <code>SectionApiMcp</code> function in
+  <code>frontend/src/components/settings/SettingsPanel.tsx</code> no longer renders <code>ComingSoonBadge</code>.
+  It fetches <code>GET /mcp/info</code> on mount and renders the real data. If the fetch fails, a
+  degraded state message is shown (not a crash).</li>
+<li>AC-F1-MCP-UI-4 (UI — connection panel): The panel displays a clearly labelled "Connection"
+  sub-section showing: transport type (e.g., "stdio"), entry-point command (e.g.,
+  <code>python -m app.mcp.server</code>), and a copy-to-clipboard button for the Claude Desktop JSON
+  config snippet:
+  <code>{"mcpServers": {"synapse": {"command": "python", "args": ["-m", "app.mcp.server"]}}}</code>.
+  The snippet is generated from the server metadata returned by GET /mcp/info — not a
+  static literal in the JSX.</li>
+<li>AC-F1-MCP-UI-5 (UI — tools list): The panel renders an expandable list of all tools
+  exposed by the server. Each row shows: tool name, description (first sentence truncated
+  to 80 chars), and the count of input parameters. The list is sourced exclusively from
+  the tools array returned by GET /mcp/info (the REAL server registry, currently
+  search_wiki, write_page, get_page, list_pages). No tool names or descriptions are
+  hardcoded in the frontend.</li>
+<li>AC-F1-MCP-UI-6 (i18n — EN + IT parity): All UI strings for the MCP panel are in i18n
+  keys under <code>settings.apiMcp.*</code> (EN: <code>frontend/src/i18n/locales/en.json</code>;
+  IT: <code>frontend/src/i18n/locales/it.json</code>). The <code>settings.apiMcp.comingSoon</code> key is
+  replaced (or the badge removed); new keys added as needed. EN and IT translation files
+  must have identical key sets — no missing keys in either locale.</li>
+<li>AC-F1-MCP-UI-7 (I9 — no reinvention): The UI does NOT implement a new MCP server, does
+  not call MCP tool endpoints directly, and does not duplicate the tool logic from
+  <code>backend/app/mcp/server.py</code>. It is purely a read-only display of the existing server's
+  metadata. Any proposal to add CRUD, tool invocation, or configuration-write capability
+  to this panel is out of scope and must be escalated.</li>
+<li>AC-F1-MCP-UI-8 (D4 update): <code>GET /mcp/info</code> is present in openapi.json after
+  <code>make openapi</code> regeneration. Zero drift confirmed.</li>
+<li>AC-F1-MCP-UI-9 (D5 screenshot): <code>docs/screens/settings-api-mcp.png</code> — Playwright
+  captures the Settings &gt; API + MCP section showing the connection panel and tools list
+  with at least 1 tool visible. Captured as part of <code>make screenshots</code>.</li>
+<li>AC-F1-MCP-UI-10 (tests): vitest test for the MCP panel component: mock GET /mcp/info
+  returning a 4-tool response → assert all 4 tool names rendered; assert copy-to-clipboard
+  button present. pytest unit test: <code>GET /mcp/info</code> returns HTTP 200; tool list length &gt;= 4;
+  server_name equals "synapse"; entry_point_command is non-empty.</li>
+</ul>
+<h3 id="d3-update-sequence-diagrams-deep-research-and-cascade-delete">D3 (update) — Sequence diagrams: deep-research and cascade-delete<a class="headerlink" href="#d3-update-sequence-diagrams-deep-research-and-cascade-delete" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-D3-DR-1: <code>docs/sequences/deep-research.mmd</code> — new Mermaid sequenceDiagram. Must show:
+  trigger → query generation (InferenceProvider) → SearXNG multi-query (concurrency=3) →
+  fetch+parse → assess sufficiency (InferenceProvider) → [sufficient? yes: synthesize+ingest;
+  no: refine queries → loop, bounded by max_iter] → total_cost_usd logged. Annotate the
+  max_iter and concurrency bounds explicitly.</li>
+<li>AC-D3-CD-1: <code>docs/sequences/cascade-delete.mmd</code> — new Mermaid sequenceDiagram. Must show:
+  DELETE /pages/{id} → find incoming wikilinks (3-method) → soft-delete Postgres row →
+  remove Qdrant vector → clean dead wikilinks in wiki/ files → remove from index.md →
+  bump data_version → return warnings. Annotate shared-entity warning path.</li>
+<li>AC-D3-CI-1: Both new diagrams pass the CI mmdc render check (NB-6 CI step already wired
+  from M4; both files are covered by the existing <code>mmdc -i docs/sequences/*.mmd</code> loop).</li>
+<li>AC-D3-REV-1: Both diagrams reviewed and approved by architect and tech-writer before M5
+  sign-off. Consistent with actual implementation.</li>
+</ul>
+<h3 id="d5-update-screenshots-refreshed-for-m5-ui-surfaces">D5 (update) — Screenshots refreshed for M5 UI surfaces<a class="headerlink" href="#d5-update-screenshots-refreshed-for-m5-ui-surfaces" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-D5-M5-1: Playwright captures PNG screenshots committed to <code>docs/screens/</code>:</li>
+<li><code>docs/screens/review-queue.png</code> — F9 HITL review queue with at least 1 pending item.</li>
+<li><code>docs/screens/deep-search-trigger.png</code> — Deep Research section with topic input.</li>
+<li><code>docs/screens/upload-multiformat.png</code> — Ingest upload zone with multi-format indicator.</li>
+<li><code>docs/screens/cascade-delete-modal.png</code> — Delete confirmation modal with warning.</li>
+<li>AC-D5-M5-2: CF-HARD-1 recapture: <code>docs/screens/shell-collapsed-panel.png</code> recaptured
+  using <code>make screenshots</code> (root cause fixed in M4-HARD; this is the capture task only).</li>
+<li>AC-D5-M5-3: <code>make screenshots</code> target runs all Playwright capture tests in one command
+  and exits 0.</li>
+</ul>
+<hr />
+<h2 id="5-explicitly-out-of-scope-items-anti-scope-creep-gate">5. Explicitly Out-of-Scope Items (Anti-Scope-Creep Gate)<a class="headerlink" href="#5-explicitly-out-of-scope-items-anti-scope-creep-gate" title="Permanent link">&para;</a></h2>
+<p>The following items are deferred to M6 or later. Any engineer proposing this work must
+escalate to the orchestrator before a single line of code is written. The PM will block.</p>
+<table>
+<thead>
+<tr>
+<th>Deferred to</th>
+<th>Feature IDs</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M6 (v0.6)</td>
+<td>F2 — purpose.md injection as provider context</td>
+<td>M6 per CLAUDE.md §8</td>
+</tr>
+<tr>
+<td>M6 (v0.6)</td>
+<td>F11 — Chrome MV3 web clipper</td>
+<td>M6 per CLAUDE.md §8</td>
+</tr>
+<tr>
+<td>M6 (v0.6)</td>
+<td>F15-rest — PWA manifest, Tauri v2, full CI/CD</td>
+<td>M6 per CLAUDE.md §8</td>
+</tr>
+<tr>
+<td>M6 (v0.6)</td>
+<td>K2 lint op — lint-fix loop</td>
+<td>M6 per CLAUDE.md §8</td>
+</tr>
+<tr>
+<td>M6 (v0.6)</td>
+<td>Full MkDocs site</td>
+<td>Optional M6 deliverable</td>
+</tr>
+<tr>
+<td>M6 only (PM decision)</td>
+<td>F1-MCP-UI MCP tool invocation / CRUD / config-write</td>
+<td>Out of scope for MCP UI panel; read-only display only in M5</td>
+</tr>
+<tr>
+<td>M6 (v0.6)</td>
+<td>D6 final completion (USER.md + DEPLOY.md v1.0)</td>
+<td>Final docs are M6 gate</td>
+</tr>
+<tr>
+<td>Never</td>
+<td>Force-directed layout on UI main thread</td>
+<td>Violates I2</td>
+</tr>
+<tr>
+<td>Never</td>
+<td>Per-token Markdown/LaTeX parse in chat</td>
+<td>Violates I3</td>
+</tr>
+<tr>
+<td>Never</td>
+<td>Tavily or any web-search backend other than SearXNG</td>
+<td>Violates I9</td>
+</tr>
+<tr>
+<td>Never</td>
+<td>Hardcoded inference provider or model ID</td>
+<td>Violates I6</td>
+</tr>
+<tr>
+<td>Never</td>
+<td>Unbounded loops (no max_iter or token_budget)</td>
+<td>Violates I7</td>
+</tr>
+<tr>
+<td>Never</td>
+<td>Full vault rescan triggered by any operation</td>
+<td>Violates I1</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-invariants-in-force-i7-and-i9-are-first-class-this-sprint">6. Invariants in Force — I7 and I9 Are First-Class This Sprint<a class="headerlink" href="#6-invariants-in-force-i7-and-i9-are-first-class-this-sprint" title="Permanent link">&para;</a></h2>
+<p>All 9 invariants apply. I7 and I9 are the <strong>headline invariants</strong> for M5.</p>
+<h3 id="i7-loops-are-bounded-headline-for-m5">I7 — LOOPS ARE BOUNDED (headline for M5)<a class="headerlink" href="#i7-loops-are-bounded-headline-for-m5" title="Permanent link">&para;</a></h3>
+<p>F10 Deep Research is the most loop-intensive feature in the roadmap. Every component of
+I7 must be demonstrably satisfied in all M5 loops:</p>
+<ol>
+<li><code>deep_research.py</code>: <code>max_iter</code> + <code>token_budget</code> + <code>concurrency ≤ 3</code>. No exceptions.</li>
+<li><code>review.py</code>: pre_generated_query generation is bounded to 1 call per item with timeout.</li>
+<li>F9 Deep-Research action: delegates to <code>deep_research.py</code> — inherits its bounds.</li>
+<li>F17 CliAgentProvider.chat(): the delegated agent loop must have <code>max_iter</code> + <code>token_budget</code>.</li>
+<li>F12 extraction: no loop (stateless per-file extraction). Not in scope for I7.</li>
+<li>F13 cascade_delete: single pass (not a loop). data_version bump triggers the existing
+   debounced recompute — already bounded by GraphCache (from v0.3).</li>
+<li>Every new run (deep_research_runs, any future loop log) must log <code>total_cost_usd</code>.
+   Anomaly threshold per ADR-0009: flag if &gt; $1.00 per run.</li>
+</ol>
+<p>Violation of I7 in any M5 feature is a P0 blocker. QA must include a specific I7 test
+for F10: mock InferenceProvider always returns "insufficient" → assert loop terminates at
+max_iter, status = "max_iter_reached", no further calls made.</p>
+<h3 id="i9-do-not-reinvent-headline-for-m5">I9 — DO NOT REINVENT (headline for M5)<a class="headerlink" href="#i9-do-not-reinvent-headline-for-m5" title="Permanent link">&para;</a></h3>
+<p>SearXNG is already running on the developer's TrueNAS stack. F10 must reuse it.</p>
+<ol>
+<li>F10: SearXNG base URL from <code>SEARXNG_URL</code> env var. Never Tavily, DuckDuckGo, or Google.</li>
+<li>F5: Qdrant + bge-m3 already running. No new embedding service. No new vector DB.</li>
+<li>F12: pypdf / python-docx / python-pptx / openpyxl / unstructured are extractors, not
+   inference providers. They must not make LLM calls directly — all inference goes through
+   InferenceProvider (I6 also applies).</li>
+<li>F13: Uses existing Postgres <code>links</code> and <code>pages</code> tables. No new data structure.</li>
+</ol>
+<h3 id="i1-incremental-index-only">I1 — INCREMENTAL INDEX ONLY<a class="headerlink" href="#i1-incremental-index-only" title="Permanent link">&para;</a></h3>
+<p>F13 (cascade delete) is the highest I1 risk this sprint: it modifies vault/wiki/ files.
+The implementation MUST:
+- Only touch files that reference the deleted page (not all files).
+- Not trigger a full watcher rescan.
+- Use targeted file updates (read → modify → write specific files only).</p>
+<h3 id="i6-pluggable-inference">I6 — PLUGGABLE INFERENCE<a class="headerlink" href="#i6-pluggable-inference" title="Permanent link">&para;</a></h3>
+<p>F10 Deep Research uses InferenceProvider for (a) query generation, (b) sufficiency
+assessment, (c) synthesis. All three calls go through the active provider's methods.
+No direct Ollama/Anthropic/claude-agent-sdk calls in <code>deep_research.py</code> — these must
+route through the existing <code>InferenceProvider</code> abstraction. Static guard T-CQ-009 remains.</p>
+<h3 id="i5-obsidian-compatibility">I5 — OBSIDIAN COMPATIBILITY<a class="headerlink" href="#i5-obsidian-compatibility" title="Permanent link">&para;</a></h3>
+<p>F12 and F13 both touch vault/wiki/ or vault/raw/. Verify:
+- F12: binary files go to vault/raw/sources/; extracted .md files also in vault/raw/;
+  wiki/ is only written by the ingest pipeline. No broken frontmatter introduced.
+- F13: dead wikilinks cleaned in wiki/ files must not break YAML frontmatter.
+- test_obsidian_check.py (15 tests) must remain green after M5.</p>
+<h3 id="i2-graph-layout-is-server-side-and-cached">I2 — GRAPH LAYOUT IS SERVER-SIDE AND CACHED<a class="headerlink" href="#i2-graph-layout-is-server-side-and-cached" title="Permanent link">&para;</a></h3>
+<p>F5 graph-expansion uses the Postgres <code>edges</code> table only — it does not trigger FA2.
+F13 data_version bump triggers the debounced recompute — already server-side (no change).
+No new client-side graph layout code may be introduced in any M5 PR.</p>
+<h3 id="i3-no-per-token-heavy-work-in-chat">I3 — NO PER-TOKEN HEAVY WORK IN CHAT<a class="headerlink" href="#i3-no-per-token-heavy-work-in-chat" title="Permanent link">&para;</a></h3>
+<p>F5 retrieval results are assembled server-side and passed to the provider as a pre-built
+context string. No retrieval happens per-token during chat streaming. The Zustand store
+pattern from M4 is unchanged.</p>
+<hr />
+<h2 id="7-dependency-graph-and-phased-delivery-plan">7. Dependency Graph and Phased Delivery Plan<a class="headerlink" href="#7-dependency-graph-and-phased-delivery-plan" title="Permanent link">&para;</a></h2>
+<p>M5 is the largest sprint by feature count in the roadmap. Emanuele works solo, evenings
+only. The phased delivery plan ensures each phase passes through the full gate chain
+(QA + Architect + Tech-Writer + PM) independently so the sprint does not become a
+monolithic delivery.</p>
+<h3 id="dependency-analysis">Dependency analysis<a class="headerlink" href="#dependency-analysis" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>F5 (retrieval) ──────────────────────────────► F6 AC-F6-3 (citations populated)
+    │                                            F6 AC-F6-5 (save-to-wiki enabled)
+    └──────────────────────────────────────────► F17 CliAgentProvider.chat()
+
+F10 (deep research) ─────────────────────────► F9 AC-F9-3 (Deep-Research action)
+    └─ requires SearXNG env var (already set) ► D3 deep-research.mmd
+
+F12 (multi-format) ─── independent ─────────► D5-upload screenshot
+F13 (cascade delete) ── independent ─────────► D3 cascade-delete.mmd
+                                               D5-cascade screenshot
+F9 ─── depends on F10 for Deep-Research action; independent of F5/F12/F13
+</code></pre></div>
+<p>Key dependencies:
+1. F5 must ship before F6 AC-F6-3/AC-F6-5 and F17 CliAgentProvider.chat() can be completed.
+2. F10 must ship (at least stub-level) before F9 can wire the Deep-Research action.
+3. F12 and F13 are fully independent of each other and of F5/F9/F10.
+4. D3 diagrams depend on F10 (deep-research.mmd) and F13 (cascade-delete.mmd) being
+   implemented; diagrams are written in parallel with late-phase implementation.</p>
+<h3 id="phase-1-retrieval-foundation-carry-forward-resolution">Phase 1 — Retrieval foundation + carry-forward resolution<a class="headerlink" href="#phase-1-retrieval-foundation-carry-forward-resolution" title="Permanent link">&para;</a></h3>
+<p>(F5, F6 AC-F6-3, F6 AC-F6-5, F17 CliAgentProvider.chat())</p>
+<p>Duration: 3–4 evenings</p>
+<p>Rationale: F5 is the dependency root. Shipping it first unblocks the 3 M4 carry-forwards
+which are otherwise empty stubs visible to the user (citations blank, save-to-wiki
+disabled, CliAgentProvider chat fails). This phase delivers immediate user-visible
+improvement to the chat feature.</p>
+<p>Work:
+- Implement <code>backend/app/rag/retrieval.py</code>: 4-phase pipeline; <code>[n]</code> citation markers;
+  <code>RetrievalContext</code> Pydantic model; <code>GET /search</code> endpoint.
+- Wire retrieval context into chat endpoint: pass <code>RetrievalContext</code> to
+  <code>provider.chat(messages, retrieval_context)</code> for all 3 backends.
+- Implement <code>CliAgentProvider.chat()</code>: delegate to claude-agent-sdk with context injected;
+  bounded loop; streaming interface consistent with other providers.
+- Enable F6 AC-F6-3: citation markers appear in assistant messages; stored with message.
+- Enable F6 AC-F6-5: wire save-to-wiki button to POST /ingest; show inline result.
+- Quick-win nits: CF-HARD-1, NB-7, NB-8, NB-9, AC-HARD-SET-5, GAP-HARD-1/GAP-HARD-5.
+- D4 update: <code>GET /search</code> endpoint in openapi.json.</p>
+<p>Exit condition for Phase 1: F5 retrieval returns cited results in chat; CliAgentProvider
+chat works end-to-end; save-to-wiki button enabled; all nits disposed; AC-F5-1..8,
+AC-F6-3, AC-F6-5, AC-F17-CHAT-1..3, AC-BE-SEARCH-1 green; test suite green.</p>
+<h3 id="phase-2-deep-research-f10-d3-deep-research-diagram">Phase 2 — Deep Research (F10) + D3 deep-research diagram<a class="headerlink" href="#phase-2-deep-research-f10-d3-deep-research-diagram" title="Permanent link">&para;</a></h3>
+<p>Duration: 3–4 evenings</p>
+<p>Rationale: F10 is the most complex and loop-intensive feature; it needs its own phase with
+a full gate pass before F9's Deep-Research action can be wired. Building it in isolation
+makes the I7 compliance review easier and prevents F9 complexity from contaminating the
+F10 implementation.</p>
+<p>Work:
+- Implement <code>backend/app/ops/deep_research.py</code> with the full bounded loop:
+  query generation → SearXNG → fetch → assess → refine (bounded) → synthesize → auto-ingest.
+- New Postgres tables: <code>deep_research_runs</code>, <code>deep_research_sources</code> (Alembic migration).
+- REST endpoints: POST /research/start, GET /research/runs, GET /research/runs/{id}.
+- "Deep Search" nav section activated in the UI (previously placeholder): topic input,
+  start button, runs list with status + cost.
+- D3 update: <code>docs/sequences/deep-research.mmd</code> — diagram written in parallel with
+  implementation; reviewed by architect + tech-writer before phase exit.
+- D4 update: research endpoints in openapi.json.
+- D2 update: <code>make er</code> regenerated with new tables.</p>
+<p>Exit condition for Phase 2: F10 deep research loop runs end-to-end against live SearXNG
+(or mock); I7 max_iter stop verified by test; AC-F10-1..8, AC-D3-DR-1, AC-D3-CI-1 green;
+test suite green; D2/D4 zero drift confirmed; architect + tech-writer reviewed.</p>
+<h3 id="phase-3-hitl-review-queue-f9-multi-format-ingest-f12">Phase 3 — HITL Review Queue (F9) + multi-format ingest (F12)<a class="headerlink" href="#phase-3-hitl-review-queue-f9-multi-format-ingest-f12" title="Permanent link">&para;</a></h3>
+<p>Duration: 3–4 evenings</p>
+<p>Rationale: F9 depends on F10 (Deep-Research action delegates to Phase 2's endpoint).
+F12 is independent and can be done in the same phase to keep the phase size manageable
+— both are primarily backend work with modest frontend additions. No inter-dependency
+between F9 and F12 within the phase.</p>
+<p>Work:
+- Implement <code>backend/app/ops/review.py</code>: async queue with <code>review_items</code> table (Alembic
+  migration); enqueue on ingest; pre-generated query generation (bounded 1 call/item).
+- REST endpoints: GET /review/queue, POST /review/queue/{id}/approve, /skip, /deep-research.
+- Review nav section activated in the UI: pending queue list, Approve / Skip /
+  Deep-Research action buttons; TanStack Virtual if &gt;50 items (I4).
+- Wire Deep-Research action → POST /research/start (Phase 2 endpoint).
+- Implement <code>backend/app/ingest/extract.py</code> (F12): dispatch function + per-format
+  extractors; new dependencies in pyproject.toml.
+- Extend POST /ingest/upload file-type gate to accept PDF/DOCX/PPTX/XLSX/images.
+- D4 update: review endpoints + upload extension in openapi.json.
+- D2 update: <code>make er</code> regenerated with review_items table.
+- D5 snapshots: review-queue.png, upload-multiformat.png.</p>
+<p>Exit condition for Phase 3: F9 review queue shows pending items and all 3 actions work;
+F12 can ingest a fixture PDF via upload; AC-F9-1..8, AC-F12-1..7, D5-M5-1 (partial) green;
+test suite green; D2/D4 zero drift; gate chain passed.</p>
+<h3 id="phase-4-cascade-deletion-f13-final-docs-gate">Phase 4 — Cascade deletion (F13) + final docs gate<a class="headerlink" href="#phase-4-cascade-deletion-f13-final-docs-gate" title="Permanent link">&para;</a></h3>
+<p>Duration: 2–3 evenings</p>
+<p>Rationale: F13 is the most invasive operation (it modifies vault/wiki/ files directly).
+Placing it last means the vault is in a stable state — populated by F12 and reviewed by F9
+— before deletion logic is validated. It also keeps Phase 3's gate chain clean.</p>
+<p>Work:
+- Implement <code>backend/app/ops/cascade_delete.py</code>: 3-method matching; soft-delete Postgres;
+  Qdrant removal; wiki/ file wikilink cleanup; index.md entry removal; data_version bump.
+- REST endpoint: DELETE /pages/{id} with warning response.
+- Frontend: "Delete page" action in page view with confirmation modal.
+- D3 update: <code>docs/sequences/cascade-delete.mmd</code> — written in parallel with implementation.
+- D5 snapshots: cascade-delete-modal.png, CF-HARD-1 recapture.
+- D4 update: DELETE /pages/{id} in openapi.json.
+- Final D2 regeneration: <code>make er</code> after all schema changes across M5.
+- Full docs gate pass: tech-writer verifies D1/D2/D3/D4/D5 consistency.</p>
+<p>Exit condition for Phase 4: F13 cascade delete cleans a page end-to-end; vault/wiki/ stays
+valid Obsidian vault after deletion; AC-F13-1..7, AC-D3-CD-1, AC-D5-M5-1..3, AC-D3-CI-1
+all green; full test suite green including test_obsidian_check.py 15/15; all docs gates met.</p>
+<h3 id="phase-5-mcp-configuration-ui-f1-mcp-ui-amendment-a1">Phase 5 — MCP Configuration UI (F1-MCP-UI) [Amendment A1]<a class="headerlink" href="#phase-5-mcp-configuration-ui-f1-mcp-ui-amendment-a1" title="Permanent link">&para;</a></h3>
+<p>Duration: 1–2 evenings (lean; read-only; no new DB schema)</p>
+<p>Rationale: F1-MCP-UI is placed as a standalone Phase 5 for three reasons: (1) it has no
+dependency on any Phase 1–4 feature — the MCP server has been live since M2; (2) its gate
+chain (analyst→architect→engineer→QA→docs→PM) must not contaminate the Phase 4 gate for
+F13, which is the highest vault-integrity risk of the sprint; (3) if the sprint overruns
+on Phase 1–4 work, Phase 5 can be deferred to M6 with a clean PM decision record rather
+than silently sliding into Phase 4 scope. Slotting it within Phase 3 or 4 would risk
+polluting those gate chains.</p>
+<p>If time pressure in Phase 4 is severe, Phase 5 may be explicitly deferred to M6 by PM
+decision at Phase 4 sign-off. The deferred state is NOT a default — Phase 5 is in scope.</p>
+<p>Work:
+- Add <code>GET /mcp/info</code> endpoint to main.py (or a new <code>backend/app/mcp/info.py</code> router):
+  returns server_name, transport, entry_point_command, tools from live FastMCP registry.
+- Replace <code>SectionApiMcp</code> stub with a real component: fetch on mount, connection panel
+  with copy-to-clipboard, tools list.
+- Add/update i18n keys under <code>settings.apiMcp.*</code> in en.json + it.json.
+- D4 update: <code>make openapi</code> regenerated.
+- D5 snapshot: <code>docs/screens/settings-api-mcp.png</code>.</p>
+<p>Exit condition for Phase 5: Settings &gt; API + MCP panel shows real connection command and
+real tool list (sourced from GET /mcp/info); copy-to-clipboard works; AC-F1-MCP-UI-1..10
+all green; D4 zero drift; D5 screenshot committed; gate chain passed.</p>
+<hr />
+<h2 id="8-m5-exit-criteria">8. M5 Exit Criteria<a class="headerlink" href="#8-m5-exit-criteria" title="Permanent link">&para;</a></h2>
+<p>The following is the definitive checklist for M5 sign-off. All items must be MET. Any
+NOT MET item holds the sign-off.</p>
+<table>
+<thead>
+<tr>
+<th>EC</th>
+<th>Feature IDs</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EC-M5-1</td>
+<td>F5</td>
+<td>4-phase retrieval pipeline in <code>rag/retrieval.py</code>; unit + integration tests green; <code>GET /search</code> in openapi.json.</td>
+</tr>
+<tr>
+<td>EC-M5-2</td>
+<td>F5, F6</td>
+<td><code>[n]</code> citation markers appear in chat messages; stored with message in Postgres; render as clickable superscripts.</td>
+</tr>
+<tr>
+<td>EC-M5-3</td>
+<td>F6 AC-F6-5</td>
+<td>save-to-wiki button wired and functional; POST /ingest called on click; inline result shown.</td>
+</tr>
+<tr>
+<td>EC-M5-4</td>
+<td>F17</td>
+<td><code>CliAgentProvider.chat()</code> implemented; streaming consistent with other backends; bounded by max_iter + token_budget (I7); total_cost_usd logged.</td>
+</tr>
+<tr>
+<td>EC-M5-5</td>
+<td>F10, I7</td>
+<td>Deep Research loop implemented with max_iter + token_budget + concurrency≤3 all enforced. I7 test: mock "always insufficient" provider → loop stops at max_iter.</td>
+</tr>
+<tr>
+<td>EC-M5-6</td>
+<td>F10, I9</td>
+<td>SearXNG is the only web search backend used by F10. Static import test confirms no Tavily/DuckDuckGo/Google imports anywhere in the codebase.</td>
+</tr>
+<tr>
+<td>EC-M5-7</td>
+<td>F10</td>
+<td>POST /research/start, GET /research/runs, GET /research/runs/{id} endpoints live and in openapi.json.</td>
+</tr>
+<tr>
+<td>EC-M5-8</td>
+<td>F9</td>
+<td>Review queue populated on ingest; Approve / Skip / Deep-Research actions work; pre-generated queries stored.</td>
+</tr>
+<tr>
+<td>EC-M5-9</td>
+<td>F9, F10</td>
+<td>F9 Deep-Research action correctly delegates to F10 POST /research/start. run_id stored on review_item.</td>
+</tr>
+<tr>
+<td>EC-M5-10</td>
+<td>F12</td>
+<td>PDF, DOCX, PPTX, XLSX files successfully ingested via upload; text extracted by <code>ingest/extract.py</code>; binary in raw/; wiki entry produced by ingest pipeline.</td>
+</tr>
+<tr>
+<td>EC-M5-11</td>
+<td>F12, I5</td>
+<td>Extracted .md companion files written to vault/raw/sources/ only; vault/wiki/ written only by ingest pipeline; K1 3-layer rule intact.</td>
+</tr>
+<tr>
+<td>EC-M5-12</td>
+<td>F13</td>
+<td>Cascade delete removes Postgres row + Qdrant vector + index.md entry + dead wikilinks in wiki/; shared-entity warnings returned.</td>
+</tr>
+<tr>
+<td>EC-M5-13</td>
+<td>F13, I1</td>
+<td>Cascade delete only touches files referencing the deleted page (targeted edits); no full rescan triggered. data_version bump triggers existing debounced recompute only.</td>
+</tr>
+<tr>
+<td>EC-M5-14</td>
+<td>I5, K7</td>
+<td>vault/wiki/ remains a valid Obsidian vault after all M5 operations. test_obsidian_check.py 15/15 green.</td>
+</tr>
+<tr>
+<td>EC-M5-15</td>
+<td>D3, I8</td>
+<td><code>docs/sequences/deep-research.mmd</code> and <code>docs/sequences/cascade-delete.mmd</code> present, valid Mermaid, reviewed by architect + tech-writer, pass mmdc CI check.</td>
+</tr>
+<tr>
+<td>EC-M5-16</td>
+<td>D5, I8</td>
+<td>Playwright captures ≥4 new M5 PNGs committed to <code>docs/screens/</code>; CF-HARD-1 recaptured. <code>make screenshots</code> exits 0.</td>
+</tr>
+<tr>
+<td>EC-M5-17</td>
+<td>D2, D4, I8</td>
+<td>D2 regenerated via <code>make er</code> (includes deep_research_runs, deep_research_sources, review_items tables). D4 regenerated via <code>make openapi</code> (all new endpoints). Zero drift on both.</td>
+</tr>
+<tr>
+<td>EC-M5-18</td>
+<td>QA gate</td>
+<td>Full pytest + vitest + Playwright suite green (0 failures, 0 regressions). ruff + black + mypy + ESLint + Prettier clean.</td>
+</tr>
+<tr>
+<td>EC-M5-19</td>
+<td>Architect gate</td>
+<td>Architect reviews: <code>rag/retrieval.py</code> (I1/I2/I3), <code>deep_research.py</code> (I7/I9), <code>cascade_delete.py</code> (I1/I5), <code>review.py</code> (I6/I7), <code>CliAgentProvider.chat()</code> (I6/I7). Any new ADRs for architecture decisions approved.</td>
+</tr>
+<tr>
+<td>EC-M5-20</td>
+<td>Tech-writer gate</td>
+<td>D3 + D5 + D2/D4 verified consistent with implementation. D6 carry-forward (USER.md + DEPLOY.md) confirmed still current with M5 additions documented.</td>
+</tr>
+<tr>
+<td>EC-M5-21</td>
+<td>PM gate</td>
+<td>This document. All EC-M5-1..22 MET. M4 carry-forward nits disposed. Velocity note filed.</td>
+</tr>
+<tr>
+<td>EC-M5-22</td>
+<td>F1-MCP-UI (A1)</td>
+<td>Settings &gt; API + MCP panel renders real GET /mcp/info data (not a stub). Connection command shown. Tools list shows all 4 real tools. i18n EN + IT parity. D4 zero drift (GET /mcp/info in openapi.json). D5 screenshot committed. AC-F1-MCP-UI-1..10 green.</td>
+</tr>
+<tr>
+<td>EC-M5-HCP</td>
+<td>Human checkpoint</td>
+<td>Emanuele has confirmed in browser (see conditions below). Sprint 6 blocked until this is cleared.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-human-checkpoint-ec-m5-hcp">9. Human Checkpoint (EC-M5-HCP)<a class="headerlink" href="#9-human-checkpoint-ec-m5-hcp" title="Permanent link">&para;</a></h2>
+<p>Sprint 6 must NOT begin until Emanuele confirms the following conditions live in browser.
+Each condition maps to a feature delivered in M5.</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Feature</th>
+<th>What to verify</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EC-M5-HCP-1</td>
+<td>F5</td>
+<td>Chat response contains <code>[n]</code> citation markers and hovering a marker shows the source page title.</td>
+</tr>
+<tr>
+<td>EC-M5-HCP-2</td>
+<td>F5, F6 AC-F6-5</td>
+<td>save-to-wiki button on an assistant message is enabled; clicking it creates a wiki page visible in the Pages section.</td>
+</tr>
+<tr>
+<td>EC-M5-HCP-3</td>
+<td>F10</td>
+<td>Deep Search section accepts a topic, triggers a run, shows progress (status=running), and completes with a generated synthesis visible in the run detail.</td>
+</tr>
+<tr>
+<td>EC-M5-HCP-4</td>
+<td>F9</td>
+<td>Review section shows at least one pending item after an ingest; Approve and Skip actions update the item status; Deep-Research action triggers a run visible in Deep Search.</td>
+</tr>
+<tr>
+<td>EC-M5-HCP-5</td>
+<td>F12</td>
+<td>Upload a PDF via the Sources section; the file is accepted (not HTTP 415); an ingest run appears; the resulting wiki page contains text from the PDF.</td>
+</tr>
+<tr>
+<td>EC-M5-HCP-6</td>
+<td>F13</td>
+<td>Delete a wiki page via the page view delete action; the page disappears from the tree; the index.md no longer links to it; any wiki file that referenced it now has plain text instead of a wikilink.</td>
+</tr>
+</tbody>
+</table>
+<p>| EC-M5-HCP-7 | F1-MCP-UI (A1) | Settings &gt; API + MCP section shows the real MCP server connection command (<code>python -m app.mcp.server</code>) and lists the exposed tools (at least search_wiki, write_page, get_page, list_pages). Copy-to-clipboard produces a valid Claude Desktop JSON snippet. |</p>
+<p>All 7 conditions must be satisfied before M5 is fully closed and Sprint 6 (v0.6 / M6 —
+"Shippable") is unblocked. The conditions are recorded in the M5 closure document
+(docs/sprints/v0.5-m5-closure.md, to be created at sprint end).</p>
+<hr />
+<h2 id="10-out-of-scope-boundary-reminders">10. Out-of-Scope Boundary Reminders<a class="headerlink" href="#10-out-of-scope-boundary-reminders" title="Permanent link">&para;</a></h2>
+<p>Critical boundaries that engineers must not cross during M5:</p>
+<p><strong>F9 is NOT the Ingest Activity View.</strong> F1-INGEST-VIEW (done in M4) is read-only history
++ a trigger button in the Sources nav section. F9 is a separate Review nav section with
+queue management and AI-driven action routing. These are different features on different
+nav sections. Any engineer adding Approve/Skip/Deep-Research actions to the Sources section
+(F1-INGEST-VIEW) during M5 is out of scope and will be blocked.</p>
+<p><strong>F10 SearXNG only.</strong> If during F10 implementation an engineer discovers that SearXNG is
+not accessible in the test environment, the correct response is to fix the SearXNG
+connection (check SEARXNG_URL env var, check container networking). It is NOT to substitute
+Tavily or any other search backend — that violates I9 and requires architect escalation.</p>
+<p><strong>F12 extraction only, not new inference.</strong> The multi-format extractors (pypdf, python-docx,
+etc.) extract text. They do NOT call any LLM for OCR, transcription, or summarization.
+Extracted text is passed as-is to the existing <code>analyze()</code>/<code>generate()</code> pipeline.</p>
+<p><strong>F13 targeted edits only.</strong> Cascade delete must use targeted file modifications (not
+write all wiki files). A PR that rewrites vault/wiki/index.md or vault/wiki/*.md files
+en masse violates I1 and will be blocked.</p>
+<hr />
+<h2 id="11-velocity-note">11. Velocity Note<a class="headerlink" href="#11-velocity-note" title="Permanent link">&para;</a></h2>
+<p>M4 was the largest sprint delivered ON SCOPE with all 25+ original items delivered within
+the 2-week envelope (plus M4-HARD hardening). M5 is the largest sprint by feature count:
+5 major features + 2 doc deliverables + 3 carry-forward ACs. The phased delivery plan
+(4 phases, each with independent gate chain) is designed to keep this manageable for a
+solo evening developer. Each phase is scoped to 3–4 evenings.</p>
+<p>Risk assessment:
+- F10 (Deep Research) is the highest technical risk: most loop-complexity, I7 compliance
+  scrutiny, live SearXNG dependency. Placed in Phase 2 with its own gate before F9 depends
+  on it.
+- F13 (Cascade delete) is the highest vault-integrity risk: directly modifies wiki/ files.
+  Placed last (Phase 4) when the vault is populated and stable.
+- F5 (Retrieval) is the highest architectural risk: first full RAG pipeline. Placed first
+  (Phase 1) to unblock carry-forwards quickly and validate the architecture.
+- F12 (Multi-format) is low risk: extractors are well-established Python libraries. Can
+  move to Phase 3 without concern.</p>
+<p>If during execution any phase proves larger than estimated, the FIRST escalation action is
+to the orchestrator — not to silently defer ACs or reduce scope without PM approval.</p>
+<p>Sprint 6 boundary: F2 (purpose.md injection), F11 (Chrome clipper), F15-rest (PWA/Tauri),
+K2 (lint loop), MkDocs are ALL M6. No M6 item may be started during M5.</p>
+<hr />
+<blockquote>
+<p>PM sign-off: scope-locked 2026-06-29 | product-manager (claude-sonnet-4-6)
+Scope amended: 2026-06-29 — Amendment A1: F1-MCP-UI added (stakeholder request: Emanuele
+  Chiummo). Phase 5 added. EC-M5-22 added. EC-M5-HCP-7 added. §3 scope log updated.
+  §4 F1-MCP-UI ACs (AC-F1-MCP-UI-1..10) added. §5 out-of-scope boundary updated.
+  §7 Phase 5 added. §8 EC-M5-21 updated (now covers 1..22). §9 HCP condition count updated.
+  Amended by: product-manager (claude-sonnet-4-6).
+Prerequisite confirmed: M4 CLOSED — docs/sprints/v0.4-m4-closure.md; EC-M4-HCP CLEARED;
+  v0.4.0 released; all 4 gate sign-offs on record.
+Locked feature IDs: F5, F9, F10, F12, F13, F1-MCP-UI, D3-update, D5-update, F6-AC-F6-3,
+  F6-AC-F6-5, F17-CliAgentProvider.chat(), plus M4 carry-forward nits.
+Handoff: acceptance criteria (§4) → functional-analyst for user story elaboration.
+Handoff: exit criteria verdict (§8 + §9 EC-M5-HCP) → orchestrator at M5 sign-off.
+Next action: Phase 1 complete; Phase 2 (F10) in progress; Phase 5 (F1-MCP-UI) begins
+  after Phase 4 sign-off.</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

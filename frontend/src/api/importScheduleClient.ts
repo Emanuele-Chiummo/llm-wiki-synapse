@@ -14,7 +14,7 @@ import type {
   ImportSchedulePutResponse,
 } from "./types";
 import { ApiError } from "./graphClient";
-import { apiBase } from "./base";
+import { apiBase, apiFetch } from "./base";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 async function checkResponse(res: Response): Promise<void> {
@@ -35,7 +35,7 @@ async function checkResponse(res: Response): Promise<void> {
  * Returns sane defaults (enabled:false, frequency:"1h", …) if no row exists.
  */
 export async function getImportSchedule(signal?: AbortSignal): Promise<ImportSchedule> {
-  const res = await fetch(`${apiBase()}/import-schedule`, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(`${apiBase()}/import-schedule`, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as ImportSchedule;
 }
@@ -49,7 +49,7 @@ export async function putImportSchedule(
   body: ImportSchedulePutBody,
   signal?: AbortSignal,
 ): Promise<ImportSchedulePutResponse> {
-  const res = await fetch(`${apiBase()}/import-schedule`, {
+  const res = await apiFetch(`${apiBase()}/import-schedule`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -66,7 +66,7 @@ export async function putImportSchedule(
  * 400 → disabled or dir missing (throw ApiError with status 400).
  */
 export async function runImportNow(signal?: AbortSignal): Promise<void> {
-  const res = await fetch(`${apiBase()}/import-schedule/run-now`, {
+  const res = await apiFetch(`${apiBase()}/import-schedule/run-now`, {
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
   });

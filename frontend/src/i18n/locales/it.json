@@ -138,7 +138,8 @@
       "maintenance": "Manutenzione",
       "about": "Informazioni",
       "scenarios": "Scenari",
-      "costs": "Costi"
+      "costs": "Costi",
+      "security": "Sicurezza"
     },
     "llmModels": {
       "title": "Modelli LLM",
@@ -404,6 +405,21 @@
       "runNowError": "Impossibile avviare l'importazione: {{detail}}",
       "never": "Mai eseguita",
       "saveError": "Salvataggio fallito: {{detail}}"
+    },
+    "security": {
+      "title": "Sicurezza",
+      "desc": "Gestisci il token bearer usato per autenticare questo client con il backend Synapse.",
+      "serverUrl": "URL del server",
+      "tokenPresent": "Token configurato — le richieste includono l'intestazione Authorization.",
+      "tokenAbsent": "Nessun token salvato. Lascia vuoto se l'autenticazione è disabilitata sul server.",
+      "rotateLabel": "Aggiorna token",
+      "rotatePlaceholder": "Incolla il nuovo token…",
+      "update": "Aggiorna",
+      "clear": "Rimuovi",
+      "saved": "Salvato.",
+      "cleared": "Rimosso.",
+      "asymmetryTitle": "La rotazione server-side richiede un riavvio",
+      "asymmetryNote": "Per ruotare il token del server: imposta SYNAPSE_AUTH_TOKEN a un nuovo valore in docker-compose.yml e riavvia il container. Poi incolla il nuovo token qui. Questa interfaccia aggiorna solo la copia client — nessuna chiamata al server viene effettuata."
     },
     "costs": {
       "navLabel": "Costi",
@@ -819,6 +835,12 @@
     "subtitle": "Inserisci l'indirizzo del tuo backend Synapse per iniziare.",
     "urlLabel": "URL del backend",
     "placeholder": "http://truenas:8000",
+    "tokenLabel": "Token di accesso (opzionale)",
+    "tokenPlaceholder": "Lascia vuoto se l'autenticazione è disabilitata",
+    "tokenGateSubtitle": "È richiesta l'autenticazione. Inserisci il token di accesso per continuare.",
+    "tokenSubmit": "Autentica",
+    "showToken": "Mostra token",
+    "hideToken": "Nascondi token",
     "connect": "Connetti",
     "connecting": "Connessione in corso…",
     "changeServer": "Cambia server",
@@ -826,7 +848,8 @@
       "invalidUrl": "Inserisci un URL valido.",
       "scheme": "Sono accettati solo URL http:// e https://.",
       "unreachable": "Impossibile raggiungere il server. Controlla l'indirizzo e riprova.",
-      "status": "Il server ha restituito un errore ({{status}}). Controlla l'indirizzo e riprova."
+      "status": "Il server ha restituito un errore ({{status}}). Controlla l'indirizzo e riprova.",
+      "authRequired": "Token di accesso non valido o mancante. Inserisci il SYNAPSE_AUTH_TOKEN configurato sul server."
     },
     "detected": "Rilevato un server Synapse su questa macchina"
   },

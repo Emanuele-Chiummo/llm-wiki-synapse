@@ -1,0 +1,814 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0027-mcp-info-ui/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0027 — Read-only MCP server introspection endpoint + Settings panel (F1-MCP-UI) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0027-read-only-mcp-server-introspection-endpoint-settings-panel-f1-mcp-ui" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0027 — Read-only MCP server introspection endpoint + Settings panel (F1-MCP-UI)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-backend-get-mcpinfo-read-only-introspection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Backend — GET /mcp/info (read-only introspection)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-how-the-fastmcp-registry-is-introspected-the-await-in-handler-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 How the FastMCP registry is introspected (the await-in-handler note)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-transport-entry-point-command-come-from-settings-i6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Transport + entry-point command come from settings (I6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-frontend-replace-the-sectionapimcp-stub" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Frontend — replace the SectionApiMcp stub
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-docs-i8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Docs (I8)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-do-not-f1-mcp-ui-guardrails-reject-any-pr-that-does-these" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Do NOT (F1-MCP-UI guardrails — reject any PR that does these)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0027-read-only-mcp-server-introspection-endpoint-settings-panel-f1-mcp-ui">ADR-0027 — Read-only MCP server introspection endpoint + Settings panel (F1-MCP-UI)<a class="headerlink" href="#adr-0027-read-only-mcp-server-introspection-endpoint-settings-panel-f1-mcp-ui" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-06-29</li>
+<li><strong>Sprint:</strong> v0.5 (M5 Phase 5)</li>
+<li><strong>Feature:</strong> F1-MCP-UI (Amendment A1 — stakeholder request, Emanuele Chiummo); extends F1 (Settings shell) + surfaces F17/MCP infra</li>
+<li><strong>Builds on:</strong> ADR-0010 (MCP server: stdio transport; the server itself, its 4 tools, and the <code>python -m app.mcp.server</code> entry point were fully delivered in v0.2/M2). This ADR does NOT change the MCP server — it only reflects it.</li>
+<li><strong>Invariants owned:</strong> <strong>I9</strong> (HEADLINE — display only; reuse the EXISTING FastMCP server, add NO new MCP capability, NO tool invocation, NO config-write) · <strong>I6</strong> (server name + tool list + schemas DERIVED from the live <code>mcp</code> object; nothing about the MCP server hardcoded) · I3 (panel uses fetch-on-mount + typed state, mirrors <code>SectionEmbeddings</code>; no store churn)</li>
+<li><strong>Author:</strong> solution-architect</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>The Settings &gt; <strong>API + MCP</strong> section (<code>SectionApiMcp</code> in <code>frontend/src/components/settings/SettingsPanel.tsx</code>)
+currently renders a <code>ComingSoonBadge</code> (i18n key <code>settings.apiMcp.comingSoon</code>) — a promise made
+during M4-HARD. PM Amendment A1 (2026-06-29) closes that gap by making the promise real, as a
+<strong>lean, read-only display feature</strong>. The MCP server has been live since v0.2:</p>
+<ul>
+<li>Server instance: <code>app.mcp.server.mcp</code> — a <code>FastMCP(name="synapse", ...)</code> (fastmcp 3.4.2).</li>
+<li>Transport: <strong>stdio</strong> (ADR-0010 §1).</li>
+<li>Entry point: <strong><code>python -m app.mcp.server</code></strong> (the <code>if __name__ == "__main__": mcp.run(transport="stdio")</code> block).</li>
+<li>Tools (verified by introspecting the live registry, see §2.2): <strong><code>search_wiki</code>, <code>write_page</code>,
+  <code>get_page</code>, <code>list_pages</code></strong> — exactly the four the amendment assumed; <strong>no name correction needed</strong>.</li>
+</ul>
+<p>The headline invariant is <strong>I9</strong>: do not reinvent MCP. F1-MCP-UI must NOT add a second MCP
+server, MUST NOT call any MCP tool, MUST NOT duplicate the tool logic in <code>server.py</code>, and MUST
+NOT add CRUD/config-write. It is a window onto the existing server, nothing more.</p>
+<p>The only new backend work is one read-only introspection endpoint, mirroring the existing
+<code>GET /config/embedding</code> (which already exposes read-only, env-derived config to a Settings panel).</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-backend-get-mcpinfo-read-only-introspection">2.1 Backend — <code>GET /mcp/info</code> (read-only introspection)<a class="headerlink" href="#21-backend-get-mcpinfo-read-only-introspection" title="Permanent link">&para;</a></h3>
+<p>Add one endpoint to <code>backend/app/main.py</code> (alongside <code>GET /config/embedding</code>, same shape of thing).
+Response model:</p>
+<div class="highlight"><pre><span></span><code>McpToolInfo:
+  name:         str           # tool.name
+  description:  str            # tool.description (full; the UI truncates)
+  input_schema: dict           # tool.parameters — the JSON-Schema object for the tool args
+
+McpInfoResponse:
+  server_name:          str            # mcp.name → &quot;synapse&quot;        (I6: from the live object)
+  transport:            str            # settings.mcp_transport, default &quot;stdio&quot;  (I6: from settings)
+  entry_point_command:  str            # &quot;python -m app.mcp.server&quot;  (from settings, see §2.3)
+  tool_count:           int            # len(tools)
+  tools:                list[McpToolInfo]
+</code></pre></div>
+<p><strong>Every value is derived from the live <code>mcp</code> object + <code>settings</code></strong> (I6). No tool name, description,
+schema, or server name is a literal in the handler.</p>
+<h3 id="22-how-the-fastmcp-registry-is-introspected-the-await-in-handler-note">2.2 How the FastMCP registry is introspected (the await-in-handler note)<a class="headerlink" href="#22-how-the-fastmcp-registry-is-introspected-the-await-in-handler-note" title="Permanent link">&para;</a></h3>
+<p>fastmcp 3.4.2 exposes the registry via an <strong>async</strong> coroutine:</p>
+<div class="highlight"><pre><span></span><code>tools = await mcp.list_tools()          # -&gt; list[FunctionTool]
+# each FunctionTool:
+#   .name          -&gt; str
+#   .description    -&gt; str | None
+#   .parameters     -&gt; dict   (the JSON-Schema input schema, e.g.
+#                              {&quot;type&quot;:&quot;object&quot;,&quot;properties&quot;:{...},&quot;required&quot;:[...],
+#                               &quot;additionalProperties&quot;: false})
+</code></pre></div>
+<blockquote>
+<p><strong>Verified facts (fastmcp 3.4.2, live <code>synapse</code> server):</strong> <code>mcp.name == "synapse"</code>;
+<code>await mcp.list_tools()</code> returns 4 <code>FunctionTool</code> objects; <code>.parameters</code> carries the input
+schema (NOT <code>.inputSchema</code>, which is <code>None</code> on <code>FunctionTool</code>); <code>get_tools()</code> does <strong>not</strong>
+exist in this version — use <code>list_tools()</code>.</p>
+</blockquote>
+<p><strong>The async concern, handled cleanly:</strong> <code>list_tools()</code> is a coroutine, but the FastAPI route
+handler <code>async def get_mcp_info(...)</code> is itself async — so the handler simply <code>await</code>s it
+directly. <strong>No <code>asyncio.run()</code>, no thread-pool bridge, no await-in-sync.</strong> This is pure
+import-time introspection of the already-constructed <code>mcp</code> object: <strong>no DB query, no Qdrant call,
+no live MCP transport/stdio session</strong> is opened. The endpoint reflects the code-level registry
+as it exists at process start.</p>
+<p>(If a future fastmcp drops the async <code>list_tools</code>, the fallback is the synchronous per-tool
+accessor <code>mcp.get_tool(name)</code>; but for v0.5 the single <code>await mcp.list_tools()</code> call is the
+contract.)</p>
+<h3 id="23-transport-entry-point-command-come-from-settings-i6">2.3 Transport + entry-point command come from settings (I6)<a class="headerlink" href="#23-transport-entry-point-command-come-from-settings-i6" title="Permanent link">&para;</a></h3>
+<p>Add two read-only settings to <code>app/config.py</code> (env-overridable, sensible defaults — mirrors how
+<code>embedding_url</code> etc. are read):</p>
+<ul>
+<li><code>mcp_transport: str = "stdio"</code> (env <code>MCP_TRANSPORT</code>) — must stay consistent with ADR-0010.</li>
+<li><code>mcp_entry_command: str = "python -m app.mcp.server"</code> (env <code>MCP_ENTRY_COMMAND</code>) — the documented
+  run entry point (verified: <code>server.py</code> docstring + <code>__main__</code> block).</li>
+</ul>
+<p>The handler returns <code>settings.mcp_transport</code> / <code>settings.mcp_entry_command</code>. No string about the
+MCP server is hardcoded inside the route function (I6).</p>
+<h3 id="24-frontend-replace-the-sectionapimcp-stub">2.4 Frontend — replace the <code>SectionApiMcp</code> stub<a class="headerlink" href="#24-frontend-replace-the-sectionapimcp-stub" title="Permanent link">&para;</a></h3>
+<p>Replace the <code>ComingSoonBadge</code> body of <code>SectionApiMcp</code> with a real read-only panel that <strong>mirrors
+<code>SectionEmbeddings</code></strong> (the existing read-only config panel): <code>useState</code> for the fetched payload +
+a degraded-state boolean, <code>fetchMcpInfo(signal)</code> on mount via an <code>AbortController</code>, three render
+states (error → degraded message; <code>null</code> → loading; loaded → content). No new Zustand store, no
+store churn (I3). Add a typed <code>fetchMcpInfo()</code> to the existing API client alongside
+<code>fetchEmbeddingConfig</code>. The panel has two sub-sections:</p>
+<p><strong>Connection</strong> (mirrors the <code>EmbedRow</code> mono-value rows):
+- Transport (<code>info.transport</code>) and Entry-point command (<code>info.entry_point_command</code>) as labelled
+  mono rows.
+- A <strong>copy-to-clipboard</strong> button for the Claude Desktop config snippet. The snippet is
+  <strong>generated from the API payload</strong>, not a JSX literal (I6):
+  <div class="highlight"><pre><span></span><code>{ &quot;mcpServers&quot;: { [info.server_name]: { &quot;command&quot;: &lt;argv0 of entry_point_command&gt;,
+                                        &quot;args&quot;: &lt;rest of entry_point_command split&gt; } } }
+</code></pre></div>
+  i.e. <code>info.entry_point_command</code> is tokenised so the JSON is built from the real server metadata
+  (server_name keyed dynamically; command/args derived). The displayed JSON is the single source
+  copied to the clipboard.</p>
+<p><strong>Tools</strong> (sourced exclusively from <code>info.tools</code>):
+- One row per tool: <code>tool.name</code> (mono), the <strong>first sentence of <code>tool.description</code> truncated to
+  80 chars</strong>, and the <strong>param count</strong> = number of keys in <code>tool.input_schema.properties</code> (0 if
+  absent). No tool name or description is hardcoded in the frontend (I6/I9).</p>
+<p><strong>i18n:</strong> all strings under <code>settings.apiMcp.*</code> in <code>en.json</code> + <code>it.json</code> (key-set parity, the
+existing gate). Replace/retire <code>settings.apiMcp.comingSoon</code>; add keys for the Connection/Tools
+labels, copy button, copied confirmation, and the degraded-state message. Values that come from
+the API (server name, transport, tool names/descriptions, the JSON snippet) are NEVER i18n keys —
+only the surrounding labels are translated.</p>
+<h3 id="25-docs-i8">2.5 Docs (I8)<a class="headerlink" href="#25-docs-i8" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>D4:</strong> <code>GET /mcp/info</code> appears in <code>openapi.json</code> after <code>make openapi</code> — zero-drift gate.</li>
+<li><strong>D5:</strong> <code>docs/screens/settings-api-mcp.png</code> captured by Playwright in <code>make screenshots</code>.</li>
+<li><strong>D2:</strong> unchanged — <strong>no schema change</strong> (no DB table, no migration).</li>
+</ul>
+<hr />
+<h2 id="3-consequences">3. Consequences<a class="headerlink" href="#3-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong>
+- The promised panel becomes real with the smallest possible surface: one read-only endpoint +
+  one panel + i18n. No DB, no migration, no new MCP capability.
+- I6 holds end-to-end: if a tool is added/renamed/removed in <code>server.py</code>, the UI updates
+  automatically — there is no second list to keep in sync.
+- I9 holds by construction: the UI cannot invoke a tool or mutate config — it has no code path to.
+- Mirrors two proven patterns (<code>GET /config/embedding</code> backend, <code>SectionEmbeddings</code> frontend),
+  minimising review surface and regression risk.</p>
+<p><strong>Trade-offs / limitations (stated explicitly)</strong>
+- <code>GET /mcp/info</code> reflects the <strong>import-time</strong> registry, not a live stdio handshake. This is
+  intentional (no transport session is opened) and correct for a static, code-defined tool set.
+  If tools ever become dynamically registered at runtime, this endpoint would need to re-introspect
+  per request — acceptable, since <code>list_tools()</code> is already called per request (cheap, in-process).
+- The copy-to-clipboard snippet assumes a simple <code>command + args</code> launch (the documented stdio
+  entry point). Bespoke launch wrappers (e.g. docker exec) are out of scope for M5; the snippet is
+  a correct default derived from <code>mcp_entry_command</code>, editable by the user after pasting.
+- Coupling to fastmcp 3.4.2's <code>list_tools()</code>/<code>.parameters</code> API. Mitigated by the §2.2 fallback note
+  and pinned <code>fastmcp&gt;=2.0.0</code> in <code>pyproject.toml</code>; a major fastmcp bump must re-verify this call.</p>
+<p><strong>Verification (AC mapping)</strong>
+- AC-F1-MCP-UI-1/2/8 → §2.1–2.3 (endpoint, no-hardcode, openapi). 
+- AC-F1-MCP-UI-3/4/5/6 → §2.4 (stub replaced, connection, tools, i18n parity).
+- AC-F1-MCP-UI-7 → §3 (I9: no second server, no tool call, no logic duplication).
+- AC-F1-MCP-UI-9/10 → §2.5 + tests (pytest: 200, <code>tool_count &gt;= 4</code>, <code>server_name == "synapse"</code>,
+  <code>entry_point_command</code> non-empty; vitest: 4 tool names rendered, copy button present).</p>
+<hr />
+<h2 id="4-do-not-f1-mcp-ui-guardrails-reject-any-pr-that-does-these">4. Do NOT (F1-MCP-UI guardrails — reject any PR that does these)<a class="headerlink" href="#4-do-not-f1-mcp-ui-guardrails-reject-any-pr-that-does-these" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Do NOT hardcode the tool list</strong> (or any tool name/description/schema) anywhere in backend or
+   frontend — always from <code>await mcp.list_tools()</code> → <code>GET /mcp/info</code> (I6/I9).</li>
+<li><strong>Do NOT hardcode the server name, transport, or entry command</strong> in the route handler or JSX —
+   from <code>mcp.name</code> / <code>settings.mcp_transport</code> / <code>settings.mcp_entry_command</code> (I6).</li>
+<li><strong>Do NOT invoke an MCP tool from the UI</strong> (no call into search_wiki/write_page/get_page/
+   list_pages, no MCP stdio session opened by the endpoint) — display only (I9).</li>
+<li><strong>Do NOT add config-write / CRUD / mutation</strong> to this panel — read-only; any write capability is
+   out of scope and an escalation (PM §5 defers tool invocation/CRUD/config-write to M6).</li>
+<li><strong>Do NOT add a new MCP capability, a second MCP server, or duplicate <code>server.py</code> tool logic</strong> —
+   reuse the existing FastMCP server (I9).</li>
+<li><strong>Do NOT add a DB table or migration</strong> — this feature is migration-free (D2 unchanged).</li>
+<li><strong>Do NOT add a Zustand store for the panel</strong> — fetch-on-mount local state, mirror
+   <code>SectionEmbeddings</code> (I3, no store churn).</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
