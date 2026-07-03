@@ -135,6 +135,11 @@ export interface StatusResponse {
    * "dev" means a local build with no version injected → no banner.
    */
   version?: string;
+  /**
+   * Pending review-queue items (additive, v1.2.x — NavRail badge).
+   * Absent on older backends → undefined, badge hidden.
+   */
+  review_pending?: number;
 }
 
 // ─── GET /ingest/runs (ADR-0018 §7) ──────────────────────────────────────────

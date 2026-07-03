@@ -1474,6 +1474,13 @@ class StatusResponse(BaseModel):
             "(ADR-0054 §6). Read at runtime — never a hardcoded literal."
         )
     )
+    review_pending: int = Field(
+        default=0,
+        description=(
+            "Count of pending review-queue items — feeds the NavRail badge via the "
+            "existing /status poll (no dedicated poller, I3). Additive, non-breaking."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -1483,6 +1490,7 @@ class StatusResponse(BaseModel):
                 "started_at": "2026-06-28T10:00:00Z",
                 "uptime_seconds": 42.7,
                 "version": "1.2.0",
+                "review_pending": 5,
             }
         }
     }
@@ -2287,6 +2295,18 @@ async def get_status() -> StatusResponse:
         state = row.scalar_one_or_none()
         data_version = state.data_version if state is not None else 0
 
+        # Pending review count for the NavRail badge (owner request, v1.2.x).
+        # Piggybacks on the existing 30s /status poll — no new frontend poller (I3).
+        review_row = await session.execute(
+            select(func.count())
+            .select_from(ReviewItem)
+            .where(
+                ReviewItem.vault_id == settings.vault_id,
+                ReviewItem.status == "pending",
+            )
+        )
+        review_pending: int = review_row.scalar_one()
+
     now = datetime.now(UTC)
     uptime = (now - _started_at).total_seconds()
     # Backend version: APP_VERSION env (release-stamped) wins over installed package
@@ -2297,6 +2317,7 @@ async def get_status() -> StatusResponse:
         started_at=_started_at,
         uptime_seconds=uptime,
         version=_resolve_backend_version(),
+        review_pending=review_pending,
     )
 
 
