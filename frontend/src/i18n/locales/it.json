@@ -879,7 +879,16 @@
       "converting": "Conversione…",
       "done": "Completato",
       "failed": "Errore"
-    }
+    },
+    "startMarker": "Avvia Marker",
+    "startMarkerAriaLabel": "Avvia il microservizio Marker",
+    "startMarkerStarting": "Avvio in corso…",
+    "startMarkerError": "Marker non ha risposto dopo 120 s — controlla il comando e riprova",
+    "startMarkerConfigTitle": "Comando di avvio Marker",
+    "startMarkerConfigPlaceholder": "cd /path/to/tools/marker-converter && TORCH_DEVICE=mps ./.venv/bin/python service.py --port 8555",
+    "startMarkerConfigSave": "Salva e avvia",
+    "startMarkerConfigHint": "Inserisci il comando shell per avviare il microservizio Marker. Salvato localmente su questa macchina.",
+    "startMarkerConfigCancel": "Annulla"
   },
   "common": {
     "loading": "Caricamento…",
@@ -1046,8 +1055,31 @@
     }
   },
   "home": {
-    "title": "Home",
+    "title": "Panoramica sistema",
     "subtitle": "Panoramica della tua base di conoscenza",
+    "systemStatus": {
+      "ariaLabel": "Stato del sistema",
+      "title": "STATO DEL SISTEMA",
+      "refresh": "Aggiorna stato",
+      "loading": "Controllo sistema…",
+      "overallOk": "Tutti i sistemi operativi",
+      "overallDegraded": "Sistema degradato",
+      "overallError": "Errore di sistema",
+      "provider": "Provider",
+      "providerNone": "Nessuno configurato",
+      "version": "Versione",
+      "uptime": "Uptime",
+      "dataVersion": "Versione dati",
+      "components": {
+        "database": "Database",
+        "qdrant": "Qdrant",
+        "ingest_queue": "Coda ingest",
+        "graph_cache": "Cache grafo",
+        "embeddings": "Embeddings",
+        "watcher": "Watcher",
+        "import_scheduler": "Scheduler"
+      }
+    },
     "kpi": {
       "ariaLabel": "Indicatori chiave di prestazione",
       "pagesTotal": "Pagine",
@@ -1065,11 +1097,20 @@
     },
     "sections": {
       "ariaLabel": "Sezioni dominio",
-      "title": "Domini",
+      "title": "SEZIONI",
       "untaggedLabel": "Non classificate",
       "filterHint": "Sfoglia",
+      "emptyVocabHint": "Nessun vocabolario di dominio configurato.",
       "emptyVocab": "Nessun vocabolario di dominio configurato. Aggiungi domini in Impostazioni › Avanzate per visualizzare i dettagli per dominio.",
       "goSettings": "Configura domini"
+    },
+    "groups": {
+      "ariaLabel": "Gruppi automatici per comunità",
+      "title": "GRUPPI AUTOMATICI",
+      "pages": "pagine",
+      "openTopPage": "Apri pagina principale",
+      "lastActivity": "Ultima attività",
+      "noTopPages": "Nessuna pagina ancora"
     },
     "placeholder": {
       "title": "Server v1.1 — aggiorna per abilitare la dashboard Home",

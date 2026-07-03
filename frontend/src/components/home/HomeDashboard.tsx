@@ -1,35 +1,37 @@
 /**
- * HomeDashboard.tsx — Home landing section [F18][R12-1][ADR-0054 §5].
+ * HomeDashboard.tsx — Home landing section [F18][R12-1][A2+A3].
  *
- * Layout:
- *   (a) KPI row: pages total, links, communities, review pending, lint open,
- *       monthly AI spend, data version — compact cards using var(--syn-*) tokens.
- *   (b) Recent activity list (cap 10) — click opens that page in Wiki (pages section).
- *   (c) Section cards grid: one card per domain (vocabulary order) + untagged last.
- *       Click on a section card → sets graphStore.activeSection = "pages" and writes
- *       a domainFilter to localStorage (key: "synapse:domainFilter") for the wiki tree
- *       to read on next mount. Chosen mechanism: localStorage signal + section switch.
- *       Rationale: the NavTree already reads its filter from its own local state on
- *       render; a lightweight localStorage entry lets HomeDashboard dispatch a filter
- *       without touching NavTree internals or adding Zustand store surface this sprint.
- *       The filter is consumed opportunistically — if NavTree does not read it yet, the
- *       user still lands on the Wiki section and can filter manually. This is the
- *       "cheapest correct path" per R12-1 AC-R12-1-7.
- *   (d) Empty states: 404 backend → friendly placeholder; empty vocabulary → global
- *       KPIs only + hint.
+ * Layout (A2+A3 amendment order):
+ *   1. "STATO DEL SISTEMA" block — compact health strip from GET /health/detailed,
+ *      fetched ONCE on section mount (component-local, no polling; manual refresh icon).
+ *      Shows: component dots (ok/warn/down) + active provider/model + backend version
+ *      + uptime + data version. Status from statusStore (already polled by ActivityBar).
+ *   2. KPI row (existing — keep).
+ *   3. Curated domain sections "SEZIONI" — from GET /stats/sections.
+ *      Rendered ONLY when vocabulary has entries; empty vocab → small hint + Settings link.
+ *   4. NEW "GRUPPI AUTOMATICI" grid — from GET /stats/groups.
+ *      Card per group (label, pages_total, type mini-breakdown, top pages, last activity).
+ *      Click → opens group's top page in Wiki (setActiveSection("pages") + localStorage
+ *      slug key). 404 → block hidden silently.
+ *   5. Recent activity (existing — keep, last).
  *
- * INVARIANT I3: no heavy per-render work; stats fetched ONCE on mount, no polling.
- * INVARIANT I4: recent-activity capped at 10, sections capped at vocab size — no
- *   virtualisation needed (both well under 50 items in any realistic vault).
+ * Group-click behavior: clicking a group card navigates to the Wiki section and writes
+ * the top page's slug to localStorage key "synapse:groupTopPageSlug". This matches the
+ * cheapest feasible mechanism: community-id filtering is not yet supported by the tree/
+ * search filter, so we open the group's most-connected page — a useful proxy for the
+ * group's content. This choice is documented here per AC instructions.
+ *
+ * INVARIANT I3: no heavy per-render work; stats + health fetched ONCE on mount, no polling.
+ * INVARIANT I4: recent-activity capped at 10, sections/groups capped — no virtualisation.
  * INVARIANT I2: no graph layout runs here; communities_count read from /stats/overview.
- * No charting library imported — sparkline is plain inline SVG (R12-1 AC-R12-1-6).
+ * No charting library imported — type bars are plain inline SVG.
  *
  * Design tokens: var(--syn-accent), var(--syn-border), var(--syn-bg-soft),
  * var(--syn-text-muted), var(--syn-text-dim), var(--syn-radius-md),
  * var(--syn-surface-sunken), var(--syn-surface-hover).
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   FileText,
@@ -41,23 +43,39 @@ import {
   Database,
   Clock,
   Settings,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import {
   getStatsOverview,
   getStatsSections,
+  getStatsGroups,
   type StatsOverview,
   type StatsSections,
   type SectionEntry,
+  type StatsGroups,
+  type StatsGroup,
 } from "../../api/statsClient";
+import { getHealthDetailed, type DetailedHealth } from "../../api/healthClient";
 import {
   useGraphStore,
   selectSetActiveSection,
 } from "../../store/graphStore";
+import { useProviderStore, selectActiveProvider } from "../../store/providerStore";
+import { useStatusStore, selectBackendVersion } from "../../store/statusStore";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 /** localStorage key used to pass a domain filter to the Wiki/NavTree section. */
 const DOMAIN_FILTER_KEY = "synapse:domainFilter";
+
+/**
+ * localStorage key used to pass the top-page slug of a clicked group to the Wiki section.
+ * Group-click mechanism: community-id tree filtering is not yet supported, so clicking
+ * a group card opens its most-connected (highest-degree) page as the best proxy.
+ */
+const GROUP_TOP_PAGE_SLUG_KEY = "synapse:groupTopPageSlug";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -78,6 +96,14 @@ function formatDate(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+function formatUptime(s: number | undefined | null): string {
+  if (s == null) return "–";
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }
 
 // ─── Plain SVG mini-bar for type breakdown ────────────────────────────────────
@@ -125,6 +151,264 @@ function TypeBar({ pagesByType, total }: TypeBarProps) {
         return rect;
       })}
     </svg>
+  );
+}
+
+// ─── System Status Block ───────────────────────────────────────────────────────
+
+type ComponentKey =
+  | "database"
+  | "qdrant"
+  | "watcher"
+  | "ingest_queue"
+  | "graph_cache"
+  | "embeddings"
+  | "import_scheduler";
+
+const COMPONENT_KEYS: ComponentKey[] = [
+  "database",
+  "qdrant",
+  "watcher",
+  "ingest_queue",
+  "graph_cache",
+  "embeddings",
+  "import_scheduler",
+];
+
+function getComponentStatus(
+  health: DetailedHealth,
+  key: ComponentKey,
+): "ok" | "warn" | "down" | "skipped" {
+  const comps = health.components;
+  switch (key) {
+    case "database": {
+      return comps.database.ok === true ? "ok" : "down";
+    }
+    case "qdrant": {
+      if (comps.qdrant.ok === "skipped") return "skipped";
+      return comps.qdrant.ok === true ? "ok" : "down";
+    }
+    case "embeddings": {
+      if (!comps.embeddings.enabled) return "skipped";
+      if (comps.embeddings.ok === "skipped") return "skipped";
+      return comps.embeddings.ok === true ? "ok" : "down";
+    }
+    case "watcher": {
+      return comps.watcher.alive ? "ok" : "warn";
+    }
+    case "ingest_queue": {
+      return comps.ingest_queue.paused ? "warn" : "ok";
+    }
+    case "graph_cache": {
+      return comps.graph_cache.warm ? "ok" : "warn";
+    }
+    case "import_scheduler": {
+      // Scheduler is informational — not critical
+      return comps.import_scheduler.last_error ? "warn" : "ok";
+    }
+  }
+}
+
+function StatusDot({ status }: { status: "ok" | "warn" | "down" | "skipped" }) {
+  const color =
+    status === "ok"
+      ? "#22c55e"
+      : status === "warn"
+        ? "#f59e0b"
+        : status === "down"
+          ? "var(--syn-error, #ef4444)"
+          : "var(--syn-text-dim)";
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        width: 7,
+        height: 7,
+        borderRadius: "50%",
+        background: color,
+        flexShrink: 0,
+      }}
+      aria-hidden="true"
+    />
+  );
+}
+
+function OverallStatusIcon({ status }: { status: "ok" | "degraded" | "error" }) {
+  if (status === "ok") {
+    return <CheckCircle2 size={14} style={{ color: "#22c55e" }} aria-hidden="true" />;
+  }
+  if (status === "degraded") {
+    return <AlertTriangle size={14} style={{ color: "#f59e0b" }} aria-hidden="true" />;
+  }
+  return <AlertCircle size={14} style={{ color: "var(--syn-error, #ef4444)" }} aria-hidden="true" />;
+}
+
+interface SystemStatusBlockProps {
+  activeProviderLabel: string | null;
+  backendVersion: string | undefined;
+  /** uptime_seconds from the /status poll (ActivityBar) — passed via prop to avoid a new fetch */
+  statusUptimeSeconds: number | null;
+  /** data_version from statusStore/graphStore */
+  dataVersion: number | null;
+}
+
+function SystemStatusBlock({
+  activeProviderLabel,
+  backendVersion,
+  statusUptimeSeconds,
+  dataVersion,
+}: SystemStatusBlockProps) {
+  const { t } = useTranslation();
+
+  const [health, setHealth] = useState<DetailedHealth | null | "loading">("loading");
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchHealth = useCallback(() => {
+    if (abortRef.current) abortRef.current.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    setHealth("loading");
+    void (async () => {
+      const result = await getHealthDetailed(ac.signal);
+      if (!ac.signal.aborted) {
+        setHealth(result);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    fetchHealth();
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, [fetchHealth]);
+
+  const overallStatus = health !== "loading" && health !== null ? health.status : null;
+
+  return (
+    <section
+      aria-label={t("home.systemStatus.ariaLabel")}
+      data-testid="home-system-status"
+      style={{
+        padding: "14px 16px",
+        borderRadius: "var(--syn-radius-md)",
+        border: `1px solid ${
+          overallStatus === "error"
+            ? "color-mix(in srgb, var(--syn-error, #ef4444) 30%, var(--syn-border) 70%)"
+            : overallStatus === "degraded"
+              ? "color-mix(in srgb, #f59e0b 30%, var(--syn-border) 70%)"
+              : "var(--syn-border)"
+        }`,
+        background: "var(--syn-bg-soft)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {overallStatus !== null && <OverallStatusIcon status={overallStatus} />}
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--syn-text-muted)",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            {t("home.systemStatus.title")}
+          </span>
+          {overallStatus !== null && (
+            <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
+              {t(`home.systemStatus.overall${overallStatus.charAt(0).toUpperCase()}${overallStatus.slice(1)}`)}
+            </span>
+          )}
+          {health === "loading" && (
+            <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
+              {t("home.systemStatus.loading")}
+            </span>
+          )}
+        </div>
+        <button
+          data-testid="home-system-status-refresh"
+          onClick={fetchHealth}
+          title={t("home.systemStatus.refresh")}
+          aria-label={t("home.systemStatus.refresh")}
+          style={{
+            padding: 4,
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            color: "var(--syn-text-dim)",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <RefreshCw size={12} aria-hidden="true" />
+        </button>
+      </div>
+
+      {/* Meta strip: provider, version, uptime, data version */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "6px 20px",
+          fontSize: 11,
+          color: "var(--syn-text-muted)",
+        }}
+      >
+        <span>
+          <span style={{ color: "var(--syn-text-dim)" }}>{t("home.systemStatus.provider")}: </span>
+          <span data-testid="home-status-provider">
+            {activeProviderLabel ?? t("home.systemStatus.providerNone")}
+          </span>
+        </span>
+        {backendVersion && backendVersion !== "dev" && (
+          <span>
+            <span style={{ color: "var(--syn-text-dim)" }}>{t("home.systemStatus.version")}: </span>
+            <span data-testid="home-status-version">v{backendVersion}</span>
+          </span>
+        )}
+        {statusUptimeSeconds !== null && (
+          <span>
+            <span style={{ color: "var(--syn-text-dim)" }}>{t("home.systemStatus.uptime")}: </span>
+            <span data-testid="home-status-uptime">{formatUptime(statusUptimeSeconds)}</span>
+          </span>
+        )}
+        {dataVersion !== null && (
+          <span>
+            <span style={{ color: "var(--syn-text-dim)" }}>{t("home.systemStatus.dataVersion")}: </span>
+            <span data-testid="home-status-data-version">v{dataVersion}</span>
+          </span>
+        )}
+      </div>
+
+      {/* Component dots strip */}
+      {health !== "loading" && health !== null && (
+        <div
+          data-testid="home-status-components"
+          style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px" }}
+        >
+          {COMPONENT_KEYS.map((key) => {
+            const status = getComponentStatus(health, key);
+            if (status === "skipped") return null;
+            return (
+              <span
+                key={key}
+                data-testid={`home-status-component-${key}`}
+                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--syn-text-muted)" }}
+              >
+                <StatusDot status={status} />
+                {t(`home.systemStatus.components.${key}`)}
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -288,14 +572,129 @@ function SectionCard({ section, onNavigate }: SectionCardProps) {
   );
 }
 
+// ─── Group card ────────────────────────────────────────────────────────────────
+
+interface GroupCardProps {
+  group: StatsGroup;
+  onOpen: (group: StatsGroup) => void;
+}
+
+function GroupCard({ group, onOpen }: GroupCardProps) {
+  const { t } = useTranslation();
+  const typeEntries = Object.entries(group.pages_by_type);
+  const topPage = group.top_pages[0];
+
+  return (
+    <button
+      data-testid={`group-card-${group.community}`}
+      onClick={() => onOpen(group)}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        padding: "14px 16px",
+        borderRadius: "var(--syn-radius-md)",
+        border: "1px solid var(--syn-border)",
+        background: "var(--syn-bg-soft)",
+        cursor: "pointer",
+        textAlign: "left",
+        transition: "border-color 0.12s ease, background 0.12s ease",
+        width: "100%",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-accent)";
+        (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface-hover)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-border)";
+        (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-bg-soft)";
+      }}
+    >
+      {/* Label + page count */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, justifyContent: "space-between" }}>
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: "var(--syn-text)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {group.label}
+        </span>
+        <span style={{ fontSize: 16, fontWeight: 700, color: "var(--syn-accent)", flexShrink: 0 }}>
+          {group.pages_total}
+          <span style={{ fontSize: 10, fontWeight: 400, color: "var(--syn-text-dim)", marginLeft: 2 }}>
+            {t("home.groups.pages")}
+          </span>
+        </span>
+      </div>
+
+      {/* Type mini-bar */}
+      {group.pages_total > 0 && (
+        <TypeBar pagesByType={group.pages_by_type} total={group.pages_total} />
+      )}
+
+      {/* Type breakdown text */}
+      {typeEntries.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 8px" }}>
+          {typeEntries.map(([type, count]) => (
+            <span key={type} style={{ fontSize: 10, color: "var(--syn-text-dim)" }}>
+              {count} {type}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Top page (highest degree) */}
+      {topPage ? (
+        <div style={{ fontSize: 10, color: "var(--syn-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ color: "var(--syn-text-dim)" }}>{t("home.groups.openTopPage")}: </span>
+          {topPage.title}
+        </div>
+      ) : (
+        <div style={{ fontSize: 10, color: "var(--syn-text-dim)" }}>
+          {t("home.groups.noTopPages")}
+        </div>
+      )}
+
+      {/* Last activity */}
+      {group.last_activity && (
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+          <Clock size={10} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />
+          <span style={{ fontSize: 10, color: "var(--syn-text-dim)" }}>
+            {formatDate(group.last_activity)}
+          </span>
+        </div>
+      )}
+    </button>
+  );
+}
+
 // ─── HomeDashboard ─────────────────────────────────────────────────────────────
 
 export function HomeDashboard() {
   const { t } = useTranslation();
   const setActiveSection = useGraphStore(selectSetActiveSection);
+  const activeProvider = useProviderStore(selectActiveProvider);
+  const backendVersion = useStatusStore(selectBackendVersion);
+
+  // Derive active provider label (type + model) — informational display
+  const activeProviderLabel = activeProvider
+    ? [activeProvider.provider_type, activeProvider.model_id].filter(Boolean).join(" / ")
+    : null;
+
+  // uptime and data_version come from the ActivityBar's /status poll via statusStore;
+  // we read them from the store — no new poller (I3). Currently only backendVersion
+  // is in statusStore; uptime/data_version are local state in ActivityBar.
+  // Per A2 we accept them as null when unavailable (the /stats/overview also has data_version).
+  // We read data_version from the overview response directly.
 
   const [overview, setOverview] = useState<StatsOverview | null | undefined>(undefined);
   const [sections, setSections] = useState<StatsSections | null | undefined>(undefined);
+  const [groups, setGroups] = useState<StatsGroups | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Single fetch on mount — no polling (I3)
@@ -305,13 +704,15 @@ export function HomeDashboard() {
 
     async function load() {
       try {
-        const [ov, sec] = await Promise.all([
+        const [ov, sec, grp] = await Promise.all([
           getStatsOverview(ac.signal),
           getStatsSections(ac.signal),
+          getStatsGroups(ac.signal),
         ]);
         if (ac.signal.aborted) return;
         setOverview(ov);
         setSections(sec);
+        setGroups(grp);
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") return;
         setLoadError(err instanceof Error ? err.message : String(err));
@@ -339,11 +740,27 @@ export function HomeDashboard() {
     [setActiveSection],
   );
 
+  // Group card click: open the group's top page in Wiki section.
+  // Community-id tree filtering is not yet supported; we write the top page slug
+  // so a future NavTree mount can scroll to it. The Wiki section opens regardless.
+  const handleGroupOpen = useCallback(
+    (group: StatsGroup) => {
+      const topPage = group.top_pages[0];
+      try {
+        if (topPage?.slug) {
+          localStorage.setItem(GROUP_TOP_PAGE_SLUG_KEY, topPage.slug);
+        }
+      } catch {
+        // non-fatal
+      }
+      setActiveSection("pages");
+    },
+    [setActiveSection],
+  );
+
   // Recent activity: click → open that page in wiki section
   const handleActivityClick = useCallback(
     (_slug: string) => {
-      // For now navigate to pages section; the tree will show the last-selected page.
-      // A future sprint can deep-link by slug once NavTree supports a URL param.
       setActiveSection("pages");
     },
     [setActiveSection],
@@ -403,6 +820,7 @@ export function HomeDashboard() {
 
   const sectionList = sections?.sections ?? [];
   const hasVocabSections = sectionList.some((s) => s.domain !== "untagged");
+  const groupList = groups?.groups ?? [];
 
   return (
     <div
@@ -432,7 +850,15 @@ export function HomeDashboard() {
         </p>
       </div>
 
-      {/* ── KPI row ── */}
+      {/* ── 1. System Status block (A2) ── */}
+      <SystemStatusBlock
+        activeProviderLabel={activeProviderLabel}
+        backendVersion={backendVersion}
+        statusUptimeSeconds={null}
+        dataVersion={overview.data_version}
+      />
+
+      {/* ── 2. KPI row ── */}
       <section aria-label={t("home.kpi.ariaLabel")}>
         <div
           style={{
@@ -488,10 +914,132 @@ export function HomeDashboard() {
         </div>
       </section>
 
-      {/* ── Recent activity ── */}
+      {/* ── 3. Curated domain sections "SEZIONI" ── */}
+      {sections !== null && (
+        <section aria-label={t("home.sections.ariaLabel")}>
+          <h2
+            style={{
+              margin: "0 0 12px",
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--syn-text-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}
+          >
+            {t("home.sections.title")}
+          </h2>
+
+          {/* No vocabulary configured → small hint only (A2: no prominent placeholder) */}
+          {!hasVocabSections && (
+            <div
+              data-testid="home-sections-empty"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 14px",
+                borderRadius: "var(--syn-radius-md)",
+                border: "1px dashed var(--syn-border)",
+                background: "var(--syn-surface-sunken)",
+              }}
+            >
+              <span style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>
+                {t("home.sections.emptyVocabHint")}
+              </span>
+              <button
+                data-testid="home-sections-go-settings"
+                onClick={() => setActiveSection("settings")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "3px 8px",
+                  borderRadius: "var(--syn-radius-md)",
+                  border: "1px solid var(--syn-border)",
+                  background: "transparent",
+                  color: "var(--syn-text-muted)",
+                  fontSize: 11,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <Settings size={10} aria-hidden="true" />
+                {t("home.sections.goSettings")}
+              </button>
+            </div>
+          )}
+
+          {/* Section grid — only when vocabulary has entries */}
+          {hasVocabSections && (
+            <div
+              data-testid="home-sections-grid"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                gap: 12,
+              }}
+            >
+              {sectionList.map((sec) => (
+                <SectionCard
+                  key={sec.domain}
+                  section={sec}
+                  onNavigate={handleSectionNavigate}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── 4. NEW "GRUPPI AUTOMATICI" grid (A3) — hidden when groups is null (404) ── */}
+      {groups !== null && groups !== undefined && groupList.length > 0 && (
+        <section
+          aria-label={t("home.groups.ariaLabel")}
+          data-testid="home-groups-section"
+        >
+          <h2
+            style={{
+              margin: "0 0 12px",
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--syn-text-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}
+          >
+            {t("home.groups.title")}
+          </h2>
+          <div
+            data-testid="home-groups-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: 12,
+            }}
+          >
+            {groupList.map((grp) => (
+              <GroupCard
+                key={grp.community}
+                group={grp}
+                onOpen={handleGroupOpen}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── 5. Recent activity (last) ── */}
       <section aria-label={t("home.activity.ariaLabel")}>
         <h2
-          style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}
+          style={{
+            margin: "0 0 12px",
+            fontSize: 11,
+            fontWeight: 700,
+            color: "var(--syn-text-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+          }}
         >
           {t("home.activity.title")}
         </h2>
@@ -540,82 +1088,6 @@ export function HomeDashboard() {
               </li>
             ))}
           </ul>
-        )}
-      </section>
-
-      {/* ── Section cards ── */}
-      <section aria-label={t("home.sections.ariaLabel")}>
-        <h2
-          style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}
-        >
-          {t("home.sections.title")}
-        </h2>
-
-        {/* 404 on /stats/sections — sections panel itself unavailable */}
-        {sections === null && (
-          <p style={{ margin: 0, fontSize: 13, color: "var(--syn-text-dim)" }}>
-            {t("home.placeholder.body")}
-          </p>
-        )}
-
-        {/* No vocabulary configured → hint to settings */}
-        {sections !== null && !hasVocabSections && (
-          <div
-            data-testid="home-sections-empty"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              padding: "16px 20px",
-              borderRadius: "var(--syn-radius-md)",
-              border: "1px dashed var(--syn-border)",
-              background: "var(--syn-surface-sunken)",
-            }}
-          >
-            <p style={{ margin: 0, fontSize: 13, color: "var(--syn-text-muted)" }}>
-              {t("home.sections.emptyVocab")}
-            </p>
-            <button
-              data-testid="home-sections-go-settings"
-              onClick={() => setActiveSection("settings")}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 12px",
-                borderRadius: "var(--syn-radius-md)",
-                border: "1px solid var(--syn-border)",
-                background: "transparent",
-                color: "var(--syn-text-muted)",
-                fontSize: 12,
-                cursor: "pointer",
-                width: "fit-content",
-              }}
-            >
-              <Settings size={12} aria-hidden="true" />
-              {t("home.sections.goSettings")}
-            </button>
-          </div>
-        )}
-
-        {/* Section grid */}
-        {sections !== null && sectionList.length > 0 && (
-          <div
-            data-testid="home-sections-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-              gap: 12,
-            }}
-          >
-            {sectionList.map((sec) => (
-              <SectionCard
-                key={sec.domain}
-                section={sec}
-                onNavigate={handleSectionNavigate}
-              />
-            ))}
-          </div>
         )}
       </section>
     </div>

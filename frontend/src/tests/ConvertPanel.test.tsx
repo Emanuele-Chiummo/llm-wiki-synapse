@@ -1,13 +1,19 @@
 /**
- * ConvertPanel.test.tsx — Vitest unit tests for the Marker PDF conversion panel [F12][R11-1][A1].
+ * ConvertPanel.test.tsx — Vitest unit tests for the Marker PDF conversion panel [F12][R11-1][R12-6][A1].
  *
  * Covers:
  *   AC-R11-1-5: "Convert & ingest" button disabled when marker-health returns 503, enabled when 200.
  *   AC-R11-1-6: per-file rows render pending/converting/done/failed; failed file shows 502 detail.
+ *   R12-6: "Avvia Marker" button — hidden in web build; visible in Tauri+offline; unset command
+ *           reveals config field; start click calls shell plugin and begins health polling;
+ *           success flips the badge to online.
  *   Client-side rejection of > 10 files and non-.pdf files.
  *
  * Mock strategy:
  *   - vi.mock("../api/convertClient") — stubs getMarkerHealth and convertFiles.
+ *   - vi.mock("../api/base") — stubs isTauri() to control desktop/web context.
+ *   - vi.mock("@tauri-apps/plugin-shell") — stubs Command.create + execute (static literal import
+ *     required: Vite silently drops dynamic string-variable imports — see repo lesson v0.8.1 hotfix).
  *   - No real backend involved.
  *   - apiFetch/authHeaders never called (mocked at convertClient level).
  *
@@ -15,11 +21,30 @@
  * for ephemeral progress states (verified by absence of Zustand store calls).
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { ConvertPanel } from "../components/convert/ConvertPanel";
 import type { MarkerHealthResponse, ConvertFileResult } from "../api/convertClient";
 import { MarkerError } from "../api/convertClient";
+
+// ─── Fake localStorage (Node.js 26 / jsdom compat — same pattern as auth-base.test.ts) ──
+// localStorage is not automatically available in Node 26 without --localstorage-file.
+// vi.stubGlobal makes it available for the entire test file.
+
+function makeFakeStorage(): Storage {
+  let store: Record<string, string> = {};
+  return {
+    get length() { return Object.keys(store).length; },
+    key(n: number) { return Object.keys(store)[n] ?? null; },
+    getItem(k: string) { return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null; },
+    setItem(k: string, v: string) { store[k] = v; },
+    removeItem(k: string) { delete store[k]; },
+    clear() { store = {}; },
+  };
+}
+
+const fakeLocalStorage = makeFakeStorage();
+vi.stubGlobal("localStorage", fakeLocalStorage);
 
 // ─── Module mocks ──────────────────────────────────────────────────────────────
 
@@ -43,14 +68,39 @@ vi.mock("../api/convertClient", async (importOriginal) => {
   };
 });
 
+// Mock base.ts so tests can control isTauri() per-suite
+vi.mock("../api/base", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api/base")>();
+  return {
+    ...actual,
+    isTauri: vi.fn(() => false), // default: web build
+  };
+});
+
+// Mock @tauri-apps/plugin-shell — static string literal import required so Vite
+// bundles the module reference (see repo lesson: dynamic variable strings are silently
+// dropped by the bundler — v0.8.1 hotfix). [R12-6]
+const mockExecute = vi.fn().mockResolvedValue(undefined);
+const mockCreate = vi.fn(() => ({ execute: mockExecute }));
+
+vi.mock("@tauri-apps/plugin-shell", () => ({
+  Command: {
+    create: mockCreate,
+  },
+}));
+
 // Import the mocked functions after vi.mock
-import {
-  getMarkerHealth,
-  convertFiles,
-} from "../api/convertClient";
+import { getMarkerHealth, convertFiles } from "../api/convertClient";
+import { isTauri } from "../api/base";
 
 const mockGetMarkerHealth = vi.mocked(getMarkerHealth);
 const mockConvertFiles = vi.mocked(convertFiles);
+const mockIsTauri = vi.mocked(isTauri);
+
+// Clear the fake localStorage before every test so no command leaks between suites
+beforeAll(() => {
+  fakeLocalStorage.clear();
+});
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -82,6 +132,10 @@ function dropFiles(files: File[]) {
 // ─── AC-R11-1-5: button disabled/enabled based on health ──────────────────────
 
 describe("ConvertPanel — Marker health gate (AC-R11-1-5)", () => {
+  beforeEach(() => {
+    mockIsTauri.mockReturnValue(false);
+  });
+
   afterEach(() => {
     vi.resetAllMocks();
   });
@@ -164,6 +218,7 @@ describe("ConvertPanel — Marker health gate (AC-R11-1-5)", () => {
 
 describe("ConvertPanel — per-file status rows (AC-R11-1-6)", () => {
   beforeEach(() => {
+    mockIsTauri.mockReturnValue(false);
     mockGetMarkerHealth.mockResolvedValue({ status: "ok" } satisfies MarkerHealthResponse);
   });
 
@@ -256,6 +311,7 @@ describe("ConvertPanel — per-file status rows (AC-R11-1-6)", () => {
 
 describe("ConvertPanel — client-side rejection: > 10 files", () => {
   beforeEach(() => {
+    mockIsTauri.mockReturnValue(false);
     mockGetMarkerHealth.mockResolvedValue({ status: "ok" } satisfies MarkerHealthResponse);
   });
 
@@ -297,6 +353,7 @@ describe("ConvertPanel — client-side rejection: > 10 files", () => {
 
 describe("ConvertPanel — client-side rejection: non-.pdf files", () => {
   beforeEach(() => {
+    mockIsTauri.mockReturnValue(false);
     mockGetMarkerHealth.mockResolvedValue({ status: "ok" } satisfies MarkerHealthResponse);
   });
 
@@ -353,6 +410,7 @@ describe("ConvertPanel — I3 invariant: component-local state only", () => {
     // Structural test: if ConvertPanel renders without needing mocks for
     // graphStore or ingestStore, it has no store dependency (I3 compliant).
     // The health check resolves asynchronously; we wait for it to settle.
+    mockIsTauri.mockReturnValue(false);
     mockGetMarkerHealth.mockResolvedValue({ status: "ok" } satisfies MarkerHealthResponse);
     await act(async () => {
       render(<ConvertPanel />);
@@ -361,5 +419,226 @@ describe("ConvertPanel — I3 invariant: component-local state only", () => {
     });
     // If we reach here without mock errors, ConvertPanel has no store deps.
     expect(true).toBe(true);
+  });
+});
+
+// ─── R12-6: "Avvia Marker" button — web build hides it ───────────────────────
+
+describe("ConvertPanel — R12-6: Avvia Marker — hidden in web build", () => {
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("does NOT show the start-marker button when isTauri() is false (web build)", async () => {
+    mockIsTauri.mockReturnValue(false);
+    mockGetMarkerHealth.mockResolvedValue({
+      status: "offline",
+      detail: "refused",
+    } satisfies MarkerHealthResponse);
+
+    await renderPanel();
+
+    expect(screen.queryByTestId("start-marker-btn")).toBeNull();
+  });
+
+  it("does NOT show the start-marker button when Tauri but Marker is online", async () => {
+    mockIsTauri.mockReturnValue(true);
+    mockGetMarkerHealth.mockResolvedValue({ status: "ok" } satisfies MarkerHealthResponse);
+
+    await renderPanel();
+
+    expect(screen.queryByTestId("start-marker-btn")).toBeNull();
+  });
+});
+
+// ─── R12-6: "Avvia Marker" button — shown in Tauri + offline ─────────────────
+
+describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", () => {
+  beforeEach(() => {
+    mockIsTauri.mockReturnValue(true);
+    mockGetMarkerHealth.mockResolvedValue({
+      status: "offline",
+      detail: "refused",
+    } satisfies MarkerHealthResponse);
+    // Clear saved command before each test
+    try { localStorage.removeItem("synapse.markerStartCommand"); } catch { /* ignore */ }
+    vi.clearAllMocks();
+    mockIsTauri.mockReturnValue(true);
+    mockGetMarkerHealth.mockResolvedValue({
+      status: "offline",
+      detail: "refused",
+    } satisfies MarkerHealthResponse);
+  });
+
+  afterEach(() => {
+    vi.resetAllMocks();
+    try { localStorage.removeItem("synapse.markerStartCommand"); } catch { /* ignore */ }
+  });
+
+  it("shows the start-marker button when Tauri + offline", async () => {
+    await renderPanel();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("start-marker-btn")).not.toBeNull();
+    });
+  });
+
+  it("clicking start-marker with no saved command reveals the config field", async () => {
+    await renderPanel();
+
+    const btn = await screen.findByTestId("start-marker-btn");
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("start-marker-cmd-field")).not.toBeNull();
+    });
+
+    // The save button should be present
+    expect(screen.queryByTestId("start-marker-cmd-save")).not.toBeNull();
+  });
+
+  it("typing a command and saving stores it in localStorage", async () => {
+    await renderPanel();
+
+    const btn = await screen.findByTestId("start-marker-btn");
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    const cmdInput = await screen.findByTestId("start-marker-cmd-input");
+    fireEvent.change(cmdInput, {
+      target: { value: "cd /tools && ./.venv/bin/python service.py --port 8555" },
+    });
+
+    // Mock the shell plugin's execute for the spawn call
+    mockExecute.mockResolvedValue(undefined);
+    mockCreate.mockReturnValue({ execute: mockExecute });
+
+    // After save+start we need health to eventually return ok to stop polling
+    // First call = still offline, second = ok (stops the poll)
+    mockGetMarkerHealth
+      .mockResolvedValueOnce({ status: "offline", detail: "starting" })
+      .mockResolvedValueOnce({ status: "ok" });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("start-marker-cmd-save"));
+    });
+
+    // Command should be persisted
+    await waitFor(() => {
+      expect(localStorage.getItem("synapse.markerStartCommand")).toBe(
+        "cd /tools && ./.venv/bin/python service.py --port 8555",
+      );
+    });
+  });
+
+  it("start click with saved command calls the shell plugin with sh -c", async () => {
+    // Pre-save a command
+    localStorage.setItem("synapse.markerStartCommand", "TORCH_DEVICE=mps python service.py");
+
+    mockExecute.mockResolvedValue(undefined);
+    mockCreate.mockReturnValue({ execute: mockExecute });
+
+    // Health returns ok on the second call (the poll tick)
+    mockGetMarkerHealth
+      .mockResolvedValueOnce({ status: "offline", detail: "refused" })
+      .mockResolvedValue({ status: "ok" });
+
+    await renderPanel();
+
+    const btn = await screen.findByTestId("start-marker-btn");
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    // Command.create must be called with "sh" and the -c flag containing the user command
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledWith(
+        "sh",
+        expect.arrayContaining(["-c"]),
+      );
+    });
+
+    // The -c argument must contain the user command + detach suffix
+    // Cast through unknown to avoid TS tuple-width errors on vi.fn() mock types
+    const allCalls = mockCreate.mock.calls as unknown as Array<[string, string[]]>;
+    const shellArgs = allCalls[0]?.[1] ?? [];
+    const shellCmd = shellArgs[1] ?? "";
+    expect(shellCmd).toContain("TORCH_DEVICE=mps python service.py");
+    expect(shellCmd).toContain(">/dev/null 2>&1 &");
+  });
+
+  it("badge flips to online after the poll detects Marker is up", async () => {
+    localStorage.setItem("synapse.markerStartCommand", "./.venv/bin/python service.py");
+
+    mockExecute.mockResolvedValue(undefined);
+    mockCreate.mockReturnValue({ execute: mockExecute });
+
+    // First mount health check → offline. Poll tick → ok.
+    let callCount = 0;
+    mockGetMarkerHealth.mockImplementation(async () => {
+      callCount++;
+      if (callCount <= 1) return { status: "offline" as const, detail: "refused" };
+      return { status: "ok" as const };
+    });
+
+    await renderPanel();
+
+    // Click start
+    const btn = await screen.findByTestId("start-marker-btn");
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    // Wait for the badge to flip to online
+    await waitFor(
+      () => {
+        const badge = screen.getByTestId("marker-status-badge");
+        expect(badge.textContent).toContain("markerOnlineBadge");
+      },
+      { timeout: 8_000 },
+    );
+  });
+});
+
+// ─── R12-6: cancel hides the config field ────────────────────────────────────
+
+describe("ConvertPanel — R12-6: cancel hides the config field", () => {
+  afterEach(() => {
+    vi.resetAllMocks();
+    try { localStorage.removeItem("synapse.markerStartCommand"); } catch { /* ignore */ }
+  });
+
+  it("clicking cancel on the config field hides it without spawning", async () => {
+    mockIsTauri.mockReturnValue(true);
+    mockGetMarkerHealth.mockResolvedValue({
+      status: "offline",
+      detail: "refused",
+    } satisfies MarkerHealthResponse);
+
+    await renderPanel();
+
+    const startBtn = await screen.findByTestId("start-marker-btn");
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
+
+    // Config field is visible
+    await waitFor(() => {
+      expect(screen.queryByTestId("start-marker-cmd-field")).not.toBeNull();
+    });
+
+    // Click cancel
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("start-marker-cmd-cancel"));
+    });
+
+    // Field is gone; shell plugin was never called
+    await waitFor(() => {
+      expect(screen.queryByTestId("start-marker-cmd-field")).toBeNull();
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 });
