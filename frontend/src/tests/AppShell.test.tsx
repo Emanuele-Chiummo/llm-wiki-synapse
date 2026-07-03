@@ -305,6 +305,16 @@ vi.mock("../components/common/UpdateBanner", () => ({
   UpdateBanner: () => null,
 }));
 
+// ─── Mock FirstRunWizard (A2.2) — prevents auto-show in AppShell tests ────────
+// The wizard is tested in isolation in FirstRunWizard.test.tsx.
+
+vi.mock("../components/setup/FirstRunWizard", () => ({
+  FirstRunWizard: () => null,
+  useFirstRunSetup: () => ({ shouldShow: false, markDone: vi.fn() }),
+  getSetupCompleted: () => true,
+  markSetupCompleted: vi.fn(),
+}));
+
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

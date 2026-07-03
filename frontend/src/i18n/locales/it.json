@@ -994,8 +994,48 @@
     },
     "gettingStarted": {
       "wizardSlot": "Configurazione guidata iniziale",
-      "wizardSlotDesc": "Una configurazione guidata per connettere il backend e scegliere un provider. Prossimamente.",
-      "wizardComingSoon": "Prossimamente"
+      "wizardSlotDesc": "Una configurazione guidata per connettere il backend, scegliere un provider di inferenza e configurare l'estrazione PDF.",
+      "wizardComingSoon": "Prossimamente",
+      "wizardOpen": "Apri configurazione guidata",
+      "wizardReopen": "Riapri configurazione guidata"
+    }
+  },
+  "wizard": {
+    "label": "Configurazione guidata",
+    "title": "Benvenuto in Synapse",
+    "next": "Avanti",
+    "back": "Indietro",
+    "skipStep": "Salta questo passo",
+    "skipAll": "Salta configurazione",
+    "saving": "Salvataggio…",
+    "step1": {
+      "title": "Connetti al backend",
+      "desc": "Verifica che il backend di Synapse sia raggiungibile. Se stai eseguendo Synapse in locale, dovrebbe essere già connesso.",
+      "check": "Verifica connessione",
+      "checking": "Verifica in corso…",
+      "ok": "Il backend è raggiungibile.",
+      "errNotOk": "Il backend ha restituito lo stato {{status}}. Controlla che il servizio sia in esecuzione.",
+      "errUnknown": "Impossibile raggiungere il backend. Controlla l'URL in Impostazioni › Sicurezza.",
+      "relativeOrigin": "(stessa origine)"
+    },
+    "step2": {
+      "title": "Scegli un provider di inferenza",
+      "desc": "Seleziona il provider AI e il modello che Synapse utilizzerà per l'importazione e la chat. Puoi aggiungere altri provider in Impostazioni › AI e Modelli.",
+      "save": "Salva provider",
+      "saved": "Provider salvato.",
+      "err": "Impossibile salvare il provider. Controlla i dettagli e riprova."
+    },
+    "step3": {
+      "title": "Scegli l'estrazione PDF",
+      "desc": "Seleziona come Synapse estrae il testo dai file PDF. Il motore integrato pypdf non richiede servizi aggiuntivi; Marker produce output di qualità superiore ma richiede il microservizio Marker in esecuzione.",
+      "save": "Salva",
+      "saved": "Impostazioni di estrazione PDF salvate.",
+      "err": "Impossibile salvare l'impostazione dell'estrattore PDF. Riprova."
+    },
+    "step4": {
+      "title": "Tutto pronto!",
+      "desc": "Synapse è configurato e pronto. Puoi modificare queste impostazioni in qualsiasi momento da Impostazioni › Per iniziare.",
+      "cta": "Inizia a usare Synapse"
     }
   }
 }
