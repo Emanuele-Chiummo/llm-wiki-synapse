@@ -1,11 +1,13 @@
 /**
- * statsClient.ts — typed API client for /stats/overview, /stats/sections, and
- * /stats/groups [F18][R12-1][A2+A3].
+ * statsClient.ts — typed API client for /stats/overview, /stats/sections,
+ * /stats/groups, and /ops/backfill-domains status [F18][R12-1][A2+A3+A4].
  *
- * GET /stats/overview → StatsOverview (global KPIs, capped 10 recent-activity items)
- * GET /stats/sections → StatsSections (one entry per vocab domain + untagged bucket last)
- * GET /stats/groups   → StatsGroups (community auto-groups, ordered by pages_total desc,
- *                        capped at 12) — 404 → null (backend still building)
+ * GET /stats/overview         → StatsOverview (global KPIs, capped 10 recent-activity items)
+ * GET /stats/sections         → StatsSections (one entry per vocab domain + untagged bucket last)
+ * GET /stats/groups           → StatsGroups (community auto-groups, ordered by pages_total desc,
+ *                               capped at 12) — 404 → null (backend still building)
+ * GET /ops/backfill-domains   → BackfillDomainStatus (running bool + optional last_summary)
+ *                               — 404/error → null (feature not yet active or no backfill run)
  *
  * Contract: /stats/overview and /stats/sections frozen in ADR-0054 §5.
  * /stats/groups contract: FROZEN by parallel backend agent (A2+A3 amendment).
@@ -107,6 +109,22 @@ export interface StatsGroups {
   groups: StatsGroup[];
 }
 
+// ─── /ops/backfill-domains status (A4 amendment) ─────────────────────────────
+
+/**
+ * Status response from GET /ops/backfill-domains.
+ * running: true while a backfill job is in progress.
+ * last_summary: optional human-readable tag count from the last completed run
+ *               (e.g. "42 pages tagged"). Null when no backfill has run yet.
+ *
+ * 404 → null (endpoint not implemented or feature dormant).
+ * [F18][R12-2][A4]
+ */
+export interface BackfillDomainStatus {
+  running: boolean;
+  last_summary: string | null;
+}
+
 // ─── Client functions ─────────────────────────────────────────────────────────
 
 /**
@@ -169,6 +187,36 @@ export async function getStatsSections(signal?: AbortSignal): Promise<StatsSecti
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") throw err;
     throw err;
+  }
+}
+
+/**
+ * getBackfillDomainStatus — GET /ops/backfill-domains.
+ *
+ * Returns {running, last_summary} when the endpoint exists, or null on 404 /
+ * any error (graceful hide — the A4 backfill row is simply not shown).
+ * Never throws (AbortError is re-thrown for cleanup).
+ *
+ * NOTE: this is a lightweight status GET, not the POST trigger. The shape
+ * {running: bool, last_summary: string|null} is the assumed contract with the
+ * backend. If the backend returns 200 from POST only (synchronous), callers
+ * should treat any non-404 200 as running=false (backfill already completed).
+ *
+ * [F18][R12-2][A4]
+ */
+export async function getBackfillDomainStatus(
+  signal?: AbortSignal,
+): Promise<BackfillDomainStatus | null> {
+  try {
+    const url = `${apiBase()}/ops/backfill-domains`;
+    const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
+    if (res.status === 404) return null;
+    if (res.status === 405) return null; // endpoint is POST-only on this backend version
+    if (!res.ok) return null;
+    return (await res.json()) as BackfillDomainStatus;
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") throw err;
+    return null;
   }
 }
 

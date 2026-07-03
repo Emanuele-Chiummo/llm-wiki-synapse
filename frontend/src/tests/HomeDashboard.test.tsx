@@ -1,5 +1,5 @@
 /**
- * HomeDashboard.test.tsx — Vitest unit tests for the Home landing section [F18][R12-1][A2+A3].
+ * HomeDashboard.test.tsx — Vitest unit tests for the Home landing section [F18][R12-1][A2+A3+A4].
  *
  * Covers:
  *   AC-R12-1-4: HomeDashboard mounted when "home" section is active; Home icon in NavRail.
@@ -15,16 +15,19 @@
  *   A3: Groups grid renders ordered by pages_total desc, capped at 12; click → pages section
  *       + localStorage slug; 404 on /stats/groups → groups block hidden; curated sections
  *       hidden when vocabulary empty but groups still render.
+ *   A4: "Lavori attivi" block — hidden when nothing active; ingest row from activityStore;
+ *       backfill row when running=true; research row for each running run.
+ *       Groups cap: 4 rendered collapsed; toggle reveals all, toggle again collapses back.
  *   R12-3 AC-R12-3-5: VersionMismatchBanner shows only when backendVersion ≠ __APP_VERSION__
  *               and backendVersion ≠ "dev"; banner is dismissible (sessionStorage flag);
  *               matching versions → no banner.
  *   AC-R12-2-6: Settings domain_vocabulary field: renders current vocab from GET /config/app;
  *               saving triggers PUT /config/app/domain_vocabulary with JSON-array string.
  *   i18n EN/IT parity (spot-checks on new home.* and config.domainVocabulary.* keys including
- *               A2+A3 additions: home.systemStatus.*, home.groups.*).
+ *               A2+A3+A4 additions: home.systemStatus.*, home.groups.*, home.activeJobs.*).
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 // ─── Fake localStorage (Node.js 26 / jsdom compat — same pattern as auth-base.test.ts) ──
@@ -85,6 +88,21 @@ vi.mock("../api/statsClient", () => ({
   getStatsOverview: vi.fn(),
   getStatsSections: vi.fn(),
   getStatsGroups: vi.fn(),
+  getBackfillDomainStatus: vi.fn(),
+}));
+
+// ─── researchClient mock ──────────────────────────────────────────────────────
+
+vi.mock("../api/researchClient", () => ({
+  fetchResearchRuns: vi.fn(),
+}));
+
+// ─── activityStore mock ───────────────────────────────────────────────────────
+
+const mockActivityCounts = { paused: false, pending: 0, processing: 0, failed: 0, completed_since_idle: 0, total: 0 };
+
+vi.mock("../store/activityStore", () => ({
+  useActivityCounts: () => mockActivityCounts,
 }));
 
 // ─── healthClient mock ────────────────────────────────────────────────────────
@@ -119,16 +137,20 @@ vi.mock("../store/providerStore", () => ({
 
 // ─── Imports after mocks ──────────────────────────────────────────────────────
 
-import { getStatsOverview, getStatsSections, getStatsGroups } from "../api/statsClient";
+import { getStatsOverview, getStatsSections, getStatsGroups, getBackfillDomainStatus } from "../api/statsClient";
+import { fetchResearchRuns } from "../api/researchClient";
 import { getHealthDetailed } from "../api/healthClient";
 import type { StatsOverview, StatsSections, StatsGroups } from "../api/statsClient";
 import type { DetailedHealth } from "../api/healthClient";
+import type { ResearchRunListResponse } from "../api/types";
 import { HomeDashboard } from "../components/home/HomeDashboard";
 import { VersionMismatchBanner } from "../components/common/VersionMismatchBanner";
 
 const mockGetStatsOverview = vi.mocked(getStatsOverview);
 const mockGetStatsSections = vi.mocked(getStatsSections);
 const mockGetStatsGroups = vi.mocked(getStatsGroups);
+const mockGetBackfillDomainStatus = vi.mocked(getBackfillDomainStatus);
+const mockFetchResearchRuns = vi.mocked(fetchResearchRuns);
 const mockGetHealthDetailed = vi.mocked(getHealthDetailed);
 
 // ─── Test data ────────────────────────────────────────────────────────────────
@@ -235,6 +257,10 @@ const MOCK_HEALTH: DetailedHealth = {
   checked_at: "2026-07-03T09:15:00+00:00",
 };
 
+// ─── Default mock for new A4 APIs (no active jobs by default) ────────────────
+
+const EMPTY_RESEARCH_RUNS: ResearchRunListResponse = { items: [], total: 0, limit: 50, offset: 0 };
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function renderDashboard() {
@@ -254,6 +280,8 @@ describe("HomeDashboard — KPI cards (AC-R12-1-5a)", () => {
     mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
     try { sessionStorage.clear(); } catch { /* ignore */ }
   });
 
@@ -321,6 +349,8 @@ describe("HomeDashboard — system status block (A2)", () => {
     mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
     mockBackendVersion.mockReturnValue("1.2.0");
     mockActiveProvider.mockReturnValue({ provider_type: "api", model_id: "claude-sonnet-4-6" });
   });
@@ -418,6 +448,8 @@ describe("HomeDashboard — groups grid (A3)", () => {
     mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
     try { localStorage.clear(); } catch { /* ignore */ }
   });
 
@@ -521,6 +553,8 @@ describe("HomeDashboard — empty vocabulary but groups present (A3)", () => {
     });
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
   it("shows the small empty-vocab hint (not the prominent placeholder)", async () => {
@@ -568,6 +602,8 @@ describe("HomeDashboard — empty vocabulary (AC-R12-1-5b)", () => {
     });
     mockGetStatsGroups.mockResolvedValue(null);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
   it("shows the empty-vocabulary hint element when no vocabulary domains are configured", async () => {
@@ -598,6 +634,8 @@ describe("HomeDashboard — section cards render (AC-R12-1-5c)", () => {
     mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
   it("renders the sections grid", async () => {
@@ -644,6 +682,8 @@ describe("HomeDashboard — I3: no chart library, SVG sparklines only (AC-R12-1-
     mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
   it("renders SVG elements inside section cards for the type bar", async () => {
@@ -677,6 +717,8 @@ describe("HomeDashboard — section card click navigation (AC-R12-1-7)", () => {
     mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
     try { localStorage.clear(); } catch { /* ignore */ }
   });
 
@@ -720,6 +762,8 @@ describe("HomeDashboard — 404 backend placeholder", () => {
     mockGetStatsSections.mockResolvedValue(null);
     mockGetStatsGroups.mockResolvedValue(null);
     mockGetHealthDetailed.mockResolvedValue(null);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
   it("shows the server-v1.1 placeholder when overview returns null (404)", async () => {
@@ -787,6 +831,213 @@ describe("VersionMismatchBanner — version mismatch (R12-3 AC-R12-3-5)", () => 
     } catch {
       // sessionStorage unavailable in this environment — skip assertion
     }
+  });
+});
+
+// ─── A4: Active Jobs block ────────────────────────────────────────────────────
+
+describe("HomeDashboard — active jobs block hidden when nothing active (A4)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Reset counts to zero
+    mockActivityCounts.processing = 0;
+    mockActivityCounts.pending = 0;
+    mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
+    mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
+    mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
+  });
+
+  it("active-jobs block is NOT rendered when nothing is running", async () => {
+    await renderDashboard();
+    expect(screen.queryByTestId("home-active-jobs")).toBeNull();
+  });
+});
+
+describe("HomeDashboard — active jobs block: ingest row (A4)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
+    mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
+    mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
+  });
+
+  afterEach(() => {
+    // Always reset counts back to zero after each test
+    mockActivityCounts.processing = 0;
+    mockActivityCounts.pending = 0;
+  });
+
+  it("active-jobs block IS rendered when ingest has processing tasks", async () => {
+    mockActivityCounts.processing = 2;
+    mockActivityCounts.pending = 0;
+    await renderDashboard();
+    await waitFor(() => {
+      expect(screen.queryByTestId("home-active-jobs")).not.toBeNull();
+    });
+  });
+
+  it("ingest row renders from activityStore snapshot with processing count", async () => {
+    mockActivityCounts.processing = 2;
+    mockActivityCounts.pending = 5;
+    await renderDashboard();
+    await waitFor(() => {
+      const row = screen.queryByTestId("home-active-jobs-ingest");
+      expect(row).not.toBeNull();
+      // Both counts should appear in the row
+      expect(row?.textContent).toContain("2");
+      expect(row?.textContent).toContain("5");
+    });
+  });
+
+  it("clicking ingest row calls setActiveSection('ingest')", async () => {
+    mockSetActiveSection.mockReset();
+    mockActivityCounts.processing = 1;
+    await renderDashboard();
+    await waitFor(() => {
+      expect(screen.queryByTestId("home-active-jobs-ingest")).not.toBeNull();
+    });
+    fireEvent.click(screen.getByTestId("home-active-jobs-ingest"));
+    expect(mockSetActiveSection).toHaveBeenCalledWith("ingest");
+  });
+});
+
+describe("HomeDashboard — active jobs block: backfill row (A4)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockActivityCounts.processing = 0;
+    mockActivityCounts.pending = 0;
+    mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
+    mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
+    mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
+  });
+
+  it("backfill row is rendered when running=true", async () => {
+    mockGetBackfillDomainStatus.mockResolvedValue({ running: true, last_summary: null });
+    await renderDashboard();
+    await waitFor(() => {
+      expect(screen.queryByTestId("home-active-jobs-backfill")).not.toBeNull();
+    });
+  });
+
+  it("backfill row is NOT rendered when running=false", async () => {
+    mockGetBackfillDomainStatus.mockResolvedValue({ running: false, last_summary: null });
+    await renderDashboard();
+    // Active jobs block should be hidden entirely (nothing running)
+    await waitFor(() => {
+      expect(screen.queryByTestId("home-active-jobs")).toBeNull();
+    });
+  });
+
+  it("backfill row shows last_summary when present", async () => {
+    mockGetBackfillDomainStatus.mockResolvedValue({ running: true, last_summary: "42 pages tagged" });
+    await renderDashboard();
+    await waitFor(() => {
+      const row = screen.queryByTestId("home-active-jobs-backfill");
+      expect(row).not.toBeNull();
+      expect(row?.textContent).toContain("42 pages tagged");
+    });
+  });
+});
+
+// ─── A4: Groups cap + expand/collapse toggle ─────────────────────────────────
+
+describe("HomeDashboard — groups cap + expand/collapse toggle (A4)", () => {
+  // Build a mock with 6 groups (> GROUPS_DEFAULT_CAP=4)
+  const MANY_GROUPS: StatsGroups = {
+    groups: [1, 2, 3, 4, 5, 6].map((n) => ({
+      community: n,
+      label: `Group ${n}`,
+      pages_total: 60 - n * 5,
+      pages_by_type: { concept: 10 },
+      top_pages: [],
+      last_activity: null,
+    })),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockActivityCounts.processing = 0;
+    mockActivityCounts.pending = 0;
+    mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
+    mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
+    mockGetStatsGroups.mockResolvedValue(MANY_GROUPS);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
+  });
+
+  it("renders only 4 groups by default (collapsed)", async () => {
+    await renderDashboard();
+    const grid = screen.getByTestId("home-groups-grid");
+    const cards = grid.querySelectorAll("[data-testid^='group-card-']");
+    expect(cards.length).toBe(4);
+  });
+
+  it("toggle button is present when groups > 4", async () => {
+    await renderDashboard();
+    expect(screen.queryByTestId("home-groups-toggle")).not.toBeNull();
+  });
+
+  it("toggle button has aria-expanded=false by default", async () => {
+    await renderDashboard();
+    const toggle = screen.getByTestId("home-groups-toggle");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("clicking toggle reveals all groups", async () => {
+    await renderDashboard();
+    const toggle = screen.getByTestId("home-groups-toggle");
+    fireEvent.click(toggle);
+    await waitFor(() => {
+      const grid = screen.getByTestId("home-groups-grid");
+      const cards = grid.querySelectorAll("[data-testid^='group-card-']");
+      expect(cards.length).toBe(6);
+    });
+  });
+
+  it("toggle has aria-expanded=true after clicking expand", async () => {
+    await renderDashboard();
+    const toggle = screen.getByTestId("home-groups-toggle");
+    fireEvent.click(toggle);
+    await waitFor(() => {
+      expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    });
+  });
+
+  it("clicking toggle again collapses back to 4", async () => {
+    await renderDashboard();
+    const toggle = screen.getByTestId("home-groups-toggle");
+    fireEvent.click(toggle); // expand
+    fireEvent.click(toggle); // collapse
+    await waitFor(() => {
+      const grid = screen.getByTestId("home-groups-grid");
+      const cards = grid.querySelectorAll("[data-testid^='group-card-']");
+      expect(cards.length).toBe(4);
+    });
+  });
+
+  it("toggle button is NOT rendered when groups <= 4", async () => {
+    // Override with only 3 groups
+    mockGetStatsGroups.mockResolvedValue({
+      groups: [1, 2, 3].map((n) => ({
+        community: n,
+        label: `Group ${n}`,
+        pages_total: 30 - n * 5,
+        pages_by_type: {},
+        top_pages: [],
+        last_activity: null,
+      })),
+    });
+    await renderDashboard();
+    expect(screen.queryByTestId("home-groups-toggle")).toBeNull();
   });
 });
 
@@ -918,5 +1169,69 @@ describe("i18n — home.* and config.domainVocabulary.* keys present in both loc
     const it = await import("../i18n/locales/it.json");
     const home = (it as { home: { sections: { emptyVocabHint: string } } }).home;
     expect(home.sections.emptyVocabHint).toBeTruthy();
+  });
+
+  // A4: groups expand/collapse keys
+  it("en.json has home.groups.expand key (A4)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { groups: { expand: string } } }).home;
+    expect(home.groups.expand).toBeTruthy();
+    expect(home.groups.expand).toContain("{{count}}");
+  });
+
+  it("it.json has home.groups.expand key (A4)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { groups: { expand: string } } }).home;
+    expect(home.groups.expand).toBeTruthy();
+    expect(home.groups.expand).toContain("{{count}}");
+  });
+
+  it("en.json has home.groups.collapse key (A4)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { groups: { collapse: string } } }).home;
+    expect(home.groups.collapse).toBeTruthy();
+  });
+
+  it("it.json has home.groups.collapse key (A4)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { groups: { collapse: string } } }).home;
+    expect(home.groups.collapse).toBeTruthy();
+  });
+
+  // A4: activeJobs keys
+  it("en.json has home.activeJobs.title key (A4)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { activeJobs: { title: string } } }).home;
+    expect(home.activeJobs.title).toBeTruthy();
+  });
+
+  it("it.json has home.activeJobs.title key (A4)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { activeJobs: { title: string } } }).home;
+    expect(home.activeJobs.title).toBeTruthy();
+  });
+
+  it("en.json has home.activeJobs.ingest key (A4)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { activeJobs: { ingest: string } } }).home;
+    expect(home.activeJobs.ingest).toBeTruthy();
+  });
+
+  it("it.json has home.activeJobs.ingest key (A4)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { activeJobs: { ingest: string } } }).home;
+    expect(home.activeJobs.ingest).toBeTruthy();
+  });
+
+  it("en.json has home.activeJobs.backfill key (A4)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { activeJobs: { backfill: string } } }).home;
+    expect(home.activeJobs.backfill).toBeTruthy();
+  });
+
+  it("it.json has home.activeJobs.backfill key (A4)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { activeJobs: { backfill: string } } }).home;
+    expect(home.activeJobs.backfill).toBeTruthy();
   });
 });

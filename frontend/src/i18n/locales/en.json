@@ -1110,7 +1110,19 @@
       "pages": "pages",
       "openTopPage": "Open top page",
       "lastActivity": "Last activity",
-      "noTopPages": "No pages yet"
+      "noTopPages": "No pages yet",
+      "expand": "Expand ({{count}} more)",
+      "collapse": "Collapse"
+    },
+    "activeJobs": {
+      "ariaLabel": "Active jobs",
+      "title": "LAVORI ATTIVI",
+      "refresh": "Refresh active jobs",
+      "ingest": "Ingest",
+      "ingestProcessing": "processing",
+      "ingestPending": "in queue",
+      "research": "Deep Research",
+      "backfill": "Domain classification in progress"
     },
     "placeholder": {
       "title": "Server v1.1 — update to enable the Home dashboard",
