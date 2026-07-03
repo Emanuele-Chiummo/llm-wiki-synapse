@@ -26,20 +26,10 @@ env/
 *.env.*.local
 
 # Vault content — gitignored; only .gitkeep files tracked
-vault/purpose.md
-vault/schema.md
-vault/raw/sources/*
-vault/raw/assets/*
-vault/wiki/**/*.md
-vault/wiki/entities/
-vault/wiki/concepts/
-vault/wiki/sources/
-vault/wiki/queries/
-vault/wiki/synthesis/
-vault/wiki/comparisons/
-vault/wiki/.obsidian/
-!vault/raw/sources/.gitkeep
-!vault/raw/assets/.gitkeep
+# The ENTIRE runtime vault is user data and must NEVER reach GitHub (owner mandate
+# 2026-07-03). The backend recreates the folder structure on demand (vault.py,
+# watcher.py — mkdir parents=True at every entry point), so no placeholder is needed.
+vault/
 
 # Generated docs artefacts — D2 (ER) and D4 (OpenAPI) ARE committed so they are
 # reviewable in-repo and the CI drift check (`make er`/`make openapi` + git diff) is meaningful (I8).
