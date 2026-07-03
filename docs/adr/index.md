@@ -94,7 +94,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 
 ---
 
-## Distribution & Security (ADR-0047 through ADR-0052)
+## Distribution & Security (ADR-0047 through ADR-0053)
 
 | # | Title | Status |
 |---|-------|--------|
@@ -102,6 +102,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0048** | [Dark mode, command palette, UI polish, and desktop pack (v0.6 frontend + Tauri)](0048-dark-mode-command-palette-ui-polish-desktop-pack.md) | Accepted |
 | **0049** | [Desktop auto-update over GitHub Releases (unified `v*` tag, minisign-verified)](0049-desktop-auto-update-github-releases.md) | Accepted |
 | **0052** | [Shared Bearer token auth (`SYNAPSE_AUTH_TOKEN`): env-only credential, FastAPI middleware, CORS-safe 401 (R10-1, v1.0)](0052-auth-token-model.md) | Accepted |
+| **0053** | [Runtime UI config-override layer (`app_config` key/value store; env baseline → DB override; GET/PUT/DELETE `/config/app`) (R11-2, v1.1)](ADR-0053-ui-config-overrides.md) | Accepted |
 
 ---
 
