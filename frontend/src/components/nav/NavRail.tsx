@@ -49,6 +49,7 @@ import {
 import { useGraphStore, selectActiveSection, selectSetActiveSection } from "../../store/graphStore";
 import type { Section } from "../../store/graphStore";
 import { useIngestRunningCount } from "../../store/ingestStore";
+import { useStatusStore, selectReviewPending } from "../../store/statusStore";
 
 // ─── Lucide icon size constant ────────────────────────────────────────────────
 
@@ -106,6 +107,8 @@ export function NavRail() {
   const activeSection = useGraphStore(selectActiveSection);
   const setActiveSection = useGraphStore(selectSetActiveSection);
   const runningCount = useIngestRunningCount();
+  // Pending review items — fed by the existing 30s /status poll via statusStore (I3).
+  const reviewPending = useStatusStore(selectReviewPending);
 
   const handleItemClick = useCallback(
     (item: RailItem) => {
@@ -196,7 +199,13 @@ export function NavRail() {
                 key={item.id}
                 item={item}
                 isActive={item.id === activeSection}
-                badge={item.id === "ingest" ? runningCount : 0}
+                badge={
+                  item.id === "ingest"
+                    ? runningCount
+                    : item.id === "review"
+                      ? (reviewPending ?? 0)
+                      : 0
+                }
                 label={t(item.labelKey)}
                 onClick={() => handleItemClick(item)}
               />

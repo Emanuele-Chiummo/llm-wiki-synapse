@@ -216,6 +216,14 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
         Column("target_page_id", String(36), nullable=True),
         Column("dangling", Integer, nullable=False, server_default=sa_text("1")),
     )
+    # GET /status now counts pending review items for the NavRail badge (v1.2.x).
+    Table(
+        "review_items",
+        meta,
+        Column("id", String(36), primary_key=True),
+        Column("vault_id", String, nullable=False),
+        Column("status", String, nullable=False),
+    )
 
     async with engine.begin() as conn:
         await conn.run_sync(meta.create_all)

@@ -409,6 +409,8 @@ export function ActivityBar(): ReactNode {
           setStatus({ dataVersion: res.data_version, uptimeSeconds: res.uptime_seconds });
           // Surface backend version to statusStore (R12-3/ADR-0054 §6 — no new poller).
           useStatusStore.getState().setBackendVersion(res.version);
+          // Pending review count → NavRail badge (owner request; absent on old backends).
+          useStatusStore.getState().setReviewPending(res.review_pending);
           setPollError(false);
         }
       } catch {
