@@ -1,6 +1,6 @@
 [package]
 name = "synapse"
-version = "1.2.1"
+version = "1.2.2"
 description = "Synapse — self-hosting AI wiki from raw documents"
 authors = ["Emanuele Chiummo <emanuelechiummo@outlook.it>"]
 edition = "2021"
