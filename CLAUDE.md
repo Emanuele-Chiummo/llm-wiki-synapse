@@ -161,6 +161,7 @@ synapse/
 | F15 | Cross-platform: path normalisation, unicode-safe, PWA + Tauri v2, CI/CD | Native + Build |
 | F16 | i18n (IT/EN), settings persistence, `.obsidian` auto-gen, GFM rendering, multi-provider chat, timeout, `dataVersion` | Build |
 | F17 ⭐ | **Inference Provider selectable per vault/operation** — Local (Ollama) / API (Anthropic + OpenAI-compatible) / CLI (claude-agent-sdk). Capability-aware routing. Per-vault/global config + UI selector. | Build + Native + Reuse |
+| F18 | Home dashboard + per-domain section insights (controlled domain vocabulary, AI auto-tag, stats API) | Build |
 
 ---
 

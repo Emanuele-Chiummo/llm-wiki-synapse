@@ -52,6 +52,9 @@ services:
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic
       - ./backend/scripts:/app/scripts
+      # pyproject too: /status version reads it (ADR-0054 §6) — without this mount the
+      # container serves the image-baked copy, frozen at image-build time (was 0.1.0).
+      - ./backend/pyproject.toml:/app/pyproject.toml:ro
     # uvicorn --reload watches /app and restarts the server on any .py change.
     command: >
       sh -c "alembic upgrade head &&

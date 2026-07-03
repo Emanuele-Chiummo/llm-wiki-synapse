@@ -1,8 +1,8 @@
 # Synapse User Guide
 
-<!-- Generated: v1.1 sprint 11 | 2026-07-03 -->
+<!-- Generated: v1.2 sprint 12 | 2026-07-03 -->
 
-> Version: v1.1 (M11 — "Convert & Configure": Marker Convert panel, runtime settings, logo dedup, bugfixes)
+> Version: v1.2 (M12 — "Home & Insights": Home dashboard, domain vocabulary + auto-tag, server release channel)
 > Language toggle: English / Italian available in Settings.
 
 ---
@@ -23,8 +23,8 @@ Obsidian app.
 
 ## The core journey
 
-1. **Open the app** — you land on the Chat section by default. Ask a question or
-   navigate to another section using the labeled rail on the left.
+1. **Open the app** — you land on the Home dashboard by default (v1.2). Glance at the
+   KPI row and domain section cards, then navigate using the labeled rail on the left.
 2. **Drop a document** into `vault/raw/sources/` (or use the upload zone in the
    Sources section).
 3. **Watch the graph grow** — the knowledge graph updates automatically as pages are
@@ -55,7 +55,8 @@ The rail contains items from top to bottom:
 
 | Label | Section |
 |-------|---------|
-| **Chat** | Multi-conversation streaming chat (default on first load) |
+| **Home** | Landing dashboard — vault KPIs, recent activity, domain section cards (v1.2, default on first load) |
+| **Chat** | Multi-conversation streaming chat |
 | **Wiki** | File tree + knowledge graph + page inspector |
 | **Sources** | Raw source file browser |
 | **Search** | Full-text and semantic search across wiki pages |
@@ -71,6 +72,178 @@ The nav rail groups secondary tools (**Lint**, **Review**, **Deep Research**, **
 
 The vault name, data version, and active provider appear in the status bar at the
 bottom of every section.
+
+---
+
+### Home dashboard (v1.2) {#home-dashboard}
+
+The Home section is the default landing screen as of v1.2. It loads once on mount
+(no polling — I3) and answers "what is in my wiki and how is it growing?" at a glance.
+
+<!-- Screenshot: docs/screens/home-dashboard.png (captured by Playwright E2E — pending QA pass, AC-R12-1-9) -->
+
+#### KPI row
+
+Seven compact cards span the top of the screen:
+
+| Card | What it shows |
+|------|--------------|
+| **Pages** | Total live (non-deleted) wiki pages |
+| **Links** | Total structural wikilink edges in the knowledge graph |
+| **Communities** | Number of distinct communities detected by the graph algorithm (0 if graph has not been computed yet) |
+| **Review** | Open items in the HITL review queue — highlighted in accent color when non-zero |
+| **Lint** | Open lint findings — highlighted in accent color when non-zero |
+| **Monthly AI spend** | Month-to-date provider cost in USD, aggregated from the same data as the cost dashboard (`GET /costs/summary`). Local Ollama runs always show $0.00. |
+| **Data version** | The current `data_version` counter — increments on every page write. |
+
+#### Recent activity
+
+Below the KPI row, a list of the ten most recently updated wiki pages. Each row shows
+the page title and a relative timestamp. Clicking a row navigates to the **Wiki**
+section (the tree and note reader load with that page selected in a future sprint;
+for now clicking switches to the Wiki section).
+
+#### Server update banner (v1.2)
+
+When the frontend version and the backend version reported by `GET /status` differ —
+and the backend version is not `"dev"` — a non-blocking dismissible banner appears at
+the top of every section:
+
+> "A server update is available (backend v1.2.0 / frontend v1.1.3). Pull the new image
+> on TrueNAS to update."
+
+The banner survives component re-renders but clears when you close and reopen the
+browser tab (stored in `sessionStorage`). It does not block any action. See
+[DEPLOY.md §9](DEPLOY.md#updating-synapse) for the manual and automatic update
+procedures.
+
+#### Domain section cards {#home-sections}
+
+Below recent activity, a responsive grid shows one card per domain in your vocabulary
+(in vocabulary order), followed by an **Unclassified** card at the end. Each card
+displays:
+
+- **Domain name** and **page count**
+- A color-coded mini-bar that shows the type breakdown (concept, entity, source,
+  synthesis, comparison) at a glance as a proportional SVG bar — no charting library,
+  computed once on mount (I3).
+- The type counts in text form below the bar.
+- The **last activity** timestamp (most recent `updated_at` among pages in that domain).
+- Up to three of the **most-connected pages** in that domain (by graph degree).
+
+**Clicking a card** writes the domain name to `localStorage` (key:
+`synapse:domainFilter`) and switches the nav rail to the **Wiki** section. The Wiki
+tree reads that filter on its next mount and shows only pages tagged with that domain.
+Clicking the **Unclassified** card clears the filter and shows all untagged pages.
+
+**When no vocabulary is configured.** If `domain_vocabulary` is unset or empty, the
+section cards area shows a "No domains configured" placeholder with a shortcut button
+to **Settings > Advanced** where you can define the vocabulary. The KPI row is always
+visible regardless of vocabulary state.
+
+**When the backend does not support the stats endpoints** (running a pre-v1.2 image),
+the dashboard shows a friendly placeholder message rather than an error.
+
+---
+
+### Domain sections (v1.2) {#domain-sections}
+
+Domain sections let you slice the wiki by subject area (e.g. ServiceNow, SAM,
+Procurement, Regolamentazioni, TPRM). Each domain in your vocabulary becomes a section
+card on the Home dashboard and a filter target for the Wiki tree.
+
+#### Defining the vocabulary
+
+1. Open **Settings** from the nav rail (bottom, pinned).
+2. Select **Advanced** from the left sub-navigation.
+3. Find **Domain vocabulary** in the "Runtime overrides" group.
+4. Enter your domain names as a comma-separated list, for example:
+   `ServiceNow, SAM, Procurement, Regolamentazioni, TPRM`
+   Do **not** type the `domain/` prefix — that is an internal implementation detail
+   that the UI hides from you. You type `ServiceNow`, not `domain/ServiceNow`.
+5. Click **Save**. The vocabulary is stored as a JSON array in the `app_config` table
+   and takes effect immediately for the next ingest and for `GET /stats/sections`.
+
+The vocabulary is editable at any time. Removing a domain does not delete the `domain/*`
+tags already written to pages — those tags become "stale" and are silently ignored by
+the stats and Home dashboard. A backfill with `force=true` (see below) re-classifies
+all pages against the updated list if you want to clean up stale tags.
+
+An empty vocabulary (`[]`) makes the feature dormant: no provider calls are made during
+ingest, `GET /stats/sections` returns only the **Unclassified** bucket, and the Home
+dashboard shows no domain cards.
+
+#### Auto-tagging on ingest
+
+When the vocabulary is non-empty, the ingest pipeline runs one bounded provider call per
+page after it has been written. The provider receives the page title, a bounded slice of
+the body, and the full vocabulary list. It returns the subset of vocabulary terms (0 or
+more) that match. These are written to `pages.tags` as `domain/<Name>` entries
+(Obsidian nested tags — they round-trip through YAML frontmatter and appear in
+Obsidian's tag pane under the `domain/` group).
+
+The auto-tag step uses whichever inference provider you have selected (Local / API /
+CLI) and is I6-compliant — no backend is hardcoded. Its cost rolls into the ingest
+run's `total_cost_usd` and appears in the cost dashboard.
+
+If the classification call fails (provider error, timeout, budget exhaustion), the page
+is saved **untagged** — the ingest run is not affected. Auto-tag is advisory and never
+blocks ingest.
+
+#### One-time backfill for existing pages
+
+Pages ingested before you defined the vocabulary (or after you changed it) are not
+automatically re-classified. To tag existing pages, trigger the backfill via the API:
+
+```bash
+# Start a bounded background backfill (202 Accepted)
+curl -X POST http://localhost:8000/ops/backfill-domains \
+     -H "Authorization: Bearer $SYNAPSE_AUTH_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{}'
+```
+
+There is no UI button for the backfill in v1.2 — use the `curl` command above or any
+HTTP client. The endpoint returns `202 Accepted` immediately; the backfill runs in the
+background.
+
+**Bounds (I7):**
+
+| Parameter | Default | Hard cap | Effect |
+|-----------|---------|----------|--------|
+| `max_pages` | 500 | 2000 | Stop after this many pages |
+| `token_budget` | 60 000 tokens | — | Stop before exceeding this token count |
+
+To process more than 500 pages, pass `"max_pages": 2000` in the request body and
+re-run as needed until all pages are tagged. Each run skips pages that already carry a
+`domain/*` tag (idempotent by default).
+
+**`force=true`** re-classifies all pages regardless of existing domain tags. Use this
+after editing the vocabulary to bring all pages in line with the new list.
+
+```bash
+# Force re-classification of all pages (up to max_pages)
+curl -X POST http://localhost:8000/ops/backfill-domains \
+     -H "Authorization: Bearer $SYNAPSE_AUTH_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"max_pages": 2000, "force": true}'
+```
+
+**Checking status while running:**
+
+```bash
+curl http://localhost:8000/ops/backfill-domains \
+     -H "Authorization: Bearer $SYNAPSE_AUTH_TOKEN"
+```
+
+Returns `{"running": true, "last_summary": null}` while in progress and
+`{"running": false, "last_summary": {...}}` with the completion summary once done.
+The summary includes `pages_tagged`, `total_cost_usd`, and `stopped_reason` (one of
+`complete`, `budget`, `maxpages`, or `vocabulary_empty`).
+
+**Concurrent backfill guard:** only one backfill can run at a time. A second `POST`
+while one is in flight returns `409 Conflict`. If the vocabulary is empty, the endpoint
+returns `400 Bad Request`.
 
 ---
 
@@ -1178,8 +1351,9 @@ The following endpoints are always reachable without a Bearer token, even when
 
 ## Runtime Settings (v1.1) {#runtime-settings}
 
-As of v1.1, eight behaviour settings can be changed directly from the Synapse Settings
-panel **without editing `.env` or restarting Docker**. The changes take effect for
+As of v1.2, nine behaviour settings can be changed directly from the Synapse Settings
+panel **without editing `.env` or restarting Docker**. (Eight shipped in v1.1; the ninth —
+Domain vocabulary — was added in v1.2.) The changes take effect for
 subsequent operations immediately (the backend reads the effective value from its
 in-memory cache, which is updated on each save). You do not need to touch
 `docker-compose.yml` for day-to-day tuning.
@@ -1190,7 +1364,7 @@ These settings are found in two places in the Settings panel:
 - **Settings > Advanced** — cost alert, embeddings, embedding format, overview language,
   and auto wikilink enrichment (S4–S8).
 
-### The eight runtime settings
+### The nine runtime settings
 
 | Setting | Where in Settings | What it controls | Default |
 |---------|------------------|-----------------|---------|
@@ -1202,6 +1376,7 @@ These settings are found in two places in the Settings panel:
 | **Embedding format** | Advanced | The request/response format used when calling the embedding service: `ollama` (default, for bge-m3 via Ollama) or `openai` (for OpenAI-compatible hosted endpoints). Change this only if your embedding endpoint uses the OpenAI API shape. | `ollama` |
 | **Overview language** | Advanced | The language Synapse uses when generating `overview.md` and overview-style pages. Leave blank (the `(auto)` default) to let the AI detect the vault's dominant language automatically. Enter an ISO language code (e.g. `it`, `en`) to fix the language. | (auto) |
 | **Auto wikilink enrichment** | Advanced | Toggle. When on, the post-ingest pass scans related pages for opportunities to add `[[wikilinks]]` between them. Turn off if you prefer to add all wikilinks manually. | On |
+| **Domain vocabulary** | Advanced | Comma-separated list of domain names (e.g. `ServiceNow, SAM, Procurement`). Stored as a JSON array. Drives automatic page tagging and the Home dashboard section cards (v1.2, S9). Empty = feature dormant. | (empty) |
 
 ### How to change a setting
 
@@ -1546,3 +1721,13 @@ The following features shipped in v1.1 (M11 — "Convert & Configure"):
 | renderMarkdown null guard (R11-4-BUG1, I3) | `renderMarkdown` returns `""` early on null/empty input; no spurious DOMParser errors on empty chat messages or empty preview panes. |
 | Ingest polling dedup (R11-4-BUG2) | The ingest polling effect cleanup now correctly cancels the previous interval on re-mount, preventing overlapping polls. |
 | Virtualizer zero-height recovery (R11-4-BUG3, I4) | `estimateSize` returns a non-zero default (≥ 32 px) and the scroll container forces a remeasure on mount; virtualized lists render correctly on initial load without a resize event. |
+
+The following features shipped in v1.2 (M12 — "Home & Insights"):
+
+| Feature | Notes |
+|---------|-------|
+| Home dashboard (R12-1, F18, ADR-0054) | New **Home** section is the default landing screen. KPI row (pages, links, communities, review, lint, monthly AI spend, data version), recent-activity list, per-domain section cards. `GET /stats/overview`, `GET /stats/sections`. Plain SVG type-breakdown bar per card — no charting library (I3). Section-card click writes a domain filter to `localStorage` and navigates to the Wiki section. |
+| Domain vocabulary + auto-tag (R12-2, F18, ADR-0054) | Owner-controlled controlled vocabulary stored as a JSON array in `app_config` (key `domain_vocabulary`, editable in **Settings > Advanced**). After each page write the ingest pipeline runs one bounded provider call that classifies the page into 0..N vocabulary domains and writes `domain/<Name>` tags to `pages.tags`. Empty vocabulary = feature dormant; zero provider calls made (I6). |
+| Domain backfill (R12-2, F18) | `POST /ops/backfill-domains` triggers a background bounded backfill of existing pages (202 Accepted). Default cap: 500 pages / 60 000 tokens; hard upper cap 2 000 pages. Idempotent by default (skips already-tagged pages); `force=true` re-classifies all. Returns 409 if already running; 400 if vocabulary is empty. |
+| Server release channel (R12-3, F15, F16) | CI publishes `ghcr.io/<org>/synapse-backend:<tag>` on every `vX.Y.Z` git tag. `GET /status` gains `version` (read from `pyproject.toml` via `importlib.metadata`). Frontend compares backend version to its own build version; shows a dismissible session banner when they differ. `docker-compose.yml` gains an optional Watchtower block (Compose profile `autoupdate`, disabled by default). See DEPLOY.md §9. |
+| Ingest polling dedup confirmation (R12-4, F1, F16) | Confirmed resolved from v1.1 (BUG-2). No new work required. |
