@@ -114,20 +114,38 @@ vi.mock("../store/graphStore", () => ({
 }));
 
 vi.mock("../api/providerClient", () => ({
-  fetchEmbeddingConfig: vi.fn(),
-  fetchMcpInfo: vi.fn(),
+  fetchEmbeddingConfig: vi.fn().mockResolvedValue({ embeddings_enabled: false, embedding_url: "", embedding_model: "", embedding_dim: 768 }),
+  fetchMcpInfo: vi.fn().mockResolvedValue({ server_name: "synapse", transport: "stdio", entry_point_command: "python -m app", tool_count: 0, tools: [], http_enabled: false, remote_write_enabled: false, token_configured: false, remote_enabled: false, mount_path: "/mcp", token_source: "none", allow_without_token: false }),
   setRemoteMcpEnabled: vi.fn(),
   setMcpAuth: vi.fn(),
-  fetchClipConfig: vi.fn(),
+  fetchClipConfig: vi.fn().mockResolvedValue({ enabled: false, token_configured: false, token_source: "none", allowed_origins: [], max_body_bytes: 1048576 }),
   setClipConfig: vi.fn(),
-  fetchWebSearchConfig: vi.fn(),
+  fetchWebSearchConfig: vi.fn().mockResolvedValue({ configured: false, url: null, categories: [], max_queries: 3, source: "env" }),
   setWebSearchConfig: vi.fn(),
-  getCliAuthConfig: vi.fn(),
+  getCliAuthConfig: vi.fn().mockResolvedValue({ token_configured: false, token_source: "none", auth_mode: "unconfigured" }),
   setCliAuthConfig: vi.fn(),
 }));
 
 vi.mock("../components/settings/ImportScheduleCard", () => ({
   ImportScheduleCard: () => <div data-testid="import-schedule-card" />,
+}));
+
+// R11-2: mock appConfigClient so SectionRuntimeConfig doesn't throw on fetch
+vi.mock("../api/appConfigClient", () => ({
+  getAppConfig: vi.fn().mockResolvedValue({
+    settings: [
+      { key: "pdf_extractor",           value: "pypdf",  source: "env" },
+      { key: "marker_service_url",       value: "",       source: "env" },
+      { key: "marker_timeout_seconds",   value: "60",     source: "env" },
+      { key: "cost_alert_threshold_usd", value: "5.0",    source: "env" },
+      { key: "embeddings_enabled",       value: "true",   source: "env" },
+      { key: "embedding_format",         value: "ollama", source: "env" },
+      { key: "overview_language",        value: "en",     source: "env" },
+      { key: "wikilink_enrich_enabled",  value: "true",   source: "env" },
+    ],
+  }),
+  putAppConfig: vi.fn().mockResolvedValue(undefined),
+  resetAppConfig: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ─── i18n mock ────────────────────────────────────────────────────────────────
@@ -148,7 +166,13 @@ vi.mock("react-i18next", () => ({
         "settings.scenarios.applied": "Scenario applied successfully",
         "settings.scenarios.loadError": "Could not load scenarios. Is the backend running?",
         "common.loading": "Loading…",
-        // Nav items needed by SettingsPanel render
+        // A2.1: 5-group nav items (replaced 14 flat sections)
+        "settings.nav.groupGettingStarted": "Getting started",
+        "settings.nav.groupAiModels": "AI & Models",
+        "settings.nav.groupSources": "Sources & PDF",
+        "settings.nav.groupOutput": "Output & Appearance",
+        "settings.nav.groupAdvanced": "Advanced",
+        // Section headers still used inside groups
         "settings.nav.general": "General",
         "settings.nav.llmModels": "LLM Models",
         "settings.nav.embeddings": "Embeddings",
@@ -161,6 +185,16 @@ vi.mock("react-i18next", () => ({
         "settings.nav.maintenance": "Maintenance",
         "settings.nav.about": "About",
         "settings.nav.scenarios": "Scenarios",
+        // Runtime config keys (R11-2 / A2.1)
+        "config.pdfExtractorSection.title": "PDF extraction",
+        "config.pdfExtractorSection.desc": "Configure the PDF extraction engine.",
+        "config.runtimeOverridesSection.title": "Runtime overrides",
+        "config.runtimeOverridesSection.desc": "Override env-var defaults at runtime.",
+        "config.gettingStarted.wizardSlot": "Setup wizard",
+        "config.gettingStarted.wizardSlotDesc": "Step-by-step vault configuration.",
+        "config.gettingStarted.wizardComingSoon": "Coming soon",
+        "config.loading": "Loading…",
+        "config.error": "Failed to load config.",
       };
       return map[key] ?? key;
     },
@@ -186,13 +220,17 @@ const SAMPLE_SCENARIOS = [
 
 async function openScenariosSection() {
   render(<SettingsPanel />);
+  // A2.1: SectionScenarios is inside GroupOutput — navigate there.
   await waitFor(() => {
-    // Nav item should be present
-    expect(screen.getAllByText("Scenarios").length).toBeGreaterThan(0);
+    // The "Output & Appearance" group nav button should be present
+    expect(document.querySelector('[data-settings-section="output"]')).not.toBeNull();
   });
-  // Click the Scenarios nav item
-  const btns = screen.getAllByText("Scenarios");
-  fireEvent.click(btns[0]!);
+  const outputBtn = document.querySelector('[data-settings-section="output"]') as HTMLElement;
+  fireEvent.click(outputBtn);
+  // SectionScenarios title "Scenario Templates" should appear
+  await waitFor(() => {
+    expect(screen.getAllByText("Scenario Templates").length).toBeGreaterThan(0);
+  });
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

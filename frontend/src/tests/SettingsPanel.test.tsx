@@ -298,138 +298,147 @@ vi.mock("../api/costsClient", () => ({
   }),
 }));
 
+// ─── Mock appConfigClient (R11-2 / ADR-0053) ─────────────────────────────────
+// Returns a realistic GET /config/app response with all 8 keys at env default.
+
+vi.mock("../api/appConfigClient", () => ({
+  getAppConfig: vi.fn().mockResolvedValue({
+    settings: [
+      { key: "pdf_extractor",            value: "pypdf",  source: "env" },
+      { key: "marker_service_url",        value: "",       source: "env" },
+      { key: "marker_timeout_seconds",    value: "60",     source: "env" },
+      { key: "cost_alert_threshold_usd",  value: "5.0",    source: "env" },
+      { key: "embeddings_enabled",        value: "true",   source: "env" },
+      { key: "embedding_format",          value: "ollama", source: "env" },
+      { key: "overview_language",         value: "en",     source: "env" },
+      { key: "wikilink_enrich_enabled",   value: "true",   source: "env" },
+    ],
+  }),
+  putAppConfig: vi.fn().mockResolvedValue(undefined),
+  resetAppConfig: vi.fn().mockResolvedValue(undefined),
+}));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function renderPanel() {
   return render(<SettingsPanel />);
 }
 
-// ─── 1. All 14 sub-nav items render ──────────────────────────────────────────
+// ─── 1. All 5 top-level group buttons render (A2.1) ──────────────────────────
+// AC-R11-2-11: ~5 groups render in nav; AC-HARD-SET-1/3 updated for new IA.
 
-describe("SettingsPanel — 14 sub-nav items (AC-HARD-SET-1/3)", () => {
+describe("SettingsPanel — 5 group nav items (AC-HARD-SET-1/3 + AC-R11-2-11)", () => {
   beforeEach(() => {
     renderPanel();
   });
 
-  // The i18n mock returns the last segment of the key, so e.g.
-  // "settings.nav.general" → "general"
-  const EXPECTED_SECTION_IDS = [
-    "general",
-    "llmModels",
-    "embeddings",
-    "sourceWatch",
-    "webSearch",
-    "apiMcp",
-    "webClipper",
+  // A2.1: 5 plain-language group IDs
+  const EXPECTED_GROUP_IDS = [
+    "gettingStarted",
+    "aiModels",
+    "sources",
     "output",
-    "interface",
-    "costs",
-    "scenarios",
-    "security",
-    "maintenance",
-    "about",
+    "advanced",
   ] as const;
 
-  it("renders exactly 14 section buttons in the left nav aside", () => {
+  it("renders exactly 5 group buttons in the left nav aside (AC-R11-2-11)", () => {
     const aside = document.querySelector("aside");
     expect(aside).not.toBeNull();
     const buttons = aside!.querySelectorAll("button");
-    expect(buttons).toHaveLength(14);
+    expect(buttons).toHaveLength(5);
   });
 
-  EXPECTED_SECTION_IDS.forEach((sectionId) => {
-    it(`renders a button for section "${sectionId}"`, () => {
-      const btn = document.querySelector(`[data-settings-section="${sectionId}"]`);
-      expect(btn, `Button for section "${sectionId}" should be in the DOM`).not.toBeNull();
+  EXPECTED_GROUP_IDS.forEach((groupId) => {
+    it(`renders a nav button for group "${groupId}"`, () => {
+      const btn = document.querySelector(`[data-settings-section="${groupId}"]`);
+      expect(btn, `Button for group "${groupId}" should be in the DOM`).not.toBeNull();
     });
   });
 });
 
-// ─── 2. Clicking each sub-nav item switches the right pane ───────────────────
+// ─── 2. Clicking each group nav item switches the right pane ─────────────────
+// A2.1: groups replace the 14 flat sections. Content is preserved inside groups.
 
-describe("SettingsPanel — section switching (AC-HARD-SET-2)", () => {
-  it("clicking LLM Models nav item shows LLM Models content", () => {
+describe("SettingsPanel — group switching (AC-HARD-SET-2 + AC-R11-2-11)", () => {
+  it("clicking AI & Models group shows LLM Models content (provider list)", () => {
     renderPanel();
-    const llmBtn = document.querySelector('[data-settings-section="llmModels"]');
-    expect(llmBtn).not.toBeNull();
-    fireEvent.click(llmBtn!);
-    // Provider list should be visible (SectionLlmModels rendered)
-    // The section header uses the i18n key "settings.nav.llmModels" → "llmModels"
-    // The desc is "settings.llmModels.desc" → "desc"
-    // Check provider rows are present
+    const aiBtn = document.querySelector('[data-settings-section="aiModels"]');
+    expect(aiBtn).not.toBeNull();
+    fireEvent.click(aiBtn!);
+    // SectionLlmModels is the first item in GroupAiModels — provider rows present
     const deleteButtons = screen.getAllByText("delete");
     expect(deleteButtons.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("clicking Output nav item shows Output content", () => {
+  it("clicking Output & Appearance group shows Output + Interface content", () => {
     renderPanel();
     const outputBtn = document.querySelector('[data-settings-section="output"]');
     expect(outputBtn).not.toBeNull();
     fireEvent.click(outputBtn!);
-    // Output section has convHistory buttons (2, 4, 6, 8, 10, 20)
-    expect(screen.getByText("10")).toBeTruthy(); // default selected value
+    // SectionOutput has convHistory select with value 10
+    expect(screen.getByText("10")).toBeTruthy();
+    // SectionInterface (theme buttons) also renders in same group
+    expect(document.querySelector('[data-testid="theme-btn-system"]')).not.toBeNull();
   });
 
-  it("clicking Embeddings shows the embedding config section (not a ComingSoonBadge)", () => {
+  it("clicking AI & Models group shows the Embeddings loading state", () => {
     renderPanel();
-    const embBtn = document.querySelector('[data-settings-section="embeddings"]');
-    expect(embBtn).not.toBeNull();
-    fireEvent.click(embBtn!);
-    // SectionEmbeddings now shows a real config display (loading or data), not a stub
-    // The "loading" i18n key is shown while the fetch resolves
-    expect(screen.getByText("loading")).toBeTruthy();
+    const aiBtn = document.querySelector('[data-settings-section="aiModels"]');
+    expect(aiBtn).not.toBeNull();
+    fireEvent.click(aiBtn!);
+    // SectionEmbeddings shows loading state while fetch resolves
+    // Multiple "loading" strings may appear (embeddings + apiMcp + webSearch)
+    expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("clicking API+MCP shows the loading state (real panel, not ComingSoonBadge)", async () => {
+  it("clicking AI & Models group shows the API+MCP loading state", async () => {
     renderPanel();
-    const apiBtn = document.querySelector('[data-settings-section="apiMcp"]');
-    expect(apiBtn).not.toBeNull();
-    fireEvent.click(apiBtn!);
-    // The real panel shows a loading message while fetching (i18n mock returns "loading")
-    expect(screen.getByText("loading")).toBeTruthy();
+    const aiBtn = document.querySelector('[data-settings-section="aiModels"]');
+    expect(aiBtn).not.toBeNull();
+    fireEvent.click(aiBtn!);
+    // SectionApiMcp shows loading state while fetching
+    expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("clicking Interface shows the theme selector buttons", () => {
+  it("clicking Output & Appearance group shows the theme selector buttons", () => {
     renderPanel();
-    const ifBtn = document.querySelector('[data-settings-section="interface"]');
-    expect(ifBtn).not.toBeNull();
-    fireEvent.click(ifBtn!);
-    // 3-way theme selector: system / light / dark
+    const outputBtn = document.querySelector('[data-settings-section="output"]');
+    expect(outputBtn).not.toBeNull();
+    fireEvent.click(outputBtn!);
+    // SectionInterface is in GroupOutput
     expect(document.querySelector('[data-testid="theme-btn-system"]')).not.toBeNull();
     expect(document.querySelector('[data-testid="theme-btn-light"]')).not.toBeNull();
     expect(document.querySelector('[data-testid="theme-btn-dark"]')).not.toBeNull();
   });
 
-  it("active button has aria-current='true'", () => {
+  it("active button has aria-current='true' (default = gettingStarted)", () => {
     renderPanel();
-    // Default active section is "general"
-    const generalBtn = document.querySelector('[data-settings-section="general"]');
-    expect(generalBtn?.getAttribute("aria-current")).toBe("true");
+    // Default active group is "gettingStarted"
+    const gsBtn = document.querySelector('[data-settings-section="gettingStarted"]');
+    expect(gsBtn?.getAttribute("aria-current")).toBe("true");
   });
 
   it("non-active buttons do NOT have aria-current", () => {
     renderPanel();
-    const llmBtn = document.querySelector('[data-settings-section="llmModels"]');
-    expect(llmBtn?.getAttribute("aria-current")).toBeNull();
+    const aiBtn = document.querySelector('[data-settings-section="aiModels"]');
+    expect(aiBtn?.getAttribute("aria-current")).toBeNull();
   });
 
-  it("after clicking LLM Models, llmModels button has aria-current='true'", () => {
+  it("after clicking AI & Models, aiModels button has aria-current='true'", () => {
     renderPanel();
-    const llmBtn = document.querySelector('[data-settings-section="llmModels"]');
-    fireEvent.click(llmBtn!);
-    expect(llmBtn?.getAttribute("aria-current")).toBe("true");
+    const aiBtn = document.querySelector('[data-settings-section="aiModels"]');
+    fireEvent.click(aiBtn!);
+    expect(aiBtn?.getAttribute("aria-current")).toBe("true");
   });
 });
 
 // ─── 3. Interface section now has theme selector (ADR-0048 §T1) ──────────────
-// Note: "embeddings" and "apiMcp" were removed from PLACEHOLDER_SECTIONS —
-// both now render real read-only panels (GET /config/embedding, GET /mcp/info).
-// "interface" was previously a stub; it now renders the 3-way theme selector.
+// SectionInterface is now inside GroupOutput. Click "output" group to reach it.
 
 describe("SettingsPanel — Interface section renders theme selector (ADR-0048 §T1)", () => {
-  it("Interface section renders all three theme option buttons", () => {
+  it("Output group renders all three theme option buttons from SectionInterface", () => {
     renderPanel();
-    const btn = document.querySelector('[data-settings-section="interface"]');
+    const btn = document.querySelector('[data-settings-section="output"]');
     fireEvent.click(btn!);
     expect(document.querySelector('[data-testid="theme-btn-system"]')).not.toBeNull();
     expect(document.querySelector('[data-testid="theme-btn-light"]')).not.toBeNull();
@@ -438,12 +447,13 @@ describe("SettingsPanel — Interface section renders theme selector (ADR-0048 �
 });
 
 // ─── 4. Provider list renders (AC-HARD-PROV-1) ───────────────────────────────
+// SectionLlmModels is now in GroupAiModels — navigate to "aiModels" group.
 
 describe("SettingsPanel — LLM Models section renders provider list (AC-HARD-PROV-1)", () => {
   beforeEach(() => {
     renderPanel();
-    const llmBtn = document.querySelector('[data-settings-section="llmModels"]');
-    fireEvent.click(llmBtn!);
+    const aiBtn = document.querySelector('[data-settings-section="aiModels"]');
+    fireEvent.click(aiBtn!);
   });
 
   it("renders 2 provider rows (matching mock data)", () => {
@@ -462,7 +472,7 @@ describe("SettingsPanel — LLM Models section renders provider list (AC-HARD-PR
 describe("SettingsPanel — ADD form visibility toggle (AC-HARD-PROV-2)", () => {
   beforeEach(() => {
     renderPanel();
-    const llmBtn = document.querySelector('[data-settings-section="llmModels"]');
+    const llmBtn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(llmBtn!);
   });
 
@@ -485,7 +495,7 @@ describe("SettingsPanel — ADD form visibility toggle (AC-HARD-PROV-2)", () => 
 describe("SettingsPanel — Add button disabled when model_id empty (architect C2)", () => {
   beforeEach(() => {
     renderPanel();
-    const llmBtn = document.querySelector('[data-settings-section="llmModels"]');
+    const llmBtn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(llmBtn!);
     // Open the add form
     const addBtn = screen.getByText(/addProvider/i);
@@ -521,117 +531,121 @@ describe("SettingsPanel — Add button disabled when model_id empty (architect C
   });
 });
 
-// ─── 7. Arrow-key nav switches sections (ITEM 4 / DEFECT-M4H-005) ────────────
+// ─── 7. Arrow-key nav switches groups (ITEM 4 / DEFECT-M4H-005) ─────────────
+// A2.1: 5 groups total.
+// NAV order: gettingStarted(0) aiModels(1) sources(2) output(3) advanced(4)
 
 describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005)", () => {
-  it("ArrowDown from 'general' (index 0) moves to 'llmModels' (index 1)", () => {
+  it("ArrowDown from 'gettingStarted' (index 0) moves to 'aiModels' (index 1)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Initial active = general
-    expect(document.querySelector('[data-settings-section="general"]')?.getAttribute("aria-current")).toBe("true");
+    // Initial active = gettingStarted
+    expect(document.querySelector('[data-settings-section="gettingStarted"]')?.getAttribute("aria-current")).toBe("true");
 
     fireEvent.keyDown(aside, { key: "ArrowDown" });
-    // After ArrowDown, llmModels should be active
-    expect(document.querySelector('[data-settings-section="llmModels"]')?.getAttribute("aria-current")).toBe("true");
-    expect(document.querySelector('[data-settings-section="general"]')?.getAttribute("aria-current")).toBeNull();
+    // After ArrowDown, aiModels should be active
+    expect(document.querySelector('[data-settings-section="aiModels"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="gettingStarted"]')?.getAttribute("aria-current")).toBeNull();
   });
 
-  it("ArrowDown cycles past 'about' (last) back to 'general' (first)", () => {
+  it("ArrowDown cycles past 'advanced' (last) back to 'gettingStarted' (first)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Navigate to "about" (index 13) — 13 ArrowDown presses from "general"
-    // NAV_ITEMS = general(0) llmModels(1) embeddings(2) sourceWatch(3) webSearch(4)
-    //             apiMcp(5) webClipper(6) output(7) interface(8) costs(9) scenarios(10)
-    //             security(11) maintenance(12) about(13)
-    for (let i = 0; i < 13; i++) {
+    // Navigate to "advanced" (index 4) — 4 ArrowDown presses from "gettingStarted"
+    // NAV_ITEMS = gettingStarted(0) aiModels(1) sources(2) output(3) advanced(4)
+    for (let i = 0; i < 4; i++) {
       fireEvent.keyDown(aside, { key: "ArrowDown" });
     }
-    expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="advanced"]')?.getAttribute("aria-current")).toBe("true");
 
-    // One more ArrowDown should wrap to "general"
+    // One more ArrowDown should wrap to "gettingStarted"
     fireEvent.keyDown(aside, { key: "ArrowDown" });
-    expect(document.querySelector('[data-settings-section="general"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="gettingStarted"]')?.getAttribute("aria-current")).toBe("true");
   });
 
-  it("ArrowUp from 'general' (index 0) wraps to 'about' (last index)", () => {
+  it("ArrowUp from 'gettingStarted' (index 0) wraps to 'advanced' (last index)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "ArrowUp" });
-    expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="advanced"]')?.getAttribute("aria-current")).toBe("true");
   });
 
-  it("Home key moves focus to 'general' (index 0)", () => {
+  it("Home key moves focus to 'gettingStarted' (index 0)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Move to llmModels first
+    // Move to aiModels first
     fireEvent.keyDown(aside, { key: "ArrowDown" });
-    expect(document.querySelector('[data-settings-section="llmModels"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="aiModels"]')?.getAttribute("aria-current")).toBe("true");
 
     fireEvent.keyDown(aside, { key: "Home" });
-    expect(document.querySelector('[data-settings-section="general"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="gettingStarted"]')?.getAttribute("aria-current")).toBe("true");
   });
 
-  it("End key moves focus to 'about' (last index)", () => {
+  it("End key moves focus to 'advanced' (last index)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "End" });
-    expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="advanced"]')?.getAttribute("aria-current")).toBe("true");
   });
 
   it("non-arrow keys do not change the active section", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "Tab" });
-    expect(document.querySelector('[data-settings-section="general"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="gettingStarted"]')?.getAttribute("aria-current")).toBe("true");
   });
 });
 
 // ─── 8. Source Watch renders ImportScheduleCard ───────────────────────────────
+// SectionSourceWatch is inside GroupSources — navigate to "sources" group.
 
 describe("SettingsPanel — Source Watch section (AC-HARD-SET-4)", () => {
-  it("shows the ImportScheduleCard in the Source Watch section", () => {
+  it("shows the ImportScheduleCard in the Sources group", () => {
     renderPanel();
-    const swBtn = document.querySelector('[data-settings-section="sourceWatch"]');
+    const swBtn = document.querySelector('[data-settings-section="sources"]');
     fireEvent.click(swBtn!);
     expect(screen.getByTestId("import-schedule-card")).toBeTruthy();
   });
 });
 
 // ─── 9. Maintenance section renders reset button ─────────────────────────────
+// SectionMaintenance is inside GroupAdvanced — navigate to "advanced" group.
 
 describe("SettingsPanel — Maintenance section", () => {
-  it("renders the reset button with testid settings-reset-btn", () => {
+  it("renders the reset button with testid settings-reset-btn (in Advanced group)", () => {
     renderPanel();
-    const maintBtn = document.querySelector('[data-settings-section="maintenance"]');
+    const maintBtn = document.querySelector('[data-settings-section="advanced"]');
     fireEvent.click(maintBtn!);
     expect(screen.getByTestId("settings-reset-btn")).toBeTruthy();
   });
 });
 
 // ─── 10. About section renders version info ───────────────────────────────────
+// SectionAbout is inside GroupAdvanced.
 
 describe("SettingsPanel — About section", () => {
-  it("renders the injected __APP_VERSION__ string", () => {
+  it("renders the injected __APP_VERSION__ string (in Advanced group)", () => {
     renderPanel();
-    const aboutBtn = document.querySelector('[data-settings-section="about"]');
-    fireEvent.click(aboutBtn!);
+    const advBtn = document.querySelector('[data-settings-section="advanced"]');
+    fireEvent.click(advBtn!);
     expect(screen.getByText(`v${__APP_VERSION__}`)).toBeTruthy();
   });
 });
 
 // ─── 11. API + MCP section — real panel (ADR-0027, AC-F1-MCP-UI-3/4/5/6) ─────
+// SectionApiMcp is inside GroupAiModels — navigate to "aiModels" group.
 
 describe("SettingsPanel — API + MCP section renders real panel (ADR-0027)", () => {
   function navigateToApiMcp() {
     renderPanel();
-    const apiBtn = document.querySelector('[data-settings-section="apiMcp"]');
+    const apiBtn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(apiBtn!);
   }
 
   it("shows loading state immediately after navigation (before fetch resolves)", () => {
     navigateToApiMcp();
     // i18n mock returns last key segment; "settings.apiMcp.loading" → "loading"
-    expect(screen.getByText("loading")).toBeTruthy();
+    expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders all 4 tool names after fetch resolves (AC-F1-MCP-UI-4)", async () => {
@@ -720,7 +734,7 @@ describe("SettingsPanel — Remote MCP toggle (ADR-0032)", () => {
   // Helper: navigate to API+MCP section and wait for it to load
   async function navigateToApiMcpAndWait() {
     renderPanel();
-    const apiBtn = document.querySelector('[data-settings-section="apiMcp"]');
+    const apiBtn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(apiBtn!);
     // Wait for the fetch to resolve and tools to appear
     await waitFor(() => {
@@ -924,14 +938,14 @@ describe("SettingsPanel — Remote MCP toggle (ADR-0032)", () => {
 describe("SettingsPanel — Embeddings section enabled state (ADR-0030)", () => {
   function navigateToEmbeddings() {
     renderPanel();
-    const embBtn = document.querySelector('[data-settings-section="embeddings"]');
+    const embBtn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(embBtn!);
   }
 
   it("shows loading state immediately after navigation (before fetch resolves)", () => {
     navigateToEmbeddings();
     // i18n mock returns last key segment; "settings.embeddings.loading" → "loading"
-    expect(screen.getByText("loading")).toBeTruthy();
+    expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
   });
 
   it("when embeddings_enabled=true: renders the semantic-active indicator", async () => {
@@ -977,7 +991,7 @@ describe("SettingsPanel — Embeddings section disabled state (ADR-0030)", () =>
 
   function navigateToEmbeddingsDisabled() {
     renderPanel();
-    const embBtn = document.querySelector('[data-settings-section="embeddings"]');
+    const embBtn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(embBtn!);
   }
 
@@ -1028,7 +1042,7 @@ describe("SettingsPanel — MCP Access sub-block (ADR-0033)", () => {
   // Helper: navigate to API+MCP, wait for the access sub-block to appear.
   async function navigateToApiMcpAndWait() {
     renderPanel();
-    const apiBtn = document.querySelector('[data-settings-section="apiMcp"]');
+    const apiBtn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(apiBtn!);
     await waitFor(() => {
       expect(screen.getByTestId("mcp-token-posture")).toBeTruthy();
@@ -1430,7 +1444,7 @@ describe("SettingsPanel — MCP Access sub-block (ADR-0033)", () => {
 describe("SettingsPanel — Web Clipper section (ADR-0040)", () => {
   async function navigateToClipperAndWait() {
     renderPanel();
-    const btn = document.querySelector('[data-settings-section="webClipper"]');
+    const btn = document.querySelector('[data-settings-section="sources"]');
     fireEvent.click(btn!);
     await waitFor(() => {
       expect(screen.getByTestId("clip-token-posture")).toBeTruthy();
@@ -1439,10 +1453,10 @@ describe("SettingsPanel — Web Clipper section (ADR-0040)", () => {
 
   it("shows loading state immediately after navigation (before fetch resolves)", () => {
     renderPanel();
-    const btn = document.querySelector('[data-settings-section="webClipper"]');
+    const btn = document.querySelector('[data-settings-section="sources"]');
     fireEvent.click(btn!);
     // i18n mock: "settings.webClipper.loading" → "loading"
-    expect(screen.getByText("loading")).toBeTruthy();
+    expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows postureDb label when token_source='db' (default fixture)", async () => {
@@ -1614,7 +1628,7 @@ describe("SettingsPanel — Web Clipper section (ADR-0040)", () => {
 describe("SettingsPanel — Web Search section (ADR-0041)", () => {
   async function navigateToWebSearchAndWait() {
     renderPanel();
-    const btn = document.querySelector('[data-settings-section="webSearch"]');
+    const btn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(btn!);
     await waitFor(() => {
       expect(screen.getByTestId("web-search-configured-badge")).toBeTruthy();
@@ -1623,16 +1637,17 @@ describe("SettingsPanel — Web Search section (ADR-0041)", () => {
 
   it("shows loading state immediately after navigation (before fetch resolves)", () => {
     renderPanel();
-    const btn = document.querySelector('[data-settings-section="webSearch"]');
+    const btn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(btn!);
     // i18n mock: "settings.webSearch.loading" → "loading"
-    expect(screen.getByText("loading")).toBeTruthy();
+    expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders 'configuredBadge' when configured=true (default fixture)", async () => {
     await navigateToWebSearchAndWait();
     // i18n mock: "settings.webSearch.configuredBadge" → "configuredBadge"
-    expect(screen.getByText("configuredBadge")).toBeTruthy();
+    // Scope to testid — other sections in GroupAiModels may also show "configuredBadge"
+    expect(screen.getByTestId("web-search-configured-badge").textContent).toBe("configuredBadge");
   });
 
   it("renders 'notConfiguredBadge' when configured=false", async () => {
@@ -1646,7 +1661,9 @@ describe("SettingsPanel — Web Search section (ADR-0041)", () => {
     });
     await navigateToWebSearchAndWait();
     expect(screen.getByText("notConfiguredBadge")).toBeTruthy();
-    expect(screen.queryByText("configuredBadge")).toBeNull();
+    // Use testid to scope assertion — other sections in the same group may show "configuredBadge"
+    // (e.g. cli-auth-configured-badge in SectionApiMcp). Check only the web-search badge.
+    expect(screen.getByTestId("web-search-configured-badge").textContent).toBe("notConfiguredBadge");
   });
 
   it("renders the source badge with the source value from fixture", async () => {
@@ -1736,7 +1753,7 @@ describe("SettingsPanel — Web Search section (ADR-0041)", () => {
     (fetchWebSearchConfig as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("network error"));
 
     renderPanel();
-    const btn = document.querySelector('[data-settings-section="webSearch"]');
+    const btn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(btn!);
 
     await waitFor(() => {
@@ -1761,7 +1778,7 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
   // Helper: navigate to API+MCP and wait for the CLI auth sub-block to appear.
   async function navigateToCliAuthAndWait() {
     renderPanel();
-    const btn = document.querySelector('[data-settings-section="apiMcp"]');
+    const btn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(btn!);
     await waitFor(() => {
       expect(screen.getByTestId("cli-auth-section")).toBeTruthy();
@@ -1774,7 +1791,7 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
 
   it("shows loading state immediately after navigation (before fetch resolves)", () => {
     renderPanel();
-    const btn = document.querySelector('[data-settings-section="apiMcp"]');
+    const btn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(btn!);
     // The CLI auth sub-block shows "loading" while getCliAuthConfig is pending.
     // i18n mock: "settings.cliAuth.loading" → "loading"
@@ -1952,7 +1969,7 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
     (mockGet as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("network error"));
 
     renderPanel();
-    const btn = document.querySelector('[data-settings-section="apiMcp"]');
+    const btn = document.querySelector('[data-settings-section="aiModels"]');
     fireEvent.click(btn!);
 
     await waitFor(() => {
@@ -1976,5 +1993,200 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
     // Should not have called the API
     await new Promise((r) => setTimeout(r, 50));
     expect(mockSet).not.toHaveBeenCalled();
+  });
+});
+
+// ─── R11-2 Runtime Config (ADR-0053) acceptance criteria tests ───────────────
+
+// AC-R11-2-6: SectionRuntimeConfig renders; selecting pypdf→marker and saving
+//             calls putAppConfig; reset (Delete) calls resetAppConfig.
+describe("SettingsPanel — Runtime Config fields (AC-R11-2-6 / ADR-0053)", () => {
+  async function navigateToSourcesAndWait() {
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="sources"]');
+    fireEvent.click(btn!);
+    // Wait for the runtime config fields to appear after getAppConfig resolves
+    await waitFor(() => {
+      expect(document.querySelector('[data-testid="rc-field-pdf_extractor"]')).not.toBeNull();
+    });
+  }
+
+  it("renders pdf_extractor field after getAppConfig resolves", async () => {
+    await navigateToSourcesAndWait();
+    expect(document.querySelector('[data-testid="rc-field-pdf_extractor"]')).not.toBeNull();
+  });
+
+  it("changing pdf_extractor select and saving calls putAppConfig (AC-R11-2-6)", async () => {
+    const { putAppConfig } = await import("../api/appConfigClient");
+    (putAppConfig as ReturnType<typeof vi.fn>).mockClear();
+
+    await navigateToSourcesAndWait();
+
+    const select = document.querySelector('[data-testid="rc-control-pdf_extractor"]') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "marker" } });
+
+    const saveBtn = document.querySelector('[data-testid="rc-save-pdf_extractor"]') as HTMLButtonElement;
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(putAppConfig).toHaveBeenCalledWith("pdf_extractor", "marker");
+    });
+  });
+
+  it("shows source badge 'env' when source=env (AC-R11-2-6)", async () => {
+    await navigateToSourcesAndWait();
+    const badge = document.querySelector('[data-testid="rc-source-badge-pdf_extractor"]');
+    // i18n mock: config.sourceBadge.env → "env"
+    expect(badge?.textContent).toBe("env");
+  });
+
+  async function navigateToSourcesWithOverride() {
+    const { getAppConfig } = await import("../api/appConfigClient");
+    (getAppConfig as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      settings: [
+        { key: "pdf_extractor",            value: "marker", source: "override" },
+        { key: "marker_service_url",        value: "http://marker:8080", source: "override" },
+        { key: "marker_timeout_seconds",    value: "60",    source: "env" },
+        { key: "cost_alert_threshold_usd",  value: "5.0",   source: "env" },
+        { key: "embeddings_enabled",        value: "true",  source: "env" },
+        { key: "embedding_format",          value: "ollama",source: "env" },
+        { key: "overview_language",         value: "en",    source: "env" },
+        { key: "wikilink_enrich_enabled",   value: "true",  source: "env" },
+      ],
+    });
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="sources"]');
+    fireEvent.click(btn!);
+    await waitFor(() => {
+      expect(document.querySelector('[data-testid="rc-field-pdf_extractor"]')).not.toBeNull();
+    });
+  }
+
+  it("shows Reset button only when source=override (AC-R11-2-6)", async () => {
+    await navigateToSourcesWithOverride();
+    // pdf_extractor is override → reset button visible
+    expect(document.querySelector('[data-testid="rc-reset-pdf_extractor"]')).not.toBeNull();
+    // marker_timeout_seconds is env → no reset button
+    expect(document.querySelector('[data-testid="rc-reset-marker_timeout_seconds"]')).toBeNull();
+  });
+
+  it("clicking Reset calls resetAppConfig (DELETE) not putAppConfig (AC-R11-2-6)", async () => {
+    const { resetAppConfig, putAppConfig: putFn } = await import("../api/appConfigClient");
+    (resetAppConfig as ReturnType<typeof vi.fn>).mockClear();
+    (putFn as ReturnType<typeof vi.fn>).mockClear();
+
+    await navigateToSourcesWithOverride();
+
+    const resetBtn = document.querySelector('[data-testid="rc-reset-pdf_extractor"]') as HTMLButtonElement;
+    fireEvent.click(resetBtn);
+
+    await waitFor(() => {
+      expect(resetAppConfig).toHaveBeenCalledWith("pdf_extractor");
+    });
+    expect(putFn).not.toHaveBeenCalled();
+  });
+});
+
+// AC-R11-2-7: all new config.* label and help keys resolve to non-empty strings
+//             in both EN and IT (via the i18n parity test — also verified here
+//             by checking that the i18n t() call for each key returns something).
+// Note: the i18n mock in this test file returns the last key segment (never empty),
+// so this verifies the keys are used in the component (they'd produce "undefined"
+// only if wrong). The actual EN/IT parity is enforced by i18n-key-parity.test.ts.
+describe("SettingsPanel — Runtime Config i18n labels non-empty (AC-R11-2-7)", () => {
+  const CONFIG_KEYS_IN_SOURCES = ["pdf_extractor", "marker_service_url", "marker_timeout_seconds"];
+
+  it("each config field in Sources group has a non-empty label element", async () => {
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="sources"]');
+    fireEvent.click(btn!);
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-testid="rc-field-pdf_extractor"]')).not.toBeNull();
+    });
+
+    for (const key of CONFIG_KEYS_IN_SOURCES) {
+      const field = document.querySelector(`[data-testid="rc-field-${key}"]`);
+      expect(field, `rc-field-${key} should be in the DOM`).not.toBeNull();
+      // The label is a <label> child. i18n mock returns last key segment (never empty).
+      const label = field?.querySelector("label");
+      expect(label?.textContent?.trim().length ?? 0, `label for ${key} should not be empty`).toBeGreaterThan(0);
+    }
+  });
+});
+
+// AC-R11-2-11: ~5 top-level groups render; no control is lost (representative
+//              controls from each original section are still reachable).
+describe("SettingsPanel — All original controls still reachable in 5-group IA (AC-R11-2-11)", () => {
+  it("gettingStarted group: context window select renders (from SectionGeneral)", () => {
+    renderPanel();
+    // gettingStarted is the default — no click needed
+    const select = document.querySelector("#ctx-select");
+    expect(select).not.toBeNull();
+  });
+
+  it("gettingStarted group: wizard placeholder slot renders", () => {
+    renderPanel();
+    expect(document.querySelector('[data-testid="wizard-placeholder-slot"]')).not.toBeNull();
+  });
+
+  it("aiModels group: provider delete buttons present (SectionLlmModels)", () => {
+    renderPanel();
+    fireEvent.click(document.querySelector('[data-settings-section="aiModels"]')!);
+    const delBtns = screen.getAllByText("delete");
+    expect(delBtns.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("sources group: ImportScheduleCard present (SectionSourceWatch)", () => {
+    renderPanel();
+    fireEvent.click(document.querySelector('[data-settings-section="sources"]')!);
+    expect(screen.getByTestId("import-schedule-card")).toBeTruthy();
+  });
+
+  it("output group: theme buttons present (SectionInterface)", () => {
+    renderPanel();
+    fireEvent.click(document.querySelector('[data-settings-section="output"]')!);
+    expect(document.querySelector('[data-testid="theme-btn-system"]')).not.toBeNull();
+  });
+
+  it("advanced group: reset button present (SectionMaintenance)", async () => {
+    renderPanel();
+    fireEvent.click(document.querySelector('[data-settings-section="advanced"]')!);
+    expect(screen.getByTestId("settings-reset-btn")).toBeTruthy();
+  });
+});
+
+// AC-R11-2-12: no primary label equals an env-var name (UPPER_SNAKE).
+// The i18n mock returns the last segment of the key (e.g. "label" for config.pdfExtractor.label),
+// which is never an env-var name. We verify this structurally by asserting the
+// rendered label text does NOT match /^[A-Z][A-Z0-9_]{2,}$/ (the UPPER_SNAKE pattern).
+describe("SettingsPanel — Config field labels are plain language, not env-var names (AC-R11-2-12)", () => {
+  const ENV_VAR_PATTERN = /^[A-Z][A-Z0-9_]{2,}$/;
+
+  it("pdf_extractor label is not an env-var name", async () => {
+    renderPanel();
+    fireEvent.click(document.querySelector('[data-settings-section="sources"]')!);
+    await waitFor(() => {
+      expect(document.querySelector('[data-testid="rc-field-pdf_extractor"]')).not.toBeNull();
+    });
+    const label = document.querySelector('[data-testid="rc-field-pdf_extractor"] label');
+    const text = label?.textContent?.trim() ?? "";
+    // The i18n mock returns "label" (last key segment of config.pdfExtractor.label).
+    // "label" does NOT match UPPER_SNAKE — AC-R11-2-12 satisfied.
+    expect(ENV_VAR_PATTERN.test(text)).toBe(false);
+  });
+
+  it("no rc-field label text matches UPPER_SNAKE pattern", async () => {
+    renderPanel();
+    fireEvent.click(document.querySelector('[data-settings-section="sources"]')!);
+    await waitFor(() => {
+      expect(document.querySelector('[data-testid="rc-field-pdf_extractor"]')).not.toBeNull();
+    });
+    const fields = document.querySelectorAll('[data-testid^="rc-field-"]');
+    fields.forEach((field) => {
+      const label = field.querySelector("label");
+      const text = label?.textContent?.trim() ?? "";
+      expect(ENV_VAR_PATTERN.test(text), `Label "${text}" must not be an env-var name`).toBe(false);
+    });
   });
 });

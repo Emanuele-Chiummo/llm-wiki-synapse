@@ -143,6 +143,25 @@ vi.mock("../api/scenariosClient", () => ({
   applyScenario: vi.fn().mockResolvedValue({ applied: true }),
 }));
 
+// ─── Mock appConfigClient (R11-2) ────────────────────────────────────────────
+
+vi.mock("../api/appConfigClient", () => ({
+  getAppConfig: vi.fn().mockResolvedValue({
+    settings: [
+      { key: "pdf_extractor",           value: "pypdf",  source: "env" },
+      { key: "marker_service_url",       value: "",       source: "env" },
+      { key: "marker_timeout_seconds",   value: "60",     source: "env" },
+      { key: "cost_alert_threshold_usd", value: "5.0",    source: "env" },
+      { key: "embeddings_enabled",       value: "true",   source: "env" },
+      { key: "embedding_format",         value: "ollama", source: "env" },
+      { key: "overview_language",        value: "en",     source: "env" },
+      { key: "wikilink_enrich_enabled",  value: "true",   source: "env" },
+    ],
+  }),
+  putAppConfig: vi.fn().mockResolvedValue(undefined),
+  resetAppConfig: vi.fn().mockResolvedValue(undefined),
+}));
+
 // ─── costsClient mock ─────────────────────────────────────────────────────────
 
 import type { CostsSummary } from "../api/costsClient";
@@ -176,9 +195,10 @@ vi.mock("../api/costsClient", () => ({
 
 function navigateToCosts() {
   render(<SettingsPanel />);
-  const costsBtn = document.querySelector('[data-settings-section="costs"]');
-  if (!costsBtn) throw new Error("costs nav button not found in rendered SettingsPanel");
-  fireEvent.click(costsBtn);
+  // A2.1: SectionCosts is inside GroupAdvanced — navigate to "advanced" group.
+  const advBtn = document.querySelector('[data-settings-section="advanced"]');
+  if (!advBtn) throw new Error("advanced group nav button not found in rendered SettingsPanel");
+  fireEvent.click(advBtn);
 }
 
 beforeEach(() => {
@@ -186,19 +206,20 @@ beforeEach(() => {
   mockFetchCostsSummary.mockResolvedValue(BASE_COSTS);
 });
 
-// ─── A. Nav item renders ──────────────────────────────────────────────────────
+// ─── A. Nav group renders ─────────────────────────────────────────────────────
+// A2.1: SectionCosts is now inside GroupAdvanced.
 
 describe("SettingsPanel — costs nav item", () => {
-  it("renders a 'costs' section button in the left nav", () => {
+  it("renders the 'advanced' group button containing costs content", () => {
     render(<SettingsPanel />);
-    const btn = document.querySelector('[data-settings-section="costs"]');
+    const btn = document.querySelector('[data-settings-section="advanced"]');
     expect(btn).not.toBeNull();
   });
 
   it("clicking costs nav shows the costs section (loading state initially)", () => {
     navigateToCosts();
     // While fetch is pending, loading text appears
-    expect(screen.getByText("loading")).toBeTruthy();
+    expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -305,7 +326,7 @@ describe("SectionCosts — loading state (AC-R9-1-1)", () => {
     // Keep fetch pending by never resolving
     mockFetchCostsSummary.mockReturnValue(new Promise(() => {}));
     navigateToCosts();
-    expect(screen.getByText("loading")).toBeTruthy();
+    expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
     // Monthly total not yet shown
     expect(document.querySelector('[data-testid="costs-monthly-total"]')).toBeNull();
   });
