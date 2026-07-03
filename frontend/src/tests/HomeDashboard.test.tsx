@@ -18,7 +18,7 @@
  *   A4: "Lavori attivi" block — hidden when nothing active; ingest row from activityStore;
  *       backfill row when running=true; research row for each running run.
  *       Groups cap: 4 rendered collapsed; toggle reveals all, toggle again collapses back.
- *   R12-3 AC-R12-3-5: VersionMismatchBanner shows only when backendVersion ≠ __APP_VERSION__
+ *   R12-3 AC-R12-3-5: VersionMismatchBanner shows ONLY when backendVersion is semver-BEHIND __APP_VERSION__
  *               and backendVersion ≠ "dev"; banner is dismissible (sessionStorage flag);
  *               matching versions → no banner.
  *   AC-R12-2-6: Settings domain_vocabulary field: renders current vocab from GET /config/app;
@@ -796,6 +796,20 @@ describe("VersionMismatchBanner — version mismatch (R12-3 AC-R12-3-5)", () => 
 
   it("does NOT show banner when backendVersion is undefined (older backend)", () => {
     mockBackendVersion.mockReturnValue(undefined);
+    render(<VersionMismatchBanner />);
+    const banner = document.querySelector("[data-testid='version-mismatch-banner']");
+    expect(banner).toBeNull();
+  });
+
+  it("does NOT show banner when the backend is AHEAD of the app (never tell the user to update a newer server)", () => {
+    mockBackendVersion.mockReturnValue("99.9.9");
+    render(<VersionMismatchBanner />);
+    const banner = document.querySelector("[data-testid='version-mismatch-banner']");
+    expect(banner).toBeNull();
+  });
+
+  it("does NOT show banner when versions are equal", () => {
+    mockBackendVersion.mockReturnValue("9.9.9");
     render(<VersionMismatchBanner />);
     const banner = document.querySelector("[data-testid='version-mismatch-banner']");
     expect(banner).toBeNull();
