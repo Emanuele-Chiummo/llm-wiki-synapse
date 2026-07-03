@@ -120,6 +120,14 @@ strict = true
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
 
+# app.mcp.server decorates tools with claude_agent_sdk's untyped @tool decorator.
+# Locally the SDK is installed (decorator visibly untyped → needs an ignore); on CI
+# it is absent (ignore_missing_imports makes it Any → the ignore would be "unused").
+# A per-module disable is the only environment-independent form.
+[[tool.mypy.overrides]]
+module = "app.mcp.server"
+disable_error_code = ["untyped-decorator", "unused-ignore"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

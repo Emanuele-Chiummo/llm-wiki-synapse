@@ -699,7 +699,7 @@ def build_sdk_mcp_server(origin_source: str = "") -> Any:
         text = result if isinstance(result, str) else json.dumps(result, default=str)
         return {"content": [{"type": "text", "text": text}]}
 
-    @tool(  # type: ignore[untyped-decorator]  # claude_agent_sdk has no type stubs (R3 third-party gap)
+    @tool(
         "search_wiki",
         "Search the Synapse wiki via the shared 4-phase retrieval path (F5). "
         "Returns up to k ranked {id, title, type, relevance_score} results.",
@@ -708,7 +708,7 @@ def build_sdk_mcp_server(origin_source: str = "") -> Any:
     async def _sdk_search_wiki(args: dict[str, Any]) -> dict[str, Any]:
         return _wrap(await _search_wiki_body(args["query"], int(args.get("k", 5) or 5)))
 
-    @tool(  # type: ignore[untyped-decorator]  # claude_agent_sdk has no type stubs (R3 third-party gap)
+    @tool(
         "write_page",
         "Create or update a wiki page through the Synapse ingest seam (I1/I5, ADR-0010 §2). "
         "Validates frontmatter (type, title, sources[], lang) before writing. "
@@ -734,7 +734,7 @@ def build_sdk_mcp_server(origin_source: str = "") -> Any:
             )
         )
 
-    @tool(  # type: ignore[untyped-decorator]  # claude_agent_sdk has no type stubs (R3 third-party gap)
+    @tool(
         "get_page",
         "Retrieve a live wiki page by exact title. Returns {title, type, content, frontmatter} "
         "or {error}.",
@@ -743,7 +743,7 @@ def build_sdk_mcp_server(origin_source: str = "") -> Any:
     async def _sdk_get_page(args: dict[str, Any]) -> dict[str, Any]:
         return _wrap(await _get_page_body(args["title"]))
 
-    @tool(  # type: ignore[untyped-decorator]  # claude_agent_sdk has no type stubs (R3 third-party gap)
+    @tool(
         "list_pages",
         "List live wiki pages, optionally filtered by page type. Returns "
         "[{id, title, type, relevance_score}].",
