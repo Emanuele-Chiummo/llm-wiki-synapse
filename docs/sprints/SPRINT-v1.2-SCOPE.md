@@ -738,3 +738,13 @@ no new poller), running deep-research runs, domain backfill in flight (GET
 /ops/backfill-domains), import scan in flight. Each row: kind, label, state, link to its
 section. (2) GRUPPI AUTOMATICI renders the TOP 4 by size with an "Espandi/Comprimi"
 toggle revealing the full capped list (12).
+
+**A5 (owner, 2026-07-03 sera) — R12-7: scheduled lint + scheduled domain backfill.**
+Settings gains a "Job scheduling" card (Advanced group): two schedulable ops — Lint SCAN
+(findings only; the fix-apply stays human-gated, I7/K8) and domain backfill (force=false —
+only new/untagged pages, cheap). Design mirrors the ImportScheduler (ADR-0020) + the
+ADR-0053 config model: new allowed config keys `lint_schedule` and `backfill_schedule`
+(enum: off|hourly|daily|weekly, default off), a single OpsScheduler asyncio loop started
+in lifespan (bounded, one in-flight run per op, single-flight respected), per-op last-run
+outcome surfaced. UI: frequency select per op + "Esegui ora" + last outcome line,
+same card pattern as ImportScheduleCard.
