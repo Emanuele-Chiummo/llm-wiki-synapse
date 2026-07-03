@@ -52,6 +52,10 @@ from app.rag.retrieval import Citation, retrieve
 
 logger = logging.getLogger(__name__)
 
+# Strong references to fire-and-forget background tasks (auto-title): asyncio keeps only
+# weak refs to scheduled tasks, so without this set a task can be GC'd before it runs.
+_background_tasks: set[asyncio.Task[None]] = set()
+
 # F16 chat timeout default (ADR-0019 §2.2): 60s. Used when the provider_config row carries no
 # explicit per-call timeout. Pure sizing default — not a model id / endpoint.
 DEFAULT_CHAT_TIMEOUT_SECONDS = 60.0
@@ -344,9 +348,13 @@ async def run_chat_stream(
     # streaming (I3). It is bounded (~60 tokens, single call, no retry) and self-logging (I7).
     from app.chat.autotitle import maybe_generate_conversation_title
 
-    asyncio.create_task(  # noqa: RUF006 — fire-and-forget; the task self-guards and never raises
+    # Keep a strong reference until completion: a bare create_task() result can be
+    # garbage-collected mid-run (asyncio only holds a weak ref to scheduled tasks).
+    _title_task = asyncio.create_task(
         maybe_generate_conversation_title(conv_id, effective_vault_id)
     )
+    _background_tasks.add(_title_task)
+    _title_task.add_done_callback(_background_tasks.discard)
 
     # Compact citation projection for the done event (ADR-0022 §2.4 — score/phase stored, not
     # streamed). Additive field → non-breaking for existing clients that ignore unknown keys.
