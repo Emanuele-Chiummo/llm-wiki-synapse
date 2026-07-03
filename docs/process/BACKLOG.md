@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-07-03 (Sprint 11 / v1.1 scope locked — SPRINT-v1.1-SCOPE.md; Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
+> Last updated: 2026-07-03 (Sprint 12 / v1.2 scope locked — SPRINT-v1.2-SCOPE.md; Sprint 11 / v1.1 scope locked — SPRINT-v1.1-SCOPE.md; Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -15,6 +15,98 @@
 | blocked | Dependency unresolved |
 | done | Exit criteria verified by PM |
 | done-pending-live-demo | Automated gates green; remaining condition is live-infra or human verification (no code change needed) |
+
+---
+
+## Sprint 12 — v1.2 — M12 "Home & Insights"
+
+Goal: glanceable home dashboard (vault KPIs, AI spend, per-domain breakdowns); domain
+vocabulary machinery (controlled vocabulary stored in app_config, auto-tag on ingest,
+one-time bounded backfill); server release channel (GHCR image publish + StatusResponse
+version field + frontend mismatch notice + optional Watchtower auto-update block);
+ingest polling dedup carry-over fix.
+
+**Sprint status: SCOPE LOCKED 2026-07-03**
+Scope file: docs/sprints/SPRINT-v1.2-SCOPE.md
+Branch: sprint/v1.2 (cut from main after v1.1.0 tag)
+Prerequisite: EC-M11-1..EC-M11-HCP met by Emanuele.
+
+### R12-1 — Home dashboard
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F18 (new), F1, F4, F16 |
+| Sprint | v1.2 |
+| Status | backlog |
+| Effort | L |
+| Acceptance criteria | AC-R12-1-1 through AC-R12-1-10 (SPRINT-v1.2-SCOPE.md §3) |
+
+New endpoints: GET /stats/overview (pages_by_type, total_links, communities_count,
+review_queue_depth, lint_findings_open, monthly_ai_spend_usd, recent_activity,
+data_version), GET /stats/sections (per-domain breakdown). Frontend HomeDashboard.tsx
+as default landing section with NavRail Home icon. Plain SVG sparkline (no charting
+library). Domain section card click dispatches filter navigation.
+
+### R12-2 — Domain vocabulary + auto-tag
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F18, F17 (I6 — classification via InferenceProvider), K6 (pages.tags domain/ convention) |
+| Sprint | v1.2 |
+| Status | blocked — ADR-0054 required before backend code |
+| Effort | L |
+| Acceptance criteria | AC-R12-2-0 through AC-R12-2-8 (SPRINT-v1.2-SCOPE.md §3) |
+
+Vocabulary stored as domain_vocabulary key in app_config (ADR-0053 mechanism; new
+allowed key added to ALLOWED_CONFIG_KEYS). Ingest step classifies each new page into
+0..N domains via InferenceProvider (one bounded call, max_iter=1, I7). Writes
+"domain/<term>" into pages.tags. POST /ops/backfill-domains one-time bounded backfill
+(max_pages cap, token_budget_usd, total_cost_usd logged). Empty vocabulary = feature
+dormant (zero provider calls). Settings > Advanced vocabulary editor in frontend.
+
+### R12-3 — Server release channel + optional auto-update
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F15, F16 |
+| Sprint | v1.2 |
+| Status | backlog |
+| Effort | M |
+| Acceptance criteria | AC-R12-3-1 through AC-R12-3-8 (SPRINT-v1.2-SCOPE.md §3) |
+
+CI publishes ghcr.io image on vX.Y.Z tag (both vX.Y.Z and latest tags). Dockerfile
+gains APP_VERSION build arg. StatusResponse.backend_version field added. Frontend
+version mismatch banner (dismissible per session). docker-compose.yml gains image
+variant and optional Watchtower service block (Compose profile "autoupdate", off by
+default; backend-only label scoping). DEPLOY.md "Updating Synapse" section with manual
+and automatic (Watchtower/TrueNAS/Diun) options plus data-service caveat.
+
+### R12-4 — Ingest polling dedup (BUG-2 carry-over)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1, F16 |
+| Sprint | v1.2 |
+| Status | backlog (confirm done from v1.1 before starting) |
+| Effort | S |
+| Acceptance criteria | AC-R12-4-1, AC-R12-4-2 (SPRINT-v1.2-SCOPE.md §3) — or confirmed green from v1.1 |
+
+Polling hook or useEffect in IngestView.tsx returns a cleanup that clears
+interval/timeout on unmount. Vitest asserts at most 1 active interval after
+mount/unmount/remount cycle.
+
+### F18 — Feature registration
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F18 (NEW — registered sprint v1.2) |
+| Sprint | v1.2 (first sprint) |
+| Status | in-progress |
+
+F18: Home dashboard + per-section domain insights — a landing screen surfacing vault
+KPIs (pages_by_type, total_links, communities_count, AI spend), community topology, and
+domain-vocabulary breakdowns. CLAUDE.md §4 must be updated by tech-writer before the
+first F18 backend commit.
 
 ---
 
