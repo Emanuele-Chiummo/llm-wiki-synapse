@@ -33,9 +33,9 @@ builds a weighted knowledge graph, and lets you chat with your own knowledge bas
 
 ## Screenshots
 
-| Knowledge graph (dark) | Wiki page with typed links |
+| Knowledge graph (dark) | Wiki + graph workspace |
 |---|---|
-| ![Knowledge graph, dark theme](docs/screens/graph-dark.png) | ![Wiki page](docs/screens/wiki-page-v09.png) |
+| ![Knowledge graph, dark theme](docs/screens/graph-obsidian.png) | ![Wiki and graph workspace](docs/screens/shell-3panel-selected.png) |
 
 | Search with type filters | Chat |
 |---|---|
