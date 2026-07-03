@@ -214,7 +214,7 @@ jobs:
             { echo "OpenAPI spec out of date (docs/api/openapi.json). Run 'make openapi' and commit."; exit 1; }
 
       - name: Install mermaid-cli for diagram validation
-        run: npm install -g @mermaid-js/mermaid-cli
+        run: npm install -g @mermaid-js/mermaid-cli@11
 
       - name: Validate Mermaid diagrams
         run: |

@@ -1,5 +1,5 @@
 sequenceDiagram
-    %% <!-- Generated: v0.2 sprint 2 | 2026-06-28 -->
+    %% Generated: v0.2 sprint 2 | 2026-06-28
     title Ingest routing — capability-aware dispatch (I6), both branches
     autonumber
 
@@ -24,14 +24,14 @@ sequenceDiagram
 
     alt supports_agentic_loop == True  (CLI — DELEGATED)
         O->>CLI: delegate_ingest(source_text, vault_context, token_budget=100000)
-        Note over CLI: provider runs its OWN agent loop; orchestrated loop body NOT executed (AC-K2-3)
+        Note over CLI: provider runs its OWN agent loop — orchestrated loop body NOT executed (AC-K2-3)
         CLI->>MCP: search_wiki / get_page (read context)
         MCP-->>CLI: PageRefs / page
         CLI->>MCP: write_page(title, content, frontmatter)
         MCP->>FS: write wiki/<type>/<slug>.md (validated, I5)
         MCP->>PG: persist_metadata + links (K5) + upsert vector
         MCP-->>CLI: PageRef
-        CLI-->>O: result{pages_written, tokens, cost=$0.00}
+        CLI-->>O: result{pages_written, tokens, cost=0.00}
     else supports_agentic_loop == False  (Local/API — ORCHESTRATED)
         Note over O: run orchestrated loop — see ingest-loop.mmd (max_iter + token_budget, I7)
         O->>P: analyze() then generate()/validate() loop
@@ -42,5 +42,5 @@ sequenceDiagram
 
     O->>FS: update index.md (K3) and overview.md (F3) — both branches
     O->>PG: INSERT ingest_runs{provider_name, route, max_iter_used, total_tokens, total_cost_usd, converged} (I7)
-    Note over O: if total_cost_usd > $1.00 → log WARNING, set cost_anomaly=True (inline, ADR-0009)
+    Note over O: if total_cost_usd over 1.00 USD — log WARNING and set cost_anomaly=True (inline, ADR-0009)
     O-->>W: IngestResult
