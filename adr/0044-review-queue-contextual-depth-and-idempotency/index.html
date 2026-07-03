@@ -1,0 +1,1547 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0044-review-queue-contextual-depth-and-idempotency/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0044 — Review Queue: contextual depth, stable idempotency & bulk actions (F9 depth pass) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0044-review-queue-contextual-depth-stable-idempotency-bulk-actions-f9-depth-pass" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0044 — Review Queue: contextual depth, stable idempotency &amp; bulk actions (F9 depth pass)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-where-synapse-stands-after-adr-0034" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Where Synapse stands after ADR-0034
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-what-the-live-nashsu-queue-has-that-synapse-does-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 What the live nashsu queue has that Synapse does not
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-ground-truth-this-adr-builds-on-unchanged-seams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Ground truth this ADR builds on (unchanged seams)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-data-model-changes-migration-0018" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Data model changes (migration 0018)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Data model changes (migration 0018)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-column-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Column changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-content_key-derivation-stable-idempotency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 content_key derivation (stable idempotency)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-idempotency-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Idempotency index
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-enqueue_review-becomes-an-idempotent-upsert" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 enqueue_review becomes an idempotent upsert
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-migration-0018-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 Migration 0018 notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-generation-where-the-new-fields-come-from-i6i7-both-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Generation — where the new fields come from (I6/I7, both routes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Generation — where the new fields come from (I6/I7, both routes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-orchestrated-route-api-local-the-single-proposal-call-enriched" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Orchestrated route (API / Local) — the single proposal call, enriched
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-delegated-route-cli-closing-adr-0034-9-risk-1-bounded-opt-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Delegated route (CLI) — closing ADR-0034 §9 risk 1 (bounded, opt-in)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-bounds-i7-unchanged-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Bounds (I7) — unchanged surface
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-auto-resolve-sweep-idempotency-aware-otherwise-unchanged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Auto-resolve sweep — idempotency-aware, otherwise unchanged
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-rest-api-changes-d4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. REST API changes (D4)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. REST API changes (D4)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-reviewitem-json-projection-additions-in-bold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 ReviewItem JSON projection (additions in bold)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-frontend-changes-i3i4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Frontend changes (I3/I4)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-invariant-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Invariant compliance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-flagged-tensions-risks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Flagged tensions &amp; risks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-do-not-list-rejection-triggers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Do-NOT list (rejection triggers)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-implementation-plan-phased-each-phase-independently-shippable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Implementation plan (phased, each phase independently shippable)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="11. Implementation plan (phased, each phase independently shippable)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-a-idempotency-the-highest-value-standalone-be-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase A — Idempotency (the highest-value, standalone) — [BE] + [AI]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-b-contextual-references-search-queries-ai-be" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase B — Contextual references + search queries — [AI] + [BE]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-c-bulk-actions-status-filter-dismiss-clear-resolved-be" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase C — Bulk actions + status filter + dismiss + clear-resolved — [BE]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-d-frontend-depth-fe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase D — Frontend depth — [FE]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-e-delegated-route-proposals-ai-be" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase E — Delegated-route proposals — [AI] + [BE]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#111-cross-cutting-handoffs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.1 Cross-cutting (handoffs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-sign-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Sign-off
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0044-review-queue-contextual-depth-stable-idempotency-bulk-actions-f9-depth-pass">ADR-0044 — Review Queue: contextual depth, stable idempotency &amp; bulk actions (F9 depth pass)<a class="headerlink" href="#adr-0044-review-queue-contextual-depth-stable-idempotency-bulk-actions-f9-depth-pass" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-01</li>
+<li><strong>Sprint:</strong> v0.6 (M6 — F9 parity/depth with nashsu/llm_wiki reference)</li>
+<li><strong>Features:</strong> F9 (Async HITL review queue) · K8 (human curates, LLM maintains) · F10 (Deep Research, seeded queries)</li>
+<li><strong>Extends (does NOT supersede):</strong> ADR-0034 (F9 proposal model + lazy Create + rule/LLM sweep).
+  ADR-0034 remains the authoritative baseline; this ADR adds the four capabilities present in the
+  live reference implementation but missing from Synapse today. ADR-0025's F12 parts are untouched.</li>
+<li><strong>Reference:</strong> R1 (nashsu/llm_wiki) — the live queue the owner inspected holds <strong>517 contextual
+  missing-page suggestions</strong>, each a card with a title, a contextual rationale referencing existing
+  pages, references to related existing pages, three actions (Deep Research / Create Page / Skip),
+  bulk actions (Select pending / Mark resolved / Dismiss / Clear resolved), an FNV-1a
+  content-derived stable id, pre-generated <code>SEARCH:</code> queries, and a drain-triggered auto-resolve
+  sweep. Audit: <code>docs/reference/llm_wiki-audit/01-AUDIT-FUNZIONALE.md</code> §F9.</li>
+<li><strong>Invariants owned:</strong> <strong>K8</strong> (the queue proposes richer, contextual work the human curates) ·
+  <strong>I1</strong> (referenced-page resolution and idempotency use bounded indexed reads; the sweep never
+  re-scans; Create still writes through <code>write_wiki_page</code> — one <code>data_version</code> bump) · <strong>I6</strong> (all
+  LLM calls still route through <code>resolve_provider_config</code>; no new hardcoded backend) · <strong>I7</strong>
+  (proposal emission stays ≤1 bounded call; bulk actions are bounded DB writes; no new loop) ·
+  <strong>I4</strong> (the grown queue — hundreds of items — stays virtualized; bulk selection is O(visible)) ·
+  <strong>I8</strong> (<code>review_items</code> schema change → Alembic <strong>0018</strong> + <code>make er</code> + <code>make openapi</code>).</li>
+<li><strong>Author:</strong> solution-architect</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<h3 id="11-where-synapse-stands-after-adr-0034">1.1 Where Synapse stands after ADR-0034<a class="headerlink" href="#11-where-synapse-stands-after-adr-0034" title="Permanent link">&para;</a></h3>
+<p>ADR-0034 already delivered the hard part of the redesign: proposals (not confirmations), five
+types (<code>missing-page | suggestion | contradiction | duplicate | confirm</code>), a contextual
+<code>rationale</code>, lazy on-demand Create through the bounded orchestrated loop, and a rule-then-LLM
+auto-resolution sweep. <code>ops/review.py</code>, the <code>review_items</code> model, migration <code>0013</code>, the
+<code>/review/queue/*</code> routes, and <code>ReviewQueueView.tsx</code> are all live and green.</p>
+<h3 id="12-what-the-live-nashsu-queue-has-that-synapse-does-not">1.2 What the live nashsu queue has that Synapse does not<a class="headerlink" href="#12-what-the-live-nashsu-queue-has-that-synapse-does-not" title="Permanent link">&para;</a></h3>
+<p>The owner inspected the reference queue live (517 cards). Four concrete capabilities are present
+there and absent in Synapse — each is a depth gap, not a redesign:</p>
+<ol>
+<li>
+<p><strong>Stable, content-derived idempotency id.</strong> nashsu derives each review id from an <strong>FNV-1a hash
+   of the item's content</strong> (type + title + rationale-defining fields), so the <em>same</em> proposal
+   re-emitted across re-ingests keeps its id — and therefore its <code>resolved</code>/<code>skipped</code>/<code>dismissed</code>
+   status. Synapse's <code>enqueue_review</code> uses <code>uuid.uuid4()</code> per emission and is documented as an
+   "event log, not a per-page singleton" (ADR-0034 §3.2). <strong>Consequence:</strong> re-ingesting the same
+   sources re-proposes items the human already skipped, and duplicate cards accumulate. At the 517
+   scale the owner saw, an event-log model would produce thousands of dupes. <strong>This is the single
+   most important gap</strong> — it is what makes a large queue livable.</p>
+</li>
+<li>
+<p><strong>References to related existing pages (plural).</strong> nashsu cards cite <em>the existing pages the
+   suggestion is contextually about</em> ("this concept connects [[X]], [[Y]], [[Z]]"). Synapse stores
+   only a single <code>page_id</code> (the conflict/target page for contradiction/duplicate). A <code>missing-page</code>
+   or <code>suggestion</code> card today shows a rationale string but cannot render the related-page links the
+   reference cards carry.</p>
+</li>
+<li>
+<p><strong>Pre-generated <code>SEARCH:</code> queries per item.</strong> nashsu emits 1–3 search queries at ingest time and
+   uses the first as the Deep Research seed (audit §F9: prompt imposes a <code>SEARCH:</code> line, parsed into
+   <code>searchQueries</code>, consumed by <code>queueResearch</code>). ADR-0034 <strong>dropped</strong> <code>pre_generated_query</code> and
+   derives the Deep Research topic from <code>proposed_title</code>/<code>rationale</code> instead. This works but loses
+   the <em>curated</em> seed query and the ability to show the user what will be searched. The owner
+   explicitly lists pre-generated search queries as a desired feature.</p>
+</li>
+<li>
+<p><strong>Bulk actions + a <code>dismissed</code>/resolved visibility model.</strong> nashsu has "Select pending", "Mark
+   resolved", "Dismiss", and "Clear resolved". Synapse has per-item Create/Skip/Deep-Research and a
+   single global "Sweep" button — no multi-select, no dismiss-vs-resolve distinction, no
+   clear-resolved. At 517 items, per-item-only triage is unusable.</p>
+</li>
+</ol>
+<h3 id="13-ground-truth-this-adr-builds-on-unchanged-seams">1.3 Ground truth this ADR builds on (unchanged seams)<a class="headerlink" href="#13-ground-truth-this-adr-builds-on-unchanged-seams" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>ops/review.py</code></strong> — <code>enqueue_review</code>, <code>propose_reviews</code>, <code>sweep_reviews</code>,
+  <code>create_page_from_review</code>, <code>list_queue</code>, <code>skip</code>, <code>deep_research</code>, <code>_set_status</code>. This ADR extends
+  these; it introduces no new module.</li>
+<li><strong><code>ReviewItem</code></strong> model + migration <code>0013</code>. This ADR adds columns via <strong>0018</strong>.</li>
+<li><strong><code>/review/queue/*</code></strong> routes in <code>main.py</code> + <code>ReviewItemResponse</code>. This ADR extends the projection
+  and adds two bulk routes.</li>
+<li><strong><code>ReviewQueueView.tsx</code></strong> + <code>reviewStore.ts</code> + <code>reviewClient.ts</code>. This ADR adds selection state,
+  bulk action bars, referenced-page links, and a search-query display.</li>
+<li><strong><code>resolve_provider_config("ingest", vault_id)</code> + <code>run_orchestrated_loop</code></strong> — the I6/I7 seams.
+  Unchanged: the search-query emission rides the <strong>same single</strong> proposal call (no new LLM call).</li>
+<li><strong><code>Link</code> / <code>Page</code> tables</strong> — the bounded indexed reads for referenced-page resolution and
+  dangling-link detection already used by <code>propose_reviews</code>.</li>
+</ul>
+<hr />
+<h2 id="2-decision-summary">2. Decision summary<a class="headerlink" href="#2-decision-summary" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Add a stable content-derived idempotency key <code>content_key</code></strong> (a 16-hex FNV-1a-style digest over
+   <code>vault_id + item_type + normalized(proposed_title) + target_page_title-or-page_id</code>) with a
+   <strong>partial unique index</strong> on <code>(vault_id, content_key)</code> scoped to <em>live</em> statuses. <code>enqueue_review</code>
+   becomes an <strong>UPSERT-on-<code>content_key</code></strong>: a re-emitted proposal whose <code>content_key</code> already exists
+   is a no-op if the existing row is terminal (<code>skipped</code>/<code>dismissed</code>/<code>created</code>/<code>auto_resolved</code>) and a
+   touch-<code>created_at</code>/refresh-<code>rationale</code> if it is still <code>pending</code>. This makes the queue
+   <strong>idempotent across re-ingest</strong> — the nashsu behavior. The "event log" note in ADR-0034 §3.2 is
+   <strong>superseded by this ADR</strong> for the missing-page/suggestion/duplicate/contradiction cases.</p>
+</li>
+<li>
+<p><strong>Add <code>referenced_page_ids</code> (JSON array of page-id strings)</strong> to carry the related existing pages
+   a proposal is contextually about (plural). The proposal LLM call returns a
+   <code>referenced_page_titles</code> list; <code>propose_reviews</code> resolves them to ids via a bounded indexed
+   <code>pages</code> read (same pattern as the existing <code>target_page_title</code> resolution) and stores the
+   resolved ids. The <code>page_id</code> single-target column is <strong>kept</strong> for contradiction/duplicate (the
+   <em>primary</em> conflict). <code>referenced_page_ids</code> is the <em>context set</em>.</p>
+</li>
+<li>
+<p><strong>Re-introduce <code>search_queries</code> (JSON array of ≤3 strings)</strong> produced by the <strong>same</strong> single
+   bounded proposal call (no new call — the prompt gains a <code>search_queries</code> field per proposal). The
+   Deep-Research action seeds its topic from <code>search_queries[0]</code> when present, falling back to the
+   ADR-0034 order (<code>proposed_title → rationale → page.title</code>). The UI shows the queries on the card.
+   This restores the dropped <code>pre_generated_query</code> capability in a <strong>plural, structured</strong> form
+   without an extra provider call.</p>
+</li>
+<li>
+<p><strong>Add a <code>dismissed</code> status and bulk actions.</strong> New status value <code>dismissed</code> (human hid the item
+   without acting — distinct from <code>skipped</code>, which is "considered and declined", and from
+   <code>auto_resolved</code>). New bounded endpoints <code>POST /review/queue/bulk</code> (apply skip/dismiss/mark-resolved
+   to a capped list of ids) and <code>DELETE /review/queue/resolved</code> (hard-delete terminal rows —
+   "Clear resolved"). "Select pending" and "Mark resolved" are <strong>UI selection + the bulk endpoint</strong>;
+   no new server concept.</p>
+</li>
+<li>
+<p><strong><code>GET /review/queue</code> gains a <code>status</code> filter</strong> (default: the live set) so the UI can show
+   Pending / Resolved / Dismissed tabs without pulling everything. Paging stays capped (I7).</p>
+</li>
+<li>
+<p><strong>No new LLM call, no new loop, no new module, no C4 topology change.</strong> The proposal call count is
+   unchanged (still ≤1 per ingest run). Bulk actions are bounded DB writes. Idempotency and
+   referenced-page resolution are bounded indexed reads (I1). Create is untouched (still the bounded
+   loop + <code>write_wiki_page</code>, one <code>data_version</code> bump).</p>
+</li>
+</ol>
+<hr />
+<h2 id="3-data-model-changes-migration-0018">3. Data model changes (migration 0018)<a class="headerlink" href="#3-data-model-changes-migration-0018" title="Permanent link">&para;</a></h2>
+<p>Next free migration is <strong>0018</strong> (0013 = ADR-0034 proposal model; 0014 = lint; 0015/0016/0017 =
+vault_state config). The <code>ReviewItem</code> model is extended; <code>make er</code> regenerates <code>docs/er/schema.mmd</code>
+and <code>make openapi</code> regenerates <code>docs/api/openapi.json</code> (I8).</p>
+<h3 id="31-column-changes">3.1 Column changes<a class="headerlink" href="#31-column-changes" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Action</th>
+<th>Type / nullability</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>content_key</code></td>
+<td><strong>add</strong></td>
+<td>Text, <strong>nullable</strong></td>
+<td>16-hex stable digest (§3.2). Nullable so <code>confirm</code> items (which are intentionally <em>not</em> deduped — every "please confirm X" is a distinct human ask) and legacy rows can carry NULL.</td>
+</tr>
+<tr>
+<td><code>referenced_page_ids</code></td>
+<td><strong>add</strong></td>
+<td><code>JSONB().with_variant(JSON,"sqlite")</code>, nullable</td>
+<td>Array of page-id <strong>strings</strong> (resolved existing pages the proposal is contextually about). Bounded (<code>≤ REVIEW_REFERENCED_PAGES_MAX</code>, default 8). NULL/<code>[]</code> when none. Distinct from <code>page_id</code> (single primary conflict) and <code>source_page_id</code> (provenance).</td>
+</tr>
+<tr>
+<td><code>search_queries</code></td>
+<td><strong>add</strong></td>
+<td><code>JSONB().with_variant(JSON,"sqlite")</code>, nullable</td>
+<td>Array of ≤3 pre-generated search-query strings (§2.3). NULL when the model produced none. Seeds Deep Research; shown on the card.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><strong>extend (value set only)</strong></td>
+<td>Text, not null</td>
+<td>New value <code>dismissed</code> added to the enum-by-convention set: <code>pending \| created \| skipped \| dismissed \| deep_researched \| auto_resolved</code>. No type change (Text stays).</td>
+</tr>
+<tr>
+<td><code>resolution</code></td>
+<td><strong>extend (value set only)</strong></td>
+<td>Text, nullable</td>
+<td>New value <code>dismissed</code> added: <code>created \| skipped \| dismissed \| researched \| rule_resolved \| llm_resolved</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>All existing columns (<code>id</code>, <code>vault_id</code>, <code>item_type</code>, <code>page_id</code>, <code>source_page_id</code>, <code>proposed_*</code>,
+<code>rationale</code>, <code>created_page_id</code>, <code>deep_research_run_id</code>, timestamps) are <strong>unchanged</strong>.</p>
+<h3 id="32-content_key-derivation-stable-idempotency">3.2 <code>content_key</code> derivation (stable idempotency)<a class="headerlink" href="#32-content_key-derivation-stable-idempotency" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>content_key = fnv1a_16hex(
+    vault_id + &quot;\x1f&quot; +
+    item_type + &quot;\x1f&quot; +
+    normalize(proposed_title) + &quot;\x1f&quot; +          # lower, collapse ws; &quot;&quot; if None
+    (normalize(target_page_title) or page_id or &quot;&quot;)  # the conflict anchor for contradiction/duplicate
+)
+</code></pre></div>
+<ul>
+<li><code>normalize()</code> is the existing <code>_normalize_title</code> (lower + collapse whitespace) — reused, not
+  reinvented.</li>
+<li><strong>FNV-1a is chosen</strong> (not sha256) to match the reference and because the key is a <em>dedup handle</em>,
+  not a security digest — a fast 64-bit FNV-1a rendered as 16 hex chars is ample and collision-safe
+  at vault scale. A pure-Python one-liner; <strong>no new dependency</strong> (I9).</li>
+<li><strong><code>confirm</code> items get <code>content_key = NULL</code></strong> (not deduped): a confirmation request is a distinct
+  human ask each time and must not be silently coalesced.</li>
+<li>The key is <strong>content-addressed, not row-addressed</strong> — the same logical proposal from two different
+  ingest runs collides by design. That is the whole point.</li>
+</ul>
+<h3 id="33-idempotency-index">3.3 Idempotency index<a class="headerlink" href="#33-idempotency-index" title="Permanent link">&para;</a></h3>
+<p>Add a <strong>partial unique index</strong> (Postgres) / filtered index (SQLite emulated via a guarded upsert):</p>
+<div class="highlight"><pre><span></span><code>ix_review_items_vault_content_key_live  UNIQUE (vault_id, content_key)
+    WHERE content_key IS NOT NULL AND status IN (&#39;pending&#39;)
+</code></pre></div>
+<ul>
+<li>Uniqueness is scoped to <strong><code>pending</code></strong> live rows: a terminal (<code>skipped</code>/<code>dismissed</code>/<code>created</code>/
+  <code>auto_resolved</code>) row with the same <code>content_key</code> <strong>still blocks re-proposal</strong> (see §3.4 upsert
+  logic) but does not conflict with a new pending row after the human has, e.g., re-opened it — the
+  upsert reads the terminal row first and no-ops. On SQLite (unit tests) the partial-unique index is
+  emulated by the upsert's read-before-write (the DB-level guarantee is Postgres-only; the
+  application upsert is the portable contract — mirrors the raw-SQL portability note in project
+  memory).</li>
+</ul>
+<h3 id="34-enqueue_review-becomes-an-idempotent-upsert">3.4 <code>enqueue_review</code> becomes an idempotent upsert<a class="headerlink" href="#34-enqueue_review-becomes-an-idempotent-upsert" title="Permanent link">&para;</a></h3>
+<p><code>enqueue_review</code> gains the new fields and, when <code>content_key</code> is non-NULL, performs a <strong>read-by-key
+then branch</strong> (bounded, single indexed read — I1):</p>
+<div class="highlight"><pre><span></span><code>existing = SELECT ... WHERE vault_id=? AND content_key=? ORDER BY created_at DESC LIMIT 1
+if existing is None:
+    INSERT new pending row                                   # first sighting
+elif existing.status == &#39;pending&#39;:
+    UPDATE existing SET rationale=?, referenced_page_ids=?,  # refresh context, keep id+created_at
+                        search_queries=?                     # (the human hasn&#39;t acted yet)
+else:  # terminal: skipped / dismissed / created / auto_resolved
+    NO-OP                                                    # respect the human&#39;s prior decision
+</code></pre></div>
+<p><code>content_key=NULL</code> (i.e. <code>confirm</code>) always INSERTs (no dedup). This is the exact nashsu semantics:
+<strong>a proposal the human already disposed of never comes back; an un-acted proposal is refreshed in
+place, keeping its id and queue position.</strong></p>
+<h3 id="35-migration-0018-notes">3.5 Migration 0018 notes<a class="headerlink" href="#35-migration-0018-notes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Additive: ADD <code>content_key</code>, <code>referenced_page_ids</code>, <code>search_queries</code> (all nullable); ADD the
+  partial-unique index. No type alteration (<code>status</code>/<code>resolution</code> stay Text). No column drops.</li>
+<li><strong>Backfill:</strong> <code>content_key</code> is left NULL for pre-existing rows (they are historical; not
+  re-deduped retroactively). M6 is single-operator pre-release — acceptable. Optionally the migration
+  MAY compute <code>content_key</code> for existing <code>pending</code> non-<code>confirm</code> rows in one bounded pass so the
+  dedup takes effect immediately; document whichever is chosen.</li>
+<li><strong><code>make er</code> (I8):</strong> <code>review_items</code> gains three columns; no new FK (the referenced ids are a JSON
+  array, deliberately <em>not</em> a join table — see §8 risk 2). Regenerate <code>docs/er/schema.mmd</code>.</li>
+</ul>
+<hr />
+<h2 id="4-generation-where-the-new-fields-come-from-i6i7-both-routes">4. Generation — where the new fields come from (I6/I7, both routes)<a class="headerlink" href="#4-generation-where-the-new-fields-come-from-i6i7-both-routes" title="Permanent link">&para;</a></h2>
+<h3 id="41-orchestrated-route-api-local-the-single-proposal-call-enriched">4.1 Orchestrated route (API / Local) — the single proposal call, enriched<a class="headerlink" href="#41-orchestrated-route-api-local-the-single-proposal-call-enriched" title="Permanent link">&para;</a></h3>
+<p><code>propose_reviews</code> (<code>ops/review.py</code>) is unchanged in <strong>structure</strong>: still one anti-spam gate, still
+<strong>≤1</strong> <code>InferenceProvider</code> call (operation <code>"ingest"</code>, resolved via <code>resolve_provider_config</code> — I6),
+still capped at <code>_PROPOSE_MAX_ITEMS</code>, still fire-and-forget and degrade-safe (I7). Three enrichments,
+<strong>all inside the existing call</strong> (no new call, no loop):</p>
+<ol>
+<li><strong>Prompt gains two per-proposal fields</strong> in the returned JSON:</li>
+<li><code>referenced_page_titles</code>: ≤ <code>REVIEW_REFERENCED_PAGES_MAX</code> existing-vault titles this proposal
+     is contextually about (the model is given the bounded existing-title list already — §5 of
+     ADR-0034 — so it references real pages, not invented ones).</li>
+<li><code>search_queries</code>: ≤3 short web-search queries that would advance this item (the nashsu <code>SEARCH:</code>
+     line, now structured per proposal).</li>
+<li><strong><code>ProposalDTO</code> gains</strong> <code>referenced_page_titles: list[str]</code> and <code>search_queries: list[str]</code>.
+   <code>_parse_proposals</code> extracts them tolerantly (drop non-strings; cap lengths).</li>
+<li><strong><code>propose_reviews</code> resolves</strong> <code>referenced_page_titles → referenced_page_ids</code> via a bounded
+   indexed <code>pages</code> read (reuse the exact <code>target_page_title</code> lookup pattern already in the function;
+   drop titles that don't resolve to a live page — the model must not fabricate references), computes
+   <code>content_key</code> (§3.2), and passes all three to <code>enqueue_review</code> (now an upsert).</li>
+</ol>
+<p>The <strong>rule-based</strong> proposals (dangling wikilinks, not-written suggested pages) also get a
+<code>content_key</code>; their <code>referenced_page_ids</code> is <code>[the written page that referenced the target]</code> when
+known, and <code>search_queries</code> is <code>[proposed_title]</code> as a trivial seed (no LLM needed).</p>
+<h3 id="42-delegated-route-cli-closing-adr-0034-9-risk-1-bounded-opt-in">4.2 Delegated route (CLI) — closing ADR-0034 §9 risk 1 (bounded, opt-in)<a class="headerlink" href="#42-delegated-route-cli-closing-adr-0034-9-risk-1-bounded-opt-in" title="Permanent link">&para;</a></h3>
+<p>ADR-0034 §9 flagged that the delegated (CLI) branch emits <strong>no</strong> proposals because the orchestrator
+does not enumerate the pages the CLI agent writes via MCP <code>write_page</code>. This ADR closes that gap
+<strong>without</strong> adding a second agent loop and <strong>without</strong> a provider-specific branch (I6):</p>
+<ul>
+<li>The MCP <code>write_page</code> tool (<code>mcp/server.py</code>, which already reuses the ingest write primitives)
+  <strong>records the titles/ids it writes for the current delegated run</strong> on the existing run context
+  (an in-memory list keyed by the run — no new table). This is a pure side-record; it does not
+  change the delegated agent's behavior and is capability-agnostic (any agentic provider that writes
+  through <code>write_page</code> gets it — I6, no isinstance).</li>
+<li>After the delegated run finishes, the orchestrator calls the <strong>same</strong> <code>propose_reviews(...)</code> seam,
+  passing the recorded written pages as <code>written_pages</code> and a <strong>synthesized <code>Analysis</code></strong> built from
+  the recorded titles (no <code>suggested_pages</code> — so the LLM proposal path runs on the written set, the
+  rule-based dangling-link path runs on the written pages' <code>links</code> rows exactly as for orchestrated).
+  One bounded call, same caps, same fire-and-forget degrade (I7).</li>
+<li>If the recorded set is empty (agent wrote nothing, or a provider that bypasses <code>write_page</code>),
+  <code>propose_reviews</code> early-returns (its existing <code>if not written_pages</code> guard) — zero cost, no
+  proposals. <strong>This is opt-in by construction:</strong> only providers that write through the MCP tool get
+  proposals; nothing is hardcoded.</li>
+</ul>
+<p>This is a <strong>strict addition</strong> — it introduces no new invariant surface (the proposal call is the
+same bounded call). It is flagged as the one genuinely new integration point and gets its own tests
+(§9 risk 1 is downgraded from "reserved" to "delivered, bounded, opt-in").</p>
+<h3 id="43-bounds-i7-unchanged-surface">4.3 Bounds (I7) — unchanged surface<a class="headerlink" href="#43-bounds-i7-unchanged-surface" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Proposal emission: still <strong>≤1</strong> provider call per run; <code>content_key</code>/reference resolution are
+  bounded indexed reads; the per-proposal <code>referenced_page_titles</code> and <code>search_queries</code> are truncated
+  at parse (<code>≤ REVIEW_REFERENCED_PAGES_MAX</code>, ≤3). No new timeout, no new budget — same as ADR-0034.</li>
+<li>New config knobs: <code>REVIEW_REFERENCED_PAGES_MAX</code> (default 8), <code>REVIEW_SEARCH_QUERIES_MAX</code> (default 3),
+  <code>REVIEW_BULK_MAX_IDS</code> (default 200 — the bulk-action cap, §6). Added to <code>config.py</code> with defaults;
+  DEPLOY.md documents them (tech-writer).</li>
+</ul>
+<hr />
+<h2 id="5-auto-resolve-sweep-idempotency-aware-otherwise-unchanged">5. Auto-resolve sweep — idempotency-aware, otherwise unchanged<a class="headerlink" href="#5-auto-resolve-sweep-idempotency-aware-otherwise-unchanged" title="Permanent link">&para;</a></h2>
+<p>The sweep (<code>sweep_reviews</code>, ADR-0034 §6) is <strong>structurally unchanged</strong>: Pass-1 rule-based
+(title-now-exists) + Pass-2 conservative bounded LLM (default-to-keep, never-resolve-<code>confirm</code>), both
+bounded (I7), never re-scanning (I1). Two small alignments with the new model:</p>
+<ol>
+<li><strong>Dismissed rows are terminal</strong> and are never re-examined by the sweep (they filter on
+   <code>status='pending'</code> already — no change needed, just noted).</li>
+<li><strong>Idempotency makes the sweep lighter, not different.</strong> Because re-ingest no longer re-creates
+   already-resolved proposals (§3.4), the sweep's Pass-1 candidate set shrinks naturally over time —
+   the sweep now only ever sees genuinely-still-open items. No behavioral change to the sweep code;
+   this is a consequence of §3, recorded for the reviewer.</li>
+</ol>
+<p>The sweep's human-gate (K8) is unchanged: <code>contradiction</code>/<code>suggestion</code>/<code>confirm</code> are preserved unless
+the conservative LLM is confident; <code>confirm</code> is never auto-resolved.</p>
+<hr />
+<h2 id="6-rest-api-changes-d4">6. REST API changes (D4)<a class="headerlink" href="#6-rest-api-changes-d4" title="Permanent link">&para;</a></h2>
+<p>Base path <code>/review/queue</code> unchanged. <code>make openapi</code> regenerates <code>docs/api/openapi.json</code> (I8).</p>
+<table>
+<thead>
+<tr>
+<th>Method + path</th>
+<th>Body / params</th>
+<th>Success</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /review/queue</code></td>
+<td><code>?vault_id&amp;status&amp;limit&amp;offset</code> (limit default 50, max 200 — I7)</td>
+<td>200 <code>{items:[…], total, limit, offset}</code></td>
+<td><strong>New <code>status</code> filter</strong> (<code>pending</code>(default) | <code>resolved</code> | <code>dismissed</code> | <code>all</code>). <code>resolved</code> = the terminal-resolved set (<code>created</code>/<code>auto_resolved</code>/<code>deep_researched</code>). Items carry the §6.1 enriched projection.</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/{id}/create</code> (+ <code>/approve</code> alias)</td>
+<td>—</td>
+<td>201 <code>ReviewItem</code></td>
+<td><strong>Unchanged</strong> (ADR-0034 §5). Lazy on-demand Create, one <code>data_version</code> bump.</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/{id}/skip</code></td>
+<td>—</td>
+<td>200 <code>ReviewItem</code></td>
+<td>Unchanged. <code>status=skipped</code>.</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/{id}/dismiss</code></td>
+<td>—</td>
+<td>200 <code>ReviewItem</code></td>
+<td><strong>New.</strong> <code>status=dismissed</code>, <code>resolution=dismissed</code>. Distinct from skip (hidden, not "declined after consideration").</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/{id}/deep-research</code></td>
+<td>—</td>
+<td>202 <code>{review_item_id, run_id}</code></td>
+<td><strong>Topic now seeds from <code>search_queries[0]</code></strong> when present, else the ADR-0034 order. 503 if <code>SEARXNG_URL</code> unset.</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/bulk</code></td>
+<td><code>{vault_id, action: "skip"\|"dismiss"\|"mark-resolved", ids: [uuid,…]}</code></td>
+<td>200 <code>{updated, skipped_terminal}</code></td>
+<td><strong>New.</strong> Bounded bulk status write (<code>len(ids) ≤ REVIEW_BULK_MAX_IDS</code>, 400 otherwise — I7). <code>mark-resolved</code> → <code>status=auto_resolved, resolution=llm_resolved</code>-style terminal (human-marked). Only <code>pending</code> ids are updated; already-terminal ids are counted in <code>skipped_terminal</code>, never re-mutated. No provider call.</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/sweep</code></td>
+<td><code>?vault_id</code></td>
+<td>200 <code>{rule_resolved, llm_resolved, kept}</code></td>
+<td>Unchanged (ADR-0034 §6).</td>
+</tr>
+<tr>
+<td><code>DELETE /review/queue/resolved</code></td>
+<td><code>?vault_id</code></td>
+<td>200 <code>{deleted}</code></td>
+<td><strong>New — "Clear resolved".</strong> Hard-deletes terminal rows (<code>skipped</code>/<code>dismissed</code>/<code>created</code>/<code>auto_resolved</code>/<code>deep_researched</code>) for the vault, capped and bounded (delete in one bounded statement). Pending rows are never touched. Idempotent.</td>
+</tr>
+<tr>
+<td>(all action routes)</td>
+<td>unknown <code>id</code></td>
+<td>404</td>
+<td>Unchanged.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="61-reviewitem-json-projection-additions-in-bold">6.1 <code>ReviewItem</code> JSON projection (additions in <strong>bold</strong>)<a class="headerlink" href="#61-reviewitem-json-projection-additions-in-bold" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>{
+  id, vault_id, item_type, status,
+  proposed_title, proposed_page_type, proposed_dir, rationale,
+  page_id, page_title?,
+  source_page_id, created_page_id,
+  resolution, deep_research_run_id,
+  content_key,                       // **new** — stable dedup handle (opaque to UI)
+  referenced_page_ids,               // **new** — array of page-id strings
+  referenced_pages?,                 // **new** — [{id,title,type}] convenience join for the card
+  search_queries,                    // **new** — array of ≤3 strings (Deep-Research seeds)
+  created_at, reviewed_at
+}
+</code></pre></div>
+<p><code>referenced_pages</code> is a bounded convenience join (<code>pages</code> lookup for the ≤8 ids) so the card can
+render <code>[[title]]</code> links without a second round-trip — same pattern as the existing <code>page_title</code>.</p>
+<hr />
+<h2 id="7-frontend-changes-i3i4">7. Frontend changes (I3/I4)<a class="headerlink" href="#7-frontend-changes-i3i4" title="Permanent link">&para;</a></h2>
+<p><code>ReviewQueueView.tsx</code> + <code>reviewStore.ts</code> + <code>reviewClient.ts</code>. No new framework, no WYSIWYG (I4),
+CodeMirror is not involved (this is a card list). Changes:</p>
+<ol>
+<li><strong>Card enrichment (per-row):</strong></li>
+<li>Render <code>referenced_pages</code> as a wrapped row of clickable <code>[[title]]</code> chips (click →
+     <code>setActiveSection("pages")</code> + select the page — reuse the existing conflict-page link handler).</li>
+<li>Render <code>search_queries</code> as a small muted "will search: q1 · q2" line under the rationale (shown
+     for items that carry them).</li>
+<li>Row height grows; the virtualizer <code>estimateSize</code> is bumped and <code>measureElement</code> used for
+     variable heights (still virtualized — I4; hundreds of rows stay smooth).</li>
+<li><strong>Selection + bulk bar:</strong></li>
+<li>A per-row checkbox (visible in a "select mode") and a header <strong>"Select pending"</strong> toggle that
+     selects all <em>currently loaded</em> pending rows (O(visible) — the store holds only the loaded page).</li>
+<li>A bulk action bar (appears when ≥1 selected): <strong>Mark resolved · Dismiss · Skip</strong>, each calling
+     <code>POST /review/queue/bulk</code> with the selected ids, then refreshing.</li>
+<li><strong>"Clear resolved"</strong> button in the header (visible on the Resolved/Dismissed tab) →
+     <code>DELETE /review/queue/resolved</code>.</li>
+<li><strong>Status tabs:</strong> Pending (default) · Resolved · Dismissed, mapped to the <code>GET ?status=</code> filter.
+   The pending count badge is unchanged.</li>
+<li><strong>I3 compliance:</strong> all new state (selection set, active tab) lives in <code>reviewStore</code> behind
+   selectors + <code>useShallow</code>; no unrelated re-renders. Selection is a <code>Set&lt;string&gt;</code> in the store;
+   the row reads only its own membership via a selector.</li>
+</ol>
+<p>The three primary actions (Create / Deep Research / Skip) and their per-item error handling are
+<strong>unchanged</strong> from ADR-0034.</p>
+<hr />
+<h2 id="8-invariant-compliance">8. Invariant compliance<a class="headerlink" href="#8-invariant-compliance" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Inv</th>
+<th>How this design guarantees it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>K8</strong></td>
+<td>The queue now proposes <em>contextually richer</em> work (referenced pages + seed queries) and lets the human triage it <em>at scale</em> (bulk + dismiss + clear). Pages are still created only on explicit Create. The human curates; the LLM proposes. Idempotency means the human's decisions <strong>persist</strong> — a skipped item stays gone.</td>
+</tr>
+<tr>
+<td><strong>I1</strong></td>
+<td><code>content_key</code> upsert and <code>referenced_page_title</code> resolution are <strong>bounded single indexed reads</strong> (new partial-unique index + the existing title index). The sweep is unchanged (no re-scan). Create is untouched — one <code>write_wiki_page</code>, one <code>data_version</code> bump. Bulk actions are bounded DB writes. No FA2, no vault re-scan anywhere.</td>
+</tr>
+<tr>
+<td><strong>I2</strong></td>
+<td>Untouched. No graph layout work; referenced pages come from <code>pages</code> reads, not the graph.</td>
+</tr>
+<tr>
+<td><strong>I4</strong></td>
+<td>The grown queue (hundreds of items — the 517 the owner saw) stays TanStack-virtualized; variable row heights use <code>measureElement</code>; selection is O(loaded). No un-virtualized long list.</td>
+</tr>
+<tr>
+<td><strong>I6</strong></td>
+<td>The enriched proposal still rides the <strong>same single</strong> <code>resolve_provider_config("ingest")</code> call — no new call, no new ABC method, no isinstance/provider_type branch. The delegated-route proposal (§4.2) uses the <strong>same</strong> <code>propose_reviews</code> seam via the capability-agnostic MCP write-record — no hardcoded backend. Bulk/dismiss/clear are provider-free DB writes.</td>
+</tr>
+<tr>
+<td><strong>I7</strong></td>
+<td>Proposal emission: still <strong>≤1</strong> provider call, same caps + timeout + cost logging; new per-proposal lists truncated at parse. Bulk: <code>len(ids) ≤ REVIEW_BULK_MAX_IDS</code> (400 otherwise). Clear-resolved: one bounded DELETE. No new loop anywhere; the sweep's bounds are unchanged.</td>
+</tr>
+<tr>
+<td><strong>I8</strong></td>
+<td><code>review_items</code> change → Alembic <strong>0018</strong> + <code>make er</code> (three new columns) + <code>make openapi</code> (the new/changed routes + projection). D3 ingest sequence gains the delegated-route proposal step (tech-writer). No sprint-done without these artifacts consistent.</td>
+</tr>
+</tbody>
+</table>
+<p>No invariant is traded. The genuine tensions are in §9.</p>
+<hr />
+<h2 id="9-flagged-tensions-risks">9. Flagged tensions &amp; risks<a class="headerlink" href="#9-flagged-tensions-risks" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Delegated-route proposals are new integration surface.</strong> §4.2 adds a write-record on the MCP
+   <code>write_page</code> path and a post-run <code>propose_reviews</code>. Risk: an agentic provider that writes pages by
+   some path <em>other</em> than <code>write_page</code> still emits nothing. <strong>Accepted</strong> — that is the correct
+   conservative behavior (empty set → early return, zero cost); it is opt-in by construction and
+   documented, not silent. Tests cover: write-record populated → proposals emitted; empty → no call.</p>
+</li>
+<li>
+<p><strong><code>referenced_page_ids</code> is a JSON array, not a join table.</strong> This avoids a <code>review_referenced_pages</code>
+   junction and its cascade-on-page-delete complexity. Cost: a deleted referenced page leaves a stale
+   id in the array. <strong>Mitigation:</strong> the <code>referenced_pages</code> convenience join drops ids that no longer
+   resolve to a live page (render-time filter — same tolerance as dangling wikilinks). The array is a
+   <em>display + context hint</em>, never a source of truth or an FK obligation. Recorded as a deliberate
+   simplification (I9 — do not over-engineer).</p>
+</li>
+<li>
+<p><strong>Idempotency vs. legitimately-recurring proposals.</strong> A <code>content_key</code> collision suppresses
+   re-proposal even if the underlying context changed. <strong>Mitigation:</strong> the key includes
+   <code>item_type + title + conflict-anchor</code>, so a materially different proposal (different title/anchor)
+   gets a different key. For <code>confirm</code>, dedup is disabled entirely (§3.2). A pending row's <code>rationale</code>
+   is <em>refreshed</em> on re-emission (§3.4), so context stays current without a new card. The window this
+   misses (same title, changed nuance, already-skipped) is acceptable and re-openable by the human.</p>
+</li>
+<li>
+<p><strong><code>dismissed</code> vs <code>skipped</code> semantics must be documented</strong> or users conflate them. USER.md
+   (tech-writer) states: <strong>Skip</strong> = "considered and declined, keep it out of the way"; <strong>Dismiss</strong> =
+   "hide this, I'm not acting"; <strong>Mark resolved</strong> = "this is handled (elsewhere)". All three are
+   terminal; all three are cleared by "Clear resolved". This is a UX-clarity risk, not a technical one.</p>
+</li>
+<li>
+<p><strong>Clear-resolved is a hard delete.</strong> Unlike page soft-delete (ADR-0005), terminal review rows are
+   hard-deleted (they are advisory metadata, not vault content). <strong>Accepted</strong> — they carry no vault
+   state; <code>created_page_id</code> points at a page that persists independently. Bounded, idempotent, vault-
+   scoped. No cascade risk (the <code>pages</code> FK is nullable and the page is not deleted).</p>
+</li>
+<li>
+<p><strong>FNV-1a is not cryptographic.</strong> Intentional (§3.2) — it is a dedup handle, not a security or
+   integrity digest. Collision probability at vault scale (thousands of items) is negligible for a
+   64-bit hash; a collision would merely coalesce two proposals, a benign failure mode.</p>
+</li>
+</ol>
+<hr />
+<h2 id="10-do-not-list-rejection-triggers">10. Do-NOT list (rejection triggers)<a class="headerlink" href="#10-do-not-list-rejection-triggers" title="Permanent link">&para;</a></h2>
+<p>A PR touching this depth pass is <strong>rejected on review</strong> if it:</p>
+<ol>
+<li><strong>DO NOT</strong> add a second provider call for referenced pages or search queries — they ride the
+   <strong>one</strong> existing proposal call (I6/I7). The delegated route uses the <strong>same</strong> <code>propose_reviews</code>
+   seam, not a new agent loop.</li>
+<li><strong>DO NOT</strong> make <code>enqueue_review</code> a blind INSERT for non-<code>confirm</code> items — it MUST upsert on
+   <code>content_key</code> and respect terminal rows (§3.4). A re-ingest must not resurrect a skipped/dismissed
+   item.</li>
+<li><strong>DO NOT</strong> hardcode a backend/model, or branch on isinstance/provider_type for the delegated
+   proposal path — resolve via <code>resolve_provider_config("ingest")</code>; empty write-record → no call, not
+   a substituted provider (I6).</li>
+<li><strong>DO NOT</strong> create a <code>review_referenced_pages</code> junction table or a hard FK per referenced id —
+   <code>referenced_page_ids</code> is a bounded JSON array; stale ids are filtered at render (§9.2, I9).</li>
+<li><strong>DO NOT</strong> let <code>POST /review/queue/bulk</code> or <code>DELETE /review/queue/resolved</code> operate unbounded —
+   <code>ids</code> capped at <code>REVIEW_BULK_MAX_IDS</code>; clear-resolved is one bounded vault-scoped statement (I7).</li>
+<li><strong>DO NOT</strong> touch pending rows in "Clear resolved", or auto-resolve <code>confirm</code> in any bulk path
+   (only explicit human <code>mark-resolved</code> on a specific id may terminalize it; the sweep still never
+   touches <code>confirm</code>).</li>
+<li><strong>DO NOT</strong> re-scan the vault or call FA2 for referenced-page/idempotency resolution — bounded
+   indexed reads only (I1/I2).</li>
+<li><strong>DO NOT</strong> un-virtualize the review list to fit checkboxes/tabs, or select more than the loaded
+   page in "Select pending" (I4 — O(loaded)).</li>
+<li><strong>DO NOT</strong> ship the schema change without Alembic <strong>0018</strong> + <code>make er</code> + <code>make openapi</code>
+   regenerated (I8).</li>
+<li><strong>DO NOT</strong> dedup <code>confirm</code> items (their <code>content_key</code> is NULL by design — every confirmation is a
+    distinct human ask).</li>
+</ol>
+<hr />
+<h2 id="11-implementation-plan-phased-each-phase-independently-shippable">11. Implementation plan (phased, each phase independently shippable)<a class="headerlink" href="#11-implementation-plan-phased-each-phase-independently-shippable" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Routing rule:</strong> <strong>[AI]</strong> = ai-agent-engineer (touches the <code>InferenceProvider</code> proposal call);
+<strong>[BE]</strong> = backend-engineer; <strong>[FE]</strong> = frontend-engineer. Each phase lands behind green tests;
+QA + tech-writer gate as usual. Phases are ordered so each is shippable alone.</p>
+</blockquote>
+<h3 id="phase-a-idempotency-the-highest-value-standalone-be-ai">Phase A — Idempotency (the highest-value, standalone) — [BE] + [AI]<a class="headerlink" href="#phase-a-idempotency-the-highest-value-standalone-be-ai" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>[BE]</strong> Migration <strong>0018</strong>: ADD <code>content_key</code>, <code>referenced_page_ids</code>, <code>search_queries</code>
+  (nullable); ADD <code>ix_review_items_vault_content_key_live</code> partial-unique index; extend the
+  <code>status</code>/<code>resolution</code> value-set docs (add <code>dismissed</code>). Update the model docstring. Run <code>make er</code>
+  → commit <code>docs/er/schema.mmd</code>.</li>
+<li><strong>[BE]</strong> <code>_content_key(...)</code> helper (FNV-1a, reuse <code>_normalize_title</code>); <code>confirm</code> → NULL.</li>
+<li><strong>[BE]</strong> <code>enqueue_review</code> → upsert-on-<code>content_key</code> (§3.4): read-by-key, INSERT / refresh-pending /
+  no-op-terminal. Keep the pure-DB-write contract (no provider).</li>
+<li><strong>[AI]</strong> <code>propose_reviews</code>: compute <code>content_key</code> for both rule-based and LLM proposals before
+  enqueue (the LLM prompt/DTO enrichment is Phase B; here every emitted proposal just gains a key).</li>
+<li><strong>Tests:</strong> re-ingesting the same source twice yields <strong>one</strong> pending row per proposal (not two);
+  a skipped item is not resurrected on re-ingest; a pending item's rationale refreshes in place
+  keeping its id; <code>confirm</code> still inserts every time.</li>
+<li><strong>Ships:</strong> the queue stops accumulating duplicates — the single biggest livability win — with no
+  UI change required.</li>
+</ul>
+<h3 id="phase-b-contextual-references-search-queries-ai-be">Phase B — Contextual references + search queries — [AI] + [BE]<a class="headerlink" href="#phase-b-contextual-references-search-queries-ai-be" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>[AI]</strong> Extend the proposal prompt + <code>ProposalDTO</code> + <code>_parse_proposals</code> with
+  <code>referenced_page_titles</code> (≤<code>REVIEW_REFERENCED_PAGES_MAX</code>) and <code>search_queries</code> (≤3); tolerant parse.</li>
+<li><strong>[BE]</strong> <code>propose_reviews</code>: resolve <code>referenced_page_titles → referenced_page_ids</code> via the existing
+  bounded <code>pages</code> lookup (drop non-resolving titles); persist both arrays through the (already
+  upserting) <code>enqueue_review</code>. Rule-based proposals get <code>[referencing page]</code> + <code>[proposed_title]</code>.</li>
+<li><strong>[BE]</strong> <code>deep_research</code> action: seed topic from <code>search_queries[0]</code> when present (fallback to the
+  ADR-0034 order).</li>
+<li><strong>[BE]</strong> <code>config.py</code>: <code>REVIEW_REFERENCED_PAGES_MAX</code>, <code>REVIEW_SEARCH_QUERIES_MAX</code>.</li>
+<li><strong>Tests:</strong> proposals carry resolved referenced ids (invented titles dropped); Deep-Research uses the
+  seed query; still exactly one provider call; caps enforced.</li>
+<li><strong>Ships:</strong> cards gain context; Deep Research seeds from curated queries. No UI required to be
+  correct (projection carries the new fields; UI render is Phase D).</li>
+</ul>
+<h3 id="phase-c-bulk-actions-status-filter-dismiss-clear-resolved-be">Phase C — Bulk actions + status filter + dismiss + clear-resolved — [BE]<a class="headerlink" href="#phase-c-bulk-actions-status-filter-dismiss-clear-resolved-be" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>[BE]</strong> <code>dismiss</code> op + route; <code>POST /review/queue/bulk</code> (bounded, <code>REVIEW_BULK_MAX_IDS</code>);
+  <code>DELETE /review/queue/resolved</code> (bounded); <code>GET /review/queue?status=</code> filter; <code>config.py</code>
+  <code>REVIEW_BULK_MAX_IDS</code>. Extend <code>ReviewItemResponse</code> projection (§6.1). Run <code>make openapi</code> → commit.</li>
+<li><strong>Tests:</strong> bulk caps (400 over limit); bulk only mutates pending ids; clear-resolved never touches
+  pending; status filter partitions correctly; <code>dismiss</code> is terminal.</li>
+<li><strong>Ships:</strong> server-side triage at scale, independently of the UI.</li>
+</ul>
+<h3 id="phase-d-frontend-depth-fe">Phase D — Frontend depth — [FE]<a class="headerlink" href="#phase-d-frontend-depth-fe" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>[FE]</strong> Referenced-page chips + search-query line on the card (variable-height virtualization via
+  <code>measureElement</code>); selection <code>Set</code> + "Select pending" toggle + bulk bar (Mark resolved / Dismiss /
+  Skip → bulk endpoint); status tabs (Pending / Resolved / Dismissed); "Clear resolved" button. All
+  new state in <code>reviewStore</code> behind selectors + <code>useShallow</code> (I3). i18n keys (IT/EN).</li>
+<li><strong>Tests (vitest):</strong> bulk selection + dispatch; tab switch re-fetches with <code>?status=</code>; card renders
+  referenced chips + queries; virtualization holds at N=500 rows.</li>
+<li><strong>Ships:</strong> the full nashsu-depth UI.</li>
+</ul>
+<h3 id="phase-e-delegated-route-proposals-ai-be">Phase E — Delegated-route proposals — [AI] + [BE]<a class="headerlink" href="#phase-e-delegated-route-proposals-ai-be" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>[BE]</strong> MCP <code>write_page</code> records written page ids/titles per delegated run (in-memory run context,
+  no table); orchestrator calls <code>propose_reviews</code> with the recorded set + a synthesized <code>Analysis</code>
+  after the delegated run; empty set → early return.</li>
+<li><strong>[AI]</strong> Verify the proposal call path is identical (same bounded call, same degrade); no
+  provider-specific branch.</li>
+<li><strong>Tests:</strong> delegated run that writes via <code>write_page</code> → proposals emitted (bounded, one call);
+  delegated run that writes nothing → no call; no isinstance/provider_type branch (static check).</li>
+<li><strong>Ships:</strong> closes ADR-0034 §9 risk 1; CLI ingests now populate the queue.</li>
+</ul>
+<h3 id="111-cross-cutting-handoffs">11.1 Cross-cutting (handoffs)<a class="headerlink" href="#111-cross-cutting-handoffs" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>tech-writer:</strong> this ADR (format + README row + <code>docs/adr/README.md</code> index line); USER.md (the
+  Skip/Dismiss/Mark-resolved/Clear-resolved verbs + referenced pages + seed queries); DEPLOY.md (the
+  new <code>REVIEW_*</code> env vars); D3 ingest sequence (add the delegated-route proposal step). C4: <strong>no new
+  container/component</strong> — <code>ops/review.py</code> stays a component inside the FastAPI service; no D1 change.</li>
+<li><strong>qa-test-engineer:</strong> §10 Do-NOT list is the rejection gate; the §11 per-phase tests are the
+  milestone gate. Idempotency (Phase A) is the mandatory pre-merge check (re-ingest → no dupes).</li>
+<li><strong>orchestrator:</strong> route [AI] items to ai-agent-engineer, [BE] to backend-engineer, [FE] to
+  frontend-engineer; ship phases in order (A → E); human checkpoint before merge.</li>
+</ul>
+<hr />
+<h2 id="12-sign-off">12. Sign-off<a class="headerlink" href="#12-sign-off" title="Permanent link">&para;</a></h2>
+<p><strong>APPROVED to implement.</strong> This depth pass extends ADR-0034 (it does not supersede it) to reach the
+contextual depth of the live nashsu/llm_wiki queue: a <strong>stable content-derived <code>content_key</code></strong> makes
+the queue idempotent across re-ingest (skipped/dismissed items stay gone; pending items refresh in
+place — the key to a 517-item queue being livable); <strong><code>referenced_page_ids</code></strong> carries the related
+existing pages each card is about; <strong><code>search_queries</code></strong> restores curated Deep-Research seeds via the
+<strong>same single</strong> proposal call; and <strong>bulk actions + <code>dismissed</code> + clear-resolved + status tabs</strong> make
+triage at scale usable. The delegated (CLI) route finally emits proposals through the <strong>same</strong> bounded
+<code>propose_reviews</code> seam. No new provider call, no new loop, no new module, no C4 change. I1, I4, I6,
+I7, I8 are satisfied; K8 is deepened (the human curates <em>at scale</em>, decisions persist). Schema ships
+as Alembic <strong>0018</strong> with <code>make er</code> + <code>make openapi</code> regenerated. Phases A–E are each independently
+shippable, A (idempotency) first.</p>
+<blockquote>
+<p>Handoff: ADR-0044 → tech-writer (format, README row + index, USER/DEPLOY, D3 delegated-proposal
+step). Interface contracts (§3–§7) → backend-engineer [BE] + ai-agent-engineer [AI] +
+frontend-engineer [FE] per §11. PR verdicts → orchestrator. This ADR extends ADR-0034 (the F9
+proposal model stands; this adds contextual depth, idempotency, and bulk triage).</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

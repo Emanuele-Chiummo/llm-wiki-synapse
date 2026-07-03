@@ -1,0 +1,1415 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/llm_wiki-audit/01-AUDIT-FUNZIONALE/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>LLM Wiki (nashsu/llm_wiki) — Audit funzionale: claim README vs implementazione reale - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#llm-wiki-nashsullm_wiki-audit-funzionale-claim-readme-vs-implementazione-reale" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              LLM Wiki (nashsu/llm_wiki) — Audit funzionale: claim README vs implementazione reale
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-sintesi-esecutiva-leggere-prima-di-tutto" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Sintesi esecutiva (leggere prima di tutto)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0. Sintesi esecutiva (leggere prima di tutto)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tabella-di-sintesi-16-macro-funzionalita" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tabella di sintesi (16 macro-funzionalità)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-correzioni-fattuali-al-brief-claim-del-task-codice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Correzioni fattuali al brief (claim del task ≠ codice)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-audit-per-funzionalita" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Audit per funzionalità
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Audit per funzionalità">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#f1-three-column-layout-icon-sidebar-resizable-activity-panel-completo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F1 — Three-column layout + icon sidebar + resizable + activity panel — ✅ COMPLETO
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f2-purposemd-letto-in-ogni-ingestquery-suggerimenti-di-update-parziale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F2 — purpose.md (letto in ogni ingest/query + suggerimenti di update) — 🟡 PARZIALE
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f3-two-step-chain-of-thought-ingest-completo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F3 — Two-step Chain-of-Thought ingest — ✅ COMPLETO
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="F3 — Two-step Chain-of-Thought ingest — ✅ COMPLETO">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#f3-bis-sha256-incremental-cache-completo-con-dubbio-su-read-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F3-bis — SHA256 incremental cache — ✅ COMPLETO (con dubbio su read-side)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f3-ter-persistent-ingest-queue-completo-senza-backoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F3-ter — Persistent ingest queue — ✅ COMPLETO (senza backoff)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f3-quater-folder-import-completo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F3-quater — Folder import — ✅ COMPLETO
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f3-quinquies-source-folder-auto-watch-completo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F3-quinquies — Source folder auto-watch — ✅ COMPLETO
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f3-sexies-scheduled-import-completo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F3-sexies — Scheduled import — ✅ COMPLETO
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f4-knowledge-graph-4-signal-sigmajsforceatlas2-completo-pesi-esatti-readme-inaccurato-su-3-punti" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F4 — Knowledge Graph 4-signal + sigma.js/ForceAtlas2 — ✅ COMPLETO (pesi esatti) · README inaccurato su 3 punti
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f5-knowledge-graph-louvain-insights-estensioni-readme-56-completo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F5 — Knowledge Graph: Louvain + Insights (estensioni README §5–6) — ✅ COMPLETO
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f5-query-query-retrieval-pipeline-a-4-fasi-parziale-funziona-ma-4-claim-del-readme-sono-falsi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F5-query — Query retrieval pipeline a 4 fasi — 🟡 PARZIALE (funziona, ma 4 claim del README sono falsi)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f6-multi-conversation-chat-persistenza-regenerate-save-to-wiki-completo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F6 — Multi-conversation chat + persistenza + regenerate + Save to Wiki — ✅ COMPLETO
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f7-thinking-reasoning-display-completo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F7 — Thinking / reasoning display — ✅ COMPLETO
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f8-latex-unicode-katex-completo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F8 — LaTeX → Unicode + KaTeX — ✅ COMPLETO
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f9-review-system-async-create-deep-research-skip-completo-claim-azioni-vincolate-sovra-dichiarato" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F9 — Review System async (Create / Deep Research / Skip) — ✅ COMPLETO (claim "azioni vincolate" sovra-dichiarato)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f10-deep-research-parziale-un-claim-readme-falso" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F10 — Deep Research — 🟡 PARZIALE (un claim README FALSO)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f11-browser-extension-web-clipper-funzionale-sicurezza" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F11 — Browser extension (Web Clipper) — ✅ FUNZIONALE / ❌ SICUREZZA
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f12-multi-format-document-support-completo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F12 — Multi-format document support — ✅ COMPLETO
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f13-file-deletion-cascade-cleanup-completo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F13 — File deletion cascade cleanup — ✅ COMPLETO
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f14-configurable-context-window-completo-con-caveat-numerico" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F14 — Configurable context window — 🟡 COMPLETO con caveat numerico
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f15-cross-platform-completo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F15 — Cross-platform — ✅ COMPLETO
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f16-i18n-settings-multi-provider-timeout-dataversion-completo-eccede" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F16 — i18n / settings / multi-provider / timeout / dataVersion — ✅ COMPLETO (eccede)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-cross-check-con-il-pattern-karpathy-llm-wikimd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Cross-check con il pattern Karpathy (llm-wiki.md)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-verdetto-finale-fase-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Verdetto finale FASE 1
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="llm-wiki-nashsullm_wiki-audit-funzionale-claim-readme-vs-implementazione-reale">LLM Wiki (<code>nashsu/llm_wiki</code>) — Audit funzionale: claim README vs implementazione reale<a class="headerlink" href="#llm-wiki-nashsullm_wiki-audit-funzionale-claim-readme-vs-implementazione-reale" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Oggetto</strong>: <code>nashsu/llm_wiki</code> @ <code>v0.5.4</code> (commit <code>c03c6be</code>, tag <code>release: v0.5.4</code>).
+<strong>Stack reale</strong>: Tauri v2 (Rust) + React 19 / TypeScript / Vite · shadcn/ui + Tailwind v4 · Milkdown (editor) · sigma.js + graphology + ForceAtlas2 · LanceDB (vector, opzionale) · Zustand · react-i18next.
+<strong>Metodo</strong>: clone locale, lettura di README.md / README_CN.md / llm-wiki.md (pattern Karpathy) e analisi diretta di <code>src/</code>, <code>src-tauri/</code>, <code>extension/</code>, <code>mcp-server/</code>. Ogni verdetto è ancorato a <code>file:riga</code>.
+<strong>Scopo</strong>: spec di riferimento riusabile per il progetto parallelo <em>Synapse</em>. Tono tecnico, niente marketing.</p>
+</blockquote>
+<hr />
+<h2 id="0-sintesi-esecutiva-leggere-prima-di-tutto">0. Sintesi esecutiva (leggere prima di tutto)<a class="headerlink" href="#0-sintesi-esecutiva-leggere-prima-di-tutto" title="Permanent link">&para;</a></h2>
+<p><strong>Questo NON è un progetto "v0.5 vaporware".</strong> È una codebase matura: <strong>~95.000 LOC</strong>, <strong>121 file di test</strong> TypeScript (unit + property-based con <code>fast-check</code> + integration + scenario + 10 suite <code>real-llm</code>), <strong>~190 funzioni di test Rust</strong> in 12 file, type-safety quasi perfetta (<code>any</code> di produzione ≈ 0), <strong>0 marcatori TODO/FIXME</strong>. La stragrande maggioranza delle 16 macro-funzionalità dichiarate è <strong>realmente implementata e coperta da test</strong>.</p>
+<p>I problemi reali non sono "feature mancanti", ma di altra natura:</p>
+<ol>
+<li><strong>Documentazione che sovra-dichiara numeri specifici</strong> — diversi valori nel README sono <em>fattualmente sbagliati</em> rispetto al codice (budget di contesto, bonus di ranking, hop del grafo, semantica del 4° segnale, colore archi, label hover). Sono i punti più pericolosi da riusare come spec: <strong>vanno presi dal codice, non dal README</strong>.</li>
+<li><strong>Un solo item realmente "vaporware"</strong>: F2 "il LLM suggerisce update a <code>purpose.md</code>" — non esiste alcun codice.</li>
+<li><strong>Un buco di sicurezza concreto e serio</strong>: il <em>clip server</em> su <code>127.0.0.1:19827</code> è <strong>completamente non autenticato</strong> (vettore drive-by write + prompt-injection + scrittura file in directory arbitraria). Contrasto netto con l'API principale <code>:19828</code>, che è invece ben hardenizzata.</li>
+<li><strong>Layer UI non testato</strong> (0 test di render dei 52 componenti <code>.tsx</code>), <strong>CI che NON esegue i test</strong> (solo build), <strong>nessun linter</strong> configurato.</li>
+<li><strong>Caratteristiche di performance</strong> da conoscere: il grafo viene <strong>ricostruito interamente</strong> ad ogni <code>dataVersion</code> (nessun indice incrementale) e ForceAtlas2 <strong>blocca il main thread sotto i 220 nodi</strong>.</li>
+</ol>
+<h3 id="tabella-di-sintesi-16-macro-funzionalita">Tabella di sintesi (16 macro-funzionalità)<a class="headerlink" href="#tabella-di-sintesi-16-macro-funzionalita" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Funzionalità (claim README)</th>
+<th>Stato</th>
+<th>Nota chiave</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Three-column layout + icon sidebar + resizable + activity panel</td>
+<td>✅ Completo</td>
+<td>Sidebar parte da <em>Chat</em>, non Wiki; resize manuale con clamp min/max</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>purpose.md</code> (letto in ogni ingest/query + suggerimenti di update)</td>
+<td>🟡 Parziale</td>
+<td>Letto ✅ ovunque; <strong>"suggerisce update" ❌ assente</strong>; bug path <code>purpose.md</code> vs <code>wiki/purpose.md</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Two-step CoT ingest (Analysis → Generation)</td>
+<td>✅ Completo</td>
+<td>Due <code>streamChat</code> distinti, tracciabilità, fallback, language-aware</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Knowledge Graph 4-signal + sigma/FA2</td>
+<td>✅ Completo (pesi esatti)</td>
+<td>README <strong>inaccurato</strong> su 3 dettagli (vedi §F4); FA2 blocca main thread &lt;220 nodi</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Query retrieval 4-fasi (budget 60/20/5/15, citazioni)</td>
+<td>🟡 Parziale</td>
+<td>Funziona ma <strong>4 numeri/claim del README sono falsi</strong> (vedi §F5)</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Multi-conversation chat + regenerate + Save to Wiki</td>
+<td>✅ Completo</td>
+<td>Persistenza per-conversazione, refs persistite</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Thinking/reasoning <code>&lt;think&gt;</code> display</td>
+<td>✅ Completo</td>
+<td>Roll 5 righe, collapse, multi-provider reasoning fields</td>
+</tr>
+<tr>
+<td>8</td>
+<td>LaTeX → Unicode (100+ simboli)</td>
+<td>✅ Completo</td>
+<td><strong>168 mapping</strong> (~145 glifi distinti) + KaTeX confermato</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Review System async (Create/Deep Research/Skip)</td>
+<td>✅ Completo</td>
+<td>"azioni vincolate" <strong>sovra-dichiarato</strong> (matching euristico)</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Deep Research (web search, queue 3, auto-ingest)</td>
+<td>🟡 Parziale</td>
+<td>Concurrency=3 ✅, 6 provider; <strong>"full content extraction" FALSO</strong> (solo snippet)</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Browser extension (MV3, Readability, Turndown, :19827, watcher 3s)</td>
+<td>✅ Funzionale / ❌ <strong>Sicurezza</strong></td>
+<td>Clip server <strong>non autenticato</strong> — vedi §F11 e doc 02</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Multi-format docs (PDF/DOCX/PPTX/XLSX/ODS)</td>
+<td>✅ Completo</td>
+<td>PDF via <strong><code>pdfium-render</code></strong>, non <code>pdf-extract</code> (nome crate errato nel README)</td>
+</tr>
+<tr>
+<td>13</td>
+<td>File deletion cascade cleanup</td>
+<td>✅ Completo</td>
+<td>3-method matching, shared-entity preservation, dead-link cleanup — ben testato</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Configurable context window (4K–1M)</td>
+<td>🟡 Completo con caveat</td>
+<td>Split reale <strong>50/5/15/30</strong>, non 60/20/5/15; label UI dice 60% ma alloca 55%</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Cross-platform (normalizePath, unicode-safe, CI multi-OS)</td>
+<td>✅ Completo</td>
+<td><code>normalizePath</code> in 51 file; close-behavior <strong>configurabile</strong> (non hardcoded); CI 4 OS/arch <strong>ma non esegue test</strong></td>
+</tr>
+<tr>
+<td>16</td>
+<td>i18n / settings / multi-provider / 15-min timeout / dataVersion</td>
+<td>✅ Completo (eccede)</td>
+<td><strong>7 provider</strong> (+Azure/MiniMax) + CLI transport; <strong>timeout 30 min, non 15</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Legenda: ✅ Completo · 🟡 Parziale · ❌ Assente/stub.</p>
+<hr />
+<h2 id="1-correzioni-fattuali-al-brief-claim-del-task-codice">1. Correzioni fattuali al brief (claim del task ≠ codice)<a class="headerlink" href="#1-correzioni-fattuali-al-brief-claim-del-task-codice" title="Permanent link">&para;</a></h2>
+<p>Prima dell'analisi feature-by-feature, sei discrepanze che il brief di sessione dà per buone ma il codice smentisce. Riportarle perché impattano direttamente l'uso come spec:</p>
+<table>
+<thead>
+<tr>
+<th>Affermazione del brief</th>
+<th>Realtà nel codice</th>
+<th>Evidenza</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Local HTTP API porta 19827"</td>
+<td><strong>Due server distinti</strong>: API principale token-protected su <strong><code>:19828</code></strong>; clip/extension server su <strong><code>:19827</code></strong></td>
+<td><code>api_server.rs:19</code> · <code>clip_server.rs:17</code> · <code>popup.js:1</code></td>
+</tr>
+<tr>
+<td>"Deep Research (Tavily API)"</td>
+<td><strong>6 provider</strong>: Tavily, SerpApi, SearXNG, <strong>Brave, Firecrawl, Ollama</strong></td>
+<td><code>web-search.ts:156-171</code></td>
+</tr>
+<tr>
+<td>"Milkdown" come editor</td>
+<td>Confermato (<code>@milkdown/kit ^7.20</code>) — è WYSIWYG ProseMirror-based</td>
+<td><code>package.json:23</code></td>
+</tr>
+<tr>
+<td>"15-minute timeout"</td>
+<td><strong>30 minuti</strong></td>
+<td><code>llm-client.ts:96</code> (<code>30 * 60 * 1000</code>)</td>
+</tr>
+<tr>
+<td>"macOS close-to-hide / Windows close-confirm" hardcoded</td>
+<td><strong>Impostazione utente</strong> (<code>ask</code>/<code>minimize</code>/<code>exit</code>, default <code>minimize</code>)</td>
+<td><code>lib.rs:262-307</code> · <code>general-section.tsx:11-27</code></td>
+</tr>
+<tr>
+<td>"PDF via pdf-extract"</td>
+<td><strong><code>pdfium-render</code> 0.9</strong> (FFI pdfium); <code>pdf-extract</code> non è tra le dipendenze</td>
+<td><code>Cargo.toml:29</code></td>
+</tr>
+</tbody>
+</table>
+<p>E discrepanze README↔README_CN: <strong>nessuna feature documentata solo in cinese</strong>. README_CN ha le stesse 18 sezioni (mapping 1:1) e cita gli stessi due port (19828/19827). README_JA e README_KO sono anch'essi traduzioni allineate.</p>
+<hr />
+<h2 id="2-audit-per-funzionalita">2. Audit per funzionalità<a class="headerlink" href="#2-audit-per-funzionalita" title="Permanent link">&para;</a></h2>
+<p>Ogni voce: <strong>Stato</strong>, <strong>Evidenza</strong> (<code>file:riga</code> + estratti), <strong>Gap vs README</strong>, <strong>Bug/edge case</strong>.</p>
+<hr />
+<h3 id="f1-three-column-layout-icon-sidebar-resizable-activity-panel-completo">F1 — Three-column layout + icon sidebar + resizable + activity panel — ✅ COMPLETO<a class="headerlink" href="#f1-three-column-layout-icon-sidebar-resizable-activity-panel-completo" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza</strong>
+- Shell a 3 colonne: <code>app-layout.tsx:86-143</code> — sinistra <code>SidebarPanel</code>+<code>ActivityPanel</code> (L100-108), centro <code>ContentArea</code> (L117-121), destra <code>ResearchPanel</code> (L124-139).
+- Icon sidebar: <code>icon-sidebar.tsx:20-28</code> <code>NAV_ITEMS</code> = Chat/Wiki/Sources/Search/Graph/Lint/Review; + Deep Research (Globe) L111-128; + Settings L151 + Switch-Project L182.
+- Resize con vincoli: <code>app-layout.tsx:53-62</code> — sinistra <code>Math.max(150, Math.min(400, …))</code>; destra <code>Math.max(250, Math.min(rect.width*0.5, …))</code>. (Resize implementato a mano via <code>mousemove</code>, non via <code>react-resizable-panels</code> per il layout principale.)
+- Activity panel real-time: <code>activity-panel.tsx</code> — poll coda ogni <strong>1s</strong> (L89-94), testo stato live (L194-211), progress bar (L316-321), auto-expand su task running (L179-187), retry/cancel/pause per task.
+- Scenario templates (5): <code>templates.ts:640-646</code> — Research / Reading / Personal Growth / Business / General, ognuno con <code>schema</code> + <code>purpose</code> completi + <code>extraDirs</code>. Picker <code>template-picker.tsx:10-41</code>.</p>
+<p><strong>Gap vs README</strong> — Nessuno sostanziale. L'ordine icone parte da <em>Chat</em> (il README lascia intendere Wiki-first). Irrilevante.</p>
+<p><strong>Bug/edge case</strong> — Nessuno UI-layer testato (vedi doc 02): il layout, drag-resize incluso, non ha test di render.</p>
+<hr />
+<h3 id="f2-purposemd-letto-in-ogni-ingestquery-suggerimenti-di-update-parziale">F2 — <code>purpose.md</code> (letto in ogni ingest/query + suggerimenti di update) — 🟡 PARZIALE<a class="headerlink" href="#f2-purposemd-letto-in-ogni-ingestquery-suggerimenti-di-update-parziale" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza — letto su ingest e query: SÌ</strong>
+- Ingest: <code>ingest.ts:691-694</code> legge <code>${pp}/purpose.md</code> e lo inietta in entrambe le fasi (analysis <code>:968</code>, generation <code>:1000</code>).
+- Query/chat: <code>chat-agent.ts:1005</code> e <code>:1654</code>; graph-query <code>graph-view.tsx:822</code>.</p>
+<p><strong>Evidenza — "il LLM suggerisce update a <code>purpose.md</code>": ❌ ASSENTE (vaporware)</strong>
+- L'<strong>unica</strong> scrittura di <code>purpose.md</code> in tutto il codice è alla creazione progetto da template: <code>create-project-dialog.tsx:120</code> (<code>writeFile(\</code>${pp}/purpose.md`, template.purpose)`). Nessun prompt chiede al modello di revisionare il purpose; nessun blocco FILE lo targetizza. Il claim README §2 ("LLM can suggest updates based on usage patterns") <strong>non ha implementazione</strong>.</p>
+<p><strong>Bug — divergenza di path tra i due entry-point di ingest</strong>
+- <code>autoIngest</code> (coda) legge <code>purpose.md</code> a root (<code>ingest.ts:694</code>) ma <code>wiki/schema.md</code>.
+- <code>startIngest</code> (handoff interattivo) legge <code>wiki/purpose.md</code> e <code>wiki/schema.md</code> (<code>ingest.ts:2982-2986</code>).
+- Poiché il template scrive a root <code>purpose.md</code>, il path interattivo legge un <code>wiki/purpose.md</code> che normalmente <strong>non esiste</strong> → contesto purpose silenziosamente vuoto su quel ramo.</p>
+<p><strong>Verdetto</strong> — Lettura completa e corretta; <em>suggerimento di update assente</em>; bug di path da sanare.</p>
+<hr />
+<h3 id="f3-two-step-chain-of-thought-ingest-completo">F3 — Two-step Chain-of-Thought ingest — ✅ COMPLETO<a class="headerlink" href="#f3-two-step-chain-of-thought-ingest-completo" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza</strong>
+- <strong>Due chiamate LLM distinte</strong>: Step 1 Analysis <code>ingest.ts:953-981</code> (<code>streamChat</code> separato, <code>buildAnalysisPrompt</code>); Step 2 Generation <code>:991-1039</code> (<code>buildGenerationPrompt</code>, riceve l'analisi Stage-1 come contesto). Entrambe <code>temperature:0.1</code>, <code>reasoning:off</code>.
+- <strong>Source traceability</strong> (<code>sources[]</code>): prompt impone il filename in <code>sources</code> (<code>:2002</code>, <code>:2048</code>); a write-time <code>canonicalizeSourcesField(content, sourceFileName)</code> lo forza (<code>:1731</code>). Cascade-delete usa <code>sources[]</code> come chiave (<code>source-lifecycle.ts:338-360</code>).
+- <strong><code>overview.md</code> rigenerata</strong> ad ogni ingest (overwrite completo, non incrementale): prompt item 6 (<code>:2024</code>), esente da date-stamping (<code>:1369-1375</code>).
+- <strong>Fallback source-summary garantito</strong> (condizionale): <code>ingest.ts:1219-1244</code> — se nessun blocco FILE source-summary è stato scritto E non si è abortito, scrive uno stub con frontmatter + <code>analysis.slice(0,3000)</code>. <em>Non</em> è incondizionato: su <code>signal.aborted</code> viene saltato (per design, così l'abort innesca retry).
+- <strong>Language-aware</strong> (2 livelli): prompt-level <code>buildLanguageDirective</code> inietta <code>MANDATORY OUTPUT LANGUAGE: X</code> in entrambe le fasi (testato <code>ingest.prompt.test.ts:18-185</code>); write-level <code>contentMatchesTargetLanguage</code> (<code>:1338-1363</code>) scarta soft i mismatch cross-family.</p>
+<p><strong>Gap vs README</strong> — Nessuno. Anzi, eccede il README con la <code>SHA256 incremental cache</code>, queue persistente, folder import, auto-watch (sotto).</p>
+<p><strong>Bug/edge case</strong>
+- <code>overview.md</code> viene <strong>riscritta integralmente</strong> dal LLM ad ogni ingest: rischio drift/omissione se il modello dimentica topic pregressi (nessun merge-guard sull'overview).
+- Il language-guard accetta qualsiasi non-CJK per target Latin (<code>:1362</code> <code>return !detectedIsCjk</code>): output francese per target inglese passa (documentato come accettabile <code>:1352-1354</code>).</p>
+<h4 id="f3-bis-sha256-incremental-cache-completo-con-dubbio-su-read-side">F3-bis — SHA256 incremental cache — ✅ COMPLETO (con dubbio su read-side)<a class="headerlink" href="#f3-bis-sha256-incremental-cache-completo-con-dubbio-su-read-side" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>ingest-cache.ts</code>: <code>sha256</code> via <code>crypto.subtle</code> (<code>:20-26</code>); cache <code>.llm-wiki/ingest-cache.json</code> keyed per filename → <code>{hash, timestamp, filesWritten}</code>. <code>checkIngestCache</code> ritorna la lista cached <strong>solo</strong> se l'hash combacia E ogni file precedente esiste ancora (<code>:74-92</code>, anti-ghost). Scritta solo su <code>writtenPaths&gt;0 &amp;&amp; hardFailures===0</code> (<code>ingest.ts:1282-1283</code>).</li>
+<li><strong>Caveat</strong>: chiave per basename/identità, <strong>non content-addressed</strong> → due file omonimi in cartelle diverse possono collidere. <code>saveCache</code>/<code>loadCache</code> ingoiano gli errori (<code>:36</code>, <code>:44</code>). <strong>Da verificare</strong>: nel ramo coda lo skip-unchanged sembra basarsi sul layer MD5 di <code>scheduled-import.ts:389</code>, non sulla SHA256 cache — i <em>caller</em> di <code>checkIngestCache</code> nel flusso <code>autoIngest</code> non risultano evidenti: possibile read-side under-used.</li>
+</ul>
+<h4 id="f3-ter-persistent-ingest-queue-completo-senza-backoff">F3-ter — Persistent ingest queue — ✅ COMPLETO (senza backoff)<a class="headerlink" href="#f3-ter-persistent-ingest-queue-completo-senza-backoff" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>ingest-queue.ts</code>: seriale (<code>processing</code> flag + <code>processNext</code> ricorsivo <code>:658-821</code>), persistita <code>.llm-wiki/ingest-queue.json</code> (pending+failed). Crash recovery: <code>restoreQueue</code> resetta <code>processing→pending</code> ma li tiene in <code>restoredPausedTaskIds</code> per <strong>non</strong> auto-eseguirli (<code>:582-596</code>, evita spese a sorpresa). Cancel: <code>cancelTask</code>/<code>cancelAllTasks</code> abortiscono l'<code>AbortController</code> + cascade-delete dei file parziali (<code>:303-377</code>). Retry: <code>MAX_RETRIES=3</code> (<code>:610</code>, <code>:805-814</code>).</li>
+<li><strong>Bug</strong>: retry <strong>senza backoff</strong> — su fallimento <code>retryCount++</code> e immediato <code>processNext</code> (<code>:805-820</code>): una source che fallisce in modo deterministico brucia 3 chiamate LLM consecutive. Solo errori 429/usage-limit ottengono il timer di resume a 15 min (<code>:621-634</code>).</li>
+<li><strong>Race</strong>: globali module-level (<code>queue</code>, <code>processing</code>, <code>lastWrittenFiles</code>, <code>currentAbortController</code>) → le guard post-<code>await</code> (<code>currentProjectId !== projectId</code>) sono <em>load-bearing</em>; un cancel tra le scritture di un runner orfano e la sua guard potrebbe cascade-deletare i file del progetto sbagliato (fortemente mitigato, ma fragile).</li>
+</ul>
+<h4 id="f3-quater-folder-import-completo">F3-quater — Folder import — ✅ COMPLETO<a class="headerlink" href="#f3-quater-folder-import-completo" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>source-lifecycle.ts:200-257</code>: ricorsivo (<code>flattenFiles</code>), preserva struttura in <code>raw/sources/&lt;folder&gt;/</code>, natural-sort, <code>folderContext</code> = path joinato con <code>&gt;</code> come hint di classificazione (<code>folderContextForSourcePath:122-134</code>) iniettato nel messaggio di analysis (<code>ingest.ts:969</code>). Self-import guarded.</li>
+</ul>
+<h4 id="f3-quinquies-source-folder-auto-watch-completo">F3-quinquies — Source folder auto-watch — ✅ COMPLETO<a class="headerlink" href="#f3-quinquies-source-folder-auto-watch-completo" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Backend <code>file_sync.rs</code>: <code>notify::RecommendedWatcher</code> ricorsivo (<code>:287-298</code>), debounce 700ms (<code>:215-220</code>), fallback full-rescan su overflow/errore (<code>:272-281</code>), worker panic-isolato (<code>:236-249</code>). Frontend <code>project-file-sync.ts</code>: listener <code>file-sync://changed</code>, secondo debounce 250ms (<code>:135-151</code>), dedup via <code>changeTaskKey</code> con set bounded 4096.</li>
+<li><strong>Bug</strong>: doppio-watch (root ricorsivo + <code>raw/sources</code>/<code>wiki</code> ricorsivi → eventi duplicati, deduplicati ma sprecati); l'enqueue funziona <strong>solo</strong> sul progetto attivo (<code>ingest-queue.ts:218-222</code> throw altrimenti) → modifiche esterne a progetti non-attivi rilevate ma solo <code>console.error</code>-loggate.</li>
+</ul>
+<h4 id="f3-sexies-scheduled-import-completo">F3-sexies — Scheduled import — ✅ COMPLETO<a class="headerlink" href="#f3-sexies-scheduled-import-completo" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>scheduled-import.ts</code>: <code>setInterval</code> clampato 1–1440 min, <code>runId</code> anti-stale, MD5-diff vs <code>.llm-wiki/scheduled-import-db.json</code>, cap 100MB/file.</li>
+<li><strong>Bug</strong>: <code>scanning</code> è globale <strong>non per-progetto</strong> (<code>:51</code>,<code>:348</code>) → uno scan in volo droppa silenziosamente quello di un altro progetto; la import-db è marcata <strong>dopo</strong> l'enqueue (<code>:411-419</code>): se LLM non configurato, i file vengono ricopiati ad ogni intervallo (churn).</li>
+</ul>
+<hr />
+<h3 id="f4-knowledge-graph-4-signal-sigmajsforceatlas2-completo-pesi-esatti-readme-inaccurato-su-3-punti">F4 — Knowledge Graph 4-signal + sigma.js/ForceAtlas2 — ✅ COMPLETO (pesi esatti) · README inaccurato su 3 punti<a class="headerlink" href="#f4-knowledge-graph-4-signal-sigmajsforceatlas2-completo-pesi-esatti-readme-inaccurato-su-3-punti" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza — modello 4-segnali: pesi ESATTI</strong>
+<code>graph-relevance.ts:30-43</code>:
+<div class="highlight"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">WEIGHTS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">directLink</span><span class="o">:</span><span class="w"> </span><span class="kt">3.0</span><span class="p">,</span><span class="w"> </span><span class="nx">sourceOverlap</span><span class="o">:</span><span class="w"> </span><span class="kt">4.0</span><span class="p">,</span><span class="w"> </span><span class="nx">commonNeighbor</span><span class="o">:</span><span class="w"> </span><span class="kt">1.5</span><span class="p">,</span><span class="w"> </span><span class="nx">typeAffinity</span><span class="o">:</span><span class="w"> </span><span class="kt">1.0</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kd">const</span>
+</code></pre></div>
+Applicazione in <code>calculateRelevance</code> (<code>:247-287</code>): direct link <strong>bidirezionale</strong> (<code>:255-257</code>); source overlap = #sources condivise × 4.0 (<code>:260-265</code>); <strong>Adamic-Adar</strong> = <code>Σ 1/log(max(deg,2))</code> × 1.5 (<code>:270-280</code>, implementazione corretta); type affinity = <code>TYPE_AFFINITY[a][b] ?? 0.5</code> × 1.0 (<code>:283-284</code>).</p>
+<p><strong>Evidenza — visualizzazione (sigma + graphology + FA2): completa</strong>
+- Deps: <code>@react-sigma/core ^5.0.6</code>, <code>sigma ^3.0.2</code>, <code>graphology ^0.26.0</code>, <code>graphology-layout-forceatlas2 ^0.10.1</code>.
+- Color by type/community (<code>graph-view.tsx:203-208</code>, <code>:333-335</code>); size √ (<code>:232-237</code>); hover neighbor-highlight (<code>:557-562</code>, <code>:480-527</code>); zoom in/out/fit (<code>:584-623</code>); position cache anti-jump (<code>:301-302</code>, <code>:322-338</code>); legend type/community con marker low-cohesion (<code>:1373-1473</code>).</p>
+<p><strong>Gap vs README — 3 inaccuratezze documentali (importanti per la spec)</strong>
+1. <strong>Semantica del 4° segnale invertita.</strong> README: "<em>Bonus for same page type</em> (entity↔entity, concept↔concept)". La matrice reale <code>TYPE_AFFINITY</code> (<code>:37-43</code>) fa l'<strong>opposto</strong>: same-type ha i valori più bassi (entity↔entity 0.8, source↔source 0.5, query↔query 0.5) e premia il cross-type (entity↔concept 1.2). Il peso ×1.0 è giusto; la <em>descrizione</em> è sbagliata.
+2. <strong>Colore archi.</strong> README: "green=strong, gray=weak". Reale: <strong>monocromatico slate-500 con alpha variabile</strong> (<code>rgba(100,116,139,alpha)</code>, <code>:359-360</code>). Nessun verde.
+3. <strong>Label relevance su hover archi: inesistente.</strong> README <code>:150</code>: "edges highlight with relevance score label". Reale: <code>renderEdgeLabels:false</code> (<code>:478</code>,<code>:1113</code>) — gli archi si ricolorano/ispessiscono ma <strong>nessuna label di score</strong>.</p>
+<p><strong>Bug/perf</strong>
+- <strong>Rebuild totale del grafo ad ogni <code>dataVersion</code></strong>: <code>buildWikiGraph</code> ri-<code>listDirectory</code>+<code>readFile</code> di <strong>ogni</strong> <code>.md</code>, ri-Louvain, ricalcolo relevance per ogni arco. Nessun update incrementale → costo dominante su vault grandi. (Rilevante per Synapse-I1.)
+- <strong>FA2 sul main thread sotto 220 nodi</strong>: worker reale solo per grafi <code>≥220</code> (<code>graph-view.tsx:83</code>,<code>:403-445</code>); per <code>1&lt;n&lt;220</code> <code>runMainThreadLayout()</code> gira sincrono (fino a 140 iter, <code>:374-399</code>) → blocco UI su grafi piccoli/medi.
+- <code>positionCache</code> module-level mai evicted (<code>:301</code>) → leak minore tra cambi-progetto.
+- Sigma viene <strong>force-remountato</strong> (<code>sigmaKey++</code>) su ogni resize/toggle (<code>:858-897</code>) per evitare un crash WebGL — workaround, non fix.
+- <strong>Nessun test</strong> su <code>graph-relevance</code>, <code>graph-insights</code>, <code>wiki-graph</code>: i pesi F4 non sono presidiati da alcun test.</p>
+<hr />
+<h3 id="f5-knowledge-graph-louvain-insights-estensioni-readme-56-completo">F5 — Knowledge Graph: Louvain + Insights (estensioni README §5–6) — ✅ COMPLETO<a class="headerlink" href="#f5-knowledge-graph-louvain-insights-estensioni-readme-56-completo" title="Permanent link">&para;</a></h3>
+<p><strong>Louvain</strong> (<code>wiki-graph.ts:31-113</code>): <code>louvain(g,{resolution:1})</code> (<code>:53</code>); cohesion = densità intra-edge <code>intraEdges/possibleEdges</code> (<code>:78-88</code>); toggle type/community (<code>graph-view.tsx:1049-1066</code>); warning &lt;0.15 (<code>:1464-1466</code>); palette <strong>12 colori</strong> (<code>:52-65</code>); community ri-numerate per size (<code>:99-110</code>). Perf: cohesion O(n²) per community.</p>
+<p><strong>Graph Insights</strong> (<code>graph-insights.ts</code>): surprising connections con composite score, soglia ≥3 (<code>:31-102</code>, esclude index/log/overview); knowledge gaps = isolated (deg≤1), sparse community (cohesion&lt;0.15 &amp; ≥3 nodi, <code>:141</code>), bridge node (≥3 community, <code>:168-179</code>); dismissable (<code>graph-view.tsx:800-805</code>); click-to-highlight (<code>:1516</code>); Deep Research button su gap (<code>:1577-1588</code>, legge overview+purpose). Param morto <code>_communities</code> (<code>:34</code>).</p>
+<hr />
+<h3 id="f5-query-query-retrieval-pipeline-a-4-fasi-parziale-funziona-ma-4-claim-del-readme-sono-falsi">F5-query — Query retrieval pipeline a 4 fasi — 🟡 PARZIALE (funziona, ma 4 claim del README sono falsi)<a class="headerlink" href="#f5-query-query-retrieval-pipeline-a-4-fasi-parziale-funziona-ma-4-claim-del-readme-sono-falsi" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Architettura reale</strong>: non è una pipeline lineare a 4 fasi, ma un <strong>loop agentico LLM-driven</strong> in <code>chat-agent.ts</code> (<code>buildChatAgentMessages</code>, chiamato da <code>chat-panel.tsx:217</code>). Un "router" LLM decide quali tool girare (<code>wiki_search</code>, <code>graph_search</code>, <code>external_search</code>…), poi i risultati vengono fusi/budgettati/assemblati. Le "Fasi 1→4" del README descrivono bene le <em>capacità</em>, ma non esiste una funzione lineare a 4 fasi.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Fase</th>
+<th>Stato</th>
+<th>Evidenza &amp; discrepanza</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1 — Tokenized search</strong></td>
+<td>✅ (in <strong>Rust</strong>)</td>
+<td>Tokenizer Rust <code>search.rs:488-520</code> (lowercase, split punteggiatura, stopword EN+CJK <code>:545-590</code>, <strong>bigrammi CJK</strong> <code>:501-511</code>). Il <code>tokenizeQuery</code> TS (<code>search.ts:37-59</code>) è usato <strong>solo</strong> per filtrare image-caption. Scoring <code>search.rs:14-21</code>: <code>FILENAME_EXACT_BONUS=200</code>, <code>PHRASE_IN_TITLE=50</code>, <code>PHRASE_IN_CONTENT=20/occ</code>, title-token 5.0, content-token 1.0. <strong>➤ "Title match bonus (+10)" del README è FITTIZIO</strong> (non esiste +10). <strong>➤ Cerca solo <code>wiki/</code>, NON <code>raw/sources/</code></strong> (<code>search.rs:151-152</code>): il README attribuisce la ricerca a "wiki/ AND raw/sources/" — falso.</td>
+</tr>
+<tr>
+<td><strong>1.5 — Vector / RRF</strong></td>
+<td>✅</td>
+<td>Embedding query lato Rust <code>resolve_query_embedding</code> (<code>search.rs:97-118</code>, timeout 8s, fallback graceful su <code>Ok(None)</code>). ANN su LanceDB <code>wiki_chunks_v2</code> (<code>vectorstore.rs:533</code>). <strong>Fusione RRF</strong> <code>apply_rrf_scores</code> (<code>search.rs:274-295</code>, <code>RRF_K=60</code>). <strong>➤ "cosine similarity" del README è in realtà L2-derived <code>1/(1+distance)</code></strong> (<code>vectorstore.rs:612</code>): nessuna metrica cosine settata su LanceDB. In modalità hybrid l'RRF <strong>scarta</strong> lo score keyword ricco (200/50/20) sostituendolo col rank-reciprocal.</td>
+</tr>
+<tr>
+<td><strong>2 — Graph expansion</strong></td>
+<td>🟡</td>
+<td><code>runGraphSearchTool</code> (<code>chat-agent.ts:1194-1252</code>): keyword top-6 → <code>getRelatedNodes(id,graph,5)</code> → relevance≥1.5 → top-8. I pesi 4-segnali sono esatti. <strong>➤ "2-hop traversal with decay" del README è FALSO: il codice è strettamente 1-hop, senza decay</strong> (<code>graph-relevance.ts:289-308</code>).</td>
+</tr>
+<tr>
+<td><strong>3 — Budget control</strong></td>
+<td>🟡</td>
+<td><code>context-budget.ts:54-59</code>: <code>RESPONSE_RESERVE=0.15</code>, <code>INDEX=0.05</code>, <code>PAGE=0.5</code>, <code>PER_PAGE=0.3</code> (floor 5000). <strong>➤ "60/20/5/15 (wiki/chat-history/index/system)" del README è FALSO. Reale: pagine 50%, index 5%, response-reserve 15%, ~30% headroom. Non esiste budget a byte per la chat-history</strong> (è gated per <em>conteggio</em> messaggi <code>maxHistoryMessages</code>, default 10). Confermato anche da <code>context-budget.test.ts:78</code> ("100%−5%−50%−15%=30%").</td>
+</tr>
+<tr>
+<td><strong>4 — Context assembly + citazioni</strong></td>
+<td>✅</td>
+<td><code>buildRetrievedContext</code> (<code>chat-agent.ts:1479-1517</code>): blocchi numerati <code>&lt;context id="1"&gt;</code>, ID locali <code>[1][2]</code>, esterni <code>[E1][E2]</code>, cap per item; system prompt impone citazioni inline + trailer nascosto <code>&lt;!-- cited: 1,3 --&gt;</code> (<code>:1451</code>).</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verdetto F5</strong> — La <em>pipeline funziona ed è ben fatta</em>, ma <strong>quattro affermazioni numeriche del README sono inesatte</strong> (+10, raw/sources, 2-hop+decay, 60/20/5/15) e una di metrica (cosine→L2). Per la spec: <strong>fidarsi del codice</strong>.</p>
+<hr />
+<h3 id="f6-multi-conversation-chat-persistenza-regenerate-save-to-wiki-completo">F6 — Multi-conversation chat + persistenza + regenerate + Save to Wiki — ✅ COMPLETO<a class="headerlink" href="#f6-multi-conversation-chat-persistenza-regenerate-save-to-wiki-completo" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza</strong>
+- Create/rename/delete/setActive: <code>chat-store.ts:108-145</code>; ID <code>conv_{ts}_{rand}</code> (<code>:92</code>); auto-title dai primi 50 char (<code>:174</code>).
+- <strong>Persistenza</strong> <code>.llm-wiki/chats/{id}.json</code> (<code>persist.ts:91</code>; index <code>conversations.json</code> <code>:73</code>; delete file <code>chat-panel.tsx:101</code>), testata <code>persist.integration.test.ts:217-229</code>. References persistite nel message data (<code>chat-store.ts:40</code>,<code>:202-220</code>).
+- History depth default <strong>10</strong> (<code>chat-store.ts:103</code>), <code>.slice(-maxHistoryMessages)</code> (<code>chat-panel.tsx:214</code>).
+- Cited-references panel collapsible con icone (<code>chat-message.tsx:423</code>); fallback al parsing del commento <code>&lt;!-- cited --&gt;</code> (<code>:446-450</code>).
+- <strong>Regenerate</strong> (<code>chat-panel.tsx:331-356</code>): rimuove last-assistant + last-user, re-invia testo <strong>+ immagini</strong>.
+- <strong>Save to Wiki</strong> (<code>chat-message.tsx:236-309</code>): scrive <code>wiki/queries/</code>, aggiorna <code>index.md</code>/<code>log.md</code>, bump dataVersion, poi <code>autoIngest</code>. Contenuto ripulito da think-block/commenti via <code>cleanAssistantContentForWikiSave</code>.</p>
+<p><strong>Bug/edge case</strong>
+- Regenerate usa un <code>setTimeout(50ms)</code> "to let state update" (<code>:340</code>) — hack di timing fragile invece di await sullo stato.
+- Se l'ultimo turno è user-only (assistant abortito), <code>removeLastAssistantMessage</code> no-op poi rimuove+riaggiunge l'user → comportamento border-line ma tollerato.</p>
+<hr />
+<h3 id="f7-thinking-reasoning-display-completo">F7 — Thinking / reasoning display — ✅ COMPLETO<a class="headerlink" href="#f7-thinking-reasoning-display-completo" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza</strong>
+- <code>separateThinking</code> (<code>chat-message.tsx:1031-1051</code>): regex <code>&lt;think(?:ing)?&gt;…</code>, gestisce blocchi multipli + tag non chiuso in streaming.
+- Streaming roll <strong>5 righe</strong> + opacity fade (<code>StreamingThinkingBlock:1055-1080</code>); collapsed-by-default (<code>ThinkingBlock:1083-1107</code>); stile amber = separazione visiva.
+- Routing reasoning (<code>reasoning-detector.ts:50-87</code>): parse <code>reasoning_content</code> (DeepSeek/Kimi), <code>reasoning</code> (Qwen), Anthropic <code>thinking_delta</code>, Gemini <code>thought</code>. Trigger <strong>per presenza di campo nello stream</strong>, non per allowlist di nomi-modello.
+- Fallback bounded: su <code>isReasoningOnlyResponseError</code>, retry singolo con <code>reasoning:{mode:"off"}</code> (<code>chat-panel.tsx:286-296</code>).</p>
+<p><strong>Gap</strong> — README cita "DeepSeek, QwQ"; il detector copre DeepSeek-R1, Kimi K2.x, Qwen, Anthropic, Gemini. Superset.</p>
+<hr />
+<h3 id="f8-latex-unicode-katex-completo">F8 — LaTeX → Unicode + KaTeX — ✅ COMPLETO<a class="headerlink" href="#f8-latex-unicode-katex-completo" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza</strong>
+- <code>latex-to-unicode.ts</code>: <code>LATEX_TO_UNICODE</code> con <strong>168 entry</strong> (contate), di cui ~12 comandi di formattazione → <code>""</code> e ~10 alias (<code>le</code>/<code>leq</code>…) → <strong>~145 glifi distinti</strong>. Il claim "100+" è soddisfatto (e conservativo).
+- <code>convertLatexToUnicode</code> (<code>:58-75</code>): gestisce <code>$\cmd$</code>, <code>$$…$$</code>, <code>$…$</code> inline; comandi ignoti passano through.
+- <strong>KaTeX confermato</strong>: <code>chat-message.tsx:5-7</code> importa <code>remarkMath</code>+<code>rehypeKatex</code>+CSS; applicato a <code>ReactMarkdown</code> (<code>:960</code>). Auto-wrap di <code>\begin{…}\end{…}</code> bare con <code>$$</code> (<code>:1123-1126</code>); Unicode-fallback applicato <strong>solo fuori</strong> dai blocchi math (<code>:1130-1135</code>).</p>
+<hr />
+<h3 id="f9-review-system-async-create-deep-research-skip-completo-claim-azioni-vincolate-sovra-dichiarato">F9 — Review System async (Create / Deep Research / Skip) — ✅ COMPLETO (claim "azioni vincolate" sovra-dichiarato)<a class="headerlink" href="#f9-review-system-async-create-deep-research-skip-completo-claim-azioni-vincolate-sovra-dichiarato" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza</strong>
+- Item emessi a ingest-time come blocchi <code>---REVIEW:…---END REVIEW---</code> (<code>ingest.ts:1840</code>), parsati e pushati allo store <strong>non-bloccante</strong> (<code>:1269-1270</code>); persistiti (<code>review-view.tsx:54</code>).
+- <strong>Query di ricerca pre-generate a ingest-time</strong> (claim distintivo di F9): prompt impone una <code>SEARCH:</code> line (<code>ingest.ts:2178</code>), parsata in <code>searchQueries</code> (<code>:1879-1882</code>), consumata da <code>queueResearch</code> (<code>review-view.tsx:79</code>).
+- Enum tipo vincolato: <code>review-store.ts:11</code> (<code>contradiction|duplicate|missing-page|confirm|suggestion</code>), tipo ignoto → coerced a <code>confirm</code> (<code>ingest.ts:1854-1858</code>). Deep Research è sentinel hard <code>__deep_research__</code> (<code>review-view.tsx:69</code>,<code>:476</code>).
+- <strong>Sweep-reviews</strong> (auto-resolve su drain coda): trigger <code>ingest-queue.ts:647-648</code>; stage 1 rule-based (<code>sweep-reviews.ts:362-396</code>), stage 2 LLM-judgment bounded <code>JUDGE_BATCH_SIZE=40</code>/<code>MAX_JUDGE_BATCHES=5</code>/<code>MAX_PAGES_IN_PROMPT=300</code> (<code>:180-182</code>), fallback conservativo a set vuoto.
+- ID content-derived (FNV-1a, <code>review-store.ts:49-58</code>) → stato "resolved" stabile tra re-ingest.</p>
+<p><strong>Gap vs README</strong> — README §11: "constrained to prevent LLM hallucination of arbitrary actions" — <strong>sovra-dichiarato</strong>. Le <em>label</em> azione sono testo LLM libero: <code>parseReviewBlocks</code> prende la <code>OPTIONS:</code> line verbatim (<code>ingest.ts:1861-1870</code>) e il handler fa <strong>matching euristico fuzzy</strong> (<code>actionLooksLikeResearch</code>/<code>actionLooksLikeCreate</code>… <code>review-view.tsx:504-548</code>). Solo <code>__deep_research__</code> e l'enum-tipo sono davvero vincolati; lo spazio azioni è <em>interpretato</em>, non <em>enumerato</em>.</p>
+<p><strong>Bug/edge case</strong>
+- La race "switch progetto a metà sweep" è <strong>già fixata e presidiata da test</strong> (<code>sweep-reviews.race.test.ts</code>): pre-check (<code>:344-345</code>), recheck post-<code>buildWikiIndex</code> (<code>:356</code>), guard per-iterazione (<code>:365</code>), guard finale (<code>:418</code>). Residuo non coperto: un bail mid-loop dopo aver già <code>resolveItem</code>-ato item precedenti <strong>non fa rollback</strong> dei write parziali (basso impatto, reversibile).</p>
+<hr />
+<h3 id="f10-deep-research-parziale-un-claim-readme-falso">F10 — Deep Research — 🟡 PARZIALE (un claim README FALSO)<a class="headerlink" href="#f10-deep-research-parziale-un-claim-readme-falso" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza</strong>
+- <strong>6 provider</strong> (README ne dichiara 3): switch <code>web-search.ts:156-171</code> → Tavily (<code>:261</code>), SerpApi (<code>:434</code>, 9 engine), SearXNG (<code>:187</code>) + Brave (<code>:605</code>), Firecrawl (<code>:314</code>), Ollama (<code>:529</code>).
+- <strong>Concurrency = 3</strong> confermata: <code>research-store.ts:33</code> <code>maxConcurrent:3</code>, enforced <code>deep-research.ts:173-180</code>; <code>getRunningCount</code> conta <code>searching|synthesizing|saving</code>.
+- Multi-query per topic (<code>:118-125</code>, dedup per URL); topic LLM-optimized che legge overview+purpose (<code>optimize-research-topic.ts:14</code>,<code>:27-30</code>); dialog editabile (<code>graph-view.tsx:1608-1690</code>); sintesi → <code>wiki/queries/</code> con frontmatter <code>origin:deep-research</code> (<code>:305-324</code>); <code>&lt;think&gt;</code> reso collapsible (<code>research-panel.tsx:113-178</code>); <strong>auto-ingest</strong> dei risultati (<code>deep-research.ts:339-343</code>); streaming progress per-token (<code>:265-269</code>).</p>
+<p><strong>Gap vs README — claim FALSO</strong>
+- README §12: "full content extraction (no truncation)". <strong>Falso/fuorviante</strong>: la sintesi usa <strong>solo</strong> lo <code>snippet</code>/<code>content</code> breve del provider (<code>deep-research.ts:223-225</code>); <strong>non esiste alcuno step di fetch/estrazione della pagina</strong> nel path Deep Research. Tavily usa <code>search_depth:"advanced"</code> ma <strong>non</strong> setta <code>include_raw_content</code> (<code>web-search.ts:278-280</code>). La vera estrazione Readability esiste solo nel web-clipper (F11), path diverso.</p>
+<p><strong>Bug/edge case</strong>
+- <strong>Possibile double-dispatch</strong> quando <code>available≥2</code> e ≥2 task in coda: <code>processQueue</code> lancia <code>executeResearch</code> senza await e senza marcare sincronicamente il task come non-<code>queued</code>; lo status <code>searching</code> viene settato <strong>dentro</strong> il corpo async (<code>:196</code>), dopo che il loop di lancio sincrono è già passato → <code>getNextQueued()</code> può restituire lo <strong>stesso</strong> task ancora <code>queued</code>. Nessun test copre <code>available≥2</code>. Da verificare.
+- <strong>Auto-ingest fire-and-forget</strong>: <code>.catch(console.error)</code> (<code>:340-342</code>) → un fallimento di ingest è invisibile, il task resta <code>done</code>/<code>saved</code> ma entità/concetti non estratti.
+- <strong>Nessun <code>token_budget</code> / cost cap</strong> sui loop synthesis/optimize (cap solo su #sources <code>MAX_RESEARCH_SOURCES=20</code>). Rilevante per l'invariante Synapse-I7.</p>
+<hr />
+<h3 id="f11-browser-extension-web-clipper-funzionale-sicurezza">F11 — Browser extension (Web Clipper) — ✅ FUNZIONALE / ❌ SICUREZZA<a class="headerlink" href="#f11-browser-extension-web-clipper-funzionale-sicurezza" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza funzionale (completa)</strong>
+- Manifest V3 (<code>manifest.json:2</code>); Readability+Turndown iniettati e girati in-page (<code>popup.js:94-107</code>, table rules <code>:129-141</code>); project picker da <code>GET /projects</code> (<code>popup.html:124</code>, <code>popup.js:55-69</code>); offline preview (<code>popup.js:286-291</code>); auto-ingest via <code>PENDING_CLIPS</code> (<code>clip_server.rs:430-432</code>) → clip-watcher <code>enqueueIngest</code> (<code>clip-watcher.ts:39-43</code>); <strong>polling 3s</strong> (<code>clip-watcher.ts:6</code>); idempotency su POST <code>/clip</code> (<code>popup.js:18-21</code>).</p>
+<p><strong>Port confermati</strong>: clip/extension server <strong><code>:19827</code></strong> (<code>clip_server.rs:17</code>, <code>popup.js:1</code>, <code>manifest.json:8-9</code>, <code>clip-watcher.ts:18</code>); API principale <strong><code>:19828</code></strong> (separata).</p>
+<p><strong>❌ SICUREZZA (dettaglio completo in doc 02 — qui solo il sommario)</strong>
+- <strong>Il clip server <code>:19827</code> è completamente non autenticato</strong> (<code>grep token|Authorization</code> → 0 match). Ogni endpoint (<code>/clip</code>, <code>/project</code>, <code>/projects</code>, <code>/clips/pending</code>) è aperto.
+- <strong>Drive-by write da qualsiasi sito</strong>: un semplice <code>POST</code> <code>text/plain</code> non è bloccato da CORS (l'Origin è usato solo per gli header di risposta, non per autorizzare l'azione, <code>clip_server.rs:96-97</code>); qualsiasi pagina può scrivere <code>.md</code> in <code>raw/sources/</code> (<code>:379-416</code>), poi <strong>auto-ingeriti dal LLM</strong> → vettore di prompt-injection.
+- <strong>Scrittura in directory arbitraria</strong>: <code>project_path</code> arriva dal body (<code>:335</code>) e viene usato in <code>Path::new(&amp;project_path).join("raw").join("sources")</code> <strong>senza <code>safe_join</code>/canonicalizzazione</strong> (<code>:379-389</code>) — l'API <code>:19828</code> invece ha <code>safe_join</code> (<code>api_server.rs:784-824</code>).
+- <strong>Body senza cap</strong> (<code>read_to_string</code> illimitato, vs <code>MAX_BODY_BYTES</code> dell'API).
+- <strong>Esposizione LAN</strong>: il clip server eredita <code>configured_bind_host</code> (<code>clip_server.rs:54</code>) → con <code>allowLanAccess</code> bind su <code>0.0.0.0</code> <strong>senza alcun token</strong> → qualsiasi host della LAN può scrivere file + innescare ingest.</p>
+<p><strong>Edge case <code>/clips/pending</code></strong>: la GET <strong>drena e <code>clear()</code></strong> la coda (<code>clip_server.rs:234</code>); un clip per progetto non-attivo o con LLM non configurato (<code>clip-watcher.ts:31</code>,<code>:39</code>) viene drenato e <strong>droppato silenziosamente</strong>.</p>
+<hr />
+<h3 id="f12-multi-format-document-support-completo">F12 — Multi-format document support — ✅ COMPLETO<a class="headerlink" href="#f12-multi-format-document-support-completo" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Formato</th>
+<th>Stato</th>
+<th>Evidenza</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PDF</td>
+<td>✅ via <strong><code>pdfium-render</code></strong></td>
+<td><code>Cargo.toml:29</code>; dispatch <code>fs.rs:83</code> → <code>extract_images.rs:204</code>. <strong>Nome crate README errato</strong> ("pdf-extract").</td>
+</tr>
+<tr>
+<td>DOCX</td>
+<td>✅</td>
+<td><code>docx-rs 0.4.20</code>; <code>fs.rs:448</code> headings/bold/italic/lists/tables; fallback ZIP <code>:570-572</code></td>
+</tr>
+<tr>
+<td>PPTX</td>
+<td>✅</td>
+<td>ZIP+XML slide-by-slide <code>fs.rs:786-845</code></td>
+</tr>
+<tr>
+<td>XLSX/XLS/ODS</td>
+<td>✅</td>
+<td><code>calamine 0.34</code>; <code>fs.rs:857-924</code> cell-type, multi-sheet, MD tables</td>
+</tr>
+<tr>
+<td>DOC (legacy)</td>
+<td>✅</td>
+<td><code>office_oxide</code>; <code>fs.rs:431</code></td>
+</tr>
+<tr>
+<td>Immagini/Video/Audio</td>
+<td>🟡 by design</td>
+<td><code>read_file</code> ritorna placeholder; preview/player nel frontend (<code>file-types.ts</code>)</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Multimodal image ingestion</strong> ✅: estrazione immagini PDF (<code>extract_images.rs:204/345/758</code>, min 100px, max 500/doc), caption vision-LLM con cache SHA-256 byte-keyed (<code>vision-caption.ts</code>, <code>image-caption-pipeline.ts:283</code>), search image-aware + lightbox + jump-to-source (<code>search-view.tsx:42-178</code>).</li>
+<li><strong>MinerU</strong> ✅ con fallback corretto: su fallimento → <code>pdfium</code> (<code>ingest.ts:678-685</code>), abort <strong>non</strong> swallowed (<code>:679</code>); entrambi i path testati (<code>ingest-source-path-collision.test.ts:513</code>,<code>:545</code>).</li>
+<li><strong>File caching</strong> ✅ mtime-based (<code>fs.rs:147-172</code>), invalidato su mtime (caveat: un file salvato con mtime backdated serve cache stale).</li>
+<li><strong>Blocking evitato</strong>: tutto in <code>spawn_blocking</code>+<code>run_guarded</code> (<code>fs.rs:67,124</code>); pdfium serializzato via <code>PDFIUM_LOCK</code>. <strong>Memoria</strong>: parser leggono l'intero file in RAM (accettabile entro cap 200MB; rischio su input patologici).</li>
+</ul>
+<hr />
+<h3 id="f13-file-deletion-cascade-cleanup-completo">F13 — File deletion cascade cleanup — ✅ COMPLETO<a class="headerlink" href="#f13-file-deletion-cascade-cleanup-completo" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza — 3-method matching (Rust discovery + TS decision)</strong>
+- <code>collect_related_pages</code> (<code>fs.rs:1321</code>): (1) filename quotato in frontmatter <code>sources</code> (<code>:1367-1368</code>); (2) source-summary page sotto <code>sources/</code> con nome che inizia col source-stem (<code>:1372-1374</code>); (3) scan scoped del blocco YAML <code>sources:</code> (inline + continuation, <code>:1392-1423</code>, irrobustito contro falsi-positivi titolo/descrizione).
+- <strong>Shared-entity preservation</strong> ✅ in due layer: <code>source-delete-decision.ts:33</code> (<code>survivors&gt;0</code>→keep+rewrite; <code>==0</code>→delete) e <code>source-lifecycle.ts:344-360</code> (rewrite <code>sources[]</code> se sopravvivono altre source). Matching path-aware (<code>:527-539</code>) evita match cross-progetto.
+- <strong>index.md cleanup</strong> + <strong>dead <code>[[wikilink]]</code> cleanup</strong> ✅ in <code>wiki-cleanup.ts</code>: <code>cleanIndexListing:98</code> rimuove per parse strutturale (non substring); <code>stripDeletedWikilinks:123</code> sostituisce <code>[[deleted|alias]]</code>→<code>alias</code>. Cascade anche su embeddings (<code>removePageEmbedding</code>) e <code>wiki/media/&lt;slug&gt;/</code> (<code>wiki-page-delete.ts:93-106</code>, guard anti <code>slug==="."</code>).
+- <strong>Test forti</strong>: <code>wiki-cleanup.test.ts</code> (39 casi), <code>wiki-page-delete.test.ts</code> (23), <code>source-delete-decision.test.ts</code> (11), <code>sources-tree-delete.test.ts</code> (14).</p>
+<hr />
+<h3 id="f14-configurable-context-window-completo-con-caveat-numerico">F14 — Configurable context window — 🟡 COMPLETO con caveat numerico<a class="headerlink" href="#f14-configurable-context-window-completo-con-caveat-numerico" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza</strong>
+- Selector preset discreto 4K/8K/16K/32K/64K/128K/200K/256K/512K/<strong>1M</strong> (<code>context-size-selector.tsx:1-12</code>). <strong>Unità = caratteri</strong>, non token.
+- Allocatore <code>context-budget.ts:54-90</code>, ben testato (<code>context-budget.test.ts</code>), con clamp per-page <code>min(pageBudget, max(5000, pageBudget*0.3))</code>.</p>
+<p><strong>Gap vs README</strong>
+- Split reale <strong>5% index / 50% pagine / 15% response-reserve / ~30% headroom</strong> — <strong>NON</strong> "60/20/5/15".
+- <strong>Mismatch UI↔allocatore</strong>: la label <code>context-size-selector.tsx:39</code> mostra "~{value<em>0.6/1000}K chars for wiki content" (</em><em>60%</em><em>) ma l'allocatore dà al wiki solo </em><em>55%</em>* (50% pagine + 5% index). Sovrastima ~9%.</p>
+<hr />
+<h3 id="f15-cross-platform-completo">F15 — Cross-platform — ✅ COMPLETO<a class="headerlink" href="#f15-cross-platform-completo" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza</strong>
+- <code>normalizePath()</code> (<code>path-utils.ts:5</code>) referenziato in <strong>51 file</strong> (48 import diretti) — <strong>niente reimplementazione TS</strong> (la duplicazione esiste solo lato Rust, vedi doc 02).
+- Unicode-safe slicing: TS <code>Array.from(slug).slice(0,50).join("")</code> (<code>wiki-filename.ts:44</code>); Rust <code>.chars().take(N)</code> (<code>clip_server.rs:375</code>, <code>search.rs:411</code>).
+- Close behavior <strong>configurabile</strong> (<code>ask</code>/<code>minimize</code>/<code>exit</code>, default <code>minimize</code>) <code>lib.rs:262-307</code> + <code>general-section.tsx:11-27</code>; macOS <code>RunEvent::Reopen</code> re-show (<code>lib.rs:312-325</code>).
+- <strong>CI multi-OS/arch</strong>: <code>build.yml:16-31</code> matrix = macOS arm64, Ubuntu x86_64, Ubuntu ARM64, Windows; bundle dmg/deb/AppImage/msi/nsis + portable Windows + extension zip. <code>ci.yml:11-14</code> build-check su 3 OS.</p>
+<p><strong>Caveat critico (vedi doc 02/03)</strong> — la CI <strong>non esegue alcun test</strong> (<code>npm test</code>/<code>cargo test</code> assenti): fa solo <code>vite build</code> + <code>cargo build</code>.</p>
+<hr />
+<h3 id="f16-i18n-settings-multi-provider-timeout-dataversion-completo-eccede">F16 — i18n / settings / multi-provider / timeout / dataVersion — ✅ COMPLETO (eccede)<a class="headerlink" href="#f16-i18n-settings-multi-provider-timeout-dataversion-completo-eccede" title="Permanent link">&para;</a></h3>
+<p><strong>Evidenza</strong>
+- i18n EN+ZH react-i18next; <code>en.json</code>/<code>zh.json</code> <strong>673/673 chiavi, parità perfetta</strong> (<code>i18n-parity.test.ts</code>).
+- Settings via Tauri Store (<code>project-store.ts:1,13</code>, <code>load(...,{autoSave:true})</code>); plugin registrato <code>lib.rs:142</code>.
+- <code>.obsidian/</code> auto-generato <strong>in Rust</strong> (<code>project.rs:196-233</code>: <code>app.json</code>/<code>appearance.json</code>/<code>core-plugins.json</code>).
+- GFM via <code>remark-gfm</code> in 4 renderer (<code>file-preview</code>/<code>wiki-reader</code>/<code>chat-message</code>/<code>research-panel</code>).
+- <strong>Multi-provider (eccede i 5 dichiarati)</strong>: <code>llm-providers.ts:801-993</code> — OpenAI/Anthropic/Google/Ollama/<strong>Azure/MiniMax</strong>/Custom + transport <strong>CLI</strong> (<code>claude-cli</code>, <code>codex-cli</code>, <code>commands/claude_cli.rs</code>, <code>codex_cli.rs</code>), parser stream e header per-provider, quirk vendor (DeepSeek/Kimi/Qwen/GLM/MiMo/GPT-5).
+- <strong>Timeout = 30 min</strong> (<code>llm-client.ts:96</code>), non 15.
+- <code>dataVersion</code> (<code>wiki-store.ts:385/439/567</code>) consumato da graph/tree/chat.</p>
+<hr />
+<h2 id="3-cross-check-con-il-pattern-karpathy-llm-wikimd">3. Cross-check con il pattern Karpathy (<code>llm-wiki.md</code>)<a class="headerlink" href="#3-cross-check-con-il-pattern-karpathy-llm-wikimd" title="Permanent link">&para;</a></h2>
+<p>Dove il progetto <strong>aderisce</strong>, <strong>estende</strong> o <strong>diverge</strong> dal documento originale.</p>
+<table>
+<thead>
+<tr>
+<th>Aspetto Karpathy</th>
+<th>llm_wiki</th>
+<th>Giudizio</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Three-layer: raw (immutable) → wiki (LLM) → schema</td>
+<td>Rispettato: <code>raw/sources/</code> immutabile, <code>wiki/</code> generato, <code>schema.md</code> da template</td>
+<td>✅ Fedele</td>
+</tr>
+<tr>
+<td>Tre operazioni: Ingest / Query / Lint</td>
+<td>Tutte presenti (lint in <code>lib/lint.ts</code>, view dedicata)</td>
+<td>✅ Fedele</td>
+</tr>
+<tr>
+<td><code>index.md</code> content-catalog, navigazione index-first</td>
+<td>Presente e aggiornato a ogni ingest</td>
+<td>✅ Fedele</td>
+</tr>
+<tr>
+<td><code>log.md</code> append-only, parseable <code>## [date]</code></td>
+<td>Presente; voci append a ogni operazione</td>
+<td>✅ Fedele</td>
+</tr>
+<tr>
+<td><code>[[wikilink]]</code> + parser dedicato</td>
+<td><code>wiki-graph.ts</code>/<code>graph-relevance.ts</code> con regex + resolver; transform render-time <code>wikilink-transform.ts</code></td>
+<td>✅ Fedele</td>
+</tr>
+<tr>
+<td>YAML frontmatter pivot (type/title/sources[])</td>
+<td>Sì, pivot per grafo + cascade-delete</td>
+<td>✅ Fedele</td>
+</tr>
+<tr>
+<td><strong>"index file is enough at moderate scale, no embedding RAG"</strong></td>
+<td>Aggiunge <strong>vector search (LanceDB) + grafo 4-segnali</strong></td>
+<td>⚖️ <strong>Diverge in positivo</strong> (scala meglio) ma <strong>contro la minimalità</strong> Karpathy; più complessità/infra</td>
+</tr>
+<tr>
+<td><strong>"ingest one at a time, stay involved"</strong> (human-in-loop sincrono)</td>
+<td>Ingest <strong>async/queue/auto-watch</strong>; il controllo umano è spostato sulla <strong>Review queue async (F9)</strong></td>
+<td>⚖️ Diverge: da curation sincrona a review asincrona — più automazione, meno supervisione in-the-moment</td>
+</tr>
+<tr>
+<td>Buone risposte rifilate nel wiki come pagine</td>
+<td><strong>Save to Wiki</strong> (F6) → <code>wiki/queries/</code> + auto-ingest</td>
+<td>✅ Fedele (ben implementato)</td>
+</tr>
+<tr>
+<td>Lint: contraddizioni, stale, orfani, gap, cross-ref mancanti</td>
+<td>Lint + <strong>sweep-reviews</strong> + Graph Insights (gap/orfani/bridge)</td>
+<td>✅ <strong>Estende</strong> bene</td>
+</tr>
+<tr>
+<td><strong>"Obsidian è l'IDE, il LLM è il programmatore"</strong> (vault accanto a Obsidian)</td>
+<td>App <strong>standalone</strong> con editor Milkdown proprio (Obsidian-lite), pur mantenendo vault-compat</td>
+<td>⚖️ Diverge: <strong>reimplementa</strong> Obsidian invece di affiancarlo. Pro: esperienza integrata; contro: deve reggere il confronto con Obsidian (editor, graph view)</td>
+</tr>
+<tr>
+<td><strong>schema.md co-evoluto da umano + LLM</strong></td>
+<td><code>schema.md</code> generato da template, <strong>statico</strong> dopo creazione (come purpose.md, nessun suggerimento LLM)</td>
+<td>❌ <strong>Diverge in negativo</strong>: manca la co-evoluzione schema/purpose che Karpathy mette al centro</td>
+</tr>
+<tr>
+<td>Web Clipper (suggerito: Obsidian Web Clipper)</td>
+<td>Estensione Chrome <strong>propria</strong> (MV3)</td>
+<td>✅ Estende (ma con i problemi di sicurezza di §F11)</td>
+</tr>
+<tr>
+<td>CLI search opzionale (es. qmd)</td>
+<td>Search proprio + <strong>MCP server</strong> + API locale</td>
+<td>✅ Fedele allo spirito ("costruisci tool quando serve")</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Sintesi cross-check</strong> — Il progetto è <strong>fedele al pattern e lo estende sostanzialmente</strong> (grafo, vector, multimodale, deep research, multi-format). Le <strong>due divergenze concettuali da segnalare</strong> per Synapse: (a) la perdita della <em>co-evoluzione di schema/purpose</em> (item vaporware F2 + schema statico), che è uno dei cardini Karpathy; (b) lo spostamento dell'app da <em>companion di Obsidian</em> a <em>sostituto di Obsidian</em>, scelta legittima ma che alza l'asticella UX (l'editor Milkdown e la graph view devono competere con Obsidian, non solo essere "compatibili").</p>
+<hr />
+<h2 id="4-verdetto-finale-fase-1">4. Verdetto finale FASE 1<a class="headerlink" href="#4-verdetto-finale-fase-1" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>13/16 macro-funzionalità: ✅ COMPLETE</strong> e in larga parte coperte da test.</li>
+<li><strong>3/16: 🟡 PARZIALI</strong> — F2 (suggerimenti purpose assenti), F5-query (4 numeri/claim falsi vs README), F10 (full-content-extraction falso), F14 (split numerico diverso). <em>(F11 è funzionalmente completo ma con una falla di sicurezza che lo declassa operativamente — trattato come ❌-sicurezza in doc 02.)</em></li>
+<li><strong>1 vero vaporware</strong>: F2 "LLM suggerisce update a purpose.md".</li>
+<li><strong>Rischio principale nel riusare il README come spec</strong>: i numeri. I valori autoritativi sono nel codice: pesi grafo <code>graph-relevance.ts:30-43</code>, scoring <code>search.rs:14-21</code>, budget <code>context-budget.ts:54-59</code>.</li>
+</ul>
+<p>I dettagli di code-quality, sicurezza, performance e UX sono nel documento <strong><code>02-CODE-UI-REVIEW.md</code></strong>; il piano di rientro a v1.0 in <strong><code>03-PIANO-AGENTICO-v1.0.md</code></strong>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

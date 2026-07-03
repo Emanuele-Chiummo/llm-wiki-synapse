@@ -1,0 +1,1171 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.2-architect-review/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint 2 — v0.2 (M2) — Architect PR Review + F17 Invariant + Diagram Sign-off - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-2-v02-m2-architect-pr-review-f17-invariant-diagram-sign-off" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint 2 — v0.2 (M2) — Architect PR Review + F17 Invariant + Diagram Sign-off
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-i6-pluggable-inference-capability-aware-routing-no-hardcode-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. I6 — Pluggable inference (capability-aware routing, no hardcode) — APPROVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-i7-bounded-loops-cost-logging-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. I7 — Bounded loops + cost logging — APPROVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-12-secrets-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. §12 — Secrets — APPROVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-data-model-d2-er-migration-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Data model / D2 (ER + migration) — APPROVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-k5-k3-mcp-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. K5 / K3 + MCP — APPROVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-diagram-sign-off-ec-m2-15-resolves-ac-d3-d7-d1u-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Diagram sign-off (EC-M2-15 — resolves AC-D3 + D7 + D1u) — APPROVE
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Diagram sign-off (EC-M2-15 — resolves AC-D3 + D7 + D1u) — APPROVE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#d1-c4-context-container-component" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D1 — C4 (context / container / component)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d3-sequence-diagrams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D3 — sequence diagrams
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d2-er" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D2 — ER
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d7-adrs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D7 — ADRs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-invariant-sweep-i1-i5-i9-others" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Invariant sweep (I1, I5, I9 + others)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-blocking-defects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Blocking defects
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-sign-off-conditions-from-v02-architecture-9-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Sign-off conditions from v0.2-architecture §9 — verification
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-architect-verdict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. ARCHITECT VERDICT
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-2-v02-m2-architect-pr-review-f17-invariant-diagram-sign-off">Sprint 2 — v0.2 (M2) — Architect PR Review + F17 Invariant + Diagram Sign-off<a class="headerlink" href="#sprint-2-v02-m2-architect-pr-review-f17-invariant-diagram-sign-off" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Reviewer: solution-architect
+Date: 2026-06-28
+Milestone: M2 — "Agentic loop closed, 3 providers"
+Gate: EC-M2-15 (architect sign-off on D3 + D7 + D1u); the I6/I7 invariant gate
+Scope: implementation review of F17 against <code>docs/sprints/v0.2-architecture.md</code> +
+  ADR-0007..0011, and the 9 invariants in CLAUDE.md §3. Code was NOT modified.
+Authority: this verdict gates the merge of <code>sprint/v0.2</code>.</p>
+</blockquote>
+<p>This review verifies the IMPLEMENTATION against the design I signed off in
+<code>v0.2-architecture.md §9</code>. It is a per-item APPROVE/BLOCK gate. Verdict at §10.</p>
+<hr />
+<h2 id="1-i6-pluggable-inference-capability-aware-routing-no-hardcode-approve">1. I6 — Pluggable inference (capability-aware routing, no hardcode) — <strong>APPROVE</strong><a class="headerlink" href="#1-i6-pluggable-inference-capability-aware-routing-no-hardcode-approve" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Evidence</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Routing decides on <code>capabilities().supports_agentic_loop</code> ONLY</td>
+<td><code>orchestrator.run_ingest_pipeline()</code> reads <code>caps = provider.capabilities()</code> then <code>if caps.supports_agentic_loop:</code> (orchestrator.py:313/322). No other signal gates the branch.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>No <code>isinstance</code> / <code>type()</code> / class-name / <code>provider_type ==</code> in the routing path</td>
+<td>grep of <code>orchestrator.py</code> + <code>loop.py</code>: the only <code>isinstance</code> hits are unrelated (<code>page.type</code> PageType check in the validator, <code>_sources_raw</code> list coercion). No <code>type(</code>, <code>__class__</code>, <code>provider_type ==</code>, or <code>.name ==</code> branch anywhere in routing.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td><code>resolve_provider</code> has NO hardcoded default backend, raises on unknown/missing type</td>
+<td><code>provider/__init__.py:68</code> — <code>None</code> row → <code>ValueError</code> ("no hardcoded default"); unknown <code>provider_type</code> → <code>ValueError</code> listing valid types. <code>_REGISTRY</code> is a config-value→class dispatch (the row's <code>provider_type</code>), explicitly NOT a routing decision.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Resolution order operation &gt; vault &gt; global</td>
+<td><code>provider_config_service.resolve_provider_config()</code> queries scope='operation'+vault+op, then scope='vault'+vault, then scope='global', each with <code>is_fallback IS FALSE</code>. <code>ConfigNotFoundError</code> on no match — never a silent default (I6).</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>No model id / API key / base_url literal outside provider_config rows + env</td>
+<td>grep across <code>app/</code>: the only <code>claude-*</code> strings are in <strong>column/field doc comments</strong> (models.py:264, main.py:207 descriptions) and the <strong>Alembic seed default</strong> (<code>os.environ.get("DEFAULT_MODEL_ID", "claude-sonnet-4-6")</code>). The only base_url literal is <code>https://api.anthropic.com</code>, confined to <code>provider/api.py</code> and env-overridable (<code>ANTHROPIC_BASE_URL</code>). No key literals; all keys via <code>os.environ</code> inside <code>api.py</code>/<code>cli.py</code> only.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td><code>chat()</code> is a locked stub (NotImplementedError) on all 3 backends</td>
+<td><code>ollama.py:90</code>, <code>api.py:120</code>, <code>cli.py:97</code> all raise <code>NotImplementedError(... v0.4 (F6))</code> with no network call. Signature locked per ABC.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Provider selectable per operation/vault</td>
+<td><code>_resolve_ingest_provider_config()</code> resolves <code>operation='ingest'</code>; same <code>ConfigResolver</code> serves chat/lint scopes. Per-vault + per-operation rows honoured.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Backends are config, not new classes</td>
+<td>OpenAI-compatible path is <code>base_url</code>-driven inside the single <code>ApiProvider</code> (<code>api.py:83</code> <code>_openai_compatible = bool(config.base_url)</code>). No subclass-per-vendor.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td><code>provider_name</code>/<code>model_id</code> audit-only, never routed on</td>
+<td>Stored on <code>ingest_runs</code> from <code>caps.name</code>/config; never read back into a routing decision.</td>
+<td>PASS</td>
+</tr>
+</tbody>
+</table>
+<p><strong>I6 VERDICT: APPROVE.</strong> Routing is single-signal capability-based with machine-checkable
+guardrails. No backend is hardcoded; no provider literal escapes <code>provider/</code> + env + seeded DB
+rows. The CLI delegated vs orchestrated separation is correct (<code>delegate_ingest</code> on the agentic
+path; <code>analyze()</code>/<code>generate()</code> raise <code>RuntimeError</code> on <code>CliAgentProvider</code> to make accidental
+orchestrated use loud — exceeds the design ask).</p>
+<hr />
+<h2 id="2-i7-bounded-loops-cost-logging-approve">2. I7 — Bounded loops + cost logging — <strong>APPROVE</strong><a class="headerlink" href="#2-i7-bounded-loops-cost-logging-approve" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Evidence</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Orchestrated loop bounded by BOTH max_iter AND token_budget</td>
+<td><code>loop.run_orchestrated_loop()</code>: <code>for i in range(1, max_iter+1)</code> (bound #1) with a pre-call <code>if accumulator.total_tokens &gt;= token_budget: break</code> (bound #2). Both read from <code>provider_config</code> with the ADR-0009 defaults (3 / 60 000).</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>analyze() runs ONCE; only generate() retries (AQ-v0.2-1)</td>
+<td><code>analyze()</code> is called before the loop (loop.py:132); only <code>generate()</code> is inside the loop with augmented context. Matches ADR-0007 §4.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Non-convergence stops at max_iter, no overrun</td>
+<td>Loop exits cleanly with <code>converged=False</code>, <code>stop_reason="max_iter"</code>; <code>iterations</code> capped at <code>max_iter</code>. AC-K2-5 honoured.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>token_budget halts before an unaffordable call</td>
+<td>Pre-call check sets <code>stop_reason="token_budget"</code> and breaks before <code>generate()</code>. Correct (analyze already spent budget).</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td><code>total_cost_usd</code> written to ingest_runs every run</td>
+<td><code>run_ingest_pipeline()</code> finalizes the accumulator and always <code>INSERT ingest_runs{...total_cost_usd...}</code> on both routes (orchestrated and delegated). <code>Numeric(10,4)</code>.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Fallback bounded to exactly once</td>
+<td><code>_run_orchestrated()</code> catches <code>(TimeoutError, ConnectionError)</code>, resolves ONE <code>is_fallback=True</code> row, retries once; a second failure raises <code>IngestError</code> with no chain (<code>from exc2</code>, no recursion).</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>$1/run anomaly → WARNING + cost_anomaly flag</td>
+<td><code>cost_anomaly = total_cost_usd &gt; COST_ANOMALY_THRESHOLD_USD (1.00)</code>; flag persisted on the row; inline <code>logger.warning(...)</code> emitted AFTER the row write (AQ-v0.2-8).</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Usage normalization across backends</td>
+<td>Ollama→<code>prompt_eval_count</code>/<code>eval_count</code>, cost 0.0; Anthropic→<code>usage.input/output_tokens</code> × env price map; OpenAI→<code>prompt/completion_tokens</code>; CLI→SDK metadata, cost 0.0 by convention with tokens=0 + WARNING when absent. All push via <code>_record_usage</code> to the run-scoped <code>UsageAccumulator</code> (out-of-band, ADR-0007 §1).</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>CLI budget passed/abort</td>
+<td><code>CliAgentProvider</code> carries <code>config.token_budget</code> (100k default via <code>DEFAULT_TOKEN_BUDGET_CLI</code>); records exactly one <code>ingest_runs</code> row at the orchestrator.</td>
+<td>PASS</td>
+</tr>
+</tbody>
+</table>
+<p><strong>I7 VERDICT: APPROVE.</strong> Dual bounds enforced together; analyze-once retry-generate is exact;
+fallback is exactly-once with no chaining; cost is persisted and anomaly-flagged on every run.</p>
+<p><strong>Non-blocking note NB-1 (tracked, not a gate):</strong> the fallback <code>except</code> clause catches
+<code>(TimeoutError, ConnectionError)</code>. ADR-0009 §4 phrases the trigger as "timeout / 503". An
+HTTP 503 surfaces from <code>httpx</code> as <code>HTTPStatusError</code> (via <code>raise_for_status()</code>), which is NOT a
+subclass of those two — so a literal 503 would currently surface as <code>IngestError</code> WITHOUT
+attempting the single fallback. This does not violate I7 (the loop and fallback remain bounded;
+no overrun, no chain) and the timeout path — the primary failure mode — is covered. Recommend a
+follow-up (v0.3 hardening) widening the catch to include <code>httpx.HTTPStatusError</code> for 5xx so the
+fallback engages on 503 as the ADR intends. Filed to backend-engineer; does not block M2.</p>
+<hr />
+<h2 id="3-12-secrets-approve">3. §12 — Secrets — <strong>APPROVE</strong><a class="headerlink" href="#3-12-secrets-approve" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Evidence</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider_config</code> has NO api_key column</td>
+<td>models.py <code>ProviderConfig</code> + migration 0002 <code>create_table("provider_config")</code> — no <code>api_key</code> column. ER <code>PROVIDER_CONFIG</code> has none. REST <code>ProviderConfigCreate</code>/<code>Response</code> (main.py) accept/return none.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>API keys read from env only</td>
+<td><code>ANTHROPIC_API_KEY</code>/<code>OPENAI_API_KEY</code> via <code>os.environ.get(...)</code> inside <code>api.py</code> and <code>cli.py</code> only; missing key → <code>ValueError</code> referencing §12/ADR-0008.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>No secrets in code</td>
+<td>grep for <code>sk-ant</code>/<code>sk-…</code>/<code>api_key = "…"</code> → none. Price map from <code>PROVIDER_PRICE_MAP</code> env (no price literals in code).</td>
+<td>PASS</td>
+</tr>
+</tbody>
+</table>
+<p><strong>§12 VERDICT: APPROVE.</strong> Keys are env-confined to <code>provider/</code>; nothing secret in DB, config,
+ER, OpenAPI, or source.</p>
+<hr />
+<h2 id="4-data-model-d2-er-migration-approve">4. Data model / D2 (ER + migration) — <strong>APPROVE</strong><a class="headerlink" href="#4-data-model-d2-er-migration-approve" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Evidence</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5 tables present</td>
+<td><code>models.py</code>: pages, vault_state, provider_config, ingest_runs, links. ER <code>schema.mmd</code> renders all 5.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>provider_config columns match spec (ADR-0008 §2 / arch §5)</td>
+<td>id, scope, operation(null), vault_id(null), provider_type, model_id, base_url(null), max_iter(def 3), token_budget(def 60000), is_fallback(def false), created_at, updated_at. No api_key.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>ingest_runs columns match (I7)</td>
+<td>id, vault_id, page_id(FK pages, null), provider_name, provider_type, model_id, route, max_iter_used, total_tokens, total_cost_usd <code>Numeric(10,4)</code>, converged, cost_anomaly, started_at, finished_at.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>links columns match (K5)</td>
+<td>id, source_page_id(FK pages, not null), target_title, target_page_id(FK pages, <strong>nullable</strong>), alias(null), dangling(def false), created_at. Two indexes on source/target.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Migration 0002 matches models</td>
+<td>Column-by-column identical to <code>models.py</code> (types, nullability, server_defaults, FKs). One migration for all three tables (one schema-change event, I8).</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Migration seeds from env, not hardcoded model ids</td>
+<td>Global + fallback rows seeded with <code>model_id</code> from <code>os.environ.get("DEFAULT_MODEL_ID", ...)</code> / <code>DEFAULT_FALLBACK_MODEL_ID</code>. The literal is a fallback DEFAULT only; runtime app code always reads the DB row (AC-F17-8).</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>ER reflects reality (zero drift)</td>
+<td>DOCS_STATUS reports <code>make er</code> zero drift; ER comments mirror model comments verbatim.</td>
+<td>PASS</td>
+</tr>
+</tbody>
+</table>
+<p><strong>DATA-MODEL VERDICT: APPROVE.</strong> Models, migration, and ER are mutually consistent and match
+the design.</p>
+<p><strong>Non-blocking note NB-2:</strong> the seed global/fallback rows pin <code>provider_type='api'</code>. This is a
+sensible default (API is the design's "default recommendation") and is user-editable via the
+<code>/provider/config</code> CRUD; it is NOT a hardcode-in-code (it is a seed row). Acceptable. If the
+operator runs offline-only they re-point the global row to <code>local</code>. No action required.</p>
+<hr />
+<h2 id="5-k5-k3-mcp-approve">5. K5 / K3 + MCP — <strong>APPROVE</strong><a class="headerlink" href="#5-k5-k3-mcp-approve" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Evidence</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>K5 links parser + dangling resolution</td>
+<td><code>wiki/links.py</code>: regex <code>\[\[([^\[\]]+?)\]\]</code>; handles <code>[[T]]</code>, <code>[[T\|alias]]</code>, <code>[[T#sec]]</code>, dedupes; <code>persist_links()</code> DELETEs prior rows for the page then re-inserts (incremental, I1), bulk-resolves titles, sets <code>dangling=True</code> when unresolved — warn-not-error, does not invalidate (AQ-v0.2-7).</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>K3 index.md updater (I5 valid frontmatter)</td>
+<td><code>wiki/index.py</code>: writes <code>type: index</code> frontmatter block first (I5), groups live pages by type, excludes <code>overview</code>/<code>index</code>, idempotent (byte-stable for same DB state).</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>K3 is not a full rescan (I1)</td>
+<td><code>update_index()</code> reads the <code>pages</code> table (live rows) and rewrites one catalogue file per write event — it queries DB state, never re-walks the vault filesystem. Per-write, not per-vault-scan.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>MCP write_page reuses the shared write path</td>
+<td><code>mcp/server.py write_page</code> → validates via the SAME <code>validate_pages()</code> (loop.py) → calls <code>write_wiki_page()</code> (orchestrator.py). No divergent write path; K5 parse + K3 index + Qdrant upsert + log all run identically (ADR-0010 §2). Returns structured <code>{"error": ...}</code> dicts, not exceptions.</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>search_wiki uses query_points (client ≥1.10)</td>
+<td><code>mcp/server.py:98</code> <code>await qdrant.query_points(... query=vector ...)</code> reading <code>query_response.points</code>; cosine score normalised to [0,1]. Legacy <code>.search(</code> removed (only referenced in a comment). Reuses bge-m3 + Qdrant (I9).</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>4 tools registered</td>
+<td>search_wiki, write_page, get_page, list_pages — all on the single <code>mcp</code> FastMCP instance; <code>list_pages</code> excludes soft-deleted; stdio entrypoint.</td>
+<td>PASS</td>
+</tr>
+</tbody>
+</table>
+<p><strong>K5/K3/MCP VERDICT: APPROVE.</strong> Single write path is honoured end-to-end; the orchestrated and
+delegated (MCP) paths both flow through <code>write_wiki_page</code>, so I1/I5 hold identically. The
+<code>query_points</code> migration is correct for qdrant-client ≥1.10.</p>
+<p><strong>Observation O-1 (informational, not a defect):</strong> the delegated path wires the MCP server via
+<code>from app.mcp.server import mcp</code> and <code>CliAgentProvider.delegate_ingest</code> raises if <code>mcp_server is
+None</code> — correctly refusing to let the agent fall back to raw filesystem writes that would bypass
+I1/I5. The live SDK↔MCP wiring is exercised only under the deferred live smoke (EC-M2-5). The
+seam is correct and safe-by-default; live verification stays a runtime/human gate.</p>
+<hr />
+<h2 id="6-diagram-sign-off-ec-m2-15-resolves-ac-d3-d7-d1u-approve">6. Diagram sign-off (EC-M2-15 — resolves AC-D3 + D7 + D1u) — <strong>APPROVE</strong><a class="headerlink" href="#6-diagram-sign-off-ec-m2-15-resolves-ac-d3-d7-d1u-approve" title="Permanent link">&para;</a></h2>
+<h3 id="d1-c4-context-container-component">D1 — C4 (context / container / component)<a class="headerlink" href="#d1-c4-context-container-component" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Diagram</th>
+<th>Accuracy check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>context.mmd</td>
+<td>Line 1 <code>C4Context</code>. Shows Synapse, Emanuele, Ollama + Anthropic/OpenAI-compat + Qdrant + bge-m3 + Vault FS. Synapse description states capability-aware loop (I6) + bounded I7. Key via env (§12). <strong>No v0.3+ drawn</strong>: no graph/sigma, no SearXNG, no web UI.</td>
+<td>APPROVE</td>
+</tr>
+<tr>
+<td>container.mmd</td>
+<td>Line 1 <code>C4Container</code>. InferenceProvider layer container ("the ONLY inference surface (I6); no model id/key/endpoint leaks; chat() stubbed") + MCP server (FastMCP, stdio) + Orchestrator ("ROUTES on supports_agentic_loop (I6)", "bounded by max_iter+token_budget (I7)"). Postgres lists all 5 tables; "No secrets stored (§12)". Routing shown as capability-based.</td>
+<td>APPROVE</td>
+</tr>
+<tr>
+<td>component.mmd</td>
+<td>Line 1 <code>C4Component</code>. All 3 backends under the ABC; ConfigResolver (operation&gt;vault&gt;global), WikiPage validator, K5 parser, K3/F3 writer, MCP server (4 tools, write_page reuses primitives I1/I5). Orchestrator annotated "ROUTES on supports_agentic_loop (I6 — never isinstance/class)". Arrows: orch→prov(ABC)→3 backends; clip→mcp; no class/isinstance reference.</td>
+<td>APPROVE</td>
+</tr>
+</tbody>
+</table>
+<p>Minor label drift (non-blocking): component.mmd cites file paths <code>ingest/config.py</code>,
+<code>ingest/parser/wikilinks.py</code>, <code>ingest/catalogue.py</code> for ConfigResolver/K5/K3, whereas the
+implementation lives at <code>provider_config_service.py</code>, <code>wiki/links.py</code>, <code>wiki/index.py</code>. The
+COMPONENTS and their responsibilities are correct; only the illustrative path labels are stale.
+This is a diagram-cosmetic note for tech-writer (does not affect topology accuracy or the gate).
+Filed as <strong>DIAG-NB-1</strong>.</p>
+<h3 id="d3-sequence-diagrams">D3 — sequence diagrams<a class="headerlink" href="#d3-sequence-diagrams" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Diagram</th>
+<th>Accuracy check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ingest-routing.mmd</td>
+<td>Line 1 <code>sequenceDiagram</code>. Both branches: <code>alt supports_agentic_loop == True (CLI — DELEGATED)</code> / <code>else == False (Local/API — ORCHESTRATED)</code>. Routing reads <code>ProviderCapabilities{supports_agentic_loop, ...}</code> only — no isinstance/type. ConfigResolver order shown. CLI path writes via MCP (validated, I5; persist + K5). <code>ingest_runs</code> INSERT + inline $1 anomaly at end, both branches. Matches <code>run_ingest_pipeline</code>.</td>
+<td>APPROVE</td>
+</tr>
+<tr>
+<td>ingest-loop.mmd</td>
+<td>Line 1 <code>sequenceDiagram</code>. <code>analyze()</code> ONCE before the loop (AQ-v0.2-1). Loop label <code>iteration = 1..max_iter (stop when converged OR iteration==max_iter OR tokens&gt;=budget)</code> — dual bound (I7). Pre-call <code>token_budget</code> check shown. validate → whole-batch retry with augmented context. converged + non-converged paths. <code>ingest_runs</code> INSERT + anomaly at end. Matches <code>run_orchestrated_loop</code>.</td>
+<td>APPROVE</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d2-er">D2 — ER<a class="headerlink" href="#d2-er" title="Permanent link">&para;</a></h3>
+<p>5 tables, no api_key, I7 columns (total_cost_usd/converged/cost_anomaly), K5 links (nullable
+target_page_id, dangling). Zero drift vs models.py. <strong>APPROVE.</strong></p>
+<h3 id="d7-adrs">D7 — ADRs<a class="headerlink" href="#d7-adrs" title="Permanent link">&para;</a></h3>
+<p>ADR-0007 (ABC + analyze-once + validator + routing-via-capabilities), 0008 (provider_config +
+ingest_runs + links, secrets-via-env, operation column), 0009 (max_iter=3, budgets, Usage
+normalization, $1 anomaly inline, fallback-once), 0010 (stdio + shared write path), 0011
+(locked schemas). All Accepted, indexed, and consistent with the code. <strong>APPROVE.</strong></p>
+<p><strong>DIAGRAM SIGN-OFF: APPROVED.</strong> All D1/D2/D3/D7 artifacts are v0.2-accurate; no v0.3 graph/UI is
+drawn as present; routing is shown as capability-based; the loop shows the I7 dual bounds.
+Two cosmetic, non-blocking diagram notes (DIAG-NB-1 component path labels; the openapi.json
+version/description string already tracked by tech-writer/backend) are handed to tech-writer.</p>
+<hr />
+<h2 id="7-invariant-sweep-i1-i5-i9-others">7. Invariant sweep (I1, I5, I9 + others)<a class="headerlink" href="#7-invariant-sweep-i1-i5-i9-others" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Invariant</th>
+<th>Result</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>I1 incremental only</td>
+<td>PASS</td>
+<td>Source ingest keeps the mtime-then-hash gate; <code>write_wiki_page</code> upserts per page; K5 <code>persist_links</code> delete+reinsert per page; K3 <code>update_index</code> rewrites the catalogue from DB rows per write event. No vault rescan introduced.</td>
+</tr>
+<tr>
+<td>I5 Obsidian valid</td>
+<td>PASS</td>
+<td>Typed <code>WikiFrontmatter</code> enforces type/title/sources/lang at the schema boundary; writer serializes enum as string value; index.md/overview.md carry valid frontmatter.</td>
+</tr>
+<tr>
+<td>I6</td>
+<td>PASS</td>
+<td>§1.</td>
+</tr>
+<tr>
+<td>I7</td>
+<td>PASS</td>
+<td>§2.</td>
+</tr>
+<tr>
+<td>I8 docs-as-DoD</td>
+<td>PASS</td>
+<td>ADR-0007..0011 + C4 (3) + D3 (2) + ER + mcp-tools.json + openapi present; ER/openapi zero drift.</td>
+</tr>
+<tr>
+<td>I9 do not reinvent</td>
+<td>PASS</td>
+<td>OllamaProvider reuses running Ollama; search_wiki reuses Qdrant + bge-m3; FastMCP for the server; no new inference/search service.</td>
+</tr>
+<tr>
+<td>I2/I3/I4</td>
+<td>N/A</td>
+<td>No graph/chat-UI/editor in v0.2; nothing introduced that breaks them.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-blocking-defects">8. Blocking defects<a class="headerlink" href="#8-blocking-defects" title="Permanent link">&para;</a></h2>
+<p><strong>None.</strong> No invariant is traded. The two notes (NB-1 fallback-on-503 catch width; NB-2 seed
+provider_type) and the diagram-cosmetic note (DIAG-NB-1) are non-blocking and tracked.</p>
+<hr />
+<h2 id="9-sign-off-conditions-from-v02-architecture-9-verification">9. Sign-off conditions from v0.2-architecture §9 — verification<a class="headerlink" href="#9-sign-off-conditions-from-v02-architecture-9-verification" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Condition</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Routing branch contains no isinstance/type/class-name test</td>
+<td>MET (§1)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>No model id / key / endpoint outside provider/</td>
+<td>MET (§1, §3) — literals confined to seed-default + env-overridable Anthropic base + doc comments</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>validate()</code> and <code>write_page</code> share the ONE validator</td>
+<td>MET — both call <code>loop.validate_pages</code> (§5)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Non-converging loop stops at exactly max_iter=3 with converged=False</td>
+<td>MET (§2) — QA AC-K2-5 green</td>
+</tr>
+<tr>
+<td>5</td>
+<td>D2 regenerated by <code>make er</code> matches live schema</td>
+<td>MET — zero drift (§4, DOCS_STATUS)</td>
+</tr>
+</tbody>
+</table>
+<p>All five merge conditions are satisfied.</p>
+<hr />
+<h2 id="10-architect-verdict">10. ARCHITECT VERDICT<a class="headerlink" href="#10-architect-verdict" title="Permanent link">&para;</a></h2>
+<p><strong>APPROVED.</strong></p>
+<p>The F17 implementation conforms to the design signed off in <code>v0.2-architecture.md §9</code> and
+honours all nine invariants. I6 (single-signal capability routing, no hardcoded backend, no
+provider-literal leakage, env-only keys, locked chat() stubs) and I7 (dual-bounded loop,
+analyze-once retry-generate, exactly-once fallback, per-run cost persistence + anomaly flag) —
+the two gate invariants for M2 — are met with machine-checkable guardrails. Data model,
+migration, and ER are consistent and drift-free. K5/K3 and the MCP write path correctly reuse
+the single <code>write_wiki_page</code> seam, preserving I1/I5; <code>query_points</code> is correct for
+qdrant-client ≥1.10. All D1/D2/D3/D7 diagrams are v0.2-accurate and signed off (EC-M2-15
+cleared).</p>
+<p>This sign-off covers the design+implementation+docs gate. The remaining M2 items —
+EC-M2-5 (live 3-provider smoke on TrueNAS) and EC-M2-13/EC-M2-17 (open-in-Obsidian + human
+checkpoint) — are runtime/human gates outside the architect's scope and remain correctly
+deferred per the QA report.</p>
+<p>Hand to orchestrator: <strong>M2 architect gate MET</strong> (pending the documented live-smoke + human
+checkpoint). Three non-blocking follow-ups handed off:
+- NB-1 → backend-engineer: widen fallback catch to include <code>httpx.HTTPStatusError</code> 5xx (503).
+- DIAG-NB-1 → tech-writer: refresh component.mmd path labels (config/links/index modules).
+- (already tracked) openapi.json <code>info.version</code>/<code>description</code> string → backend-engineer.</p>
+<p>Signed: solution-architect · 2026-06-28</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

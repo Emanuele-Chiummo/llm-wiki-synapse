@@ -1,0 +1,885 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0029-remote-mcp-over-http/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0029 — Remote MCP over HTTP: mount mcp.http_app() at /mcp/server, bearer-token auth, read-only by default - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0029-remote-mcp-over-http-mount-mcphttp_app-at-mcpserver-bearer-token-auth-read-only-by-default" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0029 — Remote MCP over HTTP: mount mcp.http_app() at /mcp/server, bearer-token auth, read-only by default
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-serve-by-mounting-mcphttp_app-into-the-existing-fastapi-app-not-a-second-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Serve by mounting mcp.http_app() into the existing FastAPI app — not a second process
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-auth-static-bearer-token-via-mcp_auth_token-enforced-by-a-scoped-asgi-middleware-recommended-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 AUTH — static bearer token via MCP_AUTH_TOKEN, enforced by a scoped ASGI middleware (recommended default)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-read-only-by-default-write_page-gated-behind-an-explicit-opt-in-flag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Read-only by default; write_page gated behind an explicit opt-in flag
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-write-path-is-unchanged-still-the-shared-write_wiki_page-primitive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Write path is unchanged — still the shared write_wiki_page primitive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-config-cors-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Config + CORS + docs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-new-config-env-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. New config / env / schema
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-acceptance-check-dod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Acceptance check (DoD)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-decision-the-owner-must-make-before-coding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Decision the owner must make before coding
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0029-remote-mcp-over-http-mount-mcphttp_app-at-mcpserver-bearer-token-auth-read-only-by-default">ADR-0029 — Remote MCP over HTTP: mount <code>mcp.http_app()</code> at <code>/mcp/server</code>, bearer-token auth, read-only by default<a class="headerlink" href="#adr-0029-remote-mcp-over-http-mount-mcphttp_app-at-mcpserver-bearer-token-auth-read-only-by-default" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted (owner decided 2026-06-29: static bearer token <code>MCP_AUTH_TOKEN</code>, fail-closed; read-only by default, <code>MCP_REMOTE_WRITE_ENABLED=false</code>) — implemented</li>
+<li><strong>Superseded in part by ADR-0033</strong> (2026-06-30): §2.2's "unset MCP_AUTH_TOKEN ⇒ route not mounted" condition is now allow-aware — the mount is always built when <code>MCP_AUTH_TOKEN</code> is set OR when <code>mcp_allow_without_token=true</code>; public Cloudflare sources always require a token regardless.</li>
+<li><strong>Date:</strong> 2026-06-29</li>
+<li><strong>Sprint:</strong> v0.5 (Feature A — remote MCP reachable from claude.ai)</li>
+<li><strong>Feature:</strong> F17-adjacent (MCP surface) · builds on ADR-0010 (MCP transport + shared write path) and ADR-0027 (<code>/mcp/info</code> introspection)</li>
+<li><strong>Invariants owned:</strong> I1 (write_page stays an incremental upsert) · I5 (frontmatter validated before write) · I6 (no hardcoded provider — the MCP surface does not touch InferenceProvider) · I9 (reuse FastMCP/Qdrant/bge-m3, no new gateway)</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> backend-engineer (mount + auth middleware + config) · devops-engineer (Cloudflare Tunnel route + env) · frontend-engineer (none — <code>/mcp/info</code> already exists) · tech-writer (D4 MCP reference, D6b deploy note)</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p><code>backend/app/mcp/server.py</code> defines <code>mcp = FastMCP(name="synapse")</code> with four tools
+(<code>search_wiki</code>, <code>get_page</code>, <code>list_pages</code> — read; <code>write_page</code> — mutating). Today the only
+runtime transport is <strong>stdio</strong> (<code>mcp.run(transport="stdio")</code>, ADR-0010 §1); the server is
+<strong>not</strong> mounted into the FastAPI app. <code>GET /mcp/info</code> (main.py ~1614) only <em>introspects</em> the
+live <code>mcp</code> object — it opens no transport session.</p>
+<p>The owner wants the four tools reachable as a <strong>remote MCP server in claude.ai</strong>. claude.ai
+remote connectors speak <strong>Streamable HTTP</strong> (the current MCP HTTP transport; SSE is the older
+variant). So we need a live HTTP listener exposing the MCP protocol at a public URL, secured —
+<code>write_page</code> mutates the vault and must never be open to the internet.</p>
+<p>fastmcp is pinned <code>&gt;=2.0.0</code> (<code>backend/pyproject.toml:22</code>). FastMCP 2.x exposes
+<code>mcp.http_app()</code> → a mountable Starlette/ASGI sub-app (Streamable HTTP), and
+<code>mcp.run(transport="http")</code> for a standalone listener. Both are one-liners; ADR-0010 §1
+already anticipated this ("HTTP is <code>mcp.run(transport=...)</code> if needed later").</p>
+<p>The owner already runs <strong>Cloudflare Tunnel + Tailscale</strong> (CLAUDE.md §1), and ADR-0028 just
+established the relative-base / <code>BACKEND_PROXY_TARGET</code> contract. The Vite dev proxy already has
+a <code>/mcp</code> route — used by <code>/mcp/info</code>. <strong>Path-collision flag:</strong> any mounted MCP ASGI app must
+NOT shadow the existing <code>/mcp/info</code> REST route. We therefore mount under <strong><code>/mcp/server</code></strong>, not
+<code>/mcp</code>, and the Vite <code>/mcp</code> proxy entry continues to cover both <code>/mcp/info</code> and <code>/mcp/server/*</code>
+since it proxies the <code>/mcp</code> prefix (no Vite change required; verify in acceptance).</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-serve-by-mounting-mcphttp_app-into-the-existing-fastapi-app-not-a-second-process">2.1 Serve by <strong>mounting <code>mcp.http_app()</code> into the existing FastAPI app</strong> — not a second process<a class="headerlink" href="#21-serve-by-mounting-mcphttp_app-into-the-existing-fastapi-app-not-a-second-process" title="Permanent link">&para;</a></h3>
+<p><code>backend/app/main.py</code> mounts the FastMCP Streamable-HTTP ASGI app under <strong><code>/mcp/server</code></strong>:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># main.py — after `app = FastAPI(...)`, BEFORE adding routes that could shadow it.</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">app.mcp.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">mcp</span> <span class="k">as</span> <span class="n">_mcp_server</span>
+<span class="n">_mcp_http_app</span> <span class="o">=</span> <span class="n">_mcp_server</span><span class="o">.</span><span class="n">http_app</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>   <span class="c1"># Streamable HTTP ASGI app</span>
+<span class="n">app</span><span class="o">.</span><span class="n">mount</span><span class="p">(</span><span class="s2">&quot;/mcp/server&quot;</span><span class="p">,</span> <span class="n">_mcp_http_app</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>Rationale (mount vs separate process):</strong>
+- <strong>One origin, one tunnel.</strong> The owner exposes a single FastAPI origin over Cloudflare Tunnel
+  (ADR-0028). A mounted sub-app rides that same origin/tunnel — no second port to publish, no
+  second Cloudflare route, no second TLS endpoint. A separate <code>mcp.run(transport="http")</code>
+  process would need its own published port + tunnel route + lifecycle in compose, for zero
+  functional gain. (I9 — do not add infrastructure we do not need.)
+- <strong>Shared lifespan &amp; singletons.</strong> Mounted, the MCP tools run in the same process as the
+  FastAPI app, so <code>get_embedding_client()</code>, the Qdrant client, and <code>write_wiki_page</code> are the
+  exact same instances the REST API and orchestrator use. No divergent second writer (preserves
+  the ADR-0010 §2 single-write-path guarantee).
+- <strong>stdio path is untouched.</strong> <code>mcp.run(transport="stdio")</code> (the <code>__main__</code> entry, ADR-0010 §1)
+  remains for the CliAgentProvider delegated path. HTTP mount is <strong>additive</strong> — the CLI provider
+  keeps using stdio in-process; F17 routing is unchanged. <strong>FastMCP lifespan note:</strong> <code>http_app()</code>
+  carries its own Starlette lifespan; the implementer MUST chain it into the FastAPI <code>lifespan</code>
+  (pass <code>app.mount</code> the sub-app and combine lifespans per FastMCP docs) so the MCP session
+  manager starts/stops correctly. This is a known FastMCP-mount requirement — verify in tests.</p>
+<p><strong>Path collision (flagged):</strong> mount path is <strong><code>/mcp/server</code></strong>. <code>GET /mcp/info</code> (REST,
+ADR-0027) stays at <code>/mcp/info</code>. No route shadows another: FastAPI matches the explicit
+<code>/mcp/info</code> route and the <code>/mcp/server</code> mount independently. The Vite <code>/mcp</code> proxy entry
+(ADR-0028 list) already forwards the whole <code>/mcp</code> prefix, so it covers <code>/mcp/server/*</code> with <strong>no
+Vite change</strong> — implementer confirms via the acceptance check.</p>
+<h3 id="22-auth-static-bearer-token-via-mcp_auth_token-enforced-by-a-scoped-asgi-middleware-recommended-default">2.2 AUTH — static bearer token via <code>MCP_AUTH_TOKEN</code>, enforced by a scoped ASGI middleware (recommended default)<a class="headerlink" href="#22-auth-static-bearer-token-via-mcp_auth_token-enforced-by-a-scoped-asgi-middleware-recommended-default" title="Permanent link">&para;</a></h3>
+<p>A public, vault-mutating endpoint MUST be authenticated. The <strong>recommended default for a solo
+self-hosted operator behind Cloudflare Tunnel</strong> is a <strong>static bearer token</strong>:</p>
+<ul>
+<li>New env var <strong><code>MCP_AUTH_TOKEN</code></strong> (secret; no default; read in <code>config.py</code>). If <strong>unset</strong>, the
+  <code>/mcp/server</code> mount is <strong>NOT mounted at all</strong> (fail-closed: no token ⇒ no public MCP surface).
+  The stdio path is unaffected.</li>
+<li>A small ASGI middleware wrapping <strong>only the <code>/mcp/server</code> sub-app</strong> requires
+  <code>Authorization: Bearer &lt;MCP_AUTH_TOKEN&gt;</code> (constant-time compare). Missing/wrong → <code>401</code>.
+  It does NOT touch any other route (the REST API auth posture is unchanged in this ADR).</li>
+</ul>
+<p><strong>What claude.ai actually requires for a remote MCP connector:</strong> claude.ai's remote-connector
+UI supports adding a server by URL with either <strong>OAuth</strong> (full authorization-code flow the
+server advertises) <strong>or</strong> a <strong>token/header</strong> the user pastes. A static bearer token satisfies
+the token path: the owner pastes <code>Bearer &lt;MCP_AUTH_TOKEN&gt;</code> (or the raw token) in the connector
+config. This is the pragmatic minimum and needs no OAuth server.</p>
+<p><strong>Alternatives (the owner picks — §6):</strong>
+- <strong>(A1) Static bearer token <code>MCP_AUTH_TOKEN</code> (RECOMMENDED).</strong> Simplest; one secret in env;
+  fail-closed. Trade-off: a long-lived shared secret with no rotation/expiry UX. Mitigation:
+  rotate by changing the env var; keep the value out of git (it already is — §12).
+- <strong>(A2) Cloudflare Access in front of <code>/mcp/server</code>.</strong> Auth handled entirely at the edge
+  (Cloudflare service-token or SSO); the app needs no auth code. Trade-off: claude.ai must be
+  able to present the Cloudflare service-token headers on every MCP call — workable with a
+  service-token, but more setup on the Cloudflare side and claude.ai must allow custom headers.
+  Best if the owner wants edge-enforced auth and possibly SSO.
+- <strong>(A3) Full OAuth (FastMCP auth provider).</strong> claude.ai's richest path; supports per-client
+  consent + token expiry. Trade-off: materially more code (authorization server / token
+  issuance) for a single-user homelab. <strong>Not recommended now</strong>; revisit if multi-user.</p>
+<p>This ADR builds <strong>A1</strong> as the default and leaves A2 as a pure-ops alternative (no code change —
+devops puts Cloudflare Access in front and the owner may set <code>MCP_AUTH_TOKEN</code> to a value the
+edge also injects, or disable app-level auth only if the edge is proven to gate it). <strong>A1 vs A2
+is the owner decision (§6).</strong></p>
+<h3 id="23-read-only-by-default-write_page-gated-behind-an-explicit-opt-in-flag">2.3 Read-only by default; <code>write_page</code> gated behind an explicit opt-in flag<a class="headerlink" href="#23-read-only-by-default-write_page-gated-behind-an-explicit-opt-in-flag" title="Permanent link">&para;</a></h3>
+<p>The remote surface is <strong>read-only by default</strong>. New env var <strong><code>MCP_REMOTE_WRITE_ENABLED</code></strong>
+(bool, default <strong><code>false</code></strong>):</p>
+<ul>
+<li><code>false</code> (default): the mounted HTTP server exposes <strong>only</strong> <code>search_wiki</code>, <code>get_page</code>,
+  <code>list_pages</code>. <code>write_page</code> is <strong>not registered</strong> on the HTTP surface.</li>
+<li><code>true</code>: <code>write_page</code> is also exposed over HTTP (still bearer-gated by §2.2).</li>
+</ul>
+<p>Implementation constraint: there is <strong>one</strong> <code>mcp</code> object and the stdio/CLI path needs
+<code>write_page</code>. So the read-only filtering must be applied to the <strong>HTTP-mounted app only</strong>, not
+by un-registering the tool globally. The implementer achieves this by building the HTTP surface
+from a tool set that excludes <code>write_page</code> when <code>MCP_REMOTE_WRITE_ENABLED=false</code> (e.g. a
+second <code>FastMCP</code> instance that re-exports only the read tools, or FastMCP's tool-filtering on
+<code>http_app()</code>). The stdio server (<code>__main__</code>) keeps all four tools unconditionally. <strong>The
+ai-agent-engineer signs off that the stdio/CLI delegated ingest still has <code>write_page</code>.</strong></p>
+<p>This is defence-in-depth: even with a leaked token, the default surface cannot mutate the vault.</p>
+<h3 id="24-write-path-is-unchanged-still-the-shared-write_wiki_page-primitive">2.4 Write path is unchanged — still the shared <code>write_wiki_page</code> primitive<a class="headerlink" href="#24-write-path-is-unchanged-still-the-shared-write_wiki_page-primitive" title="Permanent link">&para;</a></h3>
+<p>When <code>write_page</code> IS exposed (§2.3 true), it remains the <strong>existing</strong> tool in
+<code>backend/app/mcp/server.py</code>, which calls <code>write_wiki_page()</code> (ADR-0010 §2). No new write path,
+no raw filesystem write. I1 (incremental upsert) and I5 (frontmatter validated) hold
+identically because it is literally the same code. <strong>No change to <code>write_page</code> internals in
+this ADR.</strong></p>
+<h3 id="25-config-cors-docs">2.5 Config + CORS + docs<a class="headerlink" href="#25-config-cors-docs" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>config.py</code> adds <code>mcp_http_enabled</code> (derived: <code>True</code> iff <code>MCP_AUTH_TOKEN</code> set),
+  <code>MCP_AUTH_TOKEN</code>, <code>MCP_REMOTE_WRITE_ENABLED</code> (§3).</li>
+<li><code>/mcp/info</code> (ADR-0027) gains two read-only fields so the UI can show the remote posture:
+  <code>http_enabled: bool</code> and <code>remote_write_enabled: bool</code>. <strong>No secret is ever returned</strong>
+  (mirrors the provider_config "no api key in responses" rule, §12).</li>
+<li>The MCP ASGI sub-app handles its own protocol; FastAPI CORS (ADR/§ main.py:182) is for the
+  REST API and does not need to cover claude.ai (claude.ai's MCP client is server-to-server, not
+  a browser fetch from our origin). Implementer verifies no CORS regression on REST.</li>
+<li>D4 (MCP reference) documents the public URL shape <code>https://&lt;tunnel-host&gt;/mcp/server</code> and the
+  bearer requirement. D6b (DEPLOY) documents setting <code>MCP_AUTH_TOKEN</code> and the Cloudflare route.</li>
+</ul>
+<hr />
+<h2 id="3-new-config-env-schema">3. New config / env / schema<a class="headerlink" href="#3-new-config-env-schema" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Name</th>
+<th>Type / default</th>
+<th>Read in</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>env</td>
+<td><code>MCP_AUTH_TOKEN</code></td>
+<td>secret str, <strong>no default</strong></td>
+<td><code>config.py</code></td>
+<td>Unset ⇒ HTTP MCP NOT mounted (fail-closed). Never logged/returned.</td>
+</tr>
+<tr>
+<td>env</td>
+<td><code>MCP_REMOTE_WRITE_ENABLED</code></td>
+<td>bool, default <code>false</code></td>
+<td><code>config.py</code></td>
+<td><code>true</code> exposes <code>write_page</code> over HTTP (still bearer-gated).</td>
+</tr>
+<tr>
+<td>derived</td>
+<td><code>settings.mcp_http_enabled</code></td>
+<td>bool</td>
+<td><code>config.py</code> property</td>
+<td><code>True</code> iff <code>MCP_AUTH_TOKEN</code> is set.</td>
+</tr>
+<tr>
+<td>mount path</td>
+<td><code>/mcp/server</code></td>
+<td>—</td>
+<td><code>main.py</code></td>
+<td>Streamable-HTTP MCP. Distinct from <code>/mcp/info</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>No DB schema change. No migration. No D2 (ER) change.</strong> (The MCP surface is stateless config.)</p>
+<hr />
+<h2 id="4-acceptance-check-dod">4. Acceptance check (DoD)<a class="headerlink" href="#4-acceptance-check-dod" title="Permanent link">&para;</a></h2>
+<ol>
+<li>With <code>MCP_AUTH_TOKEN</code> set: a Streamable-HTTP MCP client (e.g. the FastMCP client, or
+   claude.ai) reaches <code>https://&lt;host&gt;/mcp/server</code>, lists exactly 3 tools when
+   <code>MCP_REMOTE_WRITE_ENABLED=false</code>, and 4 when <code>true</code>.</li>
+<li>A request to <code>/mcp/server</code> <strong>without</strong> a valid <code>Authorization: Bearer &lt;MCP_AUTH_TOKEN&gt;</code>
+   returns <code>401</code> and invokes no tool.</li>
+<li>With <code>MCP_AUTH_TOKEN</code> <strong>unset</strong>, <code>/mcp/server</code> is not mounted (404) and startup still
+   succeeds; the stdio entry (<code>python -m app.mcp.server</code>) is unaffected.</li>
+<li><code>GET /mcp/info</code> returns <code>http_enabled</code> and <code>remote_write_enabled</code> and <strong>no token</strong>.</li>
+<li><code>grep</code> proves the HTTP <code>write_page</code> (when exposed) still routes through <code>write_wiki_page</code>
+   (no second writer) — I1/I5 unchanged.</li>
+<li>The Vite <code>/mcp</code> proxy still serves <code>/mcp/info</code> and <code>/mcp/server/*</code> with no <code>vite.config.ts</code>
+   change (ADR-0028 route list intact).</li>
+</ol>
+<hr />
+<h2 id="5-consequences">5. Consequences<a class="headerlink" href="#5-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong> — single origin/tunnel; same process/singletons as REST (no divergent writer);
+fail-closed when no token; read-only by default; stdio/CLI path untouched (F17 routing intact).</p>
+<p><strong>Trade-offs (explicit)</strong> — a static bearer token is a long-lived shared secret with no built-in
+rotation/expiry (mitigated by env rotation + A2/A3 escape hatches). Mounting couples the MCP
+session-manager lifespan to FastAPI's lifespan — the implementer MUST chain lifespans or the MCP
+sessions will not start (verified in AC). FastMCP <code>http_app()</code> API surface is the load-bearing
+dependency; pin behaviour in a test.</p>
+<p><strong>Invariant check</strong> — I1/I5: write path unchanged (same <code>write_wiki_page</code>). I6: no provider
+hardcoded; MCP surface does not touch InferenceProvider. I9: reuses FastMCP + Qdrant + bge-m3 +
+the existing tunnel; adds no gateway, no port, no second search service. I2/I3/I4/I7/I8: untouched.
+<strong>No invariant is traded for convenience.</strong></p>
+<h2 id="6-decision-the-owner-must-make-before-coding">6. Decision the owner must make before coding<a class="headerlink" href="#6-decision-the-owner-must-make-before-coding" title="Permanent link">&para;</a></h2>
+<p><strong>MCP auth mechanism.</strong> RECOMMENDED: <strong>A1 — static <code>MCP_AUTH_TOKEN</code> bearer</strong>, fail-closed,
+read-only by default. Alternatives: <strong>A2 — Cloudflare Access</strong> (edge-enforced, more Cloudflare
+setup, claude.ai must present service-token headers) · <strong>A3 — full OAuth</strong> (most code; defer
+unless multi-user). The build proceeds on A1 unless the owner selects A2/A3.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

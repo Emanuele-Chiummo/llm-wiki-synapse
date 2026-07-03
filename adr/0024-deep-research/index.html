@@ -1,0 +1,1517 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0024-deep-research/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0024 — Deep Research: bounded multi-query SearXNG loop + ingest-seam synthesis (F10) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0024-deep-research-bounded-multi-query-searxng-loop-ingest-seam-synthesis-f10" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0024 — Deep Research: bounded multi-query SearXNG loop + ingest-seam synthesis (F10)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-ground-truth-consumed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Ground truth consumed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-module-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Module layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-public-entry-signature-locked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Public entry signature (locked)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-result-type-internal-phase-functions-locked-shapes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Result type + internal phase functions (locked shapes)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-bounds-i7-the-headline-exact-enforcement-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Bounds (I7) — the headline. Exact enforcement points.
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Bounds (I7) — the headline. Exact enforcement points.">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-the-bound-constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 The bound constants
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-the-loop-guard-mandated-code-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 The loop guard (mandated code shape)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-cost-accounting-anomaly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Cost accounting + anomaly
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-i9-searxng-client-contract-opssearxngpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. I9 — SearXNG client contract (ops/searxng.py)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-do-not-list-rejection-triggers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Do-NOT list (rejection triggers)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-auto-ingest-of-the-synthesis-aq-v05-3-i1i5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Auto-ingest of the synthesis (AQ-v0.5-3 + I1/I5)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-data-model-migration-0009" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Data model — migration 0009
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Data model — migration 0009">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-deep_research_runs-the-run-ledger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 deep_research_runs (the run ledger)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-deep_research_sources-per-source-child" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 deep_research_sources (per-source child)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-sqlalchemy-er-d2-impact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 SQLAlchemy + ER (D2) impact
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-rest-surface-d4-mirrors-ingestruns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. REST surface (D4) — mirrors /ingest/runs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. REST surface (D4) — mirrors /ingest/runs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-post-researchstart-202" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 POST /research/start → 202
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-get-researchruns-200-paginated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 GET /research/runs → 200 (paginated)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-get-researchrunsid-200-404" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 GET /research/runs/{id} → 200 / 404
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-sequence-diagram-d3-docssequencesdeep-researchmmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Sequence diagram (D3) — docs/sequences/deep-research.mmd
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-invariant-compliance-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Invariant compliance statement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-status-of-resolved-aqs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Status of resolved AQs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0024-deep-research-bounded-multi-query-searxng-loop-ingest-seam-synthesis-f10">ADR-0024 — Deep Research: bounded multi-query SearXNG loop + ingest-seam synthesis (F10)<a class="headerlink" href="#adr-0024-deep-research-bounded-multi-query-searxng-loop-ingest-seam-synthesis-f10" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-06-29</li>
+<li><strong>Sprint:</strong> v0.5 (M5 Phase 2)</li>
+<li><strong>Feature:</strong> F10 (Deep Research loop)</li>
+<li><strong>Supersedes the F10 interface stub in:</strong> <code>docs/sprints/v0.5-architecture.md</code> §2.3 / §6.3 (this ADR is the detailed design; the stub stands as the coherence map)</li>
+<li><strong>Resolves:</strong> AQ-v0.5-3 (synthesis through full <code>ingest_file</code>, not direct <code>generate()</code>), AQ-v0.5-4 (<code>max_iter</code> configurable default 3, frozen per-run; <code>concurrency=3</code> hardcoded)</li>
+<li><strong>Invariants owned:</strong> <strong>I7</strong> (HEADLINE — every loop path bounded), <strong>I9</strong> (HEADLINE — SearXNG is the only web-search backend), I6 (all inference via <code>InferenceProvider</code>), I1 (synthesis incremental via the ingest seam), I5 (Obsidian-valid output)</li>
+<li><strong>Author:</strong> solution-architect</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>F10 is the most loop-intensive feature in the entire roadmap: a self-directing research agent
+that issues web queries, fetches pages, assesses whether it has gathered enough, refines, and
+finally synthesizes a new source document for the vault. Three things make it dangerous and three
+constraints make it safe.</p>
+<p><strong>The risks:</strong></p>
+<ol>
+<li><strong>Unbounded iteration.</strong> A naive "keep searching until the model says it's done" loop can run
+   forever and burn unbounded cost — the exact bottleneck-class failure I7 exists to prevent.</li>
+<li><strong>Unbounded fan-out.</strong> Each iteration generates N queries × M results × fetch; without a
+   concurrency ceiling this floods SearXNG and the network.</li>
+<li><strong>Provider/back-end leakage.</strong> It is tempting to hardcode a web-search SaaS (Tavily, SerpAPI,
+   DuckDuckGo) and a model, both of which violate the project's reuse and pluggability invariants.</li>
+</ol>
+<p><strong>The constraints (non-negotiable):</strong></p>
+<ul>
+<li><strong>I7</strong> — every loop has a <code>max_iter</code> cap <strong>and</strong> a <code>token_budget</code>; <code>total_cost_usd</code> is logged.</li>
+<li><strong>I9</strong> — SearXNG (already running on TrueNAS, <code>R8</code>) is the <strong>only</strong> permitted web-search backend.
+  Never Tavily / DuckDuckGo / Google / SerpAPI.</li>
+<li><strong>I6</strong> — query generation, sufficiency assessment, and synthesis are all inference, so they MUST
+  go through the resolved <code>InferenceProvider</code>. No backend hardcoded.</li>
+<li><strong>I1 / I5</strong> — the synthesized output is <strong>source material</strong>, fed through the existing <code>ingest_file</code>
+  seam (ADR-0003), not written directly to <code>vault/wiki/</code>.</li>
+</ul>
+<p>This ADR locks the module, the public entry, the exact bound-enforcement points, the SearXNG client
+contract, the data model (migration <strong>0009</strong>), the REST surface, and the rejection triggers — before
+any engineer writes F10 code.</p>
+<h3 id="11-ground-truth-consumed">1.1 Ground truth consumed<a class="headerlink" href="#11-ground-truth-consumed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>ingest/orchestrator.py</code> exposes <code>ingest_file(path)</code> — the <strong>single</strong> intake seam (ADR-0003). F10
+  re-enters here; it does <strong>not</strong> call <code>run_ingest_pipeline</code> / <code>generate()</code> directly (AQ-v0.5-3).</li>
+<li><code>InferenceProvider</code> (ADR-0007, <code>provider/base.py</code>) has three domain methods. The one F10 needs is
+  <strong><code>chat(messages, retrieval_context) -&gt; AsyncIterator[str]</code></strong> — a <em>backend-neutral, text-in /
+  text-stream-out</em> call, implemented for all 3 backends in Phase 1 (ADR-0022 §7 / <code>CliAgentProvider.chat</code>).
+  F10's three inference steps (query-gen, assess, synthesize) are text-in/text-out prompts and ride
+  this existing seam. <strong>No new ABC method is added</strong> (the I6/ADR-0007 contract is untouched).</li>
+<li><code>resolve_provider_config(operation, vault_id)</code> (<code>provider_config_service.py</code>) resolves the provider
+  row by operation precedence. F10 resolves the <strong><code>"ingest"</code></strong> operation config (deep research is an
+  ingest-class operation: it produces a source document for the vault). No new operation enum value.</li>
+<li><code>UsageAccumulator</code> + the <code>_record_usage</code> push convention (<code>provider/base.py</code>) is the cost ledger.</li>
+<li><code>ingest_runs</code> is the ingest cost ledger; F10 gets its <strong>own</strong> run table (<code>deep_research_runs</code>) because
+  a deep-research run is a multi-call, multi-source operation distinct from a single ingest run.</li>
+</ul>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-module-layout">2.1 Module layout<a class="headerlink" href="#21-module-layout" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend/app/ops/deep_research.py</code></td>
+<td>The bounded loop + the public entry <code>run_deep_research(...)</code> + the phase functions. The <strong>only</strong> orchestration site.</td>
+</tr>
+<tr>
+<td><code>backend/app/ops/searxng.py</code></td>
+<td>A <strong>thin</strong> SearXNG JSON client (<code>R8</code>). The <strong>sole</strong> place a web-search HTTP call is made (I9 static-guard target).</td>
+</tr>
+</tbody>
+</table>
+<p>No other module imports a web-search library or calls SearXNG directly.</p>
+<h3 id="22-public-entry-signature-locked">2.2 Public entry signature (locked)<a class="headerlink" href="#22-public-entry-signature-locked" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># backend/app/ops/deep_research.py</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_deep_research</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">vault_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">max_iter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>        <span class="c1"># None → DEEP_RESEARCH_MAX_ITER (default 3); frozen on the run row</span>
+    <span class="n">token_budget</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>    <span class="c1"># None → DEEP_RESEARCH_TOKEN_BUDGET (default 100_000); frozen on the run row</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DeepResearchResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run ONE bounded deep-research operation end-to-end (S-F10-1, AC-F10-1..7).</span>
+
+<span class="sd">    Pipeline (single bounded loop, all six steps in order):</span>
+<span class="sd">      1. generate 2..MAX_QUERIES_PER_ITER sub-queries           (provider, I6)</span>
+<span class="sd">      2. SearXNG search, concurrency == CONCURRENCY (semaphore)  (I9)</span>
+<span class="sd">      3. fetch + extract candidate pages to markdown</span>
+<span class="sd">      4. ASSESS sufficiency BEFORE any further query round       (provider, I6)</span>
+<span class="sd">      5. on sufficient OR iter == max_iter → SYNTHESIZE          (provider, I6)</span>
+<span class="sd">      6. write synthesis to raw/sources/ → ingest_file(...)      (AQ-v0.5-3, I1/I5)</span>
+
+<span class="sd">    Bounds (I7) are FROZEN on the deep_research_runs row at start and never re-read mid-loop.</span>
+<span class="sd">    Terminal status is one of: converged | max_iter_reached | budget_exhausted | error.</span>
+<span class="sd">    total_cost_usd is accumulated and logged.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</code></pre></div>
+<p><code>run_deep_research</code> is invoked <strong>in the background</strong> by <code>POST /research/start</code> (which returns 202 +
+<code>run_id</code> immediately) — the same fire-and-then-poll shape as the M4-EXT scheduler (ADR-0020). It is a
+single asyncio task; it is NOT spawned per query.</p>
+<h3 id="23-result-type-internal-phase-functions-locked-shapes">2.3 Result type + internal phase functions (locked shapes)<a class="headerlink" href="#23-result-type-internal-phase-functions-locked-shapes" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DeepResearchResult</span><span class="p">:</span>
+    <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;converged&quot;</span><span class="p">,</span> <span class="s2">&quot;max_iter_reached&quot;</span><span class="p">,</span> <span class="s2">&quot;budget_exhausted&quot;</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">]</span>
+    <span class="n">iterations_used</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">sources_fetched</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">total_cost_usd</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">synthesis_page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span> <span class="o">|</span> <span class="kc">None</span>    <span class="c1"># the pages row created by the re-entrant ingest_file</span>
+    <span class="n">error_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
+
+<span class="c1"># ── internal phases (module-private; names locked for the D3 sequence diagram) ──</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_generate_queries</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">prior_context</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">max_queries</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span> <span class="o">...</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_search_searxng</span><span class="p">(</span><span class="n">queries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SearchHit</span><span class="p">]:</span> <span class="o">...</span>      <span class="c1"># uses ops/searxng.py, concurrency-bounded</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_and_extract</span><span class="p">(</span><span class="n">hits</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SearchHit</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">FetchedSource</span><span class="p">]:</span> <span class="o">...</span>  <span class="c1"># concurrency-bounded</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_assess_sufficiency</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">collected</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sufficiency</span><span class="p">:</span> <span class="o">...</span>    <span class="c1"># returns {sufficient: bool, gaps: list[str]}</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_synthesize</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">collected</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>             <span class="c1"># returns markdown body for raw/sources/</span>
+</code></pre></div>
+<p>All four provider-touching phases (<code>_generate_queries</code>, <code>_assess_sufficiency</code>, <code>_synthesize</code>) call the
+resolved provider's <strong><code>chat()</code></strong> with a phase-specific instruction in <code>retrieval_context</code> and parse the
+returned text (queries = newline list; sufficiency = a small JSON/<code>SUFFICIENT|INSUFFICIENT</code> token;
+synthesis = the markdown body). They push <code>Usage</code> via the bound <code>UsageAccumulator</code> exactly like the
+ingest loop (I6/I7). <strong>No <code>isinstance</code> / provider-type branch anywhere</strong> (the I6 hard rule).</p>
+<hr />
+<h2 id="3-bounds-i7-the-headline-exact-enforcement-points">3. Bounds (I7) — the headline. Exact enforcement points.<a class="headerlink" href="#3-bounds-i7-the-headline-exact-enforcement-points" title="Permanent link">&para;</a></h2>
+<p>There are <strong>three</strong> bounds plus a hardcoded fan-out ceiling. Each has a single, unmissable
+enforcement site. Engineers MUST implement them exactly as shaped below; weakening any of them is a
+<strong>P0 rejection</strong> (§5).</p>
+<h3 id="31-the-bound-constants">3.1 The bound constants<a class="headerlink" href="#31-the-bound-constants" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Bound</th>
+<th>Source</th>
+<th>Default</th>
+<th>Frozen where</th>
+<th>Mutable mid-loop?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>max_iter</code></td>
+<td><code>POST /research/start</code> body → else env <code>DEEP_RESEARCH_MAX_ITER</code></td>
+<td><strong>3</strong></td>
+<td><code>deep_research_runs.max_iter</code> at INSERT</td>
+<td><strong>No</strong> — read once into a local</td>
+</tr>
+<tr>
+<td><code>token_budget</code></td>
+<td><code>POST /research/start</code> body → else env <code>DEEP_RESEARCH_TOKEN_BUDGET</code></td>
+<td><strong>100_000</strong></td>
+<td><code>deep_research_runs.token_budget</code> at INSERT</td>
+<td><strong>No</strong></td>
+</tr>
+<tr>
+<td><code>max_queries_per_iter</code></td>
+<td>env <code>DEEP_RESEARCH_MAX_QUERIES</code></td>
+<td><strong>5</strong></td>
+<td>local constant</td>
+<td><strong>No</strong></td>
+</tr>
+<tr>
+<td><code>concurrency</code></td>
+<td><strong>HARDCODED module constant</strong> <code>CONCURRENCY = 3</code></td>
+<td><strong>3</strong></td>
+<td>not configurable</td>
+<td><strong>No — architect-approval gate to change</strong></td>
+</tr>
+</tbody>
+</table>
+<p><code>max_iter</code>, <code>token_budget</code>, <code>max_queries_per_iter</code> are read <strong>once</strong> at run start into local variables
+(and persisted on the run row for audit). The loop NEVER re-reads config or env mid-flight. This is the
+"frozen at run start" guarantee (AQ-v0.5-4).</p>
+<h3 id="32-the-loop-guard-mandated-code-shape">3.2 The loop guard (mandated code shape)<a class="headerlink" href="#32-the-loop-guard-mandated-code-shape" title="Permanent link">&para;</a></h3>
+<p>The loop is a counted <code>for</code> with <strong>two</strong> internal break conditions. It is NOT a <code>while True</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># bounds frozen ONCE at start (AQ-v0.5-4)</span>
+<span class="n">max_iter</span>      <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">max_iter</span>            <span class="c1"># from the row, already defaulted at INSERT</span>
+<span class="n">token_budget</span>  <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">token_budget</span>
+<span class="n">accumulator</span>   <span class="o">=</span> <span class="n">UsageAccumulator</span><span class="p">()</span>
+<span class="n">provider</span><span class="o">.</span><span class="n">bind_accumulator</span><span class="p">(</span><span class="n">accumulator</span><span class="p">)</span>
+
+<span class="n">collected</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">FetchedSource</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;max_iter_reached&quot;</span>             <span class="c1"># PESSIMISTIC DEFAULT — overwritten only on a real exit</span>
+<span class="n">queries</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_generate_queries</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">prior_context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">max_queries</span><span class="o">=</span><span class="n">MAX_QUERIES</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">iteration</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_iter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>          <span class="c1"># ← HARD CAP (I7). range, not while True.</span>
+    <span class="n">run</span><span class="o">.</span><span class="n">iterations_used</span> <span class="o">=</span> <span class="n">iteration</span>                <span class="c1"># persisted each round (audit + AC-F10-2b)</span>
+
+    <span class="c1"># ── budget gate BEFORE spending the round (I7) ──────────────────────────────</span>
+    <span class="k">if</span> <span class="n">accumulator</span><span class="o">.</span><span class="n">total_tokens</span> <span class="o">&gt;=</span> <span class="n">token_budget</span><span class="p">:</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;budget_exhausted&quot;</span>
+        <span class="k">break</span>
+
+    <span class="n">hits</span>      <span class="o">=</span> <span class="k">await</span> <span class="n">_search_searxng</span><span class="p">(</span><span class="n">queries</span><span class="p">)</span>              <span class="c1"># concurrency==3 (§4)</span>
+    <span class="n">collected</span> <span class="o">+=</span> <span class="k">await</span> <span class="n">_fetch_and_extract</span><span class="p">(</span><span class="n">hits</span><span class="p">)</span>             <span class="c1"># concurrency==3 (§4)</span>
+
+    <span class="c1"># ── ASSESS sufficiency BEFORE deciding to refine (CLAUDE.md §7) ─────────────</span>
+    <span class="n">verdict</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_assess_sufficiency</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">collected</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">verdict</span><span class="o">.</span><span class="n">sufficient</span><span class="p">:</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;converged&quot;</span>
+        <span class="k">break</span>
+
+    <span class="c1"># not sufficient AND not last iteration → refine; the for-range caps refinement</span>
+    <span class="k">if</span> <span class="n">iteration</span> <span class="o">&lt;</span> <span class="n">max_iter</span><span class="p">:</span>
+        <span class="n">queries</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_generate_queries</span><span class="p">(</span>
+            <span class="n">provider</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">prior_context</span><span class="o">=</span><span class="n">verdict</span><span class="o">.</span><span class="n">gaps</span><span class="p">,</span> <span class="n">max_queries</span><span class="o">=</span><span class="n">MAX_QUERIES</span>
+        <span class="p">)</span>
+    <span class="c1"># if iteration == max_iter the loop exits with status == &quot;max_iter_reached&quot;</span>
+
+<span class="c1"># ── NO further provider call once the loop exits on max_iter_reached EXCEPT the</span>
+<span class="c1">#    single terminal synthesize, which runs for converged/max_iter/budget alike. ──</span>
+<span class="k">if</span> <span class="n">status</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;converged&quot;</span><span class="p">,</span> <span class="s2">&quot;max_iter_reached&quot;</span><span class="p">,</span> <span class="s2">&quot;budget_exhausted&quot;</span><span class="p">):</span>
+    <span class="n">synthesis_md</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_synthesize</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">collected</span><span class="p">)</span>   <span class="c1"># ONE call</span>
+    <span class="n">page_id</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_ingest_synthesis</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="n">vault_id</span><span class="p">,</span> <span class="n">synthesis_md</span><span class="p">)</span>  <span class="c1"># §6 — re-enters ingest_file</span>
+</code></pre></div>
+<p><strong>Why this shape is non-negotiable:</strong></p>
+<ul>
+<li><code>for iteration in range(1, max_iter + 1)</code> — the iteration count is <strong>structurally</strong> capped. There is
+  no code path that adds an iteration. A reviewer can confirm boundedness by reading one line.</li>
+<li><code>status</code> defaults to <code>"max_iter_reached"</code> and is overwritten <strong>only</strong> by a real convergence/budget
+  exit. If the loop falls through, the status is correct by construction (AC-F10-2b). The run is
+  <strong>never</strong> left <code>"running"</code>.</li>
+<li>The sufficiency assessment is <strong>inside</strong> the loop, <strong>before</strong> the refine decision (CLAUDE.md §7
+  "assess sufficiency before each query"). On the final iteration there is no refine call — assessment
+  fail simply ends the loop (AC-F10-2c: "no further InferenceProvider calls after max_iter is reached"
+  — the only post-loop call is the single terminal synthesize, which is the deliberate step-5 exit).</li>
+<li>The budget gate is checked <strong>at the top of each round, before spending</strong> — under-spend, never
+  over-spend (the I7 conservative direction).</li>
+</ul>
+<h3 id="33-cost-accounting-anomaly">3.3 Cost accounting + anomaly<a class="headerlink" href="#33-cost-accounting-anomaly" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Every provider call pushes <code>Usage</code> to the run-scoped <code>UsageAccumulator</code> (<code>_record_usage</code>), exactly
+  as the ingest loop does. <code>total_cost_usd = round(accumulator.total_cost_usd, 4)</code>.</li>
+<li>On terminal, <code>total_cost_usd</code> and <code>iterations_used</code> are written to the <code>deep_research_runs</code> row and
+  emitted in one structured log line (mirrors <code>ingest_run</code> logging).</li>
+<li>The <strong>$1.00 cost-anomaly WARNING</strong> (ADR-0009 §3) is reused: if <code>total_cost_usd &gt; 1.00</code>, log a WARNING
+  after the run row is finalized. Local/CLI cost is <code>0.0000</code> by convention (ADR-0009).</li>
+</ul>
+<hr />
+<h2 id="4-i9-searxng-client-contract-opssearxngpy">4. I9 — SearXNG client contract (<code>ops/searxng.py</code>)<a class="headerlink" href="#4-i9-searxng-client-contract-opssearxngpy" title="Permanent link">&para;</a></h2>
+<p>The <strong>only</strong> web-search code in the codebase. No other module may import it transitively to reach a
+non-SearXNG backend. The static guard (AC-F10-3) scans all <code>.py</code> for <code>tavily|duckduckgo|ddg|googlesearch|serpapi</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># backend/app/ops/searxng.py</span>
+
+<span class="n">CONCURRENCY</span> <span class="o">=</span> <span class="mi">3</span>   <span class="c1"># HARDCODED I7 ceiling — shared by search and fetch. Architect gate to change.</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SearchHit</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="n">url</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">snippet</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">engine</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">searxng_search</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">max_results</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SearchHit</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ONE SearXNG query → JSON results. Base URL from env SEARXNG_URL ONLY (I9).</span>
+<span class="sd">    Calls GET {SEARXNG_URL}/search?q=&lt;query&gt;&amp;format=json (the SearXNG JSON API, R8).</span>
+<span class="sd">    No API key. No fallback to any other search provider. On non-200 → [] (logged), never an</span>
+<span class="sd">    alternative backend.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">searxng_search_many</span><span class="p">(</span><span class="n">queries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SearchHit</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run all queries with concurrency bounded by a module asyncio.Semaphore(CONCURRENCY).</span>
+<span class="sd">    Implemented as asyncio.gather over searxng_search, each acquiring the semaphore.</span>
+<span class="sd">    De-dupes hits by URL. This is the ONLY concurrency in F10 search.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</code></pre></div>
+<p><strong>Config:</strong> a single new setting <code>searxng_url: str</code> in <code>config.py</code> (env <code>SEARXNG_URL</code>, e.g.
+<code>http://searxng:8080</code>). Required when deep research is used; if unset, <code>POST /research/start</code> returns a
+clean 400/503 config error (never a fake run, never a fallback search engine).</p>
+<p><strong>Fetch + extract (step 3):</strong> <code>_fetch_and_extract</code> fetches each hit URL with <code>httpx</code> (already a dep)
+under the <strong>same</strong> <code>Semaphore(CONCURRENCY=3)</code>, and extracts readable text to markdown. For Phase 2 the
+extractor is a lightweight HTML→markdown (reuse the F11/clipper Readability+Turndown approach on the
+<em>backend</em> side via a minimal <code>html2text</code>-style reduction, or <code>unstructured</code> once F12 lands it). The
+extractor makes <strong>no LLM call</strong> (I6 — extraction is mechanical). Per-source content is capped
+(<code>DEEP_RESEARCH_FETCH_MAX_CHARS</code>, default 20_000) so a single huge page cannot blow the token budget.</p>
+<blockquote>
+<p><strong>I9 rule restated:</strong> SearXNG is THE web-search backend. There is no second search path, no
+"if SearXNG down, try X". A SearXNG failure degrades to fewer/zero hits, logged — never to another
+engine.</p>
+</blockquote>
+<hr />
+<h2 id="5-do-not-list-rejection-triggers">5. Do-NOT list (rejection triggers)<a class="headerlink" href="#5-do-not-list-rejection-triggers" title="Permanent link">&para;</a></h2>
+<p>A PR that does any of the following is <strong>rejected</strong> at architect review. Items 1–4 are <strong>P0 blocks</strong>
+(EC-M5-5 / EC-M5-19) — they break the headline invariants.</p>
+<ol>
+<li><strong>DO NOT use <code>while True</code> or any unbounded loop</strong> for the refinement loop. The loop MUST be
+   <code>for iteration in range(1, max_iter + 1)</code> with the assessment inside it. (I7 — P0)</li>
+<li><strong>DO NOT re-read <code>max_iter</code> / <code>token_budget</code> / config / env inside the loop.</strong> Bounds are frozen on
+   the run row at start and read once into locals. (AQ-v0.5-4 / I7 — P0)</li>
+<li><strong>DO NOT call any web-search backend other than SearXNG.</strong> No <code>tavily</code>, <code>duckduckgo_search</code>,
+   <code>googlesearch</code>, <code>serpapi</code>, or a raw Google/Bing endpoint — anywhere, including "fallback". The only
+   web-search config entry point is <code>SEARXNG_URL</code>. (I9 — P0)</li>
+<li><strong>DO NOT exceed <code>concurrency=3</code>.</strong> All search + fetch fan-out passes through the single module
+   <code>asyncio.Semaphore(CONCURRENCY=3)</code>. No second semaphore, no unbounded <code>gather</code>, no per-iteration
+   pool resize. Changing the ceiling requires an architect-approved ADR amendment. (I7 — P0)</li>
+<li><strong>DO NOT write the synthesis directly to <code>vault/wiki/</code></strong> or call <code>provider.generate()</code> /
+   <code>write_wiki_page()</code> directly. The synthesis is source material; it is written to
+   <code>vault/raw/sources/deep-research-&lt;run_id&gt;.md</code> and ingested via <strong><code>ingest_file</code></strong> (AQ-v0.5-3 / I1/I5).</li>
+<li><strong>DO NOT hardcode a provider, model id, base_url, or API key</strong> in <code>deep_research.py</code>. All inference
+   is via the resolved <code>InferenceProvider.chat()</code> (operation <code>"ingest"</code>). No <code>isinstance</code> / provider-type
+   branch. (I6)</li>
+<li><strong>DO NOT leave a run in status <code>"running"</code> on loop fall-through.</strong> <code>status</code> defaults to
+   <code>"max_iter_reached"</code> and is overwritten only on a real exit; the terminal write is in a <code>finally</code>
+   so an exception sets <code>"error"</code> + <code>error_message</code>, never a stuck <code>"running"</code>. (AC-F10-2b)</li>
+<li><strong>DO NOT skip the sufficiency assessment before refining.</strong> Assessment is inside the loop, before the
+   refine decision, every round (CLAUDE.md §7). No "refine first, assess later".</li>
+<li><strong>DO NOT add a per-source secondary loop</strong> (e.g. "re-fetch until clean"). Fetch is single-pass per
+   hit; failures are logged and dropped. The only loop in F10 is the bounded refinement loop. (I7)</li>
+<li><strong>DO NOT introduce a new InferenceProvider ABC method</strong> (<code>research()</code> / <code>assess()</code> / etc.). F10 rides
+    the existing backend-neutral <code>chat()</code> seam; adding an abstract method churns all 3 backends and the
+    I6 contract for no gain.</li>
+<li><strong>DO NOT bump <code>data_version</code> from <code>deep_research.py</code> directly.</strong> The re-entrant <code>ingest_file</code>
+    performs the single <code>bump_version()</code> for the synthesis page (I1) — F10 must not double-bump.</li>
+</ol>
+<hr />
+<h2 id="6-auto-ingest-of-the-synthesis-aq-v05-3-i1i5">6. Auto-ingest of the synthesis (AQ-v0.5-3 + I1/I5)<a class="headerlink" href="#6-auto-ingest-of-the-synthesis-aq-v05-3-i1i5" title="Permanent link">&para;</a></h2>
+<p>The synthesis is <strong>not</strong> a finished wiki page; it is a new <strong>source document</strong> the deep-research run
+produced. It re-enters the normal pipeline:</p>
+<div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_ingest_synthesis</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="n">vault_id</span><span class="p">,</span> <span class="n">synthesis_md</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">:</span>
+    <span class="c1"># 1. write to raw/sources/ with valid frontmatter (I5) — this is a SOURCE, type: source-equivalent</span>
+    <span class="n">rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;raw/sources/deep-research-</span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">.md&quot;</span>
+    <span class="n">abs_path</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">vault_root</span> <span class="o">/</span> <span class="n">rel</span>
+    <span class="n">abs_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">abs_path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">_frontmatter_wrap</span><span class="p">(</span><span class="n">synthesis_md</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">run_id</span><span class="p">),</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+    <span class="c1"># 2. re-enter the SINGLE intake seam (ADR-0003). This runs the hash gate (I1),</span>
+    <span class="c1">#    resolves the ingest provider, runs analyze→generate→validate (or CLI delegate),</span>
+    <span class="c1">#    writes the wiki page(s), embeds, bumps data_version ONCE — all existing logic.</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ingest_file</span><span class="p">(</span><span class="n">abs_path</span><span class="p">)</span>        <span class="c1"># ← AQ-v0.5-3: NOT provider.generate()</span>
+    <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">page_id</span>
+</code></pre></div>
+<p>Consequences of routing through <code>ingest_file</code>:</p>
+<ul>
+<li><strong>I1</strong> — the content-hash gate dedups (re-running deep research on the same topic that yields
+  identical synthesis is a <code>skipped</code> no-op). <code>data_version</code> bumps exactly once, in <code>ingest_file</code>.</li>
+<li><strong>I5</strong> — the writer (<code>write_wiki_page</code>) produces frontmatter-valid, <code>[[wikilink]]</code>-clean Obsidian
+  pages. F10 adds zero new file-writing logic to <code>wiki/</code>.</li>
+<li><strong>I6</strong> — the synthesis ingest uses whatever provider the vault's <code>"ingest"</code> config resolves to —
+  consistent with the rest of the pipeline; deep research does not pick a backend.</li>
+<li>The raw source file means the watcher's later observe is a safe <code>skipped</code> no-op (the ADR-0020
+  precedent).</li>
+</ul>
+<p>The synthesize <strong>prompt</strong> (step 5) instructs the model to produce a well-structured markdown document
+with <code>[[wikilinks]]</code> to likely vault concepts and inline source URLs — but the <strong>authority</strong> for
+structure remains the downstream <code>analyze→generate</code> step, exactly as for any uploaded source.</p>
+<hr />
+<h2 id="7-data-model-migration-0009">7. Data model — migration 0009<a class="headerlink" href="#7-data-model-migration-0009" title="Permanent link">&para;</a></h2>
+<p>Two tables. A child table is needed: one run fetches many sources, and AC-F10-6b explicitly requires a
+per-source row with <code>url / title / fetched_content_md / relevance_score</code>.</p>
+<blockquote>
+<p><strong>Migration numbering correction.</strong> Phase 2 (F10) lands <strong>before</strong> Phase 3 (F9 <code>review_items</code>).
+Migrations are sequential by <em>creation order</em>, so F10's tables take <strong>0009</strong> and F9's <code>review_items</code>
+becomes <strong>0010</strong> — superseding the tentative "0010 for F10" in <code>v0.5-architecture.md</code> §2.3/§2.2.
+The F9 phase plan (ADR-0025) inherits this correction.</p>
+</blockquote>
+<h3 id="71-deep_research_runs-the-run-ledger">7.1 <code>deep_research_runs</code> (the run ledger)<a class="headerlink" href="#71-deep_research_runs-the-run-ledger" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Null</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID PK</td>
+<td>no</td>
+<td><code>gen_random_uuid()</code></td>
+</tr>
+<tr>
+<td><code>vault_id</code></td>
+<td>String</td>
+<td>no</td>
+<td>scope (pages/edges/ingest_runs pattern; AQ-v0.5-6 — string, no <code>vaults</code> table)</td>
+</tr>
+<tr>
+<td><code>topic</code></td>
+<td>Text</td>
+<td>no</td>
+<td>the research topic</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>Text</td>
+<td>no</td>
+<td><code>running</code> | <code>converged</code> | <code>max_iter_reached</code> | <code>budget_exhausted</code> | <code>error</code>; default <code>running</code></td>
+</tr>
+<tr>
+<td><code>max_iter</code></td>
+<td>Integer</td>
+<td>no</td>
+<td><strong>frozen at start</strong> (AQ-v0.5-4) — the cap actually applied</td>
+</tr>
+<tr>
+<td><code>token_budget</code></td>
+<td>Integer</td>
+<td>no</td>
+<td><strong>frozen at start</strong> — the budget actually applied</td>
+</tr>
+<tr>
+<td><code>iterations_used</code></td>
+<td>Integer</td>
+<td>no</td>
+<td>rounds consumed (1..max_iter); default 0</td>
+</tr>
+<tr>
+<td><code>queries_used</code></td>
+<td>JSONB</td>
+<td>no</td>
+<td>array of every query issued, per round (AC-F10-4c); default <code>[]</code></td>
+</tr>
+<tr>
+<td><code>sources_fetched</code></td>
+<td>Integer</td>
+<td>no</td>
+<td>count of fetched candidate sources; default 0</td>
+</tr>
+<tr>
+<td><code>converged</code></td>
+<td>Boolean</td>
+<td>no</td>
+<td>True iff status == <code>converged</code>; default false (audit convenience)</td>
+</tr>
+<tr>
+<td><code>total_cost_usd</code></td>
+<td>Numeric(10,4)</td>
+<td>no</td>
+<td>I7 ledger; 0.0000 for local/cli; default 0</td>
+</tr>
+<tr>
+<td><code>synthesis_text</code></td>
+<td>Text</td>
+<td>yes</td>
+<td>the synthesized markdown; NULL until step 5 (AC-F10-4c)</td>
+</tr>
+<tr>
+<td><code>synthesis_page_id</code></td>
+<td>UUID FK→pages</td>
+<td>yes</td>
+<td>the <code>pages</code> row created by the re-entrant <code>ingest_file</code>; NULL until done</td>
+</tr>
+<tr>
+<td><code>started_at</code></td>
+<td>TIMESTAMPTZ</td>
+<td>no</td>
+<td><code>now()</code></td>
+</tr>
+<tr>
+<td><code>completed_at</code></td>
+<td>TIMESTAMPTZ</td>
+<td>yes</td>
+<td>NULL while <code>running</code> (AC-F10-4c mirrors ingest_runs alias rule)</td>
+</tr>
+<tr>
+<td><code>error_message</code></td>
+<td>Text</td>
+<td>yes</td>
+<td>populated only on status <code>error</code></td>
+</tr>
+</tbody>
+</table>
+<p>Index: <code>(vault_id, started_at DESC)</code> for the paginated list (mirrors <code>ingest_runs</code>).</p>
+<h3 id="72-deep_research_sources-per-source-child">7.2 <code>deep_research_sources</code> (per-source child)<a class="headerlink" href="#72-deep_research_sources-per-source-child" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Null</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID PK</td>
+<td>no</td>
+<td><code>gen_random_uuid()</code></td>
+</tr>
+<tr>
+<td><code>run_id</code></td>
+<td>UUID FK→deep_research_runs.id</td>
+<td>no</td>
+<td>parent (ON DELETE CASCADE)</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>Text</td>
+<td>no</td>
+<td>the fetched source URL (from SearXNG hit)</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>Text</td>
+<td>yes</td>
+<td>hit title</td>
+</tr>
+<tr>
+<td><code>fetched_content_md</code></td>
+<td>Text</td>
+<td>yes</td>
+<td>extracted markdown (capped at <code>DEEP_RESEARCH_FETCH_MAX_CHARS</code>); NULL on fetch failure</td>
+</tr>
+<tr>
+<td><code>relevance_score</code></td>
+<td>Numeric(6,4)</td>
+<td>yes</td>
+<td>optional model/heuristic relevance; NULL if not scored</td>
+</tr>
+<tr>
+<td><code>iteration</code></td>
+<td>Integer</td>
+<td>no</td>
+<td>which round produced this source (audit); default 1</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>TIMESTAMPTZ</td>
+<td>no</td>
+<td><code>now()</code></td>
+</tr>
+</tbody>
+</table>
+<p>Index: <code>(run_id)</code>.</p>
+<h3 id="73-sqlalchemy-er-d2-impact">7.3 SQLAlchemy + ER (D2) impact<a class="headerlink" href="#73-sqlalchemy-er-d2-impact" title="Permanent link">&para;</a></h3>
+<p>Two new mapped classes in <code>models.py</code> (<code>DeepResearchRun</code>, <code>DeepResearchSource</code>) following the
+<code>IngestRun</code> column-comment style. <code>make er</code> regenerates <code>docs/er/schema.mmd</code> to add both tables and the
+<code>deep_research_runs ||--o{ deep_research_sources</code> relationship plus the
+<code>deep_research_runs }o--|| pages</code> (synthesis_page_id) and the FK to nothing for <code>vault_id</code> (string scope,
+no <code>vaults</code> table). AC-F10-6d: <code>make er</code> exits 0 and the diagram reflects both tables.</p>
+<hr />
+<h2 id="8-rest-surface-d4-mirrors-ingestruns">8. REST surface (D4) — mirrors <code>/ingest/runs</code><a class="headerlink" href="#8-rest-surface-d4-mirrors-ingestruns" title="Permanent link">&para;</a></h2>
+<p>All three documented in <code>docs/api/openapi.json</code> via <code>make openapi</code> (I8). These are exactly what F9
+(Phase 3, ADR-0025) wires its <strong>Deep-Research</strong> review action to (AC-F10-5).</p>
+<h3 id="81-post-researchstart-202">8.1 <code>POST /research/start</code> → <strong>202</strong><a class="headerlink" href="#81-post-researchstart-202" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Request body:  { &quot;vault_id&quot;: str, &quot;topic&quot;: str, &quot;max_iter&quot;?: int, &quot;token_budget&quot;?: int }
+Response 202:  { &quot;run_id&quot;: uuid }
+</code></pre></div>
+<ul>
+<li>Validates <code>topic</code> non-empty and <code>vault_id</code>. <code>max_iter</code>/<code>token_budget</code> optional → env defaults; both
+  <strong>frozen onto the run row</strong> before the background task starts (AQ-v0.5-4).</li>
+<li>Inserts the <code>deep_research_runs</code> row with <code>status="running"</code>, then schedules
+  <code>run_deep_research(...)</code> as a background asyncio task (the ADR-0020 fire-and-poll pattern). Returns
+  202 immediately — does NOT block on the loop.</li>
+<li>If <code>SEARXNG_URL</code> is unset → 503 config error (clean, no run row, no fake search). (I9)</li>
+<li><code>max_iter</code> / <code>token_budget</code> are bounded by server-side <code>Query</code>/<code>Field</code> validators
+  (<code>max_iter</code> 1..10, <code>token_budget</code> 1_000..1_000_000) so a caller cannot request an unbounded run (I7).</li>
+</ul>
+<h3 id="82-get-researchruns-200-paginated">8.2 <code>GET /research/runs</code> → <strong>200</strong> (paginated)<a class="headerlink" href="#82-get-researchruns-200-paginated" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Query:  ?vault_id=&lt;str&gt;&amp;limit=&lt;1..100=20&gt;&amp;offset=&lt;&gt;=0=0&gt;
+Response 200: { &quot;items&quot;: [ { id, topic, status, iterations_used, sources_fetched,
+                             total_cost_usd, started_at, completed_at } ... ],
+                &quot;total&quot;: int, &quot;limit&quot;: int, &quot;offset&quot;: int }
+</code></pre></div>
+<p>Started-at DESC, same pagination contract and <code>Query(ge=…, le=…)</code> 422 guards as <code>GET /ingest/runs</code>.</p>
+<h3 id="83-get-researchrunsid-200-404">8.3 <code>GET /research/runs/{id}</code> → <strong>200 / 404</strong><a class="headerlink" href="#83-get-researchrunsid-200-404" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Response 200: { id, vault_id, topic, status, max_iter, token_budget, iterations_used,
+                queries_used: [str], sources_fetched: int, total_cost_usd,
+                synthesis_text: str | null, synthesis_page_id: uuid | null,
+                sources: [ { url, title, relevance_score, iteration } ... ],
+                started_at, completed_at, error_message }
+404 when no run with {id}.
+</code></pre></div>
+<p><code>synthesis_text</code> is null until step 5 completes (AC-F10-4c). The <code>sources</code> array is the
+<code>deep_research_sources</code> children (without the full <code>fetched_content_md</code> blobs by default — a size
+guard; full content is an opt-in <code>?include_content=true</code> follow-up if needed).</p>
+<hr />
+<h2 id="9-sequence-diagram-d3-docssequencesdeep-researchmmd">9. Sequence diagram (D3) — <code>docs/sequences/deep-research.mmd</code><a class="headerlink" href="#9-sequence-diagram-d3-docssequencesdeep-researchmmd" title="Permanent link">&para;</a></h2>
+<p>Authored as a Mermaid <code>sequenceDiagram</code> (handoff to tech-writer for final polish), it MUST show, per
+AC-D3-DR-1: trigger → <code>_generate_queries</code> (InferenceProvider) → SearXNG multi-query (<strong>note:
+concurrency=3</strong>) → fetch+parse → <code>_assess_sufficiency</code> (InferenceProvider) → <code>alt</code> branch
+[sufficient: synthesize + <code>ingest_file</code>] / [insufficient: refine, <strong>note: bounded by max_iter</strong>] →
+<code>total_cost_usd</code> logged. The participants mirror the loop (<code>run_deep_research</code>, <code>SearXNG</code>,
+<code>InferenceProvider</code>, <code>ingest_file</code>). The <code>max_iter</code> cap and <code>concurrency=3</code> ceiling are explicit notes.</p>
+<hr />
+<h2 id="10-invariant-compliance-statement">10. Invariant compliance statement<a class="headerlink" href="#10-invariant-compliance-statement" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Inv</th>
+<th>How F10 guarantees it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I7</strong></td>
+<td>The refinement loop is <code>for iteration in range(1, max_iter + 1)</code> (structural cap). <code>token_budget</code> checked at the top of each round before spending. <code>concurrency=3</code> via a single module semaphore. Bounds frozen on the run row at start, never re-read. <code>status</code> defaults pessimistically to <code>max_iter_reached</code>; terminal write in <code>finally</code>. <code>total_cost_usd</code> accumulated + logged + $1 anomaly WARNING. The mandatory <code>max_iter_reached</code> test (AC-F10-2) is the gate.</td>
+</tr>
+<tr>
+<td><strong>I9</strong></td>
+<td>All web search via <code>ops/searxng.py</code> → <code>SEARXNG_URL</code> only. Static guard bans <code>tavily/ddg/duckduckgo/googlesearch/serpapi</code>. No fallback search engine. SearXNG, Qdrant, bge-m3 reused; nothing reinvented.</td>
+</tr>
+<tr>
+<td><strong>I6</strong></td>
+<td>Query-gen, assess, synthesize all via the resolved <code>InferenceProvider.chat()</code> (operation <code>"ingest"</code>). No backend / model / key hardcoded. No <code>isinstance</code>/provider-type branch. No new ABC method.</td>
+</tr>
+<tr>
+<td><strong>I1</strong></td>
+<td>Synthesis re-enters <code>ingest_file</code> (ADR-0003): hash-gated, incremental, single <code>data_version</code> bump in the seam. F10 never writes <code>pages</code>/Qdrant directly and never double-bumps.</td>
+</tr>
+<tr>
+<td><strong>I5</strong></td>
+<td>Synthesis is a <code>raw/sources/</code> document; the wiki page is produced by the existing frontmatter-valid writer. <code>wiki/</code> stays a valid Obsidian vault.</td>
+</tr>
+<tr>
+<td><strong>I8</strong></td>
+<td>D2 (<code>make er</code> — two tables, migration 0009), D3 (<code>deep-research.mmd</code>), D4 (<code>make openapi</code> — three endpoints). All regenerated, zero drift.</td>
+</tr>
+</tbody>
+</table>
+<p>No invariant is traded for convenience.</p>
+<hr />
+<h2 id="11-consequences">11. Consequences<a class="headerlink" href="#11-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive:</strong></p>
+<ul>
+<li>F10's boundedness is provable by reading the loop header — a single <code>range(1, max_iter+1)</code> line plus
+  one top-of-round budget gate. This is the strongest possible I7 posture for the most loop-intensive
+  feature.</li>
+<li>Zero new InferenceProvider surface: F10 rides <code>chat()</code>, so all three backends (Local/API/CLI) work
+  the moment Phase 1's <code>chat()</code> implementations land. I6 is untouched.</li>
+<li>Synthesis-through-<code>ingest_file</code> means F10 inherits dedup, incrementality, Obsidian-validity, and the
+  cost ledger for free — no parallel write path to keep consistent.</li>
+<li>The run + sources tables give F9 (Phase 3) a clean <code>run_id</code> to reference and a full audit trail.</li>
+</ul>
+<p><strong>Negative / accepted trade-offs:</strong></p>
+<ul>
+<li><strong>Source-extraction quality is basic in Phase 2.</strong> Backend HTML→markdown reduction is cruder than the
+  clipper's Readability. Accepted: the synthesis step + downstream <code>analyze</code> tolerate noisy input; a
+  richer extractor (shared with F12's <code>unstructured</code>) is a measured follow-up, not a guess.</li>
+<li><strong>Two inference round-trips per iteration</strong> (generate + assess) plus one synthesize. This is the cost
+  of "assess before refine" (CLAUDE.md §7). The <code>token_budget</code> gate bounds it; the default 100k budget
+  comfortably covers 3 iterations of modest fetches.</li>
+<li><strong><code>relevance_score</code> is optional/best-effort</strong> in Phase 2 (NULL allowed). A scored re-ranking of
+  fetched sources is reserved; Phase 2 collects all fetched sources up to the per-source char cap.</li>
+<li><strong>No streaming progress to the UI mid-run.</strong> The UI polls <code>GET /research/runs/{id}</code> (the ADR-0020
+  poll pattern, AC-F10-8). A live progress stream is out of scope for Phase 2.</li>
+</ul>
+<hr />
+<h2 id="12-status-of-resolved-aqs">12. Status of resolved AQs<a class="headerlink" href="#12-status-of-resolved-aqs" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>AQ-v0.5-3 — RESOLVED:</strong> synthesis flows through the full <code>ingest_file</code> seam (§6), <strong>not</strong> a direct
+  <code>generate()</code>. The synthesis is source material.</li>
+<li><strong>AQ-v0.5-4 — RESOLVED:</strong> <code>max_iter</code> configurable (<code>POST</code> body → env default <strong>3</strong>), <code>token_budget</code>
+  default <strong>100_000</strong>, <code>max_queries_per_iter=5</code>, <strong><code>concurrency=3</code> hardcoded</strong>; all frozen on the
+  <code>deep_research_runs</code> row at start, never re-read mid-loop (§3).</li>
+</ul>
+<hr />
+<blockquote>
+<p><strong>Handoffs:</strong> this ADR → tech-writer (formatting + README row + <code>deep-research.mmd</code> polish).
+Interface contracts (§2.2/§2.3, §4) → backend-engineer (<code>ops/deep_research.py</code>, <code>ops/searxng.py</code>,
+migration 0009, REST handlers). D3 stub (§9) → tech-writer. Phase-2 verdict → orchestrator.</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

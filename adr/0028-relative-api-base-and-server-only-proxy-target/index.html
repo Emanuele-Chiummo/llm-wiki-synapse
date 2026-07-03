@@ -1,0 +1,844 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0028-relative-api-base-and-server-only-proxy-target/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0028 — Browser API base is relative; proxy target is a server-only env var - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0028-browser-api-base-is-relative-proxy-target-is-a-server-only-env-var" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0028 — Browser API base is relative; proxy target is a server-only env var
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-browser-fetch-base-relative-is-the-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Browser fetch base — relative "" is the default
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-proxy-target-a-new-server-only-env-var" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Proxy target — a new server-only env var
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-docker-composedevyml-frontend-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 docker-compose.dev.yml frontend service
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-envexample" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 .env.example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-docs-i8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Docs (I8)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-contract-the-implementers-follow-verbatim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Contract the implementers follow verbatim
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-do-not-reject-any-pr-that-does-these" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Do NOT (reject any PR that does these)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0028-browser-api-base-is-relative-proxy-target-is-a-server-only-env-var">ADR-0028 — Browser API base is relative; proxy target is a server-only env var<a class="headerlink" href="#adr-0028-browser-api-base-is-relative-proxy-target-is-a-server-only-env-var" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-06-29</li>
+<li><strong>Sprint:</strong> v0.5 (M5 — live-UI review bugfix; Bug 1 critical/latent + Bug 2)</li>
+<li><strong>Feature:</strong> F1 (3-panel shell / web service plumbing) · F15 (cross-platform: Tailscale + Cloudflare Tunnel reachability) · F16 (multi-provider chat over a tunnel — the only client that worked there today)</li>
+<li><strong>Builds on:</strong> the per-client <code>VITE_API_BASE</code> convention established across v0.3–v0.5 (<code>frontend/src/api/*.ts</code>) and the Vite dev proxy in <code>frontend/vite.config.ts</code>.</li>
+<li><strong>Invariants owned:</strong> I5 (Obsidian compat — unaffected, but the change MUST stay pure transport plumbing) · I9 (do not reinvent — no new client/proxy framework; reuse the existing Vite proxy). No invariant is traded for convenience.</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> frontend-engineer (<code>frontend/src/api/*.ts</code>, <code>frontend/vite.config.ts</code>, <code>frontend/.env.example</code>) · devops-engineer (<code>docker-compose.dev.yml</code>)</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>A live UI review surfaced two related defects rooted in <strong>one variable carrying two
+incompatible meanings</strong>.</p>
+<p><code>VITE_API_BASE</code> is read in <strong>two layers that run in two different places</strong>:</p>
+<ol>
+<li><strong>Browser bundle</strong> — <code>import.meta.env["VITE_API_BASE"]</code> in each <code>frontend/src/api/*.ts</code>
+   client. Vite <strong>inlines this value into the JS shipped to the browser at build time</strong>.
+   The browser, not the container, performs the fetch.</li>
+<li><strong>Vite dev server (Node)</strong> — <code>process.env["VITE_API_BASE"]</code> in <code>vite.config.ts</code>, used as
+   the <strong>server-side proxy <code>target</code></strong>. This runs inside the frontend container.</li>
+</ol>
+<p>These two consumers need <strong>opposite values</strong>:</p>
+<ul>
+<li>The browser must reach the backend over whatever origin the <em>user</em> is on — host
+  <code>localhost</code>, a Tailscale MagicDNS name, or a Cloudflare Tunnel hostname. The only value
+  that is correct for <em>all three</em> is <strong>relative</strong> (<code>""</code>): same-origin, let the page's own
+  host/scheme decide.</li>
+<li>The dev proxy must reach the backend over the <strong>Docker network</strong>, i.e. the service name
+  <code>http://synapse-backend:8000</code>, which is resolvable <em>only inside the compose network</em>.</li>
+</ul>
+<p><code>docker-compose.dev.yml:65</code> sets <code>VITE_API_BASE: http://synapse-backend:8000</code> to satisfy
+consumer (2). But because Vite inlines it for consumer (1), <strong>the browser is told to fetch a
+Docker-internal hostname it cannot resolve</strong>. It appears to work only by accident: the
+developer's ISP NXDOMAIN-redirects unknown names to <code>127.0.0.1</code>, which happens to be the
+host where the backend port is published. On Tailscale or Cloudflare Tunnel — the actual
+deployment targets (F15) — <code>synapse-backend</code> does not resolve and <strong>every API call fails</strong>.
+This is <strong>Bug 1: critical and latent</strong> (silent on the dev box, broken everywhere it matters).</p>
+<p>Compounding it (<strong>Bug 2</strong>): 8 of 9 clients default <code>VITE_API_BASE</code> to
+<code>http://localhost:8000</code>; only <code>chatClient.ts</code> defaults to <code>""</code>. So over a tunnel <strong>chat is
+the only feature that works</strong> — everything else points the browser at the user's own
+<code>localhost</code>. The inconsistency masked Bug 1 differently per client.</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<p><strong>Split the one overloaded variable into two, by execution context, and make the browser
+default relative.</strong></p>
+<h3 id="21-browser-fetch-base-relative-is-the-default">2.1 Browser fetch base — relative <code>""</code> is the default<a class="headerlink" href="#21-browser-fetch-base-relative-is-the-default" title="Permanent link">&para;</a></h3>
+<p>Every client in <code>frontend/src/api/*.ts</code> reads <code>import.meta.env["VITE_API_BASE"]</code> and
+<strong>defaults to <code>""</code></strong> (matching the already-correct <code>chatClient.ts</code>):</p>
+<div class="highlight"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">API_BASE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="k">import</span><span class="p">.</span><span class="nx">meta</span><span class="p">.</span><span class="nx">env</span><span class="p">[</span><span class="s2">&quot;VITE_API_BASE&quot;</span><span class="p">]</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">undefined</span><span class="p">)</span><span class="w"> </span><span class="o">??</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">;</span>
+</code></pre></div>
+<ul>
+<li><code>""</code> ⇒ all requests are <strong>same-origin relative paths</strong> (<code>/graph</code>, <code>/pages</code>, <code>/chat</code>, …).
+  Correct on host <code>localhost</code>, Tailscale, and Cloudflare Tunnel, because the browser uses
+  the page's own origin. In prod the same origin serves both the static bundle and the API.</li>
+<li><code>VITE_API_BASE</code> MAY still be set to an absolute URL for <strong>unusual split-origin
+  deployments</strong> (static host ≠ API host). That is an opt-in escape hatch, <strong>not</strong> the
+  default, and <strong>must never be set to a Docker-internal name</strong> (that name has no meaning in
+  a browser).</li>
+</ul>
+<p>This makes all 9 clients identical and removes the 8-vs-1 inconsistency (Bug 2).</p>
+<h3 id="22-proxy-target-a-new-server-only-env-var">2.2 Proxy target — a new <strong>server-only</strong> env var<a class="headerlink" href="#22-proxy-target-a-new-server-only-env-var" title="Permanent link">&para;</a></h3>
+<p>The dev proxy target moves to a <strong>new variable that is NOT prefixed <code>VITE_</code></strong>, so Vite
+<strong>never inlines it into the browser bundle</strong> (the <code>VITE_</code> prefix is exactly Vite's "expose
+to client" marker). Definitive name and default:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Read by</th>
+<th>Where it runs</th>
+<th>Default</th>
+<th>Inlined into browser?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VITE_API_BASE</code></td>
+<td><code>frontend/src/api/*.ts</code> (<code>import.meta.env</code>)</td>
+<td><strong>Browser</strong></td>
+<td><code>""</code> (relative)</td>
+<td>Yes (by design) — but unset by default</td>
+</tr>
+<tr>
+<td><code>BACKEND_PROXY_TARGET</code></td>
+<td><code>frontend/vite.config.ts</code> proxy <code>target</code> (<code>process.env</code>)</td>
+<td><strong>Vite dev server (Node, in container)</strong></td>
+<td><code>http://localhost:8000</code></td>
+<td><strong>No</strong> (no <code>VITE_</code> prefix)</td>
+</tr>
+</tbody>
+</table>
+<p><code>vite.config.ts</code> proxy entries read <strong><code>process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000"</code></strong>
+and <strong>must stop reading <code>VITE_API_BASE</code></strong> for the proxy target. (The 14 existing proxy
+entries — <code>/graph</code>, <code>/pages</code>, <code>/status</code>, <code>/ingest</code>, <code>/provider</code>, <code>/conversations</code>, <code>/chat</code>,
+<code>/import-schedule</code>, <code>/config</code>, <code>/mcp</code>, <code>/research</code>, <code>/review</code>, <code>/search</code> — change only the
+<code>target</code> expression; route list and <code>changeOrigin: true</code> are unchanged.)</p>
+<h3 id="23-docker-composedevyml-frontend-service">2.3 <code>docker-compose.dev.yml</code> frontend service<a class="headerlink" href="#23-docker-composedevyml-frontend-service" title="Permanent link">&para;</a></h3>
+<p>Replace the misused var. The browser base stays relative because <code>VITE_API_BASE</code> is <strong>not
+set</strong>; the proxy reaches the backend over the Docker network:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">environment</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">BACKEND_PROXY_TARGET</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://synapse-backend:8000</span>
+<span class="w">  </span><span class="c1"># Do NOT set VITE_API_BASE — the browser base must stay relative (&quot;&quot;).</span>
+</code></pre></div>
+<p>Flow in dev: browser → relative <code>/graph</code> → Vite dev server (origin the browser is already
+on: <code>localhost:5173</code>, the Tailscale host, or the tunnel) → proxy → <code>synapse-backend:8000</code>
+over the Docker network. The Docker-internal hostname now lives <strong>only</strong> where it resolves.</p>
+<h3 id="24-envexample">2.4 <code>.env.example</code><a class="headerlink" href="#24-envexample" title="Permanent link">&para;</a></h3>
+<p>Document both variables and the new defaults, so the contract is discoverable:</p>
+<div class="highlight"><pre><span></span><code># Browser API base. Leave EMPTY for same-origin (correct for localhost, Tailscale,
+# Cloudflare Tunnel). Set to an absolute URL ONLY for split-origin deployments.
+# NEVER set this to a Docker-internal hostname — it is inlined into the browser bundle.
+VITE_API_BASE=
+
+# Dev-only, server-side Vite proxy target (NOT exposed to the browser).
+# Default http://localhost:8000; compose overrides to http://synapse-backend:8000.
+BACKEND_PROXY_TARGET=http://localhost:8000
+</code></pre></div>
+<h3 id="25-docs-i8">2.5 Docs (I8)<a class="headerlink" href="#25-docs-i8" title="Permanent link">&para;</a></h3>
+<ul>
+<li>No D2/D4 change (no schema, no API surface change). </li>
+<li>D6b (<code>docs/DEPLOY.md</code>) should note the two-variable contract when the deploy guide is
+  completed in v0.6; flagged, not blocking for this bugfix.</li>
+</ul>
+<hr />
+<h2 id="3-consequences">3. Consequences<a class="headerlink" href="#3-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong>
+- Bug 1 fixed at the root: the browser never receives a Docker-internal hostname. Synapse
+  becomes reachable over Tailscale and Cloudflare Tunnel (F15), not just on the dev box's
+  accidental ISP redirect.
+- Bug 2 fixed: all 9 clients share one identical, correct default (<code>""</code>). No
+  feature-by-feature divergence.
+- One variable, one meaning, one execution context each. The <code>VITE_</code> prefix now correctly
+  signals "browser-exposed", and the absence of it on <code>BACKEND_PROXY_TARGET</code> correctly keeps
+  the Docker hostname server-side.
+- Same-origin by default also sidesteps CORS entirely in the common deployment.</p>
+<p><strong>Trade-offs / limitations (stated explicitly)</strong>
+- Split-origin deployments (static bundle and API on different hosts) now require an
+  <strong>explicit opt-in</strong> by setting <code>VITE_API_BASE</code> to an absolute URL. This is intentional:
+  the safe, tunnel-correct behaviour is the default; the unusual case is the one that must
+  be configured.
+- A developer running the Vite dev server <strong>outside</strong> Docker (bare <code>npm run dev</code>) must have
+  the backend on <code>localhost:8000</code> (the <code>BACKEND_PROXY_TARGET</code> default) or set the var. This
+  matches today's bare-metal expectation; no regression.
+- <code>VITE_API_BASE</code> is build-time inlined: changing it requires a rebuild, not just a restart.
+  Unchanged from today; the default-empty value means most users never touch it.</p>
+<p><strong>Invariant check</strong>
+- <strong>I5 (Obsidian):</strong> unaffected — this is transport plumbing only; no change to vault
+  files, frontmatter, or wikilinks. The implementers MUST keep it that way.
+- <strong>I9 (do not reinvent):</strong> reuses the existing Vite proxy and <code>import.meta.env</code> mechanism;
+  introduces no new client, gateway, or proxy framework. One renamed/added env var.
+- No other invariant (I1–I4, I6–I8) is touched. <strong>No invariant is traded for convenience.</strong></p>
+<hr />
+<h2 id="4-contract-the-implementers-follow-verbatim">4. Contract the implementers follow verbatim<a class="headerlink" href="#4-contract-the-implementers-follow-verbatim" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Every</strong> <code>frontend/src/api/*.ts</code> client defaults <code>VITE_API_BASE</code> to <strong><code>""</code></strong> (not
+   <code>http://localhost:8000</code>). After the change, <code>grep -r 'http://localhost:8000' frontend/src/api</code>
+   returns <strong>nothing</strong>.</li>
+<li><code>frontend/vite.config.ts</code> proxy <code>target</code> reads
+   <strong><code>process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000"</code></strong> for all proxy
+   entries, and <strong>no longer references <code>VITE_API_BASE</code></strong>.</li>
+<li><code>docker-compose.dev.yml</code> frontend service sets <strong><code>BACKEND_PROXY_TARGET: http://synapse-backend:8000</code></strong>
+   and <strong>does NOT set <code>VITE_API_BASE</code></strong>.</li>
+<li><code>frontend/.env.example</code> documents both vars per §2.4 (<code>VITE_API_BASE</code> empty default;
+   <code>BACKEND_PROXY_TARGET=http://localhost:8000</code>).</li>
+</ol>
+<h2 id="5-do-not-reject-any-pr-that-does-these">5. Do NOT (reject any PR that does these)<a class="headerlink" href="#5-do-not-reject-any-pr-that-does-these" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Do NOT set <code>VITE_API_BASE</code> to a Docker-internal hostname (<code>synapse-backend</code>) anywhere —
+   it is inlined into the browser bundle, which cannot resolve it.</li>
+<li>Do NOT keep <code>http://localhost:8000</code> as a client default in any <code>api/*.ts</code> file.</li>
+<li>Do NOT read <code>VITE_API_BASE</code> in <code>vite.config.ts</code> for the proxy target — use
+   <code>BACKEND_PROXY_TARGET</code>.</li>
+<li>Do NOT prefix the proxy-target var with <code>VITE_</code> (that would re-expose the server-only
+   value to the browser and recreate Bug 1).</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

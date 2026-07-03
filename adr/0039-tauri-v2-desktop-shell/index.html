@@ -1,0 +1,1179 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0039-tauri-v2-desktop-shell/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0039 — Tauri v2 desktop shell (F15 AC-F15-2) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0039-tauri-v2-desktop-shell-f15-ac-f15-2" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0039 — Tauri v2 desktop shell (F15 AC-F15-2)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-tauri-v2-as-the-cross-platform-shell-not-electron" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Tauri v2 as the cross-platform shell (not Electron)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-single-codebase-zero-app-specific-ui-changes-i9-reuse-i3-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Single codebase, zero app-specific UI changes (I9 reuse, I3 performance)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-backend-connectivity-remains-http-over-127001-or-tailscale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Backend connectivity remains HTTP over 127.0.0.1 (or Tailscale)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-default-close-behavior-standard-quit-on-main-window-close" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Default close behavior: standard (quit on main window close)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-bundling-targets-deb-appimage-dmg-msi-nsis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Bundling targets: deb, AppImage, DMG, MSI, NSIS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-scaffold-layout-and-ci-wiring-local-verify-only-live-build-on-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Scaffold layout and CI wiring (local verify-only; LIVE build on CI)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-repository-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Repository layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-tauriconfjson-key-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Tauri.conf.json key decisions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Environment
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-cicd-tauri-build-job" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. CI/CD: Tauri build job
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. CI/CD: Tauri build job">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-job-trigger-and-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Job trigger and structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-release-integration-deferred-to-releaseyml-v06" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Release integration (deferred to release.yml v0.6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-frontend-verification-no-changes-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Frontend verification (no changes required)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-local-development-v06-onwards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Local development (v0.6 onwards)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Local development (v0.6 onwards)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-browser-pwa-unchanged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Browser PWA (unchanged)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-desktop-app-tauri-dev-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Desktop app (Tauri dev mode)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-desktop-app-production" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Desktop app (production)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-invariants-and-principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Invariants and principles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-do-not-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Do-NOT list
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-future-enhancements-v07-deferred" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Future enhancements (v0.7+, deferred)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0039-tauri-v2-desktop-shell-f15-ac-f15-2">ADR-0039 — Tauri v2 desktop shell (F15 AC-F15-2)<a class="headerlink" href="#adr-0039-tauri-v2-desktop-shell-f15-ac-f15-2" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-06-30</li>
+<li><strong>Sprint:</strong> v0.6 (M6 — shippable; F15 cross-platform desktop + PWA)</li>
+<li><strong>Features:</strong> F15 (cross-platform: PWA + Tauri v2 desktop bundles, single codebase) ·
+  F1 (3-panel shell) · F6 (multi-conversation chat) · F4 (knowledge graph)</li>
+<li><strong>Reference:</strong> R13 (Tauri v2 — https://tauri.app) · CLAUDE.md §12 stack</li>
+<li><strong>Invariants owned:</strong> None new (frontend is unchanged; web app remains authoritative)</li>
+<li><strong>Author:</strong> devops-engineer · solution-architect</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>F15 requires Synapse to ship as a <strong>cross-platform desktop app</strong> (macOS, Windows, Linux)
+and a <strong>PWA</strong>, from a <strong>single codebase</strong> (the existing React 19 + Vite frontend in
+<code>frontend/</code>).</p>
+<p><strong>Tauri v2</strong> wraps the built frontend (<code>frontend/dist</code>) in a native shell using WebKit
+on macOS, Edge (MSHTML) on Windows, and GTK WebView on Linux. The web app (PWA + Tauri)
+is functionally identical: same React code, same API calls to the FastAPI backend over
+HTTP, same offline capabilities via the service worker.</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-tauri-v2-as-the-cross-platform-shell-not-electron">2.1 Tauri v2 as the cross-platform shell (not Electron)<a class="headerlink" href="#21-tauri-v2-as-the-cross-platform-shell-not-electron" title="Permanent link">&para;</a></h3>
+<p>Tauri v2 is chosen over Electron because:</p>
+<ul>
+<li><strong>Lightweight:</strong> Uses the system WebKit (not bundled Chromium), resulting in ~10–50 MB
+  binaries vs ~150 MB for Electron. Faster downloads, lower disk footprint.</li>
+<li><strong>Fewer system dependencies:</strong> Reuses OS-native browser engines; no electron process
+  model.</li>
+<li><strong>Security:</strong> No Electron IPC bridge surface; Tauri's Rust core is memory-safe.</li>
+<li><strong>First-class Rust/Tauri ecosystem:</strong> Aligns with the project's Rust infrastructure
+  interests (future MCP, CLI agents).</li>
+</ul>
+<h3 id="22-single-codebase-zero-app-specific-ui-changes-i9-reuse-i3-performance">2.2 Single codebase, zero app-specific UI changes (I9 reuse, I3 performance)<a class="headerlink" href="#22-single-codebase-zero-app-specific-ui-changes-i9-reuse-i3-performance" title="Permanent link">&para;</a></h3>
+<p>The React app is <strong>unchanged</strong>. Tauri's WebView renders the exact same <code>index.html</code> +
+React bundle that the PWA serves:</p>
+<ul>
+<li><strong>Dev mode:</strong> <code>tauri dev</code> → Vite dev server at <code>http://localhost:5173</code> (same as
+  <code>npm run dev</code> in the browser).</li>
+<li><strong>Build mode:</strong> <code>tauri build</code> → Vite production build (<code>frontend/dist</code>) bundled into
+  the native binary.</li>
+</ul>
+<p><strong>No Tauri-specific API calls</strong> in the React code (no <code>window.__TAURI__</code>, no
+platform detection). The app works identically in a PWA or a Tauri window — the UI
+does not know which container it is in.</p>
+<h3 id="23-backend-connectivity-remains-http-over-127001-or-tailscale">2.3 Backend connectivity remains HTTP over 127.0.0.1 (or Tailscale)<a class="headerlink" href="#23-backend-connectivity-remains-http-over-127001-or-tailscale" title="Permanent link">&para;</a></h3>
+<p>Tauri's WebView has the same CORS, CSP, and fetch capabilities as a browser. The
+frontend calls the FastAPI backend via the existing HTTP clients:</p>
+<ul>
+<li><strong>Local dev:</strong> <code>http://localhost:8000</code> (backend started separately via <code>docker compose up</code>).</li>
+<li><strong>Production:</strong> <code>http://127.0.0.1:8000</code> (local bind) or over Tailscale (<code>http://100.x.x.x:8000</code>).</li>
+</ul>
+<p>No custom Tauri commands needed for the backend path — the web app's relative/absolute
+API base is configured via <code>VITE_API_BASE</code> at build time (ADR-0028).</p>
+<h3 id="24-default-close-behavior-standard-quit-on-main-window-close">2.4 Default close behavior: standard (quit on main window close)<a class="headerlink" href="#24-default-close-behavior-standard-quit-on-main-window-close" title="Permanent link">&para;</a></h3>
+<p>The app closes normally when the user closes the main window (standard desktop behavior).
+The reference audit (docs/reference/llm_wiki-audit/01-AUDIT-FUNZIONALE.md F15) noted
+that close-on-hide should be a USER SETTING, not hardcoded. We follow the principle:</p>
+<ul>
+<li><strong>Default:</strong> closing the main window quits the app (standard macOS/Linux/Windows
+  behavior).</li>
+<li><strong>Future enhancement (M7+):</strong> add a Settings toggle (e.g. "Keep in system tray on
+  close") to hide instead of quit — not implemented in v0.6, recorded as a deferred
+  UI improvement.</li>
+</ul>
+<h3 id="25-bundling-targets-deb-appimage-dmg-msi-nsis">2.5 Bundling targets: deb, AppImage, DMG, MSI, NSIS<a class="headerlink" href="#25-bundling-targets-deb-appimage-dmg-msi-nsis" title="Permanent link">&para;</a></h3>
+<p>Tauri's build system generates OS-specific installers:</p>
+<ul>
+<li><strong>Linux:</strong> <code>.deb</code> (Debian packages) and <code>.AppImage</code> (universal runner).</li>
+<li><strong>macOS:</strong> <code>.dmg</code> (disk image; Intel + Apple Silicon via universal binary).</li>
+<li><strong>Windows:</strong> <code>.msi</code> and <code>.nsis</code> (NSIS installer with uninstall support).</li>
+</ul>
+<p>All are CI-built on GitHub Actions (one runner per OS in a matrix job); multi-OS
+native builds are resource-intensive and deferred to CI (LIVE-only).</p>
+<h3 id="26-scaffold-layout-and-ci-wiring-local-verify-only-live-build-on-ci">2.6 Scaffold layout and CI wiring (local verify-only; LIVE build on CI)<a class="headerlink" href="#26-scaffold-layout-and-ci-wiring-local-verify-only-live-build-on-ci" title="Permanent link">&para;</a></h3>
+<p><strong>Local (sandbox) verification:</strong>
+- <code>src-tauri/Cargo.toml</code> is well-formed; <code>cargo metadata</code> resolves via the proxy.
+- <code>tauri.conf.json</code> is valid JSON with v2 schema shape.
+- Frontend <code>npm run build</code> still works (Tauri adds no breakage).
+- <code>cargo check</code> attempts to type-check (will fail on missing system WebKit libs;
+  expected in sandbox — CI runners have them).</p>
+<p><strong>Live (GitHub Actions) build:</strong>
+- Ubuntu 22.04: installs <code>libwebkit2gtk-4.1-dev</code>, <code>libappindicator3-dev</code>, <code>librsvg2-dev</code>.
+- macOS latest: system WebKit is pre-installed.
+- Windows latest: Edge WebView2 is pre-installed (Windows 10+).
+- Matrix job runs <code>npm run tauri build</code> on each runner; artifacts uploaded to release.</p>
+<p>The CI job (<code>tauri-build</code>) is wired into <code>.github/workflows/ci.yml</code> as a <strong>non-blocking
+informational job</strong> (marked <code>continue-on-error: true</code>) or a <strong>tag-only job</strong> (runs on
+<code>v0.6+</code> tags) to avoid slowing down every PR. This is a pragmatic choice: v0.1–v0.5
+were code-only; v0.6 adds the binary build, which is expensive and OS-specific.</p>
+<hr />
+<h2 id="3-repository-layout">3. Repository layout<a class="headerlink" href="#3-repository-layout" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>synapse/
+├── src-tauri/
+│   ├── Cargo.toml               ← Tauri v2 + Rust workspace config
+│   ├── tauri.conf.json          ← v2 schema: app title, window size, bundle targets
+│   ├── build.rs                 ← tauri_build invocation
+│   ├── src/
+│   │   ├── main.rs              ← minimal Tauri app entry (one window, no custom commands)
+│   │   └── lib.rs               ← builder helpers (if any)
+│   ├── capabilities/
+│   │   └── default.json         ← minimal cap set (window/app/tray; no fs/shell escapes)
+│   ├── icons/
+│   │   ├── icon-32x32.png       ← favicon
+│   │   ├── icon-128x128.png     ← system tray
+│   │   ├── icon-256x256.png     ← app launcher
+│   │   ├── icon-512x512.png     ← macOS
+│   │   ├── icon.ico             ← Windows taskbar
+│   │   ├── icon.icns            ← macOS dock (generated on macOS CI)
+│   │   └── generate_icons.sh    ← helper for placeholder generation
+│   ├── target/                  ← (gitignored) Rust build artifacts
+│   ├── .gitignore
+│   └── src-tauri/.DS_Store      ← (gitignored) macOS metadata
+├── frontend/
+│   ├── package.json             ← added: tauri CLI devDep + npm scripts
+│   ├── src/
+│   ├── dist/                    ← (Tauri build output; mounted into binary)
+│   └── vite.config.ts           ← unchanged; `devUrl: http://localhost:5173`
+├── .github/workflows/
+│   ├── ci.yml                   ← added: tauri-build job (matrix, continue-on-error)
+│   └── ...
+└── CLAUDE.md / docs/DEPLOY.md   ← updated with F15 desktop app notes
+</code></pre></div>
+<hr />
+<h2 id="4-configuration">4. Configuration<a class="headerlink" href="#4-configuration" title="Permanent link">&para;</a></h2>
+<h3 id="41-tauriconfjson-key-decisions">4.1 Tauri.conf.json key decisions<a class="headerlink" href="#41-tauriconfjson-key-decisions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Value</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>productName</code></td>
+<td><code>Synapse</code></td>
+<td>Display name in system menus</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td><code>0.6.0</code></td>
+<td>Synced with <code>frontend/package.json</code></td>
+</tr>
+<tr>
+<td><code>identifier</code></td>
+<td><code>ai.synapse.app</code></td>
+<td>Unique reverse-domain ID (iOS-style) for all three platforms</td>
+</tr>
+<tr>
+<td><code>build.beforeBuildCommand</code></td>
+<td><code>npm --prefix ../frontend run build</code></td>
+<td>Build the web app BEFORE bundling</td>
+</tr>
+<tr>
+<td><code>build.devUrl</code></td>
+<td><code>http://localhost:5173</code></td>
+<td>Dev mode → Vite server; must match <code>vite.config.ts</code></td>
+</tr>
+<tr>
+<td><code>build.frontendDist</code></td>
+<td><code>../frontend/dist</code></td>
+<td>Production: use the built static files</td>
+</tr>
+<tr>
+<td><code>app.windows[0]</code></td>
+<td><code>{title: Synapse, width: 1400, height: 900, minWidth: 800, minHeight: 600, resizable: true}</code></td>
+<td>Reasonable desktop app window; usable on 1024x768 minimum</td>
+</tr>
+<tr>
+<td><code>bundle.active</code></td>
+<td><code>true</code></td>
+<td>Enable installer generation</td>
+</tr>
+<tr>
+<td><code>bundle.targets</code></td>
+<td><code>[deb, appimage, dmg, msi, nsis]</code></td>
+<td>Multi-platform installers</td>
+</tr>
+<tr>
+<td><code>bundle.deb.dependsOn</code></td>
+<td><code>[libwebkit2gtk-4.1, libappindicator3, librsvg2]</code></td>
+<td>Linux runtime dependencies</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-environment">4.2 Environment<a class="headerlink" href="#42-environment" title="Permanent link">&para;</a></h3>
+<p>No new env vars required. The frontend's existing <code>VITE_API_BASE</code> (default <code>""</code>, i.e.,
+same-origin relative) works for both PWA and Tauri (both run the same built artifact).</p>
+<p>For Tauri dev mode (<code>npm run tauri dev</code>), the Vite dev server proxy is available at
+<code>http://localhost:5173</code> and proxies API calls to the FastAPI backend (configured in
+<code>frontend/vite.config.ts</code>).</p>
+<hr />
+<h2 id="5-cicd-tauri-build-job">5. CI/CD: Tauri build job<a class="headerlink" href="#5-cicd-tauri-build-job" title="Permanent link">&para;</a></h2>
+<h3 id="51-job-trigger-and-structure">5.1 Job trigger and structure<a class="headerlink" href="#51-job-trigger-and-structure" title="Permanent link">&para;</a></h3>
+<p>New GitHub Actions job <code>tauri-build</code> in <code>.github/workflows/ci.yml</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">tauri-build</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Tauri v2 Desktop Bundles</span>
+<span class="w">  </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ matrix.os }}</span>
+<span class="w">  </span><span class="nt">strategy</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">matrix</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">os</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">ubuntu-22.04</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">macos-latest</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">windows-latest</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">startsWith(github.ref, &#39;refs/tags/v&#39;)</span><span class="w">  </span><span class="c1"># Tag-only (v0.6+)</span>
+<span class="w">  </span><span class="nt">continue-on-error</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                     </span><span class="c1"># Informational; don&#39;t block merge</span>
+<span class="w">  </span><span class="nt">steps</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/checkout@v4</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Set up Node 20</span>
+<span class="w">      </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/setup-node@v4</span>
+<span class="w">      </span><span class="nt">with</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">node-version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;20&quot;</span>
+<span class="w">        </span><span class="nt">cache</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">npm</span>
+<span class="w">        </span><span class="nt">cache-dependency-path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">frontend/package-lock.json</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Set up Rust</span>
+<span class="w">      </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dtolnay/rust-toolchain@stable</span>
+<span class="w">      </span><span class="nt">with</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">x86_64-unknown-linux-gnu,x86_64-pc-windows-msvc,x86_64-apple-darwin</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Install Linux WebKit dependencies</span>
+<span class="w">      </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">runner.os == &#39;Linux&#39;</span>
+<span class="w">      </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">        </span><span class="no">sudo apt-get update &amp;&amp; sudo apt-get install -y \</span>
+<span class="w">          </span><span class="no">libwebkit2gtk-4.1-dev \</span>
+<span class="w">          </span><span class="no">libappindicator3-dev \</span>
+<span class="w">          </span><span class="no">librsvg2-dev \</span>
+<span class="w">          </span><span class="no">patchelf</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Install frontend dependencies</span>
+<span class="w">      </span><span class="nt">working-directory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">frontend</span>
+<span class="w">      </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">npm ci</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Build Tauri app</span>
+<span class="w">      </span><span class="nt">working-directory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">frontend</span>
+<span class="w">      </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">npm run tauri build</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Upload artifacts</span>
+<span class="w">      </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/upload-artifact@v3</span>
+<span class="w">      </span><span class="nt">with</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">synapse-${{ matrix.os }}</span>
+<span class="w">        </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">src-tauri/target/release/bundle/</span>
+<span class="w">        </span><span class="nt">retention-days</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">7</span>
+</code></pre></div>
+<p><strong>Rationale:</strong>
+- <strong>Tag-only (<code>if: startsWith(github.ref, 'refs/tags/v')</code>):</strong> Avoids expensive multi-OS
+  builds on every commit. Native builds only trigger on version tags (e.g. <code>v0.6.0</code>).
+- <strong><code>continue-on-error: true</code>:</strong> If a platform's build fails (e.g., new system lib
+  needed), the job is marked "errored" but does not fail the workflow, allowing the
+  release to proceed with the binaries that succeeded. This is pragmatic for v0.6 M6
+  (first desktop release); can be made blocking in v0.7+ once proven stable.
+- <strong>Matrix:</strong> Same job definition, three runners; Rust toolchain auto-selects the
+  correct target triplet.</p>
+<h3 id="52-release-integration-deferred-to-releaseyml-v06">5.2 Release integration (deferred to release.yml v0.6)<a class="headerlink" href="#52-release-integration-deferred-to-releaseyml-v06" title="Permanent link">&para;</a></h3>
+<p>The <code>tauri build</code> outputs go to <code>src-tauri/target/release/bundle/</code> (platform-specific
+subdirectories). Future <code>release.yml</code> can attach these to the GitHub release; for v0.6
+M6, the artifacts are validated on-tag but not yet integrated into the release page
+(recorded as a deferred task).</p>
+<hr />
+<h2 id="6-frontend-verification-no-changes-required">6. Frontend verification (no changes required)<a class="headerlink" href="#6-frontend-verification-no-changes-required" title="Permanent link">&para;</a></h2>
+<p>The existing <code>frontend/</code> build is unaffected:</p>
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>frontend
+npm<span class="w"> </span>run<span class="w"> </span>build<span class="w">          </span><span class="c1"># ✓ Still works; output: dist/</span>
+npm<span class="w"> </span>run<span class="w"> </span><span class="nb">test</span><span class="w">           </span><span class="c1"># ✓ vitest + Playwright still pass</span>
+npm<span class="w"> </span>run<span class="w"> </span>tauri<span class="w"> </span>dev<span class="w">      </span><span class="c1"># ✓ New: dev in Tauri window (calls vite internally)</span>
+npm<span class="w"> </span>run<span class="w"> </span>tauri<span class="w"> </span>build<span class="w">    </span><span class="c1"># ✓ New: production bundle (on a system with Rust + WebKit libs)</span>
+</code></pre></div>
+<p>Scripts <code>lint</code>, <code>format</code>, <code>test:watch</code> are unchanged.</p>
+<hr />
+<h2 id="7-local-development-v06-onwards">7. Local development (v0.6 onwards)<a class="headerlink" href="#7-local-development-v06-onwards" title="Permanent link">&para;</a></h2>
+<h3 id="71-browser-pwa-unchanged">7.1 Browser PWA (unchanged)<a class="headerlink" href="#71-browser-pwa-unchanged" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Terminal 1: backend</span>
+<span class="nb">cd</span><span class="w"> </span>backend
+docker<span class="w"> </span>compose<span class="w"> </span>up
+
+<span class="c1"># Terminal 2: frontend (web)</span>
+<span class="nb">cd</span><span class="w"> </span>frontend
+npm<span class="w"> </span>run<span class="w"> </span>dev
+<span class="c1"># Opens http://localhost:5173 in your browser</span>
+</code></pre></div>
+<h3 id="72-desktop-app-tauri-dev-mode">7.2 Desktop app (Tauri dev mode)<a class="headerlink" href="#72-desktop-app-tauri-dev-mode" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Terminal 1: backend</span>
+docker<span class="w"> </span>compose<span class="w"> </span>up
+
+<span class="c1"># Terminal 2: frontend (desktop)</span>
+<span class="nb">cd</span><span class="w"> </span>frontend
+npm<span class="w"> </span>run<span class="w"> </span>tauri<span class="w"> </span>dev
+<span class="c1"># Launches a native window running the Vite dev server; API proxy works identically</span>
+</code></pre></div>
+<h3 id="73-desktop-app-production">7.3 Desktop app (production)<a class="headerlink" href="#73-desktop-app-production" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Build and run the bundled release binary</span>
+<span class="nb">cd</span><span class="w"> </span>frontend
+npm<span class="w"> </span>run<span class="w"> </span>tauri<span class="w"> </span>build
+
+<span class="c1"># Artifacts in src-tauri/target/release/bundle/</span>
+<span class="c1"># Linux: src-tauri/target/release/bundle/deb/ or appimage/</span>
+<span class="c1"># macOS: src-tauri/target/release/bundle/macos/Synapse.app</span>
+<span class="c1"># Windows: src-tauri/target/release/bundle/msi/ or nsis/</span>
+</code></pre></div>
+<hr />
+<h2 id="8-invariants-and-principles">8. Invariants and principles<a class="headerlink" href="#8-invariants-and-principles" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>I3 (no main-thread freeze):</strong> Tauri's WebView is a native component; browser
+  rendering thread is independent. No change to the React app's Zustand selectors or
+  streaming parse-at-end rule — both hold.</li>
+<li><strong>I4 (CodeMirror editor):</strong> Unchanged; web app is the source of truth.</li>
+<li><strong>I5 (Obsidian compatibility):</strong> Unchanged; backend handles vault writes.</li>
+<li><strong>I6 (pluggable inference):</strong> Unchanged; backend routes to providers.</li>
+<li><strong>I9 (reuse, no reinvention):</strong> Tauri uses the system WebKit (reuse); no custom
+  commands or bridges (app is thin).</li>
+</ul>
+<p><strong>New principle:</strong> The <strong>PWA and Tauri are functionally equivalent</strong> — same frontend,
+same backend calls, same offline capabilities via service worker. Users can choose
+browser PWA or native Tauri based on preference (browser bookmarks vs native integration).</p>
+<hr />
+<h2 id="9-do-not-list">9. Do-NOT list<a class="headerlink" href="#9-do-not-list" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>DO NOT</strong> add Tauri-specific API calls (no <code>window.__TAURI__</code>, no <code>invoke</code> in React code).</li>
+<li><strong>DO NOT</strong> modify the React app for Tauri (single codebase rule).</li>
+<li><strong>DO NOT</strong> bundle the FastAPI backend inside Tauri (separate container; no bloat).</li>
+<li><strong>DO NOT</strong> hardcode the backend URL in Tauri (reuse <code>VITE_API_BASE</code> env var).</li>
+<li><strong>DO NOT</strong> create two separate build artifacts for PWA vs Tauri (both use <code>frontend/dist</code>).</li>
+<li><strong>DO NOT</strong> add system tray or minimise-to-tray in v0.6 (standard window close = quit).</li>
+<li><strong>DO NOT</strong> run the multi-OS build on every commit (tag-only or continue-on-error).</li>
+<li><strong>DO NOT</strong> add Tauri plugin bloat (use only <code>opener</code> for link handling; avoid <code>updater</code>,
+   <code>http</code>, <code>fs</code> — standard browser APIs + Rust core suffice).</li>
+<li><strong>DO NOT</strong> skip WebKit dependency installation on Linux CI (will fail silently without them).</li>
+<li><strong>DO NOT</strong> commit the <code>src-tauri/target/</code> build directory or <code>Cargo.lock</code> unless explicitly required for reproducibility (not yet decided for v0.6).</li>
+</ol>
+<hr />
+<h2 id="10-future-enhancements-v07-deferred">10. Future enhancements (v0.7+, deferred)<a class="headerlink" href="#10-future-enhancements-v07-deferred" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Deep links:</strong> Register <code>synapse://</code> URL scheme for vault opening (requires Tauri deep-link plugin).</li>
+<li><strong>System tray:</strong> Optional "minimize to tray" via Settings toggle (requires tray plugin + data persistence).</li>
+<li><strong>Updater:</strong> In-app auto-update checker (requires <code>tauri-plugin-updater</code>; deferred for v0.6).</li>
+<li><strong>Push notifications:</strong> Desktop toast notifications from FastAPI via a Tauri plugin (deferred).</li>
+<li><strong>Release page integration:</strong> Attach Tauri binaries to GitHub releases automatically (recorded in v0.6 release.yml).</li>
+</ul>
+<hr />
+<h2 id="11-references">11. References<a class="headerlink" href="#11-references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Tauri v2 docs:</strong> https://tauri.app/en/docs/</li>
+<li><strong>Tauri CLI:</strong> https://tauri.app/en/docs/cli/</li>
+<li><strong>Frontend build:</strong> <code>frontend/vite.config.ts</code> (unchanged; <code>frontendDist</code> points here).</li>
+<li><strong>Cargo.toml conventions:</strong> https://doc.rust-lang.org/cargo/reference/manifest.html</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

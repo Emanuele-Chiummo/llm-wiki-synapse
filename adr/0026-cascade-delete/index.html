@@ -1,0 +1,1207 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0026-cascade-delete/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0026 — Cascade deletion of wiki pages (F13) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0026-cascade-deletion-of-wiki-pages-f13" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0026 — Cascade deletion of wiki pages (F13)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-ground-truth-consumed-existing-seams-reuse-do-not-reinvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Ground truth consumed (existing seams — reuse, do not reinvent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-the-3-method-reference-matching-ac-f13-1-ac-f13-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. The 3-method reference matching (AC-F13-1, AC-F13-2)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. The 3-method reference matching (AC-F13-1, AC-F13-2)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-why-the-c-full-text-fallback-does-not-break-i1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Why the (c) full-text fallback does NOT break I1
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-preserve-shared-entities-the-no-rescan-dead-link-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Preserve shared entities + the no-rescan dead-link cleanup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Preserve shared entities + the no-rescan dead-link cleanup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-the-preserve-shared-rule-ac-f13-2-preserve-clause-ac-f13-3-exact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 The preserve-shared rule (AC-F13-2 preserve clause, AC-F13-3) — EXACT
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-finding-dead-wikilinks-without-a-vault-walk-the-i1-critical-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Finding dead wikilinks WITHOUT a vault walk (the I1-critical algorithm)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-the-dead-link-rewrite-ac-f13-1-step-6-body-only-frontmatter-safe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 The dead-link rewrite (AC-F13-1 step 6) — body-only, frontmatter-safe
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-the-sources-prune-preserve-branch-key-order-preserving-frontmatter-edit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 The sources[] prune (preserve branch) — key-order-preserving frontmatter edit
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-incremental-data-plane-i1-i2-and-migration-need" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Incremental data plane (I1 / I2) and migration need
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Incremental data plane (I1 / I2) and migration need">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-migration-need-none" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Migration need — NONE
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-destructive-op-safety-the-mandatory-dry-run-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Destructive-op safety — the mandatory dry-run / preview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Destructive-op safety — the mandatory dry-run / preview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-rest-surface-d4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 REST surface (D4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-d3-sequence-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. D3 — sequence diagram
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-do-not-list-rejection-triggers-any-one-is-a-p0-block-at-pr-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Do-NOT list (rejection triggers — any one is a P0 block at PR review)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-known-consequences-fu-p4-3-atomicity-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Known consequences (FU-P4-3 — atomicity note)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-architect-review-gate-phase-4-exit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Architect-review gate (Phase 4 exit)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0026-cascade-deletion-of-wiki-pages-f13">ADR-0026 — Cascade deletion of wiki pages (F13)<a class="headerlink" href="#adr-0026-cascade-deletion-of-wiki-pages-f13" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-06-29</li>
+<li><strong>Sprint:</strong> v0.5 (M5 Phase 4)</li>
+<li><strong>Feature:</strong> F13 (Cascade deletion — 3-method matching, preserve shared entities, cleanup index.md + dead wikilinks)</li>
+<li><strong>Supersedes the F13 interface stub in:</strong> <code>docs/sprints/v0.5-architecture.md</code> §2.5 / §6.5 (this ADR is the detailed design; the stub stands as the coherence map)</li>
+<li><strong>Resolves:</strong> AQ-v0.5-5 (soft delete <code>deleted_at=now()</code>; the watcher already ignores soft-deleted rows; F13 also deletes the originating <code>raw/sources/</code> file so there is no resurrection on restart)</li>
+<li><strong>Invariants owned:</strong> <strong>I1</strong> (HEADLINE — targeted edits only; NEVER a full vault rescan; <code>data_version</code> +1 exactly once; NO synchronous FA2) · <strong>I5</strong> (HEADLINE — dead-wikilink cleanup is frontmatter-safe; <code>wiki/</code> stays a valid Obsidian vault) · I2 (the single <code>data_version</code> bump fires the debounced GraphCache recompute, no forced inline FA2) · I7 (single pass, no loop; one bounded provider-free operation)</li>
+<li><strong>Author:</strong> solution-architect</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>F13 is the highest vault-integrity risk in M5. Deleting a wiki page is a <strong>destructive, multi-store</strong>
+operation that must keep four artifacts consistent without ever scanning the vault:</p>
+<ol>
+<li><strong>Postgres</strong> — the deleted page's <code>pages</code> row (soft-delete), the <code>links</code> rows that point at it,
+   and the <code>edges</code> rows that touch it.</li>
+<li><strong>Qdrant</strong> — the deleted page's vector point.</li>
+<li><strong><code>vault/wiki/index.md</code></strong> — the K3 catalogue entry for the deleted page.</li>
+<li><strong>Every other <code>wiki/*.md</code> page that contains <code>[[&lt;deleted title&gt;]]</code></strong> — those wikilinks become
+   <strong>dead</strong> the instant the target is gone, and a dead <code>[[wikilink]]</code> is exactly the I5 failure class
+   (Obsidian shows it as a broken link; <code>test_obsidian_check.py</code> is the gate).</li>
+</ol>
+<p>Two invariants dominate the design and cannot be traded:</p>
+<ul>
+<li><strong>I1 — incremental only.</strong> F13 must touch ONLY the files that reference the deleted page. It must
+  find those files from the <strong><code>links</code> table back-reference index</strong> (built incrementally by
+  <code>persist_links</code> on every <code>write_wiki_page</code>), NEVER by walking <code>vault/wiki/</code>. <code>data_version</code> is bumped
+  <strong>exactly once</strong>; no FA2 is forced (the existing debounced <code>GraphCache</code> recompute fires on the bump).</li>
+<li><strong>I5 — Obsidian-valid.</strong> Rewriting a dead <code>[[Target]]</code> to plain <code>Target</code> must operate on the <strong>body
+  only</strong> and must never corrupt the YAML frontmatter block. The rewrite is a body-scoped, anchored
+  string replacement, not a blind global replace.</li>
+</ul>
+<h3 id="11-ground-truth-consumed-existing-seams-reuse-do-not-reinvent">1.1 Ground truth consumed (existing seams — reuse, do not reinvent)<a class="headerlink" href="#11-ground-truth-consumed-existing-seams-reuse-do-not-reinvent" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>pages</code> model (<code>models.py</code>).</strong> Soft-delete is <code>deleted_at</code> (ADR-0005); the partial-unique index
+  <code>uix_pages_vault_file_path_live</code> is <code>WHERE deleted_at IS NULL</code>, so a tombstoned row never blocks a
+  later re-create. <code>pages.file_path</code> for a <strong>wiki page</strong> is <code>wiki/&lt;subdir&gt;/&lt;slug&gt;.md</code>; for a <strong>source</strong>
+  it is <code>raw/sources/...</code>. <code>pages.sources</code> is the K6 JSONB <code>sources[]</code> array (frontmatter provenance).</li>
+<li><strong><code>links</code> model.</strong> One row per <code>[[Target]]</code> occurrence: <code>source_page_id</code> = the page (file) that
+  <em>contains</em> the wikilink; <code>target_title</code> = the literal <code>[[Target]]</code> string as written;
+  <code>target_page_id</code> = the resolved FK (NULL while dangling); <code>dangling</code> flag. <strong>This table IS the
+  no-rescan back-reference index</strong> — given a deleted page, the rows with <code>target_page_id == deleted</code>
+  (or <code>target_title</code> matching the deleted title) are exactly the referencing files (§4.2).</li>
+<li><strong><code>edges</code> model.</strong> 4-signal weighted undirected pairs (ADR-0012/0016); <code>kind ∈ {link, source}</code>;
+  indexed on both endpoints (<code>ix_edges_source_page_id</code> / <code>ix_edges_target_page_id</code>, comment already
+  cites "cascade cleanup (F13, v0.5)"). The <strong>shared-entity</strong> check reads <code>edges</code> (source-overlap), it
+  never recomputes them inline.</li>
+<li><strong><code>delete_file()</code> / <code>delete_point()</code> (<code>orchestrator.py</code> / <code>qdrant_client.py</code>).</strong> The existing
+  soft-delete path: <code>pages.deleted_at = now()</code> + Qdrant point hard-delete. F13 <strong>mirrors</strong> this
+  primitive (it does not reinvent soft-delete) and extends it with the cleanup steps.</li>
+<li><strong><code>update_index()</code> (<code>wiki/index.py</code>).</strong> Regenerates <code>index.md</code> from <strong>live</strong> pages
+  (<code>deleted_at IS NULL</code>). Once the deleted page is tombstoned, calling <code>update_index</code> once <strong>removes
+  its catalogue entry automatically</strong> — F13 does not hand-edit <code>index.md</code>.</li>
+<li><strong><code>parse_wikilinks()</code> / <code>persist_links()</code> (<code>wiki/links.py</code>).</strong> The wikilink grammar
+  (<code>[[Target]]</code> / <code>[[Target|alias]]</code> / <code>[[Target#section]]</code>) and the incremental link upsert. F13
+  reuses <code>persist_links</code> to re-derive the <code>links</code> rows of each rewritten file (so the back-reference
+  index stays correct after the rewrite).</li>
+<li><strong><code>bump_version()</code> + <code>_graph_cache.notify_bump()</code> (<code>orchestrator.py</code>).</strong> The single <code>data_version</code>
+  +1 + the GraphCache debounce notification (I2). F13 calls this <strong>once</strong> at the end.</li>
+<li><strong><code>@app.delete("/provider/config/{config_id}")</code> (<code>main.py</code>).</strong> The house DELETE pattern (path-param
+  UUID, 404 on miss, typed response). F13's REST mirrors it.</li>
+</ul>
+<hr />
+<h2 id="2-decision-summary">2. Decision summary<a class="headerlink" href="#2-decision-summary" title="Permanent link">&para;</a></h2>
+<p><code>backend/app/ops/cascade_delete.py</code> implements a <strong>single-pass, inference-free</strong> operation
+(NOT a loop). The entry point computes a plan from Postgres + the <code>links</code> back-reference index,
+applies it with targeted file writes, and bumps <code>data_version</code> exactly once. A <strong>mandatory dry-run /
+preview</strong> path computes the same plan <strong>without applying it</strong> (this deletes user data — preview is not
+optional). Capability-aware routing, providers, and FA2 are <strong>not involved</strong> — F13 makes <strong>zero</strong>
+inference calls and <strong>zero</strong> FA2 calls.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># backend/app/ops/cascade_delete.py  (signatures only — no implementation in this ADR)</span>
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">WikilinkRewrite</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;One dead [[Target]] → plain-text rewrite in one referencing wiki file.&quot;&quot;&quot;</span>
+    <span class="n">source_page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span>      <span class="c1"># the wiki page (file) that contains the dead link</span>
+    <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span>                 <span class="c1"># wiki/&lt;subdir&gt;/&lt;slug&gt;.md  (targeted write target)</span>
+    <span class="n">target_title</span><span class="p">:</span> <span class="nb">str</span>              <span class="c1"># the [[Target]] string being neutralised</span>
+    <span class="n">occurrences</span><span class="p">:</span> <span class="nb">int</span>               <span class="c1"># how many [[Target]] spans in this file&#39;s BODY</span>
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CascadePlan</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The computed effect of deleting `page_id` — returned by preview, consumed by apply.&quot;&quot;&quot;</span>
+    <span class="n">target_page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span>
+    <span class="n">target_title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">target_file_path</span><span class="p">:</span> <span class="nb">str</span>                          <span class="c1"># wiki/... of the page being deleted</span>
+    <span class="n">will_delete</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">]</span>                    <span class="c1"># pages whose sources[] becomes empty (incl. target)</span>
+    <span class="n">will_preserve_with_pruned_source</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">]</span>  <span class="c1"># shared pages: keep, prune one sources[] entry</span>
+    <span class="n">wikilinks_to_rewrite</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">WikilinkRewrite</span><span class="p">]</span>     <span class="c1"># dead-link cleanup edits (no-rescan, §4)</span>
+    <span class="n">index_entry_will_be_removed</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">raw_source_to_delete</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>               <span class="c1"># raw/sources/... file removed (AQ-v0.5-5); None if N/A</span>
+    <span class="n">shared_entity_warnings</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>               <span class="c1"># source-overlap pages (edges) — WARN, never block</span>
+    <span class="n">match_methods_used</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>              <span class="c1"># ref_file_path → &quot;exact&quot; | &quot;slug&quot; | &quot;fulltext&quot; (AC-F13-2)</span>
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CascadeResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The applied outcome — backs the DELETE response (AC-F13-5).&quot;&quot;&quot;</span>
+    <span class="n">deleted_page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span>
+    <span class="n">wikilinks_cleaned</span><span class="p">:</span> <span class="nb">int</span>                          <span class="c1"># total [[Target]] spans neutralised</span>
+    <span class="n">index_entry_removed</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">shared_entity_warnings</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">files_written</span><span class="p">:</span> <span class="nb">int</span>                              <span class="c1"># MUST equal len(plan.wikilinks_to_rewrite) (AC-F13-4a)</span>
+    <span class="n">data_version_after</span><span class="p">:</span> <span class="nb">int</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">plan_cascade_delete</span><span class="p">(</span><span class="n">page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CascadePlan</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;DRY-RUN. Compute the full effect WITHOUT mutating any store or file. Read-only:</span>
+<span class="sd">    no soft-delete, no Qdrant delete, no file write, no data_version bump (AC-F13 preview gate).&quot;&quot;&quot;</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cascade_delete</span><span class="p">(</span><span class="n">page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CascadeResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;SINGLE PASS (not a loop). Computes the plan via plan_cascade_delete(), then applies it:</span>
+<span class="sd">    soft-delete → Qdrant delete → targeted wiki rewrites → re-persist their links →</span>
+<span class="sd">    update_index() once → delete raw/sources/ file → bump_version() ONCE. Idempotent on a</span>
+<span class="sd">    soft-deleted page: raises PageNotFoundError → HTTP 404 (AC-F13-5c / AC-F13-7c).&quot;&quot;&quot;</span>
+</code></pre></div>
+<hr />
+<h2 id="3-the-3-method-reference-matching-ac-f13-1-ac-f13-2">3. The 3-method reference matching (AC-F13-1, AC-F13-2)<a class="headerlink" href="#3-the-3-method-reference-matching-ac-f13-1-ac-f13-2" title="Permanent link">&para;</a></h2>
+<p>To delete a wiki page Synapse must find <strong>every other wiki file that links to it</strong>. The <code>links</code> table
+is the primary, no-rescan index, but a wikilink is a free-text title string that may not have resolved
+to <code>target_page_id</code> (dangling), or may be written with case/spacing variation. So matching is a
+<strong>3-method union</strong>, tried in priority order, and the method that found each reference is <strong>logged</strong>
+(one log line per found reference with its method label — AC-F13-2).</p>
+<p>Let <code>T</code> = the deleted page's <code>title</code> (and its <code>slug = _slugify(T)</code>).</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Method</th>
+<th>How it finds referencing files</th>
+<th>No-rescan?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>(a)</strong></td>
+<td><strong>Exact resolved/title match in <code>links</code></strong></td>
+<td><code>SELECT source_page_id, target_title FROM links WHERE target_page_id = :deleted_id OR target_title = :T</code>. Catches every link already resolved to the page, plus literal-title dangling links.</td>
+<td><strong>Yes</strong> — pure index read. The primary, authoritative method.</td>
+</tr>
+<tr>
+<td><strong>(b)</strong></td>
+<td><strong>Slug-normalised match in <code>links</code></strong></td>
+<td>For the remaining <code>links</code> rows not caught by (a), compare <code>_slugify(target_title) == _slugify(T)</code>. Covers <code>[[my page]]</code> vs title <code>My Page</code>, mixed case, and hyphen/space variants. Evaluated over the <strong><code>links</code> rows only</strong> (still no vault walk).</td>
+<td><strong>Yes</strong> — read <code>links</code>, normalise in Python.</td>
+</tr>
+<tr>
+<td><strong>(c)</strong></td>
+<td><strong>Full-text scan of <code>wiki/*.md</code> — FALLBACK ONLY</strong></td>
+<td>A <code>[[Target]]</code> literal-substring scan across <code>wiki/*.md</code> bodies, run <strong>only</strong> to catch a link that exists on disk but is <strong>absent from <code>links</code></strong> (e.g. a hand-edited file the indexer has not re-parsed). This IS a file read — see §3.1 for why it is I1-safe and bounded.</td>
+<td>Bounded fallback (see §3.1).</td>
+</tr>
+</tbody>
+</table>
+<p>The union of (a) ∪ (b) ∪ (c), de-duplicated by <code>source_page_id</code> (or by file_path for (c)-only hits),
+is the set of files needing a rewrite. Each entry records its winning method in
+<code>CascadePlan.match_methods_used</code> for the AC-F13-2 log assertion.</p>
+<h3 id="31-why-the-c-full-text-fallback-does-not-break-i1">3.1 Why the (c) full-text fallback does NOT break I1<a class="headerlink" href="#31-why-the-c-full-text-fallback-does-not-break-i1" title="Permanent link">&para;</a></h3>
+<p>I1 forbids a <strong>full-vault rescan as the indexing strategy</strong> — re-deriving the whole index from a vault
+walk on every change. The (c) fallback is <strong>not</strong> that: it is a <strong>last-resort consistency net</strong>, scoped
+to the <strong>already-enumerated set of live wiki pages</strong> (the <code>pages</code> rows with
+<code>file_path LIKE 'wiki/%'</code> and <code>deleted_at IS NULL</code>), reading each candidate file <strong>once</strong> purely to
+substring-match <code>[[T]]</code>. It does not re-embed, does not re-parse the whole vault, does not rebuild the
+graph, and touches no source files. It exists because a hand-edited dead link that the indexer never
+saw would otherwise survive the delete and break I5 — the lesser risk is the bounded read.</p>
+<p><strong>Bounding (I7):</strong> (c) is gated by <code>CASCADE_FULLTEXT_MAX_FILES</code> (default 5000) and is <strong>skipped
+entirely</strong> when (a) ∪ (b) already covers the candidate set with no dangling-title ambiguity, so the
+common case never touches the disk for matching. The architect-review gate (§9) requires that the test
+suite proves (c) is NOT invoked on the happy path (links-table hit).</p>
+<hr />
+<h2 id="4-preserve-shared-entities-the-no-rescan-dead-link-cleanup">4. Preserve shared entities + the no-rescan dead-link cleanup<a class="headerlink" href="#4-preserve-shared-entities-the-no-rescan-dead-link-cleanup" title="Permanent link">&para;</a></h2>
+<h3 id="41-the-preserve-shared-rule-ac-f13-2-preserve-clause-ac-f13-3-exact">4.1 The preserve-shared rule (AC-F13-2 preserve clause, AC-F13-3) — EXACT<a class="headerlink" href="#41-the-preserve-shared-rule-ac-f13-2-preserve-clause-ac-f13-3-exact" title="Permanent link">&para;</a></h3>
+<p>A wiki page produced from <strong>multiple</strong> source documents (its frontmatter <code>sources[]</code> lists more than
+one <code>raw/sources/...</code> path) must <strong>survive</strong> the deletion of any single one of those sources. The rule
+is precise and asymmetric:</p>
+<blockquote>
+<p>When deleting a <strong>source</strong> document <code>X</code> (a <code>raw/sources/...</code> page), partition the wiki pages that
+reference <code>X</code> in their <code>sources[]</code>:
+- <strong>DELETE</strong> a wiki page <strong>iff</strong> removing <code>X</code> from its <code>sources[]</code> leaves <code>sources[]</code> <strong>empty</strong>
+  (<code>X</code> was its only provenance). These go in <code>will_delete</code>.
+- <strong>PRESERVE + PRUNE</strong> a wiki page whose <code>sources[]</code> still contains at least one other entry after
+  removing <code>X</code>: the page is <strong>kept</strong>, its frontmatter <code>sources[]</code> has the <code>X</code> entry removed (a
+  targeted, frontmatter-safe edit — §4.4), and its <code>pages.sources</code> JSONB is updated to match. These
+  go in <code>will_preserve_with_pruned_source</code>.</p>
+</blockquote>
+<p>When the deletion target is itself a <strong>wiki page</strong> (not a source), <code>will_delete = {that page}</code> and the
+<code>sources[]</code> partition is empty — the rule degenerates cleanly.</p>
+<p><strong>Shared-entity warnings (AC-F13-3) are advisory, never blocking.</strong> Pages connected to the target by a
+<code>kind='source'</code> edge in the <code>edges</code> table (source-overlap) are surfaced as <code>shared_entity_warnings</code>
+(a WARNING log line + a <code>shared_entity_warnings: list[str]</code> field on the response). <strong>The deletion
+always proceeds</strong> — shared entities do NOT block it (AC-F13-3a). The warning is for the human to review
+after the fact (and is shown in the confirmation modal, AC-F13-6a).</p>
+<h3 id="42-finding-dead-wikilinks-without-a-vault-walk-the-i1-critical-algorithm">4.2 Finding dead wikilinks WITHOUT a vault walk (the I1-critical algorithm)<a class="headerlink" href="#42-finding-dead-wikilinks-without-a-vault-walk-the-i1-critical-algorithm" title="Permanent link">&para;</a></h3>
+<p>The set of files whose <code>[[Target]]</code> becomes dead is <strong>exactly</strong> the §3 3-method reference set, computed
+<strong>primarily from the <code>links</code> table</strong> (the incremental back-reference index <code>persist_links</code> maintains).
+The algorithm:</p>
+<div class="highlight"><pre><span></span><code>1. matches = method_a(links, deleted_id, T)
+            ∪ method_b(links, T)
+            ∪ method_c(live wiki pages, T)   # fallback only, §3.1
+2. for each distinct source_page_id (or (c)-only file_path) in matches:
+       resolve its file_path (it is a wiki/... page row, or the (c) scan path)
+       record WikilinkRewrite(source_page_id, file_path, target_title=T, occurrences=count)
+3. wikilinks_to_rewrite = that list   # ONLY these files will be opened for writing (I1)
+</code></pre></div>
+<p>No step enumerates <code>vault/wiki/</code> to <em>find</em> references except the bounded (c) fallback; the authoritative
+source is the index. The number of files written equals <code>len(wikilinks_to_rewrite)</code> and the test asserts
+no other file is read or written (AC-F13-4a/b).</p>
+<h3 id="43-the-dead-link-rewrite-ac-f13-1-step-6-body-only-frontmatter-safe">4.3 The dead-link rewrite (AC-F13-1 step 6) — body-only, frontmatter-safe<a class="headerlink" href="#43-the-dead-link-rewrite-ac-f13-1-step-6-body-only-frontmatter-safe" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Amendment — DEFECT-F13-002 fix (re-verified 2026-06-29):</strong> The original design claimed "the
+frontmatter block is re-emitted byte-for-byte via <code>frontmatter.dumps</code>". That claim was FALSE:
+PyYAML's default <code>Dumper</code> reorders keys alphabetically and changes list-item indentation on every
+round-trip. The fix replaced the <code>frontmatter.loads/dumps</code> round-trip in the dead-wikilink rewrite
+path with a raw <code>---</code> split (<code>_rewrite_body_preserving_frontmatter</code>). The <code>_prune_sources</code> path
+intentionally mutates <code>sources[]</code> content so a full round-trip is unavoidable there, but now uses
+<code>sort_keys=False</code> to preserve key order (see §4.4). The description below reflects the as-built
+implementation.</p>
+</blockquote>
+<p>For each <code>WikilinkRewrite</code>, F13 opens <strong>only that one file</strong> and rewrites dead links in the
+<strong>body only</strong>, keeping the frontmatter block <strong>byte-for-byte identical</strong>:</p>
+<p>The helper <code>_rewrite_body_preserving_frontmatter(raw, target_title)</code> splits the raw file content
+on <code>---\n</code> fences (<code>str.split("---\n", maxsplit=2)</code>) to isolate the frontmatter block as a raw
+string. The frontmatter block is kept <strong>entirely unchanged</strong> — no PyYAML parse, no round-trip,
+no re-serialisation. The body (the third segment) is passed to <code>_rewrite_body</code>, which applies the
+wikilink substitutions:</p>
+<ul>
+<li><code>[[T]]</code>          → <code>T</code></li>
+<li><code>[[T|alias]]</code>    → <code>alias</code>   (the displayed text is preserved — Obsidian renders the alias)</li>
+<li><code>[[T#section]]</code>  → <code>T</code></li>
+<li><code>[[t]]</code> / case-or-slug variants caught by method (b) → their displayed text</li>
+</ul>
+<p>The replacement is performed with an <strong>anchored regex</strong> over the body string (the same <code>_WIKILINK_RE</code>
+grammar from <code>wiki/links.py</code>, matched against <code>T</code> / <code>slugify(T)</code>), so it cannot touch a <code>[[OtherPage]]</code>
+link or any frontmatter key. The function returns <code>None</code> when the body is unchanged, preventing a
+no-op file write. After writing, F13 re-runs <code>parse_wikilinks(new_body)</code> + <code>persist_links(...)</code> for
+that page so the <code>links</code> index reflects the removed link (the row's <code>dangling</code>/<code>target_page_id</code> no
+longer points at the deleted page). Affected <code>links</code> rows that previously pointed at the deleted
+page have <code>dangling=True</code> set (AC-F13-1 step 7) for any link the rewrite did not remove (defensive
+— should be none after a clean rewrite).</p>
+<blockquote>
+<p><strong>Configurable dead-link form.</strong> The default neutralisation is plain text (display text retained).
+A <code>CASCADE_DEAD_LINK_STYLE</code> env (<code>plain</code> | <code>strikethrough</code>) is reserved; <code>plain</code> is the M5 shipped
+behavior and the only one the <code>test_obsidian_check.py</code> gate is asserted against. <code>strikethrough</code>
+(<code>~~T~~</code>) is a post-M5 nicety, not built now.</p>
+</blockquote>
+<h3 id="44-the-sources-prune-preserve-branch-key-order-preserving-frontmatter-edit">4.4 The <code>sources[]</code> prune (preserve branch) — key-order-preserving frontmatter edit<a class="headerlink" href="#44-the-sources-prune-preserve-branch-key-order-preserving-frontmatter-edit" title="Permanent link">&para;</a></h3>
+<p>For each page in <code>will_preserve_with_pruned_source</code>, F13 opens only that file, loads it with
+<code>frontmatter.loads</code>, removes <code>X</code> from the <code>sources</code> list in the metadata dict, re-emits with
+<code>frontmatter.dumps(sort_keys=False)</code>, and updates <code>pages.sources</code> (JSONB) to match — a targeted
+edit, never a vault walk. Passing <code>sort_keys=False</code> preserves the original YAML key order (fixing
+DEFECT-F13-002 for this path); the <code>sources</code> value itself changes by design (the pruned entry is
+removed), so byte-identical output is impossible and not claimed. Other keys and their values are
+unchanged. This page is <strong>not</strong> deleted, its Qdrant point is <strong>not</strong> removed, and it stays in
+<code>index.md</code>.</p>
+<hr />
+<h2 id="5-incremental-data-plane-i1-i2-and-migration-need">5. Incremental data plane (I1 / I2) and migration need<a class="headerlink" href="#5-incremental-data-plane-i1-i2-and-migration-need" title="Permanent link">&para;</a></h2>
+<p>The applied <code>cascade_delete</code> performs, in one pass, in dependency order:</p>
+<ol>
+<li><strong>Soft-delete</strong> every page in <code>will_delete</code>: <code>pages.deleted_at = now()</code> (mirrors <code>delete_file</code>,
+   ADR-0005). No hard row delete — metadata is retained for audit/cascade.</li>
+<li><strong>Qdrant:</strong> <code>delete_point(page_id)</code> for each deleted page (hard-delete; soft-deleted pages must not
+   surface in F5 search). Reuses the existing primitive (I9).</li>
+<li><strong>Wiki rewrites:</strong> apply each <code>WikilinkRewrite</code> (§4.3) + each <code>sources[]</code> prune (§4.4) — targeted
+   writes to <strong>only</strong> the referencing files; re-persist their <code>links</code>.</li>
+<li><strong><code>links</code> / <code>edges</code>:</strong> set <code>dangling=True</code> on any residual link rows pointing at a deleted page
+   (AC-F13-1 step 7); delete <code>edges</code> rows touching a deleted page (the canonical-pair rows on both
+   endpoints, via the two endpoint indexes). Edge deletion keeps <code>GET /graph</code> honest before the
+   recompute; the recompute will re-derive the remainder.</li>
+<li><strong><code>index.md</code>:</strong> call <code>update_index()</code> <strong>once</strong> — it reads live pages, so the deleted page's entry is
+   gone automatically (K3, I1). No hand-edit.</li>
+<li><strong><code>raw/sources/</code> file (AQ-v0.5-5):</strong> when the deletion originates from removing a source <code>X</code>, delete
+   the <code>raw/sources/X</code> file from disk so the watcher sees a DELETE (not a CREATE) on restart and <strong>does
+   not resurrect</strong> the page. The watcher already ignores <code>deleted_at IS NOT NULL</code> rows by construction
+   (<code>_load_page</code> filters them; the partial-unique index permits the tombstone), so even absent the file
+   delete there is no live row — the file delete closes the restart-resurrection gap belt-and-braces.</li>
+<li><strong><code>bump_version()</code> EXACTLY ONCE</strong> at the very end, then <code>_graph_cache.notify_bump(new_version)</code> — the
+   debounced GraphCache recompute fires on its own schedule (I2). F13 <strong>NEVER</strong> calls
+   <code>GraphEngine.recompute()</code> / FA2 inline (AC-F13-4c/d). The bump is +1 regardless of how many pages or
+   files were touched (AC-F13-4c).</li>
+</ol>
+<p><strong>Watcher non-interference (AC-F13-4e).</strong> The wiki rewrites in step 3 are written by the backend
+directly to <code>vault/wiki/</code>. The watcher observes only <code>vault/raw/sources/</code> (its scheduled directory), so
+a wiki-file write produces <strong>no</strong> watcher event and <strong>no</strong> re-ingest. The only watcher-visible event is
+the step-6 <code>raw/sources/</code> DELETE, which routes to <code>delete_file()</code> and finds the row already tombstoned
+(no-op). The watcher docstring gains an explicit note that soft-deleted rows are never resurrected.</p>
+<h3 id="51-migration-need-none">5.1 Migration need — <strong>NONE</strong><a class="headerlink" href="#51-migration-need-none" title="Permanent link">&para;</a></h3>
+<p>F13 reuses <code>pages.deleted_at</code> (ADR-0005), <code>links.dangling</code>/<code>links.target_page_id</code>, the two <code>edges</code>
+endpoint indexes (already present, comment cites F13), <code>pages.sources</code> (JSONB), and <code>vault_state</code>. <strong>No
+new column, no new table, no Alembic migration.</strong> D2 (<code>schema.mmd</code>) is unchanged by F13. (F10 took
+Alembic 0009; F9 took 0010; F13 takes none.)</p>
+<hr />
+<h2 id="6-destructive-op-safety-the-mandatory-dry-run-preview">6. Destructive-op safety — the mandatory dry-run / preview<a class="headerlink" href="#6-destructive-op-safety-the-mandatory-dry-run-preview" title="Permanent link">&para;</a></h2>
+<p>F13 deletes user data. A <strong>preview is mandatory</strong>, not optional. The design separates <strong>plan</strong> from
+<strong>apply</strong> at the function boundary (<code>plan_cascade_delete</code> is read-only; <code>cascade_delete</code> mutates) and at
+the REST boundary, so the UI can always show the human exactly what will happen — including the
+<code>shared_entity_warnings</code> — <strong>before</strong> any mutation (AC-F13-6a: the confirmation modal lists warnings
+before any action).</p>
+<h3 id="61-rest-surface-d4">6.1 REST surface (D4)<a class="headerlink" href="#61-rest-surface-d4" title="Permanent link">&para;</a></h3>
+<p>Mirrors the house DELETE pattern (<code>DELETE /provider/config/{id}</code>).</p>
+<div class="highlight"><pre><span></span><code>POST /pages/{id}/cascade-delete/preview   → 200   (DRY-RUN — read-only, mutates nothing)
+{
+  &quot;target_page_id&quot;: &quot;...&quot;,
+  &quot;target_title&quot;: &quot;...&quot;,
+  &quot;will_delete&quot;: [&quot;...uuid...&quot;],
+  &quot;will_preserve_with_pruned_source&quot;: [&quot;...uuid...&quot;],
+  &quot;wikilinks_to_rewrite&quot;: [
+    {&quot;source_page_id&quot;:&quot;...&quot;,&quot;file_path&quot;:&quot;wiki/concepts/x.md&quot;,&quot;target_title&quot;:&quot;X&quot;,&quot;occurrences&quot;:2}
+  ],
+  &quot;index_entry_will_be_removed&quot;: true,
+  &quot;raw_source_to_delete&quot;: &quot;raw/sources/x.md&quot;,
+  &quot;shared_entity_warnings&quot;: [&quot;Page &#39;Y&#39; shares source overlap with &#39;X&#39;&quot;],
+  &quot;match_methods_used&quot;: {&quot;wiki/concepts/x.md&quot;: &quot;exact&quot;}
+}
+→ 404 if the page does not exist or is already soft-deleted.
+
+DELETE /pages/{id}                        → 200   (APPLY — single pass)
+{
+  &quot;deleted_page_id&quot;: &quot;...&quot;,
+  &quot;wikilinks_cleaned&quot;: 3,
+  &quot;index_entry_removed&quot;: true,
+  &quot;shared_entity_warnings&quot;: [&quot;...&quot;]
+}
+→ 404 on a non-existent OR already soft-deleted id (idempotent double-delete, AC-F13-5c).
+</code></pre></div>
+<p><code>DELETE /pages/{id}</code> is the canonical destructive endpoint (AC-F13-5). The preview is a <strong>POST</strong>
+(it is an action that computes a plan, may be called repeatedly, and shares the <code>/pages/{id}</code> namespace)
+returning <strong>200</strong>. Both are documented in <code>docs/api/openapi.json</code> via <code>make openapi</code> (I8). The frontend
+(AC-F13-6) calls the preview to populate the confirmation modal, then <code>DELETE</code> on confirm; cancel makes
+no call.</p>
+<blockquote>
+<p><strong>Why not a <code>?cascade=true</code> query flag on DELETE.</strong> A separate <strong>preview endpoint</strong> is required for
+the dry-run regardless; given that, a single unambiguous <code>DELETE /pages/{id}</code> (always cascade — there
+is no non-cascade delete of a wiki page that keeps the vault valid) is cleaner than a flag whose
+<code>false</code> value would produce an invalid vault. Cascade is the only correct delete semantics here, so it
+is the default and only behavior.</p>
+</blockquote>
+<hr />
+<h2 id="7-d3-sequence-diagram">7. D3 — sequence diagram<a class="headerlink" href="#7-d3-sequence-diagram" title="Permanent link">&para;</a></h2>
+<p><code>docs/sequences/cascade-delete.mmd</code> (this ADR's companion, S-D3-2 / AC-D3-CD-1) names the phases:
+<strong>DELETE /pages/{id} → 3-method reference match (links table; fulltext fallback) → preserve/prune
+partition → soft-delete + Qdrant delete → frontmatter-safe dead-wikilink rewrite (targeted writes) →
+update_index() → delete raw/sources/ file → bump data_version once → return warnings</strong>, with the
+shared-entity warning shown as an explicit note/branch. Rendered by <code>mmdc</code> in CI (AC-D3-CI-1).</p>
+<hr />
+<h2 id="8-do-not-list-rejection-triggers-any-one-is-a-p0-block-at-pr-review">8. Do-NOT list (rejection triggers — any one is a P0 block at PR review)<a class="headerlink" href="#8-do-not-list-rejection-triggers-any-one-is-a-p0-block-at-pr-review" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Do NOT full-rescan the vault to find references (I1).</strong> References come from the <code>links</code>
+   back-reference index (methods a/b). The (c) full-text fallback is bounded, last-resort, scoped to the
+   enumerated live-wiki set, and MUST be skipped on the links-table-hit happy path. A blind
+   <code>glob('wiki/**/*.md')</code> to find links is a reject.</li>
+<li><strong>Do NOT call <code>GraphEngine.recompute()</code> / FA2 inline (I2).</strong> F13 bumps <code>data_version</code> <strong>once</strong> and
+   lets the debounced GraphCache recompute. A synchronous FA2 in the delete path is a reject.</li>
+<li><strong>Do NOT bump <code>data_version</code> more than once</strong> (AC-F13-4c). One delete = one +1, regardless of pages
+   or files touched. A bump-per-file is a reject.</li>
+<li><strong>Do NOT leave a dead <code>[[wikilink]]</code> anywhere (I5).</strong> Every dead link in every referencing file is
+   rewritten to plain text (or its alias). <code>test_obsidian_check.py</code> 15/15 is the gate; a surviving dead
+   link is a reject.</li>
+<li><strong>Do NOT corrupt YAML frontmatter (I5).</strong> Dead-wikilink rewrites use a raw <code>---\n</code> split
+   (<code>_rewrite_body_preserving_frontmatter</code>) that keeps the frontmatter block byte-for-byte; the body
+   regex never matches inside the <code>---</code> fences. <code>sources[]</code> prunes use <code>frontmatter.dumps(sort_keys=False)</code>
+   to preserve key order while mutating only the <code>sources</code> value. A global string replace that can touch
+   frontmatter keys, or a <code>frontmatter.dumps</code> call without <code>sort_keys=False</code> on the prune path, is a
+   reject.</li>
+<li><strong>Do NOT delete a shared page</strong> (AC-F13-2 preserve / AC-F13-3). A page whose <code>sources[]</code> retains
+   another entry after removing <code>X</code> is preserved with a pruned source. Deleting it because it merely
+   <em>referenced</em> <code>X</code> is a reject.</li>
+<li><strong>Do NOT skip the dry-run / preview path.</strong> This deletes user data; <code>plan_cascade_delete</code> /
+   <code>POST .../preview</code> is mandatory and read-only. A delete with no preview seam, or a "preview" that
+   mutates a store, is a reject.</li>
+<li><strong>Do NOT make F13 a loop or an inference call (I7/I6).</strong> It is a single pass over a precomputed plan;
+   it resolves no provider and calls no LLM and no FA2. A retry loop or a provider call is a reject.</li>
+<li><strong>Do NOT resurrect on restart (AQ-v0.5-5).</strong> Soft-delete the page AND delete the originating
+   <code>raw/sources/</code> file so the watcher cannot re-create it. Leaving the source file on disk is a reject.</li>
+<li><strong>Do NOT hard-delete the <code>pages</code> row.</strong> Soft-delete (<code>deleted_at</code>) only — metadata is retained for
+    audit and the partial-unique index allows a later clean re-create. A <code>DELETE FROM pages</code> is a reject.</li>
+</ol>
+<hr />
+<h2 id="9-known-consequences-fu-p4-3-atomicity-note">9. Known consequences (FU-P4-3 — atomicity note)<a class="headerlink" href="#9-known-consequences-fu-p4-3-atomicity-note" title="Permanent link">&para;</a></h2>
+<p><code>cascade_delete</code> performs its 7-step sequence using <strong>separate <code>get_session()</code> calls</strong> per step
+rather than a single encompassing database transaction. This is a deliberate trade-off: a single
+long-lived transaction across Qdrant deletes, filesystem writes, and multiple Postgres updates is
+not available without a distributed-transaction coordinator, which would be over-engineering here.</p>
+<p><strong>Practical consequence:</strong> if the process crashes between steps (e.g., after the Qdrant point is
+removed but before the dead-wikilink rewrites are committed), the vault is left in a
+<strong>transiently inconsistent</strong> state — a page that has been soft-deleted in Postgres but whose
+<code>[[wikilink]]</code> references in peer files have not yet been cleaned up. This does NOT cause data
+loss; the Postgres row is tombstoned and the Qdrant point is gone, so search and chat will not
+surface the deleted page. However, <code>test_obsidian_check.py</code> may flag surviving dead wikilinks
+until the operation is re-run.</p>
+<p><strong>Idempotent on retry:</strong> re-running <code>DELETE /pages/{id}</code> on an already-soft-deleted page returns
+HTTP 404 (<code>PageNotFoundError</code>, AC-F13-5c / AC-F13-7c). To recover a partial run, the vault
+operator should:
+1. Re-ingest the source file (which will create a new page row with a new ID — the tombstone
+   blocks resurrection via the <code>uix_pages_vault_file_path_live</code> partial-unique index).
+2. Or, manually clear the dead wikilinks using the lint-fix loop (K2) which flags
+   <code>missing-xref</code> findings and can auto-apply the <code>missing-xref</code> rewrite.</p>
+<p>This non-atomicity is a <strong>known and accepted</strong> architectural consequence; it does not gate any
+sprint milestone. A future enhancement (post-v1.0) could wrap the Postgres steps in a single
+session while keeping the Qdrant + filesystem steps outside and adding a compensating step on
+error. Filed as FU-P4-3.</p>
+<hr />
+<h2 id="10-architect-review-gate-phase-4-exit">10. Architect-review gate (Phase 4 exit)<a class="headerlink" href="#10-architect-review-gate-phase-4-exit" title="Permanent link">&para;</a></h2>
+<p>A F13 PR is approved only if:</p>
+<ol>
+<li><code>cascade_delete</code> makes <strong>zero</strong> inference calls and <strong>zero</strong> FA2 calls; it bumps <code>data_version</code>
+   <strong>exactly once</strong> (AC-F13-4c) and <code>files_written == len(plan.wikilinks_to_rewrite)</code> (AC-F13-4a/b).</li>
+<li>The 3-method matcher logs one entry per found reference with its method label; the (c) fallback is
+   proven NOT invoked on a links-table-hit fixture (AC-F13-2, §3.1).</li>
+<li>The preserve-shared rule deletes a page <strong>iff</strong> its <code>sources[]</code> becomes empty and prunes the rest
+   (AC-F13-2 preserve / AC-F13-3); a shared page is never deleted.</li>
+<li>Every dead-link rewrite is frontmatter-safe (raw <code>---</code> split via <code>_rewrite_body_preserving_frontmatter</code>
+   — byte-identical frontmatter block, no PyYAML round-trip); <code>sources[]</code> prunes use <code>frontmatter.dumps(sort_keys=False)</code>
+   (key order preserved, only <code>sources</code> value mutated); <code>test_obsidian_check.py</code> 15/15 green after a
+   cascade delete (I5). T-CD-024b (byte-identical gate) and T-CD-025 (prune-on-disk gate) both PASS.</li>
+<li><code>POST /pages/{id}/cascade-delete/preview</code> mutates nothing (read-only assertion: <code>data_version</code>,
+   files, Qdrant, rows all unchanged); <code>DELETE /pages/{id}</code> returns the AC-F13-5 shape and 404s on
+   double-delete.</li>
+<li>The originating <code>raw/sources/</code> file is deleted (AQ-v0.5-5); the watcher does not resurrect.</li>
+<li>D3 (<code>cascade-delete.mmd</code>) renders; D4 (<code>make openapi</code>) includes both endpoints; <strong>no D2 change</strong>
+   (migration-free). I8 zero-drift.</li>
+</ol>
+<p>No invariant is traded for convenience. F13 is placed last in M5 (vault stable) per the PM phase plan.</p>
+<blockquote>
+<p><strong>Handoff:</strong> ADR-0026 → tech-writer (formatting + README row). Interface contracts (§2) →
+backend-engineer (<code>ops/cascade_delete.py</code>, <code>DELETE /pages/{id}</code> + preview) + frontend-engineer
+(confirmation modal with shared-entity warnings, AC-F13-6). D3 <code>cascade-delete.mmd</code> → tech-writer.
+Phase 4 verdict → orchestrator.</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

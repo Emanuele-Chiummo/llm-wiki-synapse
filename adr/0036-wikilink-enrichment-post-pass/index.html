@@ -1,0 +1,1023 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0036-wikilink-enrichment-post-pass/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0036 — Wikilink-enrichment post-pass (substitution-apply, bounded, provider-agnostic) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0036-wikilink-enrichment-post-pass-substitution-apply-bounded-provider-agnostic" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0036 — Wikilink-enrichment post-pass (substitution-apply, bounded, provider-agnostic)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-the-problem-disconnected-clusters-dead-direct-link-3-signal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 The problem: disconnected clusters, dead "direct link ×3" signal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-the-robust-pattern-llm-returns-substitutions-code-applies-them" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 The robust pattern: LLM returns substitutions, code applies them
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-ground-truth-consumed-reuse-do-not-reinvent-i9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Ground truth consumed (reuse, do not reinvent — I9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision summary
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision summary">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-why-once-per-run-not-per-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Why once-per-run, not per-page
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-robustness-substitutions-not-rewrites-the-r1-discipline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Robustness: substitutions, not rewrites (the R1 discipline)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-bounds-and-failure-i7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Bounds and failure (I7)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-obsidian-compatibility-i5-and-graph-effect-f4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Obsidian compatibility (I5) and graph effect (F4)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-flagged-tensions-risks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Flagged tensions &amp; risks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-do-not-list-rejection-triggers-any-one-is-a-block-at-pr-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Do-NOT list (rejection triggers — any one is a block at PR review)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-invariant-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Invariant compliance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-implementation-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Implementation plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-sign-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Sign-off
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0036-wikilink-enrichment-post-pass-substitution-apply-bounded-provider-agnostic">ADR-0036 — Wikilink-enrichment post-pass (substitution-apply, bounded, provider-agnostic)<a class="headerlink" href="#adr-0036-wikilink-enrichment-post-pass-substitution-apply-bounded-provider-agnostic" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-06-30</li>
+<li><strong>Sprint:</strong> v0.5 (M5 hardening — graph connectivity / "direct link ×3" signal)</li>
+<li><strong>Features:</strong> F4 (knowledge graph — restores the <em>direct link ×3</em> signal so clusters connect) ·
+  F3 (ingest generation quality) · K5 (<code>[[wikilink]]</code> syntax + parser)</li>
+<li><strong>Reference:</strong> R1 (nashsu/llm_wiki) — <code>enrich-wikilinks.ts</code>: the LLM returns a list of <strong>substitutions</strong>
+  (mention → existing page title), and <strong>code applies them</strong>; the model is never asked to rewrite whole
+  documents. This ADR adopts that exact pattern.</li>
+<li><strong>Invariants owned:</strong> <strong>I6</strong> (HEADLINE — the enrichment LLM call routes through <code>InferenceProvider</code>
+  via <code>resolve_provider_config</code>; provider-agnostic, no hardcoded backend/model) · <strong>I7</strong> (HEADLINE —
+  bounded: <code>max_iter</code> + <code>token_budget</code>, capped substitution count, timeout, <code>total_cost_usd</code> logged) ·
+  <strong>I5</strong> (only inserts <code>[[wikilinks]]</code> into page <strong>bodies</strong>; never touches frontmatter) · <strong>I1</strong>
+  (re-indexes only the edited pages incrementally; no rescan; the <code>links</code> rows are re-derived per page)</li>
+<li><strong>Author:</strong> solution-architect</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<h3 id="11-the-problem-disconnected-clusters-dead-direct-link-3-signal">1.1 The problem: disconnected clusters, dead "direct link ×3" signal<a class="headerlink" href="#11-the-problem-disconnected-clusters-dead-direct-link-3-signal" title="Permanent link">&para;</a></h3>
+<p>The F4 graph weights page pairs with four signals (ADR-0012/0016), the strongest of which is the
+<strong>direct <code>[[wikilink]]</code> ×3</strong> term — a structural edge whenever page A's body links page B. But the
+orchestrated generation step writes each page largely in isolation: the LLM produces a page about
+<em>"Transformer architecture"</em> without knowing that a page <em>"Attention mechanism"</em> already exists in the
+vault, so it writes the bare phrase "attention mechanism" as plain text instead of <code>[[Attention
+mechanism]]</code>. The consequence is a graph of <strong>disconnected single-node clusters</strong> — the source-overlap
+×4 term connects pages that share a <code>raw/source</code>, but conceptually-related pages from <em>different</em> sources
+never link, so the graph never forms the connected concept clusters Karpathy's wiki is supposed to grow.</p>
+<p>This is exactly the gap nashsu/llm_wiki's <code>enrich-wikilinks.ts</code> post-pass fixes: after generation, a
+<strong>dedicated enrichment stage</strong> scans the freshly-written pages for <strong>mentions of existing page
+titles/entities</strong> and turns the first such mention into a <code>[[wikilink]]</code>, re-introducing the direct-link
+edges that make clusters connect.</p>
+<h3 id="12-the-robust-pattern-llm-returns-substitutions-code-applies-them">1.2 The robust pattern: LLM returns substitutions, code applies them<a class="headerlink" href="#12-the-robust-pattern-llm-returns-substitutions-code-applies-them" title="Permanent link">&para;</a></h3>
+<p>The key design choice from R1 (and the reason this is robust): <strong>the LLM does not rewrite the document.</strong>
+Asking a model to "return the whole page with wikilinks added" is fragile — it silently reflows prose,
+drops content, corrupts frontmatter, and burns tokens proportional to document size. Instead:</p>
+<ul>
+<li>The LLM is given the page text + a <strong>bounded list of existing page titles</strong> and asked to return a
+  compact <strong>substitution list</strong>: <code>[{ "mention": "attention mechanism", "target": "Attention mechanism" }, …]</code>
+  — i.e. "this exact substring in the body refers to that existing page".</li>
+<li><strong>Deterministic code applies</strong> each substitution: find the <strong>first occurrence</strong> of <code>mention</code> in the
+  <strong>body</strong> (not frontmatter, not inside an existing <code>[[…]]</code>), wrap it as <code>[[target]]</code> (or <code>[[target|mention]]</code>
+  when the surface form differs from the title), and stop (single-mention — one link per target per page,
+  matching R1; avoids link spam). Output size is bounded by the <em>number of substitutions</em>, not the
+  document length; the body is never regenerated.</li>
+</ul>
+<p>This makes the pass <strong>robust</strong> (no whole-doc rewrite → no prose drift, no frontmatter corruption, no
+content loss) and <strong>cheap</strong> (the model emits a short JSON list).</p>
+<h3 id="13-ground-truth-consumed-reuse-do-not-reinvent-i9">1.3 Ground truth consumed (reuse, do not reinvent — I9)<a class="headerlink" href="#13-ground-truth-consumed-reuse-do-not-reinvent-i9" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>resolve_provider_config("ingest", vault_id)</code> + <code>resolve_provider</code></strong> (<code>provider_config_service.py</code>,
+  <code>ingest/provider</code>) — the backend-neutral resolution path (I6). The enrichment call routes through it,
+  operation <code>"ingest"</code>, exactly like <code>propose_reviews</code> (ADR-0034 §4.3) and Deep Research (ADR-0024).</li>
+<li><strong><code>InferenceProvider.chat(messages, retrieval_context)</code></strong> (<code>ingest/provider/base.py</code>) — the existing
+  backend-neutral text/JSON-in-JSON-out method. Enrichment uses <strong><code>chat()</code></strong> with a structured-output
+  prompt; <strong>no new ABC method</strong> is added (same discipline as ADR-0024/0034 — text in, substitution JSON
+  out, provider-agnostic).</li>
+<li><strong><code>run_ingest_pipeline</code></strong> (<code>ingest/orchestrator.py</code>) — the orchestrated branch that writes pages via
+  <code>write_wiki_page</code>, then runs the F9 <code>propose_reviews</code> hook (ADR-0034). The enrichment pass is a new
+  hook in the <strong>same post-write seam</strong>, running <strong>before</strong> <code>propose_reviews</code> (so proposals see the
+  enriched link graph) and <strong>after</strong> all pages are written (so every just-written title is linkable).</li>
+<li><strong><code>parse_wikilinks</code> / <code>persist_links</code></strong> (<code>wiki/links.py</code>) + <strong><code>_WIKILINK_RE = [[…]]</code></strong> — the K5 grammar.
+  Enrichment re-runs these on each modified body so the new links land in the <code>links</code> table (feeding the
+  F4 ×3 signal).</li>
+<li><strong>The incremental wiki-write/re-index primitives</strong> (<code>persist_metadata</code> content_hash refresh,
+  <code>upsert_vector</code>, <code>update_index</code>, <code>bump_version</code>) — enrichment re-indexes only the pages it edited
+  (I1), the same way ADR-0035's PUT re-indexes a single edited page.</li>
+<li><strong><code>UsageAccumulator</code> + the <code>$1</code> anomaly WARNING</strong> (the ingest cost path) — <code>total_cost_usd</code> is logged
+  on the enrichment run row (I7), same finalize path every provider call uses.</li>
+<li><strong><code>REVIEW_PROPOSE_*</code> bounds precedent</strong> (ADR-0034 §4.3) — the <code>WIKILINK_ENRICH_*</code> env knobs mirror that
+  established pattern.</li>
+</ul>
+<hr />
+<h2 id="2-decision-summary">2. Decision summary<a class="headerlink" href="#2-decision-summary" title="Permanent link">&para;</a></h2>
+<p>Add a bounded, provider-agnostic <strong>wikilink-enrichment post-pass</strong> (<code>ops/enrich_wikilinks.py</code>,
+<code>enrich_wikilinks(written_pages, vault_id)</code>) that runs <strong>once per orchestrated ingest run</strong>, after
+generation has written all pages and before <code>propose_reviews</code>. It implements the R1 <strong>substitution-apply</strong>
+pattern: the LLM returns substitutions; code applies them single-mention; only <code>[[wikilinks]]</code> are added
+to page <strong>bodies</strong>; modified pages are re-indexed incrementally.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># ops/enrich_wikilinks.py  (signatures only — no implementation in this ADR)</span>
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">WikilinkSubstitution</span><span class="p">:</span>
+    <span class="n">page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span>        <span class="c1"># the just-written page whose body is enriched</span>
+    <span class="n">mention</span><span class="p">:</span> <span class="nb">str</span>              <span class="c1"># exact body substring the LLM flagged</span>
+    <span class="n">target_title</span><span class="p">:</span> <span class="nb">str</span>         <span class="c1"># existing page title it refers to (must exist in the candidate set)</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">enrich_wikilinks</span><span class="p">(</span><span class="n">written_pages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Page</span><span class="p">],</span> <span class="n">vault_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EnrichResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Once-per-run post-pass. Provider-agnostic (resolve_provider_config(&#39;ingest&#39;)), bounded</span>
+<span class="sd">    (WIKILINK_ENRICH_* caps + token_budget + timeout, cost logged). Applies substitutions</span>
+<span class="sd">    single-mention to BODIES ONLY; re-indexes only the edited pages (I1). Fire-and-forget:</span>
+<span class="sd">    failure logs a WARNING and never fails the ingest (pages are already written).&quot;&quot;&quot;</span>
+</code></pre></div>
+<h3 id="21-flow">2.1 Flow<a class="headerlink" href="#21-flow" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>1. Build the candidate target set: existing page titles in the vault (a BOUNDED title list —
+   capped at WIKILINK_ENRICH_MAX_CANDIDATES, e.g. 500 — NOT page contents), plus the titles of the
+   pages just written this run. Bounded indexed read of `pages.title` (live rows). No vault walk (I1).
+2. Anti-spam / cost gate: skip entirely if there are no candidate targets, or the written content is
+   trivial (&lt; WIKILINK_ENRICH_MIN_CHARS). Skipping = zero cost, zero LLM call.
+3. Resolve the ingest provider (resolve_provider_config(&quot;ingest&quot;, vault_id) → resolve_provider) — I6.
+   No provider configured → skip with a WARNING (NEVER hardcode a backend — I6 hard rule).
+4. ONE bounded InferenceProvider.chat() call (operation &quot;ingest&quot;): given each written page&#39;s body +
+   the candidate title list, return a structured substitution list {page_id, mention, target_title}.
+   Bounds (I7): asyncio.wait_for(WIKILINK_ENRICH_TIMEOUT_SECONDS); token_budget from the resolved row;
+   substitution count truncated at WIKILINK_ENRICH_MAX_SUBS (e.g. 100). One call, no loop, no retry.
+5. VALIDATE every substitution in code (anti-hallucination): drop any whose target_title is NOT in the
+   candidate set, whose mention is not found in that page&#39;s body, or whose target == the page&#39;s own
+   title (no self-links). Only validated substitutions are applied.
+6. APPLY deterministically, per page, BODY ONLY: for each validated substitution, find the FIRST
+   occurrence of `mention` in the body that is not already inside an existing [[…]] span, and wrap it
+   as [[target_title]] (or [[target_title|mention]] when the surface form differs). Single-mention:
+   one link per (page, target) — stop after the first. Frontmatter is never touched (I5).
+7. For each page actually modified: write the new bytes atomically (temp + os.replace), recompute
+   content_hash, then re-index INLINE/incrementally — persist_metadata (hash) → upsert_vector (body) →
+   parse_wikilinks + persist_links (the new [[links]] land in `links` → F4 ×3 signal) → bump_version().
+   Only the modified pages are touched (I1). data_version is bumped ONCE for the whole pass
+   (batched at the end), not per page.
+8. Log total_cost_usd (+ $1 anomaly WARNING) on the run; return EnrichResult{pages_enriched,
+   links_added, total_cost_usd}.
+</code></pre></div>
+<h3 id="22-why-once-per-run-not-per-page">2.2 Why once-per-run, not per-page<a class="headerlink" href="#22-why-once-per-run-not-per-page" title="Permanent link">&para;</a></h3>
+<p>Like ADR-0034's <code>propose_reviews</code>: a single call lets the model see the whole batch + the full candidate
+title set, collapses N calls to ≤1 (lower cost/latency, I7), and matches R1's batch enrichment. The
+substitution-apply design keeps the output bounded regardless of batch size.</p>
+<hr />
+<h2 id="3-robustness-substitutions-not-rewrites-the-r1-discipline">3. Robustness: substitutions, not rewrites (the R1 discipline)<a class="headerlink" href="#3-robustness-substitutions-not-rewrites-the-r1-discipline" title="Permanent link">&para;</a></h2>
+<p>The entire safety case rests on <strong>the model never emitting page content</strong>:</p>
+<ul>
+<li>The model returns <strong>only</strong> <code>{mention, target_title}</code> pairs. The most it can do wrong is propose a bad
+  substitution — which step-5 validation <strong>drops</strong> (unknown target, mention-not-in-body, self-link).</li>
+<li>The body is mutated by <strong>deterministic string surgery</strong> on a validated, body-found mention, anchored
+  outside existing <code>[[…]]</code> spans (reusing the K5 <code>_WIKILINK_RE</code> grammar to avoid double-wrapping). The
+  prose, the frontmatter, and every other byte are untouched.</li>
+<li><strong>Single-mention</strong> (first occurrence only) prevents link spam and keeps the edit minimal and
+  reviewable — exactly R1's behavior.</li>
+</ul>
+<p>Contrast with the rejected "ask the model to return the rewritten page": that would risk silent content
+loss, prose drift, frontmatter reordering (the DEFECT-F13-002 corruption class, ADR-0026 §4.3), and
+token cost proportional to document size. <strong>Substitution-apply is the only accepted design.</strong></p>
+<hr />
+<h2 id="4-bounds-and-failure-i7">4. Bounds and failure (I7)<a class="headerlink" href="#4-bounds-and-failure-i7" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>≤1 provider call</strong> for the whole pass (no loop, no retry), wrapped in
+  <code>asyncio.wait_for(WIKILINK_ENRICH_TIMEOUT_SECONDS)</code>.</li>
+<li><strong><code>token_budget</code></strong> from the resolved provider row caps generation; the candidate title list is itself
+  capped (<code>WIKILINK_ENRICH_MAX_CANDIDATES</code>) so the prompt is bounded.</li>
+<li><strong><code>WIKILINK_ENRICH_MAX_SUBS</code></strong> truncates the applied substitution list — never an unbounded edit set.</li>
+<li><strong>Anti-spam gate</strong> (§2.1 step 2) skips the call (zero cost) on trivial runs or empty candidate sets.</li>
+<li><strong><code>total_cost_usd</code></strong> logged with the <code>$1</code> anomaly WARNING, same as every provider call.</li>
+<li><strong>Fire-and-forget failure degradation:</strong> a timeout / no-provider / parse error / validation-empties-the-
+  list → the pass applies <strong>zero</strong> substitutions, logs a WARNING, and <strong>never fails the ingest</strong> (the
+  pages are already written and valid; enrichment is an additive improvement, not a correctness gate).
+  This mirrors <code>propose_reviews</code> (ADR-0034 §4.3) and the deep-research safety posture.</li>
+</ul>
+<p><code>WIKILINK_ENRICH_ENABLED</code> (default <code>true</code>) lets an operator disable the pass entirely for zero-cost
+ingest.</p>
+<hr />
+<h2 id="5-obsidian-compatibility-i5-and-graph-effect-f4">5. Obsidian compatibility (I5) and graph effect (F4)<a class="headerlink" href="#5-obsidian-compatibility-i5-and-graph-effect-f4" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>I5:</strong> enrichment edits <strong>bodies only</strong>. It inserts <code>[[target_title]]</code> / <code>[[target_title|mention]]</code>
+  using the K5 grammar; it never parses or rewrites the frontmatter block (no PyYAML round-trip on the
+  write path — the frontmatter bytes are preserved verbatim, same discipline as ADR-0035 §5). The result
+  is a valid Obsidian note with real working wikilinks; <code>test_obsidian_check.py</code> stays green.</li>
+<li><strong>F4:</strong> every applied substitution becomes a <code>links</code> row (via <code>persist_links</code>), which the F4 edge
+  engine reads as a <strong>direct link</strong> → the <strong>×3</strong> weight term (ADR-0012/0016). These new structural edges
+  are exactly what connects previously-disconnected clusters. The new edges flow into the graph on the
+  next debounced FA2 recompute (triggered by the single <code>bump_version()</code> — I2 untouched; no inline FA2).</li>
+</ul>
+<hr />
+<h2 id="6-flagged-tensions-risks">6. Flagged tensions &amp; risks<a class="headerlink" href="#6-flagged-tensions-risks" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Over-linking / wrong target.</strong> Mitigated by single-mention (first occurrence only) + step-5
+   validation (target must be a real page; mention must exist in the body; no self-links) + the
+   <code>WIKILINK_ENRICH_MAX_SUBS</code> cap. A wrong link is recoverable: the human can remove it in the
+   CodeMirror editor (ADR-0035) and re-save.</li>
+<li><strong>Candidate-set truncation.</strong> When the vault exceeds <code>WIKILINK_ENRICH_MAX_CANDIDATES</code> titles, the
+   candidate list is truncated (most-recent / most-linked first). Some valid links may be missed in very
+   large vaults — acceptable: enrichment is best-effort additive, not exhaustive, and the bound is an I7
+   requirement. Tunable.</li>
+<li><strong>Delegated (CLI) ingest is not enriched here.</strong> The CLI provider runs its own agent loop and links
+   pages itself (F17 delegated path, <code>supports_agentic_loop=True</code>); the orchestrator does not enumerate
+   the pages it wrote via MCP <code>write_page</code>. So <code>enrich_wikilinks</code> attaches to the <strong>orchestrated</strong> branch
+   only (same boundary as <code>propose_reviews</code>, ADR-0034 §9 risk 1). <strong>Not a violation</strong> — an explicit,
+   recorded gap; the CLI agent is expected to add links in its own loop.</li>
+<li><strong>Added cost per ingest.</strong> Bounded to ≤1 call, gated by the anti-spam heuristic. For zero-cost ingest,
+   set <code>WIKILINK_ENRICH_ENABLED=false</code>.</li>
+</ol>
+<hr />
+<h2 id="7-do-not-list-rejection-triggers-any-one-is-a-block-at-pr-review">7. Do-NOT list (rejection triggers — any one is a block at PR review)<a class="headerlink" href="#7-do-not-list-rejection-triggers-any-one-is-a-block-at-pr-review" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>DO NOT</strong> ask the model to return rewritten page content. The model returns <strong>substitutions only</strong>;
+   code applies them (R1 discipline). A whole-doc-rewrite prompt is a reject.</li>
+<li><strong>DO NOT</strong> hardcode a backend/model. The call resolves via <code>resolve_provider_config("ingest")</code>; no
+   provider → skip, never a silent default (I6). An <code>isinstance</code>/<code>provider_type</code> branch or a literal
+   model id is a reject.</li>
+<li><strong>DO NOT</strong> make more than one provider call, loop, or retry in the pass (I7). One bounded call,
+   capped + timed out, cost logged. A <code>while</code>/retry loop is a reject.</li>
+<li><strong>DO NOT</strong> edit frontmatter. Wikilinks go into the <strong>body</strong> only; the frontmatter block is preserved
+   byte-for-byte (no PyYAML round-trip on write). A frontmatter mutation is a reject (I5).</li>
+<li><strong>DO NOT</strong> apply an unvalidated substitution. Target must be a real candidate page, the mention must
+   exist in the body, and self-links are dropped (anti-hallucination).</li>
+<li><strong>DO NOT</strong> double-wrap an existing <code>[[…]]</code> or add more than one link per (page, target)
+   (single-mention). Link spam is a reject.</li>
+<li><strong>DO NOT</strong> rescan the vault. The candidate set is a bounded indexed <code>pages.title</code> read; only the
+   modified pages are re-indexed; <code>data_version</code> is bumped ONCE for the pass (I1).</li>
+<li><strong>DO NOT</strong> call <code>GraphEngine.recompute()</code> / FA2 inline. The single <code>bump_version()</code> lets the debounced
+   cache recompute (I2).</li>
+<li><strong>DO NOT</strong> let the pass raise into the ingest critical path — fire-and-forget, try/except, the pages
+   are already written and valid (I7 safety posture).</li>
+<li><strong>DO NOT</strong> add a new <code>InferenceProvider</code> ABC method — reuse <code>chat()</code> (operation <code>"ingest"</code>), text in /
+    substitution JSON out (I6 discipline, as ADR-0024/0034).</li>
+</ol>
+<hr />
+<h2 id="8-invariant-compliance">8. Invariant compliance<a class="headerlink" href="#8-invariant-compliance" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Inv</th>
+<th>How this design guarantees it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I6</strong></td>
+<td>The enrichment LLM call routes through <code>resolve_provider_config("ingest", vault_id)</code> + <code>resolve_provider</code> + <code>InferenceProvider.chat()</code> — provider-agnostic text/JSON in/out. No hardcoded backend or model; no class-name/<code>provider_type</code> branching. "No provider configured" → skip, never a silent default. No new ABC method.</td>
+</tr>
+<tr>
+<td><strong>I7</strong></td>
+<td>≤1 provider call, no loop, no retry; <code>WIKILINK_ENRICH_MAX_CANDIDATES</code>/<code>MAX_SUBS</code> caps; <code>token_budget</code> from the resolved row; <code>asyncio.wait_for</code> timeout; anti-spam gate skips trivial runs at zero cost; <code>total_cost_usd</code> logged with the <code>$1</code> anomaly WARNING. Fire-and-forget failure never runs away or fails the ingest.</td>
+</tr>
+<tr>
+<td><strong>I5</strong></td>
+<td>Inserts <code>[[wikilinks]]</code> into <strong>bodies only</strong> via the K5 grammar; the frontmatter block is preserved verbatim (no PyYAML write round-trip). <code>wiki/</code> stays a valid Obsidian vault; <code>test_obsidian_check.py</code> is the gate.</td>
+</tr>
+<tr>
+<td><strong>I1</strong></td>
+<td>Candidate titles come from a bounded indexed <code>pages.title</code> read (no vault walk); only the modified pages are re-indexed (<code>persist_metadata</code>/<code>upsert_vector</code>/<code>persist_links</code>/<code>update_index</code>); <code>data_version</code> is bumped ONCE for the pass.</td>
+</tr>
+<tr>
+<td><strong>F4</strong></td>
+<td>Each applied substitution becomes a <code>links</code> row → the F4 <strong>direct link ×3</strong> edge term → previously-disconnected clusters connect. New edges flow into the layout on the next debounced FA2 recompute (I2 — no inline FA2).</td>
+</tr>
+<tr>
+<td><strong>I2</strong></td>
+<td>The single <code>bump_version()</code> triggers the debounced GraphCache recompute; enrichment never runs FA2 inline.</td>
+</tr>
+<tr>
+<td><strong>I8</strong></td>
+<td>No schema change (no D2). New <code>WIKILINK_ENRICH_*</code> env vars documented in DEPLOY.md; the D3 ingest-loop sequence gains the <code>enrich_wikilinks</code> step (tech-writer). No new container/component (D1 unchanged — <code>ops/enrich_wikilinks.py</code> is a component inside the FastAPI service).</td>
+</tr>
+</tbody>
+</table>
+<p>No invariant is traded. The genuine tensions (over-linking, candidate truncation, CLI-branch exclusion)
+are flagged in §6 and bounded/recorded.</p>
+<hr />
+<h2 id="9-implementation-plan">9. Implementation plan<a class="headerlink" href="#9-implementation-plan" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Routing rule:</strong> the enrichment LLM call touches <code>InferenceProvider</code>, so the provider-call work is
+<strong>[AI]</strong> (ai-agent-engineer, CLAUDE.md §13); the deterministic substitution-apply + incremental
+re-index is <strong>[BE]</strong> (backend-engineer).</p>
+</blockquote>
+<ul>
+<li><strong>ai-agent-engineer [AI]:</strong> <code>enrich_wikilinks</code> provider call — the structured-substitution prompt, the
+  candidate-title-list assembly (bounded), the single bounded <code>InferenceProvider.chat()</code> invocation
+  (resolve via <code>resolve_provider_config("ingest")</code>, I6), JSON parse into <code>WikilinkSubstitution</code>, the
+  <code>WIKILINK_ENRICH_*</code> bounds + timeout + cost logging (I7), and the fire-and-forget failure degradation.
+  Add <code>WIKILINK_ENRICH_ENABLED/MIN_CHARS/MAX_CANDIDATES/MAX_SUBS/TOKEN_BUDGET/TIMEOUT_SECONDS</code> to
+  <code>config.py</code>. Tests: anti-spam gate skips on a trivial/empty-candidate run (zero cost); one call,
+  capped + timeout-degrades to zero substitutions; no-provider → skip (never hardcode).</li>
+<li><strong>backend-engineer [BE]:</strong> the deterministic apply (first-occurrence, body-only, no double-wrap,
+  single-mention), step-5 validation, the atomic temp+<code>os.replace</code> write, and the incremental re-index
+  (<code>persist_metadata</code>/<code>upsert_vector</code>/<code>parse_wikilinks</code>+<code>persist_links</code>/<code>update_index</code>/<code>bump_version</code>
+  once). Wire the fire-and-forget hook in <code>run_ingest_pipeline</code> <strong>before</strong> <code>propose_reviews</code>. Tests:
+  validated substitutions produce <code>links</code> rows + the F4 ×3 edge; an unknown-target/self-link/missing-
+  mention substitution is dropped; frontmatter is byte-identical after enrichment;
+  <code>test_obsidian_check.py</code> green; <code>data_version</code> bumped exactly once; only edited pages are re-indexed.</li>
+<li><strong>tech-writer:</strong> this ADR (format + README row), DEPLOY.md (<code>WIKILINK_ENRICH_*</code> env), USER.md (clusters
+  now connect via auto-added wikilinks; the human can edit them in the CodeMirror editor), and the D3
+  ingest-loop sequence (add the <code>enrich_wikilinks</code> step before <code>propose_reviews</code>). No D1 topology change.</li>
+</ul>
+<hr />
+<h2 id="10-sign-off">10. Sign-off<a class="headerlink" href="#10-sign-off" title="Permanent link">&para;</a></h2>
+<p><strong>APPROVED to implement.</strong> A bounded, provider-agnostic wikilink-enrichment post-pass adopts the R1
+substitution-apply pattern: the LLM returns <code>{mention, target_title}</code> substitutions, code validates and
+applies them <strong>single-mention</strong> into page <strong>bodies only</strong>, and the modified pages are re-indexed
+incrementally — restoring the F4 <strong>direct link ×3</strong> signal so concept clusters connect. The call routes
+through <code>InferenceProvider</code> (I6, no hardcoded backend), is bounded by <code>max_iter</code>-equivalent single-call
+caps + <code>token_budget</code> + timeout with <code>total_cost_usd</code> logged (I7), preserves frontmatter (I5), touches
+only the edited pages and bumps <code>data_version</code> once (I1), and fires the debounced FA2 recompute rather
+than running it inline (I2). Fire-and-forget: failure never fails the ingest. No schema change.</p>
+<blockquote>
+<p>Handoff: ADR-0036 → tech-writer (format, README row, DEPLOY/USER, D3 sequence). Interface contract
+(§2) → ai-agent-engineer [AI] (provider call) + backend-engineer [BE] (apply + re-index). PR verdicts →
+orchestrator.</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

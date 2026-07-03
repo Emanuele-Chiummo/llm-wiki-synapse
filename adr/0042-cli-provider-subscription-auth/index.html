@@ -1,0 +1,744 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0042-cli-provider-subscription-auth/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0042 — CLI provider subscription auth: OAuth token / ambient login, no API key (F17, I6/I7) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0042-cli-provider-subscription-auth-oauth-token-ambient-login-no-api-key-f17-i6i7" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0042 — CLI provider subscription auth: OAuth token / ambient login, no API key (F17, I6/I7)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-auth-gate-one-resolver-two-modes-three-signals-i6-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Auth-gate: one resolver, two modes, three signals (I6, §12)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-cost-accounting-unchanged-log-level-softened-i7-adr-0009" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Cost accounting unchanged; log level softened (I7, ADR-0009)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-packaging-f17-adr-0039-neighbours" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Packaging (F17, ADR-0039 neighbours)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#do-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do-NOT
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0042-cli-provider-subscription-auth-oauth-token-ambient-login-no-api-key-f17-i6i7">ADR-0042 — CLI provider subscription auth: OAuth token / ambient login, no API key (F17, I6/I7)<a class="headerlink" href="#adr-0042-cli-provider-subscription-auth-oauth-token-ambient-login-no-api-key-f17-i6i7" title="Permanent link">&para;</a></h1>
+<ul>
+<li>Status: Accepted · <strong>amended in part by <a href="../0043-ui-settable-cli-subscription-token/">ADR-0043</a></strong> (adds a UI/DB-settable token that takes precedence over the env <code>ANTHROPIC_API_KEY</code> via inject+scrub; the pure-env precedence in §1 below is superseded for the CLI provider when a DB token is present)</li>
+<li>Date: 2026-07-01</li>
+<li>Sprint: v0.6</li>
+<li>Decider: solution-architect</li>
+<li>Invariants: I6 (pluggable inference — no hardcoded provider), I7 (bounded loops + truthful cost), §12 (secrets via env only)</li>
+<li>Related: ADR-0007 (InferenceProvider ABC + capability routing), ADR-0008 §3 (secrets via env only), ADR-0009 (bounded-loop cost accounting — CLI/subscription cost = $0.00 convention), ADR-0039 (Tauri shell), R3 (claude-agent-sdk)</li>
+<li>Resolves: "use my Claude subscription" — run the CLI backend (<code>CliAgentProvider</code>) on a Claude Pro/Max subscription instead of a pay-per-token <code>ANTHROPIC_API_KEY</code>, including <strong>inside the Docker container</strong>.</li>
+</ul>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>The F17 <strong>CLI provider</strong> (<code>CliAgentProvider</code>, <code>backend/app/ingest/provider/cli.py</code>) delegates the
+whole ingest (and read-only chat) to a <code>claude-agent-sdk</code> agent (ADR-0007 §3, Karpathy lineage).
+Its cost accounting (ADR-0009, as amended by NB-4) already treats <strong>subscription / OAuth auth</strong> as
+a first-class case: when the SDK reports no billable cost, the run records <code>total_cost_usd = $0.00</code>
+because the marginal cost of a Pro/Max subscription genuinely is $0.</p>
+<p>But two hard checks made subscription-only operation <strong>impossible</strong>: both <code>chat()</code> and
+<code>delegate_ingest()</code> opened with</p>
+<div class="highlight"><pre><span></span><code><span class="n">api_key</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ANTHROPIC_API_KEY&quot;</span><span class="p">)</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">api_key</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;ANTHROPIC_API_KEY not set ...&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>So the provider demanded an API key (pay-per-token) even though the rest of the module was built to
+run at $0 on a subscription. This ADR removes that contradiction.</p>
+<p>Two facts frame the decision (verified against the official Claude Code / Agent SDK docs):</p>
+<ol>
+<li><strong>Subscription auth is the OAuth path, not the API-key path.</strong> A Pro/Max login produces OAuth
+   credentials; a bare <code>ANTHROPIC_API_KEY</code> is per-token billing. The documented credential
+   <strong>precedence</strong> puts <code>ANTHROPIC_API_KEY</code> <em>above</em> the subscription — so if it is set (even to an
+   empty string), it wins and forces per-token billing. It must be <strong>unset</strong> for a subscription to
+   take effect.</li>
+<li><strong>The subscription works in a container via a long-lived token.</strong> <code>claude setup-token</code> (run once
+   on a logged-in host) prints a 1-year OAuth token (<code>sk-ant-oat01-…</code>). Passing it into the
+   container as <strong><code>CLAUDE_CODE_OAUTH_TOKEN</code></strong> lets the SDK's bundled <code>claude</code> CLI authenticate via
+   the subscription with no API key. (The Python <code>claude-agent-sdk</code> wheel bundles the CLI binary —
+   no Node.js install needed in the image.)</li>
+</ol>
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<h3 id="1-auth-gate-one-resolver-two-modes-three-signals-i6-12">1. Auth-gate: one resolver, two modes, three signals (I6, §12)<a class="headerlink" href="#1-auth-gate-one-resolver-two-modes-three-signals-i6-12" title="Permanent link">&para;</a></h3>
+<p>A single module-level helper <code>_resolve_cli_auth_mode() -&gt; str</code> replaces both inline
+<code>if not api_key: raise</code> blocks. It reads only the environment (never mutates <code>os.environ</code>), detects
+only the <strong>presence</strong> of a token (never reads or forwards a token value), and resolves with this
+precedence — mirroring the documented Claude Code credential order:</p>
+<ol>
+<li><code>ANTHROPIC_API_KEY</code> set &amp; non-empty → <strong><code>"api-key"</code></strong> (billed per token; real cost recorded).</li>
+<li><code>CLAUDE_CODE_OAUTH_TOKEN</code> set &amp; non-empty → <strong><code>"subscription"</code></strong> (container-friendly long-lived
+   token from <code>claude setup-token</code>; $0 marginal cost).</li>
+<li><code>CLAUDE_CODE_USE_SUBSCRIPTION</code> truthy (<code>1/true/yes/on</code>, case-insensitive) → <strong><code>"subscription"</code></strong>
+   (ambient host login / mounted <code>~/.claude</code> creds; $0).</li>
+<li>none of the above → <strong><code>raise ValueError</code></strong> naming all three options with actionable guidance.</li>
+</ol>
+<p>An <strong>empty</strong> <code>ANTHROPIC_API_KEY</code> is treated as <em>unset</em> so a stray <code>export ANTHROPIC_API_KEY=""</code>
+cannot silently outrank the subscription and bill. The resolver is called <strong>before</strong> any SDK
+stream/loop opens, so a misconfiguration is a clean pre-stream/pre-loop error, never a fake or
+half-open stream (Do-NOT #9).</p>
+<p>Signals (2) and (3) both resolve to <code>"subscription"</code>: there is no behavioural difference in the
+provider — the SDK's spawned <code>claude</code> CLI picks the token up from the inherited process environment;
+the provider only detects presence to pass the gate. <strong>No token value is ever forwarded into
+<code>ClaudeAgentOptions</code></strong> (§12 — secrets stay in the environment, out of app code and DB).</p>
+<h3 id="2-cost-accounting-unchanged-log-level-softened-i7-adr-0009">2. Cost accounting unchanged; log level softened (I7, ADR-0009)<a class="headerlink" href="#2-cost-accounting-unchanged-log-level-softened-i7-adr-0009" title="Permanent link">&para;</a></h3>
+<p>The ADR-0009 $0.00 convention is unchanged: SDK-reported cost <code>&gt; 0</code> (API-key billing) is recorded
+truthfully; otherwise <code>total_cost_usd = $0.00</code>. The only change is the <strong>log level</strong> — when
+<code>auth_mode == "subscription"</code> the $0 record logs at <strong>INFO</strong> ("as intended") instead of WARNING, so
+an expected-and-correct subscription run does not read as an anomaly. Token counts are still recorded
+when the SDK exposes them (WARNING + <code>tokens=0</code> if not).</p>
+<h3 id="3-packaging-f17-adr-0039-neighbours">3. Packaging (F17, ADR-0039 neighbours)<a class="headerlink" href="#3-packaging-f17-adr-0039-neighbours" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>claude-agent-sdk</code> moves from a lazy-only reference to a real backend dependency
+  (<code>pyproject.toml</code> core <code>dependencies</code>, <code>&gt;=0.2,&lt;0.3</code>). The lazy import in <code>cli.py</code> stays defensive
+  so a missing SDK is a clean pre-stream error.</li>
+<li><code>backend/Dockerfile</code> provides a <strong>writable config dir</strong> for the non-root <code>synapse</code> user:
+  <code>/home/synapse/.claude</code> (mode 700) with <code>ENV CLAUDE_CONFIG_DIR=/home/synapse/.claude</code>, so the SDK
+  can cache credentials. No Node.js layer — the wheel bundles the CLI binary. No secret is baked in.</li>
+<li><code>docker-compose.yml</code> / <code>docker-compose.dev.yml</code> pass <code>CLAUDE_CODE_OAUTH_TOKEN</code> and
+  <code>CLAUDE_CODE_USE_SUBSCRIPTION</code> through from <code>.env</code> (alongside the existing <code>ANTHROPIC_API_KEY</code>),
+  each <code>${VAR:-}</code> so nothing is required and no real value is committed. <code>.env.example</code> documents the
+  three mutually exclusive auth methods, <code>claude setup-token</code>, and the <strong>unset <code>ANTHROPIC_API_KEY</code></strong>
+  rule.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li>✅ The user can drive ingest <strong>and</strong> chat on the CLI provider with a Pro/Max subscription at $0
+  marginal cost — <strong>fully containerized</strong> (<code>CLAUDE_CODE_OAUTH_TOKEN</code>) or on a host login
+  (<code>CLAUDE_CODE_USE_SUBSCRIPTION</code>). Tauri/PWA/browser are unaffected: they remain thin HTTP clients
+  of the backend, whichever auth mode it runs.</li>
+<li>✅ Backward compatible: the API-key path is byte-for-byte unchanged; existing deployments that set
+  <code>ANTHROPIC_API_KEY</code> behave exactly as before (and, per the precedence, keep winning).</li>
+<li>⚠️ Operators must remember the precedence trap: to use the subscription, <code>ANTHROPIC_API_KEY</code> must
+  be <strong>absent</strong>, not merely empty in intent — this is called out in <code>.env.example</code>, the compose
+  comments, and the v0.6 runbook.</li>
+<li>⚠️ The <code>CLAUDE_CODE_OAUTH_TOKEN</code> is a bearer credential with a ~1-year lifetime. It lives only in
+  <code>.env</code> (gitignored) and the process environment; it is never logged, never stored in Postgres, and
+  never returned by any endpoint. Rotation = re-run <code>claude setup-token</code>.</li>
+<li>⚠️ <code>claude-agent-sdk</code> is now a hard backend dependency (heavier install). The infra-free unit tests
+  do not import it (the lazy import + auth-gate tests monkeypatch the environment only).</li>
+</ul>
+<h2 id="do-not">Do-NOT<a class="headerlink" href="#do-not" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Do <strong>not</strong> hardcode a provider or model — routing still flows through <code>capabilities()</code> and
+   <code>provider_config</code> (I6); this ADR only changes <em>auth</em>, not selection.</li>
+<li>Do <strong>not</strong> read or forward a token <strong>value</strong> in app code — detect presence only; the SDK's CLI
+   reads it from the environment (§12).</li>
+<li>Do <strong>not</strong> mutate <code>os.environ</code> in the resolver.</li>
+<li>Do <strong>not</strong> treat an empty <code>ANTHROPIC_API_KEY</code> as "set" — that would silently bill on a
+   subscription-intended run.</li>
+<li>Do <strong>not</strong> open an SDK stream/loop before the auth gate — a misconfig must fail pre-stream, never
+   as a half-open stream.</li>
+<li>Do <strong>not</strong> bake any token into the Docker image or commit a real value to <code>.env</code>/compose.</li>
+<li>Do <strong>not</strong> change the ADR-0009 cost math — only the subscription log level (WARNING → INFO).</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

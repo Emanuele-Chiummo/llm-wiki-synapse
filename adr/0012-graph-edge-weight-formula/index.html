@@ -1,0 +1,795 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0012-graph-edge-weight-formula/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0012 — 4-signal graph edge-weight formula (F4) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0012-4-signal-graph-edge-weight-formula-f4" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0012 — 4-signal graph edge-weight formula (F4)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-combining-model-additive-over-an-undirected-page-pair" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Combining model: ADDITIVE over an undirected page-pair
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-each-term-defined-exactly-so-qa-can-compute-by-hand" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Each term defined exactly (so QA can compute by hand)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-edge-inclusion-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Edge inclusion rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-determinism-of-the-weight-independent-of-fa2-seed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Determinism of the weight (independent of FA2 seed)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-worked-fixture-matches-v03-stories-1-expected-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Worked fixture (matches v0.3-stories §1 expected values)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0012-4-signal-graph-edge-weight-formula-f4">ADR-0012 — 4-signal graph edge-weight formula (F4)<a class="headerlink" href="#adr-0012-4-signal-graph-edge-weight-formula-f4" title="Permanent link">&para;</a></h1>
+<ul>
+<li>Status: Accepted</li>
+<li>Date: 2026-06-28</li>
+<li>Sprint: v0.3</li>
+<li>Decider: solution-architect</li>
+<li>Invariants: I1 (computed from Postgres tables, no vault rescan), I9 (igraph R9)</li>
+<li>Related: CLAUDE.md §4 F4, v0.3-scope §6 (EC-M3-1), v0.3-stories §1, ADR-0008 §5 (links)</li>
+<li>Resolves: AQ-v0.3-1 (combining formula), AQ-v0.3-5 (edges table persistence)</li>
+</ul>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>F4 specifies four relevance signals with multipliers — direct-link ×3, source-overlap ×4,
+Adamic-Adar ×1.5, type-affinity ×1 — but does not define how the four combine into a single
+edge weight, nor the base unit each multiplier scales. The functional-analyst (AQ-v0.3-1, P0)
+blocks AC-F4-1 fixture values until this is fixed exactly, because QA must compute expected
+weights by hand. AQ-v0.3-5 (P0) couples here: the resulting weighted edge list must be
+<strong>persisted</strong> so <code>GET /graph</code> is a pure read on a cache hit (I2 intent).</p>
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<h3 id="1-combining-model-additive-over-an-undirected-page-pair">1. Combining model: ADDITIVE over an undirected page-pair<a class="headerlink" href="#1-combining-model-additive-over-an-undirected-page-pair" title="Permanent link">&para;</a></h3>
+<p>For an unordered pair of live pages <code>(A, B)</code>, the edge weight is the <strong>sum</strong> of the four
+independent signal contributions. No signal is multiplicative across signals; no cap is
+applied. Additive is auditable (each term inspectable in <code>signals</code> JSONB), monotonic
+(adding evidence never lowers weight), and lets QA isolate one signal at a time.</p>
+<div class="highlight"><pre><span></span><code>weight(A, B) =  3.0 · direct_link_count(A, B)
+             +  4.0 · shared_source_count(A, B)
+             +  1.5 · adamic_adar(A, B)
+             +  1.0 · same_type(A, B)
+</code></pre></div>
+<h3 id="2-each-term-defined-exactly-so-qa-can-compute-by-hand">2. Each term defined exactly (so QA can compute by hand)<a class="headerlink" href="#2-each-term-defined-exactly-so-qa-can-compute-by-hand" title="Permanent link">&para;</a></h3>
+<p>The graph is the set of <strong>live</strong> pages (<code>deleted_at IS NULL</code>). Edges are computed over the
+<strong>undirected</strong> projection; the direct-link term carries the only directional information by
+counting both orientations.</p>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Symbol</th>
+<th>Base unit</th>
+<th>Exact definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Direct link</td>
+<td><code>direct_link_count(A,B)</code></td>
+<td>count (0,1,2)</td>
+<td>Number of <strong>resolved, non-dangling</strong> rows in <code>links</code> whose <code>{source_page_id, target_page_id}</code> equals <code>{A,B}</code> in either direction. <code>A→B</code> contributes 1, <code>B→A</code> contributes 1; a bidirectional pair = 2. <code>dangling=True</code> rows are excluded (no resolved endpoint). Multiplier ×3.</td>
+</tr>
+<tr>
+<td>Source overlap</td>
+<td><code>shared_source_count(A,B)</code></td>
+<td>count (≥0)</td>
+<td><code>len(set(A.sources) ∩ set(B.sources))</code> over the <code>pages.sources</code> JSONB arrays. NULL sources → empty set. Multiplier ×4.</td>
+</tr>
+<tr>
+<td>Adamic-Adar</td>
+<td><code>adamic_adar(A,B)</code></td>
+<td>float (≥0)</td>
+<td>The igraph-computed Adamic-Adar index on the <strong>undirected, unweighted</strong> adjacency built from the resolved-link edge set (same edge set as the direct-link term, collapsed to undirected, deduplicated). <code>AA(A,B) = Σ_{c ∈ N(A)∩N(B)} 1/ln(deg(c))</code>. Computed via <code>igraph.Graph.similarity_inverse_log_weighted()</code>. Multiplier ×1.5.</td>
+</tr>
+<tr>
+<td>Type affinity</td>
+<td><code>same_type(A,B)</code></td>
+<td>indicator (0/1)</td>
+<td><code>1</code> if <code>A.page_type == B.page_type</code> AND both are non-NULL; else <code>0</code>. Two NULL types do NOT match (NULL is "unknown", not a type). Multiplier ×1.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-edge-inclusion-rule">3. Edge inclusion rule<a class="headerlink" href="#3-edge-inclusion-rule" title="Permanent link">&para;</a></h3>
+<p>An edge <code>(A,B)</code> is <strong>persisted to the <code>edges</code> table iff <code>weight(A,B) &gt; 0</code></strong>. Pairs whose four
+signals all evaluate to zero are not stored (keeps the table sparse; matches AC-F4-1(d):
+P3–P5 must NOT appear). The Adamic-Adar term alone can make a non-linked, non-shared-source,
+different-type pair have weight &gt; 0 if the two pages share a resolved-link neighbour — this is
+intended (transitive relevance) and such an edge IS persisted.</p>
+<h3 id="4-determinism-of-the-weight-independent-of-fa2-seed">4. Determinism of the weight (independent of FA2 seed)<a class="headerlink" href="#4-determinism-of-the-weight-independent-of-fa2-seed" title="Permanent link">&para;</a></h3>
+<p>Weights are a pure deterministic function of the <code>pages</code> and <code>links</code> rows. They do not depend
+on the FA2 seed (ADR-0013). The same DB state always yields the same <code>edges</code> rows and weights,
+so QA fixtures are byte-stable.</p>
+<h3 id="5-worked-fixture-matches-v03-stories-1-expected-values">5. Worked fixture (matches v0.3-stories §1 expected values)<a class="headerlink" href="#5-worked-fixture-matches-v03-stories-1-expected-values" title="Permanent link">&para;</a></h3>
+<p>Using the 5-node fixture (P1 Alpha/entity/[doc_a], P2 Beta/entity/[doc_a],
+P3 Gamma/concept/[doc_b], P4 Delta/entity/[doc_a,doc_b], P5 Epsilon/concept/[doc_c]) with
+resolved links P1→P2, P2→P1, P3→P4, P4→P1:</p>
+<table>
+<thead>
+<tr>
+<th>Edge</th>
+<th>direct ×3</th>
+<th>source ×4</th>
+<th>AA ×1.5</th>
+<th>type ×1</th>
+<th>base (excl. AA)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P1–P2</td>
+<td>2·3 = 6</td>
+<td>1·4 = 4</td>
+<td>≥0</td>
+<td>1</td>
+<td><strong>11</strong> + AA</td>
+</tr>
+<tr>
+<td>P1–P4</td>
+<td>1·3 = 3 (P4→P1)</td>
+<td>1·4 = 4 (doc_a)</td>
+<td>≥0</td>
+<td>1</td>
+<td><strong>8</strong> + AA</td>
+</tr>
+<tr>
+<td>P2–P4</td>
+<td>0</td>
+<td>1·4 = 4 (doc_a)</td>
+<td>≥0</td>
+<td>1</td>
+<td><strong>5</strong> + AA</td>
+</tr>
+<tr>
+<td>P3–P5</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0 (concept vs concept? — see note)</td>
+<td><strong>0</strong> → not stored</td>
+</tr>
+</tbody>
+</table>
+<p>Note on P3–P5: both are <code>concept</code>, so type-affinity would be 1, giving weight 1 (stored).
+v0.3-stories §1 states P3–P5 expected weight 0 / not present. <strong>Architect resolution:</strong> the
+stories fixture is authoritative for the <em>intent</em> (an unrelated pair), but per this formula
+two same-type pages DO get the +1 type term. To keep the fixture self-consistent, QA must
+either (a) set P5 to a different type than P3 in the test fixture, OR (b) assert P3–P5 weight
+== 1.0 (type-only). The formula is the source of truth; the QA fixture is adjusted, not the
+formula. This is flagged to functional-analyst as a one-line fixture correction (see
+v0.3-architecture §AQ-1 note). Lower-bound assertions for P1–P2 (≥11), P1–P4 (≥8), P2–P4 (≥5)
+are unaffected.</p>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li>(+) Each signal independently testable (AC-F4-1(e)) — zero out three terms, assert the fourth.</li>
+<li>(+) Weights are deterministic and FA2-seed-independent → stable regression fixtures.</li>
+<li>(+) Sparse <code>edges</code> table (only weight&gt;0) keeps <code>GET /graph</code> payload and FA2 input small.</li>
+<li>(+) Adamic-Adar reuses igraph natively (I9) — no hand-rolled graph math.</li>
+<li>(−) Same-type adds +1 to <em>every</em> same-type pair, which can create a dense block of weak
+  edges in a vault dominated by one type. Accepted for v0.3: the +1 is the weakest signal and
+  FA2 weighting (ADR-0013) keeps these from dominating layout. Revisit if graph density hurts
+  FA2 runtime at &gt;2k nodes (out of v0.3 scope).</li>
+<li>(−) AA is O(pairs) in the worst case; bounded in practice because it is only non-zero for
+  pairs sharing a neighbour. Complexity analysed in v0.3-architecture §GraphEngine.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

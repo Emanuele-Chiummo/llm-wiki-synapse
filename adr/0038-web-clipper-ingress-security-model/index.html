@@ -1,0 +1,1040 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0038-web-clipper-ingress-security-model/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0038 — F11 Web Clipper: secure clip ingress model - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0038-f11-web-clipper-secure-clip-ingress-model" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0038 — F11 Web Clipper: secure clip ingress model
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-single-service-no-second-server-s-4-closed-by-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Single service — no second server (S-4 closed by architecture)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-authn-clip_token-closes-s-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 AuthN: CLIP_TOKEN (closes S-1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-originhost-allowlist-closes-s-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Origin/Host allowlist (closes S-3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-body-cap-closes-s-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Body cap (closes S-5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-safe-path-no-caller-supplied-base-directory-closes-s-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Safe path: no caller-supplied base directory (closes S-2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-atomic-write-i5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Atomic write (I5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#27-auto-ingest-via-existing-pipeline-i1-no-new-ingest-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.7 Auto-ingest via existing pipeline (I1, no new ingest path)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#28-content-note-s-6-partial" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.8 Content note (S-6 partial)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Configuration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-chrome-mv3-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Chrome MV3 Extension
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-rest-endpoint-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. REST endpoint contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-security-audit-checklist-closes-llm_wiki-s-1s-6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Security audit checklist (closes llm_wiki S-1..S-6)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-do-not-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Do-NOT list
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0038-f11-web-clipper-secure-clip-ingress-model">ADR-0038 — F11 Web Clipper: secure clip ingress model<a class="headerlink" href="#adr-0038-f11-web-clipper-secure-clip-ingress-model" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-06-30</li>
+<li><strong>Sprint:</strong> v0.6 (M6 — shippable; F11 Web Clipper + secure local ingress)</li>
+<li><strong>Features:</strong> F11 (Chrome MV3 web clipper + secure local clip ingress + auto-ingest) ·
+  K1 (3-layer vault: raw/ → wiki/) · I1 (incremental index only) · I5 (atomic vault writes;
+  Obsidian-valid wiki/) · I7 (bounded; body cap enforced)</li>
+<li><strong>Reference:</strong> R1 (nashsu/llm_wiki — the clip server this ADR explicitly improves upon) ·
+  docs/reference/llm_wiki-audit/02-CODE-UI-REVIEW.md §1 (findings S-1..S-6)</li>
+<li><strong>Invariants owned:</strong> <strong>I5</strong> (atomic write via temp+os.replace; wiki/ never touched directly) ·
+  <strong>I1</strong> (watcher's mtime/SHA gate deduplicates re-clips; no double-ingest) ·
+  <strong>I7</strong> (body cap prevents DoS; CLIP_MAX_BODY_BYTES env-configured)</li>
+<li><strong>Author:</strong> backend-engineer · solution-architect</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>F11 adds a Chrome MV3 web clipper that converts pages to Markdown (via Readability +
+Turndown in the browser) and sends them to a Synapse ingress endpoint for auto-ingest into
+<code>vault/raw/sources/</code>.</p>
+<p>The reference app <code>nashsu/llm_wiki</code> ships a clip server (<code>:19827</code>) with <strong>five critical
+security defects</strong> documented in <code>docs/reference/llm_wiki-audit/02-CODE-UI-REVIEW.md §1</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Audit ID</th>
+<th>Defect</th>
+<th>Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S-1</td>
+<td>Clip server completely unauthenticated</td>
+<td>Critical</td>
+</tr>
+<tr>
+<td>S-2</td>
+<td>Caller controls the base directory (<code>project_path</code>) — writes to arbitrary paths</td>
+<td>Critical</td>
+</tr>
+<tr>
+<td>S-3</td>
+<td>Drive-by cross-origin POST: CORS is checked only for response headers, not to gate the action; any visited website can trigger ingest of attacker-controlled content</td>
+<td>Critical</td>
+</tr>
+<tr>
+<td>S-4</td>
+<td>LAN exposure with no token (inherits bind host from the API server)</td>
+<td>High</td>
+</tr>
+<tr>
+<td>S-5</td>
+<td>No body size cap — trivial DoS</td>
+<td>High</td>
+</tr>
+<tr>
+<td>S-6</td>
+<td>Content not sanitised before reaching the LLM pipeline</td>
+<td>Medium</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Synapse must not repeat any of these.</strong> This ADR documents the security model that
+closes all six gaps.</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-single-service-no-second-server-s-4-closed-by-architecture">2.1 Single service — no second server (S-4 closed by architecture)<a class="headerlink" href="#21-single-service-no-second-server-s-4-closed-by-architecture" title="Permanent link">&para;</a></h3>
+<p>The clip ingress is <strong><code>POST /clip</code> on the existing FastAPI service</strong> — not a second process
+on a separate port. This eliminates S-4 by construction: the existing service binds on the
+operator's configured host:port (not <code>0.0.0.0</code> by default), benefits from all the existing
+security controls (rate-limiting, reverse proxy, Tailscale), and adds no new network surface.</p>
+<p>The reference app's <code>:19827</code> separate server was the root cause of S-4: it ran with different
+(unauthenticated) logic from the API on <code>:19828</code>. Synapse has exactly ONE service.</p>
+<h3 id="22-authn-clip_token-closes-s-1">2.2 AuthN: CLIP_TOKEN (closes S-1)<a class="headerlink" href="#22-authn-clip_token-closes-s-1" title="Permanent link">&para;</a></h3>
+<p>Every <code>POST /clip</code> request <strong>must</strong> carry <code>Authorization: Bearer &lt;CLIP_TOKEN&gt;</code>. The token is:
+- Configured via the <code>CLIP_TOKEN</code> env var (never hardcoded).
+- Compared <strong>constant-time</strong> (<code>hmac.compare_digest</code>) to prevent timing side-channels.
+- <strong>Never logged</strong>, never returned in any API response.
+- Absent → 401; wrong → 401. Fail-closed (no configured token = always 401).</p>
+<p>An optional master gate <code>CLIP_ENABLED</code> (default <code>false</code>) allows the ingress to be disabled
+entirely even when the FastAPI app is running. When <code>CLIP_ENABLED=false</code> → 503 before any
+auth check.</p>
+<h3 id="23-originhost-allowlist-closes-s-3">2.3 Origin/Host allowlist (closes S-3)<a class="headerlink" href="#23-originhost-allowlist-closes-s-3" title="Permanent link">&para;</a></h3>
+<p><strong>CORS alone does not protect against drive-by <code>POST</code> writes.</strong> A "simple" <code>POST</code> with
+<code>Content-Type: application/json</code> does not trigger a preflight check in some browser contexts,
+and even when it does, the CORS gate only controls <em>response</em> headers — the server action has
+already executed by the time the browser sees the response.</p>
+<p>Therefore, the server validates the <code>Origin</code> header <strong>before any processing or disk write</strong>:</p>
+<div class="highlight"><pre><span></span><code>allowlist = CLIP_ALLOWED_ORIGINS (env, comma-separated) ∪ loopback origins (implicit)
+</code></pre></div>
+<p>Implicit loopback: <code>http://localhost</code>, <code>http://127.0.0.1</code>, <code>http://[::1]</code>, and their Vite
+dev-server variants (<code>:5173</code>). These are always allowed because they are bounded to the
+local machine and the token gate is still enforced.</p>
+<p>The extension owner configures <code>CLIP_ALLOWED_ORIGINS=chrome-extension://&lt;extension_id&gt;</code> to
+permit requests from their installed extension.</p>
+<p>When the <code>Origin</code> header is absent (non-browser curl/local automation), the check passes —
+the token gate alone is sufficient for non-browser paths (there is no CSRF risk without a
+browser context).</p>
+<p>Decision logic:
+<div class="highlight"><pre><span></span><code>if origin is None → allow (non-browser; token is the auth)
+if origin in (CLIP_ALLOWED_ORIGINS ∪ loopback) → allow
+else → 403
+</code></pre></div></p>
+<p>This check is enforced <strong>server-side</strong> on every request, independent of CORS middleware.</p>
+<h3 id="24-body-cap-closes-s-5">2.4 Body cap (closes S-5)<a class="headerlink" href="#24-body-cap-closes-s-5" title="Permanent link">&para;</a></h3>
+<p><code>CLIP_MAX_BODY_BYTES</code> (env, default 2 MB) caps the accepted body size. Two enforcement
+points:
+1. Check <code>Content-Length</code> header <strong>before deserialisation</strong> → 413 if exceeded.
+2. Check the size of the already-deserialised JSON body (belt-and-braces) → 413.</p>
+<p>The reference app used <code>read_to_string</code> with no limit. 2 MB covers any realistic web article.</p>
+<h3 id="25-safe-path-no-caller-supplied-base-directory-closes-s-2">2.5 Safe path: no caller-supplied base directory (closes S-2)<a class="headerlink" href="#25-safe-path-no-caller-supplied-base-directory-closes-s-2" title="Permanent link">&para;</a></h3>
+<p>The caller supplies <code>{url, title, markdown}</code>. The <strong>server</strong> derives the filename from
+<code>title</code> (never from a caller-supplied path):</p>
+<div class="highlight"><pre><span></span><code><span class="n">filename</span> <span class="o">=</span> <span class="n">_clip_safe_filename</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>  <span class="c1"># sanitize: strip /\\:*?&quot;&lt;&gt;|, clamp 180 chars</span>
+<span class="n">name</span>     <span class="o">=</span> <span class="n">safe_source_name</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>        <span class="c1"># existing ADR-0020 sanitizer</span>
+<span class="n">dst</span>      <span class="o">=</span> <span class="n">resolve_under_sources</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>       <span class="c1"># containment check: must start with raw_sources_dir/</span>
+</code></pre></div>
+<p>The <code>resolve_under_sources()</code> function uses <code>Path.resolve()</code> + prefix check (existing
+ADR-0020 §2.2 primitive). A path that escapes <code>vault/raw/sources/</code> raises 400 before any
+write.</p>
+<p>The caller <strong>never</strong> supplies a <code>project_path</code> or base directory. This closes S-2 by
+removing the attack surface entirely.</p>
+<h3 id="26-atomic-write-i5">2.6 Atomic write (I5)<a class="headerlink" href="#26-atomic-write-i5" title="Permanent link">&para;</a></h3>
+<p>The file is written via <code>tempfile.mkstemp</code> + <code>Path.replace()</code> (same-directory atomic
+rename) so a crash mid-write cannot corrupt the vault.</p>
+<h3 id="27-auto-ingest-via-existing-pipeline-i1-no-new-ingest-path">2.7 Auto-ingest via existing pipeline (I1, no new ingest path)<a class="headerlink" href="#27-auto-ingest-via-existing-pipeline-i1-no-new-ingest-path" title="Permanent link">&para;</a></h3>
+<p>After the atomic write, the <strong>existing watchdog observer</strong> sees the file appear in
+<code>vault/raw/sources/</code> and calls <code>ingest_file()</code> through the normal pipeline. No new ingest
+logic. The watcher's mtime/SHA gate (ADR-0001) deduplicates re-clips of unchanged content
+(same URL + same Markdown body → <code>skipped</code> status, no double-ingest).</p>
+<h3 id="28-content-note-s-6-partial">2.8 Content note (S-6 partial)<a class="headerlink" href="#28-content-note-s-6-partial" title="Permanent link">&para;</a></h3>
+<p>The Markdown is written verbatim to <code>raw/sources/</code>. The ingest pipeline (Obsidian-valid
+frontmatter, LLM analysis/generation into <code>wiki/</code>) is downstream of this write. The raw file
+is human-readable and the Obsidian-valid YAML frontmatter is constructed by the server (not
+caller-supplied). The caller supplies only <code>url</code>/<code>title</code>/<code>markdown</code> — field values are
+escaped before embedding in YAML (no YAML injection via <code>"</code>).</p>
+<p>Full HTML sanitization (rehype-sanitize style) is deferred: the Readability + Turndown
+pipeline in the extension already strips script/style/iframe before converting to Markdown,
+and the LLM ingest analysis is bounded (I7) and runs in a sandboxed provider — not a direct
+exec path for injected content.</p>
+<hr />
+<h2 id="3-configuration">3. Configuration<a class="headerlink" href="#3-configuration" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Env var</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CLIP_ENABLED</code></td>
+<td><code>false</code></td>
+<td>Master gate — must be <code>true</code> to open the ingress</td>
+</tr>
+<tr>
+<td><code>CLIP_TOKEN</code></td>
+<td><em>(none)</em></td>
+<td>SECRET bearer token (required; no configured token = always 401)</td>
+</tr>
+<tr>
+<td><code>CLIP_ALLOWED_ORIGINS</code></td>
+<td><code>""</code> (empty)</td>
+<td>Comma-separated extra origins (e.g. <code>chrome-extension://abc</code>)</td>
+</tr>
+<tr>
+<td><code>CLIP_MAX_BODY_BYTES</code></td>
+<td><code>2097152</code> (2 MB)</td>
+<td>Body cap (I7)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-chrome-mv3-extension">4. Chrome MV3 Extension<a class="headerlink" href="#4-chrome-mv3-extension" title="Permanent link">&para;</a></h2>
+<p><strong>Location:</strong> <code>extension/</code> (repo root)</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>manifest.json</code></td>
+<td>MV3 manifest: permissions <code>activeTab</code>, <code>scripting</code>, <code>storage</code></td>
+</tr>
+<tr>
+<td><code>popup.html</code> + <code>popup.js</code></td>
+<td>Clip UI: extract via Readability+Turndown, POST to <code>/clip</code></td>
+</tr>
+<tr>
+<td><code>options.html</code> + <code>options.js</code></td>
+<td>Settings: base URL, token, extension ID display</td>
+</tr>
+<tr>
+<td><code>vendor/Readability.js</code></td>
+<td><code>@mozilla/readability</code> (Apache-2.0, vendored)</td>
+</tr>
+<tr>
+<td><code>vendor/turndown.js</code></td>
+<td><code>turndown</code> UMD build (MIT, vendored)</td>
+</tr>
+<tr>
+<td><code>vendor/Readability-LICENSE.md</code></td>
+<td>Apache-2.0 licence for Readability</td>
+</tr>
+<tr>
+<td><code>vendor/turndown-LICENSE</code></td>
+<td>MIT licence for Turndown</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Vendoring approach:</strong> Both libraries installed via <code>npm</code> (registry.npmjs.org), then the
+UMD/browser-compatible dist files copied to <code>extension/vendor/</code>. No bundler required — the
+MV3 extension executes them via <code>scripting.executeScript(target, files=[...])</code> in the page
+context. Licences preserved in <code>vendor/</code>.</p>
+<p><strong>Extension flow:</strong>
+1. User clicks the toolbar icon → popup opens.
+2. Popup injects <code>vendor/Readability.js</code> + <code>vendor/turndown.js</code> into the active tab via
+   <code>scripting.executeScript</code>.
+3. An extraction script runs in the page: <code>new Readability(docClone).parse()</code> →
+   <code>new TurndownService().turndown(article.content)</code>.
+4. Title (editable) is shown. User clicks "Clip to Synapse".
+5. Popup posts <code>{url, title, markdown}</code> to <code>{baseURL}/clip</code> with
+   <code>Authorization: Bearer {token}</code> header.
+6. Chrome sets the <code>Origin: chrome-extension://&lt;id&gt;</code> header automatically on the cross-origin
+   fetch — the server validates it against <code>CLIP_ALLOWED_ORIGINS</code>.</p>
+<p><strong>First-run setup:</strong>
+1. Install the extension (developer mode: load unpacked from <code>extension/</code>).
+2. Open the extension Options page (right-click icon → Options).
+3. Set <code>Synapse Base URL</code> (e.g. <code>http://localhost:8000</code>).
+4. Generate a strong random token and set it as <code>CLIP_TOKEN</code> in Synapse env; paste it here.
+5. Copy the Extension ID shown on the Options page.
+6. Add <code>CLIP_ALLOWED_ORIGINS=chrome-extension://&lt;that-id&gt;</code> to Synapse env.
+7. Set <code>CLIP_ENABLED=true</code> in Synapse env.</p>
+<hr />
+<h2 id="5-rest-endpoint-contract">5. REST endpoint contract<a class="headerlink" href="#5-rest-endpoint-contract" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>POST /clip
+Authorization: Bearer &lt;CLIP_TOKEN&gt;
+Content-Type: application/json
+Origin: chrome-extension://&lt;extension_id&gt;   (set by Chrome automatically)
+
+{
+  &quot;url&quot;: &quot;https://...&quot;,
+  &quot;title&quot;: &quot;Article Title&quot;,
+  &quot;markdown&quot;: &quot;# Article Title\n\nBody...&quot;,
+  &quot;source&quot;: null   // optional; defaults to url
+}
+
+→ 202 { &quot;file_path&quot;: &quot;raw/sources/Article-Title.md&quot;, &quot;status&quot;: &quot;queued&quot;, &quot;overwritten&quot;: false }
+→ 401  missing/invalid token
+→ 403  origin not in allowlist
+→ 413  body exceeds CLIP_MAX_BODY_BYTES
+→ 400  unsafe/traversal filename
+→ 503  CLIP_ENABLED=false
+</code></pre></div>
+<hr />
+<h2 id="6-security-audit-checklist-closes-llm_wiki-s-1s-6">6. Security audit checklist (closes llm_wiki S-1..S-6)<a class="headerlink" href="#6-security-audit-checklist-closes-llm_wiki-s-1s-6" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Audit finding</th>
+<th>Synapse answer</th>
+<th>Test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S-1 unauthenticated</td>
+<td>CLIP_TOKEN bearer, constant-time compare, fail-closed</td>
+<td>TC-CLIP-01, TC-CLIP-02</td>
+</tr>
+<tr>
+<td>S-2 attacker-controlled path</td>
+<td>Server derives filename from title; safe_source_name + resolve_under_sources containment check</td>
+<td>TC-CLIP-05</td>
+</tr>
+<tr>
+<td>S-3 drive-by cross-origin</td>
+<td>Origin header validated server-side BEFORE processing; not CORS-only</td>
+<td>TC-CLIP-03</td>
+</tr>
+<tr>
+<td>S-4 LAN exposure unauthenticated</td>
+<td>Single service (no second server); CLIP_TOKEN always required</td>
+<td>Architecture (no separate port)</td>
+</tr>
+<tr>
+<td>S-5 no body cap</td>
+<td>CLIP_MAX_BODY_BYTES gate (Content-Length + accumulated bytes)</td>
+<td>TC-CLIP-04</td>
+</tr>
+<tr>
+<td>S-6 content not sanitised</td>
+<td>Readability+Turndown strip scripts; YAML fields escaped; raw stored, not exec'd</td>
+<td>TC-CLIP-06 (frontmatter check)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-do-not-list">7. Do-NOT list<a class="headerlink" href="#7-do-not-list" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>DO NOT</strong> bind a second HTTP server for clip ingress (closes S-4 permanently).</li>
+<li><strong>DO NOT</strong> accept a <code>project_path</code> or base directory from the caller (closes S-2).</li>
+<li><strong>DO NOT</strong> rely on CORS alone to block cross-origin writes (closes S-3).</li>
+<li><strong>DO NOT</strong> log the CLIP_TOKEN plaintext or hash — not even a prefix.</li>
+<li><strong>DO NOT</strong> accept clip requests when <code>CLIP_ENABLED=false</code> (master gate — 503 first).</li>
+<li><strong>DO NOT</strong> write to <code>vault/wiki/</code> directly from the clip path (K1 layer separation; I5).</li>
+<li><strong>DO NOT</strong> set <code>CLIP_ALLOWED_ORIGINS=*</code> in production — always explicit allowlist.</li>
+<li><strong>DO NOT</strong> use a short token (&lt; 32 chars recommended) — enforce this in documentation.</li>
+<li><strong>DO NOT</strong> bypass the watcher (call <code>ingest_file</code> directly) — let the watchdog observe
+   the file write (I1 — the mtime/SHA gate handles idempotency).</li>
+<li><strong>DO NOT</strong> add Tavily or any alternative search for deep-research of clipped pages (I9 —
+    existing SearXNG pipeline handles follow-up research).</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

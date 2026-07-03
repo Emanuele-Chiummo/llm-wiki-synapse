@@ -1,0 +1,737 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-architect-review-phase5/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Architect Review — v0.5 / M5 Phase 5 (F1-MCP-UI) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#architect-review-v05-m5-phase-5-f1-mcp-ui" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Architect Review — v0.5 / M5 Phase 5 (F1-MCP-UI)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#verdict-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verdict: APPROVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#do-not-verification-adr-0027-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do-NOT verification (ADR-0027 §4)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nothing-hardcoded-confirmation-i6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Nothing hardcoded" confirmation (I6)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#read-only-confirmation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read-only confirmation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#additional-checks-adr-0027-22-25" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Additional checks (ADR-0027 §2.2 / §2.5)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invariant-tension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariant tension
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#minor-observations-non-blocking-no-conditions-attached" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Minor observations (non-blocking, no conditions attached)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="architect-review-v05-m5-phase-5-f1-mcp-ui">Architect Review — v0.5 / M5 Phase 5 (F1-MCP-UI)<a class="headerlink" href="#architect-review-v05-m5-phase-5-f1-mcp-ui" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Branch:</strong> <code>sprint/v0.5</code></li>
+<li><strong>Feature:</strong> F1-MCP-UI (PM Amendment A1) — read-only MCP server introspection endpoint + Settings panel</li>
+<li><strong>Contract:</strong> ADR-0027 (<code>docs/adr/0027-mcp-info-ui.md</code>)</li>
+<li><strong>Reviewer:</strong> solution-architect</li>
+<li><strong>Date:</strong> 2026-06-29</li>
+<li><strong>Scope:</strong> read-only implementation review against ADR-0027 + invariants. Test suite NOT run (QA owns, in parallel).</li>
+<li><strong>Headline invariants:</strong> I9 (don't reinvent MCP — display only) · I6 (nothing about the MCP server hardcoded)</li>
+</ul>
+<hr />
+<h2 id="verdict-approve">Verdict: <strong>APPROVE</strong><a class="headerlink" href="#verdict-approve" title="Permanent link">&para;</a></h2>
+<p>The implementation is a faithful, minimal realization of ADR-0027. Every Do-NOT holds. The endpoint
+is pure in-process introspection of the already-built <code>mcp</code> object; the panel is read-only with no
+mutation path; all MCP metadata is derived from the live object + settings, none hardcoded. No DB,
+no migration, no second server, no tool invocation, no transport session.</p>
+<hr />
+<h2 id="do-not-verification-adr-0027-4">Do-NOT verification (ADR-0027 §4)<a class="headerlink" href="#do-not-verification-adr-0027-4" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Do-NOT (ADR-0027 §4)</th>
+<th>Status</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>No hardcoded tool list / name / description / schema (backend or frontend)</td>
+<td><strong>HELD</strong></td>
+<td>Backend derives all from <code>await _mcp_server.list_tools()</code> — <code>backend/app/main.py:1635-1644</code> (<code>t.name</code>, <code>t.description</code>, <code>t.parameters</code>). Frontend renders from <code>info.tools.map(...)</code> — <code>SettingsPanel.tsx:751-790</code>; no JSX literal tool data. i18n values carry no tool/server literals (verified <code>en.json</code>/<code>it.json</code>).</td>
+</tr>
+<tr>
+<td>2</td>
+<td>No tool invocation from UI; endpoint opens NO MCP transport/stdio session (no <code>asyncio.run</code>, no thread bridge, no DB, no Qdrant)</td>
+<td><strong>HELD</strong></td>
+<td>Handler body is only <code>await _mcp_server.list_tools()</code> + field reads — <code>main.py:1634-1652</code>. No DB session, no Qdrant client, no <code>mcp.run(...)</code>. Module import is side-effect-free: <code>mcp.run(transport="stdio")</code> is guarded by <code>if __name__ == "__main__"</code> — <code>mcp/server.py:346-348</code>. Frontend has no code path to any tool: <code>fetchMcpInfo</code> is the only call — <code>providerClient.ts:134-141</code>.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>No config-write / CRUD / mutation — read-only end to end</td>
+<td><strong>HELD</strong></td>
+<td>Endpoint is <code>@app.get("/mcp/info")</code> only — <code>main.py:1613</code>. No POST/PUT/PATCH/DELETE added. Frontend has no write action; <code>handleCopy</code> writes to clipboard only — <code>SettingsPanel.tsx:670-677</code>.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>No new MCP capability / second server / duplication of <code>server.py</code> logic (I9)</td>
+<td><strong>HELD</strong></td>
+<td>Reuses the existing instance via <code>from app.mcp.server import mcp as _mcp_server</code> — <code>main.py:77</code>. No new <code>FastMCP(...)</code>, no <code>@mcp.tool</code>, no reimplemented tool logic.</td>
+</tr>
+</tbody>
+</table>
+<p>(Also confirmed: Do-NOT #6 no DB table/migration — no <code>mcp</code> migration in <code>backend/alembic/versions</code>; Do-NOT #7 no Zustand store — <code>SectionApiMcp</code> uses local <code>useState</code> + <code>AbortController</code> on mount, mirroring <code>SectionEmbeddings</code>, <code>SettingsPanel.tsx:636-648</code>.)</p>
+<hr />
+<h2 id="nothing-hardcoded-confirmation-i6">"Nothing hardcoded" confirmation (I6)<a class="headerlink" href="#nothing-hardcoded-confirmation-i6" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>server_name</code> ← <code>_mcp_server.name</code> (the live FastMCP object) — <code>main.py:1647</code>.</li>
+<li><code>transport</code> ← <code>settings.mcp_transport</code> (env <code>MCP_TRANSPORT</code>, default <code>"stdio"</code>) — <code>main.py:1648</code>, <code>config.py:183-188</code>.</li>
+<li><code>entry_point_command</code> ← <code>settings.mcp_entry_command</code> (env <code>MCP_ENTRY_COMMAND</code>, default <code>"python -m app.mcp.server"</code>) — <code>main.py:1649</code>, <code>config.py:190-195</code>.</li>
+<li><code>tool_count</code> ← <code>len(tools)</code>; tool name/description/schema ← <code>list_tools()</code> items — <code>main.py:1637-1651</code>.</li>
+<li>Claude Desktop snippet is <strong>generated from the payload</strong>: <code>entry_point_command</code> tokenised to <code>command</code> + <code>args</code>, server keyed dynamically by <code>server_name</code> — <code>SettingsPanel.tsx:655-668</code>. The displayed JSON is the single source copied to clipboard (<code>buildClaudeDesktopSnippet(info)</code> rendered at <code>:721</code>, copied at <code>:672</code>). Not a JSX literal.</li>
+</ul>
+<p>No tool name, description, schema, server name, transport, or entry command appears as a literal in
+the route function or in JSX. Defaults live in <code>config.py</code> and are env-overridable — consistent with
+how <code>embedding_*</code> are read. I6 holds end-to-end.</p>
+<h2 id="read-only-confirmation">Read-only confirmation<a class="headerlink" href="#read-only-confirmation" title="Permanent link">&para;</a></h2>
+<p>Backend: single <code>GET</code> route, body performs introspection + field reads only — no write to DB, file,
+Qdrant, or MCP transport. Frontend: fetch-on-mount + render; the only side effect is
+<code>navigator.clipboard.writeText</code>. There is no code path from the UI to a tool invocation or a config
+write. Read-only end to end.</p>
+<hr />
+<h2 id="additional-checks-adr-0027-22-25">Additional checks (ADR-0027 §2.2 / §2.5)<a class="headerlink" href="#additional-checks-adr-0027-22-25" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Clean async introspection:</strong> <code>await _mcp_server.list_tools()</code> inside <code>async def get_mcp_info</code> — direct await, no <code>asyncio.run</code>, no sync-bridge hack (<code>main.py:1626,1635</code>). Matches the ADR §2.2 contract. <code>.parameters</code> (not <code>.inputSchema</code>) is read, with a <code>{}</code> fallback when <code>None</code> (<code>main.py:1641</code>) — defensive and correct per the §2.2 verified-facts note.</li>
+<li><strong>D4 (OpenAPI):</strong> <code>GET /mcp/info</code> present in <code>docs/api/openapi.json</code> (3 occurrences). Zero-drift gate satisfied for the route. (Confirm regeneration timestamp is current at the docs gate.)</li>
+<li><strong>D2 (ER):</strong> unchanged — no DB table, no Alembic migration touching MCP. Correct.</li>
+<li><strong>i18n parity:</strong> <code>settings.apiMcp.*</code> key-sets identical in <code>en.json</code> and <code>it.json</code> (12 keys each incl. <code>paramCount</code>/<code>paramCount_plural</code>). <code>apiMcp.comingSoon</code> fully retired (no remaining reference). API-sourced values are never i18n keys — only labels are translated. Parity gate satisfied.</li>
+</ul>
+<h2 id="invariant-tension">Invariant tension<a class="headerlink" href="#invariant-tension" title="Permanent link">&para;</a></h2>
+<p>None blocking. Two notes for the record (both already documented as ADR-0027 §3 trade-offs, accepted):</p>
+<ol>
+<li><strong>Import-time registry, not a live handshake.</strong> <code>/mcp/info</code> reflects the in-process registry, not a live stdio session. Intentional and correct for a static, code-defined tool set; if tools ever become runtime-dynamic, <code>list_tools()</code> is already called per request so it would still reflect them. No action.</li>
+<li><strong>Snippet assumes <code>command + args</code> launch.</strong> Bespoke wrappers (e.g. <code>docker exec</code>) are out of scope for M5; the derived default is editable by the user after paste. No action.</li>
+</ol>
+<h2 id="minor-observations-non-blocking-no-conditions-attached">Minor observations (non-blocking, no conditions attached)<a class="headerlink" href="#minor-observations-non-blocking-no-conditions-attached" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>buildClaudeDesktopSnippet</code> was placed inline in <code>SectionApiMcp</code> (<code>SettingsPanel.tsx:655</code>) rather than in <code>providerClient.ts</code> as the task framing implied. This does not violate the ADR (which only requires the snippet be generated from the payload, not a literal — satisfied). Acceptable as-is; if a future panel needs the same builder, lift it to the client then. Not a condition.</li>
+<li>Tool description truncation splits on <code>[.!?]</code> then caps at 80 chars (<code>SettingsPanel.tsx:753-756</code>) — matches ADR §2.4 "first sentence, truncated to 80". Good.</li>
+</ul>
+<hr />
+<h2 id="conditions">Conditions<a class="headerlink" href="#conditions" title="Permanent link">&para;</a></h2>
+<p>None. Approval is unconditional for the architecture/contract gate.</p>
+<p><strong>Out-of-scope reminders for the phase gate (not my gate to close):</strong>
+- QA: confirm pytest (<code>200</code>, <code>tool_count &gt;= 4</code>, <code>server_name == "synapse"</code>, <code>entry_point_command</code> non-empty) and vitest (4 tool rows rendered, copy button present) are green.
+- tech-writer/devops: confirm <code>make openapi</code> output committed and <code>docs/screens/settings-api-mcp.png</code> (D5) captured at the docs gate.</p>
+<p><strong>Handoff:</strong> verdict → orchestrator. ADR-0027 unchanged (implementation matched the design; no amendment required).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

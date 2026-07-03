@@ -1,0 +1,881 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0021-labeled-navrail-and-provider-crud/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0021 — Labeled NavRail Standard + Provider Config CRUD Contract (M4-HARD) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0021-labeled-navrail-standard-provider-config-crud-contract-m4-hard" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0021 — Labeled NavRail Standard + Provider Config CRUD Contract (M4-HARD)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-labeled-navrail-is-the-standard-supersedes-adr-0018-1-rail-geometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Labeled NavRail is the standard (supersedes ADR-0018 §1 rail geometry)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-m5-items-are-removed-from-the-rail-the-section-type-retains-them-no-churn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. M5 items are removed from the rail; the Section type retains them (no churn)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-the-chat-default-no-persistence-path-is-type-sound-analysis-not-a-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. The chat-default / no-persistence path is type-sound (analysis, not a change)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-provider-config-crud-contract-add-delete-no-hardcoded-ids-server-resolved-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Provider Config CRUD contract (ADD / DELETE) — no hardcoded IDs; server-resolved routing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-panel-collapse-uses-the-library-not-a-measurement-loop-i3i4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Panel collapse uses the library, not a measurement loop (I3/I4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-invariant-confirmation-this-increment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Invariant confirmation (this increment)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conditions-attached-to-approve-with-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditions (attached to APPROVE-WITH-CONDITIONS)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0021-labeled-navrail-standard-provider-config-crud-contract-m4-hard">ADR-0021 — Labeled NavRail Standard + Provider Config CRUD Contract (M4-HARD)<a class="headerlink" href="#adr-0021-labeled-navrail-standard-provider-config-crud-contract-m4-hard" title="Permanent link">&para;</a></h1>
+<ul>
+<li>Status: Accepted</li>
+<li>Date: 2026-06-29</li>
+<li>Sprint: v0.4 (M4 "Usable and fluid"), M4-HARD hardening increment</li>
+<li>Decider: solution-architect</li>
+<li>Supersedes (in part): ADR-0018 §1 (the 48px icon-only rail; the disabled-Chat / "Phase 3"
+  rail item; the separated M5 placeholder group). ADR-0018's state model (§2), provider
+  read/derive model (§4), settings model (§5) and i18n rules (§6) remain in force.</li>
+<li>Invariants: <strong>I3</strong> (NavRail and SettingsPanel sub-nav subscribe via scalar/shallow selectors
+  only; no whole-store subscription; section switch does not invalidate graph selectors),
+  <strong>I4</strong> (no WYSIWYG/ProseMirror/CodeMirror added; the two new lists — Settings left-nav (9 fixed
+  items) and provider list — are BOUNDED, not virtualization candidates), <strong>I6</strong> (provider ADD
+  form collects <code>provider_type</code> / <code>model_id</code> / <code>base_url</code> as <em>user input</em>; NO model ID or
+  provider is hardcoded; routing stays server-resolved from <code>provider_config</code>), <strong>I7</strong> (the
+  conversation-history-length selector is a context-budget control — see Consequences for the
+  unwired-consumer flag)</li>
+<li>Related: ADR-0018 (the rail/section/provider/settings baseline this amends), ADR-0008
+  (provider_config schema; <code>model_id</code> is a required column), ADR-0017 (3-panel shell),
+  ADR-0019 (chat streaming — the <code>chat</code> section this rail now activates), CLAUDE.md §3
+  (I3/I4/I6/I7), §4b (F1, F16, F17), §5 (F17 provider detail),
+  docs/sprints/v0.4-hard-scope.md (PM scope-lock; Point A / Point B rulings; §3 ACs)</li>
+</ul>
+<hr />
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>ADR-0018 shipped a ~48px icon-only left rail with hover tooltips, a <code>disabled</code> Chat item tagged
+"Phase 3", and a separated group of M5 placeholder items (Search / Lint / Review / Deep Search)
+rendered at near-invisible <code>#30363d</code>. Human browser testing (EC-M4-HCP) found two usability
+defects:</p>
+<ol>
+<li>The icons were <em>non parlanti</em> — not self-explanatory; hover tooltips are a discoverability aid,
+   not a substitute for a visible label.</li>
+<li>The greyed-out, label-less, non-functional M5 items created uncertainty about whether the app
+   was broken or the features were intentionally absent.</li>
+</ol>
+<p>The PM ruled (docs/sprints/v0.4-hard-scope.md §2): <strong>Point A</strong> — persistent text labels beside/
+below each icon, rail widened to ~72px (Form 1; reject hover-only Form 2 and stateful expandable
+Form 3); <strong>Point B</strong> — REMOVE the four M5 items from the M4 rail entirely (do not label a disabled
+placeholder), retaining their i18n keys and their <code>Section</code> union members for M5.</p>
+<p>Separately, the Settings surface was rebuilt from ADR-0018's single-column form into a 9-section
+left-nav layout, and the LLM Models section went from read-only to read-write: the user can now
+<strong>ADD</strong> a provider (<code>POST /provider/config</code>) and <strong>DELETE</strong> one (<code>DELETE /provider/config/{id}</code>).
+This is the first UI surface that mutates <code>provider_config</code> beyond the Header selector's
+"set-active" POST. It therefore needs an explicit architect contract on (a) the no-hardcoded-ID
+guarantee under user-typed input, and (b) the last-provider deletion risk.</p>
+<p>This ADR ratifies the labeled-rail standard, the M5-removal pattern, and the provider-CRUD
+contract; and records the architectural concerns the gate must track.</p>
+<hr />
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<h3 id="1-labeled-navrail-is-the-standard-supersedes-adr-0018-1-rail-geometry">1. Labeled NavRail is the standard (supersedes ADR-0018 §1 rail geometry)<a class="headerlink" href="#1-labeled-navrail-is-the-standard-supersedes-adr-0018-1-rail-geometry" title="Permanent link">&para;</a></h3>
+<p>The rail is <strong>72px wide</strong>; each item is a <code>&lt;button&gt;</code> rendering an icon SVG plus a persistent
+<code>&lt;span&gt;</code> caption below it at <strong>10px</strong> (PM cap: ≤12px), centered, <code>white-space: nowrap</code> with
+ellipsis truncation. The active-state highlight (<code>#1f2937</code> fill + <code>#21262d</code> outline) encloses
+both icon and label. Labels are existing i18n keys (<code>nav.chat</code>, <code>nav.wiki</code>, <code>nav.sources</code>,
+<code>nav.graph</code>, <code>nav.settings</code>) — no new keys.</p>
+<p>The M4 rail renders exactly <strong>5 interactive items</strong>: Chat · Wiki · Sources · Graph (TOP_ITEMS) +
+Settings (BOTTOM_ITEMS, pinned). The default section on first load is <strong><code>chat</code></strong> (ADR-0019
+activated it; the old "Phase 3" disabled stub is gone). The ingest running-count badge stays on
+the Sources item via <code>useIngestRunningCount()</code> (separate hook — no graph-store coupling).</p>
+<p>This is now the canonical rail pattern. When M5 ships Search / Lint / Review / Deep Search logic,
+those items are re-added to the rail <strong>with labels and full functionality</strong> — never as labeled or
+unlabeled disabled chrome. "Features appear when they work" is the ratified rule.</p>
+<h3 id="2-m5-items-are-removed-from-the-rail-the-section-type-retains-them-no-churn">2. M5 items are removed from the rail; the <code>Section</code> type retains them (no churn)<a class="headerlink" href="#2-m5-items-are-removed-from-the-rail-the-section-type-retains-them-no-churn" title="Permanent link">&para;</a></h3>
+<p><code>M5_ITEMS</code> is an empty array (kept as a populate-point comment for M5). The separator between the
+active group and the (former) placeholder group is removed. Crucially:</p>
+<ul>
+<li>The <code>Section</code> union in <code>graphStore.ts</code> <strong>retains</strong> <code>"search" | "lint" | "review" | "deep-search"</code>
+  as valid members (PM AC-HARD-M5P-5). This avoids a TypeScript mass-refactor at M5.</li>
+<li>The <code>SectionRouter</code> <strong>retains</strong> render branches for those four values, each rendering an M5
+  <code>ComingSoonPlaceholder</code>. These branches are now <strong>unreachable in M4</strong> because no rail button can
+  set those sections and the default is <code>chat</code> — but they are kept type-sound and live so M5 can
+  re-add the rail button and the route is already wired. This is deliberate dead-but-correct state,
+  not a bug.</li>
+</ul>
+<h3 id="3-the-chat-default-no-persistence-path-is-type-sound-analysis-not-a-change">3. The <code>chat</code>-default / no-persistence path is type-sound (analysis, not a change)<a class="headerlink" href="#3-the-chat-default-no-persistence-path-is-type-sound-analysis-not-a-change" title="Permanent link">&para;</a></h3>
+<p><code>activeSection</code> is <strong>not persisted</strong> to <code>localStorage</code> anywhere. It initializes to <code>"chat"</code> on
+every load (graphStore <code>INITIAL_STATE.activeSection</code>). Therefore the AC-HARD-ORD-3 concern
+("if a restored section is a removed M5 item, fall back to chat") <strong>cannot arise in M4</strong>: there is
+no restore path, so there is no dead-state risk. The keyboard-nav handler in NavRail iterates only
+<code>[...TOP_ITEMS, ...M5_ITEMS, ...BOTTOM_ITEMS]</code> (M5 empty), so arrow keys can never land on a
+removed section. Even if a future change introduces section persistence, <code>SectionRouter</code> already
+renders every <code>Section</code> member (no <code>null</code> for the M5 four — they hit the placeholder), so the
+union remains exhaustively handled. <strong>Verdict: type-sound, no dead-state.</strong> (If section
+persistence is added later, it MUST sanitize a restored value against the rendered rail items and
+fall back to <code>chat</code> — recorded as a forward constraint, not an M4 defect.)</p>
+<h3 id="4-provider-config-crud-contract-add-delete-no-hardcoded-ids-server-resolved-routing">4. Provider Config CRUD contract (ADD / DELETE) — no hardcoded IDs; server-resolved routing<a class="headerlink" href="#4-provider-config-crud-contract-add-delete-no-hardcoded-ids-server-resolved-routing" title="Permanent link">&para;</a></h3>
+<p>The LLM Models section is read-write against the <strong>already-existing</strong> backend endpoints
+(verified in <code>backend/app/main.py</code>): <code>GET /provider/config</code>, <code>POST /provider/config</code> (201),
+<code>DELETE /provider/config/{config_id}</code> (204 / 404). The DELETE endpoint the frontend calls
+<strong>exists</strong> — no missing-endpoint defect.</p>
+<p><strong>I6 guarantee under user input.</strong> The ADD form collects <code>provider_type</code> (a fixed 3-way select:
+local | api | cli — these are <em>capability discriminants</em>, not model identities), a free-text
+<code>model_id</code>, an optional <code>base_url</code>, and a scope (global | vault). <strong>No <code>model_id</code> literal is
+hardcoded anywhere</strong> — the value is typed by the user and stored verbatim in a <code>provider_config</code>
+row. The list is rendered entirely from <code>GET /provider/config</code>. Routing remains <strong>server-resolved</strong>
+(the orchestrator resolves the active provider from <code>provider_config</code> precedence at run time; the
+UI never decides a backend). I6 holds: the three <code>provider_type</code> enum values are the F17
+abstraction's own taxonomy (CLAUDE.md §5), not a hardcoded backend.</p>
+<p><strong>Active-row derivation</strong> stays the ADR-0018 §4 model: <code>addProvider</code> / <code>deleteProvider</code> both
+re-fetch the list and call <code>deriveActiveItem(list, vaultId)</code> (vault-scoped DESC <code>created_at</code>,
+non-fallback first, else global). Mutations keep <code>activeItem</code> consistent without a reload.</p>
+<p><strong>Last-provider deletion.</strong> Per PM AC-HARD-PROV-6 the UI does <strong>not</strong> enforce a minimum of one
+provider; it shows a non-blocking warning and permits the delete. The system tolerates zero
+providers safely: with an empty <code>provider_config</code>, the next ingest/chat fails <em>server-side</em> with a
+"no resolvable provider" error surfaced as an error toast — it does not crash the client and does
+not corrupt state. <strong>Architect verdict on the guard: the non-blocking warning is ADEQUATE for
+M4-HARD</strong>, on two conditions (see §Conditions): the warning must actually fire on the last-row
+delete, and the empty-provider server failure must be a clean, surfaced error (not a 500 or a
+silent hang). A hard minimum-of-one enforcement is explicitly NOT wanted — it would let a user get
+stuck unable to delete a misconfigured sole provider to replace it.</p>
+<h3 id="5-panel-collapse-uses-the-library-not-a-measurement-loop-i3i4">5. Panel collapse uses the library, not a measurement loop (I3/I4)<a class="headerlink" href="#5-panel-collapse-uses-the-library-not-a-measurement-loop-i3i4" title="Permanent link">&para;</a></h3>
+<p>Left/right panels are <code>collapsible</code> with <code>collapsedSize="3%"</code> via <code>react-resizable-panels</code>
+<code>usePanelRef()</code> + imperative <code>collapse()</code> / <code>expand()</code>. No custom DOM measurement or rAF layout
+loop is introduced (I3); the library owns layout. The collapsed-content guard (<code>!leftCollapsed &amp;&amp;</code>)
+unmounts the panel's heavy children when collapsed — a render reduction, not a heavy task.</p>
+<h3 id="6-invariant-confirmation-this-increment">6. Invariant confirmation (this increment)<a class="headerlink" href="#6-invariant-confirmation-this-increment" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>I3:</strong> NavRail subscribes to <code>selectActiveSection</code> (scalar) + <code>selectSetActiveSection</code> only,
+  plus the isolated <code>useIngestRunningCount()</code>. SettingsPanel's sub-nav is <strong>local <code>useState</code></strong>
+  (not store-backed) — zero store churn on sub-nav switch. The LLM Models section uses
+  <code>useShallow(selectProviderList)</code> for the array and scalar selectors for loading/error/actions.
+  settingsStore / providerStore are separate from graphStore, so their changes never re-render the
+  graph. No whole-store subscription anywhere in the changed files. No per-token/per-frame work
+  added (these are static forms/lists). <strong>PASS.</strong></li>
+<li><strong>I4:</strong> No CodeMirror / ProseMirror / Milkdown / contentEditable added. The two new lists are
+  <strong>bounded</strong>: the Settings left-nav is a fixed 9-item array (<code>NAV_ITEMS</code>); the provider list is
+  bounded by the number of <code>provider_config</code> rows a single user hand-creates (realistically &lt; 20).
+  Neither is a virtualization candidate. <strong>PASS — with the bounded-growth note in §Consequences.</strong></li>
+<li><strong>I6:</strong> No hardcoded model/provider IDs; ADD form is user input; list from API; routing
+  server-resolved. <strong>PASS.</strong></li>
+<li><strong>I7:</strong> <code>conversationHistoryLength</code> is a context-budget control. Persisted correctly. <strong>Its
+  consumer is NOT wired</strong> (see §Conditions / Consequences) — flagged, non-blocking for THIS
+  increment's architectural soundness but a QA-gate AC gap.</li>
+<li><strong>I2 / I5 / I1:</strong> untouched by this frontend increment.</li>
+</ul>
+<hr />
+<h2 id="conditions-attached-to-approve-with-conditions">Conditions (attached to APPROVE-WITH-CONDITIONS)<a class="headerlink" href="#conditions-attached-to-approve-with-conditions" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>C1 — wire <code>conversationHistoryLength</code> into the chat assembler (AC-HARD-CONV-2, I7).</strong>
+   <code>ChatSection.tsx</code> reads <code>selectContextWindow</code> but NOT <code>selectConversationHistoryLength</code>; the
+   two history arrays it builds (the new-message send at ~L60 and the regenerate send at ~L87) are
+   <strong>not sliced</strong> by the selected length. The setting is persisted but inert. Engineer must read
+   <code>conversationHistoryLength</code> and trim the sent <code>messages</code> array to at most that many of the most
+   recent messages (system prompt excluded). This is the explicit I7 budget mechanism the PM and
+   functional-analyst attached to F1-HARD-CONV-HISTORY. <strong>Owner: frontend-engineer.</strong> Blocks the
+   QA gate (AC-HARD-CONV-2), not this architect sign-off.</p>
+</li>
+<li>
+<p><strong>C2 — client-side require <code>model_id</code> before POST (I6 contract integrity).</strong>
+   Backend <code>ProviderConfigCreate.model_id</code> is <code>Field(...)</code> — <strong>required, non-null</strong> (ADR-0008;
+   "no hardcoded defaults"). The frontend <code>CreateProviderConfigBody.model_id</code> is optional and
+   <code>handleAdd</code> sends <code>model_id: formModelId.trim() || null</code>. Submitting the ADD form with an empty
+   model field sends <code>null</code> → backend <strong>422</strong>. Today that surfaces as an error toast (no crash, no
+   bad state), so it is not a correctness hole — but the ADD button should be disabled (or the
+   field validated) while <code>model_id</code> is empty, so the user is not handed a server 422 for a
+   foreseeable empty field. <strong>Owner: frontend-engineer.</strong> Minor; UX-hardening, consistent with the
+   "no hardcoded default model" rule (we must NOT paper over it by injecting a default ID).</p>
+</li>
+<li>
+<p><strong>C3 — verify the last-provider warning fires AND the empty-provider server path is clean.</strong>
+   AC-HARD-PROV-6 requires a warning when deleting the last remaining provider. Confirm the UI
+   detects <code>providerList.length === 1</code> at delete time and shows the warning copy
+   (<code>settings.llmModels.confirmDelete</code> or a dedicated last-provider string) before issuing DELETE.
+   Confirm that with zero providers a subsequent ingest/chat returns a clean, surfaced error (not a
+   500 / silent hang). If either is missing, it is a QA-gate gap, not an architecture change.
+   <strong>Owner: frontend-engineer + qa-test-engineer.</strong></p>
+</li>
+</ol>
+<p>None of C1–C3 require an architecture change or violate an invariant; all are wiring/validation
+hardening. The design is sound.</p>
+<hr />
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong>
+- The rail finally "speaks": labeled items remove the EC-M4-HCP discoverability defect with a pure
+  layout change (no new state, no new store, no new i18n keys) — the minimal correct fix.
+- Removing M5 chrome eliminates the "is it broken?" ambiguity while keeping the <code>Section</code> type and
+  <code>SectionRouter</code> branches intact, so M5 re-adds each feature by un-emptying <code>M5_ITEMS</code> — zero
+  shell rework, zero type churn.
+- Provider CRUD makes F17 fully user-manageable from the UI without config-file edits, while the
+  no-hardcoded-ID and server-resolved-routing invariants are preserved (user types the model_id;
+  the backend owns routing).
+- The 9-section settings sub-nav is local component state — it adds capability with zero global
+  re-render cost (clean I3).
+- <code>chat</code> as the default section (ADR-0019) lands new users on the most common task.</p>
+<p><strong>Negative / trade-offs (stated explicitly)</strong>
+- <strong><code>conversationHistoryLength</code> is persisted but unwired (C1).</strong> The most material gap: the setting
+  exists end-to-end in storage and UI but does not yet affect the request payload, so its I7
+  budget promise is not yet kept. Bounded to a small wiring change; flagged as a blocking QA-gate
+  AC, not an architecture flaw.
+- <strong>Provider list is unbounded in principle (I4).</strong> <code>POST</code> only creates rows (no upsert — ADR-0018
+  §4 known issue); a user repeatedly re-adding could grow <code>provider_config</code> without limit, and the
+  list is rendered un-virtualized. In practice a single user hand-manages a handful of rows, so it
+  is NOT a virtualization candidate for M4. <strong>Forward note:</strong> if/when the upsert/PUT fast-follow
+  lands (ADR-0018 Consequences), the "set-active appends a row" growth disappears; until then, if
+  the list is ever observed to exceed ~50 rows it must be virtualized (TanStack Virtual) to stay
+  I4-compliant. Recorded as a watch item, not an M4 blocker.
+- <strong><code>model_id</code>-empty → 422 round-trip (C2).</strong> Foreseeable empty-field error reaches the server
+  before client validation catches it. We deliberately do NOT fix this by injecting a default
+  model ID (that would violate the I6 / ADR-0008 "no hardcoded default" rule); we fix it by
+  client-side requiring the field.
+- <strong><code>SectionRouter</code> carries 4 unreachable branches.</strong> Dead-but-correct in M4; the cost is a few
+  lines of placeholder rendering kept live for M5. Accepted to avoid type churn (PM AC-HARD-M5P-5).
+- <strong><code>activeSection</code> is not persisted.</strong> Every reload returns to <code>chat</code>. This sidesteps the
+  dead-state risk entirely for M4; the forward constraint (sanitize-on-restore → fallback <code>chat</code>)
+  is recorded for whoever adds section persistence later.</p>
+<p><strong>Follow-ups (tracked, not this ADR's scope)</strong>
+- C1/C2/C3 wiring (frontend-engineer) before the QA gate.
+- M5: re-populate <code>M5_ITEMS</code> with labeled, functional Search / Lint / Review / Deep Search; the
+  <code>SectionRouter</code> branches swap their placeholder for the real view.
+- <code>PUT /provider/config</code> upsert fast-follow (kills row growth; ADR-0018).
+- D5 nav screenshot refresh + D6 USER.md nav-journey wording (tech-writer gate).
+- If section persistence is introduced: sanitize restored value against rendered rail items,
+  fallback <code>chat</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

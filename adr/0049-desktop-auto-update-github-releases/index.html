@@ -1,0 +1,1083 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0049-desktop-auto-update-github-releases/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0049 — Desktop auto-update over GitHub Releases (unified v* tag, minisign-verified) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0049-desktop-auto-update-over-github-releases-unified-v-tag-minisign-verified" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0049 — Desktop auto-update over GitHub Releases (unified v* tag, minisign-verified)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-u1-unified-release-channel-v-tag-on-github-releases-ratified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 (U1) Unified release channel — v* tag on GitHub Releases — RATIFIED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-u2-tauriconfjson-updater-artifacts-endpoint-ratified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 (U2) tauri.conf.json — updater artifacts + endpoint — RATIFIED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-u3-rust-plugins-capabilities-ratified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 (U3) Rust plugins + capabilities — RATIFIED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-u4-frontend-update-ux-startup-check-single-prompt-no-polling-ratified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 (U4) Frontend update UX — startup check, single prompt, no polling — RATIFIED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-u5-version-source-of-truth-ratified-with-a-reconciliation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 (U5) Version source of truth — RATIFIED, with a reconciliation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-u6-macos-unsigned-caveat-ratified-documented-not-mitigated-here" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 (U6) macOS unsigned caveat — RATIFIED (documented, not mitigated here)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#27-invariant-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.7 Invariant check
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-risks-surfaced-to-orchestrator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Risks (surfaced to orchestrator)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-contract-the-implementers-follow-verbatim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Contract the implementers follow verbatim
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Contract the implementers follow verbatim">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-release-ci-devops-engineer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Release / CI (devops-engineer)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-tauri-config-rust-devops-engineer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Tauri config + Rust (devops-engineer)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-frontend-frontend-engineer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Frontend (frontend-engineer)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-docs-tech-writer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.4 Docs (tech-writer)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-do-not-reject-any-pr-that-does-these" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Do NOT (reject any PR that does these)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0049-desktop-auto-update-over-github-releases-unified-v-tag-minisign-verified">ADR-0049 — Desktop auto-update over GitHub Releases (unified <code>v*</code> tag, minisign-verified)<a class="headerlink" href="#adr-0049-desktop-auto-update-over-github-releases-unified-v-tag-minisign-verified" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-03</li>
+<li><strong>Sprint:</strong> v0.6 (M6 — shippable; F15 cross-platform desktop packaging)</li>
+<li><strong>Features:</strong> F15 (cross-platform: Tauri v2 desktop bundles + self-update, macOS + Windows) ·
+  F16 (settings/i18n IT/EN — <code>desktop.update.*</code> namespace)</li>
+<li><strong>Builds on:</strong> ADR-0039 (Tauri v2 shell — scaffold, CI, single codebase; no <code>invoke</code>/
+  <code>window.__TAURI__</code> in React) · ADR-0047 (desktop runtime server URL, <code>base.ts</code>, <code>isTauri()</code>
+  container check, Connect gate) · ADR-0048 (desktop pack: <code>tauri-plugin-notification</code>,
+  <code>capabilities/default.json</code>, Tauri-only UI guarded by <code>isTauri()</code>)</li>
+<li><strong>Reference:</strong> R13 (Tauri v2 — https://tauri.app; <code>tauri-plugin-updater</code>,
+  <code>tauri-plugin-process</code>, <code>tauri-action</code>, minisign updater signatures) ·
+  CLAUDE.md §3 (invariants I5/I6/I7/I9), §11 (branch/commit conventions), §12 (no hardcoded
+  config in code)</li>
+<li><strong>Invariants owned:</strong> I5 (Obsidian compat — unaffected; pure client-side update transport) ·
+  I6 (pluggable inference — backend-side; not touched by desktop self-update) ·
+  I7 (loops bounded — the update check is a <strong>single startup check, no polling loop</strong>) ·
+  I9 (do not reinvent — Tauri's first-party updater over GitHub Releases; no bespoke
+  update server, no third-party update framework). No invariant is traded for convenience.</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> devops-engineer (<code>.github/workflows/desktop-release.yml</code>,
+  <code>src-tauri/tauri.conf.json</code>, <code>src-tauri/Cargo.toml</code>, <code>src-tauri/capabilities/default.json</code>,
+  <code>src-tauri/src/main.rs</code>, version bump + <code>frontend/package.json</code> sync) · frontend-engineer
+  (<code>components/**</code> update banner/dialog, <code>store/**</code> update state, <code>en.json</code>/<code>it.json</code>
+  <code>desktop.update.*</code>) · tech-writer (D6b DEPLOY: release/tag procedure + key-loss caveat;
+  D6a USER: what the update banner does)</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>ADR-0047 and ADR-0048 delivered the packaged Tauri v2 desktop app (macOS-arm64, Windows-x64),
+unsigned at the OS level (Gatekeeper/SmartScreen right-click-open accepted per ADR-0047 §4),
+with <code>tauri-plugin-notification</code> already wired. A <code>v0.6.0</code> GitHub release exists (created
+manually with <code>gh</code>). There is currently <strong>no in-app update path</strong>: an installed client stays
+frozen at the version it was installed with, and the owner would have to hand-deliver each new
+build.</p>
+<p>The owner explicitly requested a <strong>fully GitHub-hosted</strong> desktop auto-update flow — no
+self-hosted update server, no third-party service. Tauri v2 ships a first-party updater
+(<code>tauri-plugin-updater</code>) that reads a static <code>latest.json</code> manifest, verifies each artifact
+against an app-embedded <strong>minisign public key</strong>, downloads the platform bundle, and installs
+it; <code>tauri-action</code> produces the updater artifacts and <code>latest.json</code> and can attach them to a
+GitHub release. This is the canonical R13 mechanism (I9: reuse, do not reinvent).</p>
+<p>Verified facts (re-confirmed against the tree at this ADR's date):</p>
+<ul>
+<li><strong>CI</strong> (<code>.github/workflows/desktop-release.yml</code>): triggers on <code>desktop-v*</code> tags +
+  <code>workflow_dispatch</code>; matrix <code>macos-latest</code> (arm64) + <code>windows-latest</code> (x64); uses
+  <code>tauri-apps/tauri-action@v0</code> with <code>tauriScript: node frontend/node_modules/@tauri-apps/cli/tauri.js</code>
+  (invoked from repo root so the CLI finds <code>./src-tauri</code>); <code>tagName</code>/<code>releaseName</code> set only on
+  <code>desktop-v*</code> tag pushes (<code>workflow_dispatch</code> = build-only, empty <code>tagName</code>). No signing env
+  vars are passed today; no <code>latest.json</code>/updater artifacts are produced.</li>
+<li><strong><code>src-tauri/tauri.conf.json</code></strong>: <code>version</code> <code>"0.6.0"</code>, identifier <code>ai.synapse.app</code>,
+  <code>security.csp: null</code>, bundle targets <code>["app","dmg","nsis"]</code>, <code>bundle.icon</code> present.
+  <strong>No <code>bundle.createUpdaterArtifacts</code>; no <code>plugins.updater</code> block.</strong></li>
+<li><strong><code>src-tauri/Cargo.toml</code></strong>: <code>tauri = "2"</code>, <code>tauri-plugin-notification = "2"</code>. <strong>No
+  <code>tauri-plugin-updater</code>, no <code>tauri-plugin-process</code>.</strong></li>
+<li><strong><code>src-tauri/capabilities/default.json</code></strong> (v1, window <code>"main"</code>): core window/app perms +
+  <code>notification:default</code>. <strong>No <code>updater:default</code>, no <code>process:allow-restart</code>.</strong></li>
+<li><strong><code>src-tauri/src/main.rs</code></strong>: <code>tauri::Builder::default().plugin(tauri_plugin_notification::init())</code>
+  … <code>.setup(...)</code> … <code>.run(...)</code>. The updater/process plugins are <strong>not</strong> initialised. (<code>lib.rs</code>
+  has a dead <code>run()</code> stub that is not the active entry point — main.rs is.)</li>
+<li><strong>Version is duplicated</strong> in <code>src-tauri/tauri.conf.json</code> and <code>src-tauri/Cargo.toml</code>
+  (both <code>0.6.0</code>) and in <code>frontend/package.json</code>.</li>
+<li><strong>Updater keypair already generated</strong> (minisign): private key + password live in GitHub
+  Actions secrets <code>TAURI_SIGNING_PRIVATE_KEY</code> / <code>TAURI_SIGNING_PRIVATE_KEY_PASSWORD</code>; the
+  private key is <strong>not</strong> in the repo (local copy in <code>~/.tauri/</code>). Public key (to embed):
+  <code>dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2NTI4RkIwMTRFOUUyNzEKUldSeDR1a1VzSTlTWnJSRGtqa0JyWml5ZEltdlVGM1F4NmErSkUxZHdiQjdGdlRCM1NoTHRlQUQK</code></li>
+<li>All existing desktop-only UI (ADR-0047/0048) is guarded by <code>isTauri()</code>
+  (<code>__TAURI_INTERNALS__</code> presence check), so a browser build renders every desktop branch
+  inert. The update UI follows the same guard.</li>
+</ul>
+<p>The updater's security guarantee is <strong>independent of Apple/Microsoft OS signing</strong>: Tauri
+verifies <strong>our</strong> minisign signature over each artifact before installing. So the unsigned-at-OS
+posture of ADR-0047 does not weaken update integrity — the private key is the only trust root
+for the update chain, which makes key custody the load-bearing risk (§4).</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<p>Ratify the contract U1–U6 verbatim, with two consolidations recorded (not amendments to
+intent): the version source-of-truth reconciliation (§2.5, because Cargo.toml also carries the
+version) and the release-notes source for the in-app dialog (§2.4). All six contract points are
+accepted.</p>
+<h3 id="21-u1-unified-release-channel-v-tag-on-github-releases-ratified">2.1 (U1) Unified release channel — <code>v*</code> tag on GitHub Releases — RATIFIED<a class="headerlink" href="#21-u1-unified-release-channel-v-tag-on-github-releases-ratified" title="Permanent link">&para;</a></h3>
+<p><code>.github/workflows/desktop-release.yml</code> moves to <strong>one tag per product release</strong> on the
+pattern <code>v*</code> (e.g. <code>v0.7.0</code>). The <code>desktop-v*</code> trigger is <strong>removed</strong> — there is a single
+release channel for the whole product, and a desktop build/release is produced from the same
+<code>v*</code> tag.</p>
+<ul>
+<li>Matrix stays <code>macos-latest</code> (arm64) + <code>windows-latest</code> (x64); <code>tauri-action@v0</code> invoked with
+  the existing <code>tauriScript</code> (<code>node frontend/node_modules/@tauri-apps/cli/tauri.js</code> from repo
+  root — do NOT <code>npm --prefix frontend run</code>, which would chdir and break <code>./src-tauri</code>
+  detection; unchanged from ADR-0047/0039).</li>
+<li><code>tauri-action</code> <strong>creates/updates the GitHub release for the tag</strong>, uploads the OS bundles
+  (<code>.app.tar.gz</code> + <code>.sig</code>, NSIS <code>.exe</code> + <code>.sig</code>) <strong>and</strong> <code>latest.json</code>
+  (<code>includeUpdaterJson: true</code>), signing the updater artifacts with the two secrets:
+  <code>TAURI_SIGNING_PRIVATE_KEY</code> / <code>TAURI_SIGNING_PRIVATE_KEY_PASSWORD</code> passed as <code>env</code> to the
+  build step. <code>contents: write</code> permission is retained.</li>
+<li><code>tagName</code>/<code>releaseName</code> are gated on <code>startsWith(github.ref, 'refs/tags/v')</code>;
+  <code>workflow_dispatch</code> remains build-only (empty <code>tagName</code>, no release). <code>releaseDraft: false</code>,
+  <code>prerelease: false</code> as today.</li>
+<li><strong>Two-runner <code>latest.json</code> merge:</strong> because both runners target the same release for one tag,
+  the workflow must produce a single <code>latest.json</code> carrying <strong>both</strong> platform entries
+  (<code>darwin-aarch64</code>, <code>windows-x86_64</code>). <code>tauri-action</code>'s <code>includeUpdaterJson</code> merges platform
+  entries into the release's <code>latest.json</code> across matrix jobs; the implementer MUST verify the
+  final release asset contains <strong>both</strong> platforms before the release is considered good
+  (acceptance check in §5.1). The manual <code>v0.6.0</code> release predates the updater and has no
+  <code>latest.json</code> — the <strong>first</strong> <code>v*</code> release cut under this ADR (≥ <code>v0.7.0</code>) is the first one
+  installed clients can update to.</li>
+</ul>
+<h3 id="22-u2-tauriconfjson-updater-artifacts-endpoint-ratified">2.2 (U2) <code>tauri.conf.json</code> — updater artifacts + endpoint — RATIFIED<a class="headerlink" href="#22-u2-tauriconfjson-updater-artifacts-endpoint-ratified" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>bundle.createUpdaterArtifacts: true</code> (this is what makes <code>tauri build</code> emit the
+  <code>.app.tar.gz</code>/<code>.sig</code> + NSIS <code>.sig</code> updater bundles alongside the installers).</li>
+<li><code>plugins.updater</code> block with:</li>
+<li><code>pubkey</code>: the base64 minisign public key above (embedded in the binary — this is the
+    trust root; it is public by design and safe to commit).</li>
+<li><code>endpoints</code>:
+    <code>["https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases/latest/download/latest.json"]</code>
+    — GitHub's <code>releases/latest/download/&lt;asset&gt;</code> redirect always resolves to the most recent
+    non-prerelease release's asset, so the endpoint is <strong>static</strong> and needs no bump per release
+    (I9: no update server; GitHub is the host).</li>
+<li>The public key committed in config MUST match the private key in the GitHub secrets, or every
+  client will reject every update (signature check fails). This pairing is a release-time
+  invariant (§4 risk 1, §5.1 acceptance).</li>
+</ul>
+<h3 id="23-u3-rust-plugins-capabilities-ratified">2.3 (U3) Rust plugins + capabilities — RATIFIED<a class="headerlink" href="#23-u3-rust-plugins-capabilities-ratified" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>src-tauri/Cargo.toml</code>: add <code>tauri-plugin-updater = "2"</code> and <code>tauri-plugin-process = "2"</code>
+  (process plugin provides the post-install relaunch).</li>
+<li><code>src-tauri/src/main.rs</code>: initialise <strong>both</strong> in the builder chain, alongside the existing
+  notification plugin:
+  <code>.plugin(tauri_plugin_updater::Builder::new().build())</code> and
+  <code>.plugin(tauri_plugin_process::init())</code>. No new command handlers are registered
+  (<code>invoke_handler</code> stays empty) — the frontend calls the plugins' JS APIs, consistent with
+  ADR-0039's "no bespoke <code>invoke</code> commands in React" posture (these are first-party plugin
+  APIs, not custom IPC commands).</li>
+<li><code>src-tauri/capabilities/default.json</code>: add <code>"updater:default"</code> and
+  <code>"process:allow-restart"</code> to the <code>permissions</code> array (window <code>"main"</code>), next to the existing
+  <code>notification:default</code>. <code>process:allow-restart</code> is the <strong>minimal</strong> process permission — do
+  NOT add <code>process:allow-exit</code> or broader process perms (least privilege; the only process
+  action needed is relaunch after install).</li>
+</ul>
+<h3 id="24-u4-frontend-update-ux-startup-check-single-prompt-no-polling-ratified">2.4 (U4) Frontend update UX — startup check, single prompt, no polling — RATIFIED<a class="headerlink" href="#24-u4-frontend-update-ux-startup-check-single-prompt-no-polling-ratified" title="Permanent link">&para;</a></h3>
+<p>All update UI is <strong>Tauri-only</strong>, every plugin call <strong>behind <code>isTauri()</code></strong> with the plugin JS
+modules <strong>dynamically imported</strong> inside the guard (so the web/PWA bundle never imports
+<code>@tauri-apps/plugin-updater</code>/<code>plugin-process</code> and every branch is dead code in a browser —
+identical pattern to ADR-0048 §2.4c notifications).</p>
+<ul>
+<li><strong>When:</strong> on app start, <strong>after the shell has rendered</strong>, run <code>check()</code> <strong>once</strong>,
+  <strong>non-blocking</strong> (fire-and-forget; a failed/timed-out check MUST NOT block or crash the app —
+  catch and no-op). <strong>No periodic polling, no interval, no background loop</strong> — one check per
+  process start. This is the I7 bound: the "loop" is a single iteration by construction
+  (§2.7 invariant check).</li>
+<li><strong>If an update is available:</strong> show a <strong>dismissible</strong> banner/dialog with the new
+  <code>{{version}}</code>, the release notes (<code>update.body</code> from the manifest), and two actions —
+  <strong>Update now</strong> / <strong>Later</strong>. i18n namespace <code>desktop.update.*</code> in both <code>en.json</code> and <code>it.json</code>
+  (keys at least: <code>available</code> with <code>{{version}}</code> interpolation, <code>notes</code>/notes-label,
+  <code>updateNow</code>, <code>later</code>, <code>downloading</code> (+progress), <code>installing</code>, <code>error</code>; parity test must
+  pass).</li>
+<li><strong>On "Update now":</strong> call <code>downloadAndInstall()</code> and surface <strong>progress state</strong>
+  (bytes/percent from the plugin's progress callback) in the UI; on completion call
+  <code>relaunch()</code> (from <code>@tauri-apps/plugin-process</code>) to restart into the new version.</li>
+<li><strong>On "Later":</strong> dismiss and <strong>do not re-prompt until the next app start</strong> (no re-nag within
+  the session; the next startup <code>check()</code> will surface it again). No persistence of "skip this
+  version" is required for v0.6 — dismissal is session-scoped by design (simplest correct
+  behaviour; a per-version mute can be a future ADR if it proves annoying).</li>
+</ul>
+<h3 id="25-u5-version-source-of-truth-ratified-with-a-reconciliation">2.5 (U5) Version source of truth — RATIFIED, with a reconciliation<a class="headerlink" href="#25-u5-version-source-of-truth-ratified-with-a-reconciliation" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The updater compares the running app version against <code>latest.json</code>'s <code>version</code>; the running
+  version is the <strong><code>version</code> field of <code>src-tauri/tauri.conf.json</code></strong> (Tauri's authoritative app
+  version). This is the source of truth, bumped per release (<code>0.7.0</code>, …).</li>
+<li><strong>Reconciliation (recorded, not a change of intent):</strong> the version is currently duplicated in
+  <strong>three</strong> places — <code>src-tauri/tauri.conf.json</code>, <code>src-tauri/Cargo.toml</code>, and
+  <code>frontend/package.json</code>. <code>tauri.conf.json</code> <code>version</code> is authoritative for the updater; the
+  release procedure MUST bump <strong>all three together</strong> so they never diverge (a mismatched
+  Cargo.toml version produces a binary whose reported version disagrees with the manifest,
+  breaking the compare). The tag (<code>vX.Y.Z</code>) MUST equal the <code>tauri.conf.json</code> version. This
+  three-way bump is part of the DEPLOY release checklist (D6b) and the §5.1 acceptance.</li>
+</ul>
+<h3 id="26-u6-macos-unsigned-caveat-ratified-documented-not-mitigated-here">2.6 (U6) macOS unsigned caveat — RATIFIED (documented, not mitigated here)<a class="headerlink" href="#26-u6-macos-unsigned-caveat-ratified-documented-not-mitigated-here" title="Permanent link">&para;</a></h3>
+<p>The updater artifacts are <strong>ad-hoc-signed <code>.app</code> tarballs</strong> (no Apple Developer ID / no
+notarization — ADR-0047 §4 posture). Tauri's updater verifies <strong>our minisign signature</strong> over
+each artifact, which is <strong>independent of Apple notarization</strong>: update integrity does not depend
+on OS-level signing. This is acceptable per the ADR-0047 unsigned posture.</p>
+<p><strong>Documented consequence (D6b):</strong> the minisign private key
+(<code>TAURI_SIGNING_PRIVATE_KEY</code> + password; local copy <code>~/.tauri/</code>) is the <strong>sole trust root</strong> for
+the update chain. <strong>If the private key is lost, all installed clients can no longer receive
+updates</strong> — a new keypair produces signatures that embedded clients reject, so the only recovery
+is a manual re-install of a build carrying the new public key. Therefore the key MUST be backed
+up securely off-machine (and the GitHub secret must not be rotated without a coordinated
+re-release). This is the primary operational risk (§4 risk 1). Additionally, macOS
+first-<strong>install</strong> (not update) still triggers Gatekeeper (unchanged from ADR-0047 §4) — the
+updater path only applies to an already-installed, already-trusted app updating itself.</p>
+<h3 id="27-invariant-check">2.7 Invariant check<a class="headerlink" href="#27-invariant-check" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>I1 (incremental index):</strong> N/A — this is a desktop client self-update; no vault scan, no
+  Postgres/Qdrant writes. <strong>Unaffected.</strong></li>
+<li><strong>I2 / I3 / I4 (graph / per-token / editor):</strong> untouched — no graph, no chat streaming, no
+  editor surface is involved; the update UI is a banner/dialog rendered once on an app-lifecycle
+  event, not per token or per frame. <strong>Hold.</strong></li>
+<li><strong>I5 (Obsidian compat):</strong> no vault, frontmatter, or wikilink change. <strong>Unaffected.</strong></li>
+<li><strong>I6 (pluggable inference):</strong> backend-side and unchanged; no provider is referenced,
+  configured, or hardcoded anywhere in the update path. <strong>Holds.</strong></li>
+<li><strong>I7 (loops bounded):</strong> the update check is a <strong>single call on startup</strong> — no polling
+  interval, no retry loop, no unbounded iteration. It is bounded to exactly one iteration per
+  process start by construction; <code>downloadAndInstall</code> is a single one-shot download. No
+  <code>max_iter</code>/<code>token_budget</code> needed because there is no loop. <strong>Holds — explicitly.</strong></li>
+<li><strong>I8 (docs-as-DoD):</strong> D6b (DEPLOY) gains the release/tag procedure + three-way version bump +
+  key-loss caveat; D6a (USER) gains the update-banner description. C4 (D1): topology does not
+  change (no new container/component — GitHub Releases is an existing external, the desktop app
+  is an existing client); <strong>no C4 update required</strong>, recorded here so the docs gate is not
+  falsely tripped.</li>
+<li><strong>I9 (do not reinvent):</strong> uses Tauri's first-party updater over <strong>GitHub Releases</strong> as the
+  static host — no bespoke update server, no third-party updater. Reuses the existing
+  <code>tauri-action</code> CI and the existing minisign keypair. <strong>Holds.</strong></li>
+<li>No invariant is traded for convenience. <strong>CONFIRMED: none violated.</strong></li>
+</ul>
+<hr />
+<h2 id="3-consequences">3. Consequences<a class="headerlink" href="#3-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong>
+- Installed desktop clients self-update from GitHub Releases with zero self-hosted
+  infrastructure; the owner cuts a <code>v*</code> tag and every client picks it up on next launch.
+- One unified release channel (<code>v*</code>) for the whole product replaces the separate <code>desktop-v*</code>
+  channel — simpler mental model, one tag per release.
+- Update integrity is cryptographically guaranteed by our minisign key, <strong>independent</strong> of the
+  (absent) Apple/Microsoft OS signing — the ADR-0047 unsigned posture is preserved without
+  weakening the update chain.
+- The startup-only, no-polling design keeps the client simple and bounded (I7) and the update
+  UI web-inert (guarded by <code>isTauri()</code> + dynamic import), so the PWA/web bundle is unchanged.</p>
+<p><strong>Trade-offs / limitations (stated explicitly)</strong>
+- <strong>Single trust root:</strong> losing the minisign private key permanently breaks updates for all
+  installed clients (recovery = manual re-install). This is the cost of client-verified updates;
+  mitigated only by disciplined key backup, not by design.
+- <strong>Startup-only check:</strong> a long-running desktop session will not learn about a release cut
+  mid-session until the next launch. Accepted as the simplest bounded behaviour; periodic
+  polling was deliberately rejected (I7 simplicity, avoids a background loop).
+- <strong>Three-way version duplication</strong> (tauri.conf.json / Cargo.toml / package.json) is a manual
+  bump hazard; mitigated by the DEPLOY checklist + §5.1 acceptance, not by tooling in this ADR.
+- <strong>First install still unsigned:</strong> the updater does not solve Gatekeeper/SmartScreen on the
+  initial download (ADR-0047 §4 unchanged) — only the self-update of an already-trusted app.
+- <strong><code>releases/latest</code> semantics:</strong> the static endpoint always points at the newest
+  non-prerelease; a broken/incomplete <code>latest.json</code> (e.g. only one platform merged) would offer
+  a bad update — hence the two-platform acceptance check (§5.1).</p>
+<hr />
+<h2 id="4-risks-surfaced-to-orchestrator">4. Risks (surfaced to orchestrator)<a class="headerlink" href="#4-risks-surfaced-to-orchestrator" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Private-key loss / pubkey-privkey mismatch = broken update chain.</strong> If
+   <code>TAURI_SIGNING_PRIVATE_KEY</code> is lost, or the committed <code>plugins.updater.pubkey</code> does not pair
+   with the secret used to sign, <strong>every</strong> client rejects <strong>every</strong> update, and recovery is a
+   manual re-install. Back up the key off-machine; verify the pubkey/privkey pairing at first
+   <code>v*</code> release (§5.1). Highest-severity, lowest-reversibility risk.</li>
+<li><strong>Incomplete <code>latest.json</code> across the two-runner matrix.</strong> Both <code>macos-latest</code> and
+   <code>windows-latest</code> write to the same release for one tag; if the merge misses a platform,
+   half the fleet gets no update (or a 404 on download). Acceptance gate: the release's
+   <code>latest.json</code> MUST list <strong>both</strong> <code>darwin-aarch64</code> and <code>windows-x86_64</code> with valid
+   signatures before the release is announced.</li>
+<li><strong>Version drift</strong> between <code>tauri.conf.json</code> and <code>Cargo.toml</code>/<code>package.json</code>. A binary whose
+   compiled version disagrees with the manifest either offers a spurious update or never
+   updates. The three-way bump is a manual step; enforce via the DEPLOY checklist and reject any
+   release PR that bumps only one.</li>
+</ol>
+<hr />
+<h2 id="5-contract-the-implementers-follow-verbatim">5. Contract the implementers follow verbatim<a class="headerlink" href="#5-contract-the-implementers-follow-verbatim" title="Permanent link">&para;</a></h2>
+<h3 id="51-release-ci-devops-engineer">5.1 Release / CI (devops-engineer)<a class="headerlink" href="#51-release-ci-devops-engineer" title="Permanent link">&para;</a></h3>
+<ol>
+<li><code>.github/workflows/desktop-release.yml</code>: replace the <code>desktop-v*</code> tag trigger with <code>v*</code>;
+   gate <code>tagName</code>/<code>releaseName</code> on <code>startsWith(github.ref, 'refs/tags/v')</code>; keep
+   <code>workflow_dispatch</code> build-only. Keep the matrix (<code>macos-latest</code> arm64 + <code>windows-latest</code>
+   x64) and the <code>tauriScript: node frontend/node_modules/@tauri-apps/cli/tauri.js</code> invocation.</li>
+<li>Pass to the <code>tauri-action</code> build step (<code>env</code> or <code>with</code>): <code>includeUpdaterJson: true</code>,
+   <code>TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}</code>,
+   <code>TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}</code>.
+   Retain <code>permissions: contents: write</code> and <code>GITHUB_TOKEN</code>.</li>
+<li><strong>Acceptance (release gate):</strong> the cut <code>v*</code> release contains, per platform, the OS bundle +
+   <code>.sig</code>, and a single <code>latest.json</code> listing <strong>both</strong> <code>darwin-aarch64</code> and <code>windows-x86_64</code>
+   with signatures that verify against the committed pubkey. Version in <code>latest.json</code> == the tag
+   == <code>tauri.conf.json.version</code> == <code>Cargo.toml.version</code> == <code>frontend/package.json.version</code>.</li>
+</ol>
+<h3 id="52-tauri-config-rust-devops-engineer">5.2 Tauri config + Rust (devops-engineer)<a class="headerlink" href="#52-tauri-config-rust-devops-engineer" title="Permanent link">&para;</a></h3>
+<ol>
+<li><code>src-tauri/tauri.conf.json</code>: add <code>"bundle": { …, "createUpdaterArtifacts": true }</code> and a
+   <code>"plugins": { "updater": { "pubkey": "&lt;base64 pubkey above&gt;", "endpoints":
+   ["https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases/latest/download/latest.json"] } }</code>
+   block. Bump <code>version</code> per release.</li>
+<li><code>src-tauri/Cargo.toml</code>: add <code>tauri-plugin-updater = "2"</code> and <code>tauri-plugin-process = "2"</code>;
+   keep <code>version</code> in sync with tauri.conf.json.</li>
+<li><code>src-tauri/src/main.rs</code>: chain
+   <code>.plugin(tauri_plugin_updater::Builder::new().build())</code> and
+   <code>.plugin(tauri_plugin_process::init())</code> alongside the existing notification plugin; leave
+   <code>invoke_handler</code> empty.</li>
+<li><code>src-tauri/capabilities/default.json</code>: add <code>"updater:default"</code> and
+   <code>"process:allow-restart"</code> to <code>permissions</code> (only these two — no broader process perms).</li>
+</ol>
+<h3 id="53-frontend-frontend-engineer">5.3 Frontend (frontend-engineer)<a class="headerlink" href="#53-frontend-frontend-engineer" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Update-check module: on app start, <strong>after render</strong>, run <code>check()</code> <strong>once</strong>, non-blocking,
+   inside an <code>isTauri()</code> guard, with <code>@tauri-apps/plugin-updater</code> / <code>@tauri-apps/plugin-process</code>
+   <strong>dynamically imported inside the guard</strong>. Catch and no-op on error/timeout. <strong>No interval,
+   no polling.</strong></li>
+<li>If update available → dismissible banner/dialog: <code>{{version}}</code> + <code>update.body</code> notes +
+   <strong>Update now</strong> / <strong>Later</strong>. Update now → <code>downloadAndInstall()</code> with progress state →
+   <code>relaunch()</code>. Later → dismiss; re-surface only on next app start (session-scoped).</li>
+<li><code>desktop.update.*</code> keys in both <code>en.json</code> and <code>it.json</code> (parity test passes): at minimum
+    <code>available</code> (with <code>{{version}}</code>), a notes label, <code>updateNow</code>, <code>later</code>, <code>downloading</code>
+    (+ progress), <code>installing</code>, <code>error</code>.</li>
+</ol>
+<h3 id="54-docs-tech-writer">5.4 Docs (tech-writer)<a class="headerlink" href="#54-docs-tech-writer" title="Permanent link">&para;</a></h3>
+<ol>
+<li>D6b (DEPLOY): the <code>v*</code> tag release procedure, the three-way version bump, <code>includeUpdaterJson</code><ul>
+<li>the two signing secrets, and the <strong>key-loss caveat</strong> (§2.6 — private key is the sole trust
+root; back it up; loss = manual re-install for all clients). D6a (USER): the update banner
+(what it offers, Update now vs Later). No C4 change (topology unchanged).</li>
+</ul>
+</li>
+</ol>
+<h2 id="6-do-not-reject-any-pr-that-does-these">6. Do NOT (reject any PR that does these)<a class="headerlink" href="#6-do-not-reject-any-pr-that-does-these" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Do NOT add a polling interval / background update loop — startup check only, exactly one
+   <code>check()</code> per process start (I7). A timer/interval is a reject-on-review condition.</li>
+<li>Do NOT commit or embed the <strong>private</strong> minisign key or its password anywhere in the repo or
+   in <code>tauri.conf.json</code> — only the <strong>public</strong> key is embedded; signing uses the GitHub secrets.</li>
+<li>Do NOT block app startup on the update check, and do NOT crash on a failed/timed-out check —
+   it must be fire-and-forget and caught.</li>
+<li>Do NOT import <code>@tauri-apps/plugin-updater</code>/<code>plugin-process</code> at module top level or call them
+   outside an <code>isTauri()</code> guard — dynamic import inside the guard, so the web/PWA bundle stays
+   inert (ADR-0039 §9.1 / ADR-0048 §2.4c pattern).</li>
+<li>Do NOT keep the <code>desktop-v*</code> trigger or run two release channels — <code>v*</code> is the single unified
+   channel (U1).</li>
+<li>Do NOT bump the version in only one of the three files — tauri.conf.json / Cargo.toml /
+   package.json move together and equal the tag (I7/§5.1 acceptance; version drift breaks the
+   compare).</li>
+<li>Do NOT broaden the process capability beyond <code>process:allow-restart</code> (least privilege).</li>
+<li>Do NOT hardcode any inference provider or touch the inference layer (I6 untouched).</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,778 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0009-bounded-loop-defaults/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0009 — Bounded ingest loop: defaults, cost accounting, token-usage normalization (I7) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0009-bounded-ingest-loop-defaults-cost-accounting-token-usage-normalization-i7" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0009 — Bounded ingest loop: defaults, cost accounting, token-usage normalization (I7)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-loop-bounds-and-defaults-ratifies-scope-6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Loop bounds and defaults (ratifies scope §6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-uniform-usage-normalization-resolves-aq-v02-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Uniform Usage normalization (resolves AQ-v0.2-4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-cost-anomaly-warning-inline-in-the-orchestrator-resolves-aq-v02-8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Cost-anomaly WARNING — inline in the orchestrator (resolves AQ-v0.2-8)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-provider-fallback-bounded-exactly-once" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Provider fallback (bounded, exactly once)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0009-bounded-ingest-loop-defaults-cost-accounting-token-usage-normalization-i7">ADR-0009 — Bounded ingest loop: defaults, cost accounting, token-usage normalization (I7)<a class="headerlink" href="#adr-0009-bounded-ingest-loop-defaults-cost-accounting-token-usage-normalization-i7" title="Permanent link">&para;</a></h1>
+<ul>
+<li>Status: Accepted</li>
+<li>Date: 2026-06-28</li>
+<li>Sprint: v0.2</li>
+<li>Decider: solution-architect</li>
+<li>Invariants: I7 (every loop bounded by max_iter + token_budget; cost logged), I6 (per-provider accounting stays inside providers)</li>
+<li>Related: CLAUDE.md §7 (canonical loops), v0.2-scope §6, ADR-0007, ADR-0008</li>
+<li>Resolves: AQ-v0.2-4 (per-backend token accounting), AQ-v0.2-8 (cost-anomaly WARNING site)</li>
+</ul>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>v0.2 makes the first real LLM calls. I7 requires every loop to carry a <code>max_iter</code> cap, a
+<code>token_budget</code> cap, and a <code>total_cost_usd</code> log on completion. Two specifics had to be pinned:
+1. How is token usage measured uniformly across three backends that expose it differently?
+   (AQ-v0.2-4)
+2. Where is the $1.00/run cost-anomaly WARNING emitted? (AQ-v0.2-8)</p>
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<h3 id="1-loop-bounds-and-defaults-ratifies-scope-6">1. Loop bounds and defaults (ratifies scope §6)<a class="headerlink" href="#1-loop-bounds-and-defaults-ratifies-scope-6" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>max_iter</code> (orchestrated)</td>
+<td>3</td>
+<td>1 happy-path pass + 2 retries covers malformed JSON / missing-frontmatter recovery. Beyond 3 is a provider-quality problem, not a retry problem.</td>
+</tr>
+<tr>
+<td><code>token_budget</code> (orchestrated)</td>
+<td>60 000</td>
+<td>analysis (5–10k) + generation of 3–5 pages (20–30k) + 2 retries headroom. Well inside API context windows.</td>
+</tr>
+<tr>
+<td><code>token_budget</code> (CLI delegated)</td>
+<td>100 000</td>
+<td>the CLI runs its own agent loop (browse + write); higher headroom is appropriate.</td>
+</tr>
+<tr>
+<td><code>provider_fallback_max</code></td>
+<td>1</td>
+<td>primary fail/timeout → one fallback attempt → surface error. No chained fallbacks (CLAUDE.md §7).</td>
+</tr>
+<tr>
+<td>cost-anomaly threshold</td>
+<td>$1.00 / run</td>
+<td>a single ~500-word doc producing 3–5 pages should cost cents on Sonnet; $1 signals a runaway or misconfiguration.</td>
+</tr>
+</tbody>
+</table>
+<p>Both bounds are enforced <strong>together</strong>: the loop exits when <strong>either</strong> <code>iteration == max_iter</code>
+<strong>or</strong> <code>accumulated_tokens &gt;= token_budget</code>, whichever comes first. Both are read from the
+resolved <code>provider_config</code> (ADR-0008), falling back to the table above only if absent.</p>
+<p>The token_budget is checked <strong>before</strong> each provider call: if the projected/accumulated usage
+would exceed the budget, the loop stops with <code>converged=False</code> rather than making a call it
+cannot afford. AC-K2-5 (non-converging provider) stops at <code>max_iter=3</code>; a separate test stops
+on the token_budget branch.</p>
+<h3 id="2-uniform-usage-normalization-resolves-aq-v02-4">2. Uniform Usage normalization (resolves AQ-v0.2-4)<a class="headerlink" href="#2-uniform-usage-normalization-resolves-aq-v02-4" title="Permanent link">&para;</a></h3>
+<p>A single internal type normalizes per-backend accounting:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Usage</span><span class="p">:</span>
+    <span class="n">input_tokens</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">output_tokens</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">total_cost_usd</span><span class="p">:</span> <span class="nb">float</span>   <span class="c1"># 0.0 for local and cli</span>
+</code></pre></div>
+<p>Each provider populates <code>Usage</code> from its native fields, inside <code>provider/</code> only (I6):</p>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th>input_tokens</th>
+<th>output_tokens</th>
+<th>total_cost_usd</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ollama</td>
+<td><code>prompt_eval_count</code></td>
+<td><code>eval_count</code></td>
+<td><strong>0.00</strong> always (local, RTX 3060, zero marginal cost)</td>
+</tr>
+<tr>
+<td>Anthropic API</td>
+<td><code>response.usage.input_tokens</code></td>
+<td><code>response.usage.output_tokens</code></td>
+<td><code>input×in_price + output×out_price</code>, prices per model from a seeded price map keyed by <code>model_id</code> (in <code>api.py</code>, sourced from provider_config-adjacent seed, never a literal in app code)</td>
+</tr>
+<tr>
+<td>OpenAI-compatible</td>
+<td><code>usage.prompt_tokens</code></td>
+<td><code>usage.completion_tokens</code></td>
+<td>same pricing formula; price map keyed by model_id</td>
+</tr>
+<tr>
+<td>CLI (claude-agent-sdk)</td>
+<td>from SDK result metadata if present, else best-effort</td>
+<td>same</td>
+<td><strong>0.00 by convention</strong> — the CLI uses build-time agent credits, not runtime per-token billing. If the SDK exposes a cost, it is logged for visibility but <code>total_cost_usd</code> is recorded as 0.00 and a note is logged. If the SDK exposes no token counts, log a WARNING and record tokens=0.</td>
+</tr>
+</tbody>
+</table>
+<p>The orchestrator owns a run-scoped accumulator; each provider call returns its domain object
+and <strong>adds</strong> its <code>Usage</code> to the accumulator (the providers do not return <code>Usage</code> in their
+public method signatures — ADR-0007 §1 — they push it to the run accumulator the orchestrator
+passes in). At run end, the accumulator yields <code>total_tokens</code> and <code>total_cost_usd</code> for the
+<code>ingest_runs</code> row (ADR-0008) and the structured log line.</p>
+<p><strong>CLI = $0.00 convention</strong> is explicit and architect-agreed: the CliAgentProvider path is the
+build-time / Karpathy-lineage agent; its spend is not Synapse-runtime billing, so it is
+recorded as $0.00 to keep the cost ledger comparable across backends while still logging the
+raw token counts when available.</p>
+<h3 id="3-cost-anomaly-warning-inline-in-the-orchestrator-resolves-aq-v02-8">3. Cost-anomaly WARNING — inline in the orchestrator (resolves AQ-v0.2-8)<a class="headerlink" href="#3-cost-anomaly-warning-inline-in-the-orchestrator-resolves-aq-v02-8" title="Permanent link">&para;</a></h3>
+<p>The $1.00 threshold check is performed <strong>inline in <code>orchestrator.py</code></strong>, immediately after the
+run accumulator is finalized and <strong>after</strong> the <code>ingest_runs</code> row / structured log line is
+written. Option (a) from AQ-v0.2-8 — not a separate hook (over-engineered for one threshold)
+and not in the provider (the provider does not know per-run totals across iterations). When
+<code>total_cost_usd &gt; 1.00</code>, the orchestrator logs a <code>WARNING</code> containing <code>total_cost_usd</code>,
+<code>provider_name</code>, and <code>page_id</code>, and sets <code>ingest_runs.cost_anomaly = True</code>. The test mocks the
+cost computation to return 1.01 and asserts the WARNING is emitted.</p>
+<h3 id="4-provider-fallback-bounded-exactly-once">4. Provider fallback (bounded, exactly once)<a class="headerlink" href="#4-provider-fallback-bounded-exactly-once" title="Permanent link">&para;</a></h3>
+<p>If the primary provider raises a timeout / 503 during <code>analyze()</code> or <code>generate()</code>, the
+orchestrator resolves the single fallback row (<code>is_fallback=True</code> for the scope, ADR-0008) and
+retries the <strong>whole</strong> ingest once with it. If the fallback also fails, an <code>IngestError</code> is
+surfaced (HTTP 500 from the REST path). No recursion, no chains (AC-K2-7). The fallback's
+<code>provider_name</code> is recorded in <code>ingest_runs</code> with <code>converged=False</code> on double failure.</p>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li>(+) I7 fully satisfied: dual bounds on the loop, fallback bounded to one, cost logged and
+  persisted per run, anomaly flagged.</li>
+<li>(+) AQ-v0.2-4 and AQ-v0.2-8 resolved; AC-K2-6 (structured run record) and the anomaly test
+  are unblocked.</li>
+<li>(+) The uniform <code>Usage</code> type makes cost comparable across heterogeneous backends without
+  leaking backend-specific field names out of <code>provider/</code> (I6).</li>
+<li>(−) The CLI=$0.00 convention means the cost ledger understates true cost when the SDK does
+  bill. Accepted and documented: it is build-time credit, not runtime billing; raw tokens are
+  still logged for visibility.</li>
+<li>(−) Per-model pricing must be maintained as the price map drifts. Mitigation: prices live in
+  seeded data keyed by model_id (alongside provider_config seeding), updatable without code
+  changes, never as literals in <code>backend/app/</code> (AC-F17-8).</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

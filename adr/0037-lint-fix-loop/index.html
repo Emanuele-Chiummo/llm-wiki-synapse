@@ -1,0 +1,917 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0037-lint-fix-loop/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0037 — K2 Lint-fix loop (bounded, human-gated wiki health check) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0037-k2-lint-fix-loop-bounded-human-gated-wiki-health-check" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0037 — K2 Lint-fix loop (bounded, human-gated wiki health check)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-two-phase-scan-deterministic-semantic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Two-phase scan: deterministic + semantic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-the-human-gate-apply-dismiss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 The human gate (apply / dismiss)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-persistence-alembic-migration-0014" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Persistence (Alembic migration 0014)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Persistence (Alembic migration 0014)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-lint_runs-mirrors-deep_research_runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 lint_runs (mirrors deep_research_runs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-lint_findings-mirrors-review_items" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 lint_findings (mirrors review_items)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-bounds-the-i7-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Bounds — the I7 contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-apply-deterministic-vs-flag-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Apply — deterministic vs flag-only
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-rest-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. REST surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-do-not-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Do-NOT list
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0037-k2-lint-fix-loop-bounded-human-gated-wiki-health-check">ADR-0037 — K2 Lint-fix loop (bounded, human-gated wiki health check)<a class="headerlink" href="#adr-0037-k2-lint-fix-loop-bounded-human-gated-wiki-health-check" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-06-30</li>
+<li><strong>Sprint:</strong> v0.6 (M6 — shippable; completes the third Karpathy core operation)</li>
+<li><strong>Features:</strong> K2 (the third of the three Karpathy operations: <strong>Ingest · Query · Lint</strong>) ·
+  K8 (human curates, LLM maintains — the lint queue is a curation surface) ·
+  F4 (knowledge graph health — orphan detection reads the <code>links</code> in-degree) ·
+  F9-adjacent (mirrors the review-queue proposal model, but for <em>maintenance</em>, not ingest follow-up)</li>
+<li><strong>Reference:</strong> R2 (Karpathy LLM Wiki — periodic lint/health-check of the wiki) ·
+  R1 (nashsu/llm_wiki — the lint operation as one of the three core operations)</li>
+<li><strong>Invariants owned:</strong> <strong>I7</strong> (HEADLINE — the semantic loop is <code>for n in range(1, max_iter+1)</code> with a
+  <code>token_budget</code> gate at the top of each round; findings capped at <code>LINT_MAX_FINDINGS</code>; per-call
+  <code>asyncio.wait_for</code> timeout; <code>total_cost_usd</code> logged + $1 anomaly WARNING; status never left
+  <code>running</code>) · <strong>I6</strong> (the semantic pass routes through <code>resolve_provider_config("ingest")</code> +
+  <code>InferenceProvider.chat()</code>; no hardcoded backend/model, no <code>isinstance</code>/class-name branching) ·
+  <strong>I1</strong> (the scan reads only the <code>pages</code> + <code>links</code> tables — never a full vault walk/rescan; apply edits
+  touch only the referencing page(s) and bump <code>data_version</code> at most once per applied fix) ·
+  <strong>I5</strong> (apply inserts <code>[[wikilinks]]</code> into page <strong>bodies</strong> only, via the existing enrichment seam) ·
+  <strong>K7</strong> (any created page is Obsidian-valid frontmatter, via the lazy-generation seam)</li>
+<li><strong>Author:</strong> solution-architect · ai-agent-engineer</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>K2 is the <strong>third Karpathy core operation</strong>: <em>Ingest · Query · </em><em>Lint</em><strong>. Ingest (F3) and Query (F5)
+shipped in earlier sprints; Lint is the periodic </strong>health check** that keeps the self-organizing wiki
+coherent as it grows — finding orphaned pages, missing cross-references, contradictions, stale claims,
+and concepts that are mentioned but have no page.</p>
+<p>The defining design tension is <strong>K8 (human curates, LLM maintains)</strong>: a lint operation that <em>auto-fixes</em>
+the wiki would silently rewrite a human-curated knowledge base on a schedule — exactly the loss of
+control K8 forbids. So the lint operation must <strong>propose, not apply</strong>. This mirrors the F9 review-queue
+proposal model (ADR-0034): the scan produces <strong>findings</strong> (proposals); a <strong>human gate</strong> turns a finding
+into a fix.</p>
+<p>The cost tension is <strong>I7</strong>: a "find all the problems" LLM pass is naturally open-ended (you can always
+ask for <em>more</em> findings). The loop must be <strong>structurally bounded</strong> so it can never run away.</p>
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<p>Add <code>backend/app/ops/lint.py</code> implementing a <strong>bounded, human-gated</strong> lint operation, plus two
+persistence tables and five REST endpoints. The shape deliberately mirrors <code>ops/deep_research.py</code>
+(bounded run + audit ledger) and <code>ops/review.py</code> (proposal rows + human actions) so there is <strong>one</strong>
+team idiom for "bounded provider loop that writes a run row + proposal rows."</p>
+<h3 id="21-two-phase-scan-deterministic-semantic">2.1 Two-phase scan: deterministic + semantic<a class="headerlink" href="#21-two-phase-scan-deterministic-semantic" title="Permanent link">&para;</a></h3>
+<p><code>run_lint_scan(vault_id, max_iter?, token_budget?)</code>:</p>
+<ol>
+<li>
+<p><strong>Deterministic structural checks (no provider call, I1).</strong>
+   <code>orphan-page</code> = a live <code>wiki/</code> page with <strong>graph in-degree 0</strong> (no resolved incoming <code>[[wikilink]]</code>).
+   Computed from the <code>pages</code> + <code>links</code> tables only (bounded indexed reads — never a vault walk).
+   <code>index.md</code> / <code>log.md</code> / <code>overview.md</code> are excluded (navigation roots, not orphans).</p>
+</li>
+<li>
+<p><strong>Bounded semantic pass (I6/I7).</strong> A <code>for n in range(1, max_iter+1)</code> loop. Each round makes <strong>one</strong>
+   <code>InferenceProvider.chat()</code> call asking for <em>new</em> findings of the four semantic categories
+   (<code>missing-xref</code>, <code>contradiction</code>, <code>stale-claim</code>, <code>missing-page</code>), de-duplicates against everything
+   seen so far, and <strong>breaks early</strong> when a round adds nothing new. A <code>token_budget</code> gate at the <strong>top</strong>
+   of each round stops the loop before an unaffordable round (under-spend, never over). Findings are
+   merged and <strong>capped at <code>LINT_MAX_FINDINGS</code></strong>.</p>
+</li>
+</ol>
+<p>The semantic pass routes through <code>resolve_provider_config("ingest", vault_id)</code> + <code>resolve_provider</code> +
+<code>chat()</code> — the <strong>same backend-neutral surface</strong> review/deep-research/enrichment use (I6). No provider
+configured → <strong>deterministic findings only</strong> (no silent default backend).</p>
+<h3 id="22-the-human-gate-apply-dismiss">2.2 The human gate (apply / dismiss)<a class="headerlink" href="#22-the-human-gate-apply-dismiss" title="Permanent link">&para;</a></h3>
+<p>The scan <strong>never applies a fix</strong>. Three human actions exist:</p>
+<ul>
+<li><code>apply_lint_fix(finding_id)</code> — applies <strong>only safe/bounded</strong> fixes; bumps <code>data_version</code> <strong>at most
+  once</strong> per applied fix (I1); never full-rescans.</li>
+<li><code>dismiss_lint_finding(finding_id)</code> — <code>status → dismissed</code> (status change only).</li>
+<li><code>list_lint_findings(...)</code> / <code>list_lint_runs(...)</code> — paginated reads.</li>
+</ul>
+<h2 id="3-persistence-alembic-migration-0014">3. Persistence (Alembic migration 0014)<a class="headerlink" href="#3-persistence-alembic-migration-0014" title="Permanent link">&para;</a></h2>
+<h3 id="31-lint_runs-mirrors-deep_research_runs">3.1 <code>lint_runs</code> (mirrors <code>deep_research_runs</code>)<a class="headerlink" href="#31-lint_runs-mirrors-deep_research_runs" title="Permanent link">&para;</a></h3>
+<p><code>id, vault_id, status[running|completed|error], max_iter, token_budget, iterations_used,
+findings_count, total_cost_usd, started_at, completed_at, error_message, created_at</code>.
+Bounds (<code>max_iter</code>, <code>token_budget</code>) are <strong>FROZEN at INSERT</strong> and never re-read mid-loop (I7). <code>status</code>
+defaults to <code>running</code>; the terminal write is in a <code>finally</code> block — never left <code>running</code>.
+Index <code>(vault_id, created_at)</code>.</p>
+<h3 id="32-lint_findings-mirrors-review_items">3.2 <code>lint_findings</code> (mirrors <code>review_items</code>)<a class="headerlink" href="#32-lint_findings-mirrors-review_items" title="Permanent link">&para;</a></h3>
+<p><code>id, lint_run_id (FK → lint_runs, ON DELETE CASCADE), vault_id, category, severity, target_page_id
+(FK → pages), target_title, description, proposed_action, status[open|applied|dismissed],
+resolution_note, created_at, reviewed_at</code>. Index <code>(vault_id, status, created_at)</code> + <code>(lint_run_id)</code>.</p>
+<p><code>category</code> and <code>status</code> are <strong>enum-by-convention</strong> (no DB CHECK — matches <code>review_items</code> /
+<code>deep_research_runs</code>). UUID columns use the <code>UUID(as_uuid=True).with_variant(String(36), "sqlite")</code>
+pattern so unit tests run on aiosqlite.</p>
+<p>The ER diagram is regenerated (<code>make er</code>) so <code>docs/er/schema.mmd</code> matches the live models (I8).</p>
+<h2 id="4-bounds-the-i7-contract">4. Bounds — the I7 contract<a class="headerlink" href="#4-bounds-the-i7-contract" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Bound</th>
+<th>Mechanism</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Iteration cap</td>
+<td><code>for n in range(1, max_iter+1)</code> — structural; <code>LINT_MAX_ITER</code> default, frozen on the run row</td>
+</tr>
+<tr>
+<td>Token budget</td>
+<td>gate at the <strong>top</strong> of each round: <code>if accumulator.total_tokens &gt;= token_budget: break</code>; <code>LINT_TOKEN_BUDGET</code> default, frozen</td>
+</tr>
+<tr>
+<td>Finding count</td>
+<td>merged findings truncated to <code>LINT_MAX_FINDINGS</code> (never an unbounded enqueue)</td>
+</tr>
+<tr>
+<td>Per-call timeout</td>
+<td>each semantic call wrapped in <code>asyncio.wait_for(LINT_TIMEOUT_SECONDS)</code> → on timeout, deterministic findings stand</td>
+</tr>
+<tr>
+<td>Cost</td>
+<td><code>UsageAccumulator</code> ledger; <code>total_cost_usd</code> logged + persisted; <code>&gt; $1.00</code> → WARNING anomaly</td>
+</tr>
+<tr>
+<td>Terminal status</td>
+<td>written in <code>finally</code> — never left <code>running</code></td>
+</tr>
+</tbody>
+</table>
+<p>New env knobs: <code>LINT_MAX_ITER</code> (3), <code>LINT_TOKEN_BUDGET</code> (20_000), <code>LINT_MAX_FINDINGS</code> (50),
+<code>LINT_TIMEOUT_SECONDS</code> (30.0). The provider row's <code>token_budget</code> overrides the env default when present.</p>
+<h2 id="5-apply-deterministic-vs-flag-only">5. Apply — deterministic vs flag-only<a class="headerlink" href="#5-apply-deterministic-vs-flag-only" title="Permanent link">&para;</a></h2>
+<p><code>apply_lint_fix</code> dispatches by category. The split between <em>automatic</em> and <em>flag-only</em> is the safety
+boundary: we only ever apply a fix that has a <strong>bounded, well-understood, reversible-by-the-human</strong> seam.</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Apply behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>missing-xref</code></td>
+<td><strong>Automatic.</strong> Reuses <code>ops/enrich_wikilinks.enrich_wikilinks</code> over the referencing page — adds the <code>[[target]]</code> link into the <strong>body</strong> (I5), re-indexes only that page, bumps <code>data_version</code> once (I1).</td>
+</tr>
+<tr>
+<td><code>missing-page</code></td>
+<td><strong>Automatic.</strong> Delegates to the lazy-generation seam used by <code>review.create_page_from_review</code> (<code>_run_generation</code> → <code>write_wiki_page</code>) — bounded orchestrated loop, one <code>data_version</code> bump (I1), Obsidian-valid frontmatter (K7). 409 if no ingest provider (I6).</td>
+</tr>
+<tr>
+<td><code>orphan-page</code></td>
+<td><strong>Flag-only.</strong> No safe automatic fix exists (linking an orphan is a <em>content</em> decision). <code>status → applied</code> + <code>resolution_note</code>; the human edits the wiki.</td>
+</tr>
+<tr>
+<td><code>contradiction</code></td>
+<td><strong>Flag-only.</strong> Resolving a contradiction requires human judgement about which claim is correct. <code>status → applied</code> + note.</td>
+</tr>
+<tr>
+<td><code>stale-claim</code></td>
+<td><strong>Flag-only.</strong> Deciding what supersedes a claim is a curation decision. <code>status → applied</code> + note.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why these three are flag-only (and intentionally so):</strong> an automatic edit for an orphan / contradiction
+/ stale-claim would have to <em>invent</em> content or <em>delete</em> human-written content — both violate K8. Flagging
+them surfaces the issue for the human without ever mutating curated knowledge. (If a future ADR adds a
+deterministic fix — e.g. a "merge duplicate" operation — it can graduate a category from flag-only to
+automatic without changing this contract.)</p>
+<p><code>apply_lint_fix</code> errors: 404 (finding absent), 409 (finding not <code>open</code>, or no ingest provider for a
+fixable category — I6), 502 (a bounded fix failed; the finding is left <code>open</code> to retry/dismiss).</p>
+<h2 id="6-rest-surface">6. REST surface<a class="headerlink" href="#6-rest-surface" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/lint/scan</code></td>
+<td>run a bounded scan → <code>{run, findings[]}</code> (200)</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/lint/runs</code> · <code>/lint/runs/{id}</code></td>
+<td>paginated run history + detail</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/lint/findings?status=open</code></td>
+<td>paginated findings (default <code>open</code>; cap 200 — I7)</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/lint/findings/{id}/apply</code></td>
+<td><strong>HUMAN GATE</strong> — apply a safe/bounded fix</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/lint/findings/{id}/dismiss</code></td>
+<td><code>status → dismissed</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>docs/api/openapi.json</code> is regenerated; <code>docs/sequences/lint-fix.mmd</code> documents the flow (D3).</p>
+<h2 id="7-consequences">7. Consequences<a class="headerlink" href="#7-consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>K2 is complete.</strong> All three Karpathy operations now exist as backend verticals.</li>
+<li><strong>K8 preserved.</strong> The scan proposes; the human applies. No scheduled auto-rewrite of curated content.</li>
+<li><strong>One idiom reused.</strong> <code>lint_runs</code>/<code>lint_findings</code> and the bounded loop mirror deep-research/review, so
+  the team has a single mental model and the test harness is copy-pasteable.</li>
+<li><strong>Frontend deferred.</strong> This ADR ships the backend vertical only; the lint panel is a separate task.</li>
+<li><strong>Recorded gap:</strong> the CLI-delegated provider path is not engaged by the semantic pass (the scan rides
+  <code>chat()</code>, which every backend implements). This matches ADR-0036's treatment of the enrichment pass.</li>
+</ul>
+<h2 id="8-do-not-list">8. Do-NOT list<a class="headerlink" href="#8-do-not-list" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Do <strong>not</strong> auto-apply any fix from <code>run_lint_scan</code> (human gate — K8).</li>
+<li>Do <strong>not</strong> run the semantic loop as <code>while True</code> — it is <code>for n in range(1, max_iter+1)</code>.</li>
+<li>Do <strong>not</strong> re-read <code>settings</code>/the DB row for bounds mid-loop (frozen at start — I7).</li>
+<li>Do <strong>not</strong> emit an unbounded finding list (cap at <code>LINT_MAX_FINDINGS</code>).</li>
+<li>Do <strong>not</strong> walk the vault filesystem — read <code>pages</code>/<code>links</code> only (I1).</li>
+<li>Do <strong>not</strong> hardcode a backend or branch on <code>isinstance</code>/<code>provider_type</code> (I6).</li>
+<li>Do <strong>not</strong> bump <code>data_version</code> more than once per applied fix (I1).</li>
+<li>Do <strong>not</strong> apply an automatic fix for orphan/contradiction/stale-claim (flag-only — K8).</li>
+<li>Do <strong>not</strong> leave a <code>lint_runs</code> row <code>running</code> (terminal write in <code>finally</code>).</li>
+<li>Do <strong>not</strong> insert <code>[[wikilinks]]</code> into frontmatter — bodies only (I5; the enrichment seam enforces it).</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

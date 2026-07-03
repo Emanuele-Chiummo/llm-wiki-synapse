@@ -1,0 +1,780 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0014-graph-cache-debounce-and-graph-endpoint/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0014 — GraphCache debounce, dataVersion trigger, and GET /graph contract (I2) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0014-graphcache-debounce-dataversion-trigger-and-get-graph-contract-i2" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0014 — GraphCache debounce, dataVersion trigger, and GET /graph contract (I2)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-cache-state-persisted-coords-a-layout_data_version-marker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Cache state: persisted coords + a layout_data_version marker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-trigger-detection-in-process-debounce-on-data_version-bump-aq-v03-7-option-ac-hybrid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Trigger / detection: in-process debounce on data_version bump (AQ-v0.3-7 → option a/c hybrid)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-bounded-queue-i7-at-most-one-in-flight-at-most-one-queued-aq-ac-f16db-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Bounded queue (I7): at most one in-flight + at most one queued (AQ AC-F16db-3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-testable-debounce-injected-clock-trigger-no-real-sleep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Testable debounce — injected clock + trigger, no real sleep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-get-graph-synchronous-200-aq-v03-3-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. GET /graph: SYNCHRONOUS 200 (AQ-v0.3-3 → sync)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-get-graph-response-contract-locks-ac-f4-3-ac-f4-4-ac-d4v3-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. GET /graph response contract (locks AC-F4-3 / AC-F4-4 / AC-D4v3-1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0014-graphcache-debounce-dataversion-trigger-and-get-graph-contract-i2">ADR-0014 — GraphCache debounce, dataVersion trigger, and GET /graph contract (I2)<a class="headerlink" href="#adr-0014-graphcache-debounce-dataversion-trigger-and-get-graph-contract-i2" title="Permanent link">&para;</a></h1>
+<ul>
+<li>Status: Accepted</li>
+<li>Date: 2026-06-28</li>
+<li>Sprint: v0.3</li>
+<li>Decider: solution-architect</li>
+<li>Invariants: <strong>I2</strong> (cached + debounced), I7 (bounded queue — max one queued job), I1, I8 (D4)</li>
+<li>Related: CLAUDE.md §3 I2 / §7 (bounded loops), ADR-0005 (data_version), ADR-0013, ADR-0012</li>
+<li>Resolves: AQ-v0.3-3 (sync 200 vs async 202), AQ-v0.3-7 (recompute trigger/detection)</li>
+</ul>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>I2 requires the layout to be <strong>cached</strong> and recompute to be <strong>debounced on <code>data_version</code></strong>.
+Without a cache, every <code>GET /graph</code> would re-run FA2 — the exact bottleneck F4 fixes. Two
+decisions are pinned: how the cache detects a <code>data_version</code> bump and debounces it (AQ-7), and
+whether <code>GET /graph</code> is synchronous 200 or async 202 (AQ-3). The mechanism MUST be testable
+without real <code>sleep()</code> (the QA mocks inject a clock — v0.3-stories §3).</p>
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<h3 id="1-cache-state-persisted-coords-a-layout_data_version-marker">1. Cache state: persisted coords + a <code>layout_data_version</code> marker<a class="headerlink" href="#1-cache-state-persisted-coords-a-layout_data_version-marker" title="Permanent link">&para;</a></h3>
+<p>The "cache" is the <strong>persisted coordinates in <code>pages.x/y</code> plus the <code>edges</code> table</strong> (ADR-0013),
+tagged with the <code>data_version</code> they were computed from. The marker is held by <code>GraphCache</code>
+(in-process) and is also derivable: coords are "fresh" iff
+<code>marker_data_version == vault_state.data_version</code>. The marker is initialised on startup by
+reading the current <code>data_version</code> (coords are treated as stale-unknown until first compute).</p>
+<p>A cache <strong>hit</strong> = <code>vault_state.data_version == marker</code> (coords correspond to current data).
+A cache <strong>miss</strong> = marker is unset (first ever call) OR <code>data_version</code> advanced past the marker
+without a completed recompute.</p>
+<h3 id="2-trigger-detection-in-process-debounce-on-data_version-bump-aq-v03-7-option-ac-hybrid">2. Trigger / detection: in-process debounce on data_version bump (AQ-v0.3-7 → option a/c hybrid)<a class="headerlink" href="#2-trigger-detection-in-process-debounce-on-data_version-bump-aq-v03-7-option-ac-hybrid" title="Permanent link">&para;</a></h3>
+<p><strong>Decision: in-process debounced async task keyed off the <code>data_version</code> bump.</strong> The watcher /
+ingest path already runs in the FastAPI process and already bumps <code>vault_state.data_version</code>
+(ADR-0005). <code>GraphCache.notify_bump()</code> is called right after a successful ingest bump (in-process
+event — option c), with a <strong>polling fallback</strong> (option a) reconciling the marker against
+<code>vault_state</code> on a configurable interval for robustness against a missed in-process signal and
+for multi-writer safety. <strong>No Postgres LISTEN/NOTIFY</strong> (rejected: adds coupling/complexity,
+v0.3-stories §3 recommendation).</p>
+<p>Debounce: on a bump, schedule a recompute to fire after <code>GRAPH_DEBOUNCE_SECONDS</code> (default
+<strong>5s</strong>, configurable). A further bump <strong>within</strong> the window resets the timer (collapses bursts
+into one run — AC-F16db-2).</p>
+<h3 id="3-bounded-queue-i7-at-most-one-in-flight-at-most-one-queued-aq-ac-f16db-3">3. Bounded queue (I7): at most one in-flight + at most one queued (AQ AC-F16db-3)<a class="headerlink" href="#3-bounded-queue-i7-at-most-one-in-flight-at-most-one-queued-aq-ac-f16db-3" title="Permanent link">&para;</a></h3>
+<ul>
+<li>If a recompute is <strong>in-flight</strong> and a new bump arrives, do NOT interrupt it and do NOT spawn
+  a parallel run. Set a single <code>pending</code> flag.</li>
+<li>When the in-flight run completes, if <code>pending</code> is set (and data moved past the just-computed
+  marker), schedule <strong>exactly one</strong> follow-up debounce. N bumps during one in-flight run
+  collapse to <strong>one</strong> follow-up — total runs for "1 bump + N-during-flight" = 2, never N
+  (AC-F16db-3). The queue depth is structurally capped at 1.</li>
+</ul>
+<h3 id="4-testable-debounce-injected-clock-trigger-no-real-sleep">4. Testable debounce — injected clock + trigger, no real sleep<a class="headerlink" href="#4-testable-debounce-injected-clock-trigger-no-real-sleep" title="Permanent link">&para;</a></h3>
+<p><code>GraphCache</code> takes an injectable <strong>clock</strong> (<code>now()</code> callable) and the debounce is driven by an
+<strong>advanceable timer</strong> rather than <code>asyncio.sleep</code> against wall time. The test:
+1. injects a fake clock and a mock <code>GraphEngine.recompute</code>,
+2. calls <code>notify_bump()</code> (1× or N×),
+3. advances the fake clock past the window,
+4. drives the scheduler tick,
+5. asserts <code>recompute</code> call count (1 for AC-F16db-1/2; 2 for the in-flight-then-deferred
+   AC-F16db-3).</p>
+<p>No <code>time.sleep</code> / no real <code>asyncio.sleep</code> against wall time appears in the tests. Concretely:
+the debounce stores a <code>fire_at = clock.now() + window</code> deadline; a <code>tick()</code> method (called by
+the test, and by a lightweight asyncio loop in production) fires the recompute when
+<code>clock.now() &gt;= fire_at</code> and no run is in-flight. This makes the debounce a pure function of
+injected time.</p>
+<h3 id="5-get-graph-synchronous-200-aq-v03-3-sync">5. GET /graph: SYNCHRONOUS 200 (AQ-v0.3-3 → sync)<a class="headerlink" href="#5-get-graph-synchronous-200-aq-v03-3-sync" title="Permanent link">&para;</a></h3>
+<p><code>GET /graph</code> returns <strong>HTTP 200 synchronously</strong>, never 202. Two paths:</p>
+<ul>
+<li><strong>Cache hit</strong> (<code>data_version == marker</code>, coords present): read <code>pages</code> + <code>edges</code>, return the
+  payload directly. Set <code>cached: true</code> and header <code>X-Graph-Cache: hit</code>. <strong>No FA2.</strong></li>
+<li><strong>Cache miss</strong> (no coords yet / stale, e.g. first ever call): run <strong>one synchronous</strong>
+  <code>GraphEngine.recompute()</code> inline, then return the fresh payload with <code>cached: false</code> and
+  <code>X-Graph-Cache: miss</code>. The marker is updated to the current <code>data_version</code>.</li>
+</ul>
+<p>Rationale: igraph FA2 on the target vault size (&lt;500 nodes) completes in &lt;2s (AQ-3 analysis);
+synchronous keeps the client and tests trivial (assert full payload, no polling). The
+debounced background recompute (§2) means the <em>common</em> case is always a hit; the synchronous
+miss path is the cold-start / just-after-bump safety net. This satisfies G2: the <strong>second</strong>
+open (same data_version) is a pure-read hit with no FA2, hence no main-thread work and no
+server recompute.</p>
+<p>A debounced background recompute that completes between two GETs simply makes the next GET a
+hit. The synchronous miss path and the background debounce never run FA2 concurrently for the
+same vault (§3 in-flight guard is shared).</p>
+<h3 id="6-get-graph-response-contract-locks-ac-f4-3-ac-f4-4-ac-d4v3-1">6. GET /graph response contract (locks AC-F4-3 / AC-F4-4 / AC-D4v3-1)<a class="headerlink" href="#6-get-graph-response-contract-locks-ac-f4-3-ac-f4-4-ac-d4v3-1" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;nodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid-string&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string|null&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;x&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;y&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;degree&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;edges&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid-string&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid-string&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;weight&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">11.0</span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;data_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;cached&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</code></pre></div>
+<ul>
+<li><code>nodes</code>: one object per <strong>live</strong> page that has non-NULL x/y. Fields:</li>
+<li><code>id</code> (string UUID), <code>title</code> (string, may be null→empty per K6 tolerance),
+    <code>type</code> (string|null), <code>x</code>/<code>y</code> (float, from <code>pages.x/y</code>).</li>
+<li><code>size</code> (float, OPTIONAL, derived = a monotonic function of <code>degree</code>; default 1.0) — a
+    rendering hint so high-degree hubs draw larger. Computed server-side from the edge list;
+    NOT persisted.</li>
+<li><code>degree</code> (int, OPTIONAL) — number of incident edges in the returned edge set. Convenience
+    for the client; derived, not persisted.</li>
+<li><code>edges</code>: one object per <code>edges</code> row for live endpoints. <code>source</code>/<code>target</code> are page-id
+  strings; <code>weight</code> is the ADR-0012 float. Undirected — emitted once per pair.</li>
+<li><code>data_version</code> (int): the <code>vault_state.data_version</code> the returned coords correspond to.</li>
+<li><code>cached</code> (bool): <code>true</code> on a hit (no FA2 this request), <code>false</code> on a miss (FA2 ran inline).</li>
+<li><strong>Header</strong> <code>X-Graph-Cache: hit|miss</code> mirrors <code>cached</code> for the G2 Playwright assertion.</li>
+</ul>
+<p><code>size</code> and <code>degree</code> are OPTIONAL in the schema so a minimal client may ignore them; QA AC-F4-3
+asserts the required core fields (id/title/type/x/y, source/target/weight, data_version, cached).</p>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li>(+) I2 fully satisfied: layout cached, recompute debounced on data_version, second open is a
+  pure read hit with <code>X-Graph-Cache: hit</code> and zero FA2 (G2 provable).</li>
+<li>(+) I7: queue structurally bounded to one in-flight + one pending; collapse verified by
+  AC-F16db-2/3.</li>
+<li>(+) Injected clock/tick makes the debounce deterministically testable with no sleeps.</li>
+<li>(+) Synchronous 200 keeps the client and the AC-F4-3/4 tests simple; no 202/polling.</li>
+<li>(+) <code>X-Graph-Cache</code> header + <code>cached</code> field give QA two independent cache-hit signals.</li>
+<li>(−) A cold-start <code>GET /graph</code> (no coords yet) pays the FA2 cost inline (&lt;2s for target sizes).
+  Accepted; mitigated by the background debounce warming the cache after ingests, and bounded
+  by the same in-flight guard so a miss-compute and a background compute never race.</li>
+<li>(−) In-process debounce state is lost on restart; reconstructed by reading <code>data_version</code> at
+  startup and lazily on the next <code>GET /graph</code> miss. Acceptable — coords persist in Postgres, so
+  a restart never loses computed layout, only the in-memory timer.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

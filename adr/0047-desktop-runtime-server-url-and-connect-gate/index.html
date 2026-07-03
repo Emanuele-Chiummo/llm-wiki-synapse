@@ -1,0 +1,921 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0047-desktop-runtime-server-url-and-connect-gate/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0047 — Desktop runtime server URL + Connect gate (Tauri first-launch backend binding) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0047-desktop-runtime-server-url-connect-gate-tauri-first-launch-backend-binding" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0047 — Desktop runtime server URL + Connect gate (Tauri first-launch backend binding)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-c1-frontendsrcapibasets-call-time-base-resolution-ratified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 (C1) frontend/src/api/base.ts — call-time base resolution — RATIFIED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-c2-mechanical-refactor-of-all-12-clients-ratified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 (C2) Mechanical refactor of all 12 clients — RATIFIED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-c3-connectscreen-gate-in-appshell-ratified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 (C3) ConnectScreen gate in AppShell — RATIFIED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-c4-backend-cors-default-extension-ratified-with-one-confirmation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 (C4) Backend CORS default extension — RATIFIED, with one confirmation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-c5-bundle-icons-ci-matrix-ratified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 (C5) Bundle icons + CI matrix — RATIFIED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-c6-branding-ratified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 (C6) Branding — RATIFIED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#27-amendment-url-validation-hardening-in-setserverurlconnectscreen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.7 Amendment — URL validation hardening in setServerUrl/ConnectScreen
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-risks-surfaced-to-orchestrator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Risks (surfaced to orchestrator)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-contract-the-implementers-follow-verbatim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Contract the implementers follow verbatim
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-do-not-reject-any-pr-that-does-these" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Do NOT (reject any PR that does these)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0047-desktop-runtime-server-url-connect-gate-tauri-first-launch-backend-binding">ADR-0047 — Desktop runtime server URL + Connect gate (Tauri first-launch backend binding)<a class="headerlink" href="#adr-0047-desktop-runtime-server-url-connect-gate-tauri-first-launch-backend-binding" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-02</li>
+<li><strong>Sprint:</strong> v0.6 (M6 — shippable; F15 cross-platform desktop packaging)</li>
+<li><strong>Features:</strong> F15 (cross-platform: Tauri v2 desktop bundles, macOS + Windows) ·
+  F1 (3-panel shell / AppShell gate) · F16 (settings persistence, i18n IT/EN, timeout,
+  multi-provider chat over the configured server)</li>
+<li><strong>Builds on:</strong> ADR-0028 (browser API base is relative; proxy target is a server-only
+  env var) · ADR-0039 (Tauri v2 desktop shell — scaffold, CI, single codebase)</li>
+<li><strong>Reference:</strong> R13 (Tauri v2 — https://tauri.app) · CLAUDE.md §3 (invariants),
+  §12 (no hardcoded config in code)</li>
+<li><strong>Invariants owned:</strong> I5 (Obsidian compat — unaffected; pure transport/UI plumbing) ·
+  I6 (pluggable inference — backend-side; not touched by desktop packaging) ·
+  I9 (do not reinvent — Tauri v2 is the planned R13 tool; reuse existing HTTP clients).
+  No invariant is traded for convenience.</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> frontend-engineer (<code>frontend/src/api/base.ts</code>, <code>frontend/src/api/*Client.ts</code>,
+  AppShell + ConnectScreen + Header, <code>en.json</code>/<code>it.json</code>) · devops-engineer
+  (<code>backend/app/config.py</code> CORS default, <code>src-tauri/tauri.conf.json</code>, <code>.github/workflows/</code>,
+  <code>src-tauri/icons/</code>) · tech-writer (D6b DEPLOY notes)</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>ADR-0039 established the Tauri v2 shell on the assumption that the desktop app and the
+backend share an origin (<code>VITE_API_BASE</code> build-time inlining, ADR-0028). That assumption
+holds for the <strong>PWA served by the same FastAPI process</strong>, but it is <strong>false for the packaged
+desktop app</strong>:</p>
+<ul>
+<li>A packaged Tauri app loads its frontend from a <strong>fixed webview origin</strong> — <code>tauri://localhost</code>
+  on macOS/Linux (WebKit), <code>http://tauri.localhost</code> on Windows (WebView2). It is <strong>not</strong>
+  served by the backend and has <strong>no</strong> same-origin backend to fall back to.</li>
+<li>The user's backend is a <strong>separate dockerized Synapse service</strong> reachable at a URL the
+  build cannot know: <code>http://127.0.0.1:8000</code>, a Tailscale MagicDNS name, or a Cloudflare
+  Tunnel hostname. A build-time-inlined <code>VITE_API_BASE</code> cannot express a value the end user
+  chooses at first launch.</li>
+</ul>
+<p>So the desktop app needs a <strong>runtime, user-supplied backend URL</strong>, persisted on the device,
+entered once at first launch. This is a new configuration surface that ADR-0028's two-variable
+model (browser-relative <code>""</code> + server-only <code>BACKEND_PROXY_TARGET</code>) does not cover, because in
+packaged desktop mode there is neither a same-origin backend nor a Vite dev proxy.</p>
+<p>Verified facts (prior exploration, re-confirmed here):
+- 12 clients (<code>frontend/src/api/*Client.ts</code>) declare a module-level
+  <code>const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "")</code> and build <code>${API_BASE}/path</code>.
+- Chat streaming is <code>fetch</code> + <code>ReadableStream</code> NDJSON (no WebSocket/EventSource), so the
+  base-URL fix is uniform across every call — including the stream — with no separate
+  transport to special-case.
+- <code>src-tauri/tauri.conf.json</code> exists (identifier <code>ai.synapse.app</code>, <code>security.csp: null</code>,
+  <code>frontendDist ../frontend/dist</code>, <code>devUrl :5173</code>), <strong>no <code>bundle.icon</code></strong> yet.
+- Backend CORS default is <code>"http://localhost:5173,http://127.0.0.1:5173"</code> and the middleware
+  runs with <strong><code>allow_credentials=True</code></strong> (<code>backend/app/main.py:930</code>).
+- <code>GET /status</code> exists and returns <code>{vault_id, data_version, ...}</code> — a cheap, side-effect-free
+  reachability probe.
+- Branding assets <code>frontend/src/assets/synapse-logo.svg</code> + <code>synapse-appicon.svg</code> are committed.</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<p>Ratify the proposed contract. Amendments are limited to two hardening points (§2.4, §2.7)
+and one confirmation of a CORS constraint (§2.4). All six contract points are otherwise
+accepted verbatim.</p>
+<h3 id="21-c1-frontendsrcapibasets-call-time-base-resolution-ratified">2.1 (C1) <code>frontend/src/api/base.ts</code> — call-time base resolution — RATIFIED<a class="headerlink" href="#21-c1-frontendsrcapibasets-call-time-base-resolution-ratified" title="Permanent link">&para;</a></h3>
+<p>A single new module resolves the API base <strong>at call time</strong> (not at module load), with a
+strict priority order:</p>
+<ol>
+<li><code>localStorage["synapse.serverUrl"]</code> — trimmed, trailing slash stripped (desktop runtime).</li>
+<li><code>import.meta.env["VITE_API_BASE"]</code> — build-time inline (web/PWA split-origin escape hatch, ADR-0028).</li>
+<li><code>""</code> — relative / same-origin (web + Vite dev proxy, the ADR-0028 default).</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">apiBase</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w">          </span><span class="c1">// resolved per call, priority above</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">getServerUrl</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="w">   </span><span class="c1">// localStorage[&quot;synapse.serverUrl&quot;] or null</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">setServerUrl</span><span class="p">(</span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span><span class="w">  </span><span class="c1">// trims + strips trailing slash, then persists</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">clearServerUrl</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">isTauri</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w">          </span><span class="c1">// typeof window !== &quot;undefined&quot; &amp;&amp; &quot;__TAURI_INTERNALS__&quot; in window</span>
+</code></pre></div>
+<p><strong>Why call-time, not module-const:</strong> the user sets the URL <em>after</em> the bundle has loaded
+(at the Connect gate). A module-level const captured at import would be stale for the whole
+session. Call-time resolution keeps a single source of truth (localStorage) and lets
+"change server" take effect without a reload.</p>
+<p><strong><code>isTauri()</code> via <code>__TAURI_INTERNALS__</code>:</strong> this is the v2 runtime marker injected into
+<code>window</code> by the Tauri webview. It is a read-only presence check — <strong>not</strong> a Tauri API call —
+so it does not violate ADR-0039's "no <code>window.__TAURI__</code>/<code>invoke</code> in React" rule, which
+targets <em>the IPC/command surface</em>. Detecting the container is transport plumbing, not a bridge
+call. This ADR records that carve-out explicitly so a reviewer does not flag it against
+ADR-0039 §9.1.</p>
+<h3 id="22-c2-mechanical-refactor-of-all-12-clients-ratified">2.2 (C2) Mechanical refactor of all 12 clients — RATIFIED<a class="headerlink" href="#22-c2-mechanical-refactor-of-all-12-clients-ratified" title="Permanent link">&para;</a></h3>
+<p>Every <code>frontend/src/api/*Client.ts</code> replaces the module-level <code>const API_BASE = …</code> with a
+call-time <code>apiBase()</code> at each fetch site (<code>`${apiBase()}/path`</code>). <strong>No behavior change in
+web mode:</strong> with no <code>localStorage</code> key and no <code>VITE_API_BASE</code>, <code>apiBase()</code> returns <code>""</code> —
+byte-identical to today's relative default. Acceptance grep after the change:
+<code>grep -rn 'import.meta.env\["VITE_API_BASE"\]' frontend/src/api/*Client.ts</code> returns
+<strong>nothing</strong> (the only reader of that env is now <code>base.ts</code>).</p>
+<h3 id="23-c3-connectscreen-gate-in-appshell-ratified">2.3 (C3) ConnectScreen gate in AppShell — RATIFIED<a class="headerlink" href="#23-c3-connectscreen-gate-in-appshell-ratified" title="Permanent link">&para;</a></h3>
+<p>AppShell renders <code>&lt;ConnectScreen/&gt;</code> <strong>instead of</strong> the app when <code>isTauri() &amp;&amp; !getServerUrl()</code>.
+The gate is web-invisible: in a browser <code>isTauri()</code> is false, so the app renders unchanged.
+ConnectScreen: full-screen branded (new logo), URL input, validates by <code>GET {url}/status</code>
+with a timeout; on 2xx → <code>setServerUrl(url)</code> → app renders. Header shows the connected server
++ a "change server" action (Tauri only) that calls <code>clearServerUrl()</code> and returns to the gate.
+New i18n namespace <code>connect.*</code> in <code>en.json</code> + <code>it.json</code> (the existing parity test enforces
+key equality). This satisfies I5 (no vault change) and does not touch I2/I3/I4.</p>
+<h3 id="24-c4-backend-cors-default-extension-ratified-with-one-confirmation">2.4 (C4) Backend CORS default extension — RATIFIED, with one confirmation<a class="headerlink" href="#24-c4-backend-cors-default-extension-ratified-with-one-confirmation" title="Permanent link">&para;</a></h3>
+<p>Extend <code>backend/app/config.py</code> <code>cors_allow_origins</code> default to include the two webview
+origins: <code>tauri://localhost</code> (macOS/Linux WebKit) and <code>http://tauri.localhost</code> (Windows
+WebView2). CORS is genuinely required: the packaged webview does a <strong>cross-origin</strong> fetch
+(<code>tauri://localhost</code> → the user's <code>http://…:8000</code>), which is a real CORS preflight.</p>
+<p><strong>Confirmation (not an amendment):</strong> the middleware runs with <code>allow_credentials=True</code>
+(<code>main.py:930</code>). Under the CORS spec, credentials mode <strong>forbids the <code>*</code> wildcard</strong> and
+requires the server to echo an <strong>exact</strong> origin. The contract's explicit-origin approach is
+therefore the <em>correct</em> one — a <code>*</code> default would silently break credentialed requests. The
+default list must stay explicit; adding the two literal origins is spec-compatible. Deployers
+who front the backend behind a tunnel still override via <code>CORS_ALLOW_ORIGINS</code> env (ADR-0028
+principle: no hardcoded prod origins).</p>
+<p><strong>Mixed-content risk accepted for v0.6:</strong> <code>tauri://</code> (secure context) → <code>http://</code> backend may
+be blocked by WebKit's mixed-content policy on macOS. Documented fallback:
+<code>@tauri-apps/plugin-http</code> (Rust-side fetch bypasses the webview's mixed-content gate). Not
+wired in v0.6 to keep the shell thin (ADR-0039 §9.8); recorded as the first fallback if the
+LIVE macOS build blocks <code>http://</code> backends. HTTPS backends (tunnel/Tailscale-with-TLS) are
+unaffected.</p>
+<h3 id="25-c5-bundle-icons-ci-matrix-ratified">2.5 (C5) Bundle icons + CI matrix — RATIFIED<a class="headerlink" href="#25-c5-bundle-icons-ci-matrix-ratified" title="Permanent link">&para;</a></h3>
+<p>Add the <code>bundle.icon</code> array to <code>tauri.conf.json</code>, generated from
+<code>src-tauri/icons/appicon-1024.png</code> via <code>npx tauri icon</code>. Bundle targets narrow to the two
+in scope for this deliverable — macOS (<code>dmg</code>/<code>app</code>) + Windows (<code>nsis</code>); Linux targets from
+ADR-0039 remain valid but are not part of this desktop-binding deliverable. CI:
+<code>tauri-apps/tauri-action</code>, matrix <code>macos-latest</code> + <code>windows-latest</code>, trigger on tag
+<code>desktop-v*</code> + <code>workflow_dispatch</code>. Unsigned artifacts (code-signing/notarization deferred —
+see §4 risk). This is consistent with ADR-0039's tag-gated, non-blocking build posture.</p>
+<h3 id="26-c6-branding-ratified">2.6 (C6) Branding — RATIFIED<a class="headerlink" href="#26-c6-branding-ratified" title="Permanent link">&para;</a></h3>
+<p>New logo (synaptic S-curve through graph nodes, gradient <code>#2563eb</code>→<code>#8250df</code>), already
+committed as <code>synapse-logo.svg</code> + <code>synapse-appicon.svg</code>, applied in Header (replacing the
+<code>⚡</code> emoji), favicon, PWA manifest icons, and Tauri icons (via C5's <code>tauri icon</code> from the
+1024px raster). Pure presentation; no invariant impact.</p>
+<h3 id="27-amendment-url-validation-hardening-in-setserverurlconnectscreen">2.7 Amendment — URL validation hardening in <code>setServerUrl</code>/ConnectScreen<a class="headerlink" href="#27-amendment-url-validation-hardening-in-setserverurlconnectscreen" title="Permanent link">&para;</a></h3>
+<p>Ratified with two mandatory guards on the persisted value, to prevent a foot-gun that would
+brick the gate:</p>
+<ol>
+<li><strong>Scheme allowlist:</strong> accept only <code>http://</code> and <code>https://</code>. Reject empty, <code>javascript:</code>,
+   <code>file:</code>, <code>tauri:</code>, and bare hosts without a scheme (or auto-prefix <code>http://</code> and re-parse).
+   This keeps a hostile/typo'd string from being concatenated into <code>${apiBase()}/path</code>.</li>
+<li><strong>Persist only after a successful <code>GET /status</code> probe.</strong> <code>setServerUrl</code> may store the raw
+   value, but ConnectScreen MUST NOT transition to the app on a non-2xx or timed-out probe;
+   it shows a <code>connect.error.*</code> message and stays on the gate. This guarantees the app never
+   renders against an unreachable base (which, with call-time resolution, would fail every
+   request with no obvious recovery except "change server" — which must therefore remain
+   reachable from the error state).</li>
+</ol>
+<p>These are additive to C1/C3 and do not change the signatures.</p>
+<hr />
+<h2 id="3-consequences">3. Consequences<a class="headerlink" href="#3-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong>
+- The packaged desktop app becomes usable against <em>any</em> reachable backend the user names at
+  first launch, with zero rebuild — the missing piece ADR-0039 left open.
+- One resolution point (<code>apiBase()</code>), one persisted source of truth (<code>localStorage</code>),
+  identical web behavior (relative <code>""</code>). ADR-0028's two-variable web contract is preserved
+  intact; localStorage is simply a higher-priority third source that only desktop populates.
+- NDJSON streaming needs no special-casing: it is <code>fetch</code>, so it inherits <code>apiBase()</code> like
+  every other call.
+- CORS stays explicit and credential-safe; no <code>*</code> wildcard regression.</p>
+<p><strong>Trade-offs / limitations (stated explicitly)</strong>
+- Call-time resolution costs a <code>localStorage</code> read per request. Negligible (synchronous,
+  microseconds) and only on the request path, not render.
+- <code>localStorage</code> is per-webview-origin and per-device: the desktop server URL does not sync
+  across machines and is cleared if the user wipes app data. Acceptable — first-launch
+  re-entry is a 10-second action.
+- Mixed-content (<code>tauri://</code> → <code>http://</code>) on macOS is an <em>accepted risk</em> for v0.6, mitigated
+  by the documented <code>plugin-http</code> fallback, not eliminated.
+- Unsigned artifacts trigger Gatekeeper/SmartScreen warnings; users must right-click-open
+  (macOS) / "More info → Run anyway" (Windows). Signing deferred (§4).</p>
+<p><strong>Invariant check</strong>
+- <strong>I2/I3/I4:</strong> untouched — this is transport + a gate screen; no layout, no per-token work,
+  no editor change.
+- <strong>I5 (Obsidian):</strong> unaffected — no vault, frontmatter, or wikilink change.
+- <strong>I6 (pluggable inference):</strong> backend-side and unchanged; the desktop app still talks to a
+  FastAPI backend that routes to providers via <code>provider_config</code>. No provider is hardcoded.
+- <strong>I9 (do not reinvent):</strong> Tauri v2 is the planned R13 tool; the 12 clients and the <code>/status</code>
+  endpoint are reused as-is; no new client/proxy/transport framework introduced.
+- No invariant is traded for convenience. <strong>CONFIRMED: none violated.</strong></p>
+<hr />
+<h2 id="4-risks-surfaced-to-orchestrator">4. Risks (surfaced to orchestrator)<a class="headerlink" href="#4-risks-surfaced-to-orchestrator" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Mixed-content on macOS:</strong> WebKit may block <code>tauri://localhost</code> → <code>http://…</code> backends; if
+   the LIVE macOS build fails against an HTTP backend, wire <code>@tauri-apps/plugin-http</code> before
+   ship (documented fallback, not yet implemented).</li>
+<li><strong>Unsigned binaries:</strong> Gatekeeper/SmartScreen will warn on first open; without notarization
+   some macOS 15+ setups make "open anyway" hard to find — set user expectations in DEPLOY.md.</li>
+<li><strong>CORS + credentials:</strong> because <code>allow_credentials=True</code>, the CORS default must never be
+   set to <code>*</code> (spec-invalid with credentials); any deployer override via <code>CORS_ALLOW_ORIGINS</code>
+   must list exact origins or credentialed calls silently fail preflight.</li>
+</ol>
+<hr />
+<h2 id="5-contract-the-implementers-follow-verbatim">5. Contract the implementers follow verbatim<a class="headerlink" href="#5-contract-the-implementers-follow-verbatim" title="Permanent link">&para;</a></h2>
+<ol>
+<li><code>frontend/src/api/base.ts</code> exports <code>apiBase()</code>, <code>getServerUrl()</code>, <code>setServerUrl(url)</code>,
+   <code>clearServerUrl()</code>, <code>isTauri()</code> per §2.1; <code>apiBase()</code> priority is
+   localStorage → <code>VITE_API_BASE</code> → <code>""</code>; <code>setServerUrl</code> trims + strips trailing slash and
+   rejects non-<code>http(s)</code> schemes (§2.7.1).</li>
+<li>Every <code>frontend/src/api/*Client.ts</code> uses <code>`${apiBase()}/path`</code> at call time; after the
+   change <code>grep -rn 'import.meta.env\["VITE_API_BASE"\]' frontend/src/api/*Client.ts</code> returns
+   nothing except within <code>base.ts</code>.</li>
+<li>AppShell renders <code>ConnectScreen</code> iff <code>isTauri() &amp;&amp; !getServerUrl()</code>; ConnectScreen persists
+   the URL <strong>only after</strong> a 2xx <code>GET {url}/status</code> within timeout (§2.7.2), else stays on the
+   gate with a <code>connect.error.*</code> message; Header (Tauri only) shows the server + a
+   change-server action calling <code>clearServerUrl()</code>.</li>
+<li><code>connect.*</code> keys added to both <code>en.json</code> and <code>it.json</code> (parity test must pass).</li>
+<li><code>backend/app/config.py</code> default <code>cors_allow_origins</code> adds <code>tauri://localhost</code> and
+   <code>http://tauri.localhost</code>; the default stays an explicit list (never <code>*</code>, per §2.4 + risk 3).</li>
+<li><code>src-tauri/tauri.conf.json</code> gains a <code>bundle.icon</code> array from <code>npx tauri icon</code>
+   (<code>src-tauri/icons/appicon-1024.png</code>); targets <code>dmg</code>/<code>app</code> + <code>nsis</code>.</li>
+<li>CI workflow uses <code>tauri-apps/tauri-action</code>, matrix <code>macos-latest</code> + <code>windows-latest</code>,
+   trigger <code>desktop-v*</code> tag + <code>workflow_dispatch</code>; artifacts unsigned.</li>
+</ol>
+<h2 id="6-do-not-reject-any-pr-that-does-these">6. Do NOT (reject any PR that does these)<a class="headerlink" href="#6-do-not-reject-any-pr-that-does-these" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Do NOT re-introduce a module-level <code>const API_BASE</code> in any client — resolution must be
+   call-time (a stale const breaks "change server" and first-launch binding).</li>
+<li>Do NOT gate the ConnectScreen on anything other than <code>isTauri() &amp;&amp; !getServerUrl()</code> — the
+   web/PWA path must remain byte-identical (relative <code>""</code>).</li>
+<li>Do NOT set the CORS default to <code>*</code> — invalid with <code>allow_credentials=True</code> (risk 3).</li>
+<li>Do NOT transition ConnectScreen to the app on a failed/timed-out <code>/status</code> probe.</li>
+<li>Do NOT call Tauri IPC/commands (<code>invoke</code>, <code>window.__TAURI__</code> API) in React — <code>isTauri()</code>
+   is a passive <code>__TAURI_INTERNALS__</code> presence check only (ADR-0039 §9.1 carve-out).</li>
+<li>Do NOT hardcode any backend URL in the frontend or in Tauri config — the desktop URL is
+   user-supplied at runtime; the web base stays relative.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

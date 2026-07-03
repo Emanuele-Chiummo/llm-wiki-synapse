@@ -1,0 +1,1106 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0032-remote-mcp-runtime-toggle/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0032 — Remote MCP runtime toggle: persisted remote_mcp_enabled flag, always-mount + 404-gate, no remount - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0032-remote-mcp-runtime-toggle-persisted-remote_mcp_enabled-flag-always-mount-404-gate-no-remount" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0032 — Remote MCP runtime toggle: persisted remote_mcp_enabled flag, always-mount + 404-gate, no remount
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-storage-reuse-vault_state-add-one-nullable-boolean-column-i9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Storage — reuse vault_state; add one nullable boolean column (I9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-the-flag-is-read-through-an-in-process-cache-db-backed-hot-path-safety" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 The flag is read through an in-process cache, DB-backed (hot-path safety)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-gating-always-mount-when-a-token-is-set-the-middleware-404-gates-on-the-runtime-flag-no-remount" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Gating — ALWAYS mount when a token is set; the middleware 404-gates on the runtime flag (NO remount)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-config-write-endpoint-put-mcpremote-the-toggle-token-floor-clamp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Config-write endpoint — PUT /mcp/remote (the toggle), token-floor clamp
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-mcpinfo-additions-ui-reads-posture-builds-the-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 /mcp/info additions (UI reads posture + builds the URL)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-reconcile-with-adr-0027-i9-display-only-panel-scoped-documented-exception" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Reconcile with ADR-0027 I9 ("display-only" panel) — scoped, documented exception
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#27-frontend-control-i3-no-heavy-render" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.7 Frontend control (I3 — no heavy render)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-new-config-schema-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. New config / schema / migration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-per-agent-file-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Per-agent file ownership
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-acceptance-checks-dod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Acceptance checks (DoD)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-decisions-locked-no-open-owner-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Decisions locked (no open owner questions)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0032-remote-mcp-runtime-toggle-persisted-remote_mcp_enabled-flag-always-mount-404-gate-no-remount">ADR-0032 — Remote MCP runtime toggle: persisted <code>remote_mcp_enabled</code> flag, always-mount + 404-gate, no remount<a class="headerlink" href="#adr-0032-remote-mcp-runtime-toggle-persisted-remote_mcp_enabled-flag-always-mount-404-gate-no-remount" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted (owner decided 2026-06-29: "real toggle" — a persisted runtime flag, not an env-only switch; bearer token remains the mandatory security floor; <code>write_page</code> remote control stays env-only / out of scope)</li>
+<li><strong>Superseded in part by ADR-0033</strong> (2026-06-30): §2.4's token-floor clamp is now allow-aware — remote can be enabled when EITHER a token is configured OR <code>mcp_allow_without_token=true</code> (private sources only). The clamp still applies for public (Cloudflare tunnel) requests, which always require a token.</li>
+<li><strong>Date:</strong> 2026-06-29</li>
+<li><strong>Sprint:</strong> v0.5 (Feature — make the API + MCP settings tab "app-like": enable/disable the remote MCP endpoint and show its connection URL)</li>
+<li><strong>Feature:</strong> F1-MCP-UI (Amendment — owner request, Emanuele Chiummo) · builds on ADR-0029 (remote MCP over HTTP) and ADR-0027 (<code>/mcp/info</code> introspection + read-only API+MCP panel)</li>
+<li><strong>Invariants owned:</strong> <strong>I9</strong> (reuse the existing config store + existing FastMCP mount; add NO new MCP capability, NO second writer) · <strong>I6</strong> (nothing hardcoded — <code>mount_path</code> comes from the server; no provider touched) · <strong>I1/I5</strong> (no vault-write-path change — <code>write_page</code> still routes through <code>write_wiki_page</code> when enabled) · I3 (UI: a toggle + a fetch/PUT — no heavy render, no store churn) · I7 (no new loop)</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> backend-engineer (column + migration + flag cache + middleware gate + <code>PUT /mcp/remote</code> + <code>/mcp/info</code> fields) · frontend-engineer (toggle control + URL display + <code>setRemoteMcpEnabled</code> client + i18n) · tech-writer (D2 ER regen note, D4 OpenAPI, D6b deploy note) · devops-engineer (migration is run by the standard <code>alembic upgrade head</code> — a one-line note only, see §3)</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>ADR-0029 shipped the remote MCP surface: <code>build_http_mcp()</code> (<code>backend/app/mcp/server.py</code>)
+produces a FastMCP Streamable-HTTP ASGI app, mounted at <code>/mcp/server</code> in
+<code>backend/app/main.py</code> <strong>only when <code>MCP_AUTH_TOKEN</code> is set</strong> (fail-closed), wrapped by
+<code>_BearerAuthMiddleware</code> (constant-time <code>hmac.compare_digest</code>). <code>settings.mcp_http_enabled</code>
+is derived <code>bool(mcp_auth_token)</code>. <code>MCP_REMOTE_WRITE_ENABLED</code> (default false) controls whether
+<code>write_page</code> is on the HTTP surface.</p>
+<p>ADR-0027 made the API + MCP settings panel (<code>SectionApiMcp</code> in
+<code>frontend/src/components/settings/SettingsPanel.tsx</code>) <strong>display-only</strong> (I9): fetch-on-mount,
+shows transport + entry command + Claude Desktop snippet + tools list. No config-write.</p>
+<p><strong>Owner request (locked):</strong> the API + MCP tab must let the owner <strong>enable/disable the remote
+MCP endpoint</strong> and <strong>see the connection URL when active</strong> — "app-like". The owner explicitly
+chose the <strong>real toggle</strong> option (a persisted runtime flag), not an env-only restart switch.</p>
+<p><strong>Two facts the design must honour:</strong></p>
+<ol>
+<li>
+<p><strong>The bearer token is the security floor.</strong> A vault-mutating-capable public endpoint must
+   never be reachable without auth. So: <strong>no token configured ⇒ remote stays OFF regardless of
+   the toggle</strong>, and the UI must tell the user to set a token first. The runtime flag can only
+   ever <em>narrow</em> exposure below what the token would allow — it can never open exposure without
+   a token.</p>
+</li>
+<li>
+<p><strong><code>write_page</code> remote control is out of scope.</strong> The owner did NOT ask for UI write-control.
+   <code>MCP_REMOTE_WRITE_ENABLED</code> stays env-controlled exactly as today (ADR-0029 §2.3). This ADR
+   touches only the <em>reachability</em> of the surface, not which tools it carries.</p>
+</li>
+</ol>
+<p><strong>State at write time (verified in code):</strong> <code>McpInfoResponse</code> (<code>main.py</code> ~1719) already carries
+<code>http_enabled</code> and <code>remote_write_enabled</code> (ADR-0029 §2.5 was implemented). The <strong>frontend</strong>
+<code>McpInfoResponse</code> interface (<code>frontend/src/api/providerClient.ts:123</code>) does <strong>not</strong> yet carry
+those, nor the new fields this ADR adds. The mount is built once at module load and mounted once
+(<code>main.py:113</code>, <code>:298</code>); there is no per-request gate today.</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-storage-reuse-vault_state-add-one-nullable-boolean-column-i9">2.1 Storage — reuse <code>vault_state</code>; add one nullable boolean column (I9)<a class="headerlink" href="#21-storage-reuse-vault_state-add-one-nullable-boolean-column-i9" title="Permanent link">&para;</a></h3>
+<p>There is <strong>no app-global KV / app-settings table</strong> today. The candidate stores are
+<code>provider_config</code> (per-scope F17 rows — wrong shape; it is a multi-row routing table, not a
+singleton posture) and <code>vault_state</code> (one row per <code>VAULT_ID</code>, seeded idempotently at startup,
+already read on the request path for <code>data_version</code>).</p>
+<p><strong>Decision:</strong> reuse <strong><code>vault_state</code></strong>. Add <strong>one nullable boolean column</strong>:</p>
+<div class="highlight"><pre><span></span><code>vault_state.remote_mcp_enabled : Mapped[bool]  (Boolean, nullable=False,
+                                                default=False, server_default=sa_text(&quot;false&quot;))
+</code></pre></div>
+<ul>
+<li><strong>Why <code>vault_state</code> and not a new table:</strong> the remote MCP surface is a <strong>single origin-level
+  posture</strong> for this single-process, single-<code>VAULT_ID</code> deployment. <code>vault_state</code> already holds
+  exactly one row for the active vault, is seeded idempotently (<code>_seed_vault_state</code>, <code>main.py:3061</code>),
+  and is already loaded at startup. A boolean posture column rides that row with zero new table,
+  zero new service. (I9 — do not add infrastructure we do not need.)</li>
+<li><strong>Why not <code>provider_config</code>:</strong> that table is keyed by <code>(scope, operation, vault_id)</code> for F17
+  routing resolution. A boolean posture has no scope semantics; forcing it in would pollute the
+  routing resolver. Rejected.</li>
+<li><strong>Default = OFF (<code>false</code>).</strong> A fresh DB, an upgrade of an existing DB (the column backfills
+  <code>false</code>), and the seed path all yield remote-OFF. The owner must explicitly turn it on.</li>
+<li><strong>Naming clarity:</strong> the column is named <code>remote_mcp_enabled</code> to read unambiguously as "the
+  remote (HTTP) MCP surface is enabled at runtime", distinct from <code>mcp_http_enabled</code> (the
+  derived "a token is configured" capability gate).</li>
+</ul>
+<p><strong>This DOES add an Alembic migration</strong> — a new revision <code>0011_vault_state_remote_mcp_enabled</code>
+that <code>ALTER TABLE vault_state ADD COLUMN remote_mcp_enabled BOOLEAN NOT NULL DEFAULT false</code>.
+<strong>D2 / ER MUST regenerate</strong> (<code>make er</code>) and match the live schema (I8). This is the one and only
+schema change in this ADR. (Flagged for tech-writer + the docs gate.)</p>
+<h3 id="22-the-flag-is-read-through-an-in-process-cache-db-backed-hot-path-safety">2.2 The flag is read through an in-process cache, DB-backed (hot-path safety)<a class="headerlink" href="#22-the-flag-is-read-through-an-in-process-cache-db-backed-hot-path-safety" title="Permanent link">&para;</a></h3>
+<p>The middleware gate (§2.3) runs on <strong>every</strong> <code>/mcp/server</code> request. Reading the DB per MCP
+request would add a query to a hot path and couple request latency to the DB. Instead:</p>
+<ul>
+<li>A module-level <strong><code>RemoteMcpFlag</code></strong> holder (a tiny object with an <code>asyncio.Lock</code> + a cached
+  <code>bool</code>) is the single read source for the middleware. It is <strong>not</strong> a new persistence layer —
+  the DB column is the source of truth; the holder is a process cache of it.</li>
+<li><strong>Load at startup:</strong> in <code>lifespan</code>, after <code>_seed_vault_state()</code>, read
+  <code>vault_state.remote_mcp_enabled</code> for the active <code>VAULT_ID</code> into the holder (one query, once).</li>
+<li><strong>Refresh on write:</strong> the <code>PUT /mcp/remote</code> handler (§2.3) writes the column <strong>and</strong> updates
+  the holder in the same call, so the gate reflects the new value immediately with no DB read on
+  the request path. (Single-process deployment ⇒ in-memory cache and DB never diverge.)</li>
+<li>The middleware reads <code>RemoteMcpFlag.is_enabled()</code> — an in-memory bool — synchronously fast.</li>
+</ul>
+<p>This keeps the gate O(1) in-memory while persistence survives restart.</p>
+<h3 id="23-gating-always-mount-when-a-token-is-set-the-middleware-404-gates-on-the-runtime-flag-no-remount">2.3 Gating — ALWAYS mount when a token is set; the middleware 404-gates on the runtime flag (NO remount)<a class="headerlink" href="#23-gating-always-mount-when-a-token-is-set-the-middleware-404-gates-on-the-runtime-flag-no-remount" title="Permanent link">&para;</a></h3>
+<p><strong>The mount/unmount approach is rejected.</strong> FastMCP's <code>http_app()</code> carries its own Starlette
+lifespan that starts/stops the StreamableHTTP <strong>session manager</strong>; that lifespan is entered once
+in the FastAPI <code>lifespan</code> (<code>main.py:229</code>). Mounting/unmounting the sub-app at runtime would mean
+starting/stopping that session manager mid-process — fragile, and Starlette has no first-class
+runtime-unmount. We do <strong>not</strong> go there.</p>
+<p><strong>Decision — always-mount + 404-gate (no remount):</strong></p>
+<ul>
+<li>The mount condition is <strong>unchanged from ADR-0029</strong>: when <code>MCP_AUTH_TOKEN</code> is set, the
+  sub-app is built once and mounted once at <code>/mcp/server</code>; its lifespan/session-manager is
+  started once. When the token is unset, nothing is mounted (fail-closed, exactly as today).</li>
+<li><code>_BearerAuthMiddleware</code> gains a <strong>flag check that runs before the bearer check</strong>, on HTTP
+  scopes only:</li>
+<li><strong>Runtime flag OFF</strong> ⇒ return <strong><code>404 Not Found</code></strong> — byte-identical to the path not being
+    mounted. This avoids an information leak: a probe cannot distinguish "remote disabled" from
+    "no MCP here at all", and in particular a 404 (vs 401) does not advertise that a protected
+    MCP surface exists behind the toggle.</li>
+<li><strong>Runtime flag ON</strong> ⇒ enforce the bearer token exactly as today (constant-time compare;
+    missing/wrong ⇒ 401).</li>
+<li><strong>Lifespan / WebSocket scopes are passed through unconditionally</strong> (unchanged) so the session
+  manager always starts/stops correctly. <strong>The session manager runs even when the flag is OFF</strong> —
+  that is intentional and correct: the gate blocks <em>request routing</em> (returns 404 before the
+  request reaches the sub-app), it does not stop the session manager. There is no session leak
+  because no MCP session is ever established while the gate 404s (the request never reaches the
+  protocol layer).</li>
+</ul>
+<p>This means the StreamableHTTP session manager is "mounted + lifespan-started once" and the
+runtime toggle is a pure request-routing decision in front of it. No remount, no
+session-manager restart, no lifespan churn.</p>
+<h3 id="24-config-write-endpoint-put-mcpremote-the-toggle-token-floor-clamp">2.4 Config-write endpoint — <code>PUT /mcp/remote</code> (the toggle), token-floor clamp<a class="headerlink" href="#24-config-write-endpoint-put-mcpremote-the-toggle-token-floor-clamp" title="Permanent link">&para;</a></h3>
+<p>Add one REST route to <code>backend/app/main.py</code>:</p>
+<div class="highlight"><pre><span></span><code>PUT /mcp/remote
+  request  body: { &quot;enabled&quot;: bool }
+  response body: McpRemoteStateResponse {
+      remote_enabled:  bool,   # the resulting persisted runtime flag (post-clamp)
+      token_configured: bool,  # whether MCP_AUTH_TOKEN is set (the floor)
+      mount_path:      str,    # &quot;/mcp/server&quot; — so the UI can rebuild the URL
+      clamped:         bool    # true iff the request asked enabled=true but no token ⇒ forced off
+  }
+</code></pre></div>
+<p><strong>Token-floor clamp (mandatory):</strong>
+- If <code>settings.mcp_auth_token</code> is <strong>unset</strong> and the body is <code>enabled=true</code>, the handler
+  <strong>refuses to enable</strong>: it persists <code>remote_mcp_enabled = false</code>, sets <code>clamped = true</code>, and
+  returns <code>remote_enabled=false, token_configured=false</code>. Remote can never be enabled without
+  the auth floor. (HTTP status: <strong>200</strong> with <code>clamped=true</code> — the request is well-formed and the
+  server's posture is reported truthfully; the UI renders a "set a token first" hint from
+  <code>token_configured=false</code>. Returning 200-with-clamp rather than 4xx keeps the toggle's response
+  shape uniform for the UI, which always reads back the authoritative posture.)
+- If a token IS set: persist the requested value, refresh the in-process holder (§2.2), return it.
+- <code>enabled=false</code> always succeeds (turning off needs no token).</p>
+<p><strong>Side effect on token state:</strong> if the token is later unset (env change + restart), the persisted
+<code>remote_mcp_enabled</code> may still be <code>true</code> in the DB, but with no token the sub-app is <strong>not mounted
+at all</strong> (§2.3, ADR-0029) ⇒ <code>/mcp/server</code> 404s regardless. The stored <code>true</code> is dormant and
+re-applies only if a token is restored. This is correct fail-closed behaviour; <code>/mcp/info</code>
+(§2.5) reports <code>remote_enabled</code> AND <code>token_configured</code> so the UI never shows a misleading "ON".</p>
+<p><strong>Auth on the toggle endpoint itself.</strong> The rest of the same-origin REST API is unauthenticated
+(ADR-0028 — relative base, server-only proxy target; the threat model is a single-user
+self-hosted app behind <strong>Tailscale mesh + Cloudflare Tunnel</strong>, CLAUDE.md §1). This endpoint
+<strong>toggles public exposure</strong>, so it warrants thought:</p>
+<ul>
+<li><strong>Decision: leave it same-origin / unauthenticated, consistent with the rest of the REST API.</strong>
+  Rationale: (a) reaching the REST API at all already requires being on the Tailscale mesh or
+  past the Cloudflare Tunnel — the network perimeter is the gate for <em>every</em> REST route, and this
+  route is no more sensitive than, e.g., <code>POST /ingest</code> which mutates the vault; (b) the <strong>bearer
+  token remains the floor</strong> for the MCP surface itself — flipping the flag ON without a token is
+  clamped to OFF (above), so the worst an unauthenticated toggle can do is <em>expose a
+  bearer-protected surface</em>, not an open one; (c) adding bespoke auth to one REST route would
+  diverge from the uniform same-origin posture (ADR-0028) for marginal gain in this threat model.</li>
+<li><strong>Stated trade-off:</strong> if the owner later puts the <em>web UI</em> behind Cloudflare Access (edge auth
+  for the whole origin), the toggle inherits that protection for free — the preferred hardening
+  path, and a pure-ops change (no code). We explicitly do <strong>not</strong> invent app-level auth for a
+  single REST route here. If multi-user is ever on the table, this route (and the rest of the API)
+  gets real auth together — out of scope now.</li>
+</ul>
+<h3 id="25-mcpinfo-additions-ui-reads-posture-builds-the-url">2.5 <code>/mcp/info</code> additions (UI reads posture + builds the URL)<a class="headerlink" href="#25-mcpinfo-additions-ui-reads-posture-builds-the-url" title="Permanent link">&para;</a></h3>
+<p><code>McpInfoResponse</code> (backend <code>main.py</code>, frontend <code>providerClient.ts</code>) gains <strong>three</strong> read-only
+fields (token is NEVER returned):</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Source</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>token_configured</code></td>
+<td>bool</td>
+<td><code>bool(settings.mcp_auth_token)</code></td>
+<td>True iff a bearer token is set (the floor). Never the token.</td>
+</tr>
+<tr>
+<td><code>remote_enabled</code></td>
+<td>bool</td>
+<td><code>RemoteMcpFlag.is_enabled()</code> (the persisted runtime flag)</td>
+<td>The runtime toggle state.</td>
+</tr>
+<tr>
+<td><code>mount_path</code></td>
+<td>str</td>
+<td>the mount constant <code>"/mcp/server"</code> (a module constant, not a JSX/handler literal — I6)</td>
+<td>So the UI builds the URL as <code>window.location.origin + mount_path</code>.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>http_enabled</code> (already present) stays = <code>bool(mcp_auth_token)</code> = <code>token_configured</code>. To avoid
+  two names for one fact, <code>http_enabled</code> is <strong>retained for backward compat</strong> and
+  <code>token_configured</code> is the named-for-UI alias; both reflect the same boolean. (The UI uses
+  <code>token_configured</code> + <code>remote_enabled</code> for its three-state display; <code>http_enabled</code> stays so no
+  existing consumer breaks.)</li>
+<li><code>remote_write_enabled</code> (already present) unchanged — env-driven, out of scope here.</li>
+<li><strong>The URL is composed client-side</strong> from <code>origin + mount_path</code>; the server never emits a host
+  (it does not know the public tunnel host). No hostname is hardcoded anywhere (I6).</li>
+</ul>
+<p><strong>Frontend type parity:</strong> <code>frontend/src/api/providerClient.ts</code> <code>McpInfoResponse</code> must add
+<code>http_enabled</code>, <code>remote_write_enabled</code> (currently missing — they exist on the wire but not the
+type), plus the new <code>token_configured</code>, <code>remote_enabled</code>, <code>mount_path</code>. Add a typed
+<code>setRemoteMcpEnabled(enabled: boolean): Promise&lt;McpRemoteStateResponse&gt;</code> client for <code>PUT /mcp/remote</code>.</p>
+<h3 id="26-reconcile-with-adr-0027-i9-display-only-panel-scoped-documented-exception">2.6 Reconcile with ADR-0027 I9 ("display-only" panel) — scoped, documented exception<a class="headerlink" href="#26-reconcile-with-adr-0027-i9-display-only-panel-scoped-documented-exception" title="Permanent link">&para;</a></h3>
+<p>ADR-0027 §2.4 and its Do-NOT list (§4 items 3–4) made the API + MCP panel <strong>display-only — no
+tool invocation, no config-write</strong>. This control makes the panel <strong>write one piece of config</strong>
+(the runtime toggle). That is a <strong>deliberate, narrowly-scoped exception</strong>, and this ADR documents
+it explicitly:</p>
+<ul>
+<li><strong>ADR-0032 supersedes ADR-0027's "no config-write" clause for THIS SINGLE control only.</strong>
+  Everything else in the panel stays exactly as ADR-0027 specified: transport, entry command,
+  Claude Desktop snippet, and tools list remain <strong>read-only display</strong>.</li>
+<li><strong>The I9 headline is preserved.</strong> ADR-0027's I9 concern was "do not reinvent MCP / do not add a
+  second MCP server / do not invoke MCP tools / do not duplicate <code>server.py</code> logic." None of that
+  changes: the toggle invokes <strong>no MCP tool</strong>, adds <strong>no MCP capability</strong>, and duplicates <strong>no</strong>
+  tool logic. It flips a posture flag that gates the <em>existing</em> ADR-0029 mount. The only ADR-0027
+  guardrail relaxed is "no config-write," and only for <code>remote_mcp_enabled</code>.</li>
+<li><strong>The panel still cannot mutate the vault or call a tool</strong> — it has exactly one new write path
+  (<code>PUT /mcp/remote</code>) and no others. ADR-0027 §4 items 1, 2, 3, 5, 6 (no hardcoded tools/server,
+  no tool invocation, no second server) all still hold.</li>
+</ul>
+<p>This interplay is the only invariant tension in the ADR and it is resolved by scoping, not by
+trading I9 away.</p>
+<h3 id="27-frontend-control-i3-no-heavy-render">2.7 Frontend control (I3 — no heavy render)<a class="headerlink" href="#27-frontend-control-i3-no-heavy-render" title="Permanent link">&para;</a></h3>
+<p><code>SectionApiMcp</code> gains a small <strong>Connection / Remote</strong> sub-block above the existing read-only rows:</p>
+<ul>
+<li>A <strong>toggle</strong> (switch) bound to <code>info.remote_enabled</code>.</li>
+<li><strong>Three display states</strong>, driven by <code>token_configured</code> + <code>remote_enabled</code>:</li>
+<li><code>token_configured === false</code> → toggle <strong>disabled</strong>, with an inline hint
+     (i18n <code>settings.apiMcp.remote.needToken</code>): "Set <code>MCP_AUTH_TOKEN</code> to enable the remote
+     endpoint." No URL shown.</li>
+<li><code>token_configured === true &amp;&amp; remote_enabled === false</code> → toggle <strong>off, enabled</strong>; no URL.</li>
+<li><code>token_configured === true &amp;&amp; remote_enabled === true</code> → toggle <strong>on</strong>; show the <strong>connection
+     URL</strong> as a mono row <code>window.location.origin + info.mount_path</code> with a copy button (mirrors
+     the existing snippet copy control). No token displayed.</li>
+<li>Flipping the toggle calls <code>setRemoteMcpEnabled(next)</code>, then re-reads <code>/mcp/info</code> (or applies the
+  returned <code>McpRemoteStateResponse</code>) to refresh the three-state display. <strong>Local component state +
+  fetch/PUT only — no new Zustand store, no store churn (I3, mirrors ADR-0027 §2.4).</strong> The render
+  cost is a switch + one mono row; no heavy work.</li>
+<li><strong>i18n:</strong> new keys under <code>settings.apiMcp.remote.*</code> in <code>en.json</code> + <code>it.json</code> (key-set parity
+  gate). The URL and the (absent) token are <strong>never</strong> i18n keys — only surrounding labels are.</li>
+</ul>
+<hr />
+<h2 id="3-new-config-schema-migration">3. New config / schema / migration<a class="headerlink" href="#3-new-config-schema-migration" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Name</th>
+<th>Type / default</th>
+<th>Where</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DB column</td>
+<td><code>vault_state.remote_mcp_enabled</code></td>
+<td><code>BOOLEAN NOT NULL DEFAULT false</code></td>
+<td><code>models.py</code> <code>VaultState</code></td>
+<td><strong>NEW — adds Alembic migration; D2/ER MUST regenerate.</strong> Default OFF.</td>
+</tr>
+<tr>
+<td>migration</td>
+<td><code>0011_vault_state_remote_mcp_enabled</code></td>
+<td>add column</td>
+<td><code>backend/alembic/versions/</code></td>
+<td><code>ALTER TABLE vault_state ADD COLUMN remote_mcp_enabled BOOLEAN NOT NULL DEFAULT false</code>. Run by standard <code>alembic upgrade head</code> (devops: one-line note, no infra change).</td>
+</tr>
+<tr>
+<td>process cache</td>
+<td><code>RemoteMcpFlag</code></td>
+<td>in-memory bool + lock</td>
+<td><code>main.py</code> (or a tiny module)</td>
+<td>Loaded from DB at startup; refreshed on <code>PUT /mcp/remote</code>. Not a new persistence layer.</td>
+</tr>
+<tr>
+<td>route</td>
+<td><code>PUT /mcp/remote</code></td>
+<td>body <code>{enabled: bool}</code> → <code>McpRemoteStateResponse</code></td>
+<td><code>main.py</code></td>
+<td>Token-floor clamp; same-origin/unauthenticated (§2.4).</td>
+</tr>
+<tr>
+<td>response fields</td>
+<td><code>McpInfoResponse.{token_configured, remote_enabled, mount_path}</code></td>
+<td>bool, bool, str</td>
+<td><code>main.py</code> + <code>providerClient.ts</code></td>
+<td>Token NEVER returned (§2.5).</td>
+</tr>
+<tr>
+<td>no env change</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td><code>MCP_AUTH_TOKEN</code>, <code>MCP_REMOTE_WRITE_ENABLED</code> unchanged (ADR-0029).</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Migration IS introduced.</strong> This is the single schema change; flagged explicitly so the docs
+gate regenerates <code>docs/er/schema.mmd</code> (<code>make er</code>) and confirms it matches the live schema (I8).</p>
+<hr />
+<h2 id="4-per-agent-file-ownership">4. Per-agent file ownership<a class="headerlink" href="#4-per-agent-file-ownership" title="Permanent link">&para;</a></h2>
+<p><strong>backend-engineer:</strong>
+- <code>backend/app/models.py</code> — add <code>remote_mcp_enabled</code> to <code>VaultState</code>.
+- <code>backend/alembic/versions/0011_vault_state_remote_mcp_enabled.py</code> — new migration (add column, default false; downgrade drops it).
+- <code>backend/app/main.py</code> —
+  - <code>RemoteMcpFlag</code> holder + startup load (in <code>lifespan</code>, after <code>_seed_vault_state</code>);
+  - extend <code>_BearerAuthMiddleware</code> with the flag-OFF ⇒ 404 gate (before the bearer check, HTTP scopes only; lifespan/WS pass-through unchanged);
+  - <code>PUT /mcp/remote</code> handler + <code>McpRemoteStateResponse</code> model (token-floor clamp + holder refresh);
+  - add <code>token_configured</code>, <code>remote_enabled</code>, <code>mount_path</code> to <code>McpInfoResponse</code> + <code>get_mcp_info</code>;
+  - define <code>MCP_MOUNT_PATH = "/mcp/server"</code> as a single module constant used by the mount, the gate, and <code>/mcp/info</code> (I6 — no duplicated literal).
+- <code>backend/tests/</code> — gate tests (flag OFF ⇒ 404; flag ON + bad token ⇒ 401; flag ON + good token ⇒ pass; clamp when no token; <code>/mcp/info</code> fields; no token leak).</p>
+<p><strong>frontend-engineer:</strong>
+- <code>frontend/src/api/providerClient.ts</code> — extend <code>McpInfoResponse</code> (add <code>http_enabled</code>, <code>remote_write_enabled</code>, <code>token_configured</code>, <code>remote_enabled</code>, <code>mount_path</code>); add <code>McpRemoteStateResponse</code> type + <code>setRemoteMcpEnabled()</code>.
+- <code>frontend/src/components/settings/SettingsPanel.tsx</code> — <code>SectionApiMcp</code> Remote sub-block (toggle + three-state display + URL row + copy), local state only (I3).
+- <code>frontend/src/i18n/en.json</code>, <code>it.json</code> — <code>settings.apiMcp.remote.*</code> keys (parity).
+- <code>frontend/src/tests/</code> — vitest: toggle disabled when <code>token_configured=false</code>; URL shown only when <code>remote_enabled=true</code>; <code>setRemoteMcpEnabled</code> PUT shape; no token rendered.</p>
+<p><strong>tech-writer:</strong>
+- <code>docs/er/schema.mmd</code> — regenerate via <code>make er</code> (D2; reflects the new column).
+- <code>docs/api/openapi.json</code> — regenerate via <code>make openapi</code> (D4; <code>PUT /mcp/remote</code> + new <code>/mcp/info</code> fields).
+- <code>docs/DEPLOY.md</code> (D6b) — note: the remote MCP is now toggled in the UI (persisted), gated by <code>MCP_AUTH_TOKEN</code> as the floor.
+- <code>docs/screens/settings-api-mcp.png</code> — refresh via Playwright (D5) to show the toggle.</p>
+<p><strong>devops-engineer:</strong> one-line note only — the new column is applied by the standard
+<code>alembic upgrade head</code> already in the deploy/compose flow; no new service, port, or env.</p>
+<hr />
+<h2 id="5-acceptance-checks-dod">5. Acceptance checks (DoD)<a class="headerlink" href="#5-acceptance-checks-dod" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Default OFF.</strong> Fresh DB and upgraded DB both yield <code>vault_state.remote_mcp_enabled = false</code>;
+   <code>GET /mcp/info</code> returns <code>remote_enabled=false</code>.</li>
+<li><strong>Gate OFF ⇒ 404.</strong> With <code>MCP_AUTH_TOKEN</code> set and <code>remote_mcp_enabled=false</code>, a request to
+   <code>/mcp/server</code> (with OR without a valid bearer) returns <strong>404</strong>, indistinguishable from
+   not-mounted; no MCP session is established.</li>
+<li><strong>Gate ON ⇒ bearer enforced.</strong> With token set and <code>remote_mcp_enabled=true</code>: no/bad bearer ⇒
+   <strong>401</strong>; correct bearer ⇒ tools list (3, or 4 if <code>MCP_REMOTE_WRITE_ENABLED=true</code>) — exactly
+   ADR-0029 behaviour.</li>
+<li><strong>No remount / session manager stable.</strong> Flipping the toggle ON→OFF→ON at runtime never
+   restarts the StreamableHTTP session manager (mounted + lifespan-started once); verified by log
+   assertion that the session manager start/stop happens only at process start/stop.</li>
+<li><strong>Token-floor clamp.</strong> With <code>MCP_AUTH_TOKEN</code> <strong>unset</strong>, <code>PUT /mcp/remote {enabled:true}</code> returns
+   <code>remote_enabled=false, token_configured=false, clamped=true</code>, and <code>/mcp/server</code> 404s (not
+   mounted at all). The DB does not persist <code>true</code> in this case.</li>
+<li><strong><code>/mcp/info</code> posture + no leak.</strong> <code>GET /mcp/info</code> returns <code>token_configured</code>, <code>remote_enabled</code>,
+   <code>mount_path="/mcp/server"</code>, and <strong>never</strong> the token value. <code>grep</code> proves no token in any response.</li>
+<li><strong>Persistence across restart.</strong> Set ON via UI, restart the process: <code>remote_enabled</code> reloads as
+   <code>true</code> from <code>vault_state</code>; the gate honours it.</li>
+<li><strong>UI three-state.</strong> vitest: <code>token_configured=false</code> ⇒ toggle disabled + "set a token" hint, no
+   URL; <code>remote_enabled=true</code> ⇒ URL = <code>origin + mount_path</code> shown with copy; no token ever rendered.</li>
+<li><strong>I1/I5 unchanged.</strong> <code>grep</code> proves the HTTP <code>write_page</code> (when exposed) still routes through
+   <code>write_wiki_page</code>; no new write path, no second writer.</li>
+<li><strong>Docs gate.</strong> <code>make er</code> regenerated and matches live schema; <code>make openapi</code> includes
+    <code>PUT /mcp/remote</code> + new fields; D5 screenshot refreshed (I8).</li>
+</ol>
+<hr />
+<h2 id="6-consequences">6. Consequences<a class="headerlink" href="#6-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong> — the owner gets a real, persisted, app-like toggle with the connection URL on
+display. The bearer token stays the hard security floor (toggle can only narrow, never open).
+No remount fragility: the session manager is mounted+started once; the toggle is a pure
+request-routing 404-gate. Reuses <code>vault_state</code> — no new table, no new service (I9). The URL is
+built client-side from <code>origin + mount_path</code>, nothing hardcoded (I6). <code>write_page</code> posture is
+untouched (env-only), so the vault-write surface is unchanged (I1/I5).</p>
+<p><strong>Trade-offs (explicit)</strong> —
+- <strong>One migration is introduced</strong> (the only schema change); D2/ER must regenerate (handled in the
+  docs gate). Acceptable: a single nullable-default boolean column on an existing one-row table.
+- <strong>The toggle endpoint is same-origin / unauthenticated</strong>, consistent with the rest of the REST
+  API (ADR-0028) and the Tailscale+Cloudflare threat model. The mitigation is structural: the
+  worst an unauthenticated flip can do is <em>expose a bearer-protected</em> surface (the clamp forbids a
+  token-less ON). Edge auth (Cloudflare Access over the origin) is the recommended hardening path
+  and is pure-ops. If multi-user ever lands, the whole REST API gets real auth together.
+- <strong>A dormant <code>true</code></strong> can persist in the DB while the token is unset; the surface still 404s
+  (not mounted), and <code>/mcp/info</code> reports both flags so the UI never shows a misleading "ON".
+- <strong>A scoped exception to ADR-0027's "display-only" panel</strong> is introduced — one config-write
+  control. Documented in §2.6; ADR-0032 supersedes that single clause only; all other read-only
+  guarantees and the I9 headline (no second server, no tool invocation, no logic duplication)
+  hold.</p>
+<p><strong>Invariant check</strong> — <strong>I1/I5:</strong> vault-write path unchanged (same <code>write_wiki_page</code>; <code>write_page</code>
+posture env-only). <strong>I3:</strong> UI is a switch + one fetch/PUT, local state, no store churn, no heavy
+render. <strong>I6:</strong> <code>mount_path</code> and the URL are derived (server constant + client origin); no host or
+provider hardcoded. <strong>I7:</strong> no new loop. <strong>I8:</strong> migration ⇒ D2/ER regen + D4/D5 refresh in the
+docs gate. <strong>I9:</strong> reuses <code>vault_state</code> + the existing ADR-0029 mount + existing FastMCP server;
+adds no MCP capability, no second writer, no new infra. <strong>I2/I4 untouched.</strong> The only invariant
+tension (ADR-0027 I9 display-only) is resolved by scoping, not by trading the invariant away.</p>
+<hr />
+<h2 id="7-decisions-locked-no-open-owner-questions">7. Decisions locked (no open owner questions)<a class="headerlink" href="#7-decisions-locked-no-open-owner-questions" title="Permanent link">&para;</a></h2>
+<p>The owner has already decided the "real toggle" path and the token-floor / write-out-of-scope
+constraints. This ADR is implementable as written. The single forward-looking choice — edge auth
+on the toggle endpoint — is deferred as a pure-ops hardening option (§2.4), not a code decision.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

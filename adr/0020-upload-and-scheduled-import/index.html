@@ -1,0 +1,1745 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0020-upload-and-scheduled-import/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0020 — Document Upload + Scheduled Folder Import (M4-EXT) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0020-document-upload-scheduled-folder-import-m4-ext" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0020 — Document Upload + Scheduled Folder Import (M4-EXT)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-both-on-ramps-land-bytes-in-vaultrawsources-then-reuse-the-existing-pipeline-i1-i9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §1. Both on-ramps land bytes in vault/raw/sources/, then reuse the existing pipeline (I1, I9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-feature-u-post-ingestupload-multipart-strict-path-safety-synchronous-ingest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §2. Feature U — POST /ingest/upload (multipart, strict path safety, synchronous ingest)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="§2. Feature U — POST /ingest/upload (multipart, strict path safety, synchronous ingest)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-endpoint-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §2.1 Endpoint contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-strict-path-traversal-protection-the-security-critical-part" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §2.2 Strict path-traversal protection (the security-critical part)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-type-gate-v04-textmarkdown-only-f12m5-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §2.3 Type gate (v0.4 text/markdown only — F12/M5 boundary)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-size-limit-i7-bounded-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §2.4 Size limit (I7 — bounded input)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-write-ingest-flow-synchronous-direct-ingest_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §2.5 Write + ingest flow (synchronous, direct ingest_file)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-overwrite-semantics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §2.6 Overwrite semantics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-frontend-drag-and-drop-upload-zone-in-the-ingest-section-not-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §3. Frontend — drag-and-drop upload zone in the Ingest section (NOT Settings)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-feature-s-bounded-scheduled-folder-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §4. Feature S — bounded scheduled folder import
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="§4. Feature S — bounded scheduled folder import">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-persistence-single-row-config-table-import_schedules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §4.1 Persistence — single-row config table import_schedules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-incremental-tracking-reuse-the-pages-table-do-not-add-a-per-file-ledger-i1-i9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §4.2 Incremental tracking — reuse the pages table, do NOT add a per-file ledger (I1, I9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-ingest-path-copy-into-rawsources-let-the-watcher-ingest-decision-rationale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §4.3 Ingest path — copy into raw/sources/, let the WATCHER ingest (decision + rationale)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-bounded-scan-i7-the-scheduler-cannot-run-away" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §4.4 Bounded scan (I7 — the scheduler cannot run away)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-scheduler-technology-a-simple-asyncio-interval-task-decision-justification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §4.5 Scheduler technology — a simple asyncio interval task (decision + justification)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#46-scheduled-import-rest-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §4.6 Scheduled-import REST contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-frontend-automatic-import-in-the-settings-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §5. Frontend — "Automatic import" in the Settings section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-docker-compose-add-the-import-mount-the-mounted-path-enabler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §6. docker-compose — add the import mount (the mounted-path enabler)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-the-mounted-path-constraint-documented-prominently-hard-design-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §7. The mounted-path constraint (documented prominently — hard design rule)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-invariant-confirmation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §8. Invariant confirmation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-spec-hand-to-backend-engineer-frontend-engineer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation spec (hand to backend-engineer + frontend-engineer)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation spec (hand to backend-engineer + frontend-engineer)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#split-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Split ownership
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-changed-backend-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New / changed backend files
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-changed-frontend-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New / changed frontend files
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#build-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build order
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#acceptance-mapping-m4-ext" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance mapping (M4-EXT)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#do-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do NOT
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0020-document-upload-scheduled-folder-import-m4-ext">ADR-0020 — Document Upload + Scheduled Folder Import (M4-EXT)<a class="headerlink" href="#adr-0020-document-upload-scheduled-folder-import-m4-ext" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Amendment (2026-06-28, post-review):</strong> <code>POST /ingest/upload</code> ships <strong>non-blocking 202</strong>
+(<code>{file_path, status:"queued", overwritten}</code>, no <code>page_id</code>) — NOT the originally-specified
+synchronous 201 — because a synchronous call blocked the HTTP response on the full LLM ingest
+loop (poor UX). Both on-ramps (upload + scheduled scan) now ingest <strong>exclusively via the
+watcher</strong>; to keep that promise the watcher's accepted-extension filter was broadened to the
+SAME allow-list as upload (<code>{.md, .txt, .markdown}</code> — <code>app.upload._ALLOWED_EXTENSIONS</code>, one
+source of truth) so <code>.txt</code>/<code>.markdown</code> files are not silently dropped. Verified end-to-end.</p>
+</blockquote>
+<ul>
+<li>Status: Accepted</li>
+<li>Date: 2026-06-28</li>
+<li>Sprint: v0.4 (M4 "Usable and fluid"), M4-EXT (parallel PM addition)</li>
+<li>Decider: solution-architect</li>
+<li>Invariants: <strong>I1</strong> (incremental index only — upload/scan ingest only NEW or CHANGED files,
+  never a re-import of unchanged content; reuse the existing mtime-then-hash gate),
+  <strong>I5</strong> (Obsidian compat — uploads/scans write ONLY into <code>vault/raw/sources/</code>; never touch
+  <code>vault/wiki/</code>, never corrupt the vault), <strong>I7</strong> (every loop bounded — the scheduler has a
+  per-scan file cap AND a wall-clock cap; an upload has a byte-size cap; <code>total_cost_usd</code> /
+  file-count logged via the existing <code>ingest_runs</code> ledger), <strong>I8</strong> (docs-as-DoD — ER from
+  models, OpenAPI from FastAPI, both regenerated), <strong>I9</strong> (do not reinvent — reuse the
+  watcher + the <code>ingest_file</code> seam; no new ingest engine, no new scheduler framework when the
+  asyncio loop already in the lifespan suffices)</li>
+<li>Related: ADR-0001 (mtime-then-hash incremental gate — the I1 mechanism we reuse),
+  ADR-0003 (thin ingest seam <code>ingest_file()</code> — the single ingest entry point),
+  ADR-0005 (soft-delete + <code>vault_state</code> seeding — <code>data_version</code> bump semantics),
+  ADR-0006 (<code>POST /ingest/trigger</code> contract + startup no-rescan behaviour),
+  ADR-0008/0009 (<code>ingest_runs</code> cost ledger; bounded-loop defaults),
+  ADR-0018 (NavRail / Ingest Activity View / Settings — Feature U extends the Ingest section,
+  Feature S extends the Settings section; both reuse ADR-0018's stores + clients),
+  CLAUDE.md §3 (I1/I5/I7/I8/I9), §4b (F1, F16), §6 (architecture — Watcher + Ingest seam),
+  docs/sprints/v0.4-pm-scope.md (M4-EXT parallel scope)</li>
+<li>Gates: this introduces TWO new endpoints families, ONE new background scheduler, and ONE new
+  table. No M4-EXT code is written before this ADR is approved (architect sign-off gate).</li>
+</ul>
+<hr />
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>M4-EXT adds two stakeholder-requested ingest on-ramps that both feed the <strong>existing</strong> ingest
+pipeline. Neither invents a new ingest engine — both end at <code>app.ingest.orchestrator.ingest_file()</code>
+(ADR-0003), which already enforces the I1 mtime-then-hash gate (ADR-0001), writes <code>ingest_runs</code>
+rows for the I7 cost ledger (ADR-0008/0009), and bumps <code>data_version</code> (ADR-0005). The job of this
+ADR is to design the two <strong>on-ramps</strong> correctly — safely landing bytes into <code>vault/raw/sources/</code>
+and then letting the proven pipeline do its work — without weakening any invariant.</p>
+<p><strong>Feature U — Document upload from the UI.</strong> Today a user must place a file into
+<code>vault/raw/sources/</code> out-of-band (LiveSync, SSH, Nextcloud) and then either let the watcher pick
+it up or call <code>POST /ingest/trigger {file_path}</code>. There is no in-browser way to add a document.
+Feature U adds <code>POST /ingest/upload</code> (multipart) so the Ingest section's drag-and-drop zone can
+push a file straight into the vault.</p>
+<p><strong>Feature S — Scheduled folder import.</strong> A user with a folder of documents (e.g. a Nextcloud
+sync dir, a "drop here" inbox) wants Synapse to periodically pick up new/changed files without
+manual triggering. Feature S adds a bounded background scheduler that, on a configured interval,
+scans a directory <strong>visible inside the container</strong>, copies only NEW or CHANGED files into
+<code>vault/raw/sources/</code>, and lets the normal pipeline ingest them.</p>
+<p><strong>Five hard facts constrain the build:</strong></p>
+<ol>
+<li>
+<p><strong>The ingest seam already exists and already enforces I1.</strong> <code>ingest_file(path)</code>
+   (orchestrator.py) does stat → mtime gate → hash gate → (provider pipeline) → persist → embed →
+   log → <code>bump_version</code> → <code>notify_bump</code>. Re-ingesting an unchanged file is a fast no-op
+   returning <code>status="skipped"</code>. We MUST route both features through this seam — never duplicate
+   the gate, never write to Postgres/Qdrant directly (I9 + ADR-0003).</p>
+</li>
+<li>
+<p><strong>The watcher already auto-indexes <code>vault/raw/sources/</code>.</strong> <code>watcher.py</code> registers watchdog
+   handlers on <code>settings.raw_sources_dir</code> and calls <code>ingest_file</code> on CREATE/MODIFY/MOVE. So the
+   instant a file lands in <code>raw/sources/</code>, the watcher ingests it. This is the cleanest reuse: an
+   on-ramp's only job is to land bytes in <code>raw/sources/</code>; the watcher does the rest. We must
+   decide, for each feature, whether to rely on the watcher (async, decoupled) or call
+   <code>ingest_file</code> directly (synchronous, returns a <code>page_id</code>) — and justify it (§2, §4).</p>
+</li>
+<li>
+<p><strong>The backend is containerized; it sees only MOUNTED paths.</strong> <code>docker-compose.yml</code> mounts
+   <code>./vault:/vault</code>. The container has NO view of the host filesystem. A scheduled-import
+   <code>source_dir</code> therefore MUST be a path visible <strong>inside the container</strong>. There is NO host
+   filesystem browse from a container, and we will NOT pretend otherwise: the UI is a <strong>path
+   text input</strong> (validated by a backend "does this dir exist and is it readable" check), not a
+   native folder picker. To make a host folder importable, the operator mounts it into the
+   container (we add an <code>./import:/import</code> example mount, §6). This constraint is documented
+   prominently in the AC and in DEPLOY.md (§9).</p>
+</li>
+<li>
+<p><strong><code>POST /ingest/trigger</code> takes <code>{file_path}</code> relative to <code>vault/raw/sources/</code></strong> (ADR-0006,
+   ADR-0018 §3) and resolves it under <code>vault_root</code>. Path-traversal safety is currently weak (it
+   accepts any relative path, including <code>../</code>). Feature U's upload MUST add <strong>strict
+   path-traversal protection</strong> because the filename comes from an untrusted browser
+   <code>multipart/form-data</code> part.</p>
+</li>
+<li>
+<p><strong>v0.4 is text/markdown only.</strong> Multi-format ingest (PDF/DOCX/PPTX/XLSX/images/AV) is <strong>F12</strong>,
+   scoped to <strong>M5</strong> (CLAUDE.md §4b; v0.4-pm-scope §3). Feature U MUST reject non-text uploads
+   with a clear <strong>415</strong> that names F12/M5; Feature S MUST skip non-text files in a scanned dir
+   (not error the whole scan). Accepting binary formats now would silently break the text-only
+   pipeline and pre-empt M5.</p>
+</li>
+</ol>
+<hr />
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<h3 id="1-both-on-ramps-land-bytes-in-vaultrawsources-then-reuse-the-existing-pipeline-i1-i9">§1. Both on-ramps land bytes in <code>vault/raw/sources/</code>, then reuse the existing pipeline (I1, I9)<a class="headerlink" href="#1-both-on-ramps-land-bytes-in-vaultrawsources-then-reuse-the-existing-pipeline-i1-i9" title="Permanent link">&para;</a></h3>
+<p>The architectural spine of both features is identical and deliberately minimal:</p>
+<div class="highlight"><pre><span></span><code>  bytes (HTTP upload  OR  file in a mounted source_dir)
+     │
+     ├─ sanitize filename / select target name           (Feature U §3, Feature S §4)
+     ├─ write to vault/raw/sources/&lt;name&gt;                 (the ONLY write target — I5)
+     │
+     ├─ Feature U:  call ingest_file(dst) DIRECTLY        (synchronous → returns page_id, status)
+     └─ Feature S:  copy file, then let the WATCHER ingest (async, decoupled)  — see §4 rationale
+     │
+     └─ ingest_file()  →  mtime/hash gate (I1)  →  provider pipeline  →  persist/embed/log
+                       →  bump_version  →  ingest_runs row (I7)         [ALL existing, unchanged]
+</code></pre></div>
+<p>No new ingest logic is written. The I1 gate, the I7 cost ledger, the <code>data_version</code> bump, and
+the GraphCache notification are all inherited from <code>ingest_file</code>. This is the I9 ("do not
+reinvent") and ADR-0003 ("thin seam is the only path") discipline applied verbatim.</p>
+<p><strong><code>vault/raw/sources/</code> is the only write target for both features (I5).</strong> Neither feature ever
+writes into <code>vault/wiki/</code> (that is the LLM-generated output owned by the pipeline) or
+<code>vault/.obsidian/</code>. The wiki vault cannot be corrupted by an upload or a scan because uploads/scans
+only deposit <em>raw source</em> bytes; the pipeline alone authors wiki pages.</p>
+<hr />
+<h3 id="2-feature-u-post-ingestupload-multipart-strict-path-safety-synchronous-ingest">§2. Feature U — <code>POST /ingest/upload</code> (multipart, strict path safety, synchronous ingest)<a class="headerlink" href="#2-feature-u-post-ingestupload-multipart-strict-path-safety-synchronous-ingest" title="Permanent link">&para;</a></h3>
+<h4 id="21-endpoint-contract">§2.1 Endpoint contract<a class="headerlink" href="#21-endpoint-contract" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code>POST /ingest/upload
+Content-Type: multipart/form-data
+  part &quot;file&quot;: the uploaded document (required)
+  (no other parts in v0.4; vault_id is the server default — single-vault M4)
+
+201 Created  →  {
+  file_path:   str,        // saved path relative to vault_root, e.g. &quot;raw/sources/notes.md&quot;
+  page_id:     uuid,       // the pages.id produced by ingest_file
+  status:      str,        // &quot;completed&quot; | &quot;skipped&quot;  (mirrors IngestResult, ADR-0006)
+  overwritten: bool        // true if a same-name file already existed and was replaced
+}
+
+415 Unsupported Media Type  → {
+  detail: &quot;Only text/markdown files (.md, .txt, .markdown) are accepted in v0.4. &quot;
+          &quot;Multi-format ingest (PDF, DOCX, …) is F12, planned for M5.&quot;
+}
+413 Payload Too Large       → { detail: &quot;File exceeds the &lt;N&gt; MB upload limit.&quot; }
+422 Unprocessable Entity    → { detail: &quot;Filename is empty or unsafe after sanitization.&quot; }
+</code></pre></div>
+<p><strong>Why 201 and synchronous (not 202):</strong> the upload IS the file creation, and <code>ingest_file</code> is
+synchronous and fast (mtime/hash gate + one provider run). Returning <code>page_id</code> + <code>status</code>
+immediately lets the drag-drop UX show "ingested: notes.md → page" without a poll round-trip, and
+lets the Ingest run list refresh once. <code>POST /ingest/trigger</code> returns 202 by historical contract
+(ADR-0006) for a <em>pre-existing</em> file; upload is a <em>create</em>, so 201 is the correct REST verb. (If a
+future async ingest queue lands, upload can return 202 with a <code>task_id</code> as a non-breaking superset,
+mirroring ADR-0006's evolution path.)</p>
+<h4 id="22-strict-path-traversal-protection-the-security-critical-part">§2.2 Strict path-traversal protection (the security-critical part)<a class="headerlink" href="#22-strict-path-traversal-protection-the-security-critical-part" title="Permanent link">&para;</a></h4>
+<p>The filename arrives from untrusted <code>multipart/form-data</code>. The sanitizer is a <strong>pure function</strong>
+(unit-testable in isolation) applied to the <em>uploaded filename only</em>, never to a
+caller-supplied path:</p>
+<div class="highlight"><pre><span></span><code>def safe_source_name(raw_filename: str) -&gt; str:
+    1. name = Path(raw_filename).name          # basename ONLY — strips any directory component
+                                               #   &quot;../../etc/passwd&quot; → &quot;passwd&quot;
+                                               #   &quot;/abs/evil.md&quot;     → &quot;evil.md&quot;
+                                               #   &quot;a/b/c.md&quot;         → &quot;c.md&quot;
+    2. reject if name in {&quot;&quot;, &quot;.&quot;, &quot;..&quot;}                      → 422
+    3. reject if name contains a path separator after step 1 → 422  (defensive; should be impossible)
+    4. strip control chars / NUL; collapse whitespace
+    5. enforce extension allow-list (.md/.txt/.markdown, case-insensitive) → else 415
+    6. clamp length (e.g. ≤ 200 chars, preserving the extension)
+    return name
+
+def resolve_under_sources(name: str) -&gt; Path:
+    dst = (settings.raw_sources_dir / name).resolve()
+    # belt-and-braces: the resolved path MUST be inside raw_sources_dir
+    if not str(dst).startswith(str(settings.raw_sources_dir.resolve() / &quot;&quot;)):
+        raise HTTPException(422, &quot;unsafe path&quot;)
+    return dst
+</code></pre></div>
+<p>Rules, stated explicitly:
+- <strong>Basename only.</strong> We take <code>Path(filename).name</code> and <em>discard</em> any directory component. There is
+  no path joining of caller-controlled segments — the file always lands directly in
+  <code>raw/sources/</code>, never in a subdirectory the caller names.
+- <strong>No <code>..</code>, no absolute paths.</strong> Step 1 already neutralizes both, but steps 2–3 + the
+  <code>resolve_under_sources</code> containment check are an explicit second gate (defence in depth). A
+  resolved path that escapes <code>raw_sources_dir</code> is a 422, never written.
+- <strong>Extension allow-list before any disk write</strong> (415 for non-text — §2.3). MIME from the upload
+  is advisory; the extension is authoritative (browsers send inconsistent <code>Content-Type</code>).</p>
+<h4 id="23-type-gate-v04-textmarkdown-only-f12m5-boundary">§2.3 Type gate (v0.4 text/markdown only — F12/M5 boundary)<a class="headerlink" href="#23-type-gate-v04-textmarkdown-only-f12m5-boundary" title="Permanent link">&para;</a></h4>
+<p>Accept only <code>.md</code>, <code>.txt</code>, <code>.markdown</code> (case-insensitive). Anything else → <strong>415</strong> with the
+F12/M5 message above. The check is on the <strong>extension</strong> (authoritative) with <code>Content-Type</code> as a
+soft hint. This honours fact #5 and keeps the text-only pipeline intact. The 415 message is a
+user-facing string that names F12/M5 so the user understands it is deferred, not broken.</p>
+<h4 id="24-size-limit-i7-bounded-input">§2.4 Size limit (I7 — bounded input)<a class="headerlink" href="#24-size-limit-i7-bounded-input" title="Permanent link">&para;</a></h4>
+<p>Reject uploads over a configured byte cap (default <strong>25 MB</strong>, env <code>MAX_UPLOAD_BYTES</code>). Enforced by
+<strong>streaming the body and aborting at the cap</strong> (do not buffer an unbounded body into memory).
+FastAPI/Starlette <code>UploadFile</code> streams to a spooled temp file; we read in chunks and stop at the
+cap → <strong>413</strong>. This is the I7 "bounded" discipline applied to request size. 25 MB is generous for
+markdown/text and small enough to bound memory; configurable for operators with larger notes.</p>
+<h4 id="25-write-ingest-flow-synchronous-direct-ingest_file">§2.5 Write + ingest flow (synchronous, direct <code>ingest_file</code>)<a class="headerlink" href="#25-write-ingest-flow-synchronous-direct-ingest_file" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code>1. validate content-type hint (soft) + extension (hard, §2.3)        → 415 on fail
+2. stream body to a temp file, abort at MAX_UPLOAD_BYTES             → 413 on overflow
+3. name = safe_source_name(upload.filename)                          → 422 on unsafe
+4. dst  = resolve_under_sources(name)                                → 422 on escape
+5. overwritten = dst.exists()
+6. atomically move the validated temp file to dst (same-filesystem rename; both under /vault)
+7. result = await ingest_file(dst)        # DIRECT call — synchronous, returns IngestResult
+8. return 201 { file_path: rel(dst), page_id: result.page_id, status: result.status, overwritten }
+</code></pre></div>
+<p><strong>Why call <code>ingest_file</code> directly instead of relying on the watcher (decision):</strong> the upload is a
+synchronous request that should return the <code>page_id</code>/<code>status</code> to the UI. Relying on the watcher
+would make the response unable to report the ingest outcome (the watcher fires asynchronously on
+its own thread). A direct call is the same path <code>POST /ingest/trigger</code> already uses, so behaviour
+is identical and well-tested. <strong>The watcher may ALSO fire</strong> for the same write (it observes
+<code>raw/sources/</code>); that is <strong>safe and idempotent by I1</strong>: the watcher's <code>ingest_file</code> re-run hits the
+mtime/hash fast-path (the file is unchanged since our direct call) and returns <code>status="skipped"</code>
+with no duplicate page, no second <code>data_version</code> bump, no second provider cost. The I1 gate is
+exactly what makes the "direct call + watcher also sees it" double-trigger harmless — we rely on it
+rather than trying to suppress the watcher (which would be fragile coupling). This is documented so
+no reviewer mistakes the double-observe for a bug.</p>
+<h4 id="26-overwrite-semantics">§2.6 Overwrite semantics<a class="headerlink" href="#26-overwrite-semantics" title="Permanent link">&para;</a></h4>
+<p>If a same-name file already exists in <code>raw/sources/</code>, we <strong>replace</strong> it (<code>overwritten=true</code>).
+Replacing the bytes means <code>ingest_file</code> sees a changed hash → re-ingests → updates the existing
+page row in place (the partial-unique index on <code>(vault_id, file_path)</code> keeps it one live page).
+This is correct I1 behaviour (a changed file updates only its own records). We do <strong>not</strong> silently
+rename-to-avoid-collision (that would orphan the old page and surprise the user); replace is the
+least-surprising, I1-correct choice, and the <code>overwritten</code> flag tells the UI to message it.</p>
+<hr />
+<h3 id="3-frontend-drag-and-drop-upload-zone-in-the-ingest-section-not-settings">§3. Frontend — drag-and-drop upload zone in the Ingest section (NOT Settings)<a class="headerlink" href="#3-frontend-drag-and-drop-upload-zone-in-the-ingest-section-not-settings" title="Permanent link">&para;</a></h3>
+<p>Feature U's UI lives in the <strong>Ingest section</strong> (ADR-0018 §3 <code>IngestView</code>), beside the existing
+"Run Ingest" file-path control — NOT in Settings. Rationale: uploading a document is an <em>ingest
+operation</em>; the Ingest section already owns the run list it will refresh.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>frontend/src/components/ingest/UploadZone.tsx</code></td>
+<td><strong>NEW.</strong> Drag-and-drop target + a "Browse" <code>&lt;input type=file accept=".md,.txt,.markdown"&gt;</code> fallback. On drop/select → <code>uploadDocument(file)</code> → success toast (<code>ingest.uploadToastStarted</code>) → <code>fetchFresh(vaultId)</code> to refresh the run list (reuse ADR-0018's <code>ingestStore.fetchFresh</code>). On 415/413/422 → error toast with the backend <code>detail</code>. Shows accepted types + the M5 note for others (a small helper line: "Markdown/text only — PDF/DOCX coming in M5"). Reduced-motion-safe drag highlight. No CodeMirror/WYSIWYG (I4 — it is a plain dropzone).</td>
+</tr>
+<tr>
+<td><code>frontend/src/components/ingest/IngestView.tsx</code></td>
+<td><strong>EDIT.</strong> Mount <code>&lt;UploadZone/&gt;</code> above (or beside) the existing Run-Ingest form. No other change — the run list, polling, and toast plumbing are reused as-is.</td>
+</tr>
+<tr>
+<td><code>frontend/src/api/ingestClient.ts</code></td>
+<td><strong>EDIT.</strong> Add <code>uploadDocument(file: File, signal?): Promise&lt;UploadResponse&gt;</code> — <code>POST /ingest/upload</code> with a <code>FormData</code> (<code>file</code> part); reuse the existing <code>checkResponse</code>/<code>ApiError</code> so 415/413/422 surface their <code>detail</code>. Do NOT set <code>Content-Type</code> manually (let the browser set the multipart boundary).</td>
+</tr>
+<tr>
+<td><code>frontend/src/api/types.ts</code></td>
+<td><strong>EDIT.</strong> Add <code>UploadResponse { file_path; page_id; status; overwritten }</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Client-side guard (UX, not security):</strong> the dropzone pre-filters by extension and rejects
+oversized files locally with a friendly message, but the <strong>backend remains authoritative</strong> (§2.2–
+§2.4). The client check is a convenience to avoid a round-trip for obvious mistakes; it is never
+the security boundary.</p>
+<p>i18n keys (added to <code>ingest</code> namespace, both <code>en.json</code> + <code>it.json</code>, key parity — AC reuse of
+ADR-0018 §6): <code>ingest.upload</code>, <code>ingest.uploadDrop</code> ("Drop a file here or browse"),
+<code>ingest.uploadHint</code> ("Markdown/text only (.md, .txt, .markdown)"),
+<code>ingest.uploadM5Note</code> ("PDF, DOCX and other formats: coming in M5"),
+<code>ingest.uploadToastStarted</code> ("Uploaded and ingesting: {{file}}"),
+<code>ingest.uploadToastError</code> ("Upload failed: {{detail}}"),
+<code>ingest.uploadTooLarge</code>, <code>ingest.uploadBadType</code>.</p>
+<hr />
+<h3 id="4-feature-s-bounded-scheduled-folder-import">§4. Feature S — bounded scheduled folder import<a class="headerlink" href="#4-feature-s-bounded-scheduled-folder-import" title="Permanent link">&para;</a></h3>
+<h4 id="41-persistence-single-row-config-table-import_schedules">§4.1 Persistence — single-row config table <code>import_schedules</code><a class="headerlink" href="#41-persistence-single-row-config-table-import_schedules" title="Permanent link">&para;</a></h4>
+<p>One configuration row per vault (M4 is single-vault; the table is keyed by <code>vault_id</code> so it
+generalises). A <strong>table</strong> (not a env-only config) is chosen so the UI can read/write it via REST
+and the scheduler reads it on each tick — and so <code>last_run_at</code>/<code>last_status</code> are durable across
+restarts (the user must be able to see "last scan: 5 min ago, 3 imported" after a restart).</p>
+<p><code>import_schedules</code> (SQLAlchemy model + Alembic migration <strong>0008</strong>):</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID PK (<code>gen_random_uuid()</code>)</td>
+<td>row identity</td>
+</tr>
+<tr>
+<td><code>vault_id</code></td>
+<td>String NOT NULL, UNIQUE</td>
+<td>one schedule per vault (single-row-per-vault)</td>
+</tr>
+<tr>
+<td><code>enabled</code></td>
+<td>Boolean NOT NULL DEFAULT false</td>
+<td>scheduler is a no-op while false</td>
+</tr>
+<tr>
+<td><code>source_dir</code></td>
+<td>Text NULL</td>
+<td><strong>container-visible</strong> absolute path (e.g. <code>/import</code>); NULL until set</td>
+</tr>
+<tr>
+<td><code>frequency</code></td>
+<td>Text NOT NULL DEFAULT <code>'1h'</code></td>
+<td>enum: <code>15m</code> | <code>1h</code> | <code>6h</code> | <code>daily</code>. A frequency enum (not raw seconds) keeps the UI a simple select and bounds the interval to sane values (I7 — no 1-second hammer). Mapped to seconds server-side.</td>
+</tr>
+<tr>
+<td><code>last_run_at</code></td>
+<td>TIMESTAMPTZ NULL</td>
+<td>set after each scan</td>
+</tr>
+<tr>
+<td><code>last_status</code></td>
+<td>Text NULL</td>
+<td><code>ok</code> | <code>error</code> | <code>running</code> | <code>skipped_disabled</code> | <code>dir_missing</code></td>
+</tr>
+<tr>
+<td><code>last_imported_count</code></td>
+<td>Integer NOT NULL DEFAULT 0</td>
+<td>files newly imported (copied + ingested) on the last scan</td>
+</tr>
+<tr>
+<td><code>last_error</code></td>
+<td>Text NULL</td>
+<td>human-readable error from the last failed scan</td>
+</tr>
+<tr>
+<td><code>created_at</code> / <code>updated_at</code></td>
+<td>TIMESTAMPTZ NOT NULL DEFAULT now()</td>
+<td>audit</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Frequency enum vs. raw <code>interval_seconds</code>:</strong> we choose the <strong>enum</strong> (<code>15m/1h/6h/daily</code>).
+It makes the UI a bounded select (no free-form "1" → runaway), is trivially i18n-able, and maps
+to a server-side seconds table (<code>15m→900, 1h→3600, 6h→21600, daily→86400</code>). This is the I7-aligned
+choice: the user cannot configure a pathologically tight interval. (A raw-seconds column with a
+server-enforced floor would also work but invites a worse UX and a validation footgun; the enum
+is simpler and correct.)</p>
+</blockquote>
+<h4 id="42-incremental-tracking-reuse-the-pages-table-do-not-add-a-per-file-ledger-i1-i9">§4.2 Incremental tracking — reuse the pages table, do NOT add a per-file ledger (I1, I9)<a class="headerlink" href="#42-incremental-tracking-reuse-the-pages-table-do-not-add-a-per-file-ledger-i1-i9" title="Permanent link">&para;</a></h4>
+<p>The scheduler must import only <strong>NEW or CHANGED</strong> files (I1 — never re-import unchanged). We do
+<strong>not</strong> invent a separate "imported files" tracking table. The decision: the scheduler <strong>copies a
+scanned file into <code>raw/sources/</code> only when its content differs from what is already ingested</strong>, and
+the <strong><code>ingest_file</code> mtime/hash gate is the ultimate I1 backstop</strong>. Concretely, each scan:</p>
+<div class="highlight"><pre><span></span><code>for each regular file F in source_dir (non-recursive by default; see §4.4 cap):
+    skip if F&#39;s extension is not in {.md,.txt,.markdown}   (F12/M5 — text only; no error)
+    name = safe_source_name(F.name)                         (reuse §2.2 sanitizer)
+    dst  = raw_sources_dir / name
+    h    = sha256(F bytes)
+    if dst exists and sha256(dst bytes) == h:               → unchanged → SKIP (no copy, no ingest)
+    else:
+        copy F → dst (atomic: copy to temp in raw/sources/, then rename)
+        imported_count += 1
+        # the WATCHER observes the new/changed file in raw/sources/ and ingests it (I1 gate again)
+</code></pre></div>
+<p>Two layers of I1 protection, both reusing existing mechanisms (I9):
+1. <strong>Content-hash compare before copy</strong> — if the destination already holds identical bytes, we do
+   not even copy (avoids a needless mtime bump that would otherwise be caught downstream anyway).
+   This is the cheap, correct "only new/changed" gate at the <em>source-scan</em> layer.
+2. <strong><code>ingest_file</code>'s own mtime-then-hash gate (ADR-0001)</strong> — even if a copy happens, if the
+   content matches what Postgres already has, <code>ingest_file</code> returns <code>status="skipped"</code>. So a
+   spurious copy can never produce a duplicate page or a double cost. We never bypass this gate.</p>
+<p>This means <strong>no new tracking table</strong> is needed: <code>pages.content_hash</code> (already the authoritative
+change signal) plus the on-disk bytes are the source of truth for "have we ingested this already".
+That is the I1 + I9 minimal design.</p>
+<h4 id="43-ingest-path-copy-into-rawsources-let-the-watcher-ingest-decision-rationale">§4.3 Ingest path — copy into <code>raw/sources/</code>, let the WATCHER ingest (decision + rationale)<a class="headerlink" href="#43-ingest-path-copy-into-rawsources-let-the-watcher-ingest-decision-rationale" title="Permanent link">&para;</a></h4>
+<p><strong>Decision:</strong> the scheduler <strong>copies</strong> changed files into <code>raw/sources/</code> and lets the <strong>watcher</strong>
+ingest them — it does NOT call <code>ingest_file</code> directly per file.</p>
+<p><strong>Rationale (vs. Feature U, which DOES call directly):</strong>
+- A scan is a <strong>batch, fire-and-forget</strong> operation with no synchronous consumer waiting for a
+  per-file <code>page_id</code> (unlike the upload request, which returns the result to the browser). So the
+  decoupled watcher path is the natural fit: the scheduler's job ends at "the bytes are in
+  <code>raw/sources/</code>", and the watcher (already running, already correct, I9) does the ingest.
+- It keeps the scheduler <strong>thin and ingest-agnostic</strong>: the scheduler never imports the orchestrator,
+  never holds provider logic, never writes Postgres/Qdrant. It only does filesystem work. This is
+  the cleanest separation and the least code.
+- The per-scan <strong>count we report</strong> (<code>last_imported_count</code>) is the number of files the scan
+  <em>copied</em> (new/changed), which is the meaningful, deterministic number for the user. The actual
+  ingest outcomes (completed/skipped) land in the <code>ingest_runs</code> ledger via the watcher → the user
+  sees them in the Ingest Activity View (ADR-0018) exactly like any other ingest. We do <strong>not</strong>
+  double-count or fork a parallel ledger.</p>
+<blockquote>
+<p><strong>Why not call <code>ingest_file</code> directly in the scan loop?</strong> It would couple the scheduler to the
+orchestrator and duplicate the watcher's responsibility, and it would block the scan tick on
+N provider runs (a long, unbounded-feeling tick). Copying + watcher keeps each scan O(files),
+bounded, and fast; ingest happens asynchronously afterwards under the watcher's existing,
+already-bounded path. (If a future requirement needs synchronous per-file results from a scan,
+the seam is open: swap the copy-then-watcher step for a direct <code>ingest_file</code> call — but M4-EXT
+does not need it.)</p>
+</blockquote>
+<p><strong>Does a scheduled scan create <code>ingest_runs</code> rows?</strong> Yes — indirectly and correctly. Each copied
+file is ingested by the watcher through <code>ingest_file</code> → <code>run_ingest_pipeline</code>, which writes one
+<code>ingest_runs</code> row per file that has a provider configured (the existing I7 ledger, ADR-0008 §4). So
+scheduled imports show up in the Ingest Activity View just like manual ones, with their cost. We
+reuse the existing table — <strong>no new run table</strong> (consistent with ADR-0019's "no chat_runs" stance).
+The <code>import_schedules.last_*</code> columns are a <em>scan-level</em> summary (when, how many copied, ok/error),
+complementary to the per-file <code>ingest_runs</code> rows.</p>
+<h4 id="44-bounded-scan-i7-the-scheduler-cannot-run-away">§4.4 Bounded scan (I7 — the scheduler cannot run away)<a class="headerlink" href="#44-bounded-scan-i7-the-scheduler-cannot-run-away" title="Permanent link">&para;</a></h4>
+<p>Every scan is bounded by <strong>two independent caps</strong>, both env-configurable:
+- <strong><code>IMPORT_SCAN_MAX_FILES</code></strong> (default <strong>200</strong>): the scan copies at most N new/changed files per
+  tick; the remainder are picked up on the next tick. This bounds per-tick work and bounds the
+  watcher's ingest burst.
+- <strong><code>IMPORT_SCAN_MAX_SECONDS</code></strong> (default <strong>60</strong>): a wall-clock deadline; the scan loop checks
+  elapsed time each iteration and stops early if exceeded, recording <code>last_status="ok"</code> with the
+  partial count (the rest follow next tick).</p>
+<p>The scan loop is a <strong>single non-recursive <code>os.scandir</code></strong> of <code>source_dir</code> (no <code>rglob</code>, no unbounded
+walk) — deliberately non-recursive so a deeply nested mount cannot explode the scan (recursive
+import can be a future opt-in flag with its own depth cap). The directory scandir itself is the
+only enumeration, and it is bounded by <code>MAX_FILES</code>/<code>MAX_SECONDS</code>. This is the I7 "every loop has a
+max_iter AND a budget" rule applied to the scan.</p>
+<p><strong>Logging (I7 cost/count visibility):</strong> each scan logs one structured line
+(<code>scheduled_import vault=… dir=… scanned=N copied=M skipped=K elapsed=…s status=ok</code>) and updates
+<code>import_schedules.last_run_at/last_status/last_imported_count/last_error</code>. The per-file <em>cost</em> is
+captured by the existing <code>ingest_runs</code> rows (the watcher's pipeline) — we do not re-implement cost
+accounting; the scan summary reports counts, the <code>ingest_runs</code> ledger reports dollars.</p>
+<h4 id="45-scheduler-technology-a-simple-asyncio-interval-task-decision-justification">§4.5 Scheduler technology — a simple asyncio interval task (decision + justification)<a class="headerlink" href="#45-scheduler-technology-a-simple-asyncio-interval-task-decision-justification" title="Permanent link">&para;</a></h4>
+<p><strong>Decision:</strong> a <strong>single in-process asyncio interval task</strong> managed by the FastAPI lifespan —
+NOT APScheduler.</p>
+<p><strong>Justification (I9 reuse / simplicity / bounded):</strong>
+- <strong>I9 / no new heavy dependency.</strong> The app already starts background work in the lifespan (the
+  watcher observer; the <code>GraphCache</code> background debounce loop — <code>_graph_cache.start_background_loop()</code>).
+  A scheduled scan is <em>one</em> periodic task with <em>one</em> configurable interval and a single in-flight
+  guard. APScheduler (jobstores, executors, cron triggers, misfire grace, timezone machinery) is
+  far more than we need and adds a dependency + lifecycle surface for zero benefit. The asyncio
+  task is ~30 lines, uses only stdlib + the existing <code>asyncio</code> loop, and is trivially testable
+  (inject the clock / drive one tick manually, exactly as <code>GraphCache</code> is tested).
+- <strong>Simplicity + correctness.</strong> The semantics we need — "every K seconds, if enabled, run one
+  bounded scan; never overlap scans" — are a <code>while not stopped: await sleep(interval); if enabled
+  and not already running: await one_scan()</code> loop with a single re-entrancy flag. No cron
+  expressions, no persistence of job state (the <em>config</em> persists in <code>import_schedules</code>; the
+  <em>task</em> is ephemeral and re-reads config each tick).
+- <strong>Bounded by construction (I7).</strong> One task, one in-flight scan at a time (an <code>asyncio.Lock</code> or a
+  boolean guard prevents overlap if a scan outruns its interval), each scan capped by
+  <code>MAX_FILES</code>/<code>MAX_SECONDS</code>. There is no possibility of unbounded concurrent scans.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># app/import_scheduler.py  (sketch — backend-engineer owns the impl)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ImportScheduler</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">clock</span><span class="o">=...</span><span class="p">,</span> <span class="n">scan_fn</span><span class="o">=</span><span class="n">run_one_scan</span><span class="p">):</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loop</span><span class="p">):</span> <span class="bp">self</span><span class="o">.</span><span class="n">_task</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">())</span>     <span class="c1"># lifespan startup</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopping</span> <span class="o">=</span> <span class="kc">True</span><span class="p">;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_task</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>            <span class="c1"># lifespan shutdown</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopping</span><span class="p">:</span>
+            <span class="n">cfg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">load_schedule</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">vault_id</span><span class="p">)</span>       <span class="c1"># re-read config each tick</span>
+            <span class="n">interval</span> <span class="o">=</span> <span class="n">FREQ_SECONDS</span><span class="p">[</span><span class="n">cfg</span><span class="o">.</span><span class="n">frequency</span><span class="p">]</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">enabled</span> <span class="k">else</span> <span class="n">DEFAULT_POLL</span>  <span class="c1"># e.g. 60s idle poll</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sleep</span><span class="p">(</span><span class="n">interval</span><span class="p">)</span>                        <span class="c1"># injectable for tests</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopping</span><span class="p">:</span> <span class="k">break</span>
+            <span class="n">cfg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">load_schedule</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">vault_id</span><span class="p">)</span>       <span class="c1"># re-check (config may have changed)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">enabled</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">source_dir</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scan_in_flight</span><span class="p">:</span>                           <span class="c1"># never overlap (I7)</span>
+                <span class="k">continue</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scan_in_flight</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">run_one_scan</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>                        <span class="c1"># bounded: MAX_FILES + MAX_SECONDS</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_scan_in_flight</span> <span class="o">=</span> <span class="kc">False</span>
+</code></pre></div>
+<p><strong>Lifecycle (start/stop with the FastAPI lifespan; reschedule on config change):</strong>
+- <strong>Startup</strong> (in <code>main.py</code> lifespan, after the watcher starts — the scheduler depends on the
+  watcher to actually ingest copied files): <code>_import_scheduler = ImportScheduler(); _import_scheduler.start(loop)</code>.
+- <strong>Shutdown:</strong> <code>_import_scheduler.stop()</code> (cancel the task, await cleanup), alongside
+  <code>stop_watcher()</code>.
+- <strong>Reschedule on config change:</strong> the task <strong>re-reads <code>import_schedules</code> at the top of every
+  tick</strong>, so a <code>PUT /import-schedule</code> that changes <code>enabled</code>/<code>frequency</code>/<code>source_dir</code> takes effect
+  on the next tick <strong>without restart</strong>. We deliberately do NOT try to interrupt a sleeping task to
+  apply a new interval immediately (that adds cancel/restart complexity for a feature where
+  "applies within one idle-poll cycle" is perfectly acceptable). For an immediate run, the user has
+  <strong><code>POST /import-schedule/run-now</code></strong> (§4.6). This is the simplest correct rescheduling model: the
+  config is the source of truth, the task is stateless between ticks.</p>
+<blockquote>
+<p><strong><code>source_dir</code> is container-visible (the mounted-path constraint — restated as a hard rule).</strong>
+<code>run_one_scan</code> resolves <code>source_dir</code> <strong>inside the container</strong>. If the path does not exist or is
+not a readable directory, the scan does NOT error the scheduler — it records
+<code>last_status="dir_missing"</code> + <code>last_error</code> and continues (the operator likely forgot the mount).
+The scan NEVER reaches outside <code>/</code> of the container (there is no host fs). The UI and DEPLOY.md
+tell the operator to mount their folder (e.g. <code>./import:/import</code>, §6) and enter the
+<strong>container</strong> path (<code>/import</code>). There is no host-folder browse — see §7.</p>
+</blockquote>
+<h4 id="46-scheduled-import-rest-contract">§4.6 Scheduled-import REST contract<a class="headerlink" href="#46-scheduled-import-rest-contract" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code>GET /import-schedule
+  200 → {                                  // current config + last-run status (single row for the vault)
+    enabled:             bool,
+    source_dir:          str | null,       // container-visible path
+    frequency:           &quot;15m&quot; | &quot;1h&quot; | &quot;6h&quot; | &quot;daily&quot;,
+    last_run_at:         datetime | null,
+    last_status:         &quot;ok&quot;|&quot;error&quot;|&quot;running&quot;|&quot;skipped_disabled&quot;|&quot;dir_missing&quot; | null,
+    last_imported_count: int,
+    last_error:          str | null
+  }
+  (returns sane defaults — {enabled:false, frequency:&quot;1h&quot;, …} — if no row exists yet)
+
+PUT /import-schedule
+  body → { enabled?: bool, source_dir?: str, frequency?: &quot;15m&quot;|&quot;1h&quot;|&quot;6h&quot;|&quot;daily&quot; }
+  - validates frequency ∈ enum (422 otherwise)
+  - validates source_dir (when provided) with a backend &quot;exists &amp; is a readable directory INSIDE
+    the container&quot; check; if it fails, the row is still saved but the response carries a
+    warning field { dir_ok: false, dir_message } so the UI can flag it (we save-then-warn rather
+    than reject, because the operator may add the mount before the next tick)
+  - upserts the single import_schedules row for the vault
+  200 → the same shape as GET, plus { dir_ok: bool, dir_message: str | null }
+
+POST /import-schedule/run-now
+  - triggers ONE bounded scan immediately (same run_one_scan, same MAX_FILES/MAX_SECONDS caps, I7)
+  - 409 Conflict if a scan is already in flight (no overlap — I7)
+  - 400 if disabled or source_dir unset/dir_missing (with a clear detail)
+  202 Accepted → { status: &quot;started&quot; }     // scan runs in the background; poll GET for the result
+       (or 200 with the scan summary if we run it inline; 202 preferred so the request returns fast)
+</code></pre></div>
+<p>The <strong>directory-validation endpoint behaviour</strong> is folded into <code>PUT</code> (and the <code>run-now</code>
+precondition) rather than a separate <code>GET /import-schedule/validate-dir</code> — fewer endpoints, and the
+validation is exactly the precondition the scan itself checks. (A standalone validate endpoint is a
+trivial fast-follow if the UI wants live feedback as the user types; not M4-EXT-blocking.)</p>
+<hr />
+<h3 id="5-frontend-automatic-import-in-the-settings-section">§5. Frontend — "Automatic import" in the Settings section<a class="headerlink" href="#5-frontend-automatic-import-in-the-settings-section" title="Permanent link">&para;</a></h3>
+<p>Feature S's UI lives in the <strong>Settings section</strong> (ADR-0018 §5 <code>SettingsPanel</code>) as a new
+"Automatic import" card — Settings is the correct home (it is configuration, not a per-document
+operation).</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>frontend/src/components/settings/ImportScheduleCard.tsx</code></td>
+<td><strong>NEW.</strong> A card with: an <strong>enabled</strong> toggle; a <strong>source_dir</strong> text input with the <strong>container-path hint</strong> (<code>settings.import.dirHint</code>: "Must be a path visible inside the backend container, e.g. /import — see DEPLOY.md"); a <strong>frequency</strong> select (15m / 1h / 6h / daily); a <strong>last-run status</strong> line (relative time + imported count + ok/error badge, reusing the <code>StatusBadge</code> pattern + <code>Intl.RelativeTimeFormat</code> from ADR-0018 §3); and a <strong>"Run now"</strong> button. On change → <code>PUT /import-schedule</code>; on "Run now" → <code>POST /import-schedule/run-now</code> + toast. If <code>PUT</code> returns <code>dir_ok:false</code>, show an inline warning under the input (not a hard error).</td>
+</tr>
+<tr>
+<td><code>frontend/src/components/settings/SettingsPanel.tsx</code></td>
+<td><strong>EDIT.</strong> Mount <code>&lt;ImportScheduleCard/&gt;</code> as a new card below the existing context-window/language/provider cards.</td>
+</tr>
+<tr>
+<td><code>frontend/src/api/importScheduleClient.ts</code></td>
+<td><strong>NEW.</strong> <code>getImportSchedule()</code>, <code>putImportSchedule(body)</code>, <code>runImportNow()</code> — reuse <code>checkResponse</code>/<code>ApiError</code>.</td>
+</tr>
+<tr>
+<td><code>frontend/src/store/settingsStore.ts</code></td>
+<td><strong>EDIT (light) or a small <code>importScheduleStore.ts</code>.</strong> Hold the schedule config + last-run status; selector-gated (I3). Keeping it in <code>settingsStore</code> is acceptable (it is settings state and never re-renders the graph); a separate tiny store is also fine. Do NOT put it in <code>graphStore</code> (I3 — must not couple to graph render).</td>
+</tr>
+<tr>
+<td><code>frontend/src/api/types.ts</code></td>
+<td><strong>EDIT.</strong> Add <code>ImportSchedule</code>, <code>ImportSchedulePutResponse</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>i18n keys</strong> (new <code>settings.import</code> sub-namespace, <code>en.json</code> + <code>it.json</code>, key parity):
+<code>settings.import.title</code> ("Automatic import"), <code>.enabled</code> ("Enabled"),
+<code>.sourceDir</code> ("Source folder"), <code>.dirHint</code> (container-path hint, names DEPLOY.md),
+<code>.frequency</code> ("Frequency"), <code>.freq15m</code>/<code>.freq1h</code>/<code>.freq6h</code>/<code>.freqDaily</code>,
+<code>.lastRun</code> ("Last scan"), <code>.imported</code> ("{{count}} imported"), <code>.runNow</code> ("Run now"),
+<code>.statusOk</code>/<code>.statusError</code>/<code>.statusRunning</code>/<code>.statusDirMissing</code>/<code>.statusDisabled</code>,
+<code>.dirWarning</code> ("This folder is not visible inside the container — add a mount (see DEPLOY.md)"),
+<code>.runNowToast</code> ("Import scan started"), <code>.runNowError</code>, <code>.never</code> ("never").</p>
+<p><strong>I3 discipline:</strong> the Import-schedule state is selector-gated and lives outside <code>graphStore</code>; a
+schedule change or a poll of <code>last_run_at</code> must never re-render the graph or the page tree
+(consistent with ADR-0018 §2's "provider/settings/ingest live in separate stores"). The card may
+optionally poll <code>GET /import-schedule</code> while <code>last_status === "running"</code> (bounded <code>setTimeout</code>
+chain with <code>AbortController</code>, exactly like ADR-0018 §3's ingest polling) — never a <code>setInterval</code>
+leak.</p>
+<hr />
+<h3 id="6-docker-compose-add-the-import-mount-the-mounted-path-enabler">§6. docker-compose — add the import mount (the mounted-path enabler)<a class="headerlink" href="#6-docker-compose-add-the-import-mount-the-mounted-path-enabler" title="Permanent link">&para;</a></h3>
+<p><code>source_dir</code> must be visible inside the container. We add a <strong>commented example mount</strong> to
+<code>docker-compose.yml</code> so the operator can expose a host folder as <code>/import</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="w">  </span><span class="nt">synapse-backend</span><span class="p">:</span>
+<span class="w">    </span><span class="c1"># ...</span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./vault:/vault</span>
+<span class="w">      </span><span class="c1"># ── Feature S (ADR-0020): scheduled folder import ────────────────────────</span>
+<span class="w">      </span><span class="c1"># Mount any host folder you want Synapse to auto-import into the container,</span>
+<span class="w">      </span><span class="c1"># then set the schedule&#39;s source_dir to the CONTAINER path (e.g. /import).</span>
+<span class="w">      </span><span class="c1"># The backend can ONLY see mounted paths — there is no host filesystem browse.</span>
+<span class="w">      </span><span class="c1"># Example (uncomment + adjust the host side to your folder):</span>
+<span class="w">      </span><span class="c1"># - ./import:/import:ro          # read-only is recommended: Synapse copies OUT of it</span>
+<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">      </span><span class="c1"># ...</span>
+<span class="w">      </span><span class="c1"># ── Feature U / S bounds (ADR-0020 §2.4 / §4.4) — all I7 caps, env-configurable ──</span>
+<span class="w">      </span><span class="nt">MAX_UPLOAD_BYTES</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;26214400&quot;</span><span class="w">     </span><span class="c1"># 25 MB upload cap (Feature U)</span>
+<span class="w">      </span><span class="nt">IMPORT_SCAN_MAX_FILES</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200&quot;</span><span class="w">     </span><span class="c1"># per-scan file cap (Feature S, I7)</span>
+<span class="w">      </span><span class="nt">IMPORT_SCAN_MAX_SECONDS</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;60&quot;</span><span class="w">    </span><span class="c1"># per-scan wall-clock cap (Feature S, I7)</span>
+</code></pre></div>
+<p>Notes:
+- We mount <strong>read-only (<code>:ro</code>)</strong> in the example: Feature S only <em>reads</em> the source folder and
+  <em>copies out of it</em> into <code>vault/raw/sources/</code>; it never writes back to <code>source_dir</code>. Read-only is
+  the safe default and we recommend it in DEPLOY.md.
+- We keep it <strong>commented</strong> so the default <code>docker compose up</code> is unchanged for users who do not use
+  scheduled import; uncommenting + setting <code>source_dir=/import</code> is the documented enable path.
+- The three env caps are added to the backend <code>environment:</code> block and read by <code>config.py</code> (new
+  settings fields <code>max_upload_bytes</code>, <code>import_scan_max_files</code>, <code>import_scan_max_seconds</code>).</p>
+<hr />
+<h3 id="7-the-mounted-path-constraint-documented-prominently-hard-design-rule">§7. The mounted-path constraint (documented prominently — hard design rule)<a class="headerlink" href="#7-the-mounted-path-constraint-documented-prominently-hard-design-rule" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>A containerized backend sees ONLY mounted paths. There is no host filesystem browse from a
+container.</strong> Therefore:
+- <code>source_dir</code> (Feature S) MUST be a path that exists <strong>inside</strong> the backend container.
+- The UI is a <strong>path text input</strong> with a clear hint that the path is a <em>container</em> path, plus a
+  backend "does this dir exist &amp; is it readable" validation. It is <strong>NOT</strong> a native folder
+  picker, and we will not fake one — a file/folder picker would imply host browsing the container
+  cannot do.
+- To import a host folder, the operator <strong>mounts it</strong> into the container (§6 <code>./import:/import</code>)
+  and enters the <strong>container</strong> path (<code>/import</code>) in the UI.
+- The backend validation distinguishes "directory not found / not readable inside the container"
+  (<code>dir_missing</code>) from a successful resolve, and surfaces it to the UI (<code>dir_ok:false</code> +
+  <code>dir_message</code>) so the operator gets an actionable message ("add a mount").
+- This same reasoning applies to Feature U only insofar as uploaded bytes always land <strong>inside</strong>
+  the mounted <code>vault/raw/sources/</code> — never at an arbitrary host or container path (§2.2).</p>
+</blockquote>
+<p>This constraint is restated in DEPLOY.md (D6) and USER.md (D6) by tech-writer.</p>
+<hr />
+<h3 id="8-invariant-confirmation">§8. Invariant confirmation<a class="headerlink" href="#8-invariant-confirmation" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>I1 (incremental index only):</strong> Neither feature re-imports unchanged content. Feature U routes
+  through <code>ingest_file</code>'s mtime/hash gate (re-upload of identical bytes → <code>skipped</code>). Feature S
+  hash-compares each scanned file against the destination <strong>before</strong> copying (skips unchanged), and
+  the watcher's <code>ingest_file</code> gate is the final I1 backstop. No full rescan is ever introduced; the
+  scan is bounded and only touches new/changed files.</li>
+<li><strong>I5 (Obsidian compat / don't corrupt the vault):</strong> Both features write <strong>only</strong> into
+  <code>vault/raw/sources/</code> (raw source bytes). Neither writes <code>vault/wiki/</code> or <code>.obsidian/</code>; the
+  pipeline alone authors wiki pages. The wiki vault remains a valid Obsidian vault.</li>
+<li><strong>I7 (bounded loops + cost/count logged):</strong> Upload is byte-capped (<code>MAX_UPLOAD_BYTES</code>, 413). Each
+  scan is double-capped (<code>MAX_FILES</code> + <code>MAX_SECONDS</code>), non-recursive, single-in-flight (no overlap),
+  and logs scanned/copied/skipped counts + status; per-file dollar cost flows into the existing
+  <code>ingest_runs</code> I7 ledger via the watcher. The scheduler is one task, never spawns concurrent scans.</li>
+<li><strong>I8 (docs-as-DoD):</strong> New <code>import_schedules</code> model → <code>make er</code> regenerates <code>docs/er/schema.mmd</code>;
+  new endpoints (<code>/ingest/upload</code>, <code>/import-schedule</code>, <code>/import-schedule</code> PUT,
+  <code>/import-schedule/run-now</code>) → <code>make openapi</code> regenerates <code>docs/api/openapi.json</code>. Both are
+  zero-drift gates. tech-writer updates D1 <code>component.mmd</code> (add <code>ImportScheduler</code>, <code>UploadZone</code>,
+  <code>ImportScheduleCard</code>) and the DEPLOY.md mounted-path section.</li>
+<li><strong>I9 (do not reinvent):</strong> Reuse the <strong>watcher</strong> (Feature S ingest), the <strong><code>ingest_file</code> seam</strong>
+  (both features' I1 gate + pipeline + cost ledger), the <strong>asyncio lifespan background-task pattern</strong>
+  already used by the watcher and GraphCache (the scheduler — NOT APScheduler), the <strong>existing
+  <code>ingest_runs</code> ledger</strong> (no new run table), and ADR-0018's <strong>ingestStore/settingsStore + clients +
+  StatusBadge + Toast + Intl.RelativeTimeFormat</strong> (the UI). No new ingest engine, no new scheduler
+  framework, no new tracking table.</li>
+</ul>
+<hr />
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong>
+- Two in-product on-ramps (drag-drop upload; periodic folder import) with <strong>zero new ingest logic</strong>
+  — both end at the proven <code>ingest_file</code> seam, inheriting I1 + the I7 ledger + the <code>data_version</code>
+  bump for free.
+- Scheduled imports appear in the existing Ingest Activity View (ADR-0018) with their cost, because
+  they ingest through the watcher's normal pipeline — one ledger, one place to look.
+- The asyncio-task scheduler matches the existing lifespan pattern (watcher, GraphCache): no new
+  dependency, ~one small module, trivially testable with an injected clock.
+- Strict basename-only sanitization closes the path-traversal hole that the looser
+  <code>POST /ingest/trigger</code> would have for untrusted filenames.</p>
+<p><strong>Negative / trade-offs (stated explicitly)</strong>
+- <strong><code>POST /ingest/upload</code> calls <code>ingest_file</code> directly AND the watcher will also observe the
+  write</strong> → the same file is ingested twice. This is <strong>safe by I1</strong> (the second run is a
+  mtime/hash <code>skipped</code> no-op), but it is a deliberate double-observe, not a bug. We accept it
+  rather than add fragile watcher-suppression coupling. (Documented in §2.5 so reviewers don't
+  "fix" it.)
+- <strong>Feature S reports a <em>copied-files</em> count, not an <em>ingested-pages</em> count, in
+  <code>last_imported_count</code>.</strong> The ingest outcomes live in <code>ingest_runs</code> (per file). This is a minor
+  semantic split (scan summary vs. per-file ledger) accepted for the clean scheduler/ingest
+  separation; the UI labels it "imported" (copied) and links the user to the Ingest view for ingest
+  detail.
+- <strong>Reschedule applies on the next tick, not instantly.</strong> A frequency change can take up to one
+  idle-poll cycle to take effect. Accepted: it is the simplest correct model, and <strong>Run now</strong>
+  covers the "I want it now" case. (No cancel/restart-on-config-change machinery — that complexity
+  is not warranted.)
+- <strong>Non-recursive scan by default.</strong> A nested source folder's subdirectories are not scanned in
+  v0.4. Accepted as the bounded-by-default choice; recursive opt-in (with a depth cap) is a
+  fast-follow if requested.
+- <strong>New table <code>import_schedules</code> (migration 0008).</strong> Unavoidable for durable, UI-editable schedule
+  config + last-run status across restarts. Additive and isolated (no FK churn).
+- <strong>New env caps + an example mount in docker-compose.</strong> Operators who want scheduled import must
+  add the <code>./import:/import</code> mount and set the container <code>source_dir</code>; documented in DEPLOY.md.</p>
+<p><strong>Follow-ups (NOT this ADR's scope — tracked)</strong>
+- <code>GET /raw/sources</code> listing (turns Feature U's path input and the Run-Ingest input into pickers;
+  also lets the upload zone show what is already there). Fast-follow.
+- F12 (M5): multi-format ingest — when it lands, Feature U's allow-list and Feature S's extension
+  skip expand to PDF/DOCX/… and the 415 message is removed. The on-ramp design here is forward
+  compatible (only the type gate changes).
+- Recursive scheduled scan (opt-in, depth-capped); a standalone <code>validate-dir</code> endpoint for live
+  UI feedback; per-operation/per-vault multiple schedules when multi-vault lands.
+- An async ingest queue would let <code>POST /ingest/upload</code> return 202 + <code>task_id</code> (non-breaking
+  superset of the 201 contract), mirroring ADR-0006's evolution.</p>
+<hr />
+<h2 id="implementation-spec-hand-to-backend-engineer-frontend-engineer">Implementation spec (hand to backend-engineer + frontend-engineer)<a class="headerlink" href="#implementation-spec-hand-to-backend-engineer-frontend-engineer" title="Permanent link">&para;</a></h2>
+<h3 id="split-ownership">Split ownership<a class="headerlink" href="#split-ownership" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>backend-engineer</strong> (owns): <code>POST /ingest/upload</code> (+ sanitizer); <code>import_schedules</code> model +
+  Alembic <strong>0008</strong>; <code>ImportScheduler</code> (asyncio task) + lifespan wiring; the scan implementation
+  (<code>run_one_scan</code>, bounded); the three schedule REST endpoints; new <code>config.py</code> settings
+  (<code>max_upload_bytes</code>, <code>import_scan_max_files</code>, <code>import_scan_max_seconds</code>); docker-compose env +
+  example mount; <code>make er</code> + <code>make openapi</code>.</li>
+<li><strong>backend-engineer ↔ ingest path (coordinate):</strong> the scan's copy-then-watcher path and the
+  upload's direct <code>ingest_file</code> call both touch the ingest seam. Do <strong>not</strong> modify <code>ingest_file</code> /
+  <code>run_ingest_pipeline</code> / the watcher's handler logic — both features are <em>callers</em> of the existing
+  seam, not changes to it (ADR-0003 guarantee). The only ingest-adjacent change permitted is reusing
+  <code>_sha256</code> / <code>_relative_path</code> helpers (or duplicating the tiny sanitizer). If the watcher needs to
+  observe a programmatic copy reliably, that is already true (it watches <code>raw/sources/</code> recursively).</li>
+<li><strong>frontend-engineer</strong> (owns): <code>UploadZone.tsx</code> + <code>IngestView</code> edit + <code>uploadDocument</code> client (§3);
+  <code>ImportScheduleCard.tsx</code> + <code>SettingsPanel</code> edit + <code>importScheduleClient</code> + store + types (§5); all
+  i18n keys (en + it, parity); reduced-motion-safe drag/poll; toasts via the existing <code>Toast</code>.</li>
+</ul>
+<h3 id="new-changed-backend-files">New / changed backend files<a class="headerlink" href="#new-changed-backend-files" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend/app/main.py</code></td>
+<td><strong>EDIT.</strong> Add <code>POST /ingest/upload</code> (multipart, §2) + <code>GET/PUT /import-schedule</code> + <code>POST /import-schedule/run-now</code> (§4.6) routes and their Pydantic models; start/stop <code>ImportScheduler</code> in the lifespan (after the watcher start, before yield; stop alongside <code>stop_watcher</code>).</td>
+</tr>
+<tr>
+<td><code>backend/app/upload.py</code> (or in <code>ingest/</code>)</td>
+<td><strong>NEW.</strong> <code>safe_source_name()</code> + <code>resolve_under_sources()</code> pure functions (§2.2) — unit-testable; the type/size gate helpers.</td>
+</tr>
+<tr>
+<td><code>backend/app/import_scheduler.py</code></td>
+<td><strong>NEW.</strong> <code>ImportScheduler</code> asyncio task (§4.5) + <code>run_one_scan(cfg)</code> bounded scan (§4.4) + <code>FREQ_SECONDS</code> map + <code>load_schedule</code>/<code>upsert_schedule</code> helpers. Imports <code>settings</code>; does NOT import the orchestrator (copies + relies on the watcher).</td>
+</tr>
+<tr>
+<td><code>backend/app/models.py</code></td>
+<td><strong>EDIT.</strong> Add <code>ImportSchedule</code> model (§4.1) — single source of truth for the ER row.</td>
+</tr>
+<tr>
+<td><code>backend/alembic/versions/0008_import_schedules.py</code></td>
+<td><strong>NEW.</strong> <code>create_table import_schedules</code> (columns per §4.1); UNIQUE(vault_id). Down = drop_table.</td>
+</tr>
+<tr>
+<td><code>backend/app/config.py</code></td>
+<td><strong>EDIT.</strong> Add <code>max_upload_bytes: int = 26214400</code>, <code>import_scan_max_files: int = 200</code>, <code>import_scan_max_seconds: int = 60</code>.</td>
+</tr>
+<tr>
+<td><code>docker-compose.yml</code></td>
+<td><strong>EDIT.</strong> Add the three env caps + the commented <code>./import:/import:ro</code> example mount (§6).</td>
+</tr>
+<tr>
+<td><code>docs/er/schema.mmd</code>, <code>docs/api/openapi.json</code></td>
+<td><strong>REGEN.</strong> <code>make er</code> + <code>make openapi</code> (D2/D4 zero-drift).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="new-changed-frontend-files">New / changed frontend files<a class="headerlink" href="#new-changed-frontend-files" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>components/ingest/UploadZone.tsx</code></td>
+<td><strong>NEW.</strong> Drag-drop + browse; <code>uploadDocument</code>; toasts; accepted-types + M5 note; refresh run list (§3).</td>
+</tr>
+<tr>
+<td><code>components/ingest/IngestView.tsx</code></td>
+<td><strong>EDIT.</strong> Mount <code>&lt;UploadZone/&gt;</code>.</td>
+</tr>
+<tr>
+<td><code>api/ingestClient.ts</code></td>
+<td><strong>EDIT.</strong> Add <code>uploadDocument(file, signal?)</code> (FormData; no manual Content-Type).</td>
+</tr>
+<tr>
+<td><code>components/settings/ImportScheduleCard.tsx</code></td>
+<td><strong>NEW.</strong> Enabled toggle + container-path source_dir input + frequency select + last-run status + Run-now (§5).</td>
+</tr>
+<tr>
+<td><code>components/settings/SettingsPanel.tsx</code></td>
+<td><strong>EDIT.</strong> Mount <code>&lt;ImportScheduleCard/&gt;</code>.</td>
+</tr>
+<tr>
+<td><code>api/importScheduleClient.ts</code></td>
+<td><strong>NEW.</strong> <code>getImportSchedule</code>/<code>putImportSchedule</code>/<code>runImportNow</code>.</td>
+</tr>
+<tr>
+<td><code>store/settingsStore.ts</code> (or <code>store/importScheduleStore.ts</code>)</td>
+<td><strong>NEW/EDIT.</strong> Schedule config + last-run; selector-gated; NOT in graphStore (I3).</td>
+</tr>
+<tr>
+<td><code>api/types.ts</code></td>
+<td><strong>EDIT.</strong> <code>UploadResponse</code>, <code>ImportSchedule</code>, <code>ImportSchedulePutResponse</code>.</td>
+</tr>
+<tr>
+<td><code>i18n/locales/en.json</code>, <code>i18n/locales/it.json</code></td>
+<td><strong>EDIT.</strong> <code>ingest.upload*</code> (§3) + <code>settings.import.*</code> (§5) keys; en↔it parity.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="build-order">Build order<a class="headerlink" href="#build-order" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Backend first</strong> (unblocks the UI):
+   a. <code>upload.py</code> sanitizer (pure, unit tests for traversal/415/413/422) → <code>POST /ingest/upload</code>.
+   b. <code>models.py</code> <code>ImportSchedule</code> + Alembic <code>0008</code> + <code>config.py</code> caps.
+   c. <code>import_scheduler.py</code> (<code>run_one_scan</code> bounded + <code>ImportScheduler</code> task) + lifespan wiring.
+   d. <code>GET/PUT /import-schedule</code> + <code>POST /import-schedule/run-now</code>.
+   e. docker-compose env + example mount; <code>make er</code> + <code>make openapi</code>; pytest.</li>
+<li><code>api/ingestClient.uploadDocument</code> + <code>UploadZone</code> + <code>IngestView</code> edit; vitest + Playwright (drop a
+   <code>.md</code> → POST fired → run list refreshes; drop a <code>.pdf</code> → 415 toast names M5).</li>
+<li><code>api/importScheduleClient</code> + store + <code>ImportScheduleCard</code> + <code>SettingsPanel</code> edit; vitest (toggle/
+   frequency PUT; Run-now POST; dir_ok:false warning renders).</li>
+<li>i18n keys (en + it) + parity vitest.</li>
+<li>Playwright D5 (optional): capture the upload zone + the Automatic-import card if PM wants the
+   M4-EXT screens; otherwise fold into existing Ingest/Settings screens.</li>
+</ol>
+<h3 id="acceptance-mapping-m4-ext">Acceptance mapping (M4-EXT)<a class="headerlink" href="#acceptance-mapping-m4-ext" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Feature U</strong> → §2 (endpoint, sanitizer, 415 text/markdown-only naming F12/M5, 413 size cap, 201
+  with page_id+status), §3 (drag-drop in Ingest section, accepted types + M5 note, run-list
+  refresh), §8 (I1 reuse of <code>ingest_file</code> gate; I5 writes only <code>raw/sources/</code>; I7 byte cap).</li>
+<li><strong>Feature S</strong> → §4.1 (<code>import_schedules</code> schema + Alembic 0008), §4.2 (incremental: hash-compare</li>
+<li><code>ingest_file</code> gate, no new ledger), §4.3 (copy → watcher ingests; scans create <code>ingest_runs</code>
+  rows via the pipeline), §4.4 (bounded scan: MAX_FILES + MAX_SECONDS + non-recursive + no overlap),
+  §4.5 (asyncio scheduler + lifespan + reschedule-on-next-tick), §4.6 (GET/PUT/run-now contract),
+  §5 (Settings "Automatic import" card with container-path hint + i18n en/it), §6 (docker-compose
+  mount), §7 (mounted-path constraint), §8 (I1/I5/I7/I8/I9).</li>
+</ul>
+<h3 id="do-not">Do NOT<a class="headerlink" href="#do-not" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Write anywhere except <code>vault/raw/sources/</code> from either feature (I5 — never touch <code>wiki/</code> or
+  <code>.obsidian/</code>; the pipeline alone authors wiki pages).</li>
+<li>Join, trust, or accept caller-supplied path segments for the upload target — <strong>basename only</strong>;
+  no <code>..</code>, no absolute paths; reject + containment-check (I-security / §2.2).</li>
+<li>Accept non-text uploads or ingest non-text scanned files (415 / skip; F12/M5 boundary — do not
+  pre-empt multi-format).</li>
+<li>Re-scan or re-import unchanged files (I1 — hash-compare before copy; rely on the <code>ingest_file</code>
+  mtime/hash gate; never bypass it).</li>
+<li>Add an unbounded or recursive-by-default scan, a <code>setInterval</code> poll, or overlapping scans
+  (I7 — MAX_FILES + MAX_SECONDS, single in-flight, <code>setTimeout</code>+<code>AbortController</code> on the UI).</li>
+<li>Add APScheduler or any scheduler framework (I9 — a single asyncio lifespan task suffices).</li>
+<li>Create a new per-file import tracking table or a new run table (I9 — reuse <code>pages.content_hash</code>
+  for change detection and <code>ingest_runs</code> for the cost ledger).</li>
+<li>Modify <code>ingest_file</code> / <code>run_ingest_pipeline</code> / the watcher handler (ADR-0003 — both features are
+  callers of the seam, not changes to it).</li>
+<li>Put scheduled-import or upload state in <code>graphStore</code>, or subscribe to a whole store (I3 — keep it
+  in settings/ingest stores; selector-gated).</li>
+<li>Pretend host filesystem browsing works from the container, or render a native folder picker for
+  <code>source_dir</code> (§7 — it is a container-path text input + backend dir-readable check).</li>
+<li>Hardcode a provider/model anywhere in the new code (I6 — ingest routing stays in the existing seam).</li>
+<li>Skip <code>make er</code> / <code>make openapi</code> after the schema + endpoint changes (I8 zero-drift gate).
+```</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

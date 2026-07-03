@@ -1,0 +1,978 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0035-page-content-read-edit-endpoints/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0035 — Page content read/edit endpoints (GET/PUT /pages/{id}/content) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0035-page-content-readedit-endpoints-getput-pagesidcontent" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0035 — Page content read/edit endpoints (GET/PUT /pages/{id}/content)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-ground-truth-consumed-reuse-do-not-reinvent-i9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Ground truth consumed (reuse, do not reinvent — I9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision summary
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision summary">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-requestresponse-contract-d4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Request/response contract (D4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-optimistic-concurrency-the-409-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Optimistic concurrency (the 409 contract)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-why-inline-re-index-not-a-watcher-event-i1-clarification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Why inline re-index, not a watcher event (I1 clarification)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-obsidian-compatibility-i5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Obsidian compatibility (I5)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-flagged-tensions-risks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Flagged tensions &amp; risks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-do-not-list-rejection-triggers-any-one-is-a-block-at-pr-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Do-NOT list (rejection triggers — any one is a block at PR review)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-invariant-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Invariant compliance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-implementation-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Implementation plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-sign-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Sign-off
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0035-page-content-readedit-endpoints-getput-pagesidcontent">ADR-0035 — Page content read/edit endpoints (<code>GET</code>/<code>PUT /pages/{id}/content</code>)<a class="headerlink" href="#adr-0035-page-content-readedit-endpoints-getput-pagesidcontent" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-06-30</li>
+<li><strong>Sprint:</strong> v0.5 (M5 hardening — Wiki Notes editing surface)</li>
+<li><strong>Features:</strong> F1 (3-panel shell — center editor) · F16 (<code>dataVersion</code>-driven refresh) · K7 (Obsidian-valid <code>wiki/</code>)</li>
+<li><strong>Resolves:</strong> the <code>GET /pages/{id}/content</code> reservation noted in <strong>ADR-0017 §center/right panels</strong>
+  ("no content API exists → option (a); <code>GET /pages/{id}/content</code> reserved for fast-follow"). This ADR
+  promotes that stub to a read <strong>and</strong> write contract.</li>
+<li><strong>Invariants owned:</strong> <strong>I1</strong> (HEADLINE — a PUT is a <em>single-page targeted incremental update</em> through
+  the existing write primitives; NEVER a vault rescan; <code>data_version</code> +1 exactly once) · <strong>I5</strong>
+  (HEADLINE — editing raw markdown keeps <code>wiki/</code> a valid Obsidian vault: frontmatter and <code>[[wikilinks]]</code>
+  are preserved/re-parsed, never corrupted) · I2 (the single <code>data_version</code> bump fires the debounced
+  GraphCache recompute; no inline FA2) · I7 (single pass, no loop, no inference; a byte cap bounds the
+  write)</li>
+<li><strong>Author:</strong> solution-architect</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>The Wiki Notes UI (the CodeMirror 6 center editor replacing the redundant center GraphPanel in the
+<code>pages</code> section — see §8 invariant note in the companion review) needs to <strong>read</strong> a wiki page's raw
+markdown and <strong>save</strong> edits back. Today the right-panel inspector renders metadata only (ADR-0017
+option (a)); there is no endpoint that returns page <strong>content</strong> and none that writes an edit.</p>
+<p>Two facts about the existing system constrain the design and are easy to get wrong:</p>
+<ol>
+<li>
+<p><strong><code>pages</code> rows are metadata-only.</strong> The <code>Page</code> ORM row stores <code>file_path</code>, <code>title</code>, <code>type</code>,
+   <code>sources[]</code> (JSONB), <code>content_hash</code>, coords, <code>deleted_at</code> — <strong>not</strong> the markdown body. The body
+   lives <strong>on the filesystem</strong> at <code>vault/&lt;file_path&gt;</code> (<code>wiki/&lt;subdir&gt;/&lt;slug&gt;.md</code>). Postgres is the
+   metadata/links system of record (ADR-0002); the file is the content system of record. The content
+   API must therefore read/write the <strong>file</strong>, and keep the metadata row consistent with it.</p>
+</li>
+<li>
+<p><strong>The watcher does NOT observe <code>vault/wiki/</code>.</strong> <code>watcher.py</code> schedules its observer on
+   <code>vault/raw/sources/</code> only (<code>observer.schedule(handler, str(watch_dir))</code>, <code>watch_dir = raw/sources</code>).
+   A write to a <code>wiki/*.md</code> file produces <strong>no</strong> watcher event. This is by design (ADR-0026 §5
+   "Watcher non-interference": backend writes to <code>wiki/</code> are invisible to the watcher, which prevents
+   re-ingest loops). <strong>Consequence:</strong> the PUT endpoint cannot "let the watcher re-index it" — there is
+   no watcher on <code>wiki/</code>. It MUST re-index the edited page <strong>inline</strong>, through the same incremental
+   primitives the orchestrated writer uses, touching only that one page (I1). This is <em>more</em> incremental
+   than a watcher event, not less: zero file-system round-trip, one page updated, one <code>data_version</code>
+   bump.</p>
+</li>
+</ol>
+<h3 id="11-ground-truth-consumed-reuse-do-not-reinvent-i9">1.1 Ground truth consumed (reuse, do not reinvent — I9)<a class="headerlink" href="#11-ground-truth-consumed-reuse-do-not-reinvent-i9" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>Page</code> model + <code>uix_pages_vault_file_path_live</code></strong> (<code>models.py</code>) — the live page row keyed by
+  <code>(vault_id, file_path)</code> <code>WHERE deleted_at IS NULL</code>. <code>content_hash</code> = <code>sha256</code> of the serialized file
+  (<code>write_wiki_page</code> sets <code>content_hash=_sha256(serialized.encode())</code>). This hash is the <strong>optimistic
+  lock token</strong>.</li>
+<li><strong><code>write_wiki_page</code> → persist_metadata → upsert_vector → append_log → bump_version → parse/persist
+  wikilinks → update_index</strong> (<code>ingest/orchestrator.py</code>) — the SINGLE incremental wiki-write seam (I1).
+  The PUT endpoint reuses <strong>the same primitives</strong> to re-index the edited content (it does <strong>not</strong> call
+  <code>write_wiki_page</code> verbatim, because that path rebuilds frontmatter from a typed <code>WikiFrontmatter</code> and
+  re-slugs the title; the editor saves a <strong>raw file</strong> whose frontmatter the user may have touched — so
+  PUT writes the user's bytes and then re-runs the <em>indexing</em> primitives: <code>persist_metadata</code> for the
+  metadata fields, <code>upsert_vector</code> for the body, <code>persist_links</code> for wikilinks, <code>update_index</code>,
+  <code>bump_version</code>). Same primitives, raw-file write.</li>
+<li><strong><code>parse_wikilinks</code> / <code>persist_links</code></strong> (<code>wiki/links.py</code>) — K5 incremental link upsert. Re-run on the
+  saved body so <code>links</code> reflects the user's edits (added/removed <code>[[wikilinks]]</code>).</li>
+<li><strong><code>upsert_vector</code></strong> (<code>ingest/orchestrator.py</code>) — re-embeds the body into Qdrant under the page UUID
+  (no-op when <code>EMBEDDINGS_ENABLED=false</code>, ADR-0030). Same point id, so search stays consistent (I1).</li>
+<li><strong><code>bump_version()</code> + GraphCache debounce</strong> (<code>graph/cache.py</code>, ADR-0014) — one bump → the debounced
+  FA2 recompute fires on its own schedule (I2; never inline).</li>
+<li><strong><code>_relative_path</code> / path containment</strong> (the basename/<code>..</code> sanitization pattern in <code>upload.py</code>,
+  ADR-0020) — the path-traversal guard model PUT/GET reuse.</li>
+<li><strong><code>@app.delete("/provider/config/{id}")</code> / <code>DELETE /pages/{id}</code></strong> (<code>main.py</code>, ADR-0026) — the house
+  path-param + 404 pattern the new routes mirror.</li>
+</ul>
+<hr />
+<h2 id="2-decision-summary">2. Decision summary<a class="headerlink" href="#2-decision-summary" title="Permanent link">&para;</a></h2>
+<p>Add two routes under the existing <code>/pages/{id}</code> namespace:</p>
+<div class="highlight"><pre><span></span><code>GET /pages/{id}/content   → 200 {file_path, title, type, content_hash, content}
+PUT /pages/{id}/content   → 200 {file_path, content_hash, data_version}   (new hash + new version)
+</code></pre></div>
+<ul>
+<li><strong><code>pages</code> rows stay metadata-only.</strong> Content is read from / written to the <strong>file</strong> at
+  <code>vault/&lt;file_path&gt;</code>. The endpoints never add a content column to <code>pages</code> (ADR-0002 split preserved).</li>
+<li><strong>GET</strong> resolves the page row (404 if absent or soft-deleted), reads the file bytes, and returns the
+  raw markdown <strong>including</strong> the YAML frontmatter block plus the row's <code>content_hash</code> as the lock token.</li>
+<li><strong>PUT</strong> takes <code>{content, content_hash}</code>:</li>
+<li>Resolve the live page row by id (404 if absent/soft-deleted).</li>
+<li><strong>Optimistic-lock check:</strong> if the supplied <code>content_hash != row.content_hash</code> → <strong>409 Conflict</strong>
+     (the file changed under the editor; the client must re-GET and merge). No write happens.</li>
+<li><strong>Path-traversal guard:</strong> recompute the absolute path as
+     <code>(vault_root / row.file_path).resolve()</code>, assert it is inside <code>vault_root.resolve()</code> and that
+     <code>row.file_path</code> starts with <code>wiki/</code> (content edits are wiki-only; <code>raw/sources/</code> is immutable, K1).
+     A row whose <code>file_path</code> escapes the vault or targets <code>raw/</code> → <strong>403</strong>. The client never supplies a
+     path — only the page <strong>id</strong> — so traversal is structurally hard; this guard is defence-in-depth.</li>
+<li><strong>Bound (I7):</strong> reject a body larger than <code>MAX_PAGE_CONTENT_BYTES</code> (default 5 MB) → <strong>413</strong>.</li>
+<li><strong>Atomic write:</strong> write the new bytes to a sibling temp file in the same directory and
+     <code>os.replace()</code> it onto <code>row.file_path</code> (atomic same-filesystem rename — no torn file if the process
+     dies mid-write; readers never see a half-written page).</li>
+<li><strong>Inline incremental re-index (I1 — the critical step):</strong> recompute
+     <code>new_hash = sha256(new_bytes)</code>, then run the existing index primitives for <strong>this one page only</strong>:
+     <code>persist_metadata</code> (update <code>content_hash</code>, and <code>title</code>/<code>type</code>/<code>sources[]</code> parsed from the saved
+     frontmatter so metadata tracks the edit) → <code>upsert_vector</code> (re-embed the body under the same UUID)
+     → <code>parse_wikilinks</code> + <code>persist_links</code> (re-derive this page's <code>links</code> rows) → <code>update_index</code> →
+     <code>bump_version()</code> <strong>exactly once</strong>. No other page is read or written; no vault walk.</li>
+<li>Return <code>{file_path, content_hash: new_hash, data_version: &lt;new&gt;}</code>.</li>
+</ul>
+<p><strong>No inference, no loop, no FA2 in this path.</strong> It resolves no provider (I6 untouched — no provider is
+involved), runs no bounded loop, and never calls <code>GraphEngine.recompute()</code> (I2 — the debounced cache
+fires on the bump).</p>
+<h3 id="21-requestresponse-contract-d4">2.1 Request/response contract (D4)<a class="headerlink" href="#21-requestresponse-contract-d4" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>GET /pages/{id}/content
+  200 → { &quot;file_path&quot;: &quot;wiki/concepts/x.md&quot;, &quot;title&quot;: &quot;X&quot;, &quot;type&quot;: &quot;concept&quot;,
+          &quot;content_hash&quot;: &quot;&lt;sha256&gt;&quot;, &quot;content&quot;: &quot;---\ntype: concept\n...\n---\n\nBody [[Y]]…&quot; }
+  404 → page id unknown OR soft-deleted
+
+PUT /pages/{id}/content
+  body: { &quot;content&quot;: &quot;&lt;full raw markdown incl. frontmatter&gt;&quot;, &quot;content_hash&quot;: &quot;&lt;sha256 from GET&gt;&quot; }
+  200 → { &quot;file_path&quot;: &quot;...&quot;, &quot;content_hash&quot;: &quot;&lt;new sha256&gt;&quot;, &quot;data_version&quot;: 124 }
+  404 → page id unknown OR soft-deleted
+  409 → content_hash stale (file changed since GET) — re-GET and retry; NO write performed
+  413 → body exceeds MAX_PAGE_CONTENT_BYTES
+  403 → resolved path escapes vault_root OR targets a non-`wiki/` file (raw/ is immutable)
+</code></pre></div>
+<p><code>make openapi</code> regenerates <code>docs/api/openapi.json</code> with both routes (I8). No DB migration — <code>pages</code>
+gains no column; <code>content_hash</code> already exists. D2 unchanged.</p>
+<hr />
+<h2 id="3-optimistic-concurrency-the-409-contract">3. Optimistic concurrency (the 409 contract)<a class="headerlink" href="#3-optimistic-concurrency-the-409-contract" title="Permanent link">&para;</a></h2>
+<p><code>content_hash</code> (<code>sha256</code> of the on-disk serialized file) is the version token. The flow is read-modify-
+write with compare-and-swap:</p>
+<ol>
+<li>The editor <strong>GET</strong>s <code>{content, content_hash=H0}</code> and lets the user edit in CodeMirror.</li>
+<li>On save it <strong>PUT</strong>s <code>{content=edited, content_hash=H0}</code>.</li>
+<li>The server compares <code>H0</code> against the <strong>current</strong> <code>row.content_hash</code>:</li>
+<li><strong>match</strong> → write, set the row's hash to <code>sha256(new_bytes)</code>, return the new hash. The lock is
+     advanced; the next save must carry the new hash.</li>
+<li><strong>mismatch</strong> → <strong>409</strong>. Something changed the page since the GET (a cascade-delete rewrite,
+     ADR-0026; a Create from the review queue, ADR-0034; a re-ingest; another editor tab). The client
+     re-GETs, shows the user the divergence, and retries. <strong>No partial/last-writer-wins clobber.</strong></li>
+</ol>
+<p>The hash is compared against <code>row.content_hash</code> (Postgres), which <code>persist_metadata</code> keeps in lock-step
+with every write through the seam — so the lock is authoritative even though the body lives on disk.
+(Belt-and-braces option, deferred: also hash the on-disk bytes at PUT time and 409 if the file drifted
+from the row; not needed in M5 because every legitimate <code>wiki/</code> writer goes through the seam and updates
+the row hash. Recorded as §6 risk 2.)</p>
+<hr />
+<h2 id="4-why-inline-re-index-not-a-watcher-event-i1-clarification">4. Why inline re-index, not a watcher event (I1 clarification)<a class="headerlink" href="#4-why-inline-re-index-not-a-watcher-event-i1-clarification" title="Permanent link">&para;</a></h2>
+<p>The naïve framing "PUT writes the file, the watcher debounces one FS event and re-indexes" does <strong>not</strong>
+apply here: the watcher observes <code>raw/sources/</code> only and is deliberately blind to <code>wiki/</code> (ADR-0026 §5).
+Extending the watcher to <code>wiki/</code> would be <strong>wrong</strong> — it would re-fire on Synapse's own wiki writes
+(cascade-delete rewrites, review Creates, orchestrated generation), creating exactly the re-ingest loop
+ADR-0026 §5 prevents. So PUT re-indexes <strong>inline</strong>:</p>
+<ul>
+<li>It updates <strong>one</strong> page's metadata row, <strong>one</strong> Qdrant point, <strong>one</strong> page's <code>links</code> rows, the
+  catalogue, and bumps <code>data_version</code> once. This is the textbook I1 "a file change updates only affected
+  records" — strictly a single-page targeted update.</li>
+<li>It NEVER enumerates <code>vault/wiki/</code>, NEVER re-embeds other pages, NEVER rebuilds the graph inline.</li>
+<li>The single <code>bump_version()</code> triggers the debounced FA2 recompute (I2), so the edited page's new/removed
+  links eventually re-flow the layout server-side — never on the UI thread.</li>
+</ul>
+<p>This is more incremental than a watcher round-trip (no FS event, no re-read of the file we just wrote).</p>
+<hr />
+<h2 id="5-obsidian-compatibility-i5">5. Obsidian compatibility (I5)<a class="headerlink" href="#5-obsidian-compatibility-i5" title="Permanent link">&para;</a></h2>
+<p>The editor saves <strong>raw markdown including the frontmatter block</strong> — the user edits the same text Obsidian
+shows. The endpoint does <strong>not</strong> round-trip the frontmatter through PyYAML on the <strong>write</strong> path (which
+would reorder keys / reflow lists — the DEFECT-F13-002 class of corruption, ADR-0026 §4.3): PUT writes
+the user's bytes verbatim. To keep the metadata row consistent it <strong>parses</strong> the saved frontmatter
+read-only (<code>frontmatter.loads</code>) to extract <code>title</code>/<code>type</code>/<code>sources[]</code> for <code>persist_metadata</code>; the parse
+is non-mutating and the bytes on disk are exactly what the user typed.</p>
+<ul>
+<li>If the user's edit produces <strong>invalid YAML frontmatter</strong>, the parse fails. PUT then returns <strong>422</strong>
+  with a clear message and <strong>does not write</strong> (an invalid-frontmatter page would break Obsidian and the
+  indexer — fail closed, never persist a vault-invalidating file). The body-only edit case (no
+  frontmatter change) parses fine and proceeds.</li>
+<li><code>[[wikilinks]]</code> the user adds/removes are re-parsed by <code>parse_wikilinks</code> and re-persisted, so the K5
+  link graph and the dangling flags stay correct — the vault's link structure tracks the edit.</li>
+<li>The file stays a valid Obsidian note: frontmatter fence intact, wikilinks intact, body markdown intact.
+  <code>test_obsidian_check.py</code> remains the gate (must stay green after an edit round-trip).</li>
+</ul>
+<hr />
+<h2 id="6-flagged-tensions-risks">6. Flagged tensions &amp; risks<a class="headerlink" href="#6-flagged-tensions-risks" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Title/slug edits via frontmatter.</strong> If the user edits the <code>title</code> in frontmatter, the <strong>file name</strong>
+   (<code>&lt;slug&gt;.md</code>) no longer matches the new title. M5 decision: PUT updates the <strong>metadata</strong> <code>title</code> but
+   does <strong>not</strong> rename the file (a rename is a delete+create that touches every inbound <code>[[wikilink]]</code> —
+   that is cascade-delete/rename territory, ADR-0026, out of scope here). The slug-title drift is
+   cosmetic and Obsidian-valid (the filename is just a slug). A proper title-rename flow is a post-M5
+   ADR. Recorded, not built.</li>
+<li><strong>Out-of-band file drift.</strong> The 409 lock compares the request hash to <code>row.content_hash</code>, which every
+   in-seam writer updates. A hand-edit on the TrueNAS filesystem (outside Synapse) would drift the file
+   from the row without bumping the row hash; PUT would then overwrite it. Acceptable for M5 (single
+   operator; Synapse owns <code>wiki/</code>). The optional on-disk re-hash guard (§3) closes this if it ever bites.</li>
+<li><strong>Concurrent PUT + cascade-delete/Create race.</strong> Both advance <code>content_hash</code> through the seam, so the
+   second writer's 409 fires correctly (compare-and-swap). The atomic <code>os.replace</code> ensures no torn file.</li>
+<li><strong>No content column.</strong> Reading from disk on every GET is an extra FS read vs. a DB column, but it
+   preserves the ADR-0002 metadata/content split and avoids a dual-write consistency problem (the file is
+   the content source of truth). Acceptable; the file read is cheap and bounded by the 5 MB cap.</li>
+</ol>
+<hr />
+<h2 id="7-do-not-list-rejection-triggers-any-one-is-a-block-at-pr-review">7. Do-NOT list (rejection triggers — any one is a block at PR review)<a class="headerlink" href="#7-do-not-list-rejection-triggers-any-one-is-a-block-at-pr-review" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>DO NOT</strong> add a <code>content</code> column to <code>pages</code> or otherwise store the body in Postgres — content is on
+   the filesystem; <code>pages</code> is metadata-only (ADR-0002).</li>
+<li><strong>DO NOT</strong> rescan the vault on save. PUT updates exactly ONE page through the index primitives and
+   bumps <code>data_version</code> ONCE (I1). A <code>glob('wiki/**/*.md')</code> or a full re-embed on save is a reject.</li>
+<li><strong>DO NOT</strong> subscribe the watcher to <code>vault/wiki/</code> to "pick up" the edit — that recreates the
+   ADR-0026 §5 re-ingest loop. Re-index <strong>inline</strong> in the endpoint instead.</li>
+<li><strong>DO NOT</strong> call <code>GraphEngine.recompute()</code> / FA2 inline (I2). One <code>bump_version()</code>; the debounced cache
+   does the rest.</li>
+<li><strong>DO NOT</strong> skip the optimistic-lock check. A stale <code>content_hash</code> is a <strong>409</strong>, never a
+   last-writer-wins clobber.</li>
+<li><strong>DO NOT</strong> accept a client-supplied file path — only the page <strong>id</strong>; resolve the path from the row
+   and assert vault containment + <code>wiki/</code> prefix (no <code>raw/</code>, no <code>..</code>, no absolute). Path escape → 403.</li>
+<li><strong>DO NOT</strong> PyYAML round-trip the frontmatter on the <strong>write</strong> path (key reorder / list reflow =
+   I5 corruption). Write the user's bytes verbatim; parse read-only for metadata.</li>
+<li><strong>DO NOT</strong> persist a page whose frontmatter is invalid YAML (would break Obsidian) — 422, no write.</li>
+<li><strong>DO NOT</strong> write the file non-atomically. Temp-file + <code>os.replace()</code> so a crash never leaves a torn
+   page (a half-written page breaks I5 and the indexer).</li>
+<li><strong>DO NOT</strong> ship without <code>make openapi</code> regenerated (I8). No DB migration is needed (no D2 change).</li>
+</ol>
+<hr />
+<h2 id="8-invariant-compliance">8. Invariant compliance<a class="headerlink" href="#8-invariant-compliance" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Inv</th>
+<th>How this design guarantees it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I1</strong></td>
+<td>A PUT is a single-page targeted incremental update: one metadata row, one Qdrant point, one page's <code>links</code>, one <code>update_index</code>, one <code>data_version</code> +1. No vault walk, no re-embed of other pages, no watcher round-trip. This is the canonical I1 "change updates only affected records".</td>
+</tr>
+<tr>
+<td><strong>I2</strong></td>
+<td>The single <code>bump_version()</code> triggers the debounced GraphCache recompute; the endpoint never runs FA2 inline. Layout stays server-side and cached.</td>
+</tr>
+<tr>
+<td><strong>I5</strong></td>
+<td>The editor saves raw markdown incl. frontmatter; PUT writes the bytes verbatim (no PyYAML reorder), re-parses <code>[[wikilinks]]</code> (K5), and refuses to persist invalid-YAML frontmatter (422). <code>wiki/</code> stays a valid Obsidian vault; <code>test_obsidian_check.py</code> is the gate.</td>
+</tr>
+<tr>
+<td><strong>I7</strong></td>
+<td>No loop, no inference. The write is bounded by <code>MAX_PAGE_CONTENT_BYTES</code> (413). Single pass.</td>
+</tr>
+<tr>
+<td><strong>I6</strong></td>
+<td>Not engaged — the content path involves no inference provider; nothing is hardcoded because nothing is routed.</td>
+</tr>
+<tr>
+<td><strong>I8</strong></td>
+<td><code>make openapi</code> regenerates <code>docs/api/openapi.json</code> (two new routes). No schema change → D2 unchanged. D3: the existing wiki-write sequence may note the editor PUT as an alternate entry; no new container (D1 unchanged — the route lives in the existing FastAPI service).</td>
+</tr>
+</tbody>
+</table>
+<p>No invariant is traded. The two genuine tensions (title-rename, out-of-band drift) are flagged in §6 and
+deferred with recorded rationale.</p>
+<hr />
+<h2 id="9-implementation-plan">9. Implementation plan<a class="headerlink" href="#9-implementation-plan" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>backend-engineer [BE]:</strong> add <code>GET</code>/<code>PUT /pages/{id}/content</code> to <code>main.py</code> (Pydantic
+  <code>PageContentResponse</code> / <code>PageContentUpdate</code>); the GET file read; the PUT lock check (409), path guard
+  (403), byte cap (413), invalid-frontmatter guard (422), atomic temp-file <code>os.replace</code> write, and the
+  inline re-index via <code>persist_metadata</code>/<code>upsert_vector</code>/<code>parse_wikilinks</code>+<code>persist_links</code>/<code>update_index</code>/
+  <code>bump_version</code>. Add <code>MAX_PAGE_CONTENT_BYTES</code> to <code>config.py</code>. Run <code>make openapi</code> → commit
+  <code>docs/api/openapi.json</code> (I8). Tests: GET 200/404; PUT 200 bumps <code>data_version</code> exactly once + advances
+  hash + re-persists wikilinks; 409 on stale hash performs no write; 413 on oversize; 403 on a non-<code>wiki/</code>
+  or escaping path; 422 on invalid frontmatter; <code>test_obsidian_check.py</code> green after an edit round-trip;
+  PUT does NOT touch any other page's row/point.</li>
+<li><strong>frontend-engineer [FE]:</strong> the Wiki Notes CodeMirror 6 editor (see the companion invariant review)
+  fetches <code>GET /pages/{id}/content</code>, edits, and <code>PUT</code>s <code>{content, content_hash}</code>; on <strong>409</strong> it re-GETs
+  and surfaces a conflict notice; on success it relies on the bumped <code>data_version</code> (F16) to refresh the
+  tree/graph. The editor is CodeMirror 6 (I4 — never WYSIWYG/ProseMirror).</li>
+<li><strong>tech-writer:</strong> this ADR (format + README row), USER.md (editing a wiki page, conflict behavior), and
+  the D4 OpenAPI surface. No D1 topology change (no new container/component).</li>
+</ul>
+<hr />
+<h2 id="10-sign-off">10. Sign-off<a class="headerlink" href="#10-sign-off" title="Permanent link">&para;</a></h2>
+<p><strong>APPROVED to implement.</strong> <code>pages</code> stays metadata-only; content read/write targets the filesystem.
+GET returns raw markdown + the <code>content_hash</code> lock token; PUT does compare-and-swap (409 on stale),
+guards path traversal (403) and size (413), refuses invalid-frontmatter (422), writes atomically, and
+re-indexes the single edited page <strong>inline</strong> through the existing incremental primitives — one
+<code>data_version</code> bump, no rescan, no watcher event, no FA2. I1 and I5 are satisfied by construction;
+I2/I7 are honoured; I6 is not engaged. No DB migration; <code>make openapi</code> regenerated (I8).</p>
+<blockquote>
+<p>Handoff: ADR-0035 → tech-writer (format, README row, USER.md). Interface contract (§2) →
+backend-engineer [BE] + frontend-engineer [FE]. PR verdicts → orchestrator.</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

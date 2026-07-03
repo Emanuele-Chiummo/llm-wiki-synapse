@@ -1,0 +1,746 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.4-m4-closure/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>M4 Closure Record — Sprint 4 (v0.4) "Usable & fluid" - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#m4-closure-record-sprint-4-v04-usable-fluid" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              M4 Closure Record — Sprint 4 (v0.4) "Usable &amp; fluid"
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#human-checkpoint-what-was-actually-exercised" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Human checkpoint — what was actually exercised
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#two-defects-found-in-live-testing-and-fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two defects found in live testing and fixed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dev-environment-improvement-not-an-m4-defect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dev-environment improvement (not an M4 defect)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gate-chain-final" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate chain (final)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#carry-forwards-into-m5-non-blocking-tracked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Carry-forwards into M5 (non-blocking, tracked)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="m4-closure-record-sprint-4-v04-usable-fluid">M4 Closure Record — Sprint 4 (v0.4) "Usable &amp; fluid"<a class="headerlink" href="#m4-closure-record-sprint-4-v04-usable-fluid" title="Permanent link">&para;</a></h1>
+<p><strong>Date:</strong> 2026-06-29 · <strong>Verified live on:</strong> MacBook Pro (Docker Desktop, Ollama.app) · <strong>Verdict: MET</strong></p>
+<p>The PM gate verdict (<code>v0.4-hard-scope.md</code> §6-PM) was MET-WITH-FOLLOWUPS, blocked only on
+<strong>EC-M4-HCP</strong> — the human browser-testing checkpoint. Emanuele conducted that testing during
+the closure session, found two blocking usability defects, both were fixed, and the
+<code>v0.4.0</code> release was cut and pushed. This record clears EC-M4-HCP.</p>
+<h2 id="human-checkpoint-what-was-actually-exercised">Human checkpoint — what was actually exercised<a class="headerlink" href="#human-checkpoint-what-was-actually-exercised" title="Permanent link">&para;</a></h2>
+<p>Emanuele ran the full stack in the browser and tested the M4 surface. The session is the
+EC-M4-HCP checkpoint in action: real usage surfaced real defects that the automated gates
+could not (both were live-infra / UX issues, not logic bugs).</p>
+<table>
+<thead>
+<tr>
+<th>EC-M4-HCP condition</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3-panel shell + labeled nav rail; sections switch without reload</td>
+<td>✅ confirmed</td>
+</tr>
+<tr>
+<td>Sources → ingest runs list + Run Ingest</td>
+<td>✅ confirmed</td>
+</tr>
+<tr>
+<td>Chat streams token-by-token, no freeze</td>
+<td>✅ confirmed</td>
+</tr>
+<tr>
+<td>Settings → LLM Models editable (add/delete), persists</td>
+<td>✅ confirmed — <strong>defect found + fixed (see below)</strong></td>
+</tr>
+<tr>
+<td>Graph → sigma viewer, structural edges, hover-dim</td>
+<td>✅ confirmed</td>
+</tr>
+<tr>
+<td>docs/USER.md exists</td>
+<td>✅ (already met)</td>
+</tr>
+<tr>
+<td>Upload drag-drop in Sources</td>
+<td>✅ confirmed</td>
+</tr>
+<tr>
+<td>Settings → Source Watch schedule card</td>
+<td>✅ confirmed</td>
+</tr>
+<tr>
+<td>Nav rail shows text labels at ~72px</td>
+<td>✅ confirmed</td>
+</tr>
+<tr>
+<td>Settings renders 9-section left-nav</td>
+<td>✅ confirmed — <strong>defect found + fixed (Embeddings section)</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="two-defects-found-in-live-testing-and-fixed">Two defects found in live testing and fixed<a class="headerlink" href="#two-defects-found-in-live-testing-and-fixed" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Local (Ollama) provider could not be configured</strong> (commit <code>3e6bcaf</code>). The
+   Settings → LLM Models "Add provider" form hid the <code>base_url</code> field for
+   <code>provider_type=local</code>, so the Ollama server URL was stored as NULL and
+   <code>OllamaProvider</code> raised at runtime unless <code>OLLAMA_URL</code> env was set. The form now
+   shows <code>base_url</code> for both <code>local</code> and <code>api</code>, with type-specific placeholders
+   (<code>qwen2.5:3b</code>, <code>http://localhost:11434</code>). This is what blocked the developer from
+   pointing at his installed <code>qwen2.5:3b</code> model.</p>
+</li>
+<li>
+<p><strong>Embeddings section was a dead "coming in M5" stub</strong> (commit <code>3e6bcaf</code>). Replaced
+   with a live read-only display of <code>EMBEDDING_URL</code> / <code>EMBEDDING_MODEL</code> / <code>EMBEDDING_DIM</code>
+   via a new <code>GET /config/embedding</code> endpoint, so the developer can confirm <code>bge-m3</code> is
+   wired without opening <code>.env</code>.</p>
+</li>
+</ol>
+<p>Both slipped the sandbox gate because neither is verifiable without a human driving the
+provider form against a live Ollama — exactly the class of defect the human checkpoint
+exists to catch.</p>
+<h2 id="dev-environment-improvement-not-an-m4-defect">Dev-environment improvement (not an M4 defect)<a class="headerlink" href="#dev-environment-improvement-not-an-m4-defect" title="Permanent link">&para;</a></h2>
+<p>To make the human checkpoint repeatable on macOS, <code>docker-compose.dev.yml</code> was added
+(commits <code>196cf99</code>, <code>e4f3d1a</code>): a local-dev override that adds Qdrant + the Vite dev
+server as containers so the whole stack starts with one command. Ollama stays on the host.
+Production <code>docker-compose.yml</code> is unchanged (I9 respected).</p>
+<h2 id="release">Release<a class="headerlink" href="#release" title="Permanent link">&para;</a></h2>
+<p><code>v0.4.0 — Usable &amp; fluid (M4)</code> tagged on <code>sprint/v0.4</code> and published:
+https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases/tag/v0.4.0</p>
+<h2 id="gate-chain-final">Gate chain (final)<a class="headerlink" href="#gate-chain-final" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Gate</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QA</td>
+<td>PASS-WITH-NOTES (460 pytest / 370 vitest green; ruff/black/eslint/tsc clean)</td>
+</tr>
+<tr>
+<td>Architect</td>
+<td>GREEN — I1–I9 all respected; ER zero drift; F17 sound</td>
+</tr>
+<tr>
+<td>Tech-writer</td>
+<td>PASS-WITH-PENDING (D2/D4/D5/D6/D7 current)</td>
+</tr>
+<tr>
+<td>PM</td>
+<td>MET-WITH-FOLLOWUPS → cleared by this record</td>
+</tr>
+<tr>
+<td><strong>Human (EC-M4-HCP)</strong></td>
+<td><strong>✅ CLEARED — this document</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="carry-forwards-into-m5-non-blocking-tracked">Carry-forwards into M5 (non-blocking, tracked)<a class="headerlink" href="#carry-forwards-into-m5-non-blocking-tracked" title="Permanent link">&para;</a></h2>
+<ul>
+<li>TRACEABILITY.md stale PENDING rows → GREEN (GAP-HARD-1, GAP-HARD-5, AC-F4-GUX-<em>, M4-Phase0-</em>)</li>
+<li><code>docs/sprints/v0.4-architect-review.md</code> — create to close the audit trail</li>
+<li><code>graphViewer.test.ts</code> (3 AC-F4-GUX vitest items), <code>test_seed_demo.py</code> (T-SEED items)</li>
+<li>CF-HARD-1: recapture <code>docs/screens/shell-collapsed-panel.png</code></li>
+<li>AC-HARD-SET-5: settings left-nav arrow-key handler</li>
+</ul>
+<p><strong>M4 is MET. Sprint 5 (v0.5 / M5 — "Feature parity core") is cleared to start.</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

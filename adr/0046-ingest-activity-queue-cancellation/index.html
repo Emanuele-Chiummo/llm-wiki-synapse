@@ -1,0 +1,1041 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0046-ingest-activity-queue-cancellation/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0046 — Live ingest activity queue with cancel / pause / retry (F9-adjacent, watcher, I1/I7) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0046-live-ingest-activity-queue-with-cancel-pause-retry-f9-adjacent-watcher-i1i7" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0046 — Live ingest activity queue with cancel / pause / retry (F9-adjacent, watcher, I1/I7)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-schema-delta-alembic-0021-migration-0021_ingest_runs_queue_fieldspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Schema delta (Alembic 0021, migration 0021_ingest_runs_queue_fields.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-run-lifecycle-insert-running-at-start-update-to-terminal-at-end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Run lifecycle: insert running at START, UPDATE to terminal at END
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-cooperative-cancellation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Cooperative cancellation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-pause-resume-queue-gating-status-mirror-only-no-rescan-i1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Pause / resume (queue gating, status-mirror only — no rescan, I1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-retry-bounded-i7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Retry (bounded, I7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-api-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. API contracts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invariant-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariant compliance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#split-of-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Split of work
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#handoffs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Handoffs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0046-live-ingest-activity-queue-with-cancel-pause-retry-f9-adjacent-watcher-i1i7">ADR-0046 — Live ingest activity queue with cancel / pause / retry (F9-adjacent, watcher, I1/I7)<a class="headerlink" href="#adr-0046-live-ingest-activity-queue-with-cancel-pause-retry-f9-adjacent-watcher-i1i7" title="Permanent link">&para;</a></h1>
+<ul>
+<li>Status: Accepted</li>
+<li>Date: 2026-07-01</li>
+<li>Sprint: v0.6</li>
+<li>Decider: solution-architect</li>
+<li>Invariants: <strong>I1</strong> (cancel cascade-deletes partial output — no half-written index),
+  <strong>I7</strong> (retry capped at MAX_RETRIES=3, cooperative cancel checked only at loop boundaries),
+  <strong>I6</strong> (cancellation lives in the orchestrator/queue layer — providers untouched),
+  <strong>I8</strong> (schema delta → Alembic 0021 + <code>make er</code> regenerates <code>docs/er/schema.mmd</code>)</li>
+<li>Related: ADR-0001 (incremental mtime/hash gate, watcher), ADR-0003 (ingest seam),
+  ADR-0006 (no startup rescan, POST /ingest/trigger), ADR-0008/0009 (IngestRun cost ledger,
+  bounded loop + fallback), ADR-0018 §7 (IngestRun view fields, GET /ingest/runs),
+  ADR-0005 (soft/hard delete), cascade_delete (<code>backend/app/ops/cascade_delete.py</code>)</li>
+<li>Reference: nashsu/llm_wiki Activity Panel (states pending/processing/failed; MAX_RETRIES=3;
+  retry/cancel/pause; queue-level progress, not per-token)</li>
+</ul>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>Synapse ingest is <strong>server-side and watcher-driven</strong> (event-based), not a client-pushed
+queue like nashsu/llm_wiki. <code>backend/app/watcher.py</code> (<code>_MarkdownHandler</code>) debounces FS events
+per path (<code>_pending</code>/<code>_inflight</code>/<code>_dirty</code>, lines 68–142) and calls <code>ingest_file(path)</code>
+(<code>backend/app/ingest/orchestrator.py:99</code>), which routes into <code>run_ingest_pipeline</code>
+(orchestrator.py:319).</p>
+<p>The <code>ingest_runs</code> row is written <strong>once, at the END</strong> of a run — on success at
+orchestrator.py:520 and on failure at orchestrator.py:485, both via <code>_write_ingest_run</code>
+(orchestrator.py:1420 → <code>session.add(IngestRun(...))</code> at 1446). There is <strong>no
+<code>status="running"</code> row while a run is in flight</strong>, and no <code>source_path</code> column. Consequently:</p>
+<ul>
+<li>In-flight ingests are <strong>invisible</strong> to the API. <code>GET /ingest/runs</code> (main.py:2669) only ever
+  shows terminal rows.</li>
+<li>The frontend <code>ingestStore</code> polls every 5 s while <code>runningCount &gt; 0</code>, but <code>runningCount</code> is
+  always ~0 because no running row is ever persisted → the poll never activates.</li>
+<li>There is <strong>no handle</strong> to an in-flight run, so cancel/pause is impossible.</li>
+</ul>
+<p>We want to replicate the llm_wiki Activity Panel — a live queue with per-task <strong>cancel</strong>,
+<strong>retry</strong> (bounded), and queue-level <strong>pause/resume</strong> — while honoring Synapse's invariants.
+Because Synapse is single-vault (<code>settings.vault_id</code>), we drop llm_wiki's per-project
+partitioning: the queue is global to the instance.</p>
+<p>Two hard constraints shape the design:</p>
+<ol>
+<li><strong>I1 (incremental, no half-written index).</strong> A cancel mid-run must not leave orphan wiki
+   pages, embeddings, or links. The clean-up primitive already exists: <code>cascade_delete(page_id)</code>
+   (cascade_delete.py:630) removes a derived page, its Qdrant point, and dead wikilinks. We
+   reuse it — it is the direct analog of llm_wiki's <code>cleanupWrittenFiles</code>.</li>
+<li><strong>I7 (bounded).</strong> Retry must be capped (MAX_RETRIES=3, enforced via a <code>retry_count</code> column).
+   Cancellation must be <strong>cooperative</strong> — never a hard <code>Task.cancel()</code> mid-write that could
+   tear a page half-written — and must terminate <strong>promptly</strong> at loop boundaries.</li>
+</ol>
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<p>Introduce a small in-process <strong>queue manager</strong> module, promote <code>ingest_runs</code> to carry a live
+<code>running</code> row + <code>source_path</code> + <code>retry_count</code>, make the orchestrated loop check a cooperative
+cancel signal at its (already bounded) iteration boundary, and add five REST endpoints. No
+provider code changes (I6).</p>
+<h3 id="1-schema-delta-alembic-0021-migration-0021_ingest_runs_queue_fieldspy">1. Schema delta (Alembic 0021, migration <code>0021_ingest_runs_queue_fields.py</code>)<a class="headerlink" href="#1-schema-delta-alembic-0021-migration-0021_ingest_runs_queue_fieldspy" title="Permanent link">&para;</a></h3>
+<p>Add two columns to <code>ingest_runs</code> (<code>backend/app/models.py:569</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Nullable</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source_path</code></td>
+<td><code>Text</code></td>
+<td>yes</td>
+<td><code>NULL</code></td>
+<td>Relative raw source path (<code>raw/sources/…</code>) the run is ingesting. NULL for historical rows. Lets the queue show <code>filename</code> and lets cancel/retry target a file without a <code>page_id</code>.</td>
+</tr>
+<tr>
+<td><code>retry_count</code></td>
+<td><code>Integer</code></td>
+<td>no</td>
+<td><code>0</code> (<code>server_default '0'</code>)</td>
+<td>Times this source has been retried. Enforces MAX_RETRIES=3 (I7).</td>
+</tr>
+</tbody>
+</table>
+<p><code>finished_at</code> is <strong>already</strong> non-null with <code>server_default now()</code> (models.py:670). We keep it
+non-null: a <code>running</code> row simply has <code>finished_at == started_at</code> at insert; the terminal UPDATE
+overwrites it. <code>GET /ingest/runs</code> already nulls <code>completed_at</code> in the response when
+<code>status == "running"</code> (main.py:2740) — that response mapping needs <strong>no change</strong>.</p>
+<p>The <code>status</code> column comment (models.py:685) already documents <code>running</code>; the value now
+actually occurs. Migration is additive (two <code>add_column</code>) — no backfill needed beyond the
+column server-defaults.</p>
+<p><strong>I8:</strong> after the migration, run <code>make er</code> to regenerate <code>docs/er/schema.mmd</code> so the ER
+diagram matches the live schema. No sprint-done without it.</p>
+<h3 id="2-run-lifecycle-insert-running-at-start-update-to-terminal-at-end">2. Run lifecycle: insert <code>running</code> at START, UPDATE to terminal at END<a class="headerlink" href="#2-run-lifecycle-insert-running-at-start-update-to-terminal-at-end" title="Permanent link">&para;</a></h3>
+<p>Split <code>_write_ingest_run</code> (orchestrator.py:1420) into an <strong>insert-running</strong> and an
+<strong>update-terminal</strong> operation, and thread a <code>run_id</code> through <code>run_ingest_pipeline</code>
+(orchestrator.py:319):</p>
+<ul>
+<li><strong>At START</strong> (top of <code>run_ingest_pipeline</code>, before the route try-block at ~line 354):
+  <code>run_id = await _open_ingest_run(source_path=origin_source, provider_name=caps.name,
+  provider_type=caps.mode, model_id=…, route=route, started_at=started_at)</code>.
+  This <code>INSERT</code>s one row with <code>id=run_id</code>, <code>status="running"</code>, <code>source_path=origin_source</code>,
+  <code>started_at=now</code>, <code>finished_at=now</code> (placeholder), zeros for cost/tokens/pages, and
+  <code>retry_count</code> copied from the queue manager's per-path counter (see §5 retry).</li>
+<li><strong>At END</strong> (both the success path ~line 520 and the failure path ~line 485): call
+  <code>_finalize_ingest_run(run_id, …)</code> which <code>UPDATE ... WHERE id = run_id</code> sets the terminal
+  <code>status</code>, <code>finished_at</code>, <code>total_cost_usd</code>, <code>total_tokens</code>, <code>pages_created</code>, <code>converged</code>,
+  <code>cost_anomaly</code>, <code>error_message</code>. This replaces the current <code>session.add(IngestRun(...))</code>
+  INSERT — the row already exists.</li>
+<li><strong>On cancel</strong> (see §3): the finally path sets <code>status="cancelled"</code> (a new terminal value;
+  extend the <code>status</code> column comment to <code>running | completed | failed | converged_false |
+  cancelled</code>).</li>
+</ul>
+<p>The <code>run_id</code> is generated at START (<code>uuid.uuid4()</code>), registered in the queue manager keyed by
+<code>origin_source</code> <strong>and</strong> returned so the cancel endpoint can target it. It is threaded to
+<code>write_wiki_page</code> calls (orchestrator.py:424) so each written page_id is recorded against the
+run for cancel-time cascade cleanup (see §3).</p>
+<p><code>ingest_file</code> (orchestrator.py:99) is the caller for the watcher path. The mechanical
+source-indexing that follows the pipeline (persist_metadata/upsert_vector, lines 167–209) is
+<strong>inside</strong> the run's lifetime; the running row therefore also covers the source-summary index.</p>
+<h3 id="3-cooperative-cancellation">3. Cooperative cancellation<a class="headerlink" href="#3-cooperative-cancellation" title="Permanent link">&para;</a></h3>
+<p>New module <strong><code>backend/app/ingest/queue_manager.py</code></strong> — a single module-level singleton
+<code>ingest_queue</code> (mirrors the <code>_watcher</code> singleton pattern, watcher.py:243). It owns:</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">RunHandle</span><span class="p">:</span>
+    <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span>
+    <span class="n">source_path</span><span class="p">:</span> <span class="nb">str</span>                 <span class="c1"># relative raw/sources/... path</span>
+    <span class="n">cancel_event</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span>      <span class="c1"># set() by cancel(run_id)</span>
+    <span class="n">written_page_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">]</span>  <span class="c1"># appended by write_wiki_page during the run</span>
+    <span class="n">started_at</span><span class="p">:</span> <span class="n">datetime</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">IngestQueueManager</span><span class="p">:</span>
+    <span class="n">_active</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RunHandle</span><span class="p">]</span>        <span class="c1"># source_path -&gt; handle (in-flight)</span>
+    <span class="n">_pending</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PendingEntry</span><span class="p">]</span>    <span class="c1"># source_path -&gt; queued-but-not-dispatched (§4)</span>
+    <span class="n">_retry_counts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>        <span class="c1"># source_path -&gt; retries so far (I7)</span>
+    <span class="n">_paused</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">_completed_since_idle</span><span class="p">:</span> <span class="nb">int</span>
+</code></pre></div>
+<p><strong>Registration.</strong> <code>run_ingest_pipeline</code> calls <code>ingest_queue.open(run_id, source_path)</code> at
+START (returns the <code>RunHandle</code>) and <code>ingest_queue.close(source_path, terminal_status)</code> in a
+<code>finally</code>. <code>close</code> removes the active handle and, if the run finished cleanly, bumps
+<code>_completed_since_idle</code>; when both <code>_active</code> and <code>_pending</code> are empty it resets that counter to
+current on next transition (queue idle = "done removed", llm_wiki semantics).</p>
+<p><strong>Cancel request.</strong> <code>cancel(run_id)</code> looks up the handle by run_id, calls
+<code>handle.cancel_event.set()</code>, and returns whether a run was actually in flight.</p>
+<p><strong>Cancel checkpoints (I7 — bounded, loop-boundary only).</strong> We do <strong>not</strong> hard-cancel the
+asyncio Task (that risks a torn write mid-<code>write_wiki_page</code>, violating I1). Instead the
+orchestrated loop checks the event at its natural boundary. In
+<code>run_orchestrated_loop</code> (<code>backend/app/ingest/loop.py:140</code>, the <code>for i in range(1, max_iter+1)</code>
+head), add at the <strong>top of each iteration</strong>, before <code>generate()</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">if</span> <span class="n">cancel_event</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cancel_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+    <span class="n">stop_reason</span> <span class="o">=</span> <span class="s2">&quot;cancelled&quot;</span>
+    <span class="k">raise</span> <span class="n">IngestCancelled</span><span class="p">(</span><span class="n">origin_source</span><span class="p">)</span>
+</code></pre></div>
+<p><code>cancel_event</code> is passed down from <code>run_ingest_pipeline</code> → <code>_run_orchestrated</code>
+(orchestrator.py:598) → <code>run_orchestrated_loop</code>. This is a <strong>bounded, cooperative</strong> check: it
+fires between provider calls, never mid-call, so at most one in-flight <code>generate()</code> completes
+before abort. Because the loop is already <code>max_iter</code>-bounded (I7), no new unbounded surface is
+added.</p>
+<p><strong>Delegated (CLI) route.</strong> <code>supports_agentic_loop == True</code> runs the provider's own agent loop
+inside <code>_delegate_ingest</code> (orchestrator.py:651) — Synapse cannot inject a boundary check there
+without touching provider internals (<strong>I6 forbids it</strong>). Decision: for the delegated route,
+cancel is <strong>best-effort deferred</strong> — the event is checked once <em>after</em> <code>_delegate_ingest</code>
+returns and <em>before</em> the post-write hooks (overview/proposals). If set, we skip the hooks and
+proceed straight to cascade cleanup. The UI must therefore label cancel on a delegated run as
+"will clean up when the current step finishes." (Hard <code>asyncio.Task.cancel()</code> is explicitly
+rejected: it cannot be scoped to a loop boundary through the SDK and could tear a page write.)</p>
+<p><strong>Partial-output cleanup (I1).</strong> On <code>IngestCancelled</code> (or the deferred delegated skip), the
+<code>run_ingest_pipeline</code> handler:</p>
+<ol>
+<li>iterates <code>handle.written_page_ids</code> and calls <code>cascade_delete(page_id)</code>
+   (cascade_delete.py:630) for each — removing the derived wiki page, its Qdrant point, and any
+   dead wikilinks. cascade_delete's shared-entity preservation (rule 6) protects pages that
+   another live source still references, so cancelling one ingest never nukes a page a prior
+   ingest legitimately owns.</li>
+<li>calls <code>_finalize_ingest_run(run_id, status="cancelled", pages_created=0,
+   error_message="cancelled by user", total_cost_usd=&lt;accumulated so far&gt;)</code> — the I7 cost
+   ledger stays truthful (cost incurred before abort is still recorded).</li>
+<li>does <strong>not</strong> re-raise into the watcher (cancel is a normal, user-initiated terminal state).</li>
+</ol>
+<p>The raw <code>raw/sources/&lt;file&gt;</code> document is <strong>NOT</strong> deleted on cancel (unlike a full
+cascade-delete, cascade_delete.py step 9). Cancel aborts <em>processing</em>; the source file stays so
+the user can retry. <code>cascade_delete(page_id)</code> deletes the raw file only for a <em>source</em> page;
+here we pass the <strong>derived</strong> page_ids only, so the raw file is untouched. If a derived page IS
+the source-summary page whose file_path starts with <code>raw/sources/</code>, exclude it from the
+cascade set and instead soft-handle it — see §6 "needs-care" for backend-engineer.</p>
+<p><strong>Watcher re-fire suppression.</strong> A cancelled file must not immediately re-ingest. On cancel,
+the queue manager records <code>source_path</code> in a short-lived <code>_suppress: dict[str, float]</code>
+(path → monotonic deadline, window = <code>2 × WATCH_DEBOUNCE_SECONDS</code>). The watcher's <code>_fire</code>
+(watcher.py:120) consults <code>ingest_queue.should_skip(path)</code> before dispatching; if suppressed,
+it drops the event and clears the entry. This prevents the cancel's own <code>cascade_delete</code> file
+mutations (and any editor re-touch) from instantly re-triggering. A genuine user edit <em>after</em>
+the window re-ingests normally (I1 unaffected — mtime/hash gate still governs).</p>
+<h3 id="4-pause-resume-queue-gating-status-mirror-only-no-rescan-i1">4. Pause / resume (queue gating, status-mirror only — no rescan, I1)<a class="headerlink" href="#4-pause-resume-queue-gating-status-mirror-only-no-rescan-i1" title="Permanent link">&para;</a></h3>
+<p><code>pause()</code> sets <code>_paused = True</code>. <code>resume()</code> sets it False and drains <code>_pending</code>.</p>
+<p>Because the watcher is event-based (no explicit enqueue like llm_wiki), gating happens at the
+<strong>dispatch boundary</strong> in the watcher's <code>_fire</code> (watcher.py:120): before creating the ingest
+task, call <code>ingest_queue.admit(path, action)</code>:</p>
+<ul>
+<li><strong>not paused</strong> → <code>admit</code> returns <code>True</code>; watcher proceeds exactly as today (<code>_inflight</code> +
+  <code>create_task(_run)</code>).</li>
+<li><strong>paused</strong> → <code>admit</code> records <code>PendingEntry(source_path, action, first_seen_at)</code> in
+  <code>_pending</code> and returns <code>False</code>; watcher does <strong>not</strong> dispatch. The debounce/<code>_dirty</code>
+  machinery is unchanged — a pending path that gets re-saved just updates its <code>PendingEntry</code>
+  action (last-writer-wins), it does not stack.</li>
+</ul>
+<p><code>resume()</code> replays each <code>_pending</code> entry through the watcher's normal <code>_arm(path, action)</code>
+seam (a public hook the queue manager calls back into) so they flow through the <em>same</em>
+debounce → <code>_fire</code> → <code>ingest_file</code> path. This is a <strong>status mirror only</strong>: <code>_pending</code> holds
+paths already surfaced by FS events — the manager never enumerates the vault (I1 preserved; no
+<code>listdir</code>/<code>glob</code>/<code>rglob</code>, consistent with watcher.py's contract, lines 13/183).</p>
+<p>Queue counts are derived from the manager's live maps — never from a scan:
+- <code>pending</code> = <code>len(_pending)</code>
+- <code>processing</code> = <code>len(_active)</code>
+- <code>failed</code> = count of in-window handles/entries whose last terminal status was <code>failed</code>
+  (the manager keeps a small <code>_recent_failed: dict[str, FailedEntry]</code> so failed tasks stay
+  visible for retry, matching llm_wiki where <code>done</code> is removed but <code>failed</code> persists).
+- <code>completed_since_idle</code> = <code>_completed_since_idle</code>
+- <code>total</code> = <code>pending + processing + len(_recent_failed)</code></p>
+<h3 id="5-retry-bounded-i7">5. Retry (bounded, I7)<a class="headerlink" href="#5-retry-bounded-i7" title="Permanent link">&para;</a></h3>
+<p><code>retry(run_id)</code>:
+1. resolve the run's <code>source_path</code> (from the manager's failed entry, or the <code>ingest_runs</code> row).
+2. read <code>_retry_counts[source_path]</code> (0 if absent). If <code>&gt;= MAX_RETRIES</code> (3) → reject
+   (see §6 API <code>409</code>).
+3. increment <code>_retry_counts[source_path]</code>, drop the <code>_recent_failed</code> entry, and re-dispatch by
+   calling the watcher's <code>_arm(abs_path, "ingest")</code> (same seam resume uses). The new run's
+   <code>_open_ingest_run</code> reads the bumped count into the row's <code>retry_count</code> column.</p>
+<p>MAX_RETRIES lives as a module constant <code>MAX_INGEST_RETRIES = 3</code> in <code>queue_manager.py</code>. A
+successful run clears <code>_retry_counts[source_path]</code>.</p>
+<h3 id="6-api-contracts">6. API contracts<a class="headerlink" href="#6-api-contracts" title="Permanent link">&para;</a></h3>
+<p><strong><code>GET /ingest/queue</code></strong> — live snapshot from the queue manager (no DB scan for the summary;
+<code>tasks</code> reads <code>_active</code>/<code>_pending</code>/<code>_recent_failed</code>, enriched with the running-row fields):</p>
+<p><div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;paused&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;pending&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;processing&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;failed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;completed_since_idle&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;tasks&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;run_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;3f…&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;source_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw/sources/paper.md&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;filename&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;paper.md&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;processing&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;retry_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;error&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;started_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-07-01T18:22:04Z&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;run_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;source_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw/sources/notes.md&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;filename&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;notes.md&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pending&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;retry_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;error&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;started_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;run_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;a1…&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;source_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw/sources/bad.md&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;filename&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bad.md&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;failed&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;retry_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;schema validation failed&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;started_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-07-01T18:20:00Z&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+- <code>run_id</code> is <code>null</code> for <code>pending</code> tasks (no row opened yet).
+- <code>status</code> ∈ <code>pending | processing | failed</code>. <code>completed</code>/<code>cancelled</code> tasks drop out of
+  <code>tasks</code> (llm_wiki: done removed) but <code>completed_since_idle</code> counts them until the queue
+  goes idle.
+- Cheap read: pure in-memory maps + optional 1 indexed SELECT for failed-row enrichment. No
+  heavy compute (respects I2/I3 spirit — this endpoint is polled).</p>
+<p><strong><code>POST /ingest/runs/{id}/cancel</code></strong> →
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;run_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;3f…&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cancelling&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;cleaned_pages&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+- <code>202</code> while abort is requested; the cascade cleanup completes asynchronously at the next
+  loop boundary. <code>cleaned_pages</code> is <code>0</code> at request time (final count logged, not awaited).
+- <code>404</code> if <code>run_id</code> unknown. <code>409</code> if the run is already terminal
+  (<code>completed|failed|converged_false|cancelled</code>) — cannot cancel a finished run.</p>
+<p><strong><code>POST /ingest/runs/{id}/retry</code></strong> →
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;run_id_prev&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;a1…&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;source_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw/sources/bad.md&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;retry_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;queued&quot;</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+- <code>202</code>; a new run will open on re-dispatch.
+- <code>404</code> if <code>run_id</code> unknown. <code>409</code> if the prior run is <strong>not</strong> in a retryable state (only
+  <code>failed</code>/<code>cancelled</code>/<code>converged_false</code> are retryable; retrying a <code>running</code> or <code>completed</code>
+  run is rejected). <code>409</code> with <code>detail:"max_retries_exceeded"</code> if
+  <code>retry_count &gt;= MAX_INGEST_RETRIES</code> (I7).</p>
+<p><strong><code>POST /ingest/queue/pause</code></strong> → <code>{ "paused": true }</code> (idempotent; <code>200</code>).</p>
+<p><strong><code>POST /ingest/queue/resume</code></strong> → <code>{ "paused": false, "drained": 2 }</code> (<code>drained</code> = pending
+entries replayed; idempotent; <code>200</code>).</p>
+<p>All five endpoints live in <code>backend/app/main.py</code> near the existing ingest block
+(after <code>/ingest/runs</code>, ~line 2728), reusing <code>IngestTriggerResponse</code>-style typed Pydantic
+models so they appear in OpenAPI (D4).</p>
+<h2 id="invariant-compliance">Invariant compliance<a class="headerlink" href="#invariant-compliance" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>I1</strong> — cancel calls <code>cascade_delete</code> on every page written this run; the index never
+  retains half-written pages/embeddings/links. Pause/resume and queue counts are pure status
+  mirrors of FS-event-surfaced paths — <strong>no vault enumeration</strong> anywhere (no listdir/glob).
+  The mtime/hash gate (ADR-0001) still governs all (re)ingest.</li>
+<li><strong>I6</strong> — no provider or InferenceProvider file is touched. The cancel event is threaded as a
+  plain optional arg into the orchestrator loop and checked <em>outside</em> any provider call.
+  Delegated (CLI) route cancel is deferred to a post-return boundary precisely because we will
+  not reach into provider internals.</li>
+<li><strong>I7</strong> — retry hard-capped at <code>MAX_INGEST_RETRIES = 3</code> with a <code>retry_count</code> column and a
+  <code>409</code> on exceed. Cancel is cooperative and checked only at the already-bounded
+  <code>max_iter</code>/<code>token_budget</code> loop boundary — no new unbounded loop, prompt termination.</li>
+<li><strong>I8</strong> — schema change ships as Alembic <code>0021_ingest_runs_queue_fields.py</code>; <code>make er</code>
+  regenerates <code>docs/er/schema.mmd</code> in the same PR; OpenAPI (D4) picks up the five new
+  endpoints automatically. A sequence-diagram stub (D3) for cancel→cascade is handed to
+  tech-writer.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong>
+- In-flight ingests become visible (the <code>running</code> row finally exists); the frontend's existing
+  5 s poll activates as designed.
+- Users get llm_wiki-parity control (cancel/retry/pause) without per-token machinery — queue
+  is file-granular, matching I3's "no per-token heavy work" ethos.
+- Reuses <code>cascade_delete</code> and the watcher's <code>_arm</code> seam — minimal new surface, one new module.</p>
+<p><strong>Negative / trade-offs</strong>
+- Cancel latency = up to one provider <code>generate()</code> call (orchestrated) or one full agent step
+  (delegated). We accept this over a hard <code>Task.cancel()</code> that could tear a write (I1). UI must
+  communicate "cancelling…".
+- Queue state is <strong>in-process</strong> (module singleton). A backend restart loses <code>_pending</code>/
+  <code>_active</code>; any run interrupted by a crash is left as a stale <code>running</code> row. Mitigation
+  (backend-engineer, needs-care): a lifespan-startup sweep that marks orphan <code>running</code> rows
+  (finished_at == started_at, older than a threshold) as <code>failed</code> with
+  <code>error_message="interrupted (backend restart)"</code>. This is a status fix only — <strong>no rescan,
+  no re-ingest</strong> (I1). <code>_pending</code> loss is acceptable: those files are still on disk; a future
+  edit re-surfaces them, and the startup notice (ADR-0006) already tells users pre-existing
+  files aren't auto-indexed.
+- Single-vault only (by design — <code>settings.vault_id</code>); llm_wiki's per-project queue is dropped.</p>
+<h2 id="split-of-work">Split of work<a class="headerlink" href="#split-of-work" title="Permanent link">&para;</a></h2>
+<p><strong>backend-engineer</strong>
+- <code>models.py:569</code> — add <code>source_path</code>, <code>retry_count</code>. <em>SAFE</em> (additive).
+- <code>backend/alembic/versions/0021_ingest_runs_queue_fields.py</code> — two <code>add_column</code>. <em>SAFE</em>.
+- <code>make er</code> → <code>docs/er/schema.mmd</code>. <em>SAFE</em> (generated).
+- <code>backend/app/ingest/queue_manager.py</code> — new module: singleton, RunHandle, admit/open/close/
+  cancel/retry/pause/resume/should_skip, <code>MAX_INGEST_RETRIES=3</code>. <em>needs-care</em> (concurrency:
+  all mutations happen on the loop thread, mirror watcher's no-lock invariant, lines 65–76).
+- <code>orchestrator.py</code> — split <code>_write_ingest_run</code> (1420) into <code>_open_ingest_run</code> (INSERT running
+  at ~354) + <code>_finalize_ingest_run</code> (UPDATE at 485 &amp; 520); thread <code>run_id</code>/<code>cancel_event</code>;
+  record written page_ids on the handle at the <code>write_wiki_page</code> loop (424); add the
+  <code>IngestCancelled</code> handler that cascade-deletes and finalizes as <code>cancelled</code>. <em>needs-care</em>
+  (must not change provider/loop cost logic — NB guard; delegated-route deferred-cancel
+  boundary; exclude any raw/sources/ source-summary page from the cascade set).
+- <code>backend/app/ingest/loop.py:140</code> — top-of-iteration <code>cancel_event.is_set()</code> check raising
+  <code>IngestCancelled</code>. <em>needs-care</em> (boundary only — never inside a provider call, I7).
+- <code>watcher.py</code> — <code>_fire</code> (120) consults <code>should_skip</code> + <code>admit</code>; expose <code>_arm</code> for
+  resume/retry replay. <em>needs-care</em> (preserve <code>_inflight</code>/<code>_dirty</code> coalescing, I1).
+- <code>main.py</code> (~after 2728) — five endpoints + typed models; lifespan orphan-<code>running</code> sweep.
+  <em>needs-care</em> (409/404 error cases exactly as §6; sweep is status-only, no re-ingest).</p>
+<p><strong>frontend-engineer</strong>
+- ActivityBar → activity panel: poll <code>GET /ingest/queue</code> (extend/replace <code>ingestStore</code>'s
+  existing 5 s poll). <em>SAFE</em>.
+- Per-task action buttons → <code>cancel</code>/<code>retry</code>; queue-level pause/resume toggle. <em>SAFE</em>.
+- Auto-expand panel while <code>processing &gt; 0</code> (llm_wiki behavior). <em>SAFE</em>.
+- Disable retry when <code>retry_count &gt;= 3</code>; surface "cancelling…" transient state. <em>needs-care</em>
+  (reflect deferred cancel latency; do not spam-poll — keep 5 s, no per-token, I3).
+- i18n (IT/EN) strings for states/actions. <em>SAFE</em>.
+- NO force layout / heavy render in the panel (I2/I3/I4 — virtualize the task list if long,
+  TanStack Virtual). <em>needs-care</em>.</p>
+<h2 id="handoffs">Handoffs<a class="headerlink" href="#handoffs" title="Permanent link">&para;</a></h2>
+<ul>
+<li>ADR (this file) → tech-writer.</li>
+<li>Interface contracts (§6 API, <code>queue_manager.py</code> surface) → backend-engineer, frontend-engineer.</li>
+<li>Cancel→cascade sequence-diagram stub (D3) → tech-writer.</li>
+<li>ER regeneration reminder (D2) → devops-engineer / backend-engineer.</li>
+<li>PR verdicts → orchestrator.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

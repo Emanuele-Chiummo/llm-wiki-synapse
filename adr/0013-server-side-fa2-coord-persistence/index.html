@@ -1,0 +1,757 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0013-server-side-fa2-coord-persistence/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0013 — Server-side FA2 layout, coordinate persistence, and determinism seed (I2) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0013-server-side-fa2-layout-coordinate-persistence-and-determinism-seed-i2" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0013 — Server-side FA2 layout, coordinate persistence, and determinism seed (I2)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-fa2-runs-only-in-backendappgraphenginepy-via-python-igraph-i2-i9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. FA2 runs ONLY in backend/app/graph/engine.py via python-igraph (I2, I9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-determinism-fixed-seed-aq-v03-2-fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Determinism: fixed seed (AQ-v0.3-2 → fixed)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-coordinate-storage-columns-on-pages-aq-v03-6-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Coordinate storage: columns on pages (AQ-v0.3-6 → columns)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-incremental-semantics-aq-v03-4-clarified-not-frozen-coords" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Incremental semantics (AQ-v0.3-4 → clarified, NOT frozen coords)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-recompute-is-a-single-bounded-pass-i7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Recompute is a single bounded pass (I7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#algorithm-enginerecompute-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Algorithm (engine.recompute, summary)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0013-server-side-fa2-layout-coordinate-persistence-and-determinism-seed-i2">ADR-0013 — Server-side FA2 layout, coordinate persistence, and determinism seed (I2)<a class="headerlink" href="#adr-0013-server-side-fa2-layout-coordinate-persistence-and-determinism-seed-i2" title="Permanent link">&para;</a></h1>
+<ul>
+<li>Status: Accepted</li>
+<li>Date: 2026-06-28</li>
+<li>Sprint: v0.3</li>
+<li>Decider: solution-architect</li>
+<li>Invariants: <strong>I2</strong> (layout server-side + cached, NEVER on UI main thread), I1 (incremental
+  row updates), I9 (igraph R9), I7 (single bounded pass)</li>
+<li>Related: CLAUDE.md §3 I2, §4 F4, v0.3-scope §4/§6, ADR-0005 (data_version), ADR-0012, ADR-0014</li>
+<li>Resolves: AQ-v0.3-2 (FA2 determinism seed), AQ-v0.3-4 (incremental semantics),
+  AQ-v0.3-6 (coordinate storage location)</li>
+</ul>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>I2 is the headline invariant of M3: ForceAtlas2 must run <strong>only</strong> server-side, coordinates
+stored in Postgres, and the client renders precomputed coords in WebGL — never a force layout
+on the browser main thread. Three pinned decisions are required before engineering:
+seed determinism (AQ-2), what "incremental" means when FA2 is a global algorithm (AQ-4), and
+where x/y live (AQ-6).</p>
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<h3 id="1-fa2-runs-only-in-backendappgraphenginepy-via-python-igraph-i2-i9">1. FA2 runs ONLY in <code>backend/app/graph/engine.py</code> via python-igraph (I2, I9)<a class="headerlink" href="#1-fa2-runs-only-in-backendappgraphenginepy-via-python-igraph-i2-i9" title="Permanent link">&para;</a></h3>
+<p>The layout is computed by <code>igraph.Graph.layout_fruchterman_reingold</code> /
+<code>layout_drl</code> — <strong>architect note:</strong> the canonical "ForceAtlas2-family" force-directed layout in
+python-igraph is exposed as <code>layout_drl</code> (Distributed Recursive Layout) and the
+Fruchterman-Reingold family; both are force-directed and satisfy I2's "FA2 runs server-side"
+intent. The engineer selects the igraph force-directed layout that accepts a <code>seed</code>/initial
+coordinate parameter and weighting. <strong>The library choice is locked to python-igraph (R9, I9).</strong>
+No layout code may exist in any frontend file (enforced by AC-FE-2 / AC-F4-2b static bundle
+grep, a P0 block — see ADR-0014).</p>
+<p>The weighted edge list from ADR-0012 is passed to the layout as <strong>edge weights</strong>, so strongly
+related pages are pulled closer.</p>
+<h3 id="2-determinism-fixed-seed-aq-v03-2-fixed">2. Determinism: fixed seed (AQ-v0.3-2 → fixed)<a class="headerlink" href="#2-determinism-fixed-seed-aq-v03-2-fixed" title="Permanent link">&para;</a></h3>
+<p>The engine seeds the force layout with a <strong>fixed integer <code>FA2_SEED = 42</code></strong> (module constant,
+overridable via the <code>GRAPH_LAYOUT_SEED</code> env var for experimentation, default 42). Given
+identical graph topology + weights, two recompute runs produce <strong>identical</strong> coordinates.</p>
+<p>Rationale: reproducible coords enable byte-stable-ish regression tests, make screenshot
+diffs (D5) stable, and make a cache hit provably equal to the prior miss. Layout variety is
+not a v0.3 goal. igraph seeding is done by setting the RNG via <code>igraph.set_random_number_generator</code>
+/ passing <code>seed=</code> to the layout call as the library supports; the engineer wires whichever the
+chosen layout exposes and asserts determinism in <code>test_graph_engine.py</code>.</p>
+<h3 id="3-coordinate-storage-columns-on-pages-aq-v03-6-columns">3. Coordinate storage: columns on <code>pages</code> (AQ-v0.3-6 → columns)<a class="headerlink" href="#3-coordinate-storage-columns-on-pages-aq-v03-6-columns" title="Permanent link">&para;</a></h3>
+<p>x and y are stored as <strong>two nullable float columns on the existing <code>pages</code> table</strong>:
+<code>pages.x DOUBLE PRECISION NULL</code>, <code>pages.y DOUBLE PRECISION NULL</code>. Not a separate
+<code>graph_coords</code> table.</p>
+<p>Rationale:
+- BACKLOG.md §F4 and AC-D2v3-1 explicitly specify <code>pages.x, pages.y</code> columns — confirmed, no change.
+- The graph node IS a page; 1:1 cardinality makes a join table pure overhead.
+- Coordinates are written in the <strong>same UPDATE</strong> that already touches the page row, keeping
+  the recompute a set of column-level upserts (I1-friendly, no full-table rewrite).
+- NULL x/y is a valid "not yet laid out" state (a brand-new page between ingest and the next
+  debounced recompute); <code>GET /graph</code> filters or includes per ADR-0014.</p>
+<p>A monotonic <code>vault_state.data_version</code> (ADR-0005) already exists as the layout-version signal,
+so no per-row <code>layout_version</code> column is needed; the cache (ADR-0014) tracks which
+<code>data_version</code> the persisted coords correspond to.</p>
+<h3 id="4-incremental-semantics-aq-v03-4-clarified-not-frozen-coords">4. Incremental semantics (AQ-v0.3-4 → clarified, NOT frozen coords)<a class="headerlink" href="#4-incremental-semantics-aq-v03-4-clarified-not-frozen-coords" title="Permanent link">&para;</a></h3>
+<p>FA2 is a <strong>global</strong> layout: every recompute repositions <strong>all</strong> nodes. "Incremental" (I1 / G1)
+at the graph level means precisely two things, and NOT coordinate-freezing:</p>
+<ol>
+<li><strong>Ingesting one file mutates only that file's DB rows.</strong> One new <code>pages</code> row is inserted
+   (or one upserted); the page's <code>links</code> are re-persisted. No other <code>pages</code> row is deleted or
+   recreated; ids/title/type/sources of unrelated pages are untouched (AC-F4-9).</li>
+<li><strong>Recompute is triggered ONCE per debounce window</strong> on a <code>data_version</code> bump (ADR-0014),
+   not once per file change. It is off the ingest hot path.</li>
+</ol>
+<p>The coordinate <strong>values</strong> of existing pages MAY change after a recompute — this is correct and
+expected because FA2 is global. AC-F4-9 therefore asserts <strong>row-level</strong> incrementality (exactly
++1 row, unrelated rows unchanged), <strong>not</strong> coordinate stability. This is documented in
+<code>test_incremental_graph_update.py</code> to prevent a false-failure on coord drift.</p>
+<h3 id="5-recompute-is-a-single-bounded-pass-i7">5. Recompute is a single bounded pass (I7)<a class="headerlink" href="#5-recompute-is-a-single-bounded-pass-i7" title="Permanent link">&para;</a></h3>
+<p><code>recompute()</code> is one pass: build weights (ADR-0012) → build igraph graph → run seeded FA2 →
+write coords + edges in one transaction. It is not a loop. Bounding of <em>how often</em> it runs is
+the cache's job (ADR-0014, max one queued follow-up). The engine logs node count, edge count,
+and wall-clock duration per run (I7 observability).</p>
+<h2 id="algorithm-enginerecompute-summary">Algorithm (engine.recompute, summary)<a class="headerlink" href="#algorithm-enginerecompute-summary" title="Permanent link">&para;</a></h2>
+<ol>
+<li><code>SELECT id, page_type, sources FROM pages WHERE deleted_at IS NULL</code> → node set + attributes.</li>
+<li><code>SELECT source_page_id, target_page_id FROM links WHERE dangling = false AND target_page_id IS NOT NULL</code> → resolved directed edges.</li>
+<li>Build undirected unweighted igraph for AA; compute <code>similarity_inverse_log_weighted</code> (AA matrix, sparse-restricted to neighbour-sharing pairs).</li>
+<li>Compute the four-signal weight per candidate pair (ADR-0012); keep weight &gt; 0.</li>
+<li>Build the weighted igraph for layout; run seeded FA2 → coords per node.</li>
+<li>In ONE transaction: <code>UPDATE pages SET x=?, y=? WHERE id=?</code> for each node (batch);
+   replace <code>edges</code> rows (delete-then-insert for this vault, or upsert) with the weight list.</li>
+<li>Stamp the cache (ADR-0014) with the <code>data_version</code> these coords correspond to. Log metrics.</li>
+</ol>
+<p><strong>Complexity:</strong> nodes N, resolved links L, candidate pairs P (pairs sharing a source or a
+neighbour — far fewer than N²). Weight build O(L + P). FA2 O(iters · (N + E)). Persistence
+O(N + E). For target vaults (&lt;500 nodes) this is sub-2s, supporting synchronous <code>GET /graph</code>
+(ADR-0014).</p>
+<p>It reads only Postgres tables — <strong>never walks <code>vault/</code></strong> (I1). The vault filesystem is not
+touched by the graph engine at all (also satisfies I5: no <code>.md</code>/frontmatter writes).</p>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li>(+) I2 satisfied at the source: the only force-layout code in the repo is in <code>engine.py</code>.</li>
+<li>(+) Fixed seed → deterministic coords → stable tests and stable D5 screenshots.</li>
+<li>(+) Columns on <code>pages</code> keep coord writes inside the existing row upsert (I1, no join table).</li>
+<li>(+) Clear, documented incremental semantics prevent a false AC-F4-9 failure on coord drift.</li>
+<li>(−) Global relayout means coords are not stable across ingests (nodes "jump" between
+  versions). Accepted for v0.3; an incremental/anchored layout is a possible v0.5+ refinement,
+  out of scope and explicitly NOT required by I1.</li>
+<li>(−) <code>pages</code> gains two nullable columns that are NULL until first layout. Handled by ADR-0014
+  (first <code>GET /graph</code> triggers a synchronous miss compute) and an <code>is null</code> filter on read.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

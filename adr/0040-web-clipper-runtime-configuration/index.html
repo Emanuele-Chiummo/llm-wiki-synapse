@@ -1,0 +1,1046 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0040-web-clipper-runtime-configuration/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0040 — Web clipper runtime configuration (GET/PUT /clip/config; DB wins over env) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0040-web-clipper-runtime-configuration-getput-clipconfig-db-wins-over-env" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0040 — Web clipper runtime configuration (GET/PUT /clip/config; DB wins over env)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-three-new-columns-on-vault_state-db-wins-when-set-env-is-the-fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Three new columns on vault_state; DB wins when set; env is the fallback
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-token-storage-pbkdf2-sha256-hash-mirrors-adr-0033" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Token storage: PBKDF2-SHA256 hash (mirrors ADR-0033)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Endpoints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-in-process-cache-_clipconfigcache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 In-process cache: _ClipConfigCache
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-post-clip-handler-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 POST /clip handler updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-existing-tests-unchanged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Existing tests unchanged
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-new-config-schema-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. New config / schema / migration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-acceptance-checks-dod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Acceptance checks (DoD)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0040-web-clipper-runtime-configuration-getput-clipconfig-db-wins-over-env">ADR-0040 — Web clipper runtime configuration (GET/PUT /clip/config; DB wins over env)<a class="headerlink" href="#adr-0040-web-clipper-runtime-configuration-getput-clipconfig-db-wins-over-env" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-06-30</li>
+<li><strong>Sprint:</strong> v0.6 (Amendment — F11 web clipper runtime management)</li>
+<li><strong>Feature:</strong> F11 (Web Clipper ingress, ADR-0038); parity with MCP token management (ADR-0033)</li>
+<li><strong>Invariants owned:</strong> <strong>I5</strong> (vault unchanged) · <strong>I7</strong> (no new loop) · <strong>I8</strong> (D2 ER + D4 OpenAPI updated) · <strong>I9</strong> (reuse <code>vault_state</code> + existing <code>POST /clip</code>; no new process, no new dep)</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> backend-engineer (models + migration <code>0015</code> + in-process cache + <code>GET/PUT /clip/config</code> + update <code>POST /clip</code> gates + tests + ADR) · tech-writer (D2 ER regen, D4 OpenAPI, README row)</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>ADR-0038 shipped the F11 web clipper ingress (<code>POST /clip</code>) as an <strong>env-only</strong> configuration:
+<code>CLIP_ENABLED</code>, <code>CLIP_TOKEN</code>, <code>CLIP_ALLOWED_ORIGINS</code>, <code>CLIP_MAX_BODY_BYTES</code> control every
+security property. This is deliberately fail-closed and correct, but incoherent with the MCP
+surface, which gained <strong>runtime token management</strong> in ADR-0033 (<code>PUT /mcp/auth</code>,
+<code>GET /mcp/info</code>). The clip ingress has no way to be configured from the web UI without editing
+env vars and restarting the container.</p>
+<p><strong>Owner request:</strong> add runtime configuration for the clip ingress, <strong>mirroring the proven MCP
+auth pattern</strong> (ADR-0033) exactly: a Settings UI can enable the clipper, generate/rotate/clear
+its token, and set the allowed-origins list without touching <code>.env</code> or restarting.</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-three-new-columns-on-vault_state-db-wins-when-set-env-is-the-fallback">2.1 Three new columns on <code>vault_state</code>; DB wins when set; env is the fallback<a class="headerlink" href="#21-three-new-columns-on-vault_state-db-wins-when-set-env-is-the-fallback" title="Permanent link">&para;</a></h3>
+<p><strong>Resolution precedence (most specific wins):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Config aspect</th>
+<th>DB column</th>
+<th>Env var</th>
+<th>Resolution rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Enabled gate</td>
+<td><code>clip_enabled_db</code> (BOOLEAN NULL)</td>
+<td><code>CLIP_ENABLED</code></td>
+<td>DB NOT NULL → DB wins; DB NULL → env</td>
+</tr>
+<tr>
+<td>Bearer token</td>
+<td><code>clip_access_token</code> (TEXT NULL)</td>
+<td><code>CLIP_TOKEN</code></td>
+<td>DB NOT NULL → DB wins; DB NULL → env</td>
+</tr>
+<tr>
+<td>Allowed origins</td>
+<td><code>clip_allowed_origins_db</code> (TEXT NULL)</td>
+<td><code>CLIP_ALLOWED_ORIGINS</code></td>
+<td>DB NOT NULL → DB wins; DB NULL → env</td>
+</tr>
+<tr>
+<td>Max body bytes</td>
+<td><em>(not runtime-settable)</em></td>
+<td><code>CLIP_MAX_BODY_BYTES</code></td>
+<td>env-only (no DB column; change requires restart)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why DB wins over env (not env wins over DB):</strong> The UI-set value is the <em>current operator
+intent</em>. The env value is the <em>bootstrap / deployment default</em>. Once the operator has used the
+UI to change a setting, the UI value should hold — exactly as ADR-0033 §2.1 decided for the
+MCP token ("DB hash takes precedence when set").</p>
+<p><strong>Why <code>clip_enabled_db</code> is three-state (BOOLEAN NULL) not two-state:</strong> a DB value of <code>NULL</code>
+means "the operator has not used the UI to override this" — so the env var governs. A DB value
+of <code>TRUE</code> or <code>FALSE</code> is an explicit UI override. This allows a clean initial state where only
+env governs (zero-friction upgrade), and lets the operator later revert to env governance by
+clearing the DB value via <code>PUT /clip/config</code> with <code>set_enabled=null</code> (future option; current
+API sets or leaves unchanged — clearing requires a separate DB null-able path, TBD per owner
+if ever needed).</p>
+<h3 id="22-token-storage-pbkdf2-sha256-hash-mirrors-adr-0033">2.2 Token storage: PBKDF2-SHA256 hash (mirrors ADR-0033)<a class="headerlink" href="#22-token-storage-pbkdf2-sha256-hash-mirrors-adr-0033" title="Permanent link">&para;</a></h3>
+<p><strong>Decision: <code>clip_access_token</code> in <code>vault_state</code> stores a PBKDF2-SHA256 hash, not the raw
+token. This mirrors ADR-0033 §2.1 exactly.</strong></p>
+<p><code>PUT /clip/config {rotate_token:true}</code>:
+1. Generates a raw token via <code>secrets.token_urlsafe(32)</code>.
+2. Hashes it with <code>_hash_token()</code> (PBKDF2-SHA256, 260,000 iterations, random salt) — the
+   same helper used by the MCP path (ADR-0033).
+3. Stores <strong>only the hash</strong> in <code>vault_state.clip_access_token</code>. The raw token is never
+   persisted anywhere.
+4. Returns the raw token <strong>once</strong> in <code>generated_token</code> of the PUT response. Subsequent
+   <code>GET /clip/config</code> calls NEVER return it.</p>
+<p><strong><code>POST /clip</code> auth is source-aware (constant-time throughout):</strong></p>
+<table>
+<thead>
+<tr>
+<th><code>token_source</code></th>
+<th>Verification method</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"db"</code></td>
+<td><code>_verify_token(presented, db_hash)</code> — PBKDF2 constant-time compare (same as MCP)</td>
+</tr>
+<tr>
+<td><code>"env"</code></td>
+<td><code>hmac.compare_digest(presented, env_token)</code> — plaintext constant-time compare</td>
+</tr>
+<tr>
+<td><code>"none"</code></td>
+<td>401 immediately</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why env path stays plaintext:</strong> The env var <code>CLIP_TOKEN</code> is an operator-provided pre-shared
+secret stored in <code>.env</code> / shell environment — it cannot be hashed at rest by Synapse because
+Synapse never sees the original plaintext at hash-time for env vars. The DB path does see the
+plaintext at rotate-time, so it can and does hash it. This split is correct and documented.</p>
+<p><strong>Why PBKDF2 for the DB path (same as MCP):</strong> A DB or backup leak must not yield a usable
+credential. The 260k-iteration PBKDF2 hash means an attacker who obtains the DB row cannot
+brute-force the token in reasonable time. The per-request PBKDF2 latency is acceptable for
+the clip ingress (typically one ingest per browser clip, not a high-frequency endpoint).</p>
+<p><strong>Token value NEVER returned by GET /clip/config.</strong> The endpoint returns only:
+- <code>token_configured: bool</code>
+- <code>token_source: "db" | "env" | "none"</code></p>
+<p>Never the value, hash, or salt. This is the load-bearing invariant of this ADR and is tested
+explicitly in the test suite (<code>test_clip_config_response_never_contains_token_value</code>,
+<code>test_put_clip_config_rotate_stores_pbkdf2_hash</code>, <code>test_rotate_token_authenticates_post_clip</code>).</p>
+<h3 id="23-endpoints">2.3 Endpoints<a class="headerlink" href="#23-endpoints" title="Permanent link">&para;</a></h3>
+<p><strong>GET /clip/config</strong> (read-only posture, mirrors GET /mcp/info):
+<div class="highlight"><pre><span></span><code>GET /clip/config
+  response: ClipConfigResponse {
+    enabled:          bool,          # resolved (DB or env)
+    token_configured: bool,          # DB or env token present; NEVER the value
+    token_source:     &quot;db&quot;|&quot;env&quot;|&quot;none&quot;,
+    allowed_origins:  list[str],     # resolved (DB or env) + implicit loopback
+    max_body_bytes:   int            # CLIP_MAX_BODY_BYTES env; not runtime-settable
+  }
+</code></pre></div></p>
+<p><strong>PUT /clip/config</strong> (write posture, mirrors PUT /mcp/auth):
+<div class="highlight"><pre><span></span><code>PUT /clip/config
+  request body: ClipConfigRequest {
+    rotate_token:        bool | None,  # true ⇒ generate new token, return ONCE in generated_token
+    clear_token:         bool | None,  # true ⇒ set clip_access_token = NULL (env fallback)
+    set_enabled:         bool | None,  # set clip_enabled_db; omit = no change
+    set_allowed_origins: str  | None   # comma-separated; &quot;&quot; = clear to env fallback; omit = no change
+  }
+  response body: ClipConfigStateResponse {
+    enabled:          bool,
+    token_configured: bool,
+    token_source:     &quot;db&quot;|&quot;env&quot;|&quot;none&quot;,
+    allowed_origins:  list[str],
+    max_body_bytes:   int,
+    generated_token:  str | None     # ONLY on rotate_token=true — shown ONCE, never again
+  }
+</code></pre></div></p>
+<p><strong>Authentication on the endpoints themselves:</strong> same-origin / unauthenticated, consistent with
+<code>PUT /mcp/auth</code> (ADR-0033 §2.5) and the rest of the REST API. The network perimeter +
+bearer floor are the outer gates; the Settings UI is same-origin.</p>
+<h3 id="24-in-process-cache-_clipconfigcache">2.4 In-process cache: <code>_ClipConfigCache</code><a class="headerlink" href="#24-in-process-cache-_clipconfigcache" title="Permanent link">&para;</a></h3>
+<p>Mirrors <code>_McpAuthCache</code> (ADR-0033): a module-level singleton loaded from <code>vault_state</code> at
+startup, refreshed on every <code>PUT /clip/config</code> write. Key methods:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>get_hash()</code></td>
+<td><code>str \| None</code></td>
+<td>PBKDF2 hash for DB path; <code>None</code> = fall back to env. NEVER log or return.</td>
+</tr>
+<tr>
+<td><code>token_source()</code></td>
+<td><code>"db"\|"env"\|"none"</code></td>
+<td><code>get_hash() is not None</code> → <code>"db"</code>; else env present → <code>"env"</code>; else → <code>"none"</code></td>
+</tr>
+<tr>
+<td><code>token_configured()</code></td>
+<td><code>bool</code></td>
+<td>True when source is <code>"db"</code> or <code>"env"</code></td>
+</tr>
+<tr>
+<td><code>resolved_enabled()</code></td>
+<td><code>bool</code></td>
+<td>DB NOT NULL wins; else env <code>CLIP_ENABLED</code></td>
+</tr>
+<tr>
+<td><code>resolved_allowed_origins_list()</code></td>
+<td><code>list[str]</code></td>
+<td>DB NOT NULL wins; else env; plus loopback origins</td>
+</tr>
+<tr>
+<td><code>set_hash(v)</code></td>
+<td>—</td>
+<td>Updates stored hash after PUT rotate/clear</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>POST /clip</code> handler reads all resolved values O(1) from the cache (no DB round-trip per
+clip request). The cache is the single point of resolution — the handler never reads env vars
+directly.</p>
+<h3 id="25-post-clip-handler-updates">2.5 POST /clip handler updates<a class="headerlink" href="#25-post-clip-handler-updates" title="Permanent link">&para;</a></h3>
+<p>The <code>POST /clip</code> handler is updated to read from <code>_clip_config_cache</code> instead of reading
+<code>settings</code> directly for the three configurable aspects:</p>
+<ol>
+<li><strong>Enabled gate:</strong> <code>_clip_config_cache.resolved_enabled()</code> (DB or env).</li>
+<li><strong>Token auth (source-aware):</strong></li>
+<li><code>token_source == "db"</code>: <code>_verify_token(presented, _clip_config_cache.get_hash())</code> — PBKDF2</li>
+<li><code>token_source == "env"</code>: <code>hmac.compare_digest(presented, settings.clip_token)</code> — plaintext</li>
+<li><code>token_source == "none"</code>: immediate 401</li>
+<li><strong>Origin check:</strong> <code>_clip_config_cache.resolved_allowed_origins_list()</code> passed to
+   <code>_clip_origin_allowed()</code>.</li>
+</ol>
+<p><code>CLIP_MAX_BODY_BYTES</code> is not cached (env-only; reads <code>settings.clip_max_body_bytes</code> directly).
+All 4 security properties from ADR-0038 §2 are preserved unchanged.</p>
+<h3 id="26-existing-tests-unchanged">2.6 Existing tests unchanged<a class="headerlink" href="#26-existing-tests-unchanged" title="Permanent link">&para;</a></h3>
+<p>All 22 tests in <code>test_clip.py</code> (TC-CLIP-01..12 + unit helpers) remain green. Their env-based
+setup (patching <code>cfg.settings.clip_enabled</code>, <code>cfg.settings.clip_token</code>,
+<code>cfg.settings.clip_allowed_origins</code>) continues to work because:
+- <code>clip_env</code> fixture patches settings directly AND the <code>_clip_config_cache</code> is not
+  pre-loaded in those tests (the cache falls back to env when its DB slots are <code>None</code>).
+- This is the defined env-fallback behaviour — the existing tests exercise the env path
+  correctly, proving the fallback works.</p>
+<p>No test in <code>test_clip.py</code> needs to be changed. The new <code>test_clip_config.py</code> tests the DB
+path explicitly.</p>
+<hr />
+<h2 id="3-new-config-schema-migration">3. New config / schema / migration<a class="headerlink" href="#3-new-config-schema-migration" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Name</th>
+<th>Type / default</th>
+<th>Where</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DB column</td>
+<td><code>vault_state.clip_enabled_db</code></td>
+<td><code>BOOLEAN NULL</code></td>
+<td><code>models.py</code> <code>VaultState</code></td>
+<td><strong>NEW — Alembic <code>0015</code>.</strong> NULL = env governs; NOT NULL = DB wins.</td>
+</tr>
+<tr>
+<td>DB column</td>
+<td><code>vault_state.clip_access_token</code></td>
+<td><code>TEXT NULL</code></td>
+<td><code>models.py</code> <code>VaultState</code></td>
+<td><strong>NEW (same migration <code>0015</code>).</strong> PBKDF2-SHA256 hash (prefix <code>pbkdf2_sha256$</code>); NEVER logged; raw token shown once (one-time reveal), then unhashable from DB.</td>
+</tr>
+<tr>
+<td>DB column</td>
+<td><code>vault_state.clip_allowed_origins_db</code></td>
+<td><code>TEXT NULL</code></td>
+<td><code>models.py</code> <code>VaultState</code></td>
+<td><strong>NEW (same migration <code>0015</code>).</strong> Comma-separated; NULL = env governs.</td>
+</tr>
+<tr>
+<td>migration</td>
+<td><code>0015_vault_state_clip_config</code></td>
+<td>add 3 columns</td>
+<td><code>backend/alembic/versions/</code></td>
+<td>Run by standard <code>alembic upgrade head</code>. D2/ER regen (I8).</td>
+</tr>
+<tr>
+<td>env (retained)</td>
+<td><code>CLIP_ENABLED</code></td>
+<td>bool, default false</td>
+<td><code>config.py</code></td>
+<td>Bootstrap fallback; DB <code>clip_enabled_db</code> wins when NOT NULL.</td>
+</tr>
+<tr>
+<td>env (retained)</td>
+<td><code>CLIP_TOKEN</code></td>
+<td>secret str, no default</td>
+<td><code>config.py</code></td>
+<td>Bootstrap fallback; DB <code>clip_access_token</code> wins when NOT NULL.</td>
+</tr>
+<tr>
+<td>env (retained)</td>
+<td><code>CLIP_ALLOWED_ORIGINS</code></td>
+<td>comma list, default ""</td>
+<td><code>config.py</code></td>
+<td>Bootstrap fallback; DB <code>clip_allowed_origins_db</code> wins when NOT NULL.</td>
+</tr>
+<tr>
+<td>env (retained)</td>
+<td><code>CLIP_MAX_BODY_BYTES</code></td>
+<td>int, default 2MB</td>
+<td><code>config.py</code></td>
+<td>Not runtime-settable via PUT /clip/config; env-only.</td>
+</tr>
+<tr>
+<td>in-process cache</td>
+<td><code>_ClipConfigCache</code></td>
+<td>class</td>
+<td><code>main.py</code></td>
+<td>Mirrors <code>_McpAuthCache</code>; loaded at startup; refreshed on PUT /clip/config.</td>
+</tr>
+<tr>
+<td>route</td>
+<td><code>GET /clip/config</code></td>
+<td><code>ClipConfigResponse</code></td>
+<td><code>main.py</code></td>
+<td>Read-only posture; token NEVER returned.</td>
+</tr>
+<tr>
+<td>route</td>
+<td><code>PUT /clip/config</code></td>
+<td><code>ClipConfigRequest</code> → <code>ClipConfigStateResponse</code></td>
+<td><code>main.py</code></td>
+<td>Set/rotate/clear token + enabled/origins. One-time <code>generated_token</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>One migration, three columns.</strong> Flagged for the docs gate: <code>make er</code> + <code>make openapi</code>.</p>
+<hr />
+<h2 id="4-acceptance-checks-dod">4. Acceptance checks (DoD)<a class="headerlink" href="#4-acceptance-checks-dod" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Token never returned.</strong> <code>GET /clip/config</code> with a DB token set returns <code>token_source="db"</code>,
+   <code>token_configured=true</code>, and the token value NEVER appears in the response body.
+   (<code>test_clip_config_response_never_contains_token_value</code> + <code>test_get_clip_config_token_source_db</code>).</li>
+<li><strong>One-time reveal.</strong> <code>PUT /clip/config {rotate_token:true}</code> returns <code>generated_token</code> once;
+   subsequent <code>GET /clip/config</code> does not return it.
+   (<code>test_put_clip_config_rotate_token_one_time_reveal</code> + <code>test_get_clip_config_never_returns_token_after_rotate</code>).</li>
+<li><strong>DB stores PBKDF2 hash, not raw token.</strong> After rotate, <code>vault_state.clip_access_token</code>
+   starts with <code>pbkdf2_sha256$</code> and does NOT contain the raw <code>generated_token</code> value.
+   <code>_verify_token(generated_token, stored_hash)</code> returns True.
+   (<code>test_put_clip_config_rotate_stores_pbkdf2_hash</code>).</li>
+<li><strong>Rotated token authenticates POST /clip.</strong> <code>generated_token</code> from PUT authenticates the next
+   <code>POST /clip</code>; wrong/old tokens are rejected with 401.
+   (<code>test_rotate_token_authenticates_post_clip</code>).</li>
+<li><strong>DB wins over env — token.</strong> DB token set → env token rejected at <code>POST /clip</code>.
+   (<code>test_clip_honours_db_token_over_env</code>).</li>
+<li><strong>DB wins over env — enabled.</strong> DB <code>clip_enabled_db=False</code> → <code>POST /clip</code> returns 503 even
+   when <code>CLIP_ENABLED=true</code>. DB <code>clip_enabled_db=True</code> → enabled even when env is false.
+   (<code>test_put_clip_config_set_enabled_false_gates_clip_endpoint</code> +
+   <code>test_put_clip_config_set_enabled_true_enables_ingress</code>).</li>
+<li><strong>DB wins over env — origins.</strong> DB origins → env-only origin rejected.
+   (<code>test_clip_honours_db_allowed_origins</code>).</li>
+<li><strong>Token source = 'db'/'env'/'none'.</strong> Correct precedence: DB token → 'db'; no DB, env set → 'env';
+   neither → 'none'. (<code>TestClipTokenSourceResolution</code>).</li>
+<li><strong>Env fallback.</strong> With no DB overrides, env vars govern (all three config aspects).
+   (<code>TestClipEnabledResolution</code>, <code>TestClipAllowedOriginsResolution</code>).</li>
+<li><strong>Existing test_clip.py green.</strong> All 22 pre-existing clip tests pass unchanged.
+    (env-fallback path covers their assertions).</li>
+<li><strong>clear_token.</strong> <code>clear_token=true</code> nulls DB token; source falls back to env or none.
+    (<code>test_put_clip_config_clear_token</code>).</li>
+<li><strong>Docs gate.</strong> <code>make er</code> matches live schema (three new columns); <code>make openapi</code> includes
+    <code>/clip/config</code> GET+PUT (I8).</li>
+</ol>
+<hr />
+<h2 id="5-consequences">5. Consequences<a class="headerlink" href="#5-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong> — the operator can enable the clipper, generate/rotate/clear its token, and
+manage allowed origins from the Settings UI without editing <code>.env</code> or restarting. Env vars
+remain as bootstrap fallback — zero breakage for existing deployments.</p>
+<p><strong>Trade-offs</strong> —
+- <strong>One migration, three columns</strong> (the only schema change; D2/ER regen in docs gate).
+- <strong>PBKDF2 hash per clip request (DB path):</strong> 260k iterations adds latency on <code>POST /clip</code> when
+  token_source is "db". Acceptable for a personal homelab clipper (one ingest per browser action).
+  Env path continues to use <code>hmac.compare_digest</code> (plaintext, zero overhead).
+- <strong>Token not re-displayable</strong> — after the one-time reveal, the operator must rotate if they
+  lose the token. This is the more secure UX (matches MCP).
+- <strong>Cache invalidation is single-process</strong> — on a multi-process deployment, cache is stale after
+  PUT /clip/config until restart. Acceptable for a personal homelab deployment (single process).</p>
+<p><strong>Invariant check</strong> — <strong>I1:</strong> no new ingest path; <code>POST /clip</code> still writes to <code>raw/sources/</code>
+and lets the watcher ingest (unchanged). <strong>I5:</strong> vault-write path unchanged. <strong>I6:</strong> no provider
+touched. <strong>I7:</strong> no new loop. <strong>I8:</strong> migration → D2/ER regen + D4 OpenAPI update. <strong>I9:</strong>
+reuses <code>vault_state</code> + existing <code>POST /clip</code> — no new process, no new dep.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,1804 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.4-hard-scope/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint 4 — v0.4 / M4-HARD — PM Scope Lock: Post-Human-Testing Hardening Increment - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-4-v04-m4-hard-pm-scope-lock-post-human-testing-hardening-increment" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint 4 — v0.4 / M4-HARD — PM Scope Lock: Post-Human-Testing Hardening Increment
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-context-and-mandate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Context and Mandate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-scope-lock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Scope Lock
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Scope Lock">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1a-already-done-items-retroactively-locked-require-gate-verification-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1a. Already-done items (retroactively locked; require gate verification only)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1b-in-progress-items-raised-during-human-testing-require-implementation-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1b. In-progress items (raised during human testing; require implementation + gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1c-scope-log-locked-2026-06-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1c. Scope log — locked 2026-06-29
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-pm-rulings-on-the-two-new-feedback-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. PM Rulings on the Two New Feedback Points
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. PM Rulings on the Two New Feedback Points">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ruling-on-point-b-m5-nav-placeholders-remove-do-not-label" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ruling on Point B — M5 nav placeholders: REMOVE, do not label
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ruling-on-point-a-nav-label-form-persistent-labels-beside-icons-wider-rail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ruling on Point A — Nav label form: PERSISTENT LABELS BESIDE ICONS (wider rail)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-acceptance-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Acceptance Criteria
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Acceptance Criteria">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#f1-hard-settings-9-section-settings-panel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F1-HARD-SETTINGS — 9-section settings panel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f1-hard-collapse-panel-collapseexpand" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F1-HARD-COLLAPSE — Panel collapse/expand
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f1-hard-provider-edit-editable-llm-models-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F1-HARD-PROVIDER-EDIT — Editable LLM Models section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f1-hard-nav-order-nav-rail-order-and-default-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F1-HARD-NAV-ORDER — Nav rail order and default section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f1-hard-nav-labels-persistent-text-labels-beside-icons-point-a-ruling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F1-HARD-NAV-LABELS — Persistent text labels beside icons (Point A ruling)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f1-hard-m5-placeholder-remove-m5-nav-items-from-m4-rail-point-b-ruling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F1-HARD-M5-PLACEHOLDER — Remove M5 nav items from M4 rail (Point B ruling)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#already-done-stubs-mcp-embeddings-conv-history-gate-only-acs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Already-done stubs (MCP, Embeddings, Conv-History) — gate-only ACs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-anti-scope-creep-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Anti-Scope-Creep Gate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-dod-gate-checklist-for-m4-hard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. DoD Gate Checklist for M4-HARD
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-pm-pm-exit-criteria-sign-off-product-manager-2026-06-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §6-PM — PM Exit-Criteria Sign-Off (product-manager, 2026-06-29)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="§6-PM — PM Exit-Criteria Sign-Off (product-manager, 2026-06-29)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gate-sign-off-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate sign-off record
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pm-verdict-m4-hard-met-with-followups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PM verdict: M4-HARD MET-WITH-FOLLOWUPS
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="PM verdict: M4-HARD MET-WITH-FOLLOWUPS">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scope-verification-all-9-feature-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope verification — all 9 feature IDs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#architect-conditions-all-closed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architect conditions (all closed)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#qa-open-defects-at-gate-time-all-closed-before-this-sign-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        QA open defects at gate time (all closed before this sign-off)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-one-pending-d5-screenshot-ruling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The one pending D5 screenshot — ruling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#carry-forward-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Carry-forward items
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-explicitly-out-and-deferred-to-m5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is explicitly OUT and deferred to M5
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#human-checkpoint-requirement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Human checkpoint requirement
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-velocity-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Velocity Note
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stories-user-stories-for-m4-hard-functional-analyst-2026-06-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        §Stories — User Stories for M4-HARD (functional-analyst, 2026-06-29)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="§Stories — User Stories for M4-HARD (functional-analyst, 2026-06-29)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us-hard-set-9-section-settings-panel-f1-hard-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-HARD-SET — 9-section settings panel (F1-HARD-SETTINGS)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us-hard-col-panel-collapseexpand-f1-hard-collapse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-HARD-COL — Panel collapse/expand (F1-HARD-COLLAPSE)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us-hard-prov-editable-llm-provider-list-f1-hard-provider-edit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-HARD-PROV — Editable LLM provider list (F1-HARD-PROVIDER-EDIT)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us-hard-mcp-mcp-settings-placeholder-f1-hard-mcp-stub" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-HARD-MCP — MCP settings placeholder (F1-HARD-MCP-STUB)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us-hard-ord-nav-rail-order-and-default-section-f1-hard-nav-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-HARD-ORD — Nav rail order and default section (F1-HARD-NAV-ORDER)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us-hard-embd-embeddings-settings-placeholder-f1-hard-embed-stub" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-HARD-EMBD — Embeddings settings placeholder (F1-HARD-EMBED-STUB)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us-hard-conv-conversation-history-length-selector-f1-hard-conv-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-HARD-CONV — Conversation history length selector (F1-HARD-CONV-HISTORY)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us-hard-lbl-persistent-text-labels-beside-nav-icons-f1-hard-nav-labels-p0" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-HARD-LBL — Persistent text labels beside nav icons (F1-HARD-NAV-LABELS) — P0
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us-hard-m5p-remove-m5-placeholder-items-from-nav-rail-f1-hard-m5-placeholder-p0" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-HARD-M5P — Remove M5 placeholder items from nav rail (F1-HARD-M5-PLACEHOLDER) — P0
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-4-v04-m4-hard-pm-scope-lock-post-human-testing-hardening-increment">Sprint 4 — v0.4 / M4-HARD — PM Scope Lock: Post-Human-Testing Hardening Increment<a class="headerlink" href="#sprint-4-v04-m4-hard-pm-scope-lock-post-human-testing-hardening-increment" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Author: product-manager (claude-sonnet-4-6)
+Date: 2026-06-29
+Gate: Hardening increment scope confirmation — NOT a new milestone
+Branch: sprint/v0.4 (continuing; no new sprint cut)
+Prerequisite: M4 originally declared MET-WITH-DEFERRALS (docs/sprints/v0.4-pm-signoff.md);
+  M4-EXT shipped (commits f7c7865 / 59765f3 / 65a6407); EC-M4-HCP human testing completed
+  and produced the feedback items below.
+This document supersedes nothing in v0.4-pm-scope.md or v0.4-pm-signoff.md. It adds to them.</p>
+</blockquote>
+<hr />
+<h2 id="0-context-and-mandate">0. Context and Mandate<a class="headerlink" href="#0-context-and-mandate" title="Permanent link">&para;</a></h2>
+<p>M4 was declared MET. The developer (Emanuele) conducted human browser testing (EC-M4-HCP)
+and found usability problems. The orchestrator has already shipped a first-pass fix for most
+of them (commits 65a6407, f7c7865, 59765f3). This hardening increment retroactively locks
+that scope, classifies what is done vs in-progress vs deferred, adds two new PM rulings
+(Point A — nav labels; Point B — M5 placeholder strategy), and defines acceptance criteria
+for the in-progress items so they can pass through the full gate chain.</p>
+<p>This is a hardening pass. It does NOT advance the milestone number. Sprint 5 (M5) remains
+blocked until M4-HARD exits cleanly (4 sign-offs) and Emanuele confirms EC-M4-HCP.</p>
+<hr />
+<h2 id="1-scope-lock">1. Scope Lock<a class="headerlink" href="#1-scope-lock" title="Permanent link">&para;</a></h2>
+<h3 id="1a-already-done-items-retroactively-locked-require-gate-verification-only">1a. Already-done items (retroactively locked; require gate verification only)<a class="headerlink" href="#1a-already-done-items-retroactively-locked-require-gate-verification-only" title="Permanent link">&para;</a></h3>
+<p>These items were implemented by the orchestrator before this scope-lock document was
+written. They are IN SCOPE for M4-HARD. The gate chain (QA + Architect + Tech-Writer + PM)
+must verify them before M4-HARD is declared done.</p>
+<table>
+<thead>
+<tr>
+<th>Feature ID</th>
+<th>Description</th>
+<th>Invariants</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1-HARD-SETTINGS</td>
+<td>Settings panel redesigned from flat list into 9-section left-nav: General / LLM Models / Embeddings / Source Watch / API+MCP / Output / Interface / Maintenance / About. Visual direction: nashsu/llm_wiki reference app.</td>
+<td>I3 (no per-token), I6 (provider config from API, not hardcoded)</td>
+<td>Commit 65a6407; SettingsPanel.tsx</td>
+</tr>
+<tr>
+<td>F1-HARD-COLLAPSE</td>
+<td>Left and right panels gain collapse/expand chevron buttons implemented via react-resizable-panels usePanelRef. Satisfies human-tester feedback that panels were not collapsible.</td>
+<td>I3 (no main-thread layout on each frame)</td>
+<td>Commit 65a6407</td>
+</tr>
+<tr>
+<td>F1-HARD-PROVIDER-EDIT</td>
+<td>Settings &gt; LLM Models section is now read-write: user can add a new provider (POST /provider/config) and delete an existing one (DELETE /provider/config/{id}). Previously read-only "CONFIGURAZIONE PROVIDER" was a usability blocker.</td>
+<td>I6 (model_id read from provider_config; no hardcoded IDs anywhere), I3</td>
+<td>Commit 65a6407</td>
+</tr>
+<tr>
+<td>F1-HARD-MCP-STUB</td>
+<td>API+MCP settings section added. Current content: "MCP server configuration — coming in M5" placeholder. This is correct M4 behavior — full MCP config is M5 scope.</td>
+<td>None violated</td>
+<td>Commit 65a6407; en.json settings.apiMcp</td>
+</tr>
+<tr>
+<td>F1-HARD-NAV-ORDER</td>
+<td>Nav rail order changed to: logo → Chat → Wiki → Sources → Search → Graph → Lint → Review → Deep Search → (spacer) → Settings. Default section on load is Chat (was Graph). Matches developer's explicit request and improves new-user onboarding.</td>
+<td>I3 (Zustand selector discipline)</td>
+<td>Commit 65a6407; NavRail.tsx TOP_ITEMS / M5_ITEMS order</td>
+</tr>
+<tr>
+<td>F1-HARD-EMBED-STUB</td>
+<td>Vector Embeddings settings section added. Content: "Vector embeddings configuration — coming in M5" placeholder. Correct M4 behavior.</td>
+<td>None violated</td>
+<td>Commit 65a6407; en.json settings.embeddings</td>
+</tr>
+<tr>
+<td>F1-HARD-CONV-HISTORY</td>
+<td>Conversation history length selector in Output settings section. Options: 2 / 4 / 6 / 8 / 10 / 20 messages. Value persisted in localStorage (F16-settings).</td>
+<td>I3 (no per-token), I7 (context budget)</td>
+<td>Commit 65a6407; en.json settings.output</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1b-in-progress-items-raised-during-human-testing-require-implementation-gate">1b. In-progress items (raised during human testing; require implementation + gate)<a class="headerlink" href="#1b-in-progress-items-raised-during-human-testing-require-implementation-gate" title="Permanent link">&para;</a></h3>
+<p>These two items were raised by Emanuele during the human testing session AFTER the first-pass
+fix was shipped. They are the primary reason this scope-lock document exists. Both are
+formally IN SCOPE for M4-HARD. Neither may be deferred to M5.</p>
+<table>
+<thead>
+<tr>
+<th>Feature ID</th>
+<th>Description</th>
+<th>PM Ruling</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1-HARD-NAV-LABELS</td>
+<td>Nav rail items must display text labels beside the icons. See §2 for the chosen form and rationale.</td>
+<td>IN SCOPE — P0</td>
+</tr>
+<tr>
+<td>F1-HARD-M5-PLACEHOLDER</td>
+<td>M5 nav items (Search, Lint, Review, Deep Search) must be removed from the nav rail entirely until M5 builds the logic. See §2 for rationale.</td>
+<td>IN SCOPE — P0</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1c-scope-log-locked-2026-06-29">1c. Scope log — locked 2026-06-29<a class="headerlink" href="#1c-scope-log-locked-2026-06-29" title="Permanent link">&para;</a></h3>
+<p>Locked feature IDs for M4-HARD:
+F1-HARD-SETTINGS, F1-HARD-COLLAPSE, F1-HARD-PROVIDER-EDIT, F1-HARD-MCP-STUB,
+F1-HARD-NAV-ORDER, F1-HARD-EMBED-STUB, F1-HARD-CONV-HISTORY,
+F1-HARD-NAV-LABELS, F1-HARD-M5-PLACEHOLDER</p>
+<p>Total: 7 already-done items + 2 in-progress items = 9 work items.</p>
+<p>These are all extensions of F1 (shell / nav rail), F1-NAV, and F16-rest (settings).
+No new feature IDs from CLAUDE.md §4 are introduced. No M5 work is started.</p>
+<hr />
+<h2 id="2-pm-rulings-on-the-two-new-feedback-points">2. PM Rulings on the Two New Feedback Points<a class="headerlink" href="#2-pm-rulings-on-the-two-new-feedback-points" title="Permanent link">&para;</a></h2>
+<h3 id="ruling-on-point-b-m5-nav-placeholders-remove-do-not-label">Ruling on Point B — M5 nav placeholders: REMOVE, do not label<a class="headerlink" href="#ruling-on-point-b-m5-nav-placeholders-remove-do-not-label" title="Permanent link">&para;</a></h3>
+<p>DECISION: Remove Search, Lint, Review, and Deep Search from the M4 nav rail entirely.
+Do not show them as greyed-out disabled items with or without labels.</p>
+<p>Rationale:</p>
+<p>The current M4 nav rail shows these four items in a separate group below a separator,
+with <code>disabled: true</code> styling (color #30363d — near-invisible on the dark rail) and
+<code>title</code> tooltip "Coming in M5". The human tester found them confusing: grey icons with
+no visible label and no click behavior are not informative — they create uncertainty
+about whether the UI is broken or the feature is intentionally absent.</p>
+<p>Two options were considered:</p>
+<p>Option A — Keep them, add visible "coming soon" label text.
+Option B — Remove them from the rail until M5 ships the logic.</p>
+<p>Option A fails for M4 because it requires rendering 4 additional nav items whose sole
+purpose is to communicate absence. A "coming soon" label next to a disabled icon does
+not help the user accomplish any task and adds visual noise in an already new UI. The
+developer has confirmed the items are non-functional; showing them in M4 is purely
+aspirational chrome. It also sets a precedent that every M6 feature should appear as
+a placeholder in M5, and so on — this is scope-creep of UI surface area.</p>
+<p>Option B is the correct approach for M4: the nav rail should contain only sections the
+user can actually use. When M5 ships Search, Lint, Review, and Deep Search logic, those
+items are added back to the rail with full functionality. This matches how mature products
+handle progressive disclosure: features appear when they work.</p>
+<p>The separator between active and placeholder items is also removed (there is nothing to
+separate). The final M4 nav rail is: Chat / Wiki / Sources / Graph / (spacer) / Settings.</p>
+<p>Note: the i18n translation keys for these items (nav.search, nav.lint, nav.review,
+nav.deepSearch, nav.comingSoon) are RETAINED in en.json and it.json so M5 can use them
+without introducing new keys. Only the component entries in NavRail.tsx M5_ITEMS array
+are removed (or the M5_ITEMS array is rendered as an empty block).</p>
+<h3 id="ruling-on-point-a-nav-label-form-persistent-labels-beside-icons-wider-rail">Ruling on Point A — Nav label form: PERSISTENT LABELS BESIDE ICONS (wider rail)<a class="headerlink" href="#ruling-on-point-a-nav-label-form-persistent-labels-beside-icons-wider-rail" title="Permanent link">&para;</a></h3>
+<p>DECISION: Each nav item renders the icon plus a short text label below or beside the icon.
+The rail is widened from 48px to approximately 72px to accommodate. Labels are the existing
+i18n translation keys (already present in en.json and it.json). There is no tooltip-only
+or expandable-rail option at this stage.</p>
+<p>Rationale:</p>
+<p>Three forms were considered:</p>
+<p>Form 1 — Wider rail with persistent labels beside/below icons.
+Form 2 — Icon-only with hover tooltips.
+Form 3 — Expandable/collapsible rail (collapsed = icon-only, expanded = icon + label).</p>
+<p>Form 2 is rejected because it requires the user to hover each item to discover what it
+does. The human tester's exact complaint was "non parlanti" — the icons do not speak for
+themselves. Tooltips are a discoverability aid, not a substitute for visible labels.
+The icons used (message-square for Chat, files for Wiki, download for Sources, share for
+Graph, gear for Settings) are standard but not universal — a user unfamiliar with them
+cannot navigate without labels.</p>
+<p>Form 3 would require state management for the collapsed/expanded rail toggle, an
+additional Zustand slice or localStorage key, and a persistence mechanism. It introduces
+more complexity than the problem warrants in a hardening pass. It also creates an
+inconsistent initial state (collapsed by default means the user sees unlabeled icons on
+first load — the same problem we are trying to fix).</p>
+<p>Form 1 is the correct approach for M4-HARD. It is a CSS and layout change: widen the
+rail, add a <span> with the label text below each icon, keep the existing i18n key
+bindings. The implementation is contained to NavRail.tsx and its CSS. No new Zustand
+state, no new API calls, no new i18n keys.</p>
+<p>Implementation note for frontend-engineer: the rail width change from 48px to ~72px
+must not break the react-resizable-panels layout. The rail is a fixed-width flex child;
+verify the panels still resize correctly after the width change (F1 AC-F1-7 panel resize
+test must still pass). The label font should be 10–11px to keep the rail compact. The
+active-state highlight (currently a rounded rectangle around the icon only) should extend
+to cover both icon and label.</p>
+<hr />
+<h2 id="3-acceptance-criteria">3. Acceptance Criteria<a class="headerlink" href="#3-acceptance-criteria" title="Permanent link">&para;</a></h2>
+<h3 id="f1-hard-settings-9-section-settings-panel">F1-HARD-SETTINGS — 9-section settings panel<a class="headerlink" href="#f1-hard-settings-9-section-settings-panel" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-HARD-SET-1: The Settings section renders a two-column layout: a left sub-nav listing
+  all 9 sections (General, LLM Models, Embeddings, Source Watch, API+MCP, Output, Interface,
+  Maintenance, About) and a right content pane showing the selected section's content.</li>
+<li>AC-HARD-SET-2: Clicking a sub-nav item switches the right pane without a page reload or
+  full component remount. Active sub-nav item is visually highlighted.</li>
+<li>AC-HARD-SET-3: All 9 section titles and sub-nav labels are i18n translation keys present
+  in both en.json and it.json (keys: settings.nav.general, settings.nav.llmModels, etc.).
+  No hardcoded display strings.</li>
+<li>AC-HARD-SET-4: Sections with placeholder content (Embeddings, Source Watch, API+MCP,
+  Interface) render a descriptive placeholder text referencing M5 (already in en.json:
+  settings.embeddings.comingSoon, settings.apiMcp.comingSoon). These do NOT render empty
+  white space — they communicate clearly that the feature is coming.</li>
+<li>AC-HARD-SET-5: Settings panel is accessible via the Settings nav rail item. Sub-nav
+  keyboard navigation (arrow keys) works as expected.</li>
+<li>AC-HARD-SET-6: vitest test: renders all 9 sub-nav items; clicking each switches the
+  active pane; active item has correct aria-current or aria-selected attribute.</li>
+</ul>
+<h3 id="f1-hard-collapse-panel-collapseexpand">F1-HARD-COLLAPSE — Panel collapse/expand<a class="headerlink" href="#f1-hard-collapse-panel-collapseexpand" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-HARD-COL-1: The left panel and the right panel each have a visible chevron button
+  (or equivalent collapse trigger). Clicking the button collapses that panel to a minimal
+  width (0px or a defined collapsed width) without removing it from the DOM.</li>
+<li>AC-HARD-COL-2: Clicking the collapsed panel's expand trigger (or the chevron in its
+  collapsed state) restores the panel to its previous width.</li>
+<li>AC-HARD-COL-3: Collapse/expand state is preserved in localStorage (consistent with
+  F16-settings AC-F16-settings-1: panel widths persist).</li>
+<li>AC-HARD-COL-4: Collapsing a panel does not trigger a force layout or cause a long task
+  on the main thread (I3). vitest: collapse action → assert no layout recompute signal.</li>
+<li>AC-HARD-COL-5: vitest test: collapse left panel → assert panel width is at collapsed
+  minimum; expand → assert panel width is restored.</li>
+</ul>
+<h3 id="f1-hard-provider-edit-editable-llm-models-section">F1-HARD-PROVIDER-EDIT — Editable LLM Models section<a class="headerlink" href="#f1-hard-provider-edit-editable-llm-models-section" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-HARD-PROV-1: The LLM Models settings section renders the list of existing provider
+  configs from GET /provider/config. Each row shows: provider type, model_id, scope
+  (vault/global), and a Delete button.</li>
+<li>AC-HARD-PROV-2: An "Add provider" form (or expandable row) allows the user to select
+  provider type, enter a model_id, optionally enter a base_url, and select scope. Submitting
+  calls POST /provider/config. On success (HTTP 201 or 200), the new row appears in the list
+  without a page reload. On failure, an error toast shows the response detail.</li>
+<li>AC-HARD-PROV-3: Clicking Delete on a provider row calls DELETE /provider/config/{id}.
+  On success (HTTP 200 or 204), the row is removed from the list. A confirmation prompt
+  is shown before the DELETE is issued (text: i18n key settings.llmModels.confirmDelete).</li>
+<li>AC-HARD-PROV-4: No model_id or provider type is hardcoded in any component. The list
+  is entirely driven by GET /provider/config. (I6 reinforced.)</li>
+<li>AC-HARD-PROV-5: vitest test: mock GET /provider/config with 2 providers → assert 2 rows
+  rendered. Mock POST → assert new row appears. Mock DELETE → assert row removed.</li>
+<li>AC-HARD-PROV-6: If the user attempts to delete the last remaining provider, a warning
+  is shown ("This is the last configured provider. Chat and ingest will fail without a
+  provider.") but the delete is still permitted — the system does not enforce a minimum
+  of 1 provider at the UI level.</li>
+</ul>
+<h3 id="f1-hard-nav-order-nav-rail-order-and-default-section">F1-HARD-NAV-ORDER — Nav rail order and default section<a class="headerlink" href="#f1-hard-nav-order-nav-rail-order-and-default-section" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-HARD-ORD-1: The nav rail renders items in the following top-to-bottom order (after
+  M4-HARD-M5-PLACEHOLDER items are removed — see below): Chat, Wiki, Sources, Graph,
+  (spacer), Settings.</li>
+<li>AC-HARD-ORD-2: The default active section on first load (no localStorage state) is
+  Chat. Verified by vitest: fresh Zustand store → activeSection === "chat".</li>
+<li>AC-HARD-ORD-3: The section previously active is restored from localStorage on page
+  reload (F16-settings). If the restored section is one of the removed M5 items, the
+  default (chat) is used instead — no broken state.</li>
+</ul>
+<h3 id="f1-hard-nav-labels-persistent-text-labels-beside-icons-point-a-ruling">F1-HARD-NAV-LABELS — Persistent text labels beside icons (Point A ruling)<a class="headerlink" href="#f1-hard-nav-labels-persistent-text-labels-beside-icons-point-a-ruling" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-HARD-LBL-1: Every nav rail item renders both an icon AND a visible text label.
+  The label is positioned below the icon (or to its right, designer's choice, but it
+  must be persistently visible — not hidden unless hovered).</li>
+<li>AC-HARD-LBL-2: The rail width is increased from 48px to accommodate the labels.
+  Target: approximately 72px. The exact value is at the frontend-engineer's discretion
+  provided all labels are fully readable without truncation at 72px.</li>
+<li>AC-HARD-LBL-3: Label text is sourced from the existing i18n translation keys
+  (nav.chat, nav.wiki, nav.sources [maps to ingest section], nav.graph, nav.settings).
+  No new i18n keys are required. Labels switch language when the locale changes (i18n
+  already wired; this is a layout change only).</li>
+<li>AC-HARD-LBL-4: The active-state visual indicator (currently a rounded highlight on
+  the icon button) is extended to encompass both icon and label. The active state must
+  remain clearly distinguishable in both EN and IT locales (label lengths differ).</li>
+<li>AC-HARD-LBL-5: Font size for labels is 10–11px (do not exceed 12px — keeps the rail
+  visually compact and does not push items into scroll territory at typical viewport heights).</li>
+<li>AC-HARD-LBL-6: The react-resizable-panels layout adjustment (rail now ~72px) does not
+  break the F1 AC-F1-7 panel resize Playwright test. The test may need its width
+  assertions updated to account for the new rail width — this is an expected test update,
+  not a regression.</li>
+<li>AC-HARD-LBL-7: vitest test: render NavRail → assert each item's rendered output
+  contains both an SVG icon element and a non-empty label span with the correct i18n key
+  value for the "en" locale.</li>
+<li>AC-HARD-LBL-8: The ingest badge (running-count dot) remains functional and visible
+  after the label is added. It does not overlap the label text.</li>
+</ul>
+<h3 id="f1-hard-m5-placeholder-remove-m5-nav-items-from-m4-rail-point-b-ruling">F1-HARD-M5-PLACEHOLDER — Remove M5 nav items from M4 rail (Point B ruling)<a class="headerlink" href="#f1-hard-m5-placeholder-remove-m5-nav-items-from-m4-rail-point-b-ruling" title="Permanent link">&para;</a></h3>
+<ul>
+<li>AC-HARD-M5P-1: The nav rail in M4 does NOT render Search, Lint, Review, or Deep Search
+  nav items. None of these appear as enabled OR disabled items in the DOM in M4.</li>
+<li>AC-HARD-M5P-2: The separator line between "active items" and "M5 placeholder items"
+  is also removed (there is nothing to separate in M4).</li>
+<li>AC-HARD-M5P-3: The M5_ITEMS array in NavRail.tsx is emptied (all 4 items removed) OR
+  the M5 group rendering block renders nothing. The data structure may be retained as a
+  comment or empty array for M5 to populate.</li>
+<li>AC-HARD-M5P-4: The i18n keys nav.search, nav.lint, nav.review, nav.deepSearch, and
+  nav.comingSoon are RETAINED in en.json and it.json. Only the rendered components are
+  removed, not the translation keys. This preserves M5's ability to add items without
+  touching the i18n files.</li>
+<li>AC-HARD-M5P-5: The Section type in graphStore.ts is NOT changed — "search", "lint",
+  "review", "deep-search" may remain as valid type members to avoid downstream TypeScript
+  churn. The nav rail simply does not render buttons for them. If the active section is
+  restored from localStorage as one of these values, the component falls back to "chat"
+  (AC-HARD-ORD-3).</li>
+<li>AC-HARD-M5P-6: vitest test: render NavRail → assert no button with data-section="search",
+  data-section="lint", data-section="review", or data-section="deep-search" is in the DOM.</li>
+<li>AC-HARD-M5P-7: Playwright E2E test: load the app → assert the nav rail renders exactly
+  5 interactive items: Chat, Wiki, Sources, Graph, Settings (4 top + 1 bottom). Assert no
+  greyed or disabled items are present.</li>
+</ul>
+<h3 id="already-done-stubs-mcp-embeddings-conv-history-gate-only-acs">Already-done stubs (MCP, Embeddings, Conv-History) — gate-only ACs<a class="headerlink" href="#already-done-stubs-mcp-embeddings-conv-history-gate-only-acs" title="Permanent link">&para;</a></h3>
+<p>These were already implemented. The QA gate must verify them; no new code is expected.</p>
+<ul>
+<li>AC-HARD-MCP-1: Settings &gt; API+MCP section renders with the placeholder text
+  (settings.apiMcp.comingSoon i18n key). No interactive elements other than the sub-nav
+  item itself. Verified by vitest render test.</li>
+<li>AC-HARD-EMBD-1: Settings &gt; Embeddings section renders with the placeholder text
+  (settings.embeddings.comingSoon i18n key). Verified by vitest render test.</li>
+<li>AC-HARD-CONV-1: Settings &gt; Output section renders a conversation history length selector
+  with options 2, 4, 6, 8, 10, 20. Selected value is persisted in localStorage under a
+  stable key. Verified by vitest: change value → assert localStorage updated.</li>
+<li>AC-HARD-CONV-2: The conversation history length value is read by the chat message
+  assembler when constructing the messages array sent to the provider. If the selected
+  value is 4, at most the last 4 messages (2 user + 2 assistant turns) are included.
+  Verified by unit test: mock 10 messages + history=4 setting → assert sent array length
+  is at most 4 (plus system prompt).</li>
+</ul>
+<hr />
+<h2 id="4-anti-scope-creep-gate">4. Anti-Scope-Creep Gate<a class="headerlink" href="#4-anti-scope-creep-gate" title="Permanent link">&para;</a></h2>
+<p>The following items are explicitly OUT of M4-HARD. Any engineer proposing this work will
+be blocked and the orchestrator escalated.</p>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Deferred to</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MCP server configuration UI (actual settings, not placeholder)</td>
+<td>M5</td>
+<td>Full MCP config requires M5 backend work (F17 MCP transport finalization). Placeholder only in M4.</td>
+</tr>
+<tr>
+<td>Vector embeddings configuration UI (actual settings)</td>
+<td>M5</td>
+<td>Qdrant/bge-m3 settings require M5 work. Placeholder only in M4.</td>
+</tr>
+<tr>
+<td>Search functionality (semantic or keyword)</td>
+<td>M5 — F5</td>
+<td>4-phase retrieval is M5. The Search nav item is REMOVED from M4 rail (see Point B ruling).</td>
+</tr>
+<tr>
+<td>Lint operation UI</td>
+<td>M6 — K2 lint</td>
+<td>Lint-fix loop is M6. Nav item removed from M4.</td>
+</tr>
+<tr>
+<td>Review queue UI</td>
+<td>M5 — F9</td>
+<td>Async HITL queue is M5. Nav item removed from M4.</td>
+</tr>
+<tr>
+<td>Deep Search UI</td>
+<td>M5 — F10</td>
+<td>Deep Research loop is M5. Nav item removed from M4.</td>
+</tr>
+<tr>
+<td>Expandable/collapsible rail (Form 3)</td>
+<td>Backlog (no sprint assigned)</td>
+<td>Not needed to fix the usability problem. May be revisited in M6 polish.</td>
+</tr>
+<tr>
+<td>Multi-format file upload (PDF, DOCX, etc.)</td>
+<td>M5 — F12</td>
+<td>F12 boundary is unchanged. F1-UPLOAD accepts .txt/.md only.</td>
+</tr>
+<tr>
+<td>Any new ADR</td>
+<td>Only if architect decides</td>
+<td>If the nav-label width change or M5-removal triggers an architectural decision, architect decides whether an ADR is needed. PM does not pre-approve one.</td>
+</tr>
+<tr>
+<td>Additional settings sections beyond the 9 defined</td>
+<td>Not scoped</td>
+<td>The 9 sections are complete for M4. Any new section must be proposed with a feature ID and escalated to orchestrator.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-dod-gate-checklist-for-m4-hard">5. DoD Gate Checklist for M4-HARD<a class="headerlink" href="#5-dod-gate-checklist-for-m4-hard" title="Permanent link">&para;</a></h2>
+<p>All 4 sign-offs required before M4-HARD is declared done and EC-M4-HCP can be confirmed.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Gate</th>
+<th>Agent responsible</th>
+<th>Required evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>All ACs in §3 green (automated tests)</td>
+<td>qa-test-engineer</td>
+<td>vitest + Playwright; all new ACs PASS; ruff + black + mypy + ESLint + Prettier clean</td>
+</tr>
+<tr>
+<td>2</td>
+<td>No regression on previously-passing M4 gates</td>
+<td>qa-test-engineer</td>
+<td>T-NCL-001..022 (no-client-layout), T-OBS-001..015 (Obsidian compat), T-E2E-G3-001 (streaming perf) all still PASS</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Architect gate: review rail width change (layout impact on I3/I4), M5 item removal (Zustand Section type safety), provider add/delete endpoints (I6)</td>
+<td>solution-architect</td>
+<td>Architect APPROVED (written or inline)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Tech-writer gate: i18n files updated if any new keys added; D5 screenshots refreshed to show new nav rail with labels (at minimum one new PNG replacing an old nav screenshot); docs/USER.md updated if the nav changes affect user journey steps</td>
+<td>tech-writer</td>
+<td>DOCS_STATUS note or inline PASS</td>
+</tr>
+<tr>
+<td>5</td>
+<td>PM sign-off (this document is the scope record; exit verdict to orchestrator after gates 1–4)</td>
+<td>product-manager</td>
+<td>Exit verdict delivered to orchestrator</td>
+</tr>
+</tbody>
+</table>
+<p>Exit verdict options: M4-HARD DONE (all gates met) or M4-HARD NOT MET with precise gap list.</p>
+<p>Once M4-HARD is DONE, Emanuele performs the final EC-M4-HCP browser confirmation (all 8
+original conditions plus the two M4-EXT conditions remain in force, with the updated UI).
+Sprint 5 is unblocked only after that confirmation is recorded.</p>
+<hr />
+<h2 id="6-pm-pm-exit-criteria-sign-off-product-manager-2026-06-29">§6-PM — PM Exit-Criteria Sign-Off (product-manager, 2026-06-29)<a class="headerlink" href="#6-pm-pm-exit-criteria-sign-off-product-manager-2026-06-29" title="Permanent link">&para;</a></h2>
+<h3 id="gate-sign-off-record">Gate sign-off record<a class="headerlink" href="#gate-sign-off-record" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Gate #</th>
+<th>Gate description</th>
+<th>Agent</th>
+<th>Verdict</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>All ACs green (vitest + Playwright + code inspection)</td>
+<td>qa-test-engineer</td>
+<td>PASS-WITH-NOTES</td>
+<td>371/371 vitest green, tsc clean, eslint clean; 4 defects self-fixed (missing React import, 2 stale Playwright assertions, missing #ctx-select id); 3 open gaps (HARD-1/4/5) all closed by FE pass-2</td>
+</tr>
+<tr>
+<td>2</td>
+<td>No regression on T-NCL-001..022 + T-OBS-001..015 + T-E2E-G3-001</td>
+<td>qa-test-engineer</td>
+<td>GREEN</td>
+<td>Included in 371/371 suite; prior suites unaffected</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Architect gate: I3/I4/I6 review, Section type safety, provider CRUD endpoints</td>
+<td>solution-architect</td>
+<td>APPROVE-WITH-CONDITIONS</td>
+<td>ADR-0021 authored and Accepted; conditions C1 (wire conversationHistoryLength into buildMessagePayload), C2 (disable Add button on empty model_id), C3 (last-provider warning) — ALL CLOSED by FE pass-2</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Tech-writer gate: i18n current, D5 refreshed, USER.md updated, ADR-0021 indexed</td>
+<td>tech-writer</td>
+<td>PASS-WITH-PENDING</td>
+<td>5/6 D5 screenshots captured (shell-3panel, shell-3panel-selected, navrail-graph-active, settings-section, settings-llm-models); USER.md updated; ADR-0021 in README; 1 pending (shell-collapsed-panel.png — see below)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>PM sign-off (this entry)</td>
+<td>product-manager</td>
+<td>MET-WITH-FOLLOWUPS</td>
+<td>See verdict below</td>
+</tr>
+</tbody>
+</table>
+<h3 id="pm-verdict-m4-hard-met-with-followups">PM verdict: M4-HARD MET-WITH-FOLLOWUPS<a class="headerlink" href="#pm-verdict-m4-hard-met-with-followups" title="Permanent link">&para;</a></h3>
+<p><strong>Date:</strong> 2026-06-29
+<strong>Signed by:</strong> product-manager (claude-sonnet-4-6)</p>
+<h4 id="scope-verification-all-9-feature-ids">Scope verification — all 9 feature IDs<a class="headerlink" href="#scope-verification-all-9-feature-ids" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Feature ID</th>
+<th>Final status</th>
+<th>All ACs green?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1-HARD-SETTINGS</td>
+<td>done</td>
+<td>YES — AC-HARD-SET-1..6 GREEN (SET-6 SettingsPanel.test.tsx created in FE pass-2)</td>
+</tr>
+<tr>
+<td>F1-HARD-COLLAPSE</td>
+<td>done</td>
+<td>YES — AC-HARD-COL-1..5 GREEN (COL-5 AppShell.test.tsx created in FE pass-2)</td>
+</tr>
+<tr>
+<td>F1-HARD-PROVIDER-EDIT</td>
+<td>done</td>
+<td>YES — AC-HARD-PROV-1..6 GREEN (PROV-5 SettingsPanel.test.tsx; C2+C3 wired)</td>
+</tr>
+<tr>
+<td>F1-HARD-MCP-STUB</td>
+<td>done</td>
+<td>YES — AC-HARD-MCP-1 GREEN</td>
+</tr>
+<tr>
+<td>F1-HARD-NAV-ORDER</td>
+<td>done</td>
+<td>YES — AC-HARD-ORD-1..3 GREEN (ORD-3 carry-forward GAP-HARD-6 to M5 if persist middleware added)</td>
+</tr>
+<tr>
+<td>F1-HARD-EMBED-STUB</td>
+<td>done</td>
+<td>YES — AC-HARD-EMBD-1 GREEN</td>
+</tr>
+<tr>
+<td>F1-HARD-CONV-HISTORY</td>
+<td>done</td>
+<td>YES — AC-HARD-CONV-1..2 GREEN (buildMessagePayload extracted; T-HARD-CONV-002 wired)</td>
+</tr>
+<tr>
+<td>F1-HARD-NAV-LABELS</td>
+<td>done</td>
+<td>YES — AC-HARD-LBL-1..8 GREEN (72px rail, icon+label-below, 10px font, badge intact)</td>
+</tr>
+<tr>
+<td>F1-HARD-M5-PLACEHOLDER</td>
+<td>done</td>
+<td>YES — AC-HARD-M5P-1..7 GREEN (M5_ITEMS=[]; Search/Lint/Review/Deep-Search absent from DOM; i18n keys retained)</td>
+</tr>
+</tbody>
+</table>
+<p>All 9 feature IDs: DONE.</p>
+<h4 id="architect-conditions-all-closed">Architect conditions (all closed)<a class="headerlink" href="#architect-conditions-all-closed" title="Permanent link">&para;</a></h4>
+<ul>
+<li>C1 (buildMessagePayload wired into both send paths): CLOSED — FE pass-2</li>
+<li>C2 (Add button disabled on empty model_id — I6): CLOSED — FE pass-2</li>
+<li>C3 (last-provider non-blocking warning): CLOSED — FE pass-2</li>
+</ul>
+<h4 id="qa-open-defects-at-gate-time-all-closed-before-this-sign-off">QA open defects at gate time (all closed before this sign-off)<a class="headerlink" href="#qa-open-defects-at-gate-time-all-closed-before-this-sign-off" title="Permanent link">&para;</a></h4>
+<ul>
+<li>GAP-HARD-1 (assembler untestable): CLOSED — buildMessagePayload.test.ts created; T-HARD-CONV-002 GREEN</li>
+<li>GAP-HARD-4 (settings sub-nav arrow-key a11y): CLOSED — FE pass-2 added onKeyDown handler</li>
+<li>GAP-HARD-5 (SettingsPanel.test.tsx + AppShell.test.tsx missing): CLOSED — both created in FE pass-2</li>
+</ul>
+<p>Final test count: 371/371 vitest green. tsc clean. eslint clean.</p>
+<h4 id="the-one-pending-d5-screenshot-ruling">The one pending D5 screenshot — ruling<a class="headerlink" href="#the-one-pending-d5-screenshot-ruling" title="Permanent link">&para;</a></h4>
+<p>The collapsed-panel screenshot (<code>docs/screens/shell-collapsed-panel.png</code>) could not be
+auto-captured because the Playwright selector lacked the <code>data-testid</code> attribute on the
+collapse chevrons. The orchestrator subsequently added <code>data-testid="collapse-left-btn"</code> and
+<code>data-testid="collapse-right-btn"</code> to AppShell.tsx, resolving the root cause.</p>
+<p>Ruling: this is a <strong>non-blocking follow-up</strong>, not a gate blocker.</p>
+<p>Rationale: (1) F1-HARD-COLLAPSE is functionally verified by AC-HARD-COL-1..5, all of which
+are GREEN in the 371/371 vitest suite. (2) The existing <code>shell-3panel.png</code> shows the collapse
+chevron buttons visually — the feature is not invisible in the docs. (3) The root cause (missing
+testid) is now fixed; the PNG recapture requires only a <code>make screenshots</code> run, not any code
+change. (4) The tech-writer explicitly deemed this non-blocking in their PASS-WITH-PENDING
+verdict. Deferring a screenshot recapture is within the scope of a follow-up item; it does
+not change whether the feature works.</p>
+<p>Carry-forward item: CF-HARD-1 (see §6-PM carry-forward table below).</p>
+<h4 id="carry-forward-items">Carry-forward items<a class="headerlink" href="#carry-forward-items" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>What</th>
+<th>Deferred to</th>
+<th>Condition to close</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CF-HARD-1</td>
+<td>Recapture <code>docs/screens/shell-collapsed-panel.png</code> using <code>data-testid="collapse-left-btn"</code></td>
+<td>M5 pre-start task (before M5 kickoff, not after)</td>
+<td><code>make screenshots</code> runs clean; PNG shows left panel collapsed; tech-writer confirms</td>
+</tr>
+<tr>
+<td>CF-HARD-6</td>
+<td>GAP-HARD-6: if graphStore gains Zustand persist middleware in M5, add rehydration guard mapping removed section names to "chat" and add T-HARD-ORD-003</td>
+<td>M5 — if persist middleware introduced</td>
+<td>QA adds test at that point; no code needed now</td>
+</tr>
+</tbody>
+</table>
+<h4 id="what-is-explicitly-out-and-deferred-to-m5">What is explicitly OUT and deferred to M5<a class="headerlink" href="#what-is-explicitly-out-and-deferred-to-m5" title="Permanent link">&para;</a></h4>
+<p>The following items were blocked at the anti-scope-creep gate (§4 of this document) and
+remain deferred. No code touching these areas was written in M4-HARD.</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Deferred to</th>
+<th>Feature ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Search functionality (semantic or keyword)</td>
+<td>M5</td>
+<td>F5</td>
+</tr>
+<tr>
+<td>Search / Lint / Review / Deep Search nav logic</td>
+<td>M5</td>
+<td>F9, F10, K2-lint</td>
+</tr>
+<tr>
+<td>MCP server configuration UI (actual, not placeholder)</td>
+<td>M5</td>
+<td>F17</td>
+</tr>
+<tr>
+<td>Vector embeddings configuration UI (actual, not placeholder)</td>
+<td>M5</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Lint operation UI</td>
+<td>M6</td>
+<td>K2-lint</td>
+</tr>
+<tr>
+<td>Multi-format upload (PDF/DOCX/etc.)</td>
+<td>M5</td>
+<td>F12</td>
+</tr>
+</tbody>
+</table>
+<h4 id="human-checkpoint-requirement">Human checkpoint requirement<a class="headerlink" href="#human-checkpoint-requirement" title="Permanent link">&para;</a></h4>
+<p>EC-M4-HCP (Emanuele's manual browser confirmation) is still required before Sprint 5 opens.</p>
+<p>This PM sign-off verifies automated gates and agent sign-offs. It does NOT substitute for
+the human checkpoint. Emanuele must confirm in the browser:
+- All 8 original EC-M4-HCP conditions (including labeled nav rail, 9-section settings,
+  panel collapse, editable provider list, conversation history selector)
+- The two M4-EXT conditions (upload and scheduled import)</p>
+<p>Sprint 5 is unblocked only after EC-M4-HCP is recorded by the orchestrator.</p>
+<hr />
+<blockquote>
+<p>PM scope-lock and exit-criteria sign-off: M4-HARD MET-WITH-FOLLOWUPS | 2026-06-29
+product-manager (claude-sonnet-4-6)
+Carry-forwards: CF-HARD-1 (collapsed-panel screenshot, M5 pre-start), CF-HARD-6 (persist guard, M5 conditional)
+Human checkpoint: EC-M4-HCP still required before Sprint 5</p>
+</blockquote>
+<hr />
+<h2 id="6-velocity-note">6. Velocity Note<a class="headerlink" href="#6-velocity-note" title="Permanent link">&para;</a></h2>
+<p>M4-HARD is a small increment: 2 items in-progress, 7 retroactive verifications. It does
+not change the M5 scope or timeline. Sprint 5 scope (F5, F9, F10, F12, F13) is unchanged.</p>
+<p>The primary lesson from this hardening pass: UI skeleton features (nav rail) need a
+labeled-icon standard defined at the start of the sprint, not discovered in human testing.
+This is a calibration note for Sprint 5: define and document the nav UX standard before
+the frontend engineer builds it, not after.</p>
+<hr />
+<hr />
+<h2 id="stories-user-stories-for-m4-hard-functional-analyst-2026-06-29">§Stories — User Stories for M4-HARD (functional-analyst, 2026-06-29)<a class="headerlink" href="#stories-user-stories-for-m4-hard-functional-analyst-2026-06-29" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Authored by: functional-analyst
+These stories operationalise the PM's §3 acceptance criteria for engineers and QA.
+Binary pass/fail only. No partial compliance.
+Invariants primed per story to alert engineers before code is written.</p>
+</blockquote>
+<hr />
+<h3 id="us-hard-set-9-section-settings-panel-f1-hard-settings">US-HARD-SET — 9-section settings panel (F1-HARD-SETTINGS)<a class="headerlink" href="#us-hard-set-9-section-settings-panel-f1-hard-settings" title="Permanent link">&para;</a></h3>
+<p>As a Synapse user, I want the Settings section to present a two-column layout with a
+left sub-nav listing all 9 configuration areas and a right pane showing the selected
+area's content, so that I can navigate to any setting without leaving the page or
+losing my context.</p>
+<p><strong>Invariants touched:</strong> I3 (no heavy re-renders — sub-nav switch must not remount heavy
+components), I6 (provider config displayed from GET /provider/config, never hardcoded).</p>
+<p><strong>D-artifacts:</strong> D5 (screenshots refresh required), D6 (USER.md nav journey steps).</p>
+<p><strong>Source files:</strong> frontend/src/components/SettingsPanel.tsx, frontend/src/locales/en.json,
+frontend/src/locales/it.json.</p>
+<p><strong>ACs:</strong> AC-HARD-SET-1 through AC-HARD-SET-6.</p>
+<hr />
+<h3 id="us-hard-col-panel-collapseexpand-f1-hard-collapse">US-HARD-COL — Panel collapse/expand (F1-HARD-COLLAPSE)<a class="headerlink" href="#us-hard-col-panel-collapseexpand-f1-hard-collapse" title="Permanent link">&para;</a></h3>
+<p>As a Synapse user, I want to collapse the left and right panels with a single click so
+that I can reclaim screen space when I only need to focus on one panel.</p>
+<p><strong>Invariants touched:</strong> I3 (collapsing must not trigger a main-thread layout recalculation
+or long task), I4 (react-resizable-panels manages the collapse; no custom DOM measurement
+loop).</p>
+<p><strong>D-artifacts:</strong> D5 (screenshots showing collapsed state).</p>
+<p><strong>Source files:</strong> frontend/src/components/AppShell.tsx (or equivalent panel host).</p>
+<p><strong>ACs:</strong> AC-HARD-COL-1 through AC-HARD-COL-5.</p>
+<hr />
+<h3 id="us-hard-prov-editable-llm-provider-list-f1-hard-provider-edit">US-HARD-PROV — Editable LLM provider list (F1-HARD-PROVIDER-EDIT)<a class="headerlink" href="#us-hard-prov-editable-llm-provider-list-f1-hard-provider-edit" title="Permanent link">&para;</a></h3>
+<p>As a Synapse user, I want to add a new inference provider and delete an existing one
+from the Settings &gt; LLM Models section, so that I can manage which AI backends the
+system uses without editing configuration files.</p>
+<p><strong>Invariants touched:</strong> I6 (every provider displayed from GET /provider/config; no
+model_id hardcoded in any component), I3 (list update on POST/DELETE must not cause
+full re-render of unrelated settings sections).</p>
+<p><strong>D-artifacts:</strong> D4 (POST /provider/config and DELETE /provider/config/{id} must be
+in OpenAPI), D5 (screenshot of editable provider list).</p>
+<p><strong>Source files:</strong> frontend/src/components/SettingsPanel.tsx (LLM Models section).</p>
+<p><strong>ACs:</strong> AC-HARD-PROV-1 through AC-HARD-PROV-6.</p>
+<hr />
+<h3 id="us-hard-mcp-mcp-settings-placeholder-f1-hard-mcp-stub">US-HARD-MCP — MCP settings placeholder (F1-HARD-MCP-STUB)<a class="headerlink" href="#us-hard-mcp-mcp-settings-placeholder-f1-hard-mcp-stub" title="Permanent link">&para;</a></h3>
+<p>As a Synapse user opening Settings &gt; API+MCP, I want to see a clear placeholder message
+indicating that MCP server configuration is coming in M5, so that I know the section is
+intentional and not a rendering error.</p>
+<p><strong>Invariants touched:</strong> none violated; confirms M4 scope boundary.</p>
+<p><strong>D-artifacts:</strong> none (no new diagram; i18n key already present).</p>
+<p><strong>Source files:</strong> frontend/src/locales/en.json (settings.apiMcp.comingSoon),
+frontend/src/components/SettingsPanel.tsx.</p>
+<p><strong>ACs:</strong> AC-HARD-MCP-1.</p>
+<hr />
+<h3 id="us-hard-ord-nav-rail-order-and-default-section-f1-hard-nav-order">US-HARD-ORD — Nav rail order and default section (F1-HARD-NAV-ORDER)<a class="headerlink" href="#us-hard-ord-nav-rail-order-and-default-section-f1-hard-nav-order" title="Permanent link">&para;</a></h3>
+<p>As a new Synapse user loading the app for the first time, I want to land on the Chat
+section by default and see navigation items in a logical task-first order (Chat, Wiki,
+Sources, Graph, Settings), so that the most common task is immediately accessible.</p>
+<p><strong>Invariants touched:</strong> I3 (Zustand activeSection is a scalar; selector discipline
+means no whole-store re-render on section change).</p>
+<p><strong>D-artifacts:</strong> D5 (nav screenshots showing correct order).</p>
+<p><strong>Source files:</strong> frontend/src/components/nav/NavRail.tsx, frontend/src/store/graphStore.ts.</p>
+<p><strong>ACs:</strong> AC-HARD-ORD-1 through AC-HARD-ORD-3.</p>
+<hr />
+<h3 id="us-hard-embd-embeddings-settings-placeholder-f1-hard-embed-stub">US-HARD-EMBD — Embeddings settings placeholder (F1-HARD-EMBED-STUB)<a class="headerlink" href="#us-hard-embd-embeddings-settings-placeholder-f1-hard-embed-stub" title="Permanent link">&para;</a></h3>
+<p>As a Synapse user opening Settings &gt; Vector Embeddings, I want to see a clear placeholder
+message indicating that embeddings configuration is coming in M5, so that I understand
+the section is reserved and not broken.</p>
+<p><strong>Invariants touched:</strong> none violated; confirms M4 scope boundary.</p>
+<p><strong>D-artifacts:</strong> none.</p>
+<p><strong>Source files:</strong> frontend/src/locales/en.json (settings.embeddings.comingSoon),
+frontend/src/components/SettingsPanel.tsx.</p>
+<p><strong>ACs:</strong> AC-HARD-EMBD-1.</p>
+<hr />
+<h3 id="us-hard-conv-conversation-history-length-selector-f1-hard-conv-history">US-HARD-CONV — Conversation history length selector (F1-HARD-CONV-HISTORY)<a class="headerlink" href="#us-hard-conv-conversation-history-length-selector-f1-hard-conv-history" title="Permanent link">&para;</a></h3>
+<p>As a Synapse user, I want to choose how many past conversation messages are included when
+I send a new chat message, so that I can trade off context richness against token cost by
+selecting a history length (2 / 4 / 6 / 8 / 10 / 20).</p>
+<p><strong>Invariants touched:</strong> I3 (selector is a simple controlled input; no re-render cost),
+I7 (history length directly limits the messages array sent to the provider; the setting
+is a token-budget enforcement mechanism).</p>
+<p><strong>D-artifacts:</strong> none (UI only; no new API endpoint).</p>
+<p><strong>Source files:</strong> frontend/src/components/SettingsPanel.tsx (Output section),
+frontend/src/locales/en.json (settings.output.*).</p>
+<p><strong>ACs:</strong> AC-HARD-CONV-1 through AC-HARD-CONV-2.</p>
+<hr />
+<h3 id="us-hard-lbl-persistent-text-labels-beside-nav-icons-f1-hard-nav-labels-p0">US-HARD-LBL — Persistent text labels beside nav icons (F1-HARD-NAV-LABELS) — P0<a class="headerlink" href="#us-hard-lbl-persistent-text-labels-beside-nav-icons-f1-hard-nav-labels-p0" title="Permanent link">&para;</a></h3>
+<p>As a Synapse user, I want each navigation rail item to show a visible text label below
+its icon at all times (not just on hover), so that I can identify each section at a
+glance without needing to memorize icon meanings.</p>
+<p><strong>Invariants touched:</strong> I3 (label render is static text; zero per-token work), I4
+(rail width change must not break react-resizable-panels layout or introduce a main-thread
+layout measurement loop). Verifying AC-HARD-LBL-6 requires that the existing F1 AC-F1-7
+panel resize Playwright test still passes — the test may need its expected rail-width
+constant updated but must not be deleted.</p>
+<p><strong>D-artifacts:</strong> D5 (nav screenshot refresh required — at minimum one new PNG replacing
+old nav screenshot), D6 (USER.md nav section updated if wording describes icon-only items).</p>
+<p><strong>Source files:</strong> frontend/src/components/nav/NavRail.tsx,
+frontend/src/styles/nav-rail.css (or equivalent inline styles).</p>
+<p><strong>ACs:</strong> AC-HARD-LBL-1 through AC-HARD-LBL-8.</p>
+<hr />
+<h3 id="us-hard-m5p-remove-m5-placeholder-items-from-nav-rail-f1-hard-m5-placeholder-p0">US-HARD-M5P — Remove M5 placeholder items from nav rail (F1-HARD-M5-PLACEHOLDER) — P0<a class="headerlink" href="#us-hard-m5p-remove-m5-placeholder-items-from-nav-rail-f1-hard-m5-placeholder-p0" title="Permanent link">&para;</a></h3>
+<p>As a Synapse user, I want the navigation rail in M4 to show only sections that are fully
+functional (Chat, Wiki, Sources, Graph, Settings), so that I do not encounter disabled or
+greyed-out items that create uncertainty about whether the application is broken.</p>
+<p><strong>Invariants touched:</strong> I3 (fewer items = fewer renders; no impact on Zustand scalar
+discipline). TypeScript safety: the Section union type in graphStore.ts retains "search",
+"lint", "review", "deep-search" as valid members so downstream code does not require a
+mass-refactor at M5.</p>
+<p><strong>D-artifacts:</strong> D5 (nav screenshot must show exactly 5 interactive items).</p>
+<p><strong>Source files:</strong> frontend/src/components/nav/NavRail.tsx (M5_ITEMS array emptied),
+frontend/src/store/graphStore.ts (Section type UNCHANGED),
+frontend/src/locales/en.json (nav.search / nav.lint / nav.review / nav.deepSearch /
+nav.comingSoon RETAINED, not deleted).</p>
+<p><strong>ACs:</strong> AC-HARD-M5P-1 through AC-HARD-M5P-7.</p>
+<hr />
+<blockquote>
+<p>§Stories authored by: functional-analyst (claude-sonnet-4-6) | 2026-06-29
+Stories cover all 9 M4-HARD feature IDs.
+Handoff: user stories → frontend-engineer (all 9 items are frontend-only);
+  TRACEABILITY.md M4-HARD section → qa-test-engineer (fill Test IDs after writing tests).</p>
+</blockquote>
+<hr />
+<blockquote>
+<p>PM scope-lock: M4-HARD locked 2026-06-29 | product-manager (claude-sonnet-4-6)
+Feature IDs: F1-HARD-SETTINGS, F1-HARD-COLLAPSE, F1-HARD-PROVIDER-EDIT,
+  F1-HARD-MCP-STUB, F1-HARD-NAV-ORDER, F1-HARD-EMBED-STUB, F1-HARD-CONV-HISTORY,
+  F1-HARD-NAV-LABELS, F1-HARD-M5-PLACEHOLDER
+Ruling on Point A (nav labels): persistent labels beside icons, wider rail (~72px)
+Ruling on Point B (M5 placeholders): REMOVE from M4 nav rail entirely
+Handoff: acceptance criteria (§3) → functional-analyst
+Handoff: exit-criteria verdict (§5) → orchestrator after all 4 sign-offs</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

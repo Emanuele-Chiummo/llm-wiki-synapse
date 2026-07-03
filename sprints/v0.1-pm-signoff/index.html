@@ -1,0 +1,1107 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.1-pm-signoff/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>PM Exit-Criteria Sign-off — Sprint 1 / v0.1 / M1 "Data flows end-to-end" - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#pm-exit-criteria-sign-off-sprint-1-v01-m1-data-flows-end-to-end" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              PM Exit-Criteria Sign-off — Sprint 1 / v0.1 / M1 "Data flows end-to-end"
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-gate-sign-off-register" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Gate sign-off register
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-ec-1-through-ec-15-verdict-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. EC-1 through EC-15 verdict table
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. EC-1 through EC-15 verdict table">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ec-roll-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC roll-up
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-deferred-to-live-demo-items-tracking-confirmation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Deferred-to-live-demo items — tracking confirmation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-anti-scope-creep-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Anti-scope-creep check
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Anti-scope-creep check">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope-work-delivered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In-scope work delivered
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope-work-present" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out-of-scope work present
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f17-provider-code-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F17 provider code check
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-deferred-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other deferred features
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-velocity-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Velocity note
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-non-blocking-carry-forward-items-to-v02-backlog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Non-blocking carry-forward items (to v0.2 backlog)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-v02-scope-boundary-confirmation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. v0.2 scope boundary confirmation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-final-verdict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Final verdict
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Final verdict">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#milestone-m1-met-pending-human-checkpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MILESTONE M1: MET-PENDING-HUMAN-CHECKPOINT
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conditions-for-full-m1-closure-human-checkpoint-checklist-for-emanuele" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditions for full M1 closure (human checkpoint checklist for Emanuele)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="pm-exit-criteria-sign-off-sprint-1-v01-m1-data-flows-end-to-end">PM Exit-Criteria Sign-off — Sprint 1 / v0.1 / M1 "Data flows end-to-end"<a class="headerlink" href="#pm-exit-criteria-sign-off-sprint-1-v01-m1-data-flows-end-to-end" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Author: product-manager
+Date: 2026-06-28
+Branch: <code>sprint/v0.1</code>
+Commit tag: <code>docs(pm): v0.1 exit-criteria sign-off [K2][F16]</code>
+Input documents read: <code>docs/sprints/v0.1-scope.md</code>, <code>BACKLOG.md</code>,
+  <code>docs/sprints/v0.1-qa-report.md</code>, <code>docs/sprints/v0.1-architect-review.md</code>,
+  <code>DOCS_STATUS.md</code>, <code>TRACEABILITY.md</code></p>
+</blockquote>
+<hr />
+<h2 id="1-gate-sign-off-register">1. Gate sign-off register<a class="headerlink" href="#1-gate-sign-off-register" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Gate</th>
+<th>Owner</th>
+<th>Status</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QA green</td>
+<td>qa-test-engineer</td>
+<td><strong>SIGNED OFF (conditional)</strong></td>
+<td>156/156 tests pass; ruff+black+mypy clean; no P0/P1 bugs; deferred items are live-infra only, not code defects. <code>docs/sprints/v0.1-qa-report.md</code></td>
+</tr>
+<tr>
+<td>Architect review</td>
+<td>solution-architect</td>
+<td><strong>APPROVED</strong></td>
+<td>All 9 invariants checked; I1/I6/I9/I5/I7/I8 approved; no blocking defect; AC-D1-3 + AC-D2-3 signed off manually. <code>docs/sprints/v0.1-architect-review.md</code> signed 2026-06-28</td>
+</tr>
+<tr>
+<td>Tech-writer docs gate</td>
+<td>tech-writer</td>
+<td><strong>UP-TO-DATE</strong></td>
+<td>D1 (C4 context + container), D2 (ER), D4 (OpenAPI) all present, no drift, cross-consistency sweep clean. <code>DOCS_STATUS.md</code> signed 2026-06-28</td>
+</tr>
+<tr>
+<td>PM exit-criteria verdict</td>
+<td>product-manager</td>
+<td><strong>THIS DOCUMENT</strong></td>
+<td>All 4 gates assessed; scope confirmed; EC table below</td>
+</tr>
+</tbody>
+</table>
+<p>All 4 required gate sign-offs are present and positive. The fifth entry (EC-15, human
+checkpoint by Emanuele) is explicitly a post-sign-off condition, not a PM gate.</p>
+<hr />
+<h2 id="2-ec-1-through-ec-15-verdict-table">2. EC-1 through EC-15 verdict table<a class="headerlink" href="#2-ec-1-through-ec-15-verdict-table" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>EC</th>
+<th>Feature IDs</th>
+<th>Description</th>
+<th>Verdict</th>
+<th>Basis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EC-1</td>
+<td>K1, K4, K6, K7</td>
+<td>Vault structure valid: directories, index.md, log.md, schema.md, purpose.md, .obsidian/app.json</td>
+<td><strong>MET</strong> (automated sub-criteria) + <strong>DEFERRED-TO-LIVE-DEMO</strong> (AC-K7-3 Obsidian manual open)</td>
+<td>T-VAULT-001..013 GREEN; AC-K7-3 = GAP-1, tracked in TRACEABILITY.md gap register</td>
+</tr>
+<tr>
+<td>EC-2</td>
+<td>Watcher, K1, K4, I1</td>
+<td>Incremental ingest fires correctly: new file → row + Qdrant point; unchanged → no write; modify → upsert; delete → soft-delete + vector remove; startup = no rescan</td>
+<td><strong>MET</strong></td>
+<td>T-INC-001..017, T-HASH-001..018 all GREEN; I1 static scan: zero hits; AC-WATCH-1..6 GREEN</td>
+</tr>
+<tr>
+<td>EC-3</td>
+<td>K4</td>
+<td>log.md append-only: 3 events → 3 entries; file never shorter</td>
+<td><strong>MET</strong></td>
+<td>T-INC-011..013, T-INC-005 GREEN; AC-K4-1..3 GREEN</td>
+</tr>
+<tr>
+<td>EC-4</td>
+<td>K6</td>
+<td>Frontmatter stored correctly: valid fields extracted; missing fields = NULL, no exception</td>
+<td><strong>MET</strong></td>
+<td>T-FM-001..025 GREEN; AC-K6-1..4 GREEN</td>
+</tr>
+<tr>
+<td>EC-5</td>
+<td>Qdrant, I9</td>
+<td>Vectors from existing bge-m3: collection created; point retrievable; EMBEDDING_URL is only path; no local model</td>
+<td><strong>MET</strong> (contract via FakeQdrantClient) + <strong>DEFERRED-TO-LIVE-DEMO</strong> (AC-QD-2/3 on live Qdrant)</td>
+<td>AC-QD-1 + AC-QD-4 GREEN; AC-QD-2/3 = GAP-6, DEFERRED-needs-live-infra per TRACEABILITY.md</td>
+</tr>
+<tr>
+<td>EC-6</td>
+<td>K2 (partial), REST</td>
+<td>All 4 endpoints operational: GET /status 200, GET /pages 200 paginated, GET /pages/{id} 200/404, POST /ingest/trigger 202</td>
+<td><strong>MET</strong></td>
+<td>T-API-001..021 GREEN; AC-REST-1..6 GREEN</td>
+</tr>
+<tr>
+<td>EC-7</td>
+<td>F16 (partial)</td>
+<td>dataVersion: starts 0; +1 per ingest; exposed via /status; never decremented</td>
+<td><strong>MET</strong></td>
+<td>T-INC-014..015, T-API-004, T-PG-015..019 GREEN; AC-F16dv-1..4 GREEN</td>
+</tr>
+<tr>
+<td>EC-8</td>
+<td>Docker Compose, dev tooling</td>
+<td><code>docker compose up</code> clean; <code>make test</code> exits 0; <code>make er</code> and <code>make openapi</code> succeed; no secrets committed</td>
+<td><strong>MET</strong> (automated) + <strong>DEFERRED-TO-LIVE-DEMO</strong> (AC-DC-1 on TrueNAS)</td>
+<td>AC-DC-2..5 GREEN; AC-DC-5/T-CQ-001..010 GREEN; AC-DC-1 = GAP-4/5, DEFERRED-needs-docker per TRACEABILITY.md</td>
+</tr>
+<tr>
+<td>EC-9</td>
+<td>D1, I8</td>
+<td>docs/architecture/context.mmd and container.mmd are valid Mermaid C4; architect approved</td>
+<td><strong>MET</strong></td>
+<td>AC-D1-1..2 GREEN (T-DOCS-001..008); AC-D1-3 MANUAL — architect signed off 2026-06-28 in <code>v0.1-architect-review.md</code> §2</td>
+</tr>
+<tr>
+<td>EC-10</td>
+<td>D2, I8</td>
+<td>docs/er/schema.mmd generated by <code>make er</code>; matches live schema; architect approved</td>
+<td><strong>MET</strong></td>
+<td>AC-D2-1..2 GREEN (T-DOCS-009..012, T-PG-020..024); AC-D2-3 MANUAL — architect signed off 2026-06-28 in <code>v0.1-architect-review.md</code> §2; zero-drift confirmed by DOCS_STATUS §3</td>
+</tr>
+<tr>
+<td>EC-11</td>
+<td>D4, K2, I8</td>
+<td>docs/api/openapi.json is valid OpenAPI 3.1; all 4 endpoints documented; generated by <code>make openapi</code></td>
+<td><strong>MET</strong></td>
+<td>AC-D4-1..3 GREEN (T-DOCS-013..019); tech-writer signed off in DOCS_STATUS §7</td>
+</tr>
+<tr>
+<td>EC-12</td>
+<td>QA gate</td>
+<td>QA-test-engineer ran full suite; signed off green; no P0/P1 bugs</td>
+<td><strong>MET</strong></td>
+<td>156/156 pass; qa-test-engineer sign-off in <code>v0.1-qa-report.md</code></td>
+</tr>
+<tr>
+<td>EC-13</td>
+<td>Architect gate</td>
+<td>solution-architect reviewed models.py, watcher.py, main.py; signed off; no invariant violations</td>
+<td><strong>MET</strong></td>
+<td><code>v0.1-architect-review.md</code> — I1/I6/I9/I5/I7/I8/data-model all APPROVE; no blocking defects; signed 2026-06-28</td>
+</tr>
+<tr>
+<td>EC-14</td>
+<td>Tech-writer gate</td>
+<td>tech-writer verified D1, D2, D4 complete and internally consistent; signed off</td>
+<td><strong>MET</strong></td>
+<td>DOCS_STATUS §7 verdict: "DOCS GATE: UP-TO-DATE"; signed 2026-06-28</td>
+</tr>
+<tr>
+<td>EC-15</td>
+<td>Human checkpoint</td>
+<td>Emanuele reviews the M1 live demo (EC-2 live run) and approves Sprint 2 start</td>
+<td><strong>PENDING — human gate</strong></td>
+<td>Not yet performed; this is the remaining condition for full M1 closure</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ec-roll-up">EC roll-up<a class="headerlink" href="#ec-roll-up" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Count</th>
+<th>EC IDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fully MET (all sub-criteria automated or manually signed)</td>
+<td>11</td>
+<td>EC-2, EC-3, EC-4, EC-6, EC-7, EC-9, EC-10, EC-11, EC-12, EC-13, EC-14</td>
+</tr>
+<tr>
+<td>MET with sub-criteria deferred to live demo / TrueNAS deploy</td>
+<td>3</td>
+<td>EC-1 (AC-K7-3), EC-5 (AC-QD-2/3), EC-8 (AC-DC-1)</td>
+</tr>
+<tr>
+<td>Pending human approval</td>
+<td>1</td>
+<td>EC-15</td>
+</tr>
+<tr>
+<td>NOT MET</td>
+<td>0</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-deferred-to-live-demo-items-tracking-confirmation">3. Deferred-to-live-demo items — tracking confirmation<a class="headerlink" href="#3-deferred-to-live-demo-items-tracking-confirmation" title="Permanent link">&para;</a></h2>
+<p>The following items are legitimately deferred to the M1 live demo on TrueNAS. None
+requires a code change. All are tracked in TRACEABILITY.md gap register.</p>
+<table>
+<thead>
+<tr>
+<th>Deferred AC</th>
+<th>EC it blocks (partial)</th>
+<th>Owner</th>
+<th>Tracking ID</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-PG-1 — Alembic upgrade on live Postgres</td>
+<td>EC-8 (partial)</td>
+<td>devops-engineer</td>
+<td>GAP-5</td>
+<td>Run <code>alembic upgrade head</code> against TrueNAS Postgres 16</td>
+</tr>
+<tr>
+<td>AC-QD-2 — Qdrant point payload verified on live instance</td>
+<td>EC-5 (partial)</td>
+<td>devops-engineer</td>
+<td>GAP-6</td>
+<td>Direct Qdrant API call after first live ingest</td>
+</tr>
+<tr>
+<td>AC-QD-3 — Qdrant point deleted on live instance</td>
+<td>EC-5 (partial)</td>
+<td>devops-engineer</td>
+<td>GAP-6</td>
+<td>Direct Qdrant API call after live delete</td>
+</tr>
+<tr>
+<td>AC-DC-1 — <code>docker compose up</code> full integration on TrueNAS</td>
+<td>EC-8 (partial)</td>
+<td>devops-engineer</td>
+<td>GAP-4</td>
+<td>Includes live Qdrant + bge-m3 connectivity</td>
+</tr>
+<tr>
+<td>AC-K7-3 — Obsidian vault opens without errors</td>
+<td>EC-1 (partial)</td>
+<td>Emanuele</td>
+<td>GAP-1</td>
+<td>Manual: open vault/wiki/ in Obsidian on dev machine</td>
+</tr>
+</tbody>
+</table>
+<p>All 5 items are tracked. Deferred-to-live status is acceptable for a sandbox-first
+walking-skeleton milestone per the scope lock note (v0.1-scope §8). No code defect
+is outstanding.</p>
+<hr />
+<h2 id="4-anti-scope-creep-check">4. Anti-scope-creep check<a class="headerlink" href="#4-anti-scope-creep-check" title="Permanent link">&para;</a></h2>
+<h3 id="in-scope-work-delivered">In-scope work delivered<a class="headerlink" href="#in-scope-work-delivered" title="Permanent link">&para;</a></h3>
+<p>All work delivered corresponds 1-to-1 to the locked feature IDs in <code>v0.1-scope.md §2</code>:
+K1, K4, K6, K7, F16 (partial — dataVersion only), K2 (partial — REST read endpoints),
+Watcher, Postgres/SQLAlchemy models, Qdrant integration, Docker Compose, D1, D2, D4.</p>
+<h3 id="out-of-scope-work-present">Out-of-scope work present<a class="headerlink" href="#out-of-scope-work-present" title="Permanent link">&para;</a></h3>
+<p>One early extra was identified:</p>
+<p><strong><code>docs/DEPLOY.md</code> (D6b, a v0.4 artifact — drafted early by devops-engineer)</strong></p>
+<p>Assessment:
+- DOCS_STATUS §1 classifies it as <code>DRAFT/EARLY</code>.
+- The file carries a "DRAFT" header per DOCS_STATUS §5 cross-consistency check.
+- It contains v0.1-accurate infrastructure information (TrueNAS services, docker compose).
+- It does not imply D6 is "done".
+- No code was written early; this is documentation-only and carries zero implementation risk.</p>
+<p>Verdict: <strong>ACCEPTABLE.</strong> The early DEPLOY.md draft is harmless infrastructure documentation.
+It is marked DRAFT, is not counted as D6 complete, and does not block or misrepresent
+any gate. No escalation required. It will be formally counted toward D6 only at v0.4
+per CLAUDE.md §9.</p>
+<h3 id="f17-provider-code-check">F17 provider code check<a class="headerlink" href="#f17-provider-code-check" title="Permanent link">&para;</a></h3>
+<p>No InferenceProvider, no provider_config table, no LLM call, no model IDs in
+executable code — confirmed by architect static scan and test_code_quality.py
+T-CQ-008/009. The F17 extension point exists only as a comment in orchestrator.py.
+F17 remains correctly deferred to v0.2 per scope lock. <strong>No scope creep on F17.</strong></p>
+<h3 id="other-deferred-features">Other deferred features<a class="headerlink" href="#other-deferred-features" title="Permanent link">&para;</a></h3>
+<p>No work was detected for: F3, K3, K5, F1, F2, F4, F5, F6, F7, F8, F9, F10, F11, F12,
+F13, F14, F15 (beyond Docker Compose), MCP server, D3, D5, D7 (beyond the early ADR
+draft permitted by I8 per architect). All deferred features remain correctly in their
+target sprint backlogs.</p>
+<hr />
+<h2 id="5-velocity-note">5. Velocity note<a class="headerlink" href="#5-velocity-note" title="Permanent link">&para;</a></h2>
+<p>Sprint 1 is on-scope. The walking skeleton was delivered as designed: no AI inference,
+no frontend, no graph, no chat. Feature count delivered matches the scope lock exactly.</p>
+<p>The one permitted exception (early DEPLOY.md draft by devops-engineer) was a
+documentation-only act and did not expand engineering scope.</p>
+<p>ADR files 0001–0006 committed early by solution-architect are within the I8 mandate
+("docs-as-DoD continuous from v0.2") and were explicitly permitted by the architecture
+note. Not counted as velocity overrun.</p>
+<p>Estimated scope for a solo evening developer (8–12 sessions per v0.1-scope §8): sprint
+delivered within that envelope based on the 2026-06-28 completion date against a
+2026-06-28 kick-off (same-day scope lock and sign-off — indicates agent-assisted sprint
+running on a single working day, consistent with the development model).</p>
+<p>Verdict: <strong>ON SCOPE.</strong> No underrun; no overrun.</p>
+<hr />
+<h2 id="6-non-blocking-carry-forward-items-to-v02-backlog">6. Non-blocking carry-forward items (to v0.2 backlog)<a class="headerlink" href="#6-non-blocking-carry-forward-items-to-v02-backlog" title="Permanent link">&para;</a></h2>
+<p>These are noted by QA and architect and are NOT gaps that prevent M1 sign-off.</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Source</th>
+<th>Target sprint</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenAPI 202 schema for POST /ingest/trigger — add <code>response_model=IngestTriggerResponse, status_code=202</code></td>
+<td>DOCS_STATUS §4, architect review §3 note 1</td>
+<td>v0.2</td>
+</tr>
+<tr>
+<td>CI mmdc render check (AC-D1-1/2) — wire <code>mmdc</code> in docs CI stage</td>
+<td>DOCS_STATUS §7 open item 1</td>
+<td>v0.2</td>
+</tr>
+<tr>
+<td>provider_config table entry (full F17)</td>
+<td>ADR-0003, all reviews</td>
+<td>v0.2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-v02-scope-boundary-confirmation">7. v0.2 scope boundary confirmation<a class="headerlink" href="#7-v02-scope-boundary-confirmation" title="Permanent link">&para;</a></h2>
+<p>Sprint 2 backlog is intact and untouched. The BACKLOG.md <code>Sprint 2 — v0.2</code> section
+lists: F17 (InferenceProvider ABC + 3 backends), K2 (ingest orchestrator), F3, K3, K5,
+D3, D7, MCP server. No v0.2 code or schema exists in the codebase as of this sign-off.
+The <code>provider_config</code> table is correctly absent from all v0.1 artifacts (ER, C4, OpenAPI).</p>
+<p>Sprint 2 may begin immediately after EC-15 (human checkpoint) is satisfied.</p>
+<hr />
+<h2 id="8-final-verdict">8. Final verdict<a class="headerlink" href="#8-final-verdict" title="Permanent link">&para;</a></h2>
+<h3 id="milestone-m1-met-pending-human-checkpoint">MILESTONE M1: MET-PENDING-HUMAN-CHECKPOINT<a class="headerlink" href="#milestone-m1-met-pending-human-checkpoint" title="Permanent link">&para;</a></h3>
+<p>All 14 PM-verifiable exit criteria (EC-1 through EC-14) are MET or MET with items
+legitimately deferred to the live-demo deployment — none requires a code change.</p>
+<p>The single remaining condition is EC-15 (human checkpoint).</p>
+<h3 id="conditions-for-full-m1-closure-human-checkpoint-checklist-for-emanuele">Conditions for full M1 closure (human checkpoint checklist for Emanuele)<a class="headerlink" href="#conditions-for-full-m1-closure-human-checkpoint-checklist-for-emanuele" title="Permanent link">&para;</a></h3>
+<p>The following items must be confirmed before <code>sprint/v0.1</code> is merged and Sprint 2 begins:</p>
+<ol>
+<li>
+<p><strong>Live demo — EC-2:</strong> Drop a real .md file into <code>vault/raw/sources/</code> on TrueNAS; confirm
+   within 5 seconds: Postgres row appears, Qdrant point appears in synapse_pages collection.
+   Drop the same file unchanged; confirm no new row, no new point (I1 contract).</p>
+</li>
+<li>
+<p><strong>AC-PG-1 (EC-8):</strong> Run <code>alembic upgrade head</code> against live Postgres 16 on TrueNAS;
+   confirm migrations complete cleanly.</p>
+</li>
+<li>
+<p><strong>AC-DC-1 (EC-8):</strong> Run <code>docker compose up</code> on TrueNAS; confirm synapse-backend and
+   postgres16 start without error; confirm bge-m3 and Qdrant are reachable via their env vars.</p>
+</li>
+<li>
+<p><strong>AC-QD-2/3 (EC-5):</strong> After first live ingest, call Qdrant API directly to confirm
+   the point exists with correct payload; delete the source file; confirm point is removed.</p>
+</li>
+<li>
+<p><strong>AC-K7-3 (EC-1):</strong> Open <code>vault/wiki/</code> in Obsidian; confirm no errors and vault is
+   recognised (I5 manual gate).</p>
+</li>
+<li>
+<p><strong>EC-15 (human approval):</strong> Emanuele approves M1 and explicitly authorises Sprint 2 start.</p>
+</li>
+</ol>
+<p><strong>When all 6 conditions above are satisfied, M1 is FULLY CLOSED and Sprint 2 (v0.2) may begin.</strong></p>
+<hr />
+<p><strong>Signed: product-manager | 2026-06-28</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

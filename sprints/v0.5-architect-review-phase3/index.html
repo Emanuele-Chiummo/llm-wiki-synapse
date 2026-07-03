@@ -1,0 +1,918 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-architect-review-phase3/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>v0.5 Phase 3 — Architect Review (F9 Review Queue + F12 Multi-format ingest) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#v05-phase-3-architect-review-f9-review-queue-f12-multi-format-ingest" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              v0.5 Phase 3 — Architect Review (F9 Review Queue + F12 Multi-format ingest)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#verdict-approve-with-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VERDICT: APPROVE-WITH-CONDITIONS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#f9-do-not-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F9 — Do-NOT compliance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#f12-do-not-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F12 — Do-NOT compliance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#critical-checks-recently-found-bug-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Critical checks (recently-found bug classes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Critical checks (recently-found bug classes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-chat-signature-i6-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. chat() signature (I6) — PASS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-deep-research-run_id-threading-no-c1-recurrence-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. deep-research run_id threading (no C1 recurrence) — PASS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-f9-hook-safety-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. F9 hook safety — PASS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-f12-companion-flow-i1i5-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. F12 companion flow (I1/I5) — PASS
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-schema-conformance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / schema conformance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notes-observations-no-action-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notes / observations (no action required)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="v05-phase-3-architect-review-f9-review-queue-f12-multi-format-ingest">v0.5 Phase 3 — Architect Review (F9 Review Queue + F12 Multi-format ingest)<a class="headerlink" href="#v05-phase-3-architect-review-f9-review-queue-f12-multi-format-ingest" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Reviewer:</strong> solution-architect</li>
+<li><strong>Date:</strong> 2026-06-29</li>
+<li><strong>Branch:</strong> <code>sprint/v0.5</code></li>
+<li><strong>Scope:</strong> M5 Phase 3 — F9 (HITL Review Queue) + F12 (Multi-format ingest), judged against ADR-0025 §5 Do-NOT list + CLAUDE.md §3 invariants.</li>
+<li><strong>Method:</strong> static read of the implementation against the contract. Test suite NOT run (QA owns that, in parallel).</li>
+</ul>
+<hr />
+<h2 id="verdict-approve-with-conditions">VERDICT: APPROVE-WITH-CONDITIONS<a class="headerlink" href="#verdict-approve-with-conditions" title="Permanent link">&para;</a></h2>
+<p>The implementation is faithful to ADR-0025. All 17 Do-NOT triggers HELD, all 4 critical
+checks PASS, migration/schema conform, ER (D2) updated with zero drift. The single condition
+is a <strong>non-blocking</strong> hardening item (DB-level CHECK constraints the ADR specified are absent —
+enforcement is currently app-level only). It does not gate the phase; it must be tracked.</p>
+<hr />
+<h2 id="f9-do-not-compliance">F9 — Do-NOT compliance<a class="headerlink" href="#f9-do-not-compliance" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Do-NOT</th>
+<th>Verdict</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a</td>
+<td>&gt;1 provider call/item or any query-gen loop</td>
+<td><strong>HELD</strong></td>
+<td><code>ops/review.py:_single_chat_call</code> consumes <code>provider.chat()</code> exactly once; <code>generate_review_queries</code> makes one <code>asyncio.wait_for</code>-wrapped call (<code>review.py:211</code>); no loop/retry. Hook calls it once per page (<code>orchestrator.py:998-1003</code>).</td>
+</tr>
+<tr>
+<td>b</td>
+<td>hook that raises/blocks ingest</td>
+<td><strong>HELD</strong></td>
+<td><code>orchestrator.py:377-387</code> wraps <code>_enqueue_review_items</code> in <code>try/except Exception</code> → logs WARNING, swallows. Page already written + overview updated before the hook (<code>:367-370</code>).</td>
+</tr>
+<tr>
+<td>c</td>
+<td>a vaults table or UUID vault_id</td>
+<td><strong>HELD</strong></td>
+<td><code>models.py:1245</code> <code>vault_id: Mapped[str] = mapped_column(String, …)</code>; migration <code>0010:52-57</code> <code>sa.String()</code>, no FK. No vaults table introduced.</td>
+</tr>
+<tr>
+<td>d</td>
+<td>hardcoded backend / isinstance on provider (I6)</td>
+<td><strong>HELD</strong></td>
+<td><code>generate_review_queries</code> resolves via <code>resolve_provider_config("ingest", vault_id)</code> (<code>review.py:177</code>) → <code>resolve_provider(cfg)</code>. No isinstance / provider_type / class-name branch anywhere in <code>review.py</code>.</td>
+</tr>
+<tr>
+<td>e</td>
+<td>Approve/Skip/DR added to the Ingest View</td>
+<td><strong>HELD</strong></td>
+<td>Actions live only in <code>components/review/ReviewQueueView.tsx</code>; separate <code>review</code> section + <code>reviewStore.ts</code>. No review actions in the Sources/Ingest surface.</td>
+</tr>
+<tr>
+<td>f</td>
+<td>re-trigger ingest on Approve</td>
+<td><strong>HELD</strong></td>
+<td><code>approve</code>/<code>skip</code> → <code>_set_status</code> (<code>review.py:468-493</code>): status + <code>reviewed_at</code> + <code>reviewed_by</code> write only. No <code>ingest_file</code>, no rescan, no <code>bump_version</code>. Endpoint doc reiterates AC-F9-6 (<code>main.py:2647</code>).</td>
+</tr>
+<tr>
+<td>g</td>
+<td>unbounded consistency scan / FA2 call</td>
+<td><strong>HELD</strong></td>
+<td>No consistency/contradiction scan shipped (ADR §3.4 reserved). Generator produces <code>suggested_query</code>-style follow-ups only. No <code>edges</code>/FA2/graph access in <code>review.py</code>.</td>
+</tr>
+<tr>
+<td>h</td>
+<td>uncapped /review/queue (cap 200)</td>
+<td><strong>HELD</strong></td>
+<td><code>main.py:2484</code> <code>_REVIEW_QUEUE_MAX_LIMIT = 200</code>; <code>list_review_queue</code> query param <code>le=_REVIEW_QUEUE_MAX_LIMIT</code> (<code>:2589</code>), default 50.</td>
+</tr>
+<tr>
+<td>i</td>
+<td>un-virtualized list &gt;50</td>
+<td><strong>HELD</strong></td>
+<td><code>ReviewQueueView.tsx</code> uses <code>useVirtualizer</code> (<code>:292</code>) with absolute-positioned rows; virtualization always active. TanStack Virtual.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="f12-do-not-compliance">F12 — Do-NOT compliance<a class="headerlink" href="#f12-do-not-compliance" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Do-NOT</th>
+<th>Verdict</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>j</td>
+<td>format-lib imports outside extract.py</td>
+<td><strong>HELD</strong></td>
+<td><code>grep</code> for <code>pypdf/docx/pptx/openpyxl/unstructured</code> across <code>backend/app/</code> returns only <code>ingest/extract.py</code>. All four libs imported LOCALLY inside their helper functions (<code>extract.py:111,136,147,173</code>).</td>
+</tr>
+<tr>
+<td>k</td>
+<td>any LLM call in extraction</td>
+<td><strong>HELD</strong></td>
+<td><code>extract_text</code> and all <code>_extract_*</code> helpers are pure path→text; no provider/httpx/network import in <code>extract.py</code>.</td>
+</tr>
+<tr>
+<td>l</td>
+<td>extracting in the watcher</td>
+<td><strong>HELD</strong></td>
+<td>Extraction is on the upload request path only (<code>main.py:1132-1174</code>), synchronously, before the 202. <code>watcher.py</code> is unchanged and format-agnostic (<code>_is_text_file</code> imports <code>_ALLOWED_EXTENSIONS</code>).</td>
+</tr>
+<tr>
+<td>m</td>
+<td>adding binary exts to <code>_ALLOWED_EXTENSIONS</code></td>
+<td><strong>HELD</strong></td>
+<td><code>upload.py:32</code> <code>_ALLOWED_EXTENSIONS = {".md",".txt",".markdown"}</code> UNCHANGED. Binary/placeholder sets are separate (<code>:37,40</code>); union only in <code>_UPLOAD_ACCEPTED</code> (<code>:45</code>). Watcher imports the unchanged frozenset.</td>
+</tr>
+<tr>
+<td>n</td>
+<td>writing to wiki/ / bypassing ingest_file</td>
+<td><strong>HELD</strong></td>
+<td>Companion written to <code>raw/sources/&lt;stem&gt;.extracted.md</code> (<code>main.py:1147-1154</code>). <code>wiki/</code> is written only by <code>write_wiki_page</code> via the watcher→<code>ingest_file</code> path. Original binary preserved.</td>
+</tr>
+<tr>
+<td>o</td>
+<td>mutating/deleting the original binary</td>
+<td><strong>HELD</strong></td>
+<td>Binary atomically moved to <code>raw/sources/</code> (<code>main.py:1127</code>); never unlinked/rewritten after. Companion is a <em>new</em> file; binary is an immutable <code>raw/</code> artifact (K1).</td>
+</tr>
+<tr>
+<td>p</td>
+<td>adding unstructured/OCR</td>
+<td><strong>HELD</strong></td>
+<td><code>pyproject.toml:26-29</code> adds only <code>pypdf</code>, <code>python-docx</code>, <code>python-pptx</code>, <code>openpyxl</code> (pinned floors+ceilings). No <code>unstructured</code>. Image/AV → <code>_placeholder</code> one-liner (<code>extract.py:211-227</code>).</td>
+</tr>
+<tr>
+<td>q</td>
+<td>bypassing the byte/char caps</td>
+<td><strong>HELD</strong></td>
+<td>Upload byte cap <code>MAX_UPLOAD_BYTES</code> enforced before move (<code>main.py:1102-1106</code>, 413). Output char cap <code>EXTRACT_MAX_CHARS</code> enforced in <code>extract_text</code> (<code>extract.py:90-97</code>).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="critical-checks-recently-found-bug-classes">Critical checks (recently-found bug classes)<a class="headerlink" href="#critical-checks-recently-found-bug-classes" title="Permanent link">&para;</a></h2>
+<h3 id="1-chat-signature-i6-pass">1. chat() signature (I6) — <strong>PASS</strong><a class="headerlink" href="#1-chat-signature-i6-pass" title="Permanent link">&para;</a></h3>
+<p>The ABC signature is locked: <code>async def chat(self, messages, retrieval_context)</code> (<code>provider/base.py:106</code>) — 2 args, no <code>token_budget</code>. <code>review.py:_single_chat_call</code> calls <code>provider.chat(messages, "")</code> (<code>:267</code>) and enforces the budget at the orchestration layer via <code>budget_chars = token_budget * _CHARS_PER_TOKEN</code> (char/4, <code>:264</code>), breaking the async-gen loop once <code>total &gt;= budget_chars</code> and calling <code>aclose()</code>. It consumes the dual shape (<code>maybe = provider.chat(...); agen = await maybe if inspect.isawaitable(maybe) else maybe</code>, <code>:267-268</code>) exactly like <code>chat/stream.py</code>. The prior <code>token_budget=</code> kwarg bug is fixed and the budget is actually enforced (truncates accumulated output, not a no-op). Timeout wraps the whole consumption (<code>:211</code>), so it covers network latency, not just first-token.</p>
+<h3 id="2-deep-research-run_id-threading-no-c1-recurrence-pass">2. deep-research run_id threading (no C1 recurrence) — <strong>PASS</strong><a class="headerlink" href="#2-deep-research-run_id-threading-no-c1-recurrence-pass" title="Permanent link">&para;</a></h3>
+<p><code>review.py:deep_research</code> mints <code>run_id</code> (<code>:395</code>), pre-INSERTs the <code>DeepResearchRun</code> row with status='running' and frozen bounds (<code>:403-422</code>), stores <code>run_id_str</code> on the review row (<code>:438</code>), then schedules <code>run_deep_research(..., run_id=run_id)</code> (<code>:445-453</code>). <code>run_deep_research</code> reuses the caller's row when <code>run_id is not None</code> and only mints+inserts when it is None (<code>deep_research.py:152-160</code>) — the documented C1-safe path. No orphan row, no double-insert, no stuck-"running". The manual pre-insert mirrors <code>_create_run_row</code> field-for-field (all NOT-NULL columns populated), so the INSERT will not violate schema.</p>
+<h3 id="3-f9-hook-safety-pass">3. F9 hook safety — <strong>PASS</strong><a class="headerlink" href="#3-f9-hook-safety-pass" title="Permanent link">&para;</a></h3>
+<p><code>run_ingest_pipeline</code> runs the hook only on the orchestrated branch, AFTER <code>write_wiki_page</code> + <code>_update_overview</code> (<code>orchestrator.py:367-388</code>). The hook is wrapped in <code>try/except Exception … log WARNING</code> (<code>:377-387</code>). Inside <code>_enqueue_review_items</code>, the excerpt read is itself guarded (<code>:974-996</code>), and <code>generate_review_queries</code> never raises (it returns <code>None</code> on any provider/config error — <code>review.py:178-230</code>). A generator failure cannot propagate into the ingest caller or affect <code>IngestRunResult</code>. Delegated (CLI) branch correctly does NOT invoke the hook (ADR §3.3.4 reserved gap, acknowledged).</p>
+<h3 id="4-f12-companion-flow-i1i5-pass">4. F12 companion flow (I1/I5) — <strong>PASS</strong><a class="headerlink" href="#4-f12-companion-flow-i1i5-pass" title="Permanent link">&para;</a></h3>
+<p>Binary upload path (<code>main.py:1132-1176</code>): (1) original binary atomically moved to <code>raw/sources/</code> and preserved; (2) <code>extract_text(dst)</code> synchronously; (3) companion <code>&lt;stem&gt;.extracted.md</code> written with valid Obsidian frontmatter — <code>type: source</code>, <code>title</code>, <code>sources: ["raw/sources/&lt;name&gt;.&lt;ext&gt;"]</code> (<code>:1151-1152</code>, F3 traceback, I5); (4) returns 202. The watcher then fires on <code>.extracted.md</code> (matches <code>.md</code> in the unchanged <code>_ALLOWED_EXTENSIONS</code>) and the binary is ignored (its extension is not watched) → one <code>ingest_file</code>, one hash gate, one <code>pages</code> row, one Qdrant point (I1). Extraction failure is non-fatal: binary stays saved, no companion, watcher silently skips it (<code>:1166-1174</code>). <code>_ALLOWED_EXTENSIONS</code> is unchanged.</p>
+<hr />
+<h2 id="migration-schema-conformance">Migration / schema conformance<a class="headerlink" href="#migration-schema-conformance" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>review_items</code> is Alembic <strong>0010</strong>, <code>down_revision = "0009"</code></td>
+<td>PASS (<code>0010_review_items.py:35-36</code>)</td>
+</tr>
+<tr>
+<td><code>vault_id</code> String, no FK, no vaults table (AQ-v0.5-6)</td>
+<td>PASS (model + migration)</td>
+</tr>
+<tr>
+<td><code>page_id</code> nullable FK → pages.id</td>
+<td>PASS (<code>models.py:1254-1262</code>; migration <code>:58-64</code>)</td>
+</tr>
+<tr>
+<td><code>deep_research_run_id</code> nullable FK → deep_research_runs.id</td>
+<td>PASS (<code>models.py:1290-1298</code>; migration <code>:84-90</code>)</td>
+</tr>
+<tr>
+<td>Columns match ADR-0025 §3.1 (id, vault_id, page_id, item_type, status, pre_generated_query, deep_research_run_id, created_at, reviewed_at, reviewed_by)</td>
+<td>PASS — all 10 present, types/nullability match</td>
+</tr>
+<tr>
+<td><code>status</code> server_default <code>'pending'</code></td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Index <code>ix_review_items_vault_status_created (vault_id, status, created_at)</code></td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>UUID <code>with_variant(String(36), "sqlite")</code> pattern (follows deep_research_runs)</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>D2 ER (<code>docs/er/schema.mmd</code>) shows REVIEW_ITEMS with both FKs, zero drift</td>
+<td>PASS (<code>schema.mmd:152-163</code>)</td>
+</tr>
+<tr>
+<td>D4 OpenAPI: 4 review endpoints + widened upload accept-list</td>
+<td>PASS (endpoints defined in <code>main.py</code>; <code>make openapi</code> regen still owed at gate — see conditions)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="conditions">Conditions<a class="headerlink" href="#conditions" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>(Non-blocking, must-track) DB-level CHECK constraints absent.</strong> ADR-0025 §3.1 specifies
+   CHECK constraints enumerating <code>item_type</code> (<code>new_page|update_page|deep_research_candidate</code>)
+   and <code>status</code> (<code>pending|approved|skipped|deep_researched</code>). The model documents them as
+   "enum-by-convention (CHECK constraint)" but migration 0010 creates plain <code>Text</code> columns with
+   no CHECK. Enforcement today is application-level only (handler <code>Literal</code> types + status
+   helper). This does not violate an invariant and does not gate Phase 3, but it is a deviation
+   from the signed ADR. Resolve by either (a) adding the two CHECK constraints in a follow-up
+   migration, or (b) amending ADR-0025 to record enum-by-convention as the accepted decision.
+   Track to M5 close.</p>
+</li>
+<li>
+<p><strong>(Gate housekeeping) D4 regeneration.</strong> Confirm <code>make openapi</code> has been run so
+   <code>docs/api/openapi.json</code> carries the 4 <code>/review/queue*</code> routes and the widened
+   <code>/ingest/upload</code> accept-list; confirm <code>make er</code> output (<code>schema.mmd</code>) is committed (it is).
+   Zero-drift is I8 — verify in the docs gate before phase sign-off.</p>
+</li>
+</ol>
+<hr />
+<h2 id="notes-observations-no-action-required">Notes / observations (no action required)<a class="headerlink" href="#notes-observations-no-action-required" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>list_queue</code> queries ALL statuses (not just pending) so the UI can show the full queue; the
+  store filters actioned items out optimistically. Consistent with ADR §3.5 ("the full queue")
+  and the event-log model (§3.1). Acceptable.</li>
+<li>Reserved gaps are explicitly coded, not silently dropped: delegated-CLI enqueue (ADR §7.1),
+  consistency scan (§3.4), binaries-outside-upload auto-extract (§4.3). Each is gated behind a
+  future ADR. No invariant tension introduced.</li>
+<li>The <code>_query_token_budget</code> default (2000) and <code>_query_timeout</code> (30s) read from <code>settings</code> at
+  call time with safe fallbacks — bounded per I7, logged via <code>UsageAccumulator</code> (<code>review.py:233</code>).</li>
+<li>No new container/component topology — <code>review.py</code>/<code>extract.py</code> are components inside the
+  existing FastAPI service. D1 (C4) unchanged, as ADR-0025 §8 handoff predicted.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,971 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0022-retrieval-and-citations/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0022 — F5 4-phase retrieval + [n] citation architecture (M5 Phase 1) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0022-f5-4-phase-retrieval-n-citation-architecture-m5-phase-1" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0022 — F5 4-phase retrieval + [n] citation architecture (M5 Phase 1)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decisions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-module-public-interface-backendappragretrievalpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Module &amp; public interface — backend/app/rag/retrieval.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-the-four-phases-in-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 The four phases (in order)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-data-structures-the-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Data structures (the contract)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-the-citation-contract-f5-f6-frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 The citation contract (F5 ↔ F6 ↔ frontend)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-get-search-d4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 GET /search (D4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-f5-adds-no-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 F5 adds NO migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#27-chat-provider-integration-carry-forwards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.7 Chat &amp; provider integration (carry-forwards)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-resolved-ambiguities-the-p0p1-phase-1-blockers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Resolved ambiguities (the P0/P1 Phase-1 blockers)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-the-one-accepted-limitation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. The one accepted limitation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-do-not-list-rejection-triggers-in-pr-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Do-NOT list (rejection triggers in PR review)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-ac-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. AC mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0022-f5-4-phase-retrieval-n-citation-architecture-m5-phase-1">ADR-0022 — F5 4-phase retrieval + <code>[n]</code> citation architecture (M5 Phase 1)<a class="headerlink" href="#adr-0022-f5-4-phase-retrieval-n-citation-architecture-m5-phase-1" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Status: Accepted
+Date: 2026-06-29
+Sprint: v0.5 (M5 Phase 1)
+Authors: solution-architect (design), tech-writer (formatting)
+Features: F5 (4-phase retrieval), F6 AC-F6-3 (<code>[n]</code> citations), F6 AC-F6-5 (save-to-wiki),
+F14 (context-window budget), F17 (<code>CliAgentProvider.chat()</code>)
+Invariants in force: I1, I2, I3, I5, I6, I7, I9
+Resolves: AQ-v0.5-1, AQ-v0.5-2, AQ-v0.5-7 (P0/P1 Phase-1 blockers)
+Extends: ADR-0019 (chat: fills the M5-reserved <code>messages.citations</code> column + adds <code>done.citations</code>;
+replaces the light-context-only retrieval with the real 4-phase pipeline), ADR-0002 (Qdrant point
+id == pages.id), ADR-0007/0011 (provider <code>chat()</code> contract unchanged), ADR-0009 (NB-4 cost).
+Supersedes: nothing.</p>
+</blockquote>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>M5 Phase 1 is the <strong>retrieval foundation</strong>. ADR-0019 (M4 Phase 3) shipped chat with a deliberately
+minimal context strategy — <code>build_chat_context()</code> reads <code>purpose.md</code> + <code>overview.md</code> and passes one
+string as <code>retrieval_context</code> — and <strong>explicitly deferred F5 4-phase RAG and <code>[n]</code> citations to M5</strong>.
+ADR-0019 reserved the <code>messages.citations</code> JSONB column (always <code>[]</code> in M4) for exactly this work.</p>
+<p>This ADR locks the Phase-1 contract so backend-engineer (retrieval pipeline, <code>GET /search</code>, chat
+wiring, <code>CliAgentProvider.chat()</code>) and frontend-engineer (citation rendering, save-to-wiki enable) can
+build against a frozen interface. It also unblocks the three M4 carry-forwards (F6 AC-F6-3, F6 AC-F6-5,
+F17 <code>CliAgentProvider.chat()</code>) that are otherwise empty stubs visible to the user.</p>
+<p><strong>Ground truth that drives the design (verified in code):</strong></p>
+<ul>
+<li>A <code>pages</code> row tracks a <strong><code>raw/sources/</code> source document</strong>, not a <code>wiki/</code> page. The Qdrant point
+  (<code>id == pages.id</code>, ADR-0002) embeds the <strong>raw source text</strong> (<code>orchestrator.py</code>:
+  <code>text_for_embedding = raw_bytes.decode(...)</code>). <code>pages.file_path</code> is a <code>raw/sources/...</code> path.</li>
+<li><code>wiki/*.md</code> files produced by <code>write_wiki_page()</code> are <strong>not</strong> separately rowed in <code>pages</code>; they carry
+  <code>sources: [...]</code> frontmatter back to the source paths (F3 traceability).</li>
+<li>Therefore the <strong>searchable unit is the source page</strong>, and a <code>[n]</code> citation must resolve to a <code>pages</code>
+  row (id + display title + derived slug). No new join table is needed.</li>
+<li>The existing <code>synapse_pages</code> Qdrant collection is <strong>single dense vector</strong> (cosine, <code>EMBEDDING_DIM</code>).
+  There is no sparse/BM25 index configured.</li>
+<li><code>provider.chat(messages, retrieval_context: str)</code> is locked (ADR-0007/0011); it must stay unchanged.</li>
+<li><code>chat/stream.py</code> already bounds a chat turn by <code>token_budget</code> + <code>timeout_seconds</code> (ADR-0019 §2.2) and
+  already consumes both coroutine-returning and async-generator provider shapes.</li>
+</ul>
+<hr />
+<h2 id="2-decisions">2. Decisions<a class="headerlink" href="#2-decisions" title="Permanent link">&para;</a></h2>
+<h3 id="21-module-public-interface-backendappragretrievalpy">2.1 Module &amp; public interface — <code>backend/app/rag/retrieval.py</code><a class="headerlink" href="#21-module-public-interface-backendappragretrievalpy" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">retrieve</span><span class="p">(</span>
+    <span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">vault_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">context_window</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span>
+    <span class="n">expansion_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RetrievalContext</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p><code>retrieve()</code> is a <strong>single bounded pass</strong> (I7) that makes <strong>zero inference calls</strong> and <strong>zero <code>vault/</code>
+walks</strong> (I1): it reads Qdrant (bge-m3) + Postgres (<code>pages</code>/<code>links</code>/<code>edges</code>) + targeted source-file
+bodies, and assembles a context string + citation map server-side (I3).</p>
+<h3 id="22-the-four-phases-in-order">2.2 The four phases (in order)<a class="headerlink" href="#22-the-four-phases-in-order" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Tokenized / vector search (I9).</strong> Embed <code>query</code> via the existing <code>get_embedding_client()</code> (bge-m3),
+   <code>client.query_points(collection_name="synapse_pages", query=vector, limit=k, with_payload=True)</code>,
+   reading <code>response.points</code>. Note: <code>qdrant_client.QdrantClient.search()</code> was removed in
+   qdrant-client 1.18; <code>query_points()</code> is the current dense top-k API (semantically identical —
+   same cosine top-k, same single-dense <code>synapse_pages</code> collection, same <code>ScoredPoint</code> where
+   <code>point.id == pages.id</code>). Point ids are <code>pages.id</code>.
+   <strong>Dense-only</strong> (see §3, AQ-v0.5-1). Score = cosine similarity.</li>
+<li><strong>Graph-expansion (I2).</strong> BFS over the <strong><code>edges</code> table</strong> (the F4 4-signal output) from the seed
+   pages, <code>expansion_depth ≤ 2</code> (hard cap), ordered by edge <code>weight DESC</code>; also follow resolved
+   <code>links.target_page_id</code>. This <strong>reads <code>edges</code></strong> — it does <strong>NOT</strong> call the GraphEngine or FA2.
+   <code>data_version</code> is unchanged across the call (AC-F5-5).</li>
+<li><strong>Token-budget allocation (F14).</strong> <code>budget_tokens = int(context_window * 0.20)</code> (the "retrieved"
+   slice of 60/20/5/15); <code>budget_chars = budget_tokens * 4</code> (char/4, AQ-v0.5-2). Candidates ranked:
+   vector seeds (by cosine) then expansions (by edge weight).</li>
+<li><strong>Context assembly (I3).</strong> Walk candidates in rank order while budget remains; load each passage
+   (source-file body, per-passage capped), assign the next 1-based <code>n</code>, append <code>[n] &lt;title&gt;\n&lt;passage&gt;</code>
+   to <code>text</code>, and record the matching <code>Citation</code>. Lowest-ranked candidates that don't fit are <strong>dropped</strong>
+   (never mid-sentence truncate-without-drop, AC-F5-4).</li>
+</ol>
+<h3 id="23-data-structures-the-contract">2.3 Data structures (the contract)<a class="headerlink" href="#23-data-structures-the-contract" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">PageRef</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span>         <span class="c1"># str(uuid) of the pages row (== Qdrant point id)</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span>      <span class="c1"># frontmatter title, else filename stem (never empty)</span>
+    <span class="n">slug</span><span class="p">:</span> <span class="nb">str</span>       <span class="c1"># slugify(title) — derived in code, NOT a DB column (§2.6)</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Citation</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span>          <span class="c1"># 1-based, contiguous from 1</span>
+    <span class="n">ref</span><span class="p">:</span> <span class="n">PageRef</span>
+    <span class="n">score</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">phase</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;vector&quot;</span><span class="p">,</span> <span class="s2">&quot;expansion&quot;</span><span class="p">]</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">RetrievalContext</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="n">query</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span>                  <span class="c1"># assembled context WITH inline [n] markers (≤ budget)</span>
+    <span class="n">citations</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Citation</span><span class="p">]</span>  <span class="c1"># len == count of distinct [n] in text (single authority)</span>
+    <span class="n">token_budget</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">approx_tokens</span><span class="p">:</span> <span class="nb">int</span>         <span class="c1"># char/4 of text, ≤ token_budget</span>
+    <span class="n">data_version</span><span class="p">:</span> <span class="nb">int</span>          <span class="c1"># snapshot read before assembly (AC-F5-5 proof)</span>
+</code></pre></div>
+<h3 id="24-the-citation-contract-f5-f6-frontend">2.4 The citation contract (F5 ↔ F6 ↔ frontend)<a class="headerlink" href="#24-the-citation-contract-f5-f6-frontend" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Stored:</strong> on a chat turn with non-empty <code>citations</code>, <code>chat/stream.py</code> writes the serialized list
+  into the assistant <code>messages.citations</code> JSONB column (reserved by ADR-0019).</li>
+<li><strong>Streamed:</strong> the <code>done</code> NDJSON event gains an <strong>additive</strong> <code>citations</code> field — the compact
+  projection <code>[{"n","id","title","slug"}, ...]</code> (score/phase stored, not streamed). Additive →
+  non-breaking for existing clients.</li>
+<li><strong>Resolved:</strong> the frontend reads the message's <code>citations</code>, builds <code>n → {title, slug}</code>, and
+  post-processes the <strong>already-parsed-once</strong> settled markdown (I3) to turn each <code>[n]</code> text token into
+  <code>&lt;sup role="link" title="{title}"&gt;[n]&lt;/sup&gt;</code> (hover = title; click = navigate by slug). This runs
+  <strong>once</strong> on the settled message (memoized on raw + citations), never per streaming token.</li>
+<li><strong>Authority:</strong> the assembler emits each <code>[n]</code> and its <code>Citation</code> together →
+  <code>len(citations) == count of distinct [n]</code>; they cannot drift.</li>
+</ul>
+<h3 id="25-get-search-d4">2.5 <code>GET /search</code> (D4)<a class="headerlink" href="#25-get-search-d4" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>GET /search?q=&lt;query&gt;&amp;vault_id=&lt;id&gt;&amp;k=&lt;int&gt;  → 200
+{ &quot;query&quot;, &quot;context&quot;, &quot;results&quot;:[{n,id,title,slug,score,phase}], &quot;data_version&quot;, &quot;approx_tokens&quot;, &quot;token_budget&quot; }
+</code></pre></div>
+<p>0-hit query → 200 with empty <code>results</code> + empty <code>context</code> (AC-F5-7a). Read-only; never bumps
+<code>data_version</code> (AC-F5-5). Documented in openapi.json (<code>make openapi</code>, I8).</p>
+<h3 id="26-f5-adds-no-migration">2.6 F5 adds NO migration<a class="headerlink" href="#26-f5-adds-no-migration" title="Permanent link">&para;</a></h3>
+<p><code>messages.citations</code> already exists (reserved, ADR-0019) — F5 <strong>reuses</strong> it. <code>slug</code> is <strong>derived</strong>
+(<code>slugify(title or file_stem)</code>) in <code>rag/retrieval.py</code>, <strong>not</strong> a new <code>pages.slug</code> column (no backfill,
+no migration). Migration <strong>0009</strong> is reserved for Phase 3 <code>review_items</code> — Phase 1 is migration-free.
+Qdrant usage is <strong>unchanged</strong> (same collection, same dense vector, read-only search — no new collection,
+no sparse vector).</p>
+<h3 id="27-chat-provider-integration-carry-forwards">2.7 Chat &amp; provider integration (carry-forwards)<a class="headerlink" href="#27-chat-provider-integration-carry-forwards" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Chat (F6):</strong> <code>chat/stream.py</code> extracts the latest user message as the query, calls <code>retrieve()</code>
+  <strong>once before streaming</strong> (I3 — not per-token), prepends the existing light file-context
+  (<code>build_chat_context</code>, the 5% grounding header) to <code>RetrievalContext.text</code>, and passes the combined
+  string as <code>retrieval_context</code>. The provider <code>chat()</code> signature is <strong>unchanged</strong> (I6); citations travel
+  out of band in the orchestration layer and are stamped onto the assistant message + <code>done</code> event.</li>
+<li><strong>Save-to-wiki (F6 AC-F6-5):</strong> wire the existing disabled button to the existing
+  <code>POST /ingest/from-text</code> seam (ADR-0019 §2.7) — no new endpoint, no new ingest logic (I1/I6).</li>
+<li><strong><code>CliAgentProvider.chat()</code> (F17, AQ-v0.5-7):</strong> implement the M4 stub as a <strong>delegated streaming
+  chat</strong> via <code>claude-agent-sdk</code> (mirroring <code>delegate_ingest</code>): <code>retrieval_context</code> injected as the
+  system/leading context (read-only chat — the agent is <strong>not</strong> granted <code>write_page</code>); yields text
+  deltas in the existing shape; cost per NB-4. <strong>Bounded by three caps, no new DB column:</strong>
+  <code>token_budget</code> + <code>timeout_seconds</code> (both already flow through <code>run_chat_stream</code>) + an env
+  <code>CHAT_AGENT_MAX_TURNS</code> (default 8) on SDK agent turns. With no <code>ANTHROPIC_API_KEY</code> it raises a clean
+  pre-stream config error — never a fake stream (dev default stays Ollama; mocked SDK in tests).</li>
+</ul>
+<hr />
+<h2 id="3-resolved-ambiguities-the-p0p1-phase-1-blockers">3. Resolved ambiguities (the P0/P1 Phase-1 blockers)<a class="headerlink" href="#3-resolved-ambiguities-the-p0p1-phase-1-blockers" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>AQ-v0.5-1 (P0) — dense-only, no BM25.</strong> The <code>synapse_pages</code> collection is single-dense; adding a
+  named sparse vector is a collection-shape change we do not take on the dependency-root feature. The
+  keyword phase = bge-m3 dense top-k via <code>client.query_points()</code> (qdrant-client ≥ 1.12; <code>.search()</code>
+  was removed in 1.18). Hybrid (named sparse vector + RRF fusion) is a <strong>measured post-M5
+  enhancement</strong>, not a guess. Recall is widened by graph-expansion (Phase 2).</li>
+<li><strong>AQ-v0.5-2 (P0) — char/4, not tiktoken.</strong> Reuse the existing <code>_CHARS_PER_TOKEN=4</code> convention
+  (<code>chat/context.py</code>/<code>stream.py</code>). tiktoken is OpenAI-specific (mis-estimates Anthropic/Ollama), a new
+  heavy dependency (I9), and unnecessary for a <em>drop-lowest-ranked</em> safety cap. Under-fill is the safe
+  direction (never over-fill the window).</li>
+<li><strong>AQ-v0.5-7 (P1) — no <code>chat_max_iter</code> column.</strong> CLI chat is bounded by <code>token_budget</code> +
+  <code>timeout_seconds</code> (existing) + <code>CHAT_AGENT_MAX_TURNS</code> env (new, default 8). A schema change for one
+  provider's turn cap is not warranted; I7 is satisfied by three bounds.</li>
+</ul>
+<p>(AQ-v0.5-3/-4/-5/-6 are Phase 2–4 decisions, resolved in v0.5-architecture.md §1 and finalized in
+ADR-0024/0025/0026 at their phase gates.)</p>
+<hr />
+<h2 id="4-the-one-accepted-limitation">4. The one accepted limitation<a class="headerlink" href="#4-the-one-accepted-limitation" title="Permanent link">&para;</a></h2>
+<p><code>[n]</code> resolves to the <strong>source-document <code>pages</code> row</strong>, not the synthesized <code>wiki/</code> page, because <code>pages</code>
+index <code>raw/sources/</code> documents (§1). This is correct, honest grounding (the answer came from that
+indexed text), but a user clicking <code>[n]</code> lands on the source rather than necessarily a polished wiki
+page. Indexing <code>wiki/</code> pages as first-class searchable units (needs a <code>page_kind</code> discriminator on
+<code>pages</code> or a parallel index) is the clean fix and is <strong>explicitly deferred post-M5</strong>. This is a scope
+boundary, <strong>not</strong> an invariant violation.</p>
+<hr />
+<h2 id="5-do-not-list-rejection-triggers-in-pr-review">5. Do-NOT list (rejection triggers in PR review)<a class="headerlink" href="#5-do-not-list-rejection-triggers-in-pr-review" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Do NOT make an inference call inside <code>retrieve()</code>.</strong> It is pure store reads + assembly (I1/I7).</li>
+<li><strong>Do NOT walk <code>vault/</code> or trigger a rescan in retrieval or <code>GET /search</code></strong> (I1). Read Qdrant +
+   Postgres + targeted source files only. <code>GET /search</code> must leave <code>data_version</code> unchanged (AC-F5-5).</li>
+<li><strong>Do NOT call the GraphEngine / FA2 from the expansion phase.</strong> Read the <code>edges</code> table (I2).</li>
+<li><strong>Do NOT introduce a new embedding service, a new Qdrant collection, a sparse/BM25 index, tiktoken,
+   or sentence_transformers</strong> (I9 / AQ-v0.5-1 / AQ-v0.5-2). Reuse <code>get_embedding_client</code> + the existing
+   <code>synapse_pages</code> collection.</li>
+<li><strong>Do NOT add a <code>pages.slug</code> column or any F5 migration.</strong> <code>slug</code> is derived; <code>messages.citations</code>
+   is reused (§2.6).</li>
+<li><strong>Do NOT resolve <code>[n]</code> per streaming token, and do NOT add a second markdown parse.</strong> Citation
+   <code>&lt;sup&gt;</code> decoration runs once on the settled, already-parsed message (I3 / G3, ADR-0019 §2.6).</li>
+<li><strong>Do NOT change <code>provider.chat(messages, retrieval_context)</code>.</strong> Citations travel out of band in the
+   orchestration layer (I6).</li>
+<li><strong>Do NOT hardcode a provider/model and do NOT add an unbounded loop.</strong> Chat resolves via
+   <code>resolve_provider_config("chat", ...)</code>; <code>CliAgentProvider.chat()</code> is bounded by <code>token_budget</code> +
+   <code>timeout_seconds</code> + <code>CHAT_AGENT_MAX_TURNS</code> (I6/I7).</li>
+<li><strong>Do NOT fake a CLI chat stream when no API key is set.</strong> Raise a clean pre-stream config error;
+   cost follows NB-4 (<code>Decimal("0.00")</code> + WARNING when the SDK reports none).</li>
+<li><strong>Do NOT skip D4.</strong> <code>make openapi</code> must include <code>GET /search</code> with zero drift (I8). (No D2 change
+    expected in Phase 1.)</li>
+</ol>
+<hr />
+<h2 id="6-ac-mapping">6. AC mapping<a class="headerlink" href="#6-ac-mapping" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>AC</th>
+<th>Satisfied by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-F5-1 (4 phases in order)</td>
+<td>§2.2</td>
+</tr>
+<tr>
+<td>AC-F5-2 (<code>[n]</code> markers + <code>PageRef{id,title,slug}</code>)</td>
+<td>§2.3, §2.4</td>
+</tr>
+<tr>
+<td>AC-F5-3 (Qdrant/bge-m3 only, no new service)</td>
+<td>§2.1, §3 (AQ-1/2), Do-NOT #4</td>
+</tr>
+<tr>
+<td>AC-F5-4 (budget respected; drop lowest-ranked)</td>
+<td>§2.2 phase 3–4</td>
+</tr>
+<tr>
+<td>AC-F5-5 (<code>data_version</code> unchanged)</td>
+<td>§2.2 phase 2 + <code>RetrievalContext.data_version</code> (§2.3)</td>
+</tr>
+<tr>
+<td>AC-F5-6 (<code>GET /search</code> + openapi)</td>
+<td>§2.5</td>
+</tr>
+<tr>
+<td>AC-F5-7 (0/1/multi/overflow cases)</td>
+<td>§2.2 (BFS expansion + budget drop)</td>
+</tr>
+<tr>
+<td>AC-F5-8 (context passed to provider.chat for all 3 backends)</td>
+<td>§2.7</td>
+</tr>
+<tr>
+<td>AC-F6-3 (citations stored + rendered <code>&lt;sup&gt;</code> + hover)</td>
+<td>§2.4</td>
+</tr>
+<tr>
+<td>AC-F6-5 (save-to-wiki)</td>
+<td>§2.7 (reuse <code>POST /ingest/from-text</code>)</td>
+</tr>
+<tr>
+<td>AC-F17-CHAT-1..3 (CLI chat, bounded, cost)</td>
+<td>§2.7 (AQ-v0.5-7 + NB-4)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-consequences">7. Consequences<a class="headerlink" href="#7-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive.</strong> F5 is <strong>migration-free</strong> (reuses the reserved <code>citations</code> column, derives <code>slug</code>) and
+<strong>inference-free</strong> in the hot path (pure store reads), so it is cheap, deterministic, and easy to test.
+The provider <code>chat()</code> contract is filled, not changed (I6 honored). I2/I3/G3 are preserved by
+construction — retrieval runs once before streaming, the expansion phase only reads <code>edges</code>, and
+citation decoration is a single settled-message pass. The three M4 carry-forwards land together,
+turning empty stubs into working features.</p>
+<p><strong>Negative / accepted.</strong> Dense-only retrieval may under-recall exact-keyword queries (mitigated by
+graph-expansion; hybrid reserved post-M5). char/4 may slightly under-fill the 20% slice (safe
+direction). <code>[n]</code> points at source documents, not wiki pages (§4 — deferred post-M5). CLI chat is
+exercised only via a mocked SDK in dev (no key) — documented, not faked.</p>
+<p><strong>Follow-ups (later in M5 / post-M5).</strong> Phase 2 (F10) feeds auto-ingested deep-research synthesis into
+the same retrieval corpus; Phase 3/4 (F9/F13) add <code>review_items</code> (migration 0009) and cascade-delete.
+Post-M5: hybrid BM25 retrieval and <code>wiki/</code>-page-as-citation-target (<code>page_kind</code>).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

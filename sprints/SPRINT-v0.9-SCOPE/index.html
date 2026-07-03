@@ -1,0 +1,1760 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v0.9-SCOPE/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint v0.9 — PM Scope Lock - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-v09-pm-scope-lock" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint v0.9 — PM Scope Lock
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-engineer-ground-rule-read-before-touching-any-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Engineer ground rule (READ BEFORE TOUCHING ANY FILE)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-sprint-goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Sprint Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-committed-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Committed Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Committed Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#w0-ux-quick-wins-in-flight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        W0 — UX quick wins (IN FLIGHT)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#uxb-1-conversation-auto-titles-list-preview-snippet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UXB-1 — Conversation auto-titles + list preview snippet
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#uxb-2-button-input-design-system-consolidation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UXB-2 — Button / input design-system consolidation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r9-1-cost-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R9-1 — Cost dashboard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r9-2-metrics-health-endpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R9-2 — Metrics / health endpoint
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r9-3-purposemd-suggestions-scope-drift-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R9-3 — purpose.md suggestions (scope drift detection)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r9-4-schemamd-co-evolution-schema-suggestion-reviewitem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R9-4 — schema.md co-evolution (schema-suggestion ReviewItem)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r9-5-graph-drill-down-community-panel-edge-tooltip-cohesion-score" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R9-5 — Graph drill-down (community panel + edge tooltip + cohesion score)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r9-6-playwright-e2e-suite-happy-path-d5-screenshot-refresh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R9-6 — Playwright E2E suite (happy-path + D5 screenshot refresh)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-explicit-sequencing-order-same-file-conflicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Explicit sequencing order (same-file conflicts)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Explicit sequencing order (same-file conflicts)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reviewpy-and-orchestratorpy-r9-3-r9-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        review.py and orchestrator.py (R9-3 → R9-4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mainpy-r9-1-r9-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        main.py (R9-1 → R9-2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reviewqueueviewtsx-uxb-2-r9-3-r9-4-frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ReviewQueueView.tsx (UXB-2 → R9-3 → R9-4 frontend)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graph-backend-files-r9-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        graph backend files (R9-5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#w0-in-flight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        W0 (IN FLIGHT)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-wave-plan-suggested-2-week-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Wave plan (suggested 2-week schedule)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-out-of-scope-for-v09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Out of scope for v0.9
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-exit-criteria-for-v09-release-ec-m9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Exit criteria for v0.9 release (EC-M9)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-velocity-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Velocity note
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-v09-pm-scope-lock">Sprint v0.9 — PM Scope Lock<a class="headerlink" href="#sprint-v09-pm-scope-lock" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Milestone: M9 — "Trust &amp; observability"
+Author: product-manager
+Date: 2026-07-03
+Branch: sprint/v0.9 (cut from sprint/v0.8 after v0.8.0 tag)
+Prerequisite: M8 exit criteria met (EC-M8-1..EC-M8-HCP confirmed by Emanuele).
+Source roadmap: docs/reference/ROADMAP-v0.7-v1.0.md §v0.9
+UX source: docs/reference/UX-AUDIT-2026-07.md (UXA-01..UXA-28)</p>
+</blockquote>
+<hr />
+<h2 id="0-engineer-ground-rule-read-before-touching-any-file">0. Engineer ground rule (READ BEFORE TOUCHING ANY FILE)<a class="headerlink" href="#0-engineer-ground-rule-read-before-touching-any-file" title="Permanent link">&para;</a></h2>
+<p><strong>No git restore, git checkout, git stash, or any command that discards working-tree
+changes.</strong> Other agents on the same branch may have uncommitted edits that are
+legitimate in-progress work. If you find changes in a file you need to edit, read them
+first and integrate, do NOT discard. Escalate to orchestrator if you cannot determine
+ownership of an uncommitted change.</p>
+<hr />
+<h2 id="1-sprint-goal">1. Sprint Goal<a class="headerlink" href="#1-sprint-goal" title="Permanent link">&para;</a></h2>
+<p>Make AI activity legible and trustworthy: surface what the system costs, expose its
+internal health, let the wiki improve itself (purpose coherence + schema co-evolution),
+give the graph the drill-down depth it needs, and close the E2E test gap before v1.0
+auth work begins. In parallel, retire the most visible UX friction in a disciplined,
+design-system-first way.</p>
+<hr />
+<h2 id="2-committed-scope">2. Committed Scope<a class="headerlink" href="#2-committed-scope" title="Permanent link">&para;</a></h2>
+<p>Exactly the following 9 items (2 UX waves + 7 roadmap items). Anything else is out of
+scope and requires explicit PM re-approval before any token is spent on it.</p>
+<p>Items marked <strong>IN FLIGHT</strong> are actively being applied by the UX quick-wins team at
+scope-lock time; they count toward the sprint's exit criteria but do not block Wave 1
+start for the remaining items.</p>
+<hr />
+<h3 id="w0-ux-quick-wins-in-flight">W0 — UX quick wins (IN FLIGHT)<a class="headerlink" href="#w0-ux-quick-wins-in-flight" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F1 (UI shell), F16 (i18n / dark-mode)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>frontend-engineer (applying audit quick wins; IN FLIGHT at scope lock)</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S × 10 items</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Status:</strong> IN FLIGHT. Another team is applying these now. PM does not re-assign; PM
+verifies AC completion at exit gate. No other agent touches the files listed in this
+item until the in-flight work is committed and confirmed merged.</p>
+<p><strong>Committed quick-win set (10 items from UX-AUDIT-2026-07.md §"Quick Wins"):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Sub-ID</th>
+<th>Audit ref</th>
+<th>File(s) touched</th>
+<th>Change summary</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>W0-1</td>
+<td>UXA-03</td>
+<td>ReviewQueueView.tsx (3 sites)</td>
+<td>Replace <code>color-mix(…, white)</code> → <code>color-mix(…, var(--syn-mix-base))</code></td>
+</tr>
+<tr>
+<td>W0-2</td>
+<td>UXA-05</td>
+<td>NavRail.tsx</td>
+<td>Remove <code>outline: "none"</code> from inactive rail button inline style</td>
+</tr>
+<tr>
+<td>W0-3</td>
+<td>UXA-06</td>
+<td>IngestRunDetail component</td>
+<td>Add contextual hint when <code>pages_created === 0 &amp;&amp; status === "completed"</code></td>
+</tr>
+<tr>
+<td>W0-4</td>
+<td>UXA-07</td>
+<td>graph node detail panel component</td>
+<td>Hide UUID; replace raw <code>Degree N</code> with "Connected to N pages"; remove raw coordinate display</td>
+</tr>
+<tr>
+<td>W0-5</td>
+<td>UXA-14</td>
+<td>Header.tsx, ConnectScreen.tsx</td>
+<td>Replace <code>#22c55e</code> → <code>var(--syn-green)</code>, <code>#ef4444</code> → <code>var(--syn-red)</code></td>
+</tr>
+<tr>
+<td>W0-6</td>
+<td>UXA-16</td>
+<td>Toast.tsx</td>
+<td>Set <code>role={isError ? "alert" : "status"}</code> on ToastItem; replace <code>✕</code> → <code>&lt;X size={12} /&gt;</code></td>
+</tr>
+<tr>
+<td>W0-7</td>
+<td>UXA-17</td>
+<td>frontend/src/i18n/it.json</td>
+<td><code>nav.deepSearch</code> = <code>"Ricerca"</code> (was <code>"Profonda"</code>)</td>
+</tr>
+<tr>
+<td>W0-8</td>
+<td>UXA-18</td>
+<td>ItemTypeBadge component</td>
+<td>Normalise <code>item_type</code> underscores → hyphens before <code>t()</code> call</td>
+</tr>
+<tr>
+<td>W0-9</td>
+<td>UXA-21</td>
+<td>ActivityBar.tsx</td>
+<td>Add <code>t("activity.moreFailedTasks", { count })</code> i18n key; remove hardcoded English string</td>
+</tr>
+<tr>
+<td>W0-10</td>
+<td>UXA-23</td>
+<td>ConnectScreen.tsx</td>
+<td>Add <code>&lt;CheckCircle2 size={13} color="var(--syn-green)" /&gt;</code> before auto-detected server hint</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Acceptance criteria:</strong>
+- AC-W0-1: All 10 changes committed in a single PR (or sequential atomic commits) with
+  the label <code>[F1][F16]</code>. Vitest passes after each change.
+- AC-W0-2: <code>ruff check</code> / ESLint / prettier clean; no new TypeScript errors; no new
+  <code>any</code> escapes.
+- AC-W0-3: <code>color-mix(…, white)</code> regex returns zero hits in ReviewQueueView.tsx after
+  W0-1 (CI grep assertion or manual verification noted in PR).
+- AC-W0-4: EN and IT locale files both contain the <code>activity.moreFailedTasks</code> key with
+  a <code>count</code> interpolation variable (W0-9). A Vitest snapshot asserts the translation
+  renders correctly for count=1 and count=5.
+- AC-W0-5: Playwright screenshot <code>docs/screens/ingest-zero-pages.png</code> captured showing
+  the contextual hint (W0-3). This is also a D5 artifact.</p>
+<hr />
+<h3 id="uxb-1-conversation-auto-titles-list-preview-snippet">UXB-1 — Conversation auto-titles + list preview snippet<a class="headerlink" href="#uxb-1-conversation-auto-titles-list-preview-snippet" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F6 (multi-conversation chat), F16 (UX — UXA-02)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>backend-engineer (title generation endpoint) + frontend-engineer (ConversationList preview)</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Design decision (PM-locked):</strong>
+Title generation is server-side, triggered after the FIRST user/assistant exchange
+completes (not during streaming — respects I3). The provider generates a short title
+from the first user message; the call is bounded (max 1 completion, max 60 tokens,
+single provider call — never retried, never streamed). On any provider error the title
+falls back to a timestamp string <code>"Chat YYYY-MM-DD HH:mm"</code>. This is cheap by design:
+it reuses the already-configured chat provider, costs fractions of a cent, and is
+fire-and-forget (does not block the user's next message).</p>
+<p><strong>Acceptance criteria:</strong>
+- AC-UXB1-1: <code>POST /conversations/{id}/generate-title</code> endpoint added to <code>backend/app/main.py</code>
+  (or a <code>conversations.py</code> router if that file already exists). It reads the first
+  user message from the conversation, calls <code>provider.chat()</code> with the prompt
+  <code>"Summarise this conversation topic in 5 words or fewer: {first_message}"</code> and a
+  <code>max_tokens=60</code> bound, stores the result (stripped, max 60 chars) in the
+  <code>conversations</code> table <code>title</code> column. On any exception, stores
+  <code>"Chat {ISO datetime}"</code>. A pytest asserts: (a) happy path stores title ≤ 60 chars,
+  (b) provider exception path stores the timestamp fallback.
+- AC-UXB1-2: The frontend calls <code>POST /conversations/{id}/generate-title</code> automatically
+  after the first assistant response is fully received (stream end, not per-token — I3).
+  The conversation list item updates its displayed title without a full list refetch
+  (Zustand slice optimistic update). A Vitest asserts the slice sets the new title on
+  the correct conversation ID.
+- AC-UXB1-3: <code>ConversationList</code> shows a secondary preview line: the first 80 chars of
+  the first user message (client-side, no extra API call). Preview line is styled at
+  9px <code>var(--syn-text-dim)</code>, single line, ellipsis overflow. The conversation list item
+  height adjusts gracefully (no layout shift on virtualized list — TanStack Virtual
+  item height must be fixed or measured, I4).
+- AC-UXB1-4: The title generation call is NOT retried on failure. The <code>max_tokens=60</code>
+  bound is enforced at the provider call site. The cost of the title call is logged to
+  <code>total_cost_usd</code> on the existing conversation run record (I7).
+- AC-UXB1-5: <code>docs/api/openapi.json</code> regenerated to include the new endpoint. i18n
+  key <code>conversation.autoTitle.fallback</code> added in EN (<code>"Chat {date}"</code>) and IT
+  (<code>"Chat {date}"</code>).
+- AC-UXB1-6: Vitest snapshot of <code>ConversationList</code> with 3 conversations: one auto-titled,
+  one with timestamp fallback, one with a user-edited title (from v0.7 R7-3) — asserts
+  all three render the preview snippet correctly.</p>
+<hr />
+<h3 id="uxb-2-button-input-design-system-consolidation">UXB-2 — Button / input design-system consolidation<a class="headerlink" href="#uxb-2-button-input-design-system-consolidation" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F1 (UI shell consistency), F16 (design-system — UXA-04 + audit debt note)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>frontend-engineer</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Strategy decision (PM-locked — do not re-litigate without a new ADR):</strong>
+Extend <code>theme.css</code> with a <code>components.css</code> layer. No CSS-in-JS library is introduced
+(audit recommendation, confirmed). The strategy follows the UX audit's §"Design-System
+Debt Note" exactly:</p>
+<ol>
+<li>Add <code>components.css</code> (new file, imported after <code>theme.css</code>) containing scoped class
+   rules for the four recurring patterns identified in the audit: <code>.syn-button--ghost</code>,
+   <code>.syn-meta-row</code>, <code>.syn-card-row</code>, <code>.syn-role-label</code>.</li>
+<li>Strict inline-style rule (encoded as a PR checklist item, not a lint rule in this
+   sprint): no inline style may reference a raw hex color or a raw pixel value that is
+   not a <code>--syn-*</code> token. Layout pixel values (widths, flex gaps) remain acceptable
+   inline.</li>
+<li>Refactor priority order (audit §"Audit priority order"): ReviewQueueView.tsx first
+   (highest inline-style count, dark mode risk), then ActivityBar.tsx (keyframes),
+   then Header.tsx (server chip), then MessageList.tsx (<code>Save to wiki</code> / <code>Regenerate</code>).</li>
+<li>Add <code>--syn-bg-card</code> token explicitly to <code>theme.css</code> (it is currently undefined and
+   silently falls back — audit finding §4).</li>
+<li>Move <code>@keyframes spin</code>, <code>@keyframes syn-spin</code>, and <code>@keyframes taskBarSweep</code> from
+   inline <code>&lt;style&gt;</code> tags in ActivityBar.tsx and ReviewQueueView.tsx to <code>theme.css</code>
+   (audit UXA-28).</li>
+</ol>
+<p><strong>Acceptance criteria:</strong>
+- AC-UXB2-1: <code>frontend/src/styles/components.css</code> created and imported in the app
+  entry point. Contains at minimum: <code>.syn-button--ghost</code>, <code>.syn-meta-row</code>,
+  <code>.syn-card-row</code>, <code>.syn-role-label</code> class definitions derived from the most common
+  inline-style patterns in the refactored files.
+- AC-UXB2-2: <code>Save to wiki</code> button (MessageList.tsx) and <code>Regenerate</code> button
+  (MessageList.tsx) use <code>.syn-button.syn-button--ghost</code> (or <code>.syn-button--secondary</code>
+  if that variant is more appropriate). ActionButton in ReviewQueueView.tsx uses the
+  same class. A Vitest snapshot asserts each of these three buttons renders with the
+  class attribute present.
+- AC-UXB2-3: <code>--syn-bg-card</code> token added to <code>theme.css</code> (light and dark values). All
+  references to <code>var(--syn-bg-card)</code> in ActivityBar.tsx and ConfirmDialog.tsx resolve
+  to the explicit token, not the silent fallback.
+- AC-UXB2-4: Both <code>@keyframes</code> blocks (spin/syn-spin + taskBarSweep) moved to
+  <code>theme.css</code>. The inline <code>&lt;style&gt;</code> tags are removed from ActivityBar.tsx and
+  ReviewQueueView.tsx. A Vitest that mounts both components in isolation must not
+  trigger a <code>document.createElement("style")</code> call (assert via jest-spy or snapshot).
+- AC-UXB2-5: After refactor, <code>grep -r "color-mix.*white"</code> returns zero hits across
+  <code>frontend/src/</code> (all white-base color-mix resolved to <code>var(--syn-mix-base)</code> or
+  similar token). This extends W0-1 to a tree-wide guarantee.
+- AC-UXB2-6: No visual regression: Playwright screenshot comparison on the ReviewQueue,
+  Chat, and Settings panels before and after the refactor (pixel diff &lt; 1% tolerance,
+  or documented intentional delta). Screenshots committed to <code>docs/screens/</code> as D5
+  artifacts.
+- AC-UXB2-7: TypeScript strict passes; no new <code>any</code>; ESLint + prettier clean.</p>
+<p><strong>Sequencing note:</strong> UXB-2 touches ReviewQueueView.tsx which is also touched by R9-3
+and R9-4 (new ReviewItem types rendered in that view). UXB-2 MUST be merged before R9-3
+and R9-4 start, so the new ReviewItem rendering uses the consolidated classes from day 1.
+Assign ReviewQueueView.tsx ownership to UXB-2 engineer until UXB-2 PR is merged.</p>
+<hr />
+<h3 id="r9-1-cost-dashboard">R9-1 — Cost dashboard<a class="headerlink" href="#r9-1-cost-dashboard" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F17 (InferenceProvider — cost surfacing), F16 (Settings UI)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>backend-engineer (aggregation endpoint) + frontend-engineer (Settings section)</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M</td>
+</tr>
+<tr>
+<td>Roadmap source</td>
+<td>ROADMAP-v0.7-v1.0.md §v0.9 R9-1; CLAUDE.md §3 I7</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Context:</strong> Cost is already logged per run/message in the existing <code>runs</code> table
+(<code>total_cost_usd</code> column). This item aggregates that data and surfaces it in Settings.</p>
+<p><strong>Acceptance criteria:</strong>
+- AC-R9-1-1: <code>GET /costs/summary</code> endpoint returns:
+  <div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;period&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;YYYY-MM&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;by_provider&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;provider&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;total_usd&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">fl</span><span class="err">oa</span><span class="kc">t</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;call_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">i</span><span class="kc">nt</span><span class="p">}],</span>
+<span class="w">  </span><span class="nt">&quot;by_operation&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;operation&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;total_usd&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">fl</span><span class="err">oa</span><span class="kc">t</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;call_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">i</span><span class="kc">nt</span><span class="p">}],</span>
+<span class="w">  </span><span class="nt">&quot;by_day&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;date&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;YYYY-MM-DD&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;total_usd&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">fl</span><span class="err">oa</span><span class="kc">t</span><span class="p">}],</span>
+<span class="w">  </span><span class="nt">&quot;monthly_total_usd&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">fl</span><span class="err">oa</span><span class="kc">t</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;threshold_alert&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">bool</span>
+<span class="p">}</span>
+</code></pre></div>
+  Optional query param <code>?month=YYYY-MM</code> (defaults to current month).
+  Aggregation runs via SQL GROUP BY on the <code>runs</code> table; no new table required unless
+  the engineer identifies a performance need (must be justified in PR). A pytest with
+  fixture run rows asserts correct aggregation for at least 3 providers and 2 operations.
+- AC-R9-1-2: A new <code>COST_ALERT_THRESHOLD_USD</code> env var (default <code>5.00</code>) controls the
+  <code>threshold_alert</code> flag. When <code>monthly_total_usd &gt;= COST_ALERT_THRESHOLD_USD</code> the flag
+  is <code>true</code>. A pytest asserts both sides of the threshold.
+- AC-R9-1-3: Settings panel gains a "Cost &amp; Usage" section showing: monthly total in USD
+  (formatted as <code>$X.XX</code>), a bar chart or table of cost by provider (at minimum a table
+  is acceptable for this sprint — a chart is a SHOULD, not a MUST), cost by day (sparkline
+  or table row), and a red alert banner <code>"Monthly spend exceeds threshold ($X.XX)"</code> when
+  <code>threshold_alert=true</code>. The section is behind the existing Settings sidebar nav.
+- AC-R9-1-4: The "Cost &amp; Usage" section polls <code>GET /costs/summary</code> once on mount; no
+  auto-refresh in the background (respects I3 — no background computation while chat is
+  streaming). A manual "Refresh" button is provided.
+- AC-R9-1-5: <code>COST_ALERT_THRESHOLD_USD</code> is documented in <code>docs/DEPLOY.md</code> (D6b) and
+  the i18n keys for the alert banner are present in EN and IT.
+- AC-R9-1-6: <code>docs/api/openapi.json</code> regenerated to include <code>GET /costs/summary</code>.</p>
+<p><strong>Sequencing note:</strong> R9-1 and R9-2 both touch <code>backend/app/main.py</code>. Strict order:
+R9-1 FIRST (adds the cost router or inline endpoint), then R9-2 (adds metrics endpoint).
+If R9-1 extracts to <code>backend/app/cost.py</code> (a SHOULD — mirrors R8-4's export.py
+pattern), R9-2's main.py conflict surface is minimized. Backend-engineer owns main.py
+for both; they must be assigned sequentially to the same engineer or coordinated via
+a shared feature branch.</p>
+<hr />
+<h3 id="r9-2-metrics-health-endpoint">R9-2 — Metrics / health endpoint<a class="headerlink" href="#r9-2-metrics-health-endpoint" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F16 (operational observability)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>backend-engineer</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S</td>
+</tr>
+<tr>
+<td>Roadmap source</td>
+<td>ROADMAP-v0.7-v1.0.md §v0.9 R9-2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Acceptance criteria:</strong>
+- AC-R9-2-1: <code>GET /health/detailed</code> returns:
+  <div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ok&quot;</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="s2">&quot;degraded&quot;</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;watcher&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;last_event_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="err">|</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;queue_depth&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">i</span><span class="kc">nt</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;scheduler&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;next_run_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="err">|</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;last_run_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="err">|</span><span class="kc">null</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;ingest_queue&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;pending&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">i</span><span class="kc">nt</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;running&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">i</span><span class="kc">nt</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;failed_last_24h&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">i</span><span class="kc">nt</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;latency_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">fl</span><span class="err">oa</span><span class="kc">t</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;qdrant&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;latency_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">fl</span><span class="err">oa</span><span class="kc">t</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;last_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;at&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">}]</span>
+<span class="p">}</span>
+</code></pre></div>
+  <code>last_errors</code> contains the 5 most recent ERROR-level log entries from the in-process
+  log handler (or from a <code>_errors</code> ring buffer — engineer's choice; must be documented).
+  Top-level <code>status</code> is <code>"ok"</code> if all sub-systems report no error, <code>"degraded"</code> if at
+  least one latency exceeds a threshold (DB &gt; 200 ms, Qdrant &gt; 500 ms), <code>"error"</code> if
+  any sub-system is unreachable. A pytest with mocked sub-system clients asserts the
+  three top-level status values.
+- AC-R9-2-2: The existing <code>GET /health</code> (simple ping, returns <code>{"status": "ok"}</code>)
+  is NOT changed. <code>GET /health/detailed</code> is a new endpoint at a new path.
+- AC-R9-2-3: The header bar ("server chip" area in Header.tsx) gains a subtle indicator
+  distinguishing <code>ok</code> (existing green dot) from <code>degraded</code> (amber dot,
+  <code>var(--syn-warning)</code>) and <code>error</code> (red dot, <code>var(--syn-red)</code>). The indicator polls
+  <code>GET /health/detailed</code> every 30 seconds (not on every render — use a Zustand-managed
+  interval, not a useEffect timer in the component). A Vitest asserts the color mapping.
+- AC-R9-2-4: <code>docs/api/openapi.json</code> regenerated. The <code>GET /health/detailed</code> schema is
+  fully described (not <code>additionalProperties: true</code>).
+- AC-R9-2-5: The 30-second polling interval is configurable via a <code>HEALTH_POLL_MS</code>
+  frontend env var (default <code>30000</code>) documented in <code>docs/DEPLOY.md</code>. If the user is on
+  mobile/narrow viewport, the polling continues but the indicator is hidden (responsive
+  rule in Header.tsx).</p>
+<p><strong>Sequencing note:</strong> depends on R9-1 being merged first (main.py conflict avoidance; see
+R9-1 sequencing note). Backend-engineer starts R9-2 only after R9-1 PR is merged.
+Frontend engineer can build the Header indicator component in parallel (mocking the
+endpoint) but must not merge until the real endpoint is live.</p>
+<hr />
+<h3 id="r9-3-purposemd-suggestions-scope-drift-detection">R9-3 — purpose.md suggestions (scope drift detection)<a class="headerlink" href="#r9-3-purposemd-suggestions-scope-drift-detection" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F2 (purpose.md context), F9 (HITL review queue)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>ai-agent-engineer (drift detection logic + ReviewItem generation) + backend-engineer (new ReviewItem type + API)</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M</td>
+</tr>
+<tr>
+<td>Roadmap source</td>
+<td>ROADMAP-v0.7-v1.0.md §v0.9 R9-3</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Design decision (PM-locked):</strong>
+After each ingest run, a bounded post-ingest check scans the newly created/modified
+pages against <code>vault/purpose.md</code>. If the check finds that the new content's declared
+type/topic is outside the vault's stated scope, thesis, or key questions, it generates
+a <code>purpose-suggestion</code> ReviewItem with a proposed amendment to <code>purpose.md</code>. The check
+is bounded: max 1 provider call per ingest run, max 300 tokens, no retry. It does NOT
+auto-update <code>purpose.md</code> — the human must approve via the review queue (K8 principle).</p>
+<p><strong>Acceptance criteria:</strong>
+- AC-R9-3-1: A new <code>ReviewItemType</code> enum value <code>purpose-suggestion</code> added to
+  <code>backend/app/models.py</code>. Alembic migration ensures the DB check constraint accepts
+  the new value. A pytest asserts the migration applies cleanly to a fresh test DB.
+- AC-R9-3-2: <code>backend/app/ops/review.py</code> gains a <code>generate_purpose_suggestion(run_id,
+  vault_id, provider)</code> function. It:
+  (a) reads <code>vault/purpose.md</code>,
+  (b) reads the titles and <code>type</code> frontmatter of pages created/modified in <code>run_id</code>,
+  (c) calls <code>provider.chat()</code> with a prompt asking whether the new content is within
+      scope and, if not, to propose an amendment sentence,
+  (d) if the provider returns a non-empty suggestion, creates a <code>ReviewItem</code> of type
+      <code>purpose-suggestion</code> with the suggestion text as the body and source_page=None,
+  (e) if the content is in-scope, creates no ReviewItem (no spam in the queue).
+  Bounded: <code>max_tokens=300</code>, no retry, cost logged to the ingest run record (I7).
+- AC-R9-3-3: The post-ingest hook in <code>backend/app/ingest/orchestrator.py</code> calls
+  <code>generate_purpose_suggestion</code> after the main ingest loop completes, before returning.
+  The call is wrapped in a try/except: any exception logs a WARNING and does NOT fail
+  the ingest run. A pytest integration test asserts a <code>purpose-suggestion</code> ReviewItem
+  is created when fixture pages are outside the fixture purpose.md scope.
+- AC-R9-3-4: The Review Queue UI (<code>ReviewQueueView.tsx</code>) renders <code>purpose-suggestion</code>
+  items with a distinct badge color (<code>var(--syn-notice-info-bg)</code>) and a card header
+  "Purpose drift detected". The body shows the provider's proposed amendment. Actions:
+  "Apply to purpose.md" (writes the suggestion as a new paragraph in <code>vault/purpose.md</code>
+  via <code>POST /pages</code> equivalent) and "Dismiss". A Vitest snapshot asserts the badge
+  renders with the correct class.
+- AC-R9-3-5: <code>docs/sequences/</code> updated with an addendum to the ingest sequence diagram
+  showing the post-ingest purpose-check step.</p>
+<p><strong>Sequencing note:</strong> R9-3 touches <code>review.py</code> and <code>orchestrator.py</code>. R9-4 also touches
+<code>review.py</code>. Strict order: R9-3 FIRST (adds <code>purpose-suggestion</code> type and
+<code>generate_purpose_suggestion</code> function), then R9-4 (adds <code>schema-suggestion</code> type and
+its own generate function). R9-4 engineer MUST read the post-R9-3 <code>review.py</code> before
+touching it. Additionally, UXB-2 MUST be merged before R9-3 frontend work starts
+(ReviewQueueView.tsx design-system consolidation first).</p>
+<hr />
+<h3 id="r9-4-schemamd-co-evolution-schema-suggestion-reviewitem">R9-4 — schema.md co-evolution (schema-suggestion ReviewItem)<a class="headerlink" href="#r9-4-schemamd-co-evolution-schema-suggestion-reviewitem" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F16 (schema governance), K6 (YAML frontmatter evolution), F9 (HITL review queue)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>ai-agent-engineer (schema drift detection + suggestion generation) + backend-engineer (ReviewItem type, API, review.py)</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>L</td>
+</tr>
+<tr>
+<td>Roadmap source</td>
+<td>ROADMAP-v0.7-v1.0.md §v0.9 R9-4</td>
+</tr>
+<tr>
+<td>De-scope priority</td>
+<td><strong>1 (first to cut if sprint runs over)</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why this is the sprint's L item and de-scope priority 1:</strong>
+This extends R9-3's pattern to <code>schema.md</code> — the formal contract for frontmatter rules
+(K6). It requires a more sophisticated prompt (the provider must read schema.md, observe
+patterns in new pages, and propose a new frontmatter field or type value). The risk is
+that the provider produces low-quality or noisy suggestions. If the sprint is under
+time pressure, defer to v1.0 with no user regression (the existing schema.md remains
+valid; no placeholder is needed).</p>
+<p><strong>Design decision (PM-locked):</strong>
+The check fires once per ingest run, after R9-3's purpose check. It reads <code>vault/schema.md</code>
+and the new/modified pages. If the pages introduce a consistent new pattern (e.g., a
+frontmatter field not currently in schema.md), the provider proposes a new schema rule.
+Bounded: max 1 call, max 400 tokens, no retry, no auto-apply. Human approves via review
+queue (K8).</p>
+<p><strong>Acceptance criteria:</strong>
+- AC-R9-4-1: A new <code>ReviewItemType</code> enum value <code>schema-suggestion</code> added to
+  <code>backend/app/models.py</code> (same migration as R9-3 or a new one — engineer decides;
+  document in PR). A pytest asserts the migration is idempotent.
+- AC-R9-4-2: <code>backend/app/ops/review.py</code> gains a <code>generate_schema_suggestion(run_id,
+  vault_id, provider)</code> function (parallel structure to <code>generate_purpose_suggestion</code>).
+  It:
+  (a) reads <code>vault/schema.md</code>,
+  (b) reads the frontmatter of all pages created/modified in <code>run_id</code>,
+  (c) calls <code>provider.chat()</code> asking whether the pages introduce a consistent new
+      frontmatter pattern that should be added to schema.md, and if so to propose an
+      amendment,
+  (d) creates a <code>schema-suggestion</code> ReviewItem only if a non-trivial suggestion is
+      returned,
+  (e) if no new pattern is found, creates nothing.
+  Bounded: <code>max_tokens=400</code>, no retry, cost logged (I7).
+- AC-R9-4-3: The post-ingest hook in <code>orchestrator.py</code> calls <code>generate_schema_suggestion</code>
+  AFTER <code>generate_purpose_suggestion</code> (R9-3 must be merged first). Same try/except
+  guard — exception does not fail the ingest run.
+- AC-R9-4-4: <code>ReviewQueueView.tsx</code> renders <code>schema-suggestion</code> items with badge color
+  <code>var(--syn-notice-warning-bg)</code> and card header "Schema evolution proposed". Actions:
+  "Apply to schema.md" and "Dismiss". The "Apply" action appends the suggestion text as
+  a new section to <code>vault/schema.md</code> via the existing write path.
+- AC-R9-4-5: A pytest integration test with a fixture vault asserts a <code>schema-suggestion</code>
+  item is created when fixture pages contain a frontmatter field not in the fixture
+  schema.md.
+- AC-R9-4-6: <code>docs/sequences/</code> addendum (same doc as R9-3 if possible) shows the
+  schema-check step after the purpose-check step.</p>
+<p><strong>Sequencing note:</strong> R9-4 is strictly after R9-3 on <code>review.py</code> and <code>orchestrator.py</code>.
+No work starts on R9-4 until R9-3 is merged. UXB-2 must be merged before R9-4 frontend
+work starts. If the sprint de-scopes R9-4, the <code>orchestrator.py</code> hook from R9-3 must
+NOT contain any placeholder call to the schema function — clean exit.</p>
+<hr />
+<h3 id="r9-5-graph-drill-down-community-panel-edge-tooltip-cohesion-score">R9-5 — Graph drill-down (community panel + edge tooltip + cohesion score)<a class="headerlink" href="#r9-5-graph-drill-down-community-panel-edge-tooltip-cohesion-score" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F4 (knowledge graph), F1 (UX gaps #3, #11)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>frontend-engineer (community panel + edge tooltip UI) + backend-engineer (cohesion endpoint)</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M</td>
+</tr>
+<tr>
+<td>Roadmap source</td>
+<td>ROADMAP-v0.7-v1.0.md §v0.9 R9-5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Context:</strong> Louvain communities and FA2 layout are already implemented (v0.6). Edge
+weights with 4-signal breakdown exist in the graph engine. This item surfaces that data
+in the UI.</p>
+<p><strong>Acceptance criteria:</strong>
+- AC-R9-5-1: <code>GET /graph/community/{community_id}</code> returns:
+  <div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;community_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">i</span><span class="kc">nt</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;members&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;page_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">s</span><span class="kc">tr</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;degree&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">i</span><span class="kc">nt</span><span class="p">}],</span>
+<span class="w">  </span><span class="nt">&quot;cohesion_score&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">fl</span><span class="err">oa</span><span class="kc">t</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;cohesion_warning&quot;</span><span class="p">:</span><span class="w"> </span><span class="err">bool</span>
+<span class="p">}</span>
+</code></pre></div>
+  <code>cohesion_score</code> = (internal edges) / (max possible internal edges); <code>cohesion_warning</code>
+  = <code>true</code> when <code>cohesion_score &lt; 0.2</code> (threshold configurable via <code>GRAPH_COHESION_WARN</code>
+  env var). A pytest with a fixture graph asserts the score formula and the warning
+  threshold for both sides.
+- AC-R9-5-2: Clicking a community color band in the legend (or a community node/area in
+  the sigma canvas) opens a side panel listing the community's member pages. The panel
+  shows: community color swatch, member count, cohesion score (e.g., "Cohesion: 0.42"),
+  and an amber warning banner "Low cohesion — this community may be fragmented." when
+  <code>cohesion_warning=true</code>. Clicking a member navigates to that page in the editor/preview
+  panel (reuses existing navigation action).
+- AC-R9-5-3: Hovering an edge in the sigma canvas shows a tooltip with the 4-signal
+  weight breakdown: "Direct links ×3: {value} | Source overlap ×4: {value} |
+  Adamic-Adar ×1.5: {value} | Type affinity ×1: {value} | Total: {value}". The tooltip
+  uses the existing tooltip component or a new <code>GraphEdgeTooltip</code> styled with
+  <code>var(--syn-bg-card)</code> and <code>var(--syn-border)</code>.
+- AC-R9-5-4: The edge weight tooltip data is served by <code>GET /graph/edge/{src_id}/{dst_id}</code>
+  returning <code>{"signals": {"direct": float, "source_overlap": float, "adamic_adar": float,
+  "type_affinity": float}, "total_weight": float}</code>. A pytest asserts the endpoint returns
+  the correct values for a fixture edge.
+- AC-R9-5-5: The community panel and edge tooltip obey I2: no graph recomputation on the
+  UI main thread. The panel data is fetched on demand (one GET per community click); the
+  edge data is fetched on hover with a 150 ms debounce to avoid thundering-herd on
+  fast mouse moves.
+- AC-R9-5-6: Playwright screenshot <code>docs/screens/graph-community-panel.png</code> and
+  <code>docs/screens/graph-edge-tooltip.png</code> captured as D5 artifacts.</p>
+<hr />
+<h3 id="r9-6-playwright-e2e-suite-happy-path-d5-screenshot-refresh">R9-6 — Playwright E2E suite (happy-path + D5 screenshot refresh)<a class="headerlink" href="#r9-6-playwright-e2e-suite-happy-path-d5-screenshot-refresh" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F15 (cross-platform QA), F1 (UI coverage)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>qa-test-engineer</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M</td>
+</tr>
+<tr>
+<td>Roadmap source</td>
+<td>ROADMAP-v0.7-v1.0.md §v0.9 R9-6; CLAUDE.md §3 I8</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Context:</strong> The <code>SYNAPSE_FRONTEND_URL</code> env var pattern is already established in
+<code>playwright.config.ts</code>. D5 screenshot refresh is a DoD requirement (I8).</p>
+<p><strong>Acceptance criteria:</strong>
+- AC-R9-6-1: A <code>frontend/tests/e2e/</code> directory (or expand the existing E2E test file)
+  contains happy-path specs for each UI section: Connect (first-run flow), Ingest
+  (upload + run + view result), Search (query + citation click), Chat (send message +
+  receive response + save to wiki), Review Queue (view items + dismiss one), Graph
+  (load + select node + open community panel), Settings (open Cost &amp; Usage section +
+  see monthly total). Each spec uses <code>SYNAPSE_FRONTEND_URL</code> (from <code>playwright.config.ts</code>)
+  and does NOT hardcode <code>localhost:5173</code>.
+- AC-R9-6-2: All 7 happy-path specs pass against a running Synapse instance (backend +
+  frontend) in CI. The CI step is documented in <code>.github/workflows/</code> and runs on the
+  release branch. Failures in E2E do NOT block backend unit tests (parallel jobs).
+- AC-R9-6-3: Each spec that visits a visually significant state captures a screenshot
+  via <code>page.screenshot()</code> and saves it to <code>docs/screens/{section}-{state}.png</code>. These
+  files are committed to the repo as D5 artifacts. At minimum the following screenshots
+  are refreshed: <code>ingest-section.png</code>, <code>chat-conversation.png</code>, <code>review-queue.png</code>,
+  <code>graph-community-panel.png</code> (new, from R9-5), <code>settings-cost.png</code> (new, from R9-1).
+- AC-R9-6-4: The E2E test for the Chat section asserts that after the first assistant
+  response, the conversation title is no longer "Untitled" (regression coverage for
+  UXB-1).
+- AC-R9-6-5: A <code>playwright.config.ts</code> update documents the required env vars for CI:
+  <code>SYNAPSE_FRONTEND_URL</code>, <code>SYNAPSE_BACKEND_URL</code>. A comment notes these are set in the
+  CI environment via GitHub Actions secrets/vars, not hardcoded.
+- AC-R9-6-6: The Playwright test report (<code>playwright-report/</code>) is added to
+  <code>.gitignore</code> if not already present; only the captured screenshots (PNG) are committed.</p>
+<hr />
+<h2 id="3-explicit-sequencing-order-same-file-conflicts">3. Explicit sequencing order (same-file conflicts)<a class="headerlink" href="#3-explicit-sequencing-order-same-file-conflicts" title="Permanent link">&para;</a></h2>
+<h3 id="reviewpy-and-orchestratorpy-r9-3-r9-4">review.py and orchestrator.py (R9-3 → R9-4)<a class="headerlink" href="#reviewpy-and-orchestratorpy-r9-3-r9-4" title="Permanent link">&para;</a></h3>
+<p>Both R9-3 and R9-4 add new functions to <code>backend/app/ops/review.py</code> and new post-ingest
+hook calls to <code>backend/app/ingest/orchestrator.py</code>. Strict merge order:</p>
+<ol>
+<li>R9-3 merged to sprint/v0.9 (adds <code>purpose-suggestion</code> type, <code>generate_purpose_suggestion</code>,
+   orchestrator hook)</li>
+<li>R9-4 starts only after R9-3 is merged (reads post-R9-3 review.py and orchestrator.py
+   before touching them)</li>
+</ol>
+<p>The ai-agent-engineer owns the provider call logic in both items; the backend-engineer
+owns the model/migration and API wiring. These sub-tasks can be parallelized WITHIN an
+item but not across items on the shared files.</p>
+<h3 id="mainpy-r9-1-r9-2">main.py (R9-1 → R9-2)<a class="headerlink" href="#mainpy-r9-1-r9-2" title="Permanent link">&para;</a></h3>
+<p>Both R9-1 and R9-2 add new endpoints to <code>backend/app/main.py</code>. Strict merge order:</p>
+<ol>
+<li>R9-1 merged (adds cost endpoint, preferably via new <code>backend/app/cost.py</code> router)</li>
+<li>R9-2 merged after R9-1 (adds <code>GET /health/detailed</code>, small conflict surface if cost
+   was extracted to its own router)</li>
+</ol>
+<p>If R9-1 is extracted to <code>cost.py</code>, R9-2 only needs to add one <code>include_router</code> line
+and the new endpoint — minimal conflict. Backend-engineer coordinates both.</p>
+<h3 id="reviewqueueviewtsx-uxb-2-r9-3-r9-4-frontend">ReviewQueueView.tsx (UXB-2 → R9-3 → R9-4 frontend)<a class="headerlink" href="#reviewqueueviewtsx-uxb-2-r9-3-r9-4-frontend" title="Permanent link">&para;</a></h3>
+<p>UXB-2 refactors ReviewQueueView.tsx for design-system consolidation. R9-3 and R9-4
+both add new card rendering for new ReviewItem types. Strict merge order:</p>
+<ol>
+<li>UXB-2 merged (clean ReviewQueueView.tsx with <code>.syn-button--ghost</code> and <code>components.css</code>)</li>
+<li>R9-3 frontend (adds <code>purpose-suggestion</code> card using new classes)</li>
+<li>R9-4 frontend (adds <code>schema-suggestion</code> card using new classes)</li>
+</ol>
+<p>No engineer touches ReviewQueueView.tsx until the prior item in this chain is merged.</p>
+<h3 id="graph-backend-files-r9-5">graph backend files (R9-5)<a class="headerlink" href="#graph-backend-files-r9-5" title="Permanent link">&para;</a></h3>
+<p>R9-5 adds two new endpoints (<code>GET /graph/community/{id}</code>, <code>GET /graph/edge/{src}/{dst}</code>)
+that read from the existing graph engine. These are read-only additions; no shared file
+conflict with R9-1/R9-2. R9-5 can proceed in parallel with R9-1/R9-2.</p>
+<h3 id="w0-in-flight">W0 (IN FLIGHT)<a class="headerlink" href="#w0-in-flight" title="Permanent link">&para;</a></h3>
+<p>W0 must be fully committed before UXB-2 starts. UXB-2 cannot merge while W0 is still
+in flight (overlapping files: ReviewQueueView.tsx appears in both W0 and UXB-2).</p>
+<hr />
+<h2 id="4-wave-plan-suggested-2-week-schedule">4. Wave plan (suggested 2-week schedule)<a class="headerlink" href="#4-wave-plan-suggested-2-week-schedule" title="Permanent link">&para;</a></h2>
+<p><strong>Wave 1 (days 1–3):</strong>
+W0 completion and merge (IN FLIGHT — top priority to unblock UXB-2).
+R9-1 backend starts (backend-engineer; cost aggregation endpoint).
+R9-5 backend starts (backend-engineer can run this in parallel if separate engineer
+available; otherwise R9-5 follows R9-2 on the same engineer's queue).
+R9-6 spec scaffolding starts (qa-test-engineer; write specs, mock backend).</p>
+<p><strong>Wave 2 (days 2–5, overlaps wave 1 tail):</strong>
+UXB-2 starts immediately after W0 merges (frontend-engineer; ReviewQueueView.tsx
+first as highest-priority file per audit order).
+R9-1 frontend (Settings Cost section) in parallel with UXB-2 frontend (no file
+overlap between Settings and ReviewQueueView).
+R9-5 frontend (community panel + edge tooltip) starts in parallel; no shared files
+with UXB-2 target files.</p>
+<p><strong>Wave 3 (days 4–8):</strong>
+R9-2 backend (after R9-1 merged; health endpoint).
+UXB-1 (backend: title endpoint; frontend: ConversationList preview — no overlap with
+UXB-2 or ReviewQueueView; can run in parallel with UXB-2).
+R9-3 (ai-agent-engineer + backend-engineer; starts after UXB-2 ReviewQueueView.tsx
+is merged).</p>
+<p><strong>Wave 4 (days 7–11):</strong>
+R9-4 (after R9-3 merged; L effort; de-scope candidate if timeline is tight).
+R9-6 full E2E pass (qa-test-engineer; all specs runnable against staging by day 9).</p>
+<p><strong>Wave 5 (days 12–14):</strong>
+QA-test-engineer full pass. Tech-writer docs gate. Architect review.
+PM exit-criteria sign-off. Human checkpoint. Tag v0.9.0.</p>
+<hr />
+<h2 id="5-out-of-scope-for-v09">5. Out of scope for v0.9<a class="headerlink" href="#5-out-of-scope-for-v09" title="Permanent link">&para;</a></h2>
+<p>Everything not listed in §2 above is explicitly out of scope. The following items are
+deferred and must NOT be built during this sprint:</p>
+<table>
+<thead>
+<tr>
+<th>Deferred item</th>
+<th>Target release</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R10-1: Authentication layer</td>
+<td>v1.0</td>
+<td>Structural; requires dedicated ADR first</td>
+</tr>
+<tr>
+<td>R10-2: Multi-vault UI</td>
+<td>v1.0</td>
+<td>Depends on R10-1</td>
+</tr>
+<tr>
+<td>R10-3: Code signing + notarization</td>
+<td>v1.0</td>
+<td>Requires Apple/Windows certs + fee</td>
+</tr>
+<tr>
+<td>R10-4: Desktop auto-update signing path</td>
+<td>v1.0</td>
+<td>Requires R10-3</td>
+</tr>
+<tr>
+<td>R10-5: Mobile/PWA polish</td>
+<td>v1.0</td>
+<td>Polish sprint</td>
+</tr>
+<tr>
+<td>R10-6: MkDocs docs site</td>
+<td>v1.0</td>
+<td>Optional docs sprint</td>
+</tr>
+<tr>
+<td>Vault restore/import endpoint (POST /import)</td>
+<td>v1.0 or later</td>
+<td>R8-4 covered export only</td>
+</tr>
+<tr>
+<td>UXA-01 NavRail group label ("Strumenti")</td>
+<td>v1.0</td>
+<td>M effort; beyond quick-win boundary</td>
+</tr>
+<tr>
+<td>UXA-08 role label hierarchy reduction</td>
+<td>v1.0</td>
+<td>P2 friction; after design-system stable</td>
+</tr>
+<tr>
+<td>UXA-09 panel skeleton state</td>
+<td>v1.0</td>
+<td>P2 friction</td>
+</tr>
+<tr>
+<td>UXA-10 review queue destructive confirm</td>
+<td>v1.0</td>
+<td>M effort; design decision needed</td>
+</tr>
+<tr>
+<td>UXA-11 ActivityBar two-tier status bar</td>
+<td>v1.0</td>
+<td>P2; after observability items ship</td>
+</tr>
+<tr>
+<td>UXA-12 provider selector deduplication</td>
+<td>v1.0</td>
+<td>P2; provider config redesign scope</td>
+</tr>
+<tr>
+<td>UXA-13 stale Settings layout removal</td>
+<td>v1.0</td>
+<td>Needs verification first</td>
+</tr>
+<tr>
+<td>UXA-15 ProviderSelector ARIA fix</td>
+<td>v1.0</td>
+<td>Accessibility sprint</td>
+</tr>
+<tr>
+<td>UXA-19 graph label dimming during hover</td>
+<td>v1.0</td>
+<td>P3 polish</td>
+</tr>
+<tr>
+<td>UXA-20 destructive button standardisation</td>
+<td>v1.0 (partial in UXB-2)</td>
+<td>P3 polish beyond UXB-2 scope</td>
+</tr>
+<tr>
+<td>UXA-22 i18n Italian naturalness</td>
+<td>v1.0</td>
+<td>P3 polish</td>
+</tr>
+<tr>
+<td>UXA-24 review queue density/card separation</td>
+<td>v1.0</td>
+<td>P3 polish</td>
+</tr>
+<tr>
+<td>UXA-25 Unicode chevrons → Lucide</td>
+<td>v1.0</td>
+<td>P3 polish</td>
+</tr>
+<tr>
+<td>UXA-26 ⌘K shortcut discoverability</td>
+<td>v1.0</td>
+<td>P3 polish</td>
+</tr>
+<tr>
+<td>UXA-27 graph zoom control visibility</td>
+<td>v1.0</td>
+<td>P3 polish</td>
+</tr>
+<tr>
+<td>Any feature not assigned a Feature ID in CLAUDE.md §4</td>
+<td>never without new ID</td>
+<td>Anti-scope-creep invariant</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Never list (invariants I1–I9):</strong> full-rescan, main-thread force layout, per-token DOM
+mutation, WYSIWYG/ProseMirror, hardcoded provider or model ID, unbounded loops (all
+provider calls in R9-1/R9-3/R9-4 are capped with <code>max_tokens</code> and no retry),
+skipping D-artifacts, Tavily/alt-search, reimplementing local embeddings. These are
+permanent blocks regardless of sprint.</p>
+<hr />
+<h2 id="6-exit-criteria-for-v09-release-ec-m9">6. Exit criteria for v0.9 release (EC-M9)<a class="headerlink" href="#6-exit-criteria-for-v09-release-ec-m9" title="Permanent link">&para;</a></h2>
+<p>All 4 sign-offs required before tagging <code>v0.9.0</code>:
+QA-test-engineer + Solution-architect + Tech-writer + Product-manager.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Criterion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EC-M9-1</td>
+<td>All committed items have all ACs green: W0 (10 quick wins verified), UXB-1 (auto-title + preview), UXB-2 (design-system consolidation), R9-1 (cost dashboard), R9-2 (health endpoint), R9-3 (purpose suggestions), R9-5 (graph drill-down), R9-6 (E2E suite). R9-4 is green if not de-scoped; if de-scoped, a gap note is logged here and it moves to v1.0 backlog.</td>
+</tr>
+<tr>
+<td>EC-M9-2</td>
+<td><code>ruff check</code> + <code>black --check</code> + mypy strict pass tree-wide. ESLint + prettier clean. TypeScript strict passes. No new <code>any</code> escapes.</td>
+</tr>
+<tr>
+<td>EC-M9-3</td>
+<td><code>grep -r "color-mix.*white" frontend/src/</code> returns zero hits (AC-UXB2-5 tree-wide guarantee).</td>
+</tr>
+<tr>
+<td>EC-M9-4</td>
+<td>ER diagram zero-drift: <code>make er</code> output matches live schema. New <code>ReviewItemType</code> values (<code>purpose-suggestion</code>, <code>schema-suggestion</code> if not de-scoped) are reflected in the generated diagram.</td>
+</tr>
+<tr>
+<td>EC-M9-5</td>
+<td><code>docs/api/openapi.json</code> regenerated and current: includes <code>GET /costs/summary</code>, <code>GET /health/detailed</code>, <code>GET /graph/community/{id}</code>, <code>GET /graph/edge/{src}/{dst}</code>, <code>POST /conversations/{id}/generate-title</code>.</td>
+</tr>
+<tr>
+<td>EC-M9-6</td>
+<td>All D5 screenshots refreshed: at minimum <code>ingest-zero-pages.png</code> (W0-3), <code>chat-conversation.png</code> (UXB-1), ReviewQueue section (UXB-2 visual check), <code>settings-cost.png</code> (R9-1), <code>graph-community-panel.png</code> (R9-5), <code>graph-edge-tooltip.png</code> (R9-5). Playwright screenshots committed to <code>docs/screens/</code>.</td>
+</tr>
+<tr>
+<td>EC-M9-7</td>
+<td><code>docs/sequences/</code> addendum updated with post-ingest purpose-check step (R9-3 AC-R9-3-5) and schema-check step if R9-4 shipped.</td>
+</tr>
+<tr>
+<td>EC-M9-8</td>
+<td><code>docs/DEPLOY.md</code> updated with <code>COST_ALERT_THRESHOLD_USD</code>, <code>GRAPH_COHESION_WARN</code>, and <code>HEALTH_POLL_MS</code> env vars documented.</td>
+</tr>
+<tr>
+<td>EC-M9-9</td>
+<td><code>docs/USER.md</code> updated with "Cost &amp; Usage" section (R9-1) and "Graph communities" section (R9-5). Tech-writer sign-off on both.</td>
+</tr>
+<tr>
+<td>EC-M9-10</td>
+<td><code>vault/wiki/</code> remains a valid Obsidian vault after all v0.9 ops (I5/K7). Manual spot-check by owner.</td>
+</tr>
+<tr>
+<td>EC-M9-11</td>
+<td>All 7 Playwright E2E happy-path specs pass in CI (R9-6). E2E screenshots committed.</td>
+</tr>
+<tr>
+<td>EC-M9-12</td>
+<td>GitHub release <code>v0.9.0</code> created with desktop artifacts (macOS <code>.dmg</code>, Windows <code>.msi</code>, Linux <code>.AppImage</code>) carried forward from v0.8 build pipeline.</td>
+</tr>
+<tr>
+<td>EC-M9-HCP</td>
+<td>Human checkpoint: Emanuele verifies in a live session: (a) a new conversation auto-titles after first exchange; (b) <code>GET /costs/summary</code> returns correct monthly total; (c) <code>GET /health/detailed</code> shows correct sub-system status; (d) clicking a graph community shows member list + cohesion score; (e) hovering an edge shows the 4-signal tooltip; (f) an ingest run on out-of-scope content creates a <code>purpose-suggestion</code> in the Review Queue.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-velocity-note">7. Velocity note<a class="headerlink" href="#7-velocity-note" title="Permanent link">&para;</a></h2>
+<p>v0.8 carried 7 items (3 chained L/M on extract.py). v0.9 carries 9 items (2 UX waves
++ 7 roadmap items), but the W0 wave is already IN FLIGHT at scope lock, reducing the
+team's day-1 load. The critical-path chain this sprint is:</p>
+<p><strong>review.py chain:</strong> W0 → UXB-2 (ReviewQueueView.tsx) → R9-3 → R9-4</p>
+<p>This is the primary scheduling risk. UXB-2's ReviewQueueView work must be completed
+and merged before R9-3 frontend starts; R9-3 must be merged before R9-4 starts. Any
+delay to UXB-2 compresses R9-3 and R9-4.</p>
+<p><strong>De-scope order (if sprint runs over, cut in this order):</strong>
+1. R9-4 (schema-suggestion — L effort, de-scope priority 1; defer to v1.0 with no
+   user regression. Clean exit: remove any placeholder from orchestrator.py if added.)
+2. R9-5 edge tooltip only (ship community panel without edge weight breakdown; tooltip
+   is a SHOULD relative to the community panel itself)
+3. R9-6 screenshot refresh for settings-cost.png and graph-edge-tooltip.png (if R9-1
+   and/or R9-5 edge tooltip are de-scoped, their screenshots are moot; remaining
+   screenshots are still required)</p>
+<p>UXB-1, UXB-2, R9-1, R9-2, R9-3, and the R9-6 E2E spec suite are committed and must
+not be cut.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

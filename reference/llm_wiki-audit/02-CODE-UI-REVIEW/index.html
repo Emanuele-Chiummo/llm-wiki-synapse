@@ -1,0 +1,1214 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/llm_wiki-audit/02-CODE-UI-REVIEW/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>LLM Wiki (nashsu/llm_wiki v0.5.4) — Code Quality & UI/UX Review - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#llm-wiki-nashsullm_wiki-v054-code-quality-uiux-review" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              LLM Wiki (nashsu/llm_wiki v0.5.4) — Code Quality &amp; UI/UX Review
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-sommario-per-severita" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Sommario per severità
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-sicurezza" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Sicurezza
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Sicurezza">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#s-1-critico-il-clip-server-19827-e-completamente-non-autenticato-effort-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S-1 🔴 Critico — Il clip server :19827 è completamente non autenticato — effort M
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#s-2-critico-scrittura-in-directory-arbitraria-path-non-validato-effort-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S-2 🔴 Critico — Scrittura in directory arbitraria (path non validato) — effort S
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#s-3-critico-drive-by-write-prompt-injection-da-qualsiasi-sito-web-effort-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S-3 🔴 Critico — Drive-by write + prompt-injection da qualsiasi sito web — effort M
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#s-4-alto-clip-server-eredita-esposizione-lan-senza-token-effort-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S-4 🟠 Alto — Clip server eredita esposizione LAN senza token — effort S
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#s-5-alto-body-del-clip-senza-cap-effort-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S-5 🟠 Alto — Body del clip senza cap — effort S
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#s-6-medio-contenuto-clippato-non-sanitizzato-effort-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S-6 🟡 Medio — Contenuto clippato non sanitizzato — effort M
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#s-7-medio-token-api-accettato-anche-via-querystring-effort-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S-7 🟡 Medio — Token API accettato anche via querystring — effort S
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-code-quality-rust-src-tauri" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Code quality — Rust (src-tauri/)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Code quality — Rust (src-tauri/)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#q-rust-1-medio-normalizepath-reimplementato-3-in-rust-con-semantiche-divergenti-effort-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q-Rust-1 🟡 Medio — normalizePath reimplementato 3× in Rust con semantiche divergenti — effort S
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-rust-2-basso-mutexlockunwrap-negli-handler-http-del-clip-server-effort-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q-Rust-2 🔵 Basso — Mutex::lock().unwrap() negli handler HTTP del clip server — effort S
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-code-quality-typescript-src" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Code quality — TypeScript (src/)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Code quality — TypeScript (src/)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#q-ts-1-medio-graph-viewtsx-monolite-da-1777-righe-effort-l" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q-TS-1 🟡 Medio — graph-view.tsx monolite da 1777 righe — effort L
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-ts-2-basso-logica-duplicata-grafowikilink-in-2-moduli-effort-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q-TS-2 🔵 Basso — Logica duplicata grafo/wikilink in 2 moduli — effort M
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-ts-3-basso-parsing-frontmatter-regex-based-non-yaml-effort-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q-TS-3 🔵 Basso — Parsing frontmatter regex-based, non YAML — effort M
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-ts-4-basso-mismatch-contratti-serdets-benigni-effort-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q-TS-4 🔵 Basso — Mismatch contratti serde↔TS (benigni) — effort S
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-bug-funzionali-non-sicurezza" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Bug funzionali (non-sicurezza)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Performance
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Performance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#p-1-alto-rebuild-totale-del-grafo-ad-ogni-dataversion-effort-l" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P-1 🟠 Alto — Rebuild totale del grafo ad ogni dataVersion — effort L
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#p-2-alto-forceatlas2-sul-main-thread-sotto-220-nodi-effort-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P-2 🟠 Alto — ForceAtlas2 sul main thread sotto 220 nodi — effort M
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#p-3-medio-allocazioni-ripetute-nel-calcolo-relevance-effort-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P-3 🟡 Medio — Allocazioni ripetute nel calcolo relevance — effort S
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#p-4-basso-letture-file-intere-in-ram-nei-parser-effort-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P-4 🔵 Basso — Letture file intere in RAM nei parser — effort M
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-test-coverage-gate-di-qualita" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Test coverage &amp; gate di qualità
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Test coverage &amp; gate di qualità">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#q-1-critico-la-ci-non-esegue-i-test-effort-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q-1 🔴 Critico — La CI NON esegue i test — effort S
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-2-alto-zero-test-del-layer-ui-nessun-e2e-effort-l" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q-2 🟠 Alto — Zero test del layer UI, nessun E2E — effort L
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-3-alto-nessun-linter-configurato-effort-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q-3 🟠 Alto — Nessun linter configurato — effort S
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-ui-ux-review-da-hacker-dellinterfaccia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. UI / UX review (da hacker dell'interfaccia)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. UI / UX review (da hacker dell&#39;interfaccia)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ux-1-alto-onboarding-quick-start-con-frizione-sulla-configurazione-provider-effort-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UX-1 🟠 Alto — Onboarding "Quick Start" con frizione sulla configurazione provider — effort M
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ux-2-medio-densita-informativa-del-knowledge-graph-senza-guida-effort-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UX-2 🟡 Medio — Densità informativa del Knowledge Graph senza guida — effort M
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ux-3-medio-stati-di-loadingerrore-dellingest-a-due-step-effort-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UX-3 🟡 Medio — Stati di loading/errore dell'ingest a due step — effort S
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ux-4-medio-accessibilita-probabilmente-debole-effort-m-audit-l-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UX-4 🟡 Medio — Accessibilità probabilmente debole — effort M (audit) + L (fix)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ux-5-basso-coerenza-design-system-shadcnui-effort-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UX-5 🔵 Basso — Coerenza design system shadcn/ui — effort S
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ux-6-basso-confronto-con-obsidian-editor-milkdown-effort-na-decisione" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UX-6 🔵 Basso — Confronto con Obsidian (editor Milkdown) — effort N/A (decisione)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-debito-tecnico-sintesi-prioritaria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Debito tecnico — sintesi prioritaria
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="llm-wiki-nashsullm_wiki-v054-code-quality-uiux-review">LLM Wiki (<code>nashsu/llm_wiki</code> v0.5.4) — Code Quality &amp; UI/UX Review<a class="headerlink" href="#llm-wiki-nashsullm_wiki-v054-code-quality-uiux-review" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Review da senior full-stack reviewer + UX hacker. Ogni finding è ancorato a <code>file:riga</code>, con <strong>severità</strong> (🔴 Critico / 🟠 Alto / 🟡 Medio / 🔵 Basso) e <strong>effort di fix</strong> stimato (S ≤ ½ giornata · M 1–2 giorni · L 3–5 giorni · XL &gt; 1 settimana).
+Companion di <code>01-AUDIT-FUNZIONALE.md</code>. Le verità di base: codebase matura (~95k LOC, 121 test TS + ~190 test Rust), type-safety quasi perfetta, <strong>ma</strong> layer UI non testato, CI che non esegue test, un clip server insicuro.</p>
+</blockquote>
+<hr />
+<h2 id="0-sommario-per-severita">0. Sommario per severità<a class="headerlink" href="#0-sommario-per-severita" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Sev</th>
+<th>#</th>
+<th>Finding principali</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🔴 Critico</td>
+<td>4</td>
+<td>Clip server non autenticato (S-1), scrittura dir arbitraria (S-2), esposizione LAN unauth (S-3), CI non esegue i test (Q-1)</td>
+</tr>
+<tr>
+<td>🟠 Alto</td>
+<td>7</td>
+<td>Combo API unauth+LAN (S-4), body clip illimitato (S-5), 0 test UI/E2E (Q-2), retry senza backoff (Q-3), rebuild grafo totale (P-1), FA2 main-thread &lt;220 (P-2), nessun linter (Q-4)</td>
+</tr>
+<tr>
+<td>🟡 Medio</td>
+<td>9</td>
+<td>Doc-vs-code (numeri falsi) (Q-5), clip non sanitizzato (S-6), double-dispatch research (B-1), auto-ingest silenzioso (B-2), <code>graph-view.tsx</code> monolite 1777 righe (A-1), purpose path bug (B-3), normalizePath Rust 3× divergenti (A-2), <code>scanning</code> globale (B-4), token in querystring opzionale (S-7)</td>
+</tr>
+<tr>
+<td>🔵 Basso</td>
+<td>8</td>
+<td>Cache mtime-only, positionCache leak, sweep partial-batch, MCP toggle client-side, sigma remount-churn, overview overwrite drift, label budget UI 60%≠55%, regenerate setTimeout hack</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tesi</strong>: il <em>core business-logic</em> (Rust + <code>lib/</code> + <code>stores/</code>) è di buona qualità ingegneristica e ben testato. Il debito è concentrato in <strong>(1) sicurezza del clip server</strong>, <strong>(2) gate di qualità assenti</strong> (CI senza test, no linter, no test UI/E2E) e <strong>(3) disallineamento doc↔codice</strong>. Nessuno di questi è un riprogetto: sono interventi mirati.</p>
+<hr />
+<h2 id="1-sicurezza">1. Sicurezza<a class="headerlink" href="#1-sicurezza" title="Permanent link">&para;</a></h2>
+<h3 id="s-1-critico-il-clip-server-19827-e-completamente-non-autenticato-effort-m">S-1 🔴 Critico — Il clip server <code>:19827</code> è completamente non autenticato — <em>effort M</em><a class="headerlink" href="#s-1-critico-il-clip-server-19827-e-completamente-non-autenticato-effort-m" title="Permanent link">&para;</a></h3>
+<p><code>clip_server.rs</code> non ha alcun riferimento a token/Authorization (grep → 0 match). Tutti gli endpoint (<code>/clip</code>, <code>/project</code>, <code>/projects</code>, <code>/clips/pending</code>) sono aperti. Contrasto con l'API <code>:19828</code> che enforce <code>is_authorized</code> (<code>api_server.rs:246</code>).
+<strong>Impatto</strong>: qualsiasi processo locale (e, con LAN on, qualsiasi host) interagisce col server senza credenziali.
+<strong>Fix</strong>: condividere lo stesso token-gate dell'API <code>:19828</code> (header <code>X-LLM-Wiki-Token</code>/Bearer, confronto <code>constant_time_eq</code>); l'estensione lo include già potendolo leggere dall'app via handshake.</p>
+<h3 id="s-2-critico-scrittura-in-directory-arbitraria-path-non-validato-effort-s">S-2 🔴 Critico — Scrittura in directory arbitraria (path non validato) — <em>effort S</em><a class="headerlink" href="#s-2-critico-scrittura-in-directory-arbitraria-path-non-validato-effort-s" title="Permanent link">&para;</a></h3>
+<p><code>handle_clip</code> prende <code>project_path</code> dal body (<code>clip_server.rs:335</code>) e lo usa in <code>Path::new(&amp;project_path).join("raw").join("sources")</code> con <code>create_dir_all</code> (<code>:379-389</code>) <strong>senza</strong> <code>safe_join</code>/canonicalizzazione. Lo slug del filename è sanificato (<code>:361-375</code>), ma la base è interamente controllata dal chiamante.
+<strong>Failure scenario</strong>: <code>POST /clip {"projectPath":"/home/user/.config/autostart","content":"..."}</code> → crea <code>/home/user/.config/autostart/raw/sources/&lt;slug&gt;.md</code>. Scrittura file unauth in directory arbitraria (suffisso vincolato a <code>raw/sources/&lt;slug&gt;.md</code>).
+<strong>Fix</strong>: validare <code>project_path</code> contro la lista dei progetti registrati; applicare lo stesso <code>safe_join</code> dell'API (<code>api_server.rs:784-824</code>).</p>
+<h3 id="s-3-critico-drive-by-write-prompt-injection-da-qualsiasi-sito-web-effort-m">S-3 🔴 Critico — Drive-by write + prompt-injection da qualsiasi sito web — <em>effort M</em><a class="headerlink" href="#s-3-critico-drive-by-write-prompt-injection-da-qualsiasi-sito-web-effort-m" title="Permanent link">&para;</a></h3>
+<p>Una <code>POST</code> semplice (<code>Content-Type: text/plain</code>, no preflight) non è bloccata da CORS: l'Origin è usato <strong>solo</strong> per decidere gli header di risposta, mai per autorizzare l'azione (<code>clip_server.rs:96-97</code>); <code>handle_clip</code> parsa il body comunque (<code>:324-325</code>).
+<strong>Failure scenario</strong>: un sito visitato esegue <code>fetch('http://127.0.0.1:19827/clip',{method:'POST',body:JSON.stringify({projectPath, content:'&lt;payload&gt;'})})</code> → scrive <code>.md</code> in <code>raw/sources/</code> → <strong>auto-ingerito dal LLM</strong> (<code>clip-watcher.ts:39</code>). Il payload è contenuto controllato dall'attaccante che diventa input del modello (prompt-injection). <code>/project</code> permette anche di ripuntare silenziosamente il "progetto corrente".
+<strong>Fix</strong>: S-1 (token) risolve la maggior parte; in più validare <code>Origin</code>/<code>Host</code> contro un allowlist esplicito (<code>chrome-extension://&lt;id&gt;</code> + <code>127.0.0.1</code>), rifiutare richieste senza Origin atteso.</p>
+<h3 id="s-4-alto-clip-server-eredita-esposizione-lan-senza-token-effort-s">S-4 🟠 Alto — Clip server eredita esposizione LAN senza token — <em>effort S</em><a class="headerlink" href="#s-4-alto-clip-server-eredita-esposizione-lan-senza-token-effort-s" title="Permanent link">&para;</a></h3>
+<p><code>start_clip_server</code> usa <code>server_bind::configured_bind_host</code> (<code>clip_server.rs:54</code>): con <code>allowLanAccess</code> il server <strong>non autenticato</strong> bind su <code>0.0.0.0</code> (<code>server_bind.rs:22-31</code>). La UI dice "keep token auth enabled" (<code>api-server-section.tsx:302-310</code>) ma il clip server <strong>non ha token</strong>.
+<strong>Impatto</strong>: su LAN, qualsiasi host scrive file + innesca ingest, unauth. (Una volta applicato S-1 questo si chiude; finché non lo è, è la combinazione più pericolosa.)</p>
+<h3 id="s-5-alto-body-del-clip-senza-cap-effort-s">S-5 🟠 Alto — Body del clip senza cap — <em>effort S</em><a class="headerlink" href="#s-5-alto-body-del-clip-senza-cap-effort-s" title="Permanent link">&para;</a></h3>
+<p><code>clip_server.rs:140,193,243</code> usano <code>read_to_string</code> <strong>senza limite</strong> (a differenza di <code>MAX_BODY_BYTES</code>=1 MiB dell'API, <code>api_server.rs:21,314-319</code>). DoS di memoria triviale con una POST grande.
+<strong>Fix</strong>: <code>.take(MAX_BODY_BYTES)</code> come nell'API.</p>
+<h3 id="s-6-medio-contenuto-clippato-non-sanitizzato-effort-m">S-6 🟡 Medio — Contenuto clippato non sanitizzato — <em>effort M</em><a class="headerlink" href="#s-6-medio-contenuto-clippato-non-sanitizzato-effort-m" title="Permanent link">&para;</a></h3>
+<p><code>content</code> preso verbatim (<code>clip_server.rs:332</code>) e scritto nel markdown (<code>:406-414</code>) con escape solo di <code>"</code> nei campi frontmatter title/url; il body è raw. La sicurezza dipende interamente dal sanitizer del renderer GFM. Combinato con S-3, l'attaccante controlla il body completo.
+<strong>Fix</strong>: sanitizzazione/escape del body, length-cap, e rendering con <code>rehype-sanitize</code> lato preview.</p>
+<h3 id="s-7-medio-token-api-accettato-anche-via-querystring-effort-s">S-7 🟡 Medio — Token API accettato anche via querystring — <em>effort S</em><a class="headerlink" href="#s-7-medio-token-api-accettato-anche-via-querystring-effort-s" title="Permanent link">&para;</a></h3>
+<p>L'API <code>:19828</code> accetta il token via <code>?token=</code> oltre che header/Bearer (<code>api_server.rs:397-414</code>). La UI avvisa di non usarlo in URL (<code>api-server-section.tsx:461-465</code>), ma resta accettato → rischio di finire nei log del reverse proxy/cronologia.
+<strong>Fix</strong>: deprecare <code>?token=</code> o gate dietro flag esplicito.</p>
+<blockquote>
+<p><strong>Positivi di sicurezza (da preservare, NON toccare)</strong>: l'API <code>:19828</code> è ben hardenizzata — confronto token <code>constant_time_eq</code> timing-safe e fail-closed (<code>api_server.rs:399-414</code>,<code>:456-469</code>), kill-switch <code>api_enabled</code>→503, rate-limit 120/s→429, in-flight cap 64→503, <code>catch_unwind</code> per-richiesta→500, <code>safe_join</code> anti-traversal (<code>:784-824</code>), allowlist path pubblici, skip symlink, body cap. CORS è <strong>allowlist</strong> (no <code>*</code>, testato a rifiutare <code>localhost.evil.com</code>, <code>cors.rs:11</code>). Nessun secret nei log: <code>search.rs</code> strippa <code>x-goog-api-key</code> (<code>:797</code>,<code>:911</code>), <code>proxy.rs:126 redact_url()</code> maschera basic-auth. Token mai loggato. <strong>L'intero problema di sicurezza è concentrato nel clip server <code>:19827</code>.</strong></p>
+</blockquote>
+<hr />
+<h2 id="2-code-quality-rust-src-tauri">2. Code quality — Rust (<code>src-tauri/</code>)<a class="headerlink" href="#2-code-quality-rust-src-tauri" title="Permanent link">&para;</a></h2>
+<h3 id="q-rust-1-medio-normalizepath-reimplementato-3-in-rust-con-semantiche-divergenti-effort-s">Q-Rust-1 🟡 Medio — <code>normalizePath</code> reimplementato 3× in Rust con semantiche divergenti — <em>effort S</em><a class="headerlink" href="#q-rust-1-medio-normalizepath-reimplementato-3-in-rust-con-semantiche-divergenti-effort-s" title="Permanent link">&para;</a></h3>
+<p>TS ha un solo <code>normalizePath</code> (<code>path-utils.ts:5</code>, solo separatori). Rust ne ha tre con nomi e comportamenti diversi: <code>api_server.rs:689</code> (trimma anche trailing slash), <code>search.rs:1000</code> (solo separatori), <code>file_sync.rs:1385</code> (aggiunge case-fold). La divergenza trailing-slash dell'api_server è una superficie latente di bug di path-match.
+<strong>Fix</strong>: estrarre un unico helper Rust condiviso con semantica documentata.</p>
+<h3 id="q-rust-2-basso-mutexlockunwrap-negli-handler-http-del-clip-server-effort-s">Q-Rust-2 🔵 Basso — <code>Mutex::lock().unwrap()</code> negli handler HTTP del clip server — <em>effort S</em><a class="headerlink" href="#q-rust-2-basso-mutexlockunwrap-negli-handler-http-del-clip-server-effort-s" title="Permanent link">&para;</a></h3>
+<p><code>clip_server.rs:123,164-165,196,215</code> fanno panic su mutex poisoned (auto-recupero via restart loop). Incoerente con <code>project.rs:34-45</code> che usa <code>.unwrap_or_default()</code>.
+<strong>Nota generale unwrap</strong>: 288 occorrenze totali ma <strong>~12 in produzione</strong>, quasi tutte giustificate (header hardcoded <code>Header::from_bytes(...).unwrap()</code>, bootstrap <code>.expect()</code>, default compile-time, propagazione poison). <strong>Nessun <code>panic!</code> in produzione</strong>, nessun unwrap su body di rete o parse di file malformati (lì si usa <code>?</code>/<code>.ok()?</code>/<code>match</code>). La gestione panic è solida (<code>run_guarded</code>, <code>panic=unwind</code>, <code>catch_unwind</code> per-richiesta).</p>
+<p><strong>Positivi Rust (preservare)</strong>: lavoro sync pesante sempre in <code>spawn_blocking</code> (<code>fs.rs:67,124</code>), <code>block_on</code> solo su thread server dedicati (non worker tokio), nessun <code>reqwest::blocking</code>, pdfium serializzato con poison-recovery.</p>
+<hr />
+<h2 id="3-code-quality-typescript-src">3. Code quality — TypeScript (<code>src/</code>)<a class="headerlink" href="#3-code-quality-typescript-src" title="Permanent link">&para;</a></h2>
+<h3 id="q-ts-1-medio-graph-viewtsx-monolite-da-1777-righe-effort-l">Q-TS-1 🟡 Medio — <code>graph-view.tsx</code> monolite da 1777 righe — <em>effort L</em><a class="headerlink" href="#q-ts-1-medio-graph-viewtsx-monolite-da-1777-righe-effort-l" title="Permanent link">&para;</a></h3>
+<p>Un singolo componente mescola layout, settings di rendering, insights panel, dialog research, editor embedded. Difficile da testare e mantenere; è anche la ragione del workaround <code>sigmaKey++</code> (remount per evitare crash WebGL, <code>:858-897</code>).
+<strong>Fix</strong>: estrarre <code>GraphInsightsPanel</code>, <code>ResearchDialog</code>, <code>GraphLegend</code>, <code>useGraphLayout</code> in moduli separati e testabili.</p>
+<h3 id="q-ts-2-basso-logica-duplicata-grafowikilink-in-2-moduli-effort-m">Q-TS-2 🔵 Basso — Logica duplicata grafo/wikilink in 2 moduli — <em>effort M</em><a class="headerlink" href="#q-ts-2-basso-logica-duplicata-grafowikilink-in-2-moduli-effort-m" title="Permanent link">&para;</a></h3>
+<p><code>WIKILINK_REGEX</code>, <code>flattenMdFiles</code>, <code>extractWikilinks</code>, <code>fileNameToId</code>, <code>resolveTarget</code>, parsing frontmatter esistono <strong>due volte</strong> (<code>wiki-graph.ts</code> e <code>graph-relevance.ts</code>) con differenze sottili (es. <code>wiki-graph</code> non ha il parser <code>sources[]</code>). Rischio drift.</p>
+<h3 id="q-ts-3-basso-parsing-frontmatter-regex-based-non-yaml-effort-m">Q-TS-3 🔵 Basso — Parsing frontmatter regex-based, non YAML — <em>effort M</em><a class="headerlink" href="#q-ts-3-basso-parsing-frontmatter-regex-based-non-yaml-effort-m" title="Permanent link">&para;</a></h3>
+<p><code>graph-relevance.ts:71-122</code> usa regex per frontmatter/wikilink invece di <code>js-yaml</code> (già dipendenza!). Gestisce multi-line e inline <code>sources:</code> ma è fragile su quoting/nesting.</p>
+<h3 id="q-ts-4-basso-mismatch-contratti-serdets-benigni-effort-s">Q-TS-4 🔵 Basso — Mismatch contratti serde↔TS (benigni) — <em>effort S</em><a class="headerlink" href="#q-ts-4-basso-mismatch-contratti-serdets-benigni-effort-s" title="Permanent link">&para;</a></h3>
+<p><code>WikiProject</code> TS ha <code>id</code> (<code>wiki.ts:4</code>) assente dallo struct Rust (<code>wiki.rs:4-7</code>) — hydrated client-side; <code>ApiFileNode</code> (<code>api_server.rs:865</code>) usa <code>camelCase</code> (<code>isDir</code>) vs <code>FileNode</code> Tauri <code>snake_case</code> (<code>is_dir</code>). Funzionano, ma due shape parallele da tenere allineate a mano.</p>
+<p><strong>Positivi TS (preservare)</strong>: <code>any</code> di produzione ≈ 0 (i match sono la parola "any" in stringhe/commenti; gli unici <code>as any</code> sono mock vitest). <code>0</code> TODO/FIXME. Tipi <code>readonly</code>/<code>ReadonlySet</code>/frozen nel layer grafo. Gestione streaming chat con <code>runIdRef</code>+<code>AbortController</code>+<code>isCurrentRun()</code> (race-safe, <code>chat-panel.tsx:205-232</code>). Parsing LLM-output difensivo (<code>extractJsonObject</code> brace-aware, <code>sweep-reviews.ts:136-178</code>). Validazione <code>page_id</code> anti-injection prima di interpolarlo nei filtri LanceDB (<code>vectorstore.rs:98-114</code>, testata).</p>
+<hr />
+<h2 id="4-bug-funzionali-non-sicurezza">4. Bug funzionali (non-sicurezza)<a class="headerlink" href="#4-bug-funzionali-non-sicurezza" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Sev</th>
+<th>Bug</th>
+<th>Evidenza</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B-1</td>
+<td>🟡</td>
+<td><strong>Double-dispatch Deep Research</strong> quando <code>available≥2</code> e ≥2 task in coda: lo status <code>searching</code> è settato dentro il corpo async (<code>:196</code>), dopo il loop di lancio sincrono → <code>getNextQueued()</code> può restituire lo stesso task <code>queued</code> due volte</td>
+<td><code>deep-research.ts:176-180,196</code></td>
+<td>marcare il task come non-<code>queued</code> <strong>sincronicamente</strong> prima del lancio; test con <code>available≥2</code></td>
+</tr>
+<tr>
+<td>B-2</td>
+<td>🟡</td>
+<td><strong>Auto-ingest fire-and-forget</strong>: fallimento solo <code>console.error</code>, task resta <code>done</code> ma entità non estratte</td>
+<td><code>deep-research.ts:340-342</code></td>
+<td>surfacing errore + stato <code>ingest-failed</code></td>
+</tr>
+<tr>
+<td>B-3</td>
+<td>🟡</td>
+<td><strong>Purpose path divergence</strong>: <code>startIngest</code> legge <code>wiki/purpose.md</code> (inesistente) mentre il template scrive a root</td>
+<td><code>ingest.ts:2982-2986</code> vs <code>create-project-dialog.tsx:120</code></td>
+<td>unificare su root <code>purpose.md</code></td>
+</tr>
+<tr>
+<td>B-4</td>
+<td>🟡</td>
+<td><strong><code>scanning</code> globale non per-progetto</strong>: uno scan in volo droppa quello di un altro progetto</td>
+<td><code>scheduled-import.ts:51,348</code></td>
+<td>mappa <code>scanning</code> per projectId</td>
+</tr>
+<tr>
+<td>B-5</td>
+<td>🔵</td>
+<td><strong>Retry senza backoff</strong>: 3 chiamate LLM consecutive su fallimento deterministico</td>
+<td><code>ingest-queue.ts:805-820</code></td>
+<td>backoff esponenziale + classificazione errori non-retriable</td>
+</tr>
+<tr>
+<td>B-6</td>
+<td>🔵</td>
+<td><strong>Sweep partial-batch</strong>: bail mid-loop non rolla back item già risolti</td>
+<td><code>sweep-reviews.ts:365</code></td>
+<td>snapshot+commit atomico o accettare (documentare)</td>
+</tr>
+<tr>
+<td>B-7</td>
+<td>🔵</td>
+<td><strong><code>overview.md</code> overwrite</strong>: riscritta integralmente ogni ingest, drift se il modello omette topic</td>
+<td><code>ingest.ts:2024</code></td>
+<td>merge-guard o diff-append</td>
+</tr>
+<tr>
+<td>B-8</td>
+<td>🔵</td>
+<td><strong>Regenerate <code>setTimeout(50)</code></strong>: hack di timing invece di await stato</td>
+<td><code>chat-panel.tsx:340</code></td>
+<td>await esplicito sullo store</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-performance">5. Performance<a class="headerlink" href="#5-performance" title="Permanent link">&para;</a></h2>
+<h3 id="p-1-alto-rebuild-totale-del-grafo-ad-ogni-dataversion-effort-l">P-1 🟠 Alto — Rebuild totale del grafo ad ogni <code>dataVersion</code> — <em>effort L</em><a class="headerlink" href="#p-1-alto-rebuild-totale-del-grafo-ad-ogni-dataversion-effort-l" title="Permanent link">&para;</a></h3>
+<p><code>buildWikiGraph</code> ri-legge <strong>ogni</strong> <code>.md</code>, ri-esegue Louvain e ricalcola la relevance di ogni arco a ogni cambiamento (<code>graph-view.tsx:742-746</code> → <code>wiki-graph.ts</code>). Nessun update incrementale. Su vault da centinaia di pagine è il costo dominante e ri-blocca la UI.
+<strong>Fix</strong>: indice incrementale (aggiornare solo i nodi/archi delle pagine cambiate); cache cohesion/community tra rebuild. <em>(Direttamente rilevante per l'invariante Synapse-I1 e I2.)</em></p>
+<h3 id="p-2-alto-forceatlas2-sul-main-thread-sotto-220-nodi-effort-m">P-2 🟠 Alto — ForceAtlas2 sul main thread sotto 220 nodi — <em>effort M</em><a class="headerlink" href="#p-2-alto-forceatlas2-sul-main-thread-sotto-220-nodi-effort-m" title="Permanent link">&para;</a></h3>
+<p>Worker solo per <code>≥220</code> nodi (<code>graph-view.tsx:83</code>); per <code>1&lt;n&lt;220</code> <code>runMainThreadLayout()</code> gira sincrono fino a 140 iterazioni (<code>:374-399</code>) → freeze percepibile su grafi piccoli/medi, proprio il caso d'uso più comune al day-one.
+<strong>Fix</strong>: abbassare la soglia worker a ~50 nodi o spostare <em>sempre</em> FA2 nel worker. <em>(Rilevante per Synapse-I2: "NEVER run a force layout on the UI main thread".)</em></p>
+<h3 id="p-3-medio-allocazioni-ripetute-nel-calcolo-relevance-effort-s">P-3 🟡 Medio — Allocazioni ripetute nel calcolo relevance — <em>effort S</em><a class="headerlink" href="#p-3-medio-allocazioni-ripetute-nel-calcolo-relevance-effort-s" title="Permanent link">&para;</a></h3>
+<p><code>getNeighbors</code> ricostruisce un <code>Set</code> ad ogni chiamata (<code>graph-relevance.ts:140-145</code>), <code>calculateRelevance</code> fa <code>new Set(nodeA.sources)</code> per coppia (<code>:260</code>). O(allocazioni) per arco per build.</p>
+<h3 id="p-4-basso-letture-file-intere-in-ram-nei-parser-effort-m">P-4 🔵 Basso — Letture file intere in RAM nei parser — <em>effort M</em><a class="headerlink" href="#p-4-basso-letture-file-intere-in-ram-nei-parser-effort-m" title="Permanent link">&para;</a></h3>
+<p>DOCX/PPTX/XLSX e MinerU (base64) leggono l'intero file in memoria (<code>fs.rs:449</code>, <code>mineru.ts:678</code>); cap 200MB bonderizza ma è un rischio su input patologici. Nessuno streaming.</p>
+<hr />
+<h2 id="6-test-coverage-gate-di-qualita">6. Test coverage &amp; gate di qualità<a class="headerlink" href="#6-test-coverage-gate-di-qualita" title="Permanent link">&para;</a></h2>
+<h3 id="q-1-critico-la-ci-non-esegue-i-test-effort-s">Q-1 🔴 Critico — La CI NON esegue i test — <em>effort S</em><a class="headerlink" href="#q-1-critico-la-ci-non-esegue-i-test-effort-s" title="Permanent link">&para;</a></h3>
+<p><code>ci.yml</code> fa solo <code>npx vite build</code> + <code>cargo build</code> su 3 OS. <strong>Nessun <code>npm test</code>, nessun <code>cargo test</code></strong>, nonostante esistano 121 file di test TS e ~190 funzioni di test Rust. I test esistono ma <strong>non presidiano nulla</strong> in PR: una regressione passa il merge.
+<strong>Fix (alto ROI, basso effort)</strong>: aggiungere step <code>npm run test:mocks</code> + <code>cargo test</code> al job CI. (I <code>real-llm</code> restano gated da <code>RUN_LLM_TESTS=1</code>.)</p>
+<h3 id="q-2-alto-zero-test-del-layer-ui-nessun-e2e-effort-l">Q-2 🟠 Alto — Zero test del layer UI, nessun E2E — <em>effort L</em><a class="headerlink" href="#q-2-alto-zero-test-del-layer-ui-nessun-e2e-effort-l" title="Permanent link">&para;</a></h3>
+<p>Dei 52 componenti <code>.tsx</code>, solo gli helper puri estratti sono testati; <strong>nessun render-test</strong> (no <code>@testing-library/react</code>/jsdom) e <strong>nessun E2E</strong> (no Playwright/tauri-driver). CodeMirror/Milkdown editor, sigma graph, chat panel, 3-panel layout, dialog: non verificati a livello di render. I contratti cross-process Tauri↔TS sono coperti solo via <code>invoke</code> mockato.
+<strong>Fix</strong>: smoke E2E Playwright sui flussi critici (create project → import → ingest → chat → graph) + qualche render-test sui componenti ad alto rischio.</p>
+<h3 id="q-3-alto-nessun-linter-configurato-effort-s">Q-3 🟠 Alto — Nessun linter configurato — <em>effort S</em><a class="headerlink" href="#q-3-alto-nessun-linter-configurato-effort-s" title="Permanent link">&para;</a></h3>
+<p>Nessun file ESLint/Prettier nel repo; <code>package.json</code> non ha né <code>eslint</code> né <code>prettier</code> in devDependencies. Solo <code>tsc</code> per il typecheck.
+<strong>Fix</strong>: aggiungere ESLint (typescript-eslint) + Prettier + <code>cargo clippy</code>/<code>cargo fmt --check</code> in CI.</p>
+<p><strong>Positivi test (preservare)</strong>: il layer <code>lib/</code>+<code>stores/</code> è testato a fondo — unit + <strong>5 suite property-based <code>fast-check</code></strong> + integration + scenario + 10 suite <code>real-llm</code> (gated). Le race difficili sono presidiate: <code>sweep-reviews.race.test.ts</code> (switch progetto + abort), <code>project-mutex.test.ts</code>, <code>ingest-queue.integration.test.ts</code>. I test asseriscono le costanti esatte (<code>JUDGE_BATCH_SIZE=40</code>, budget). Rust testa il security-relevant (CORS deny, <code>safe_join</code> traversal, bind sanitization, proxy redaction). <strong>Gap mirati</strong>: nessun test su <code>graph-relevance</code>/<code>graph-insights</code>/<code>wiki-graph</code> (i pesi F4 non sono presidiati) e su <code>clip_server.rs</code> (la superficie più debole).</p>
+<hr />
+<h2 id="7-ui-ux-review-da-hacker-dellinterfaccia">7. UI / UX review (da hacker dell'interfaccia)<a class="headerlink" href="#7-ui-ux-review-da-hacker-dellinterfaccia" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Premessa: senza poter eseguire la build qui, la review UX è <strong>statica</strong> (lettura componenti, i18n, flussi). Dove serve verifica visiva è segnalato.</p>
+</blockquote>
+<h3 id="ux-1-alto-onboarding-quick-start-con-frizione-sulla-configurazione-provider-effort-m">UX-1 🟠 Alto — Onboarding "Quick Start" con frizione sulla configurazione provider — <em>effort M</em><a class="headerlink" href="#ux-1-alto-onboarding-quick-start-con-frizione-sulla-configurazione-provider-effort-m" title="Permanent link">&para;</a></h3>
+<p>Il flusso dichiarato (crea progetto → Settings → import → ingest) ha un punto cieco: <strong>senza un LLM configurato, l'ingest non parte</strong> (<code>clip-watcher.ts:39 hasUsableLlm</code>, <code>enqueueIngest</code> no-op) ma — dai percorsi letti — il blocco è gestito a valle, non con un <strong>gate guidato pre-import</strong>. <code>has-usable-llm.ts</code> esiste ed è testato: va <strong>promosso a empty-state bloccante</strong> ("Configura un provider per iniziare") sulla Sources view, non lasciato come check silenzioso.
+<strong>Verificare</strong>: esiste un empty-state esplicito quando <code>!hasUsableLlm</code> sulla Sources/Chat? In caso negativo, l'utente importa, "non succede nulla", e non sa perché.</p>
+<h3 id="ux-2-medio-densita-informativa-del-knowledge-graph-senza-guida-effort-m">UX-2 🟡 Medio — Densità informativa del Knowledge Graph senza guida — <em>effort M</em><a class="headerlink" href="#ux-2-medio-densita-informativa-del-knowledge-graph-senza-guida-effort-m" title="Permanent link">&para;</a></h3>
+<p>Il grafo ha legenda type/community, hover-highlight, insights — ma il README stesso promette feedback (label di relevance su hover archi) <strong>che non esiste</strong> (<code>renderEdgeLabels:false</code>). Un nuovo utente non ha modo di leggere <em>perché</em> due nodi sono connessi. Aggiungere il tooltip di relevance score mantenuto dal README chiuderebbe il gap doc↔UX (effort S).</p>
+<h3 id="ux-3-medio-stati-di-loadingerrore-dellingest-a-due-step-effort-s">UX-3 🟡 Medio — Stati di loading/errore dell'ingest a due step — <em>effort S</em><a class="headerlink" href="#ux-3-medio-stati-di-loadingerrore-dellingest-a-due-step-effort-s" title="Permanent link">&para;</a></h3>
+<p>L'Activity Panel mostra progress/stato (buono), ma gli errori di streaming LLM in ingest diventano <code>status:"error"</code> sull'activity item e poi <code>throw</code> (<code>ingest.ts:986-989</code>): <strong>verificare</strong> che il messaggio d'errore sia <em>leggibile e azionabile</em> nel pannello (retry visibile c'è; il <em>testo</em> dell'errore è chiaro?). I fallimenti di auto-ingest del Deep Research sono invece <strong>invisibili</strong> (B-2).</p>
+<h3 id="ux-4-medio-accessibilita-probabilmente-debole-effort-m-audit-l-fix">UX-4 🟡 Medio — Accessibilità probabilmente debole — <em>effort M (audit) + L (fix)</em><a class="headerlink" href="#ux-4-medio-accessibilita-probabilmente-debole-effort-m-audit-l-fix" title="Permanent link">&para;</a></h3>
+<p>La sidebar usa <code>Tooltip</code> su icone (<code>icon-sidebar.tsx</code>) ma servono verifiche: focus order, <code>aria-label</code> su pulsanti icona-only, contrasto del tema (slate su slate negli archi è di per sé basso contrasto), navigazione tastiera nei pannelli resizable, ruoli ARIA su dialog/review. <code>keyboard-utils.ts</code> esiste (segnale positivo) ma non sostituisce un audit. <strong>Da verificare con axe/Playwright.</strong></p>
+<h3 id="ux-5-basso-coerenza-design-system-shadcnui-effort-s">UX-5 🔵 Basso — Coerenza design system shadcn/ui — <em>effort S</em><a class="headerlink" href="#ux-5-basso-coerenza-design-system-shadcnui-effort-s" title="Permanent link">&para;</a></h3>
+<p><code>components/ui/</code> ha i primitivi shadcn (button/dialog/input/label/resizable/scroll-area/separator/tooltip). Il resto dell'app li riusa, ma componenti complessi (graph, chat, review) reinventano molto styling ad-hoc inline. Coerenza accettabile, ma <code>graph-view.tsx</code> (monolite) è il punto dove diverge di più.</p>
+<h3 id="ux-6-basso-confronto-con-obsidian-editor-milkdown-effort-na-decisione">UX-6 🔵 Basso — Confronto con Obsidian (editor Milkdown) — <em>effort N/A (decisione)</em><a class="headerlink" href="#ux-6-basso-confronto-con-obsidian-editor-milkdown-effort-na-decisione" title="Permanent link">&para;</a></h3>
+<p>Avendo scelto di <strong>sostituire</strong> Obsidian (non affiancarlo, vedi cross-check Karpathy in doc 01), l'editor Milkdown WYSIWYG deve reggere il confronto con l'editing Obsidian. Milkdown 7.20 è solido per markdown+math, ma WYSIWYG su <code>[[wikilink]]</code> e graph-view non eguaglia Obsidian nativo. <strong>Decisione di prodotto</strong>, non bug: per una "v1.0 usabile day-one" l'asticella è alta perché il README dichiara compatibilità Obsidian — l'utente <em>confronterà</em>.</p>
+<p><strong>Positivi UX</strong>: la gestione dell'update-dot vs banner è ben pensata (<code>icon-sidebar.tsx:42-49</code>); il dialog research è editabile prima del lancio (buona affordance); il roll 5-righe del thinking con fade è un tocco curato; i template-scenario riducono il cold-start.</p>
+<hr />
+<h2 id="8-debito-tecnico-sintesi-prioritaria">8. Debito tecnico — sintesi prioritaria<a class="headerlink" href="#8-debito-tecnico-sintesi-prioritaria" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Priorità</th>
+<th>Tema</th>
+<th>Item</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>P0 (rompe sicurezza)</strong></td>
+<td>Clip server</td>
+<td>S-1, S-2, S-3, S-4, S-5</td>
+</tr>
+<tr>
+<td><strong>P0 (rompe il gate qualità)</strong></td>
+<td>CI/test</td>
+<td>Q-1 (CI esegua i test), Q-3 (linter)</td>
+</tr>
+<tr>
+<td><strong>P1 (blocca usabilità day-one)</strong></td>
+<td>UX + perf</td>
+<td>UX-1 (gate provider), P-2 (FA2 main-thread), P-1 (rebuild grafo), B-2 (errori silenziosi)</td>
+</tr>
+<tr>
+<td><strong>P1 (doc↔codice)</strong></td>
+<td>Verità</td>
+<td>Q-5: allineare README ai numeri reali (budget, +10, 2-hop, type-affinity, cosine, port, timeout, pdf-extract) — <em>o</em> il codice al README</td>
+</tr>
+<tr>
+<td><strong>P2 (rimandabile a v1.1+)</strong></td>
+<td>Manutenibilità</td>
+<td>A-1 (split graph-view), A-2 (normalizePath Rust), Q-TS-2/3 (dedup + YAML parser), P-4 (streaming parser)</td>
+</tr>
+</tbody>
+</table>
+<p>I dettagli operativi — chi fa cosa, in che ordine, con quali criteri di accettazione — sono in <strong><code>03-PIANO-AGENTICO-v1.0.md</code></strong>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

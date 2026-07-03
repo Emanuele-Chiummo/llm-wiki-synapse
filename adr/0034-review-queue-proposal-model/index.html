@@ -1,0 +1,1641 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0034-review-queue-proposal-model/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0034 — Review Queue: proposal model with lazy on-demand page creation (F9 redesign) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0034-review-queue-proposal-model-with-lazy-on-demand-page-creation-f9-redesign" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0034 — Review Queue: proposal model with lazy on-demand page creation (F9 redesign)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-the-defect-in-the-adr-0025-review-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 The defect in the ADR-0025 review model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-what-r1-actually-does-verified-reference-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 What R1 actually does (verified reference summary)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-ground-truth-this-adr-builds-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Ground truth this ADR builds on
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-new-review_items-data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. New review_items data model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. New review_items data model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-column-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Column changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-migration-0013-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Migration 0013 notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-proposal-emission-logic-replaces-generate_review_queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Proposal emission logic (replaces generate_review_queries)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Proposal emission logic (replaces generate_review_queries)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-where-it-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Where it runs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-anti-spam-gate-runs-before-any-llm-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Anti-spam gate (runs BEFORE any LLM call)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-the-single-bounded-proposal-call-i6i7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 The single bounded proposal call (I6/I7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-why-once-per-run-not-once-per-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Why once-per-run, not once-per-page
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-the-create-action-lazy-on-demand-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. The Create action (lazy on-demand generation)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. The Create action (lazy on-demand generation)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-deriving-the-skeleton-title-type-dir" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Deriving the skeleton (title / type / dir)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-bounds-and-failure-i7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Bounds and failure (I7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-auto-resolution-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Auto-resolution sweep
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Auto-resolution sweep">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-trigger-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Trigger points
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-pass-1-rule-based-no-llm-deterministic-i1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Pass 1 — rule-based (no LLM, deterministic, I1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-pass-2-conservative-bounded-llm-i6i7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Pass 2 — conservative bounded LLM (I6/I7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-what-auto-resolves-vs-is-preserved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 What auto-resolves vs is preserved
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-rest-api-changes-d4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. REST API changes (D4)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. REST API changes (D4)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-reviewitem-json-projection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 ReviewItem JSON projection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-invariant-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Invariant compliance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-flagged-tensions-risks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Flagged tensions &amp; risks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-do-not-list-rejection-triggers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Do-NOT list (rejection triggers)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-implementation-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Implementation plan
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="11. Implementation plan">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#111-backend-engineer-be" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.1 backend-engineer [BE]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#112-ai-agent-engineer-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.2 ai-agent-engineer [AI]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#113-cross-cutting-handoffs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.3 Cross-cutting (handoffs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-sign-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Sign-off
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0034-review-queue-proposal-model-with-lazy-on-demand-page-creation-f9-redesign">ADR-0034 — Review Queue: proposal model with lazy on-demand page creation (F9 redesign)<a class="headerlink" href="#adr-0034-review-queue-proposal-model-with-lazy-on-demand-page-creation-f9-redesign" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-06-30</li>
+<li><strong>Sprint:</strong> v0.5 (M5 — F9 follow-up / parity correction)</li>
+<li><strong>Features:</strong> F9 (Async HITL review queue) · K8 (human curates, LLM maintains)</li>
+<li><strong>Supersedes:</strong> the <strong>F9 review-queue parts</strong> of ADR-0025 (§3.1–§3.6, §5 F9 items, §6 F9 row,
+  §7 risks 1/2/5, §8 sign-off conditions 1–3). ADR-0025's <strong>F12</strong> parts (multi-format ingest)
+  are untouched and remain authoritative.</li>
+<li><strong>Reference:</strong> R1 (nashsu/llm_wiki) — the proposal/lazy-create review pattern this aligns to.</li>
+<li><strong>Invariants owned:</strong> <strong>K8</strong> (HEADLINE — the queue now proposes work the human approves, not
+  no-op confirmations) · <strong>I1</strong> (Create writes incrementally through the existing wiki-write seam;
+  the auto-resolution sweep never re-scans) · <strong>I6</strong> (every new LLM call routes via
+  <code>resolve_provider_config</code> — never a hardcoded backend) · <strong>I7</strong> (proposal emission, on-demand
+  Create, and the LLM sweep are each bounded by <code>max_iter</code> + <code>token_budget</code>, cost logged) ·
+  <strong>I8</strong> (<code>review_items</code> schema change → new Alembic migration + <code>make er</code> regenerate + OpenAPI)</li>
+<li><strong>Author:</strong> solution-architect</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<h3 id="11-the-defect-in-the-adr-0025-review-model">1.1 The defect in the ADR-0025 review model<a class="headerlink" href="#11-the-defect-in-the-adr-0025-review-model" title="Permanent link">&para;</a></h3>
+<p>ADR-0025 shipped F9 as an <strong>advisory log of already-created pages</strong>. The orchestrator, after
+writing each wiki page, made <strong>one bounded provider call per page</strong> to generate 1–3 follow-up
+<strong>questions</strong> (<code>generate_review_queries</code>), then enqueued a <code>new_page</code> review item carrying those
+questions in <code>pre_generated_query</code>. The three actions were:</p>
+<ul>
+<li><strong>Approve</strong> → <code>status=approved</code>, <code>reviewed_at=now()</code>. <strong>A pure no-op</strong> — the page already
+  exists on disk; Approve confirms nothing actionable (<code>ops/review.py::approve</code>).</li>
+<li><strong>Skip</strong> → <code>status=skipped</code>.</li>
+<li><strong>Deep-Research</strong> → delegate to F10 with the first follow-up question.</li>
+</ul>
+<p>This diverges from the reference implementation (R1, nashsu/llm_wiki) on two counts:</p>
+<ol>
+<li><strong>Approve is meaningless.</strong> The human is asked to "approve" a page that was created without
+   their consent. K8 ("human curates, LLM maintains") is inverted: the LLM curates (auto-creates
+   everything), the human rubber-stamps.</li>
+<li><strong>The queue is question-spam, not proposals.</strong> Every ingested page emits an item regardless of
+   whether there is genuinely useful follow-up work. The items carry questions, not actionable
+   units of work (a page to create, a conflict to resolve, a duplicate to merge).</li>
+</ol>
+<p>The owner (Emanuele) has explicitly chosen to realign F9 with R1: <strong>the LLM proposes follow-up
+work; pages are created on demand only when the human approves.</strong></p>
+<h3 id="12-what-r1-actually-does-verified-reference-summary">1.2 What R1 actually does (verified reference summary)<a class="headerlink" href="#12-what-r1-actually-does-verified-reference-summary" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Ingest is two-step CoT (analysis → generation). <strong>Generation AUTO-WRITES the clearly-supported
+  pages</strong> directly to the wiki (entity/concept/schema-typed pages, the source summary with a
+  guaranteed fallback, and the index/overview/log aggregates). <strong>This auto-write stays</strong> — even
+  nashsu auto-creates obvious pages. This is exactly Synapse's current orchestrated write path
+  (<code>write_wiki_page</code> + <code>_ensure_source_summary</code> + <code>_update_overview</code>) and <strong>does not change</strong>.</li>
+<li>A <strong>separate dedicated review stage</strong> emits review items <strong>only for genuinely useful follow-up</strong>.
+  Review items are <strong>PROPOSALS</strong> and are <strong>NOT persisted as wiki pages</strong> until the user acts.</li>
+<li><strong>Five review item types:</strong> <code>missing-page</code> (referenced-but-absent entity/concept → "a page to
+  create"), <code>suggestion</code> (research gap/follow-up), <code>contradiction</code> (conflict with existing wiki
+  content), <code>duplicate</code> (possible name collision), <code>confirm</code> (the LLM wants human confirmation).</li>
+<li><strong>Closed action set</strong> (anti-hallucination): <strong>Create Page / Deep Research / Skip</strong>.</li>
+<li><strong>"Create Page" is LAZY:</strong> it builds a skeleton (title extracted, <code>pageType</code> inferred via
+  entity/concept/comparison/synthesis heuristics, target dir) and the page <strong>content is generated
+  on-demand only when the user clicks Create</strong> — never at ingest time.</li>
+<li><strong>Auto-resolution sweep:</strong> after each ingest-queue drain, stale review items are auto-closed —
+  first rule-based (the proposed title now exists as a page), then a <strong>conservative bounded LLM
+  judgment</strong> ("only resolve if confident the concern no longer applies; default to keeping
+  pending"). <code>missing-page</code>/<code>duplicate</code> auto-resolve as the wiki grows; <code>contradiction</code>/
+  <code>suggestion</code>/<code>confirm</code> are preserved for the human.</li>
+<li><strong>Anti-spam:</strong> the review stage only runs when generation is <strong>substantial</strong> and only for
+  "genuinely useful follow-up".</li>
+</ul>
+<h3 id="13-ground-truth-this-adr-builds-on">1.3 Ground truth this ADR builds on<a class="headerlink" href="#13-ground-truth-this-adr-builds-on" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>run_ingest_pipeline</code></strong> (<code>ingest/orchestrator.py</code>) — orchestrated branch writes pages via
+  <code>write_wiki_page</code>, then calls the F9 post-write hook <code>_enqueue_review_items</code>. <strong>This hook is the
+  seam being replaced</strong> (it is the current per-page question-spam producer).</li>
+<li><strong><code>write_wiki_page(session, page, origin_source)</code></strong> — the SINGLE incremental wiki-write seam
+  (I1): <code>persist_metadata → upsert_vector → append_log → bump_version → parse/persist wikilinks →
+  update_index</code>. <strong>The Create action reuses this verbatim.</strong> One call = one <code>data_version</code> bump.</li>
+<li><strong><code>resolve_provider_config("ingest", vault_id)</code></strong> (<code>provider_config_service.py</code>) + <code>resolve_provider</code>
+  (<code>ingest/provider</code>) — the backend-neutral resolution path (I6). All three new LLM call sites
+  (proposal emission, on-demand Create generation, the LLM sweep) route through it.</li>
+<li><strong><code>run_orchestrated_loop</code></strong> (<code>ingest/loop.py</code>) — the bounded <code>analyze → generate → validate →
+  retry</code> loop. The on-demand Create reuses this same loop with a single-page-target prompt
+  (it does <strong>not</strong> invent a new generation path).</li>
+<li><strong><code>Analysis</code> / <code>SuggestedPage</code> / <code>WikiPage</code> / <code>PageType</code></strong> (<code>ingest/schemas.py</code>) — the locked
+  contract DTOs. <code>PageType</code> ∈ {entity, concept, source, synthesis, comparison}; <code>_TYPE_DIR</code> maps
+  each to its <code>wiki/</code> subdir. Proposal <code>proposed_page_type</code> reuses these exact values.</li>
+<li><strong><code>ReviewItem</code></strong> model + Alembic <strong>0010</strong> (current schema) — the table being migrated.</li>
+<li><strong><code>/review/queue</code> routes</strong> (<code>main.py</code>) — <code>GET</code>, <code>approve</code>, <code>skip</code>, <code>deep-research</code>. The
+  <code>approve</code> route changes semantics; the others keep their contract.</li>
+<li><strong>The post-ingest delegated (CLI) branch</strong> still does not enumerate pages (ADR-0025 §3.3.4) —
+  the proposal stage attaches to the <strong>orchestrated</strong> branch only; delegated remains a reserved
+  follow-up (§9 risk 1, unchanged from ADR-0025).</li>
+</ul>
+<hr />
+<h2 id="2-decision-summary">2. Decision summary<a class="headerlink" href="#2-decision-summary" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Auto-create stays.</strong> The orchestrated generation step keeps auto-writing the clearly-supported
+   pages (<code>write_wiki_page</code> for each <code>WikiPage</code>, the <code>_ensure_source_summary</code> fallback, and the
+   overview/index/log aggregates). I1 is unchanged. This ADR does <strong>not</strong> touch the generation
+   contract or the write seam.</li>
+<li><strong>Replace <code>generate_review_queries</code> (per-page question-spam) with a single bounded <code>propose_reviews</code>
+   stage</strong> that runs <strong>once per ingest run</strong> (not once per page), gated by an <strong>anti-spam heuristic</strong>,
+   and emits <strong>0..N PROPOSALS</strong> of five types: <code>missing-page | suggestion | contradiction |
+   duplicate | confirm</code>. Proposals are <strong>not</strong> wiki pages.</li>
+<li><strong>Redesign <code>review_items</code></strong> (new Alembic migration <strong>0013</strong>; 0011/0012 are taken — see §3):
+   rename/repurpose <code>item_type</code> to the five-value enum; <strong>add</strong> <code>proposed_title</code>,
+   <code>proposed_page_type</code>, <code>proposed_dir</code>, <code>rationale</code>, <code>source_page_id</code>, <code>resolution</code>; <strong>drop</strong>
+   <code>pre_generated_query</code> (questions become <code>rationale</code> text or a <code>suggestion</code> proposal). <code>page_id</code>
+   stays as the <strong>review target</strong> for contradiction/duplicate items (the existing page in conflict);
+   <code>created_page_id</code> is added to record the page a Create produced.</li>
+<li><strong>Create action = lazy on-demand generation.</strong> <code>POST /review/queue/{id}/approve</code> becomes
+   <strong>Create</strong>: it derives a skeleton from the proposal, runs the <strong>bounded</strong> orchestrated loop
+   (I6/I7) targeting that single page, writes it through <code>write_wiki_page</code> (I1 — one <code>data_version</code>
+   bump), sets <code>status=created</code> + <code>created_page_id</code>, and returns the created <code>ReviewItem</code>. Content
+   is generated <strong>only here</strong>, never at ingest time.</li>
+<li><strong>Auto-resolution sweep</strong> runs after each ingest-queue drain: a <strong>rule-based pass</strong> (proposed
+   title now exists → resolve <code>missing-page</code>/<code>duplicate</code>) then a <strong>conservative bounded LLM pass</strong>
+   (I6/I7; default = keep pending). <code>contradiction</code>/<code>suggestion</code>/<code>confirm</code> are <strong>never</strong>
+   auto-resolved by rule; the LLM pass may resolve them only with high confidence.</li>
+<li><strong>REST:</strong> <code>approve</code> → Create semantics (now possibly <strong>201/202</strong> because it does real work);
+   <code>skip</code> and <code>deep-research</code> keep their ADR-0025 contract. A new optional
+   <code>POST /review/queue/sweep</code> exposes the sweep for manual trigger / testing; it is also wired to
+   fire after the orchestrated ingest run completes.</li>
+<li><strong>All three new LLM call sites are bounded (I7)</strong> by the resolved provider row's <code>max_iter</code> +
+   <code>token_budget</code>, wrapped in a timeout, and log <code>total_cost_usd</code>. Failure degrades safely (no
+   proposals / no Create / keep pending) and never fails the ingest.</li>
+</ol>
+<hr />
+<h2 id="3-new-review_items-data-model">3. New <code>review_items</code> data model<a class="headerlink" href="#3-new-review_items-data-model" title="Permanent link">&para;</a></h2>
+<p>New Alembic migration <strong>0013</strong> (0010 = original <code>review_items</code>; 0011 = <code>remote_mcp_enabled</code>;
+0012 = <code>mcp_access_token_hash</code>/<code>mcp_allow_without_token</code> — all taken). The <code>ReviewItem</code> model in
+<code>backend/app/models.py</code> is rewritten; <code>make er</code> MUST regenerate <code>docs/er/schema.mmd</code> and
+<code>make openapi</code> MUST regenerate <code>docs/api/openapi.json</code> (I8).</p>
+<h3 id="31-column-changes">3.1 Column changes<a class="headerlink" href="#31-column-changes" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Action</th>
+<th>Type / nullability</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>keep</td>
+<td>UUID PK</td>
+<td><code>UUID(as_uuid=True).with_variant(String(36),"sqlite")</code> (unchanged).</td>
+</tr>
+<tr>
+<td><code>vault_id</code></td>
+<td>keep</td>
+<td>String, not null</td>
+<td>Existing String identifier; no <code>vaults</code> table (AQ-v0.5-6).</td>
+</tr>
+<tr>
+<td><code>item_type</code></td>
+<td><strong>repurpose</strong></td>
+<td>Text, not null</td>
+<td><strong>New enum-by-convention:</strong> <code>missing-page \| suggestion \| contradiction \| duplicate \| confirm</code>. Old values (<code>new_page</code>/<code>update_page</code>/<code>deep_research_candidate</code>) are removed. App-level <code>Literal</code> validation (house convention; no DB CHECK — consistent with ADR-0025 §3.1 amendment).</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><strong>extend</strong></td>
+<td>Text, not null, default <code>pending</code></td>
+<td>New lifecycle: <code>pending \| created \| skipped \| deep_researched \| auto_resolved</code>. (<code>approved</code> is gone; Create produces <code>created</code>.)</td>
+</tr>
+<tr>
+<td><code>page_id</code></td>
+<td><strong>keep, re-document</strong></td>
+<td>UUID FK → <code>pages.id</code>, nullable</td>
+<td>Now the <strong>review TARGET</strong>: the existing page a <code>contradiction</code>/<code>duplicate</code> conflicts with, or the source-context page for a <code>missing-page</code>/<code>suggestion</code>. NULL when none applies.</td>
+</tr>
+<tr>
+<td><code>source_page_id</code></td>
+<td><strong>add</strong></td>
+<td>UUID FK → <code>pages.id</code>, nullable</td>
+<td>The page <strong>whose ingest produced this proposal</strong> (provenance / “came from”). Distinct from <code>page_id</code> (the conflicting/target page). Lets the UI show "proposed while ingesting X".</td>
+</tr>
+<tr>
+<td><code>proposed_title</code></td>
+<td><strong>add</strong></td>
+<td>Text, nullable</td>
+<td>The title the LLM proposes to create (required for <code>missing-page</code>; advisory for others). Drives the skeleton + the rule-based sweep match.</td>
+</tr>
+<tr>
+<td><code>proposed_page_type</code></td>
+<td><strong>add</strong></td>
+<td>Text, nullable</td>
+<td>Inferred <code>PageType</code> value (<code>entity\|concept\|source\|synthesis\|comparison</code>) for the lazy skeleton. NULL → resolved at Create time by heuristic (§5.2).</td>
+</tr>
+<tr>
+<td><code>proposed_dir</code></td>
+<td><strong>add</strong></td>
+<td>Text, nullable</td>
+<td>Target <code>wiki/</code> subdir derived from <code>proposed_page_type</code> via <code>type_subdir</code> (<code>entities</code>/<code>concepts</code>/<code>sources</code>/<code>synthesis</code>/<code>comparisons</code>). Stored for UI transparency; recomputed at Create from the final type (never trusted blindly — see §5.2).</td>
+</tr>
+<tr>
+<td><code>rationale</code></td>
+<td><strong>add</strong></td>
+<td>Text, nullable</td>
+<td>Short human-readable "why this matters" (replaces the old follow-up questions). For <code>suggestion</code> this is the gap/follow-up; for <code>contradiction</code> the conflict description; for <code>confirm</code> what needs confirming.</td>
+</tr>
+<tr>
+<td><code>resolution</code></td>
+<td><strong>add</strong></td>
+<td>Text, nullable</td>
+<td>Label set when the row leaves <code>pending</code>: <code>created \| skipped \| researched \| rule_resolved \| llm_resolved</code>. NULL while pending. Audit of <em>how</em> the item closed (complements <code>status</code>).</td>
+</tr>
+<tr>
+<td><code>created_page_id</code></td>
+<td><strong>add</strong></td>
+<td>UUID FK → <code>pages.id</code>, nullable</td>
+<td>The page a successful <strong>Create</strong> produced. NULL otherwise. Distinct from <code>page_id</code>/<code>source_page_id</code>.</td>
+</tr>
+<tr>
+<td><code>deep_research_run_id</code></td>
+<td><strong>keep</strong></td>
+<td>UUID FK → <code>deep_research_runs.id</code>, nullable</td>
+<td>Set by the Deep-Research action (AC-F10-5). Unchanged.</td>
+</tr>
+<tr>
+<td><code>pre_generated_query</code></td>
+<td><strong>DROP</strong></td>
+<td>—</td>
+<td>Superseded by <code>rationale</code> (+ the <code>suggestion</code> type for explicit research gaps). The Deep-Research action now derives its topic from <code>proposed_title</code>/<code>rationale</code>/<code>page.title</code>.</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>keep</td>
+<td>TIMESTAMP(tz), not null</td>
+<td>Unchanged.</td>
+</tr>
+<tr>
+<td><code>reviewed_at</code></td>
+<td>keep</td>
+<td>TIMESTAMP(tz), nullable</td>
+<td>Set on any terminal action (incl. auto-resolve).</td>
+</tr>
+<tr>
+<td><code>reviewed_by</code></td>
+<td>keep</td>
+<td>Text, nullable</td>
+<td><code>"web-ui"</code> for human actions; <code>"auto-sweep"</code> for the sweep.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Index:</strong> keep <code>ix_review_items_vault_status_created</code> on <code>(vault_id, status, created_at)</code> — the
+paginated pending-queue read is unchanged. <strong>Add</strong> a non-unique index
+<code>ix_review_items_vault_proposed_title</code> on <code>(vault_id, proposed_title)</code> to make the rule-based sweep
+("does a page with this title now exist?") and duplicate-collision lookups cheap (bounded read,
+no scan).</p>
+<h3 id="32-migration-0013-notes">3.2 Migration 0013 notes<a class="headerlink" href="#32-migration-0013-notes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>0013 is an <strong>online-safe</strong> additive-plus-rename change: ADD the six new columns
+  (<code>source_page_id</code>, <code>proposed_title</code>, <code>proposed_page_type</code>, <code>proposed_dir</code>, <code>rationale</code>,
+  <code>resolution</code>, <code>created_page_id</code>) all nullable; DROP <code>pre_generated_query</code>. <code>item_type</code>/<code>status</code>
+  stay <code>Text</code> so <strong>no type alteration</strong> is required — only the <em>accepted value set</em> changes
+  (enforced app-side).</li>
+<li><strong>Pre-existing rows:</strong> M5 is single-operator pre-release; there is no production data to
+  migrate. The migration MAY left-shift any legacy <code>new_page</code>/<code>approved</code> rows to <code>skipped</code> +
+  <code>resolution='skipped'</code> (they referenced auto-created pages that already exist, so they are
+  obsolete under the new model). This is a one-line data step in the migration; document it.</li>
+<li><strong><code>make er</code> (I8):</strong> regenerate <code>docs/er/schema.mmd</code> — the <code>review_items</code> entity gains three FKs
+  to <code>pages</code> (<code>page_id</code>, <code>source_page_id</code>, <code>created_page_id</code>) plus the FK to <code>deep_research_runs</code>.
+  Zero-drift gate.</li>
+</ul>
+<hr />
+<h2 id="4-proposal-emission-logic-replaces-generate_review_queries">4. Proposal emission logic (replaces <code>generate_review_queries</code>)<a class="headerlink" href="#4-proposal-emission-logic-replaces-generate_review_queries" title="Permanent link">&para;</a></h2>
+<h3 id="41-where-it-runs">4.1 Where it runs<a class="headerlink" href="#41-where-it-runs" title="Permanent link">&para;</a></h3>
+<p>A new module function <code>propose_reviews(...)</code> in <code>ops/review.py</code> runs <strong>once per orchestrated ingest
+run</strong>, from <code>run_ingest_pipeline</code> <strong>after</strong> the pages are written and <code>_update_overview</code> completes —
+the same fire-and-forget seam the old <code>_enqueue_review_items</code> occupied. It <strong>replaces</strong>
+<code>_enqueue_review_items</code> + <code>generate_review_queries</code> entirely.</p>
+<p>Inputs available at that point (no extra retrieval needed): the run's <code>Analysis</code> (topics, entities,
+<code>suggested_pages</code>, summary), the list of <code>WikiPage</code>s actually written (and their persisted <code>Page</code>
+rows), the <code>origin_source</code>, and <code>vault_id</code>. The stage MAY also read the <code>links</code> table for the run's
+pages to detect <strong>dangling wikilinks</strong> (referenced-but-absent targets → <code>missing-page</code> candidates) —
+this is a bounded indexed read of the just-written pages' links (I1; no vault re-scan, no FA2).</p>
+<h3 id="42-anti-spam-gate-runs-before-any-llm-call">4.2 Anti-spam gate (runs BEFORE any LLM call)<a class="headerlink" href="#42-anti-spam-gate-runs-before-any-llm-call" title="Permanent link">&para;</a></h3>
+<p>Mirroring R1's "only when generation is substantial OR explicit follow-up exists", the stage runs
+the (cost-bearing) LLM proposal call <strong>only if</strong> at least one of:</p>
+<ul>
+<li>total written content ≥ <code>REVIEW_PROPOSE_MIN_CHARS</code> (default ~10_000), <strong>OR</strong></li>
+<li>number of pages written ≥ <code>REVIEW_PROPOSE_MIN_PAGES</code> (default 4), <strong>OR</strong></li>
+<li>there is at least one <strong>dangling wikilink</strong> among the written pages (a concrete <code>missing-page</code>
+  signal), <strong>OR</strong></li>
+<li>the <code>Analysis.suggested_pages</code> contains a page that was <strong>not</strong> written (the analysis proposed it
+  but generation skipped it — a concrete <code>missing-page</code>/<code>suggestion</code> signal).</li>
+</ul>
+<p>The dangling-link and not-written-suggested-page checks are <strong>rule-based</strong> and may <strong>directly emit</strong>
+<code>missing-page</code>/<code>duplicate</code> proposals <strong>without an LLM call</strong> (cheapest path; deterministic). The LLM
+call is reserved for <code>suggestion</code>/<code>contradiction</code>/<code>confirm</code> judgment and runs only if the gate
+above passes. If the gate fails, the stage emits <strong>zero</strong> proposals (no spam, no cost).</p>
+<h3 id="43-the-single-bounded-proposal-call-i6i7">4.3 The single bounded proposal call (I6/I7)<a class="headerlink" href="#43-the-single-bounded-proposal-call-i6i7" title="Permanent link">&para;</a></h3>
+<p>When the gate passes, the stage makes <strong>at most one</strong> <code>InferenceProvider</code> call (operation
+<code>"ingest"</code>, resolved via <code>resolve_provider_config</code> — I6) that, given the analysis + a compact
+digest of the written pages + the list of existing page titles in the vault (a bounded title list,
+not full content), returns a <strong>structured list of proposals</strong> (JSON: <code>type</code>, <code>proposed_title</code>,
+<code>proposed_page_type</code>, <code>rationale</code>, optional <code>target_page_title</code> for contradiction/duplicate).</p>
+<p>Bounds (I7):</p>
+<ul>
+<li><strong>One call, no loop, no retry</strong> for the proposal stage (the <em>Create</em> action separately uses the
+  bounded loop — §5). The call is wrapped in <code>asyncio.wait_for(REVIEW_PROPOSE_TIMEOUT_SECONDS)</code>.</li>
+<li>Output capped by the resolved row's <code>token_budget</code> (or <code>REVIEW_PROPOSE_TOKEN_BUDGET</code> default).</li>
+<li><strong>Proposal count cap</strong> <code>REVIEW_PROPOSE_MAX_ITEMS</code> (default 8) — truncate; never enqueue an
+  unbounded list.</li>
+<li>Cost pushed through <code>UsageAccumulator</code> and logged (<code>total_cost_usd</code>), same as every provider call.</li>
+<li><strong>Failure (timeout / no provider / parse error) → emit only the rule-based proposals (if any),
+  log a WARNING, never fail the ingest</strong> (the pages are already written; the queue is advisory).</li>
+</ul>
+<p>Each returned proposal becomes one <code>enqueue_review(...)</code> row (pure DB write) with
+<code>status=pending</code>, <code>item_type=&lt;type&gt;</code>, <code>proposed_title</code>, inferred <code>proposed_page_type</code> +
+<code>proposed_dir</code>, <code>rationale</code>, <code>source_page_id</code> (the run's primary written page or NULL),
+and — for <code>contradiction</code>/<code>duplicate</code> — <code>page_id</code> resolved to the conflicting existing page
+(looked up by <code>target_page_title</code>, bounded indexed read).</p>
+<h3 id="44-why-once-per-run-not-once-per-page">4.4 Why once-per-run, not once-per-page<a class="headerlink" href="#44-why-once-per-run-not-once-per-page" title="Permanent link">&para;</a></h3>
+<p>The old model's per-page call was both the I7 surface and the spam source. Once-per-run with an
+anti-spam gate: (a) collapses N calls to ≤1, lowering cost and latency; (b) lets the model reason
+across the whole batch (cross-page contradictions/duplicates are only visible run-wide); (c) matches
+R1. This is a strict improvement on the ADR-0025 I7 surface.</p>
+<hr />
+<h2 id="5-the-create-action-lazy-on-demand-generation">5. The Create action (lazy on-demand generation)<a class="headerlink" href="#5-the-create-action-lazy-on-demand-generation" title="Permanent link">&para;</a></h2>
+<p><code>POST /review/queue/{id}/approve</code> is <strong>repurposed to Create</strong> (path kept for UI stability; see §6.1
+for the optional alias). It is the <strong>only</strong> place a proposal becomes a wiki page, and the <strong>only</strong>
+new on-demand generation path.</p>
+<h3 id="51-flow">5.1 Flow<a class="headerlink" href="#51-flow" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>1. Load the review item (404 if absent; 409 if status != &#39;pending&#39;).
+2. Derive the skeleton (§5.2): final title, final PageType, target dir.
+3. Resolve the ingest provider (resolve_provider_config(&quot;ingest&quot;, vault_id)) — I6.
+   If none configured → 409 &quot;no ingest provider configured&quot; (never hardcode — I6).
+4. Run the BOUNDED orchestrated loop (run_orchestrated_loop, ingest/loop.py) with a
+   single-page-target prompt: &quot;generate the wiki page titled &lt;title&gt; of type &lt;type&gt;,
+   grounded in the vault context + the proposal rationale&quot;. max_iter + token_budget from
+   the resolved row (I7). Wrapped in a timeout; cost logged to an ingest_runs row
+   (route=&#39;orchestrated&#39;, the existing audit path).
+5. Take the produced WikiPage (or the _ensure_source_summary fallback if the loop produced
+   none) and write it through write_wiki_page(None, page, origin_source) — the SAME
+   incremental seam (I1): persist_metadata → upsert_vector → append_log → bump_version
+   → wikilinks → update_index. This bumps data_version exactly ONCE.
+6. Set status=&#39;created&#39;, resolution=&#39;created&#39;, created_page_id=&lt;new page id&gt;,
+   reviewed_at=now(), reviewed_by=&#39;web-ui&#39;. Return the updated ReviewItem.
+7. (Optional, fire-and-forget) trigger the auto-resolution sweep (§6) so sibling
+   missing-page/duplicate proposals that this new page satisfies are closed.
+</code></pre></div>
+<p><code>origin_source</code> for the created page is the proposal's provenance: the <code>source_page_id</code>'s
+<code>file_path</code> if set, else a synthetic <code>review:&lt;item_id&gt;</code> marker so F3 traceability (<code>sources[]</code>
+non-empty) holds.</p>
+<h3 id="52-deriving-the-skeleton-title-type-dir">5.2 Deriving the skeleton (title / type / dir)<a class="headerlink" href="#52-deriving-the-skeleton-title-type-dir" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Title:</strong> <code>proposed_title</code> (set at emission). For a <code>missing-page</code> from a dangling wikilink, this
+  is the wikilink target text. Slugged by the existing <code>_slugify</code> at write time.</li>
+<li><strong>Type:</strong> prefer the stored <code>proposed_page_type</code>. When NULL, infer with a conservative heuristic
+  over title + rationale, mapped to the existing <code>PageType</code> enum (no new types):</li>
+<li>comparison cues ("vs", "versus", "compared", "comparison") → <code>comparison</code></li>
+<li>synthesis cues ("overview of", "summary of", "survey", "landscape") → <code>synthesis</code></li>
+<li>proper-noun / named-entity shape (capitalized multi-word, person/org/product) → <code>entity</code></li>
+<li>default → <code>concept</code>
+  (<code>source</code> is reserved for ingested raw documents and is <strong>not</strong> a Create target — Create never
+  fabricates a source page.)</li>
+<li><strong>Dir:</strong> always <code>type_subdir(final_type)</code> recomputed from the <strong>final</strong> resolved type at write
+  time — never trust a stale <code>proposed_dir</code> (it is UI-display only). This keeps the file in the
+  correct <code>wiki/</code> subdir (I5).</li>
+</ul>
+<h3 id="53-bounds-and-failure-i7">5.3 Bounds and failure (I7)<a class="headerlink" href="#53-bounds-and-failure-i7" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The Create loop is the bounded <code>run_orchestrated_loop</code> — <code>max_iter</code> + <code>token_budget</code> from the
+  resolved row; an <code>ingest_runs</code> row records tokens + <code>total_cost_usd</code> + the <code>$1</code> anomaly check
+  (reusing the existing finalize path). One Create = one bounded run.</li>
+<li>On loop failure / provider error: the item stays <code>pending</code> (NOT consumed), the endpoint returns
+  <strong>502</strong> (<code>"page generation failed; item left pending — retry or skip"</code>), and <strong>no partial page</strong>
+  is written (write only happens on a produced/fallback <code>WikiPage</code>). No silent half-create.</li>
+<li>On "no ingest provider configured": <strong>409</strong>, item stays pending (I6 — never substitute a backend).</li>
+</ul>
+<hr />
+<h2 id="6-auto-resolution-sweep">6. Auto-resolution sweep<a class="headerlink" href="#6-auto-resolution-sweep" title="Permanent link">&para;</a></h2>
+<p>A new function <code>sweep_reviews(vault_id)</code> in <code>ops/review.py</code>.</p>
+<h3 id="61-trigger-points">6.1 Trigger points<a class="headerlink" href="#61-trigger-points" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>After each orchestrated ingest run drains</strong> (fire-and-forget from <code>run_ingest_pipeline</code>, after
+   <code>propose_reviews</code>). As the wiki grows, previously-proposed <code>missing-page</code>/<code>duplicate</code> items may
+   now be satisfied.</li>
+<li><strong>After a successful Create</strong> (§5.1 step 7) — closes sibling proposals the new page satisfies.</li>
+<li><strong>Manual:</strong> <code>POST /review/queue/sweep</code> (testing / explicit user "clean up").</li>
+</ol>
+<p>The sweep is <strong>fire-and-forget and never fails ingest</strong> (try/except; log WARNING).</p>
+<h3 id="62-pass-1-rule-based-no-llm-deterministic-i1">6.2 Pass 1 — rule-based (no LLM, deterministic, I1)<a class="headerlink" href="#62-pass-1-rule-based-no-llm-deterministic-i1" title="Permanent link">&para;</a></h3>
+<p>For each <code>pending</code> <code>missing-page</code> or <code>duplicate</code> item in the vault (bounded read, ordered, capped at
+<code>REVIEW_SWEEP_MAX_ITEMS</code> per sweep — I7):</p>
+<ul>
+<li>Look up whether a <strong>live</strong> <code>pages</code> row now exists whose title matches <code>proposed_title</code>
+  (case/whitespace-normalized; bounded indexed read via <code>ix_review_items_vault_proposed_title</code> +
+  a <code>pages</code> title lookup — <strong>no vault re-scan</strong>, I1).</li>
+<li>If yes → set <code>status=auto_resolved</code>, <code>resolution='rule_resolved'</code>, <code>reviewed_at=now()</code>,
+  <code>reviewed_by='auto-sweep'</code>, <code>page_id</code>/<code>created_page_id</code> left as recorded.</li>
+</ul>
+<p><code>contradiction</code>, <code>suggestion</code>, <code>confirm</code> are <strong>never</strong> touched by Pass 1 — they require human or
+high-confidence-LLM judgment.</p>
+<h3 id="63-pass-2-conservative-bounded-llm-i6i7">6.3 Pass 2 — conservative bounded LLM (I6/I7)<a class="headerlink" href="#63-pass-2-conservative-bounded-llm-i6i7" title="Permanent link">&para;</a></h3>
+<p>Optional and gated by <code>REVIEW_SWEEP_LLM_ENABLED</code> (default on, but a single bounded call). For the
+remaining <code>pending</code> items <strong>not</strong> resolved by Pass 1, the sweep MAY make <strong>at most one</strong> bounded
+<code>InferenceProvider</code> call (operation <code>"ingest"</code>, resolved via <code>resolve_provider_config</code> — I6) that,
+given each item's <code>rationale</code>/<code>proposed_title</code> + the current vault title list + the conflicting
+page's content digest (for contradictions), returns a per-item verdict: <strong>resolve</strong> or <strong>keep</strong>.</p>
+<p>Bounds + safety (I7):</p>
+<ul>
+<li><strong>One call per sweep</strong>, batching the candidate items (capped at <code>REVIEW_SWEEP_LLM_MAX_ITEMS</code>,
+  default 8); no loop; <code>asyncio.wait_for(REVIEW_SWEEP_TIMEOUT_SECONDS)</code>; <code>token_budget</code> from the
+  resolved row; cost logged.</li>
+<li><strong>Default-to-keep:</strong> the prompt instructs "only resolve if you are confident the concern no
+  longer applies; otherwise keep pending." Any parse ambiguity, timeout, or provider error → <strong>keep
+  all pending</strong> (never auto-close on uncertainty). This is the conservative bias R1 requires.</li>
+<li>Items resolved by Pass 2 → <code>status=auto_resolved</code>, <code>resolution='llm_resolved'</code>,
+  <code>reviewed_by='auto-sweep'</code>.</li>
+<li><code>confirm</code> items are <strong>never</strong> auto-resolved (human confirmation is the whole point); <code>suggestion</code>
+  and <code>contradiction</code> MAY be resolved by Pass 2 only with high confidence.</li>
+</ul>
+<h3 id="64-what-auto-resolves-vs-is-preserved">6.4 What auto-resolves vs is preserved<a class="headerlink" href="#64-what-auto-resolves-vs-is-preserved" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Pass 1 (rule)</th>
+<th>Pass 2 (LLM, conservative)</th>
+<th>Preserved for human</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>missing-page</code></td>
+<td>resolves if title now exists</td>
+<td>may resolve</td>
+<td>otherwise</td>
+</tr>
+<tr>
+<td><code>duplicate</code></td>
+<td>resolves if collision gone</td>
+<td>may resolve</td>
+<td>otherwise</td>
+</tr>
+<tr>
+<td><code>suggestion</code></td>
+<td>never</td>
+<td>may resolve (high confidence)</td>
+<td>default</td>
+</tr>
+<tr>
+<td><code>contradiction</code></td>
+<td>never</td>
+<td>may resolve (high confidence)</td>
+<td>default</td>
+</tr>
+<tr>
+<td><code>confirm</code></td>
+<td>never</td>
+<td><strong>never</strong></td>
+<td>always</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-rest-api-changes-d4">7. REST API changes (D4)<a class="headerlink" href="#7-rest-api-changes-d4" title="Permanent link">&para;</a></h2>
+<p>Base path <code>/review/queue</code> unchanged. <code>make openapi</code> regenerates <code>docs/api/openapi.json</code> (I8).</p>
+<table>
+<thead>
+<tr>
+<th>Method + path</th>
+<th>Body / params</th>
+<th>Success</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /review/queue</code></td>
+<td><code>?vault_id&amp;limit&amp;offset</code> (limit default 50, max 200 — I7)</td>
+<td>200 <code>{items:[…], total, limit, offset}</code></td>
+<td>Items now carry the new projection (§7.1). Unchanged paging.</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/{id}/approve</code></td>
+<td>—</td>
+<td><strong>201</strong> <code>ReviewItem</code> (page created)</td>
+<td><strong>Now = Create (§5).</strong> Runs the bounded loop, writes the page (I1), bumps <code>data_version</code> once, sets <code>status=created</code> + <code>created_page_id</code>. 409 if item not <code>pending</code> or no ingest provider; 502 if generation fails (item left pending).</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/{id}/create</code></td>
+<td>—</td>
+<td><strong>201</strong> <code>ReviewItem</code></td>
+<td><strong>Optional explicit alias</strong> for <code>approve</code>, recommended so the UI verb matches the action. Both routes call the same handler. (<code>approve</code> retained only for backward path stability.)</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/{id}/skip</code></td>
+<td>—</td>
+<td>200 <code>ReviewItem</code></td>
+<td><code>status=skipped</code>, <code>resolution='skipped'</code>. Unchanged.</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/{id}/deep-research</code></td>
+<td>—</td>
+<td>202 <code>{review_item_id, run_id}</code></td>
+<td><code>status=deep_researched</code>, <code>resolution='researched'</code>. Topic now derived from <code>proposed_title</code> → <code>rationale</code> (first line) → <code>page.title</code> (was <code>pre_generated_query</code>). 503 if <code>SEARXNG_URL</code> unset.</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/sweep</code></td>
+<td><code>?vault_id</code></td>
+<td>200 <code>{rule_resolved, llm_resolved, kept}</code></td>
+<td>Manual auto-resolution sweep (§6). Bounded; idempotent.</td>
+</tr>
+<tr>
+<td>(all action routes)</td>
+<td>unknown <code>id</code></td>
+<td>404</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="71-reviewitem-json-projection">7.1 <code>ReviewItem</code> JSON projection<a class="headerlink" href="#71-reviewitem-json-projection" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>{
+  id, vault_id,
+  item_type,            // missing-page | suggestion | contradiction | duplicate | confirm
+  status,               // pending | created | skipped | deep_researched | auto_resolved
+  proposed_title,       // string | null
+  proposed_page_type,   // entity|concept|source|synthesis|comparison | null
+  proposed_dir,         // string | null (display only)
+  rationale,            // string | null
+  page_id,              // target/conflicting existing page | null
+  page_title?,          // convenience join from pages for page_id (UI)
+  source_page_id,       // provenance page | null
+  created_page_id,      // page produced by Create | null
+  resolution,           // created|skipped|researched|rule_resolved|llm_resolved | null
+  deep_research_run_id, // uuid | null
+  created_at, reviewed_at
+}
+</code></pre></div>
+<p>The frontend <strong>Review</strong> section renders item type + <code>proposed_title</code> + <code>rationale</code>, and the
+<strong>Create / Deep Research / Skip</strong> buttons (the closed action set). List is virtualized &gt; 50 (I4).
+After Create, the UI should refresh on the bumped <code>data_version</code> (F16) to reflect the new page.</p>
+<hr />
+<h2 id="8-invariant-compliance">8. Invariant compliance<a class="headerlink" href="#8-invariant-compliance" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Inv</th>
+<th>How this design guarantees it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>K8</strong></td>
+<td>The LLM now <strong>proposes</strong> follow-up work; the human <strong>decides</strong> (Create / Deep-Research / Skip). Pages are created only on explicit human approval. The inversion in ADR-0025 (human rubber-stamps auto-created pages) is corrected — this is the headline. Auto-create of <em>clearly-supported</em> pages stays, exactly as R1 does.</td>
+</tr>
+<tr>
+<td><strong>I1</strong></td>
+<td>Auto-create write path is unchanged (<code>write_wiki_page</code>, incremental). The <strong>Create</strong> action writes through the same single seam → one <code>data_version</code> bump, no re-scan. The <strong>sweep</strong> uses bounded indexed reads (title lookups) — never a full vault re-scan and never FA2 (I2 untouched: the proposal stage reads the <code>links</code> table, not the graph layout).</td>
+</tr>
+<tr>
+<td><strong>I6</strong></td>
+<td>All three new LLM call sites (proposal emission §4.3, on-demand Create §5, LLM sweep §6.3) resolve via <code>resolve_provider_config(...)</code> + <code>resolve_provider(...)</code>; routing is capability-agnostic text/JSON in/out. No <code>isinstance</code>/<code>provider_type</code>/class-name branching, no hardcoded backend or model. "No ingest provider configured" is a 409, never a silent default (I6 hard rule).</td>
+</tr>
+<tr>
+<td><strong>I7</strong></td>
+<td>Proposal stage: anti-spam gate, <strong>≤1</strong> provider call, <code>REVIEW_PROPOSE_MAX_ITEMS</code> cap, timeout, token_budget, cost logged. Create: the <strong>bounded</strong> <code>run_orchestrated_loop</code> (<code>max_iter</code>+<code>token_budget</code>), one <code>ingest_runs</code> row with <code>total_cost_usd</code> + <code>$1</code> anomaly check. Sweep: Pass-1 capped at <code>REVIEW_SWEEP_MAX_ITEMS</code> (no LLM), Pass-2 <strong>≤1</strong> call batched + capped + timeout + default-to-keep. No unbounded loop anywhere.</td>
+</tr>
+<tr>
+<td><strong>I8</strong></td>
+<td><code>review_items</code> schema change → Alembic <strong>0013</strong> + <code>make er</code> regenerates <code>docs/er/schema.mmd</code> (three FKs to <code>pages</code> + the <code>deep_research_runs</code> FK) + <code>make openapi</code> regenerates the changed/added <code>/review/queue</code> endpoints. D3 sequence diagram for the ingest loop SHOULD gain the propose/Create/sweep steps (tech-writer). No sprint-done without these artifacts consistent.</td>
+</tr>
+</tbody>
+</table>
+<p>No invariant is traded. The two genuine tensions are flagged in §9.</p>
+<hr />
+<h2 id="9-flagged-tensions-risks">9. Flagged tensions &amp; risks<a class="headerlink" href="#9-flagged-tensions-risks" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Delegated (CLI) ingest still emits no proposals.</strong> As in ADR-0025 §3.3.4, the orchestrator
+   does not enumerate pages the CLI agent writes via MCP <code>write_page</code>, so <code>propose_reviews</code> attaches
+   to the <strong>orchestrated</strong> branch only. <strong>Not a violation</strong> — it is an explicit, recorded gap. A
+   future option is to have the MCP <code>write_page</code> tool record written titles so a post-delegation
+   sweep can run; that needs its own ADR.</li>
+<li><strong>Create cost is now interactive.</strong> Each Create is a full bounded ingest run (latency + API cost),
+   not a no-op. This is the intended behavior (lazy generation), bounded by <code>max_iter</code>/<code>token_budget</code>
+   and surfaced in <code>ingest_runs</code>. The UI must show a spinner and the cost is logged like any run.</li>
+<li><strong>Proposal/sweep LLM calls add cost per ingest.</strong> Bounded to ≤1 call each, gated by the anti-spam
+   heuristic (proposal) and the rule-based-first ordering (sweep). For zero-cost operation, set
+   <code>REVIEW_SWEEP_LLM_ENABLED=false</code> (Pass 1 still runs) and rely on the substantial-generation gate.</li>
+<li><strong>Type-inference heuristic (§5.2) can mis-type a Create.</strong> Conservative defaults (<code>concept</code>) and
+   the fact that the human chose to Create (and can fix frontmatter in CodeMirror, I4) bound the
+   blast radius. The heuristic never invents a <code>source</code> page.</li>
+<li><strong>Auto-resolution false-positives.</strong> Mitigated by Pass-1 exact-title match only and Pass-2's
+   default-to-keep + never-resolve-<code>confirm</code> rule. A wrongly-resolved item is recoverable (the page
+   it pointed to still exists or the human re-proposes); we bias hard toward keeping pending.</li>
+<li><strong><code>approve</code>→Create semantics change is breaking</strong> for any client expecting a no-op. M5 is
+   single-operator pre-release; the new <code>/create</code> alias (§7) is the forward verb and <code>approve</code> is
+   kept only for path stability. Documented in USER.md (tech-writer).</li>
+</ol>
+<hr />
+<h2 id="10-do-not-list-rejection-triggers">10. Do-NOT list (rejection triggers)<a class="headerlink" href="#10-do-not-list-rejection-triggers" title="Permanent link">&para;</a></h2>
+<p>A PR touching this redesign is <strong>rejected on review</strong> if it:</p>
+<ol>
+<li><strong>DO NOT</strong> auto-create a page from a proposal at ingest time. Proposals are never wiki pages until
+   Create (§5). (Auto-create of <em>clearly-supported</em> generation output stays — that is a different,
+   unchanged path.)</li>
+<li><strong>DO NOT</strong> make Create (or any action) write to <code>wiki/</code> by any path other than <code>write_wiki_page</code>
+   (I1/I5). One Create = one <code>data_version</code> bump.</li>
+<li><strong>DO NOT</strong> make more than one provider call in the proposal stage, more than one batched call in
+   the sweep LLM pass, or run the Create generation outside the bounded <code>run_orchestrated_loop</code> (I7).</li>
+<li><strong>DO NOT</strong> hardcode a backend/model anywhere — resolve via <code>resolve_provider_config("ingest")</code>;
+   "no provider" is a 409/skip, never a silent default (I6).</li>
+<li><strong>DO NOT</strong> let <code>propose_reviews</code> or <code>sweep_reviews</code> raise into the ingest critical path
+   (fire-and-forget; try/except; the page is already written).</li>
+<li><strong>DO NOT</strong> re-scan the vault or touch FA2 in the sweep — bounded indexed reads only (I1/I2).</li>
+<li><strong>DO NOT</strong> auto-resolve <code>confirm</code> items, or auto-resolve any item on parse ambiguity / timeout
+   (default-to-keep, §6.3).</li>
+<li><strong>DO NOT</strong> ship the schema change without Alembic 0013 + <code>make er</code> + <code>make openapi</code> regenerated
+   (I8).</li>
+<li><strong>DO NOT</strong> return an unbounded <code>GET /review/queue</code> page (limit capped 50/max 200) or an unbounded
+   proposal/sweep list (caps in §4.3/§6).</li>
+<li><strong>DO NOT</strong> skip TanStack virtualization for the review list when it can exceed 50 rows (I4).</li>
+</ol>
+<hr />
+<h2 id="11-implementation-plan">11. Implementation plan<a class="headerlink" href="#11-implementation-plan" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Routing rule for the orchestrator:</strong> any item below tagged <strong>[AI]</strong> touches <code>InferenceProvider</code>
+(proposal emission, on-demand Create generation, or the sweep LLM pass) and MUST be routed to
+<strong>ai-agent-engineer</strong> (CLAUDE.md §13). Items tagged <strong>[BE]</strong> are backend-engineer. Both must land
+behind green tests; QA + tech-writer gate as usual.</p>
+</blockquote>
+<h3 id="111-backend-engineer-be">11.1 backend-engineer [BE]<a class="headerlink" href="#111-backend-engineer-be" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Model + migration:</strong> rewrite <code>ReviewItem</code> in <code>models.py</code> per §3.1; write Alembic <strong>0013</strong>
+  (add columns, drop <code>pre_generated_query</code>, the legacy-row left-shift step, the new index). Update
+  the model docstring. Run <code>make er</code> → commit <code>docs/er/schema.mmd</code> (I8).</li>
+<li><strong>REST surface:</strong> update the four existing handlers in <code>main.py</code> + the <code>ReviewItemResponse</code>
+  Pydantic model to the §7.1 projection; change <code>approve</code> to call the new Create handler (return
+  201); add the <code>/create</code> alias and <code>POST /review/queue/sweep</code>. Update <code>deep_research</code>'s topic
+  derivation to use <code>proposed_title</code>/<code>rationale</code> instead of <code>pre_generated_query</code>. Run <code>make openapi</code>
+  → commit <code>docs/api/openapi.json</code> (I8).</li>
+<li><strong><code>enqueue_review</code> rewrite:</strong> accept the new fields (<code>item_type</code> enum, <code>proposed_*</code>, <code>rationale</code>,
+  <code>source_page_id</code>, <code>page_id</code>); pure DB write (no provider — unchanged contract).</li>
+<li><strong>Sweep Pass 1 (rule-based)</strong> in <code>ops/review.py</code>: <code>sweep_reviews</code> skeleton + the deterministic
+  title-match resolution (bounded read, caps). Wire the fire-and-forget triggers in
+  <code>run_ingest_pipeline</code> (after <code>propose_reviews</code>) and after a successful Create. <strong>No LLM here.</strong></li>
+<li><strong>Dangling-link / not-written-suggested-page detection</strong> (the rule-based proposal inputs in §4.2)
+  — bounded <code>links</code>/<code>pages</code> reads; emits <code>missing-page</code>/<code>duplicate</code> rows directly (no provider).</li>
+<li><strong>Queue list / status lifecycle helpers:</strong> <code>_set_status</code> extended for the new statuses +
+  <code>resolution</code> label; <code>list_queue</code> projection unchanged structurally.</li>
+<li><strong>Frontend (frontend-engineer, coordinated by BE):</strong> Review section renders the new projection +
+  Create/Deep-Research/Skip; virtualize &gt; 50 (I4); refresh on <code>data_version</code> after Create.</li>
+<li><strong>Tests:</strong> migration up/down; <code>approve</code>→Create writes exactly one page + one <code>data_version</code> bump;
+  409 when no provider / not pending; 502 leaves item pending; sweep Pass-1 resolves
+  <code>missing-page</code>/<code>duplicate</code> on title match and never touches <code>confirm</code>; <code>GET</code> projection; caps.</li>
+</ul>
+<h3 id="112-ai-agent-engineer-ai">11.2 ai-agent-engineer [AI]<a class="headerlink" href="#112-ai-agent-engineer-ai" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>[AI] <code>propose_reviews</code></strong> (§4.3): the single bounded <code>InferenceProvider</code> call (resolve via
+  <code>resolve_provider_config("ingest")</code>, I6), the structured-proposal prompt + JSON parse into the
+  five types, the anti-spam gate (§4.2), the <code>REVIEW_PROPOSE_*</code> bounds + timeout + cost logging
+  (I7), and the fire-and-forget failure degradation (rule-based-only / none). <strong>Replaces</strong>
+  <code>generate_review_queries</code> + <code>_enqueue_review_items</code>.</li>
+<li><strong>[AI] On-demand Create generation</strong> (§5): the single-page-target prompt + invocation of the
+  bounded <code>run_orchestrated_loop</code> for one Create, the <code>_ensure_source_summary</code> fallback wiring, the
+  <code>ingest_runs</code> cost row + <code>$1</code> anomaly reuse, the 502-on-failure (item left pending) behavior.
+  The skeleton type/dir heuristic (§5.2) is shared with BE but the <strong>generation</strong> is [AI].</li>
+<li><strong>[AI] Sweep Pass 2 (LLM)</strong> (§6.3): the single batched bounded call (resolve via
+  <code>resolve_provider_config</code>, I6), the conservative default-to-keep prompt, <code>REVIEW_SWEEP_LLM_*</code>
+  bounds + timeout + cost logging (I7), never-resolve-<code>confirm</code> rule, and keep-all-on-uncertainty.</li>
+<li><strong>[AI] Bounds config:</strong> add <code>REVIEW_PROPOSE_MIN_CHARS/MIN_PAGES/MAX_ITEMS/TOKEN_BUDGET/TIMEOUT</code>,
+  <code>REVIEW_SWEEP_MAX_ITEMS</code>, <code>REVIEW_SWEEP_LLM_ENABLED/MAX_ITEMS/TOKEN_BUDGET/TIMEOUT</code> to <code>config.py</code>
+  with the §4/§6 defaults; document in DEPLOY.md (tech-writer).</li>
+<li><strong>[AI] Tests:</strong> anti-spam gate skips the call on a trivial run (zero proposals, zero cost);
+  proposal call bounded to one + capped + timeout-degrades; Create runs the bounded loop and writes
+  through <code>write_wiki_page</code>; sweep Pass-2 keeps on ambiguity and never resolves <code>confirm</code>.</li>
+</ul>
+<h3 id="113-cross-cutting-handoffs">11.3 Cross-cutting (handoffs)<a class="headerlink" href="#113-cross-cutting-handoffs" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>tech-writer:</strong> this ADR (format + README row), USER.md (new Create/Skip/Deep-Research verbs +
+  the proposal model), DEPLOY.md (new env vars), and the D3 ingest sequence diagram (add
+  propose → Create → sweep). C4: <strong>no new container/component</strong> — <code>ops/review.py</code> stays a component
+  inside the FastAPI service; no D1 topology change.</li>
+<li><strong>qa-test-engineer:</strong> the §10 Do-NOT list is the rejection gate; the §11 tests are the milestone
+  gate.</li>
+<li><strong>orchestrator:</strong> route [AI] items to ai-agent-engineer, [BE] items to backend-engineer; human
+  checkpoint before merge (the <code>approve</code>→Create semantics change is owner-approved).</li>
+</ul>
+<hr />
+<h2 id="12-sign-off">12. Sign-off<a class="headerlink" href="#12-sign-off" title="Permanent link">&para;</a></h2>
+<p><strong>APPROVED to implement.</strong> The redesign keeps auto-create for clearly-supported pages (I1 unchanged),
+replaces per-page question-spam with a single bounded, anti-spam-gated proposal stage emitting five
+proposal types, makes <code>approve</code>→<strong>Create</strong> generate the page on-demand through the resolved
+<code>InferenceProvider</code> and the existing incremental write seam (one <code>data_version</code> bump), and adds a
+rule-then-bounded-LLM auto-resolution sweep that defaults to keeping items pending. K8 is restored:
+the LLM proposes, the human curates. I1, I6, I7, I8 are satisfied; I2/I4/I5 are untouched. The
+<code>review_items</code> change ships as Alembic <strong>0013</strong> with <code>make er</code> + <code>make openapi</code> regenerated.</p>
+<blockquote>
+<p>Handoff: ADR-0034 → tech-writer (format, README row, USER/DEPLOY, D3 sequence). Interface contracts
+(§3, §4, §5, §6, §7) → backend-engineer [BE] + ai-agent-engineer [AI] per §11. PR verdicts →
+orchestrator. This ADR supersedes the F9 parts of ADR-0025 (F12 parts stand).</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
