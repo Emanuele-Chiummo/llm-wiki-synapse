@@ -659,7 +659,15 @@ function ActiveJobsBlock({
           testId="home-active-jobs-backfill"
           icon={<Loader2 size={12} />}
           label={t("home.activeJobs.backfill")}
-          meta={backfillStatus?.last_summary ?? undefined}
+          // meta must be a STRING — passing the raw last_summary object crashed React
+          // ("Objects are not valid as a React child", owner report v1.2.1).
+          meta={
+            backfillStatus?.last_summary
+              ? t("home.activeJobs.backfillTagged", {
+                  count: backfillStatus.last_summary.tagged ?? 0,
+                })
+              : undefined
+          }
           onClick={onNavigateBackfill}
         />
       )}

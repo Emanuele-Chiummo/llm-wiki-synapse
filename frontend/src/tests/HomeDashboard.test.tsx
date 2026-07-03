@@ -950,13 +950,30 @@ describe("HomeDashboard — active jobs block: backfill row (A4)", () => {
     });
   });
 
-  it("backfill row shows last_summary when present", async () => {
-    mockGetBackfillDomainStatus.mockResolvedValue({ running: true, last_summary: "42 pages tagged" });
+  it("backfill row renders the tagged count from a REAL summary object (regression: object-as-child crash)", async () => {
+    // The API returns last_summary as an OBJECT — the row must interpolate a string
+    // from it, never render it directly (React throws "Objects are not valid as a
+    // React child"; owner-reported crash, v1.2.1).
+    mockGetBackfillDomainStatus.mockResolvedValue({
+      running: true,
+      last_summary: {
+        processed: 69,
+        tagged: 42,
+        skipped: 169,
+        failed: 1,
+        total_cost_usd: 0.88,
+        stopped_reason: "budget",
+        max_pages: 500,
+        token_budget: 60000,
+        force: false,
+      },
+    });
     await renderDashboard();
     await waitFor(() => {
       const row = screen.queryByTestId("home-active-jobs-backfill");
       expect(row).not.toBeNull();
-      expect(row?.textContent).toContain("42 pages tagged");
+      // i18n mock returns the last key segment; count is interpolated by the component
+      expect(row?.textContent).toContain("backfillTagged");
     });
   });
 });
