@@ -274,39 +274,29 @@ jobs:
     needs: docs-site
     runs-on: ubuntu-latest
     permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Build site
+      # Pages is configured with source=gh-pages branch (legacy build).
+      # The actions-based deploy (deploy-pages@v4) was rejected repeatedly by the
+      # Pages backend for this repo ("Deployment failed, try again later"), while
+      # mkdocs gh-deploy (canonical MkDocs flow) works: it force-pushes the built
+      # site to the gh-pages branch and Pages serves it directly.
+      - name: Build and deploy to gh-pages
         run: |
           pip install mkdocs-material mkdocs-swagger-ui-tag
-          mkdocs build --strict
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdocs gh-deploy --force
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site/
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-  # ──────────────────────────────────────────────────────────────────────
-  # Stage 7: Tauri v2 desktop app build (tag-only; informational)
-  # Builds OS-specific native binaries: .deb/.AppImage (Linux), .dmg (macOS),
-  # .msi/.nsis (Windows). Runs on version tags (v0.6+) to validate the desktop
-  # shell; does not block merge (continue-on-error: true).
-  # ──────────────────────────────────────────────────────────────────────
   tauri-build:
     name: Tauri v2 Desktop Bundles
     runs-on: ${{ matrix.os }}
