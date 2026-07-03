@@ -256,7 +256,7 @@ jobs:
         run: python -m mkdocs build --strict
 
       - name: Upload docs artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mkdocs-site
           path: site/
@@ -346,7 +346,7 @@ jobs:
         run: npm run tauri build
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: synapse-${{ matrix.os }}
           path: src-tauri/target/release/bundle/
