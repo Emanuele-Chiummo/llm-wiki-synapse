@@ -42,15 +42,12 @@ export interface DesktopUpdaterState {
   startInstall: () => Promise<void>;
 }
 
-// ─── Runtime-computed module identifiers ─────────────────────────────────────
-//
-// These are intentionally NOT string literals so Vite's import-analysis plugin
-// cannot statically resolve them. The packages are installed by the devops-engineer
-// alongside the Rust plugins (tauri-plugin-updater + tauri-plugin-process).
-// /* @vite-ignore */ suppresses the "cannot analyze" warning.
-// tsc is satisfied by the ambient declarations in src/types/tauri-plugins.d.ts.
-const UPDATER_MODULE = "@tauri-apps/plugin-updater" as string;
-const PROCESS_MODULE = "@tauri-apps/plugin-process" as string;
+// NOTE (fix post-v0.8.0): these dynamic imports MUST be static string literals so
+// Vite bundles the plugin JS into lazy chunks. The earlier runtime-variable trick
+// (used before the npm packages were installed) meant the plugins were NEVER
+// bundled: the bare-specifier import failed at runtime inside the WebView, the
+// error was swallowed, and the update banner never appeared. The isTauri() guard
+// keeps the web/PWA build inert — the chunks are only fetched inside Tauri.
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -73,10 +70,7 @@ export function useDesktopUpdater(): DesktopUpdaterState {
 
     void (async () => {
       try {
-        // Dynamic import via runtime variable — Vite cannot statically resolve a
-        // variable import, so import-analysis is bypassed entirely (see UPDATER_MODULE
-        // declaration above). /* @vite-ignore */ suppresses the "cannot analyze" warn.
-        const { check } = await import(/* @vite-ignore */ UPDATER_MODULE) as typeof import("@tauri-apps/plugin-updater");
+        const { check } = await import("@tauri-apps/plugin-updater");
         const result = await check();
         if (cancelled) return;
         if (result !== null) {
@@ -105,11 +99,9 @@ export function useDesktopUpdater(): DesktopUpdaterState {
     setInstalling(true);
     setInstallError(null);
     try {
-      // Dynamic import via runtime variables — bypasses Vite's static resolution.
-      // See UPDATER_MODULE / PROCESS_MODULE declarations above.
       const [{ check }, { relaunch }] = await Promise.all([
-        import(/* @vite-ignore */ UPDATER_MODULE) as Promise<typeof import("@tauri-apps/plugin-updater")>,
-        import(/* @vite-ignore */ PROCESS_MODULE) as Promise<typeof import("@tauri-apps/plugin-process")>,
+        import("@tauri-apps/plugin-updater"),
+        import("@tauri-apps/plugin-process"),
       ]);
       // Re-fetch the update object to get downloadAndInstall; the initial check()
       // result may have been GC'd. Re-calling check() is cheap (cached by Tauri).
