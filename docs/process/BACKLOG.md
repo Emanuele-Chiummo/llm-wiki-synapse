@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-07-03 (Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
+> Last updated: 2026-07-03 (Sprint 11 / v1.1 scope locked — SPRINT-v1.1-SCOPE.md; Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -15,6 +15,64 @@
 | blocked | Dependency unresolved |
 | done | Exit criteria verified by PM |
 | done-pending-live-demo | Automated gates green; remaining condition is live-infra or human verification (no code change needed) |
+
+---
+
+## Sprint 11 — v1.1 — M11 "Convert & Configure"
+
+Goal: UI-driven Marker PDF conversion with auto-ingest; runtime settings surface for
+8 migrated config keys (no .env editing for daily use); logo deduplication; 3 bounded bugfixes.
+
+**Sprint status: IN PROGRESS — scope locked 2026-07-03**
+Scope file: docs/sprints/SPRINT-v1.1-SCOPE.md
+Branch: sprint/v1.1
+
+### R11-1 — Marker conversion from UI
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F12, F16 |
+| Sprint | v1.1 |
+| Status | backlog |
+| Effort | L |
+| Acceptance criteria | AC-R11-1-1 through AC-R11-1-8 (SPRINT-v1.1-SCOPE.md §3) |
+
+### R11-2 — Settings redesign (runtime config migration, 8 settings)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F16, F17 (adjacent) |
+| Sprint | v1.1 |
+| Status | blocked — ADR-0053 required before backend code |
+| Effort | L |
+| Acceptance criteria | AC-R11-2-0 through AC-R11-2-10 (SPRINT-v1.1-SCOPE.md §3) |
+
+Settings migrated to UI: PDF_EXTRACTOR (S1), MARKER_SERVICE_URL (S2),
+MARKER_TIMEOUT_SECONDS (S3), COST_ALERT_THRESHOLD_USD (S4), EMBEDDINGS_ENABLED (S5),
+EMBEDDING_FORMAT (S6), OVERVIEW_LANGUAGE (S7), WIKILINK_ENRICH_ENABLED (S8).
+
+### R11-3 — Logo deduplication
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1 |
+| Sprint | v1.1 |
+| Status | backlog |
+| Effort | S |
+| Acceptance criteria | AC-R11-3-1 through AC-R11-3-4 (SPRINT-v1.1-SCOPE.md §3) |
+
+### R11-4 — Bugfixes (bounded sweep)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1, F3 (I3), F4/F5 (I4) |
+| Sprint | v1.1 |
+| Status | backlog |
+| Effort | S × 3 |
+| Acceptance criteria | AC-R11-4-BUG1, AC-R11-4-BUG2, AC-R11-4-BUG3 (SPRINT-v1.1-SCOPE.md §3) |
+
+Bugs: renderMarkdown null guard (BUG-1), ingest polling dedup (BUG-2),
+virtualizer zero-height recovery (BUG-3).
 
 ---
 
