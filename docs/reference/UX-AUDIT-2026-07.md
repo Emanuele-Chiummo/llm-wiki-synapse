@@ -90,3 +90,58 @@ Recommended strategy for v0.9:
 4. The `--syn-bg-card` token referenced in ActivityBar.tsx:544 and ConfirmDialog.tsx:118 does not exist in theme.css — it falls back to `var(--syn-bg-soft)` silently. Add it explicitly to theme.css or remove the undefined reference.
 
 Estimated remediation: M5-level effort to bring inline-style-to-class ratio from ~70/30 to ~20/80 across the affected components.
+
+---
+
+## Remediation Status — v0.9.0 (2026-07-03)
+
+The following audit items shipped in the v0.9.0 «Trust & observability» release.
+
+### W0 — All P1 findings resolved
+
+All seven P1 findings (UXA-01 through UXA-07) were addressed in v0.9. Summary:
+
+| ID | Finding | Resolution |
+|----|---------|-----------|
+| UXA-01 | Nav rail secondary group opaque Italian labels | Added group label "Strumenti / Tools" above M5 block; divider uses `var(--syn-border)` at full width; `title` attributes use complete-sentence tooltip text. |
+| UXA-02 | Conversation list all "Untitled"; streaming looks broken | Auto-title from first message (50-char trim); conversation list shows one-line message preview (UXB-1, R9-7). Streaming indicator ("Generando…") shown below the live token stream. |
+| UXA-03 | `color-mix(…, white)` dark-mode regression | All three `color-mix(…, white 94%)` sites in ReviewQueueView.tsx replaced with `color-mix(…, var(--syn-mix-base))`. Dark mode confirmed. |
+| UXA-04 | 4+ divergent ghost-button micro-patterns | `components.css` introduced with `.syn-button--ghost` and `.syn-button--secondary` classes. `Save to wiki`, `Regenerate`, and `ActionButton` migrated. |
+| UXA-05 | Keyboard focus ring suppressed on inactive NavRail buttons | `outline: "none"` removed from inactive rail button inline style; `:focus-visible` ring from theme.css now applies correctly. |
+| UXA-06 | 0-pages-created ingest run shows no guidance | Contextual hint row added to `IngestRunDetail` when `pages_created === 0 && status === "completed"`. Links to Settings. |
+| UXA-07 | Raw UUID and float coordinates exposed in graph node panel | UUID hidden. Coordinates removed. Degree relabeled as "Connected to N other pages". |
+
+### UXB items resolved
+
+| ID | Finding | Resolution |
+|----|---------|-----------|
+| UXB-1 | Conversation density / all "Untitled" | Auto-title + message preview shipped (R9-7, 2026-07-03). |
+| UXB-2 | Nav rail label "Profonda" (UXA-17) | `nav.deepSearch` in `it.json` changed from `"Profonda"` to `"Ricerca"`. |
+
+### Remaining open items (P2 / P3 — not targeted in v0.9)
+
+The following findings were identified in the audit but were not included in v0.9 scope.
+They remain open for future sprints:
+
+| ID | Priority | Finding (short) | Target |
+|----|----------|----------------|--------|
+| UXA-08 | P2 | Role labels (YOU/ASSISTANT) visually dominate message content | v1.0 or polish sprint |
+| UXA-09 | P2 | No skeleton state between empty and loaded panel | future |
+| UXA-10 | P2 | Dismiss in Review fires immediately with no confirmation | future |
+| UXA-11 | P2 | Status bar 7-point density; folder emoji inconsistency | future |
+| UXA-12 | P2 | Duplicate provider entries in selector; no precedence hint | future |
+| UXA-13 | P2 | Old Settings layout screenshot stale; float precision bug | future |
+| UXA-14 | P2 | Hardcoded hex colors in Header/ConnectScreen | future |
+| UXA-15 | P2 | Mixed `role="dialog"` / `role="listbox"` in ProviderSelector | future |
+| UXA-16 | P2 | Error toast should use `role="alert"` not `role="status"` | future |
+| UXA-18 | P3 | Raw i18n key in Review Queue item type badge | future |
+| UXA-19 | P3 | Non-neighbour node labels not dimmed during hover | future |
+| UXA-20 | P3 | Mixed destructive button convention (filled-red vs outline-red) | future |
+| UXA-21 | P3 | Hardcoded English "more failed tasks" string in ActivityBar | future |
+| UXA-22 | P3 | Bureaucratic Italian error fragments | future |
+| UXA-23 | P3 | No visual cue for auto-detected server in ConnectScreen | future |
+| UXA-24 | P3 | Review queue card density (3px gap) | future |
+| UXA-25 | P3 | Unicode chevrons in Header; ConnectScreen hardcoded gradient | future |
+| UXA-26 | P3 | ⌘K shortcut not discoverable in UI | future |
+| UXA-27 | P3 | Graph zoom controls may be hidden behind collapsed panels | future |
+| UXA-28 | P3 | Inline `<style>` keyframe injection in ActivityBar / ReviewQueueView | future |

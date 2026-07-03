@@ -19,6 +19,12 @@
 > extract.py) also shipped in v0.8.0; it has no direct llm_wiki counterpart but closes
 > the placeholder gap noted in the F12 table.
 >
+> **v0.9 closure (2026-07-03):** G-P2-7 (edge relevance tooltip / 4-signal breakdown)
+> and G-P2-8 (community cohesion score + warning marker) are now **CLOSED** with v0.9.0.
+> G-P2-2 (purpose.md suggestion via ReviewItem) and G-P2-4 (schema.md co-evolution via
+> `schema-suggestion` ReviewItem) are also **CLOSED** with v0.9.0, closing all remaining
+> open P2 items.
+>
 > Verdict legend:
 >   ✅ parity — behavior matches or exceeds user-facing expectations.
 >   🟡 partial — core exists but a sub-behavior or edge case is absent.
@@ -62,7 +68,7 @@ Every row covers one atomic user-facing behavior pulled from the audit.
 |---|---|---|---|---|---|---|
 | purpose.md read into ingest context | `ingest.ts:691-694` — reads `${pp}/purpose.md`; injected in both analysis `:968` and generation `:1000` | `backend/app/ingest/orchestrator.py:1155-1166` — `_load_vault_context()` reads `vault_root/purpose.md` and `vault_root/schema.md`; passed as `vault_context` to `run_orchestrated_loop` and as `system_prompt` to `delegate_ingest` | ✅ | Both providers receive purpose+schema. llm_wiki had a path divergence bug (`wiki/purpose.md` vs root) — Synapse is unified on `vault_root/purpose.md`. | — | — |
 | purpose.md read into chat / query context | `chat-agent.ts:1005`, `:1654` — injected into every chat turn | `backend/app/chat/stream.py:run_chat_stream` — calls `build_chat_context()` which prepends purpose + overview to retrieval context | ✅ | Purpose is in chat context via `backend/app/chat/context.py`. | — | — |
-| LLM suggests updates to purpose.md | Audit: **ASSENTE** — vaporware in llm_wiki (01-AUDIT §F2: "nessun codice") | Synapse: also absent. No endpoint, no prompt, no review item type for purpose-suggestion. | ❌ | Neither codebase implements this. Synapse can CLOSE the parity gap by implementing it properly: at ingest end, the orchestrated branch can emit a `purpose-suggestion` ReviewItem type if the analysis reveals scope drift. This is also an improvement over llm_wiki. | P2 | [AI]/[BE] |
+| LLM suggests updates to purpose.md | Audit: **ASSENTE** — vaporware in llm_wiki (01-AUDIT §F2: "nessun codice") | `backend/app/ops/review.py` — `purpose-suggestion` ReviewItem type emitted post-ingest when scope drift is detected. `PURPOSE_SUGGESTION_*` env vars. Anti-spam gate via `PURPOSE_SUGGESTION_MIN_SOURCES`. No automatic file edit — human applies manually. (G-P2-2, v0.9.0, 2026-07-03) | ✅ | **G-P2-2 CLOSED (2026-07-03 / v0.9.0).** Purpose suggestion pipeline present. Closes the llm_wiki vaporware gap. | — | [AI]/[BE] |
 | purpose.md path consistency | llm_wiki bug: `startIngest` reads `wiki/purpose.md` (wrong), `autoIngest` reads root (01-AUDIT §F2 B-3) | Synapse: `vault_root/purpose.md` everywhere (orchestrator.py:1155-1166) | ⭐ | Synapse already fixed this bug. Do NOT mirror the llm_wiki bug. | — | — |
 
 **Invariants touched:** I5, I6.
@@ -134,7 +140,7 @@ Every row covers one atomic user-facing behavior pulled from the audit.
 | typeAffinity signal semantics (cross-type bonus) | Audit: `TYPE_AFFINITY` matrix awards CROSS-type pairs (entity↔concept=1.2), not same-type (01-AUDIT §F4 inaccuracy 1) | `backend/app/graph/engine.py` — `_TYPE_AFFINITY` matrix + `_type_affinity()` helper (symmetric, case-insensitive, None/unknown→0.5); 4th weight term is now `1.0·type_affinity` | ✅ | Done (G-P1-7, 2026-07-01). Exact llm_wiki matrix ported from `src/lib/graph-relevance.ts`: entity↔concept=1.2, concept↔synthesis=1.2, entity↔entity=0.8, source↔source/query↔query=0.5, default 0.5. Rewards cross-type, penalizes same-type — modulates ForceAtlas2 clustering (does NOT create edges; ADR-0016 preserved). Replaces the old binary `same_type`. Tests: `TestTypeAffinity`. | — | [BE] |
 | Edge INCLUSION rule (structural only) | llm_wiki: `calculateRelevance` computes relevance for all pairs; graph includes any edge with weight > 0 | `backend/app/graph/engine.py:15-19` — ADR-0016: edge EXISTS iff `direct_link_count > 0 OR shared_source_count > 0`; AA and same-type are MODULATORS only; prevents type-cliques | ⭐ | Synapse's edge-inclusion rule is strictly better: it avoids hairball graphs where pure type-affinity creates phantom edges. Preserve. | — | — |
 | Louvain community detection | `wiki-graph.ts:53` — `louvain(g,{resolution:1})`; community palette 12 colors; community renumbered by size | `backend/app/graph/engine.py` — `community_multilevel()` (python-igraph) called in `GraphEngine.recompute()`; `community_id` persisted per node; GET /graph exposes `community_id`; GraphViewer renders community palette (12-color, renumbered by size). | ✅ | G-P0-2 closed (pre-v0.7). Community coloring present in the graph viewer. | — | [BE]/[FE] |
-| Community cohesion score + warning marker (<0.15) | `wiki-graph.ts:78-88` — `intraEdges/possibleEdges`; warning if <0.15 | Absent. No cohesion metric computed. | ❌ | P1 after Louvain lands. | P1 | [BE] |
+| Community cohesion score + warning marker (<0.15) | `wiki-graph.ts:78-88` — `intraEdges/possibleEdges`; warning if <0.15 | `GET /graph/communities/{id}` — returns `cohesion_score` (`intra_edges / possible_intra_edges`); `GRAPH_COHESION_WARN` threshold (default 0.15) triggers warning marker in community drill-down panel. (G-P2-8, v0.9.0, 2026-07-03) | ✅ | **G-P2-8 CLOSED (2026-07-03 / v0.9.0).** Exact llm_wiki cohesion formula ported; warning threshold configurable. | — | [BE]/[FE] |
 | Graph insights — surprising connections | `graph-insights.ts:31-102` — composite score, threshold ≥3, excludes index/log/overview nodes | `frontend/src/components/graph/graphInsights.ts` — cross-community edges, `weight>=3`, top 8, meta nodes (index/log/overview) excluded | ✅ | Done (G-P1-5). | — | [FE] |
 | Graph insights — knowledge gaps (isolated / sparse community / bridge nodes) | `graph-insights.ts:141-179` — isolated (deg≤1), sparse (cohesion<0.15 & ≥3 nodes), bridge (≥3 communities) | `graphInsights.ts` — isolated (deg≤1), sparse (cohesion<0.15 & size≥3), bridge (≥3 distinct neighbor communities, own+unassigned excluded) | ✅ | Done (G-P1-5). | — | [FE] |
 | Graph insights dismissable + click-to-highlight | `graph-view.tsx:800-805` — dismissable; `:1516` — click highlights node in graph | `GraphInsightsPanel.tsx` — per-item dismiss (local Set); row click → `setSelectedNodeId(primaryNodeId)` (GraphViewer highlights) | ✅ | Done (G-P1-5). | — | [FE] |
@@ -360,7 +366,7 @@ Every row covers one atomic user-facing behavior pulled from the audit.
 | K6 — YAML frontmatter (type/title/sources[]/tags[]) | Frontmatter pivot for graph + cascade-delete | `backend/app/models.py:156-184` — `page_type`, `sources`, `tags` columns (JSONB); `backend/app/ingest/orchestrator.py:1389-1417` — tolerant parser | ✅ | `tags[]` added in migration 0018 (llm_wiki parity per model comment). | — | — |
 | K7 — Obsidian compatibility | `wiki/` valid Obsidian vault; `.obsidian/` auto-generated | `backend/app/vault.py:40-46` — `.obsidian/app.json` auto-generated (AC-K7-1/2); I5 enforces valid frontmatter | ✅ | | — | — |
 | K8 — Human curates, LLM maintains | Review queue (F9) + human-gated lint (K2 ADR-0037) | F9 review + lint human gate (Do-NOT: never auto-apply without human action) | ✅ | | — | — |
-| schema.md co-evolution (LLM suggests schema updates) | llm_wiki: schema.md static after creation (01-AUDIT §Karpathy cross-check) | Synapse: same. schema.md is a static template set at vault bootstrap | ❌ | Neither codebase implements schema co-evolution. This is a genuine Karpathy principle gap. Low priority as it requires significant product design. | P2 | [AI]/[BE] |
+| schema.md co-evolution (LLM suggests schema updates) | llm_wiki: schema.md static after creation (01-AUDIT §Karpathy cross-check) | `backend/app/ops/review.py` — `schema-suggestion` ReviewItem type; default off (`SCHEMA_SUGGESTION_ENABLED=false`); `SCHEMA_SUGGESTION_*` env vars. When enabled, proposes schema rule changes when emerging frontmatter patterns deviate from `schema.md`. Human applies changes manually. (G-P2-4, v0.9.0, 2026-07-03) | ✅ | **G-P2-4 CLOSED (2026-07-03 / v0.9.0).** Default-off conservative opt-in (blast-radius note in DEPLOY.md §2.1). Closes the Karpathy K6 co-evolution principle gap. | — | [AI]/[BE] |
 
 ---
 
@@ -422,13 +428,13 @@ the table summary follows.
 | ID | Gap or opportunity | Owner | Effort |
 |---|---|---|---|
 | ~~G-P2-1~~ | ✅ **CLOSED (2026-07-03 / v0.8.0).** Vision caption pipeline: `VISION_CAPTIONS_ENABLED` opt-in; `provider.chat()` with `supports_vision=True` guard; `image_captions` table SHA-256 cache; `VISION_MAX_IMAGES_PER_RUN` I7 cap. | [AI]/[BE] | — |
-| G-P2-2 | **purpose.md suggestion via ReviewItem.** At ingest end, emit a `purpose-suggestion` ReviewItem when analysis reveals scope drift. Closes the llm_wiki vaporware gap (F2) better than llm_wiki did. | [AI]/[BE] | M |
+| ~~G-P2-2~~ | ✅ **CLOSED (2026-07-03 / v0.9.0).** `purpose-suggestion` ReviewItem type: after each orchestrated ingest run, a single bounded provider call evaluates scope drift against `purpose.md` and emits a review card with rationale if drift is detected. Anti-spam gate via `PURPOSE_SUGGESTION_MIN_SOURCES`. `PURPOSE_SUGGESTION_*` env vars. No automatic file edits — human applies manually. | [AI]/[BE] | — |
 | G-P2-3 | **Cancel in-flight ingest.** `DELETE /ingest/{run_id}` — aborts the running ingest_file coroutine; does NOT delete already-written pages. | [BE]/[FE] | M |
-| G-P2-4 | **schema.md co-evolution.** Allow LLM to propose schema.md edits (K8 / Karpathy principle). Requires a `schema-suggestion` ReviewItem type. | [AI]/[BE] | L |
+| ~~G-P2-4~~ | ✅ **CLOSED (2026-07-03 / v0.9.0).** `schema-suggestion` ReviewItem type: default off (`SCHEMA_SUGGESTION_ENABLED=false`; blast-radius note documented in DEPLOY.md §2.1). When enabled, proposes schema rule changes when emerging frontmatter patterns deviate from `schema.md`. Human applies changes manually. `SCHEMA_SUGGESTION_*` env vars. Closes the Karpathy K6 schema co-evolution gap. | [AI]/[BE] | — |
 | ~~G-P2-5~~ | ✅ **CLOSED (2026-07-03 / v0.8.0).** Marker pluggable PDF extractor (ADR-0051): `PDF_EXTRACTOR=marker` routes to Marker microservice at `MARKER_SERVICE_URL`; pypdf fallback always present; `MARKER_TIMEOUT_SECONDS` bounds the call (I7). Supersedes the MinerU idea — Marker is already proven in-repo. | [BE] | — |
 | ~~G-P2-6~~ | ✅ **CLOSED (v0.6/M6).** PWA + Tauri v2 packaging shipped in sprint 6. | [FE] | — |
-| G-P2-7 | **Edge relevance tooltip on hover.** Show weight/signal breakdown on edge hover in GraphViewer. Both llm_wiki and Synapse lack this — pure enhancement. | [FE] | S |
-| G-P2-8 | **Community cohesion score + warning marker.** After Louvain (G-P0-2), add cohesion score per community; warn in legend if <0.15 (mirrors llm_wiki graph-insights). | [BE]/[FE] | S |
+| ~~G-P2-7~~ | ✅ **CLOSED (2026-07-03 / v0.9.0).** Edge 4-signal breakdown panel: click any graph edge to see the decomposition into direct wikilinks (×3), shared sources (×4), Adamic-Adar (×1.5), type affinity (×1). Powered by `GET /graph/edges/{source_id}/{target_id}`. | [FE] | — |
+| ~~G-P2-8~~ | ✅ **CLOSED (2026-07-03 / v0.9.0).** Community cohesion score + warning marker: `GET /graph/communities/{id}` returns cohesion score; score < `GRAPH_COHESION_WARN` (default 0.15) triggers a warning indicator in the community drill-down panel. Mirrors llm_wiki `graph-insights.ts:78-88`. | [BE]/[FE] | — |
 
 ---
 

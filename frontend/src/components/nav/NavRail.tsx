@@ -197,7 +197,23 @@ export function NavRail() {
       {/* M5 items (Lint + Review + Deep Search + Ingest run-history) */}
       {M5_ITEMS.length > 0 && (
         <>
-          <div style={{ width: 40, height: 1, background: "var(--syn-border)", margin: "4px 0 2px" }} />
+          {/* Full-width divider + group label (UXA-01) */}
+          <div style={{ width: "100%", height: 1, background: "var(--syn-border)", margin: "4px 0 0" }} />
+          <span
+            aria-hidden="true"
+            style={{
+              fontSize: 9,
+              fontWeight: 600,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--syn-text-dim)",
+              opacity: 0.7,
+              padding: "2px 0 2px",
+              userSelect: "none",
+            }}
+          >
+            {t("nav.toolsGroup")}
+          </span>
           <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center", width: "100%" }}>
             {M5_ITEMS.map((item) => (
               <RailButton
@@ -271,7 +287,9 @@ function RailButton({ item, isActive, badge, label, onClick }: RailButtonProps) 
         padding: "6px 4px 4px",
         gap: 3,
         transition: "background 0.1s ease, color 0.1s ease",
-        outline: isActive ? `1px solid color-mix(in srgb, var(--syn-accent) 20%, transparent 80%)` : "none",
+        // Active: persistent accent ring as a visual state indicator (not focus ring).
+        // Inactive: no override → :focus-visible from theme.css supplies the keyboard ring (UXA-05).
+        outline: isActive ? `1px solid color-mix(in srgb, var(--syn-accent) 20%, transparent 80%)` : undefined,
       }}
     >
       {item.icon}

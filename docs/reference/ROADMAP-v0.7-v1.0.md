@@ -59,18 +59,22 @@ Theme: ingest anything, at quality — leverage what already exists in-house.
 | R8-6 | **Citation click-through everywhere** — wire onCitationClick in all MarkdownView contexts | FE | S | UX gap #10 | ✅ |
 | R8-7 | Chrome clipper release — verify extension packaging, publish flow (store or unpacked doc) | FE/DevOps | M | F11 verify | ✅ (in releases) |
 
-## v0.9 — «Trust & observability» (2 settimane)
+## v0.9 — «Trust & observability» (2 settimane) ✅ SHIPPED 2026-07-03
 
 Theme: see what the AI does and what it costs; let the wiki improve itself.
 
-| ID | Item | Area | Effort | Source |
-|----|------|------|--------|--------|
-| R9-1 | **Cost dashboard** — aggregation endpoint (per provider/operation/day) + Settings section with monthly rollup and threshold alert (I7 surfacing) | BE+FE | M | audit gap |
-| R9-2 | **Metrics/health endpoint** — watcher/scheduler/queue liveness, last-error surfacing | BE | S | audit gap |
-| R9-3 | **purpose.md suggestions** — `purpose-suggestion` ReviewItem on scope drift | AI+BE | M | F2, G-P2-2 |
-| R9-4 | **schema.md co-evolution** — `schema-suggestion` ReviewItem type (Karpathy K6 principle, beyond llm_wiki) | AI+BE | L | G-P2-4 |
-| R9-5 | **Graph drill-down** — community details panel (member list), edge weight tooltip with signal breakdown, cohesion score + low-cohesion warning | FE+BE | M | G-P2-7/8, UX gaps #3, #11 |
-| R9-6 | **Playwright E2E suite** — happy-path per section + D5 screenshot refresh automation | QA | M | I8 |
+| ID | Item | Area | Effort | Source | Status |
+|----|------|------|--------|--------|--------|
+| R9-1 | **Cost dashboard** — aggregation endpoint (per provider/operation/day) + Settings section with monthly rollup and threshold alert (I7 surfacing) | BE+FE | M | audit gap | ✅ (`GET /costs/summary`, Settings > Costi, `COST_ALERT_THRESHOLD_USD`) |
+| R9-2 | **Metrics/health endpoint** — watcher/scheduler/queue liveness, last-error surfacing | BE | S | audit gap | ✅ (`GET /health/detailed`, per-component status, replaces basic `/status` for monitoring) |
+| R9-3 | **purpose.md suggestions** — `purpose-suggestion` ReviewItem on scope drift | AI+BE | M | F2, G-P2-2 | ✅ (ReviewItem type, `PURPOSE_SUGGESTION_*` env vars, closed G-P2-2) |
+| R9-4 | **schema.md co-evolution** — `schema-suggestion` ReviewItem type (Karpathy K6 principle, beyond llm_wiki) | AI+BE | L | G-P2-4 | ✅ (default off — `SCHEMA_SUGGESTION_ENABLED=false`, `SCHEMA_SUGGESTION_*` env vars, closed G-P2-4) |
+| R9-5 | **Graph drill-down** — community details panel (member list), edge weight tooltip with signal breakdown, cohesion score + low-cohesion warning | FE+BE | M | G-P2-7/8, UX gaps #3, #11 | ✅ (`GET /graph/communities/{id}`, `GET /graph/edges/{s}/{t}`, `GRAPH_COHESION_WARN`, closed G-P2-7 + G-P2-8) |
+| R9-6 | **Playwright E2E suite** — happy-path per section + D5 screenshot refresh automation | QA | M | I8 | ✅ (`npm run e2e:v09`, D5 screenshots auto-captured) |
+| R9-7 | **Conversation auto-titles + list previews** | FE+BE | S | UXB-1 | ✅ (50-char auto-title from first message, preview line in conversation list) |
+| R9-8 | **11 UX audit fixes + button design-system** | FE | M | UX-AUDIT-2026-07 W0 | ✅ (`components.css`, all W0/UXB-1/UXB-2 items resolved) |
+| R9-9 | **SectionErrorBoundary** — isolate section crashes, show Retry instead of blank screen | FE | S | reliability | ✅ |
+| R9-10 | **Dynamic version in UI** — version from backend runtime, not build constant | FE+BE | S | polish | ✅ (Settings > About) |
 
 ## v1.0 — «Distribution & multi-user» (3–4 settimane)
 

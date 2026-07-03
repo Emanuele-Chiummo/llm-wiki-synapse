@@ -982,6 +982,55 @@ describe("ReviewQueueView — selection + bulk bar (ADR-0044 §7)", () => {
   });
 });
 
+// ─── UXA-18: ItemTypeBadge normalises underscores to kebab-case ──────────────
+
+describe("ReviewQueueView — UXA-18: item_type normalisation", () => {
+  it("UXA-18-1: underscore item_type 'missing_page' renders 'Missing page' badge (not raw key)", async () => {
+    // Backend may send "missing_page" (underscore); UI must normalise to "missing-page".
+    const item = makeItem("uxa18a", { item_type: "missing_page" as ReviewItem["item_type"] });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [item],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+
+    // "Missing page" is the translated label in the mock map; raw key "review.itemType.missing_page"
+    // should NOT appear.
+    const badges = document.querySelectorAll(".syn-chip");
+    const badgeTexts = Array.from(badges).map((b) => b.textContent ?? "");
+    // Should contain the translated label, not the raw key
+    expect(badgeTexts.some((t) => t.includes("Missing page"))).toBe(true);
+    expect(badgeTexts.some((t) => t.includes("review.itemType.missing_page"))).toBe(false);
+  });
+
+  it("UXA-18-2: native kebab-case 'missing-page' still renders correctly", async () => {
+    const item = makeItem("uxa18b", { item_type: "missing-page" });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [item],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+
+    const badges = document.querySelectorAll(".syn-chip");
+    const badgeTexts = Array.from(badges).map((b) => b.textContent ?? "");
+    expect(badgeTexts.some((t) => t.includes("Missing page"))).toBe(true);
+  });
+});
+
 // ─── Virtualization smoke at N≈500 rows (ADR-0044 §7 / I4) ──────────────────
 
 describe("ReviewQueueView — virtualization smoke N=500 (I4)", () => {
@@ -1006,5 +1055,69 @@ describe("ReviewQueueView — virtualization smoke N=500 (I4)", () => {
       // and does not exceed the item count.
       expect(rows.length).toBeLessThanOrEqual(500);
     });
+  });
+});
+
+// ─── UXB-2 AC-UXB2-2: button class assertions ────────────────────────────────
+// AC-UXB2-2: ActionButton uses .syn-btn.syn-btn--secondary class.
+// AC-UXB2-4: ReviewQueueView does NOT inject an inline <style> element.
+
+describe("ReviewQueueView — UXB-2 design-system class assertions (AC-UXB2-2 + AC-UXB2-4)", () => {
+  beforeEach(() => {
+    resetStore();
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("1")],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+  });
+
+  it("AC-UXB2-2: ActionButton (create) renders with syn-btn and syn-btn--secondary class", async () => {
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-action-create")).toHaveLength(1);
+    });
+
+    const btn = screen.getAllByTestId("review-action-create")[0]!;
+    expect(btn.classList.contains("syn-btn")).toBe(true);
+    expect(btn.classList.contains("syn-btn--secondary")).toBe(true);
+    expect(btn.classList.contains("syn-btn--sm")).toBe(true);
+  });
+
+  it("AC-UXB2-2: ActionButton (skip) renders with syn-btn and syn-btn--secondary class", async () => {
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-action-skip")).toHaveLength(1);
+    });
+
+    const btn = screen.getAllByTestId("review-action-skip")[0]!;
+    expect(btn.classList.contains("syn-btn")).toBe(true);
+    expect(btn.classList.contains("syn-btn--secondary")).toBe(true);
+  });
+
+  it("AC-UXB2-4: ReviewQueueView does not inject an inline <style> element on mount", async () => {
+    // Spy on document.createElement to detect inline <style> injections.
+    const originalCreate = document.createElement.bind(document);
+    const styleCreations: string[] = [];
+    const spy = vi.spyOn(document, "createElement").mockImplementation((tag: string, ...args: unknown[]) => {
+      if (tag === "style") styleCreations.push(tag);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return originalCreate(tag, ...(args as any[]));
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-action-create")).toHaveLength(1);
+    });
+
+    // No <style> element should have been created by the component.
+    // (The global keyframe <style> from theme.css is injected by the CSS bundler,
+    //  not via document.createElement, so it does not appear here.)
+    expect(styleCreations).toHaveLength(0);
+    spy.mockRestore();
   });
 });

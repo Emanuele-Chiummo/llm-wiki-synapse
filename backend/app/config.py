@@ -351,6 +351,93 @@ class Settings(BaseSettings):
     vault-scoped statement (no id list). Env var: REVIEW_BULK_MAX_IDS.
     """
 
+    # ── F2: purpose.md drift suggestions (R9-3, v0.9) ────────────────────────────
+    # After each ingest run, a single bounded provider call compares the run's analysis
+    # topics/summary against the vault purpose.md. If it detects scope drift (a recurring
+    # theme not covered by purpose), it emits ONE `purpose-suggestion` ReviewItem. The call
+    # is bounded (max_tokens 300, single call, no retry) and NEVER breaks ingest (I7).
+
+    purpose_suggestion_enabled: bool = True
+    """
+    Master gate for the post-ingest purpose.md drift check (R9-3). Default on. Set false for
+    zero-cost ingest: no drift call is made. Env var: PURPOSE_SUGGESTION_ENABLED.
+    """
+
+    purpose_suggestion_max_tokens: int = 300
+    """
+    Hard output cap on the single bounded drift-detection provider call (R9-3, AC READ:
+    "bounded provider call max_tokens 300, no retry"). Env var: PURPOSE_SUGGESTION_MAX_TOKENS.
+    """
+
+    purpose_suggestion_min_sources: int = 3
+    """
+    Throttle N (R9-3): the drift check fires only when at least this many `source` pages have
+    been ingested since the newest existing purpose-suggestion ReviewItem (cheap counter — a
+    bounded indexed COUNT over pages.created_at, no new column, no migration). Below N → skip
+    the provider call entirely (zero cost). Env var: PURPOSE_SUGGESTION_MIN_SOURCES.
+    """
+
+    purpose_suggestion_timeout_seconds: float = 20.0
+    """
+    Timeout wrapping the single drift-detection provider call (R9-3, I7). On timeout / any
+    failure → no ReviewItem, ingest still completes. Env var: PURPOSE_SUGGESTION_TIMEOUT_SECONDS.
+    """
+
+    # ── K6: schema.md co-evolution (R9-4, v0.9) ──────────────────────────────────
+    # After each ingest run (right after the R9-3 purpose check), a single bounded provider
+    # call compares the ingested pages' actual frontmatter/type/tag usage patterns against the
+    # vault schema.md rules. If it detects a recurring convention that is NOT yet codified (a
+    # tag family, a consistently-used frontmatter field, a type misfit), it emits ONE
+    # `schema-suggestion` ReviewItem. The call is bounded (max_tokens 400, single call, no
+    # retry) and NEVER breaks ingest (I7). Mirrors R9-3 exactly, with two deliberate deltas:
+    # (1) DEFAULT OFF and (2) a higher default min-sources — see below.
+
+    schema_suggestion_enabled: bool = False
+    """
+    Master gate for the post-ingest schema.md co-evolution check (R9-4). DEFAULT OFF — this is a
+    DELIBERATE, CONSERVATIVE default and the one intentional divergence from R9-3 (which defaults
+    ON). Rationale: schema.md is the FORMAL frontmatter contract (K6); an approved schema change
+    alters how EVERY FUTURE ingest classifies and validates pages. A noisy or low-quality schema
+    suggestion therefore has a much larger blast radius than a purpose.md note. We require the
+    operator to opt in explicitly. Set false → no schema check runs (zero cost).
+    Env var: SCHEMA_SUGGESTION_ENABLED.
+    """
+
+    schema_suggestion_max_tokens: int = 400
+    """
+    Hard output cap on the single bounded schema-pattern provider call (R9-4, AC READ: "bounded
+    call max_tokens 400, no retry"). Larger than R9-3's 300 because the model must both restate
+    the observed convention AND emit the exact markdown rule block to append.
+    Env var: SCHEMA_SUGGESTION_MAX_TOKENS.
+    """
+
+    schema_suggestion_min_sources: int = 5
+    """
+    Throttle N (R9-4): the schema check fires only when at least this many `source` pages have
+    been ingested since the newest existing schema-suggestion ReviewItem (cheap counter — a
+    bounded indexed COUNT over pages.created_at, no new column, no migration). Default 5 (higher
+    than R9-3's 3): a schema convention should be observed across MORE material before it is worth
+    codifying. Below N → skip the provider call entirely (zero cost).
+    Env var: SCHEMA_SUGGESTION_MIN_SOURCES.
+    """
+
+    schema_suggestion_timeout_seconds: float = 20.0
+    """
+    Timeout wrapping the single schema-pattern provider call (R9-4, I7). On timeout / any failure
+    → no ReviewItem, ingest still completes. Env var: SCHEMA_SUGGESTION_TIMEOUT_SECONDS.
+    """
+
+    # ── F4: Graph drill-down (R9-5) ──────────────────────────────────────────────
+
+    graph_cohesion_warn: float = 0.2
+    """
+    Low-cohesion warning threshold for community drill-down (R9-5, AC-R9-5-1).
+    GET /graph/communities/{id} returns cohesion_warning=true when the community's
+    intra-edge density is below this value, signalling a potentially fragmented community.
+    Formula: cohesion = intraEdges / (size*(size-1)/2); range [0,1]; 0 for singletons.
+    Env var: GRAPH_COHESION_WARN.
+    """
+
     # ── F4: wikilink-enrichment post-pass bounds (ADR-0036, [AI] §9) ─────────────
     # The once-per-run enrichment call is bounded by these + the resolved provider row's
     # token_budget (I7). Substitution-apply (R1): the LLM returns {mention, target_title}
@@ -570,6 +657,17 @@ class Settings(BaseSettings):
     Beyond this cap, remaining AV files in the same run fall back to the placeholder. Prevents
     a bulk upload from hammering the Whisper service (which serialises via asyncio.Lock).
     Env var: AV_MAX_FILES_PER_RUN.
+    """
+
+    # ── R9-1: Cost alert threshold (AC-R9-1-2) ────────────────────────────────────
+
+    cost_alert_threshold_usd: float = 5.00
+    """
+    Monthly spend threshold in USD for the cost alert flag (R9-1, AC-R9-1-2).
+    When monthly_total_usd >= this value, GET /costs/summary returns threshold_alert=true.
+    Set to 0.0 to disable the alert entirely (threshold_alert is always false).
+    Default: 5.00 (as per AC-R9-1-2 spec).
+    Env var: COST_ALERT_THRESHOLD_USD.
     """
 
     # ── M4-EXT: upload + scheduled import caps (ADR-0020 §2.4 / §4.4) ──────────

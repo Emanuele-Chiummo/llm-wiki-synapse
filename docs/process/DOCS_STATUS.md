@@ -4,6 +4,86 @@
 
 ---
 
+## v0.9.0 Pre-Release Docs Gate — VERDICT: PASS-PENDING-D2/D5
+
+> Gate run: 2026-07-03
+> Branch: `sprint/v0.6`
+> Release: v0.9.0 — «Trust & observability»
+> Scope: cost dashboard (`GET /costs/summary`, Settings > Costi, `COST_ALERT_THRESHOLD_USD`),
+>   health endpoint (`GET /health/detailed`), conversation auto-titles + list previews,
+>   purpose.md suggestions (`purpose-suggestion` ReviewItem, `PURPOSE_SUGGESTION_*` env vars),
+>   schema.md co-evolution (`schema-suggestion` ReviewItem, `SCHEMA_SUGGESTION_*` env vars, default off),
+>   graph community drill-down (`GET /graph/communities/{id}`, cohesion score, `GRAPH_COHESION_WARN`),
+>   graph edge 4-signal breakdown (`GET /graph/edges/{s}/{t}`),
+>   11 UX audit fixes + `components.css` design-system layer, SectionErrorBoundary,
+>   Playwright E2E suite (`npm run e2e:v09`), dynamic version in UI.
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/` (context/container/component) | UP-TO-DATE (no change) | No new container, port, or external C4 box. Cost dashboard and health endpoint are FastAPI routes inside the existing service boundary. Graph community/edge endpoints are additions to the existing graph component. C4 topology unchanged from v0.8. |
+| D2 | `docs/er/schema.mmd` | PENDING-REGEN | v0.9 adds new columns and potentially new tables for cost aggregation and for `purpose-suggestion`/`schema-suggestion` ReviewItem storage. Requires `make er` after v0.9 migrations land. Carry-forward from v0.8 gate. |
+| D3 | `docs/sequences/` | UP-TO-DATE (no new diagrams required) | No new multi-actor bounded loops introduced. Cost summary is a single aggregation read; health check is a single parallel probe; purpose/schema suggestions piggyback the existing `propose_reviews` hook (already in `ingest-loop.mmd`). No new swimlane needed. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (confirmed) | All four v0.9 target endpoints confirmed present: `GET /costs/summary` YES, `GET /health/detailed` YES, `GET /graph/communities/{community_id}` YES, `GET /graph/edges/{source_id}/{target_id}` YES. Total path count: 71. |
+| D5 | `docs/screens/` | PENDING-LIVE (carry-forward + v0.9 refresh) | The Playwright E2E suite (`npm run e2e:v09`) shipped in v0.9 and auto-captures D5 screenshots. Run against a live stack to refresh. Non-blocking for code gate; blocks v1.0.0 tag. |
+| D6a | `docs/USER.md` | UPDATED (this gate) | Header updated to v0.9. New sections: Costi (cost dashboard, alert indicator, operator note); conversation auto-titles + list previews; purpose.md suggestions in Review (proposal type, rationale card, no-auto-edit); schema.md suggestions in Review (default-off, blast-radius warning); graph community drill-down (member list, cohesion, `GRAPH_COHESION_WARN`); graph edge 4-signal breakdown table; SectionErrorBoundary (Retry affordance); Settings table updated; "What shipped in v0.9" table (10 items). Two new proposal types added to Five proposal types table. |
+| D6b | `docs/DEPLOY.md` | UPDATED (this gate) | Header updated to v0.9. Eleven new env var rows added to §2.1: `COST_ALERT_THRESHOLD_USD`, `PURPOSE_SUGGESTION_ENABLED/MAX_TOKENS/MIN_SOURCES/TIMEOUT_SECONDS`, `SCHEMA_SUGGESTION_ENABLED` (default off + blast-radius note), `SCHEMA_SUGGESTION_MAX_TOKENS/MIN_SOURCES/TIMEOUT_SECONDS`, `GRAPH_COHESION_WARN`. New §3.4 "Detailed health check (v0.9)": JSON response example, per-component semantics, healthy/degraded/unhealthy semantics, monitoring probe guidance. |
+| D7 | `docs/adr/README.md` | UP-TO-DATE (no new ADRs this gate) | No new ADR for v0.9. Cost dashboard, health endpoint, conversation auto-titles, purpose/schema suggestions, graph drill-down, UX fixes are implementation-level changes. ADR-0034 and ADR-0016 remain the governing documents for review proposals and graph edge formula. |
+| R (parity) | `docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md` | UPDATED (this gate) | v0.9 closure note added to header. G-P2-2, G-P2-4, G-P2-7, G-P2-8 closed with ✅ + date 2026-07-03/v0.9.0. F2 purpose-suggestion row updated ❌ → ✅. F4 cohesion row updated ❌ → ✅. K19 schema co-evolution row updated ❌ → ✅. Phase-2 backlog table updated. All P2 items closed except G-P2-3. |
+| R (roadmap) | `docs/reference/ROADMAP-v0.7-v1.0.md` | UPDATED (this gate) | v0.9 section header marked ✅ SHIPPED 2026-07-03; status column added with ✅ + detail for all 10 R9 rows. |
+| R (UX audit) | `docs/reference/UX-AUDIT-2026-07.md` | UPDATED (this gate) | "Remediation Status — v0.9.0" section appended: W0 P1 summary table (all 7 resolved), UXB-1/UXB-2 closed, remaining P2/P3 items listed for future sprints. |
+
+### Endpoint verification (D4)
+
+| Endpoint | Method | Present in openapi.json | Notes |
+|----------|--------|------------------------|-------|
+| `/costs/summary` | GET | YES | Cost aggregation by provider/operation |
+| `/health/detailed` | GET | YES | Per-component liveness |
+| `/graph/communities/{community_id}` | GET | YES | Community member list + cohesion score |
+| `/graph/edges/{source_id}/{target_id}` | GET | YES | Edge 4-signal breakdown |
+
+Total paths in openapi.json: 71. All four v0.9 target endpoints present.
+
+### Parity doc closure (v0.9 gate)
+
+| ID | Item | Closed date |
+|----|------|-------------|
+| G-P2-2 | purpose.md suggestion via ReviewItem | 2026-07-03 / v0.9.0 |
+| G-P2-4 | schema.md co-evolution (`schema-suggestion` ReviewItem, default off) | 2026-07-03 / v0.9.0 |
+| G-P2-7 | Edge relevance / 4-signal breakdown | 2026-07-03 / v0.9.0 |
+| G-P2-8 | Community cohesion score + warning marker | 2026-07-03 / v0.9.0 |
+
+All P2 backlog items closed except G-P2-3 (cancel in-flight ingest).
+
+### Invariant compliance check (v0.9 gate)
+
+| Invariant | Status |
+|-----------|--------|
+| **I1** (incremental index only) | HOLDS — cost summary reads existing `total_cost_usd` columns; health probe is read-only; graph community/edge endpoints are Postgres reads only; UX changes are frontend-only. |
+| **I6** (pluggable inference) | HOLDS — purpose/schema suggestion calls route via `resolve_provider_config`; no hardcoded backend. |
+| **I7** (bounded loops) | HOLDS — `PURPOSE_SUGGESTION_TIMEOUT_SECONDS` and `SCHEMA_SUGGESTION_TIMEOUT_SECONDS` bound the two new provider calls. Anti-spam gates prevent zero-content triggers. Cost alert is informational only (no loop). |
+| **I8** (docs-as-DoD) | HOLDS — D4 endpoints confirmed (71 paths); D6a/D6b updated; parity matrix closed G-P2-2/4/7/8; roadmap v0.9 marked shipped; UX audit remediation appended. D2/D5 carry-forward pending (non-blocking). |
+| **I9** (do not reinvent) | HOLDS — no new external services. Cost aggregated from existing Postgres tables. Health probe uses existing connection pools. |
+
+### Outstanding items (carry-forward, non-blocking for code gate)
+
+1. **D2 — ER regen**: `make er` after v0.9 migrations land. Backend-engineer to run; tech-writer to verify.
+2. **D5 — Screenshots**: `npm run e2e:v09` against a live stack. Non-blocking; blocks v1.0.0 tag.
+3. **D4 — API version string**: `openapi.json` `info.version` to be bumped to `0.9.0` via `make openapi` post-tag (devops-engineer).
+
+### DOCS GATE VERDICT — v0.9.0 Pre-Release
+
+**PASS-PENDING-D2/D5**
+
+D6a (USER.md) and D6b (DEPLOY.md) fully updated for all v0.9 features. Parity matrix
+closed G-P2-2, G-P2-4, G-P2-7, G-P2-8 — all P2 items closed except G-P2-3.
+Roadmap v0.9 marked shipped (10 items). UX audit remediation status appended.
+D4 endpoints verified (71 paths, all 4 v0.9 target endpoints present).
+D2 and D5 carry forward as non-blocking per established gate policy.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-07-03 | v0.9.0 pre-release docs gate**
+
+---
+
 ## v0.8.0 Pre-Release Docs Gate — VERDICT: PASS-PENDING-D2/D5
 
 > Gate run: 2026-07-03

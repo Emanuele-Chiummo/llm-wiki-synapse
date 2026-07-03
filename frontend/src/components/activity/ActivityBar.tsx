@@ -541,7 +541,7 @@ export function ActivityBar(): ReactNode {
             width: "min(420px, 100vw)",
             maxHeight: "50vh",
             overflowY: "auto",
-            background: "var(--syn-bg-card, var(--syn-bg-soft))",
+            background: "var(--syn-bg-card)",
             border: "1px solid var(--syn-border)",
             borderRadius: "6px 6px 0 0",
             boxShadow: "0 -4px 16px rgba(0,0,0,0.25)",
@@ -731,7 +731,7 @@ export function ActivityBar(): ReactNode {
           ))}
           {counts.failed > MAX_VISIBLE_FAILED && (
             <p style={{ fontSize: 10, color: "var(--syn-text-dim)", margin: 0 }}>
-              +{counts.failed - MAX_VISIBLE_FAILED} more failed tasks
+              {t("activity.moreFailedTasks", { count: counts.failed - MAX_VISIBLE_FAILED })}
             </p>
           )}
         </div>
@@ -878,15 +878,7 @@ export function ActivityBar(): ReactNode {
         </span>
       </footer>
 
-      {/* Keyframes for spinner + indeterminate task bar sweep (injected once via style tag) */}
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes taskBarSweep {
-          0%   { transform: translateX(-150%); }
-          50%  { transform: translateX(150%); }
-          100% { transform: translateX(350%); }
-        }
-      `}</style>
+      {/* UXB-2 AC-UXB2-4: @keyframes spin + taskBarSweep moved to theme.css — no inline <style> needed */}
     </div>
     </>
   );

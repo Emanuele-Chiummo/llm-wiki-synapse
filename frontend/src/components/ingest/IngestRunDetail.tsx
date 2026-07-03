@@ -79,6 +79,25 @@ export function IngestRunDetail() {
         <DetailRow label={t("provider.label")} value={run.provider_type} />
         <DetailRow label={t("ingest.iterationsUsed")} value={String(run.iterations_used)} />
         <DetailRow label={t("ingest.pagesCreated")} value={String(run.pages_created)} />
+        {/* UXA-06: contextual hint when a completed run produced no pages */}
+        {run.pages_created === 0 && run.status === "completed" && (
+          <div
+            data-testid="ingest-zero-pages-hint"
+            role="note"
+            style={{
+              marginBottom: 8,
+              padding: "6px 10px",
+              background: "color-mix(in srgb, var(--syn-amber) 8%, var(--syn-mix-base) 92%)",
+              border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, transparent 70%)",
+              borderRadius: 4,
+              fontSize: 11,
+              color: "var(--syn-text-muted)",
+              lineHeight: 1.5,
+            }}
+          >
+            {t("ingest.zeroPagesHint")}
+          </div>
+        )}
         <DetailRow
           label={t("ingest.cost")}
           value={
@@ -107,8 +126,8 @@ export function IngestRunDetail() {
               style={{
                 margin: "4px 0 0",
                 padding: 8,
-                background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
-                border: "1px solid color-mix(in srgb, var(--syn-red) 30%, white 70%)",
+                background: "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)",
+                border: "1px solid color-mix(in srgb, var(--syn-red) 30%, var(--syn-mix-base) 70%)",
                 borderRadius: 4,
                 fontSize: 11,
                 color: "var(--syn-red)",

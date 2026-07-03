@@ -44,6 +44,8 @@ import {
   selectSetMessages,
   selectSetMessagesLoading,
   selectSetMessagesError,
+  selectConversationsNeedRefresh,
+  selectClearConversationsNeedRefresh,
 } from "../../store/chatStore";
 import type { ConversationSummary } from "../../store/chatStore";
 import {
@@ -80,6 +82,9 @@ export function ConversationList(): ReactNode {
   const setMessages = useChatStore(selectSetMessages);
   const setMessagesLoading = useChatStore(selectSetMessagesLoading);
   const setMessagesError = useChatStore(selectSetMessagesError);
+  // UXB-1: refresh trigger
+  const conversationsNeedRefresh = useChatStore(selectConversationsNeedRefresh);
+  const clearConversationsNeedRefresh = useChatStore(selectClearConversationsNeedRefresh);
 
   // R7-3: filter state
   const [filterRaw, setFilterRaw] = useState("");
@@ -157,6 +162,14 @@ export function ConversationList(): ReactNode {
     void loadConversations();
     return () => abortRef.current?.abort();
   }, [loadConversations]);
+
+  // UXB-1: re-fetch conversation list when a stream finishes so the auto-generated
+  // title and preview are reflected (AC-UXB1-4).
+  useEffect(() => {
+    if (!conversationsNeedRefresh) return;
+    clearConversationsNeedRefresh();
+    void loadConversations();
+  }, [conversationsNeedRefresh, clearConversationsNeedRefresh, loadConversations]);
 
   const handleSelect = useCallback(
     (conv: ConversationSummary) => {
@@ -555,6 +568,22 @@ function ConvItem({
         >
           {displayTitle}
         </div>
+        {/* UXB-1: preview snippet (AC-UXB1-3) */}
+        {conv.preview ? (
+          <div
+            data-testid="conv-preview"
+            style={{
+              fontSize: 9,
+              color: "var(--syn-text-dim)",
+              marginTop: 1,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {conv.preview}
+          </div>
+        ) : null}
         <div style={{ fontSize: 11, color: "var(--syn-text-dim)", marginTop: 2 }}>{date}</div>
       </div>
 

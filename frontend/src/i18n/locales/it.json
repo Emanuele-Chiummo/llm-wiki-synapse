@@ -9,8 +9,9 @@
     "graph": "Grafo",
     "lint": "Lint",
     "review": "Revisione",
-    "deepSearch": "Profonda",
-    "deepSearchShort": "Ricerca",
+    "deepSearch": "Ricerca",
+    "deepSearchShort": "Ricerca Profonda",
+    "toolsGroup": "Strumenti",
     "settings": "Opzioni",
     "settingsShort": "Impost.",
     "chatComingSoon": "Fase 3",
@@ -67,6 +68,7 @@
     "toastError": "Importazione fallita: {{detail}}",
     "costAnomaly": "Anomalia costo (> $1.00)",
     "noRunSelected": "Seleziona un'esecuzione per vedere i dettagli.",
+    "zeroPagesHint": "0 pagine create — verifica la configurazione del provider e che il formato del file sia supportato.",
     "upload": {
       "label": "Carica documento",
       "drop": "Trascina un file qui, o clicca per scegliere",
@@ -135,7 +137,8 @@
       "interface": "Interfaccia",
       "maintenance": "Manutenzione",
       "about": "Informazioni",
-      "scenarios": "Scenari"
+      "scenarios": "Scenari",
+      "costs": "Costi"
     },
     "llmModels": {
       "title": "Modelli LLM",
@@ -401,6 +404,25 @@
       "runNowError": "Impossibile avviare l'importazione: {{detail}}",
       "never": "Mai eseguita",
       "saveError": "Salvataggio fallito: {{detail}}"
+    },
+    "costs": {
+      "navLabel": "Costi",
+      "title": "Costi e utilizzo",
+      "desc": "Spesa mensile AI aggregata da tutte le esecuzioni. Aggiornamento manuale — nessun polling in background.",
+      "refresh": "Aggiorna",
+      "loading": "Caricamento dati costi…",
+      "error": "Impossibile caricare i dati. Il backend è in esecuzione?",
+      "period": "Periodo",
+      "monthlyTotal": "Totale mensile",
+      "thresholdAlert": "La spesa mensile supera la soglia (${{threshold}})",
+      "byProvider": "Costo per provider",
+      "byOperation": "Costo per operazione",
+      "byDay": "Spesa giornaliera",
+      "providerCol": "Provider",
+      "operationCol": "Operazione",
+      "totalUsd": "Totale (USD)",
+      "callCount": "Chiamate",
+      "noData": "Nessun dato di costo per questo periodo."
     }
   },
   "chat": {
@@ -653,6 +675,27 @@
       "collapseAriaLabel": "Comprimi pannello insight",
       "expandAriaLabel": "Espandi pannello insight",
       "empty": "Nessun insight trovato. Aggiungi altre pagine e collegamenti per far emergere connessioni sorprendenti e lacune di conoscenza."
+    },
+    "community": {
+      "panelTitle": "Comunità {{id}}",
+      "memberCount": "{{count}} membri",
+      "cohesionLabel": "Coesione: {{score}}",
+      "lowCohesionWarning": "Coesione bassa — questa comunità potrebbe essere frammentata.",
+      "loading": "Caricamento comunità…",
+      "error": "Impossibile caricare i dati della comunità.",
+      "coldCache": "Layout grafo non pronto — rigenerare il grafo prima.",
+      "noMembers": "Nessun membro trovato."
+    },
+    "edge": {
+      "breakdownTitle": "Dettaglio peso arco",
+      "directLinks": "Link diretti ×3",
+      "sharedSources": "Sorgenti condivise ×4",
+      "adamicAdar": "Adamic-Adar ×1.5",
+      "typeAffinity": "Affinità tipo ×1",
+      "total": "Totale",
+      "loading": "Caricamento…",
+      "error": "Impossibile caricare i dati dell'arco.",
+      "notFound": "Nessun arco diretto tra questi nodi."
     }
   },
   "search": {
@@ -758,6 +801,7 @@
     "expand": "Espandi pannello attività",
     "collapse": "Comprimi pannello attività",
     "emptyQueue": "Coda vuota",
+    "moreFailedTasks": "+{{count}} task falliti in più",
     "etaLeft": "~{{eta}} rimanenti",
     "elapsed": "Trascorso",
     "batchIndexing": "Indicizzazione {{done}}/{{total}}",
@@ -795,12 +839,22 @@
     "copy": "Copia",
     "unknown": "Sconosciuto"
   },
+  "previewPanel": {
+    "connectedTo": "Collegata a {{count}} altre pagine",
+    "connectedTo_one": "Collegata a 1 altra pagina",
+    "technicalDetails": "Dettagli tecnici"
+  },
   "palette": {
     "placeholder": "Cerca sezioni e pagine…",
     "noResults": "Nessun risultato",
     "sections": "Sezioni",
     "pages": "Pagine",
     "hint": "↑↓ naviga · Invio apri · Esc chiudi"
+  },
+  "conversation": {
+    "autoTitle": {
+      "fallback": "Chat {{date}}"
+    }
   },
   "desktop": {
     "serverChip": {

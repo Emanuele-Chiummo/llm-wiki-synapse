@@ -1,0 +1,207 @@
+/*
+ * components.css — Synapse design-system component layer (UXB-2, AC-UXB2-1).
+ *
+ * Imported after theme.css from main.tsx.
+ * Rules use ONLY --syn-* tokens — no raw hex colors, no literal "white" / "black"
+ * in color-mix() calls. All color-mix() uses var(--syn-mix-base) as the second
+ * argument so dark-mode automatically resolves against the dark surface.
+ *
+ * Classes defined here:
+ *   .syn-btn              — base button reset + shared geometry
+ *   .syn-btn--primary     — accent background (calls to action)
+ *   .syn-btn--secondary   — ghost with border, accent text (secondary/ghost actions)
+ *   .syn-btn--danger      — red outline (destructive, non-modal actions)
+ *   .syn-btn--ghost       — borderless text button (inline / toolbar ghost)
+ *   .syn-btn--gradient    — gradient background modifier (ConnectScreen branding CTA)
+ *   .syn-btn--sm          — smaller size (11px font, reduced padding)
+ *
+ * Usage notes:
+ *   - Combine base + variant: <button className="syn-btn syn-btn--secondary">
+ *   - Size modifier is additive: <button className="syn-btn syn-btn--ghost syn-btn--sm">
+ *   - Keep layout margins (margin, flex, position) inline — classes own only
+ *     appearance (color, border, padding, radius, font).
+ *   - The gradient modifier is for branded full-width CTAs only (ConnectScreen).
+ *     Do not use it for toolbar or inline actions.
+ *
+ * Future adoption: any new button may use these classes instead of inline styles.
+ * The audit-cited sites (UXA-04) have been migrated; others should adopt on touch.
+ */
+
+/* ── Base reset + geometry ──────────────────────────────────────────────────── */
+
+/*
+ * .syn-btn — shared button shell.
+ * Sets: display, alignment, min-height, padding, radius, font, cursor, transition.
+ * Does NOT set color/background/border — those come from variant modifiers.
+ */
+.syn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: var(--syn-radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  /* Transition scoped to appearance properties only — never transition: all */
+  transition:
+    background-color 130ms ease,
+    border-color 130ms ease,
+    color 130ms ease,
+    opacity 130ms ease;
+}
+
+.syn-btn:disabled,
+.syn-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.syn-btn:focus-visible {
+  /* Inherits the global button:focus-visible rule from theme.css; this is a
+     reinforcement for cases where component specificity might override it. */
+  outline: 2px solid color-mix(in srgb, var(--syn-accent) 70%, var(--syn-mix-base) 30%);
+  outline-offset: 2px;
+}
+
+/* ── Variants ───────────────────────────────────────────────────────────────── */
+
+/*
+ * .syn-btn--primary — filled accent background.
+ * Use for: primary CTAs, confirm actions.
+ * Hover: darkens accent via accent-strong.
+ */
+.syn-btn--primary {
+  background: var(--syn-accent);
+  border: 1px solid var(--syn-accent-strong);
+  color: #ffffff; /* white on accent is intentional — accent colors are vetted for contrast */
+}
+
+.syn-btn--primary:not(:disabled):not([aria-disabled="true"]):hover {
+  background: var(--syn-accent-strong);
+  border-color: var(--syn-accent-strong);
+}
+
+/*
+ * .syn-btn--secondary — ghost: transparent background, border, accent text.
+ * Use for: secondary actions, "Save to wiki", "Regenerate", ActionButton (review queue).
+ * Hover: soft accent tint fill.
+ */
+.syn-btn--secondary {
+  background: transparent;
+  border: 1px solid var(--syn-border);
+  color: var(--syn-text-muted);
+}
+
+.syn-btn--secondary:not(:disabled):not([aria-disabled="true"]):hover {
+  background: var(--syn-accent-soft);
+  border-color: color-mix(in srgb, var(--syn-accent) 45%, var(--syn-border) 55%);
+  color: var(--syn-accent);
+}
+
+/*
+ * .syn-btn--danger — red outline, no background fill.
+ * Use for: non-modal destructive actions (clear resolved, bulk dismiss, etc.).
+ * Filled-red (background) is reserved for the ConfirmDialog confirm button via
+ * the danger=true prop on ConfirmDialog — not via this class.
+ * Hover: soft red tint fill.
+ */
+.syn-btn--danger {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--syn-red) 30%, var(--syn-border) 70%);
+  color: var(--syn-red);
+}
+
+.syn-btn--danger:not(:disabled):not([aria-disabled="true"]):hover {
+  background: var(--syn-notice-danger-bg);
+  border-color: var(--syn-red);
+}
+
+/*
+ * .syn-btn--ghost — borderless text button.
+ * Use for: inline toolbar/meta-row ghost actions, close buttons, "Change server".
+ * Hover: subtle surface-hover fill.
+ */
+.syn-btn--ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--syn-text-dim);
+}
+
+.syn-btn--ghost:not(:disabled):not([aria-disabled="true"]):hover {
+  background: var(--syn-surface-hover);
+  color: var(--syn-text-muted);
+}
+
+/*
+ * .syn-btn--gradient — branded gradient CTA (ConnectScreen Connetti button).
+ * Overrides background with the brand accent gradient.
+ * Keep border transparent (gradient replaces the border visual).
+ * This is a modifier for .syn-btn--primary or standalone.
+ */
+.syn-btn--gradient {
+  background: linear-gradient(135deg, var(--syn-accent) 0%, #5b4de0 100%);
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.syn-btn--gradient:not(:disabled):not([aria-disabled="true"]):hover {
+  opacity: 0.92;
+  background: linear-gradient(135deg, var(--syn-accent) 0%, #5b4de0 100%);
+}
+
+/* ── Size modifier ──────────────────────────────────────────────────────────── */
+
+/*
+ * .syn-btn--sm — compact size for meta-rows, chat action bar, review action buttons.
+ * Reduces font to 11px, padding to 2px 8px, min-height to 22px.
+ */
+.syn-btn--sm {
+  min-height: 22px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+/* ── Utility layout classes (UXB-2 AC-UXB2-1) ──────────────────────────────── */
+
+/*
+ * .syn-meta-row — horizontal row of small meta/action elements (e.g. chat message footer).
+ * Use for: the cost + Save-to-wiki + Regenerate row below each assistant message.
+ */
+.syn-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--syn-text-dim);
+}
+
+/*
+ * .syn-card-row — a padded content row with bottom border, used for list items.
+ * Use for: review queue item cards, ingest run list rows.
+ */
+.syn-card-row {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--syn-border);
+  background: var(--syn-bg-card);
+}
+
+/*
+ * .syn-role-label — chat role identifier (YOU / ASSISTANT).
+ * Reduced hierarchy: 9px, var(--syn-text-dim), uppercase but subdued.
+ * Use in MessageRow role header.
+ */
+.syn-role-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--syn-text-dim);
+}

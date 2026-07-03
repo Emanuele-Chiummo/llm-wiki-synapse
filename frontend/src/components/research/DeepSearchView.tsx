@@ -66,12 +66,13 @@ const RESEARCH_STATUS_COLOR: Record<string, string> = {
   error: "var(--syn-red)",
 };
 
+// UXB-2 AC-UXB2-5: literal "white" replaced with var(--syn-mix-base) (dark-mode safe).
 const RESEARCH_STATUS_BG: Record<string, string> = {
   running: "var(--syn-accent-soft)",
-  converged: "color-mix(in srgb, var(--syn-green) 10%, white 90%)",
-  max_iter_reached: "color-mix(in srgb, var(--syn-amber) 10%, white 90%)",
-  budget_exhausted: "color-mix(in srgb, var(--syn-amber) 10%, white 90%)",
-  error: "color-mix(in srgb, var(--syn-red) 10%, white 90%)",
+  converged: "color-mix(in srgb, var(--syn-green) 10%, var(--syn-mix-base) 90%)",
+  max_iter_reached: "color-mix(in srgb, var(--syn-amber) 10%, var(--syn-mix-base) 90%)",
+  budget_exhausted: "color-mix(in srgb, var(--syn-amber) 10%, var(--syn-mix-base) 90%)",
+  error: "color-mix(in srgb, var(--syn-red) 10%, var(--syn-mix-base) 90%)",
 };
 
 interface ResearchStatusBadgeProps {
@@ -831,7 +832,7 @@ export function DeepSearchView() {
               flexShrink: 0,
               fontSize: 12,
               color: "var(--syn-red)",
-              background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
+              background: "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)",
             }}
           >
             {listError}

@@ -375,4 +375,21 @@ describe("ConnectScreen — prefill and local auto-detect", () => {
     expect(getUrlInput().value).toBe("http://");
     expect(screen.queryByTestId("connect-detected")).toBeNull();
   });
+
+  // UXA-23: detected hint must contain a CheckCircle2 SVG icon
+  it("UXA-23: detected hint contains an SVG icon alongside the text", async () => {
+    (window as unknown as Record<string, unknown>)["__TAURI_INTERNALS__"] = {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("{}", { status: 200 })),
+    );
+    renderConnectScreen();
+    await waitFor(() => {
+      expect(screen.getByTestId("connect-detected")).toBeTruthy();
+    });
+    const detectedEl = screen.getByTestId("connect-detected");
+    // The paragraph must contain at least one SVG (CheckCircle2 icon, UXA-23)
+    const svgIcons = detectedEl.querySelectorAll("svg");
+    expect(svgIcons.length).toBeGreaterThanOrEqual(1);
+  });
 });

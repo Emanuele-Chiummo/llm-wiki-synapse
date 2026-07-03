@@ -114,7 +114,7 @@ export function ConfirmDialog({
         aria-describedby={bodyId}
         data-testid="confirm-dialog"
         style={{
-          background: "var(--syn-bg-card, var(--syn-bg-soft))",
+          background: "var(--syn-bg-card)",
           border: "1px solid var(--syn-border)",
           borderRadius: 8,
           boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
@@ -157,12 +157,15 @@ export function ConfirmDialog({
             marginTop: 4,
           }}
         >
+          {/* UXB-2: cancel uses .syn-btn--secondary; confirm uses .syn-btn--primary
+              or, when danger=true, .syn-btn base + filled-red inline override
+              (filled-red is intentional for destructive modal confirm — audit UXA-20). */}
           <button
             ref={cancelRef}
             type="button"
             data-testid="confirm-dialog-cancel"
             onClick={onCancel}
-            className="syn-button syn-button--secondary"
+            className="syn-btn syn-btn--secondary"
           >
             {cancelLabel}
           </button>
@@ -172,21 +175,16 @@ export function ConfirmDialog({
             type="button"
             data-testid="confirm-dialog-confirm"
             onClick={onConfirm}
+            className={danger ? "syn-btn" : "syn-btn syn-btn--primary"}
             style={
               danger
                 ? {
                     background: "var(--syn-red)",
                     color: "#fff",
                     border: "1px solid var(--syn-red)",
-                    borderRadius: "var(--syn-radius-sm, 4px)",
-                    padding: "5px 14px",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    fontWeight: 600,
                   }
                 : undefined
             }
-            className={danger ? undefined : "syn-button syn-button--primary"}
           >
             {confirmLabel}
           </button>

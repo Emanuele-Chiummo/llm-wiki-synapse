@@ -13,7 +13,7 @@
  * var(--syn-border) separators and collapse button borders.
  */
 
-import { useCallback, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 import type { Layout } from "react-resizable-panels";
 import { NavTree } from "../nav/NavTree";
@@ -21,6 +21,7 @@ import { NoteView } from "../wiki/NoteView";
 import { PreviewPanel } from "../preview/PreviewPanel";
 import { ScenarioTemplates } from "../common/ScenarioTemplates";
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import { fetchGraph } from "../../api/graphClient";
 
 // ─── Panel IDs ────────────────────────────────────────────────────────────────
 
@@ -127,6 +128,31 @@ function CollapseButton({
 export function PanelGroup() {
   const vaultId = useGraphStore(selectVaultId);
   const initialLayout = loadLayout();
+
+  // E2E defect fix (R9-6 finding): PreviewPanel reads node metadata from
+  // graphStore.nodes, which historically was populated only when GraphViewer
+  // mounted (graph section). Visiting "pages" cold left the panel stuck on
+  // its empty state. Lazily hydrate the store here when empty — same
+  // fetchGraph→setGraph path GraphViewer uses; server-precomputed coords
+  // only, no client layout (I2). Silent on failure: the tree still works.
+  // IMPORTANT: read the store imperatively (getState) — subscribing to `nodes`
+  // here would re-render PanelGroup when the graph loads, and the per-render
+  // loadLayout() would feed react-resizable-panels an unstable initialLayout
+  // (observed: nav-tree scroll container collapsing to 0 height).
+  useEffect(() => {
+    if (useGraphStore.getState().nodes.length > 0) return;
+    const ctrl = new AbortController();
+    fetchGraph(vaultId, ctrl.signal)
+      .then(({ data, cacheStatus }) => {
+        useGraphStore
+          .getState()
+          .setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? []);
+      })
+      .catch(() => {
+        // non-blocking: tree/wiki reading unaffected
+      });
+    return () => ctrl.abort();
+  }, [vaultId]);
 
   const leftRef = usePanelRef();
   const rightRef = usePanelRef();

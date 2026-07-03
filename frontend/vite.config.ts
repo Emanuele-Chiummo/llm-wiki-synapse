@@ -1,4 +1,7 @@
 import { defineConfig } from "vite";
+import { readFileSync } from "node:fs";
+
+const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8")) as { version: string };
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
@@ -31,6 +34,7 @@ const API_PREFIXES = [
   `/overview`,
   `/links`,
   `/scenarios`,
+  `/costs`,
   `/api`,
 ];
 
@@ -181,6 +185,10 @@ export default defineConfig({
         target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
         changeOrigin: true,
       },
+      "/costs": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
     },
   },
   // VITE_API_BASE: browser base (relative by default, inlined by Vite at build time).
@@ -188,5 +196,8 @@ export default defineConfig({
   // Never hardcode secrets here.
   define: {
     __DEV__: JSON.stringify(process.env["NODE_ENV"] !== "production"),
+    // App version from package.json — single source of truth for the UI
+    // (Header badge, Settings → About, ConnectScreen footer). Bumped per release.
+    __APP_VERSION__: JSON.stringify(pkg.version),
   },
 });

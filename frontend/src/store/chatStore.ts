@@ -25,6 +25,12 @@ export interface ConversationSummary {
   title: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * UXB-1: preview snippet — first 80 chars of the last message, server-generated.
+   * null when no messages exist yet (new conversation).
+   * Non-breaking additive field; older servers omit it.
+   */
+  preview?: string | null;
 }
 
 export type ChatRole = "user" | "assistant" | "system";
@@ -86,6 +92,12 @@ export interface ChatState {
   conversationsError: string | null;
   messagesLoading: boolean;
   messagesError: string | null;
+  /**
+   * UXB-1: toggled true by finalizeTurn so ConversationList can re-fetch to pick
+   * up the auto-generated title and updated preview. Reset to false after the
+   * re-fetch fires.
+   */
+  conversationsNeedRefresh: boolean;
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -100,6 +112,8 @@ export interface ChatActions {
   updateConversation: (id: string, patch: Partial<ConversationSummary>) => void;
   setConversationsLoading: (loading: boolean) => void;
   setConversationsError: (error: string | null) => void;
+  /** UXB-1: clear the refresh flag after ConversationList has re-fetched. */
+  clearConversationsNeedRefresh: () => void;
 
   // Message management
   setMessages: (messages: ChatMessage[]) => void;
@@ -149,6 +163,7 @@ const INITIAL: ChatState = {
   conversationsError: null,
   messagesLoading: false,
   messagesError: null,
+  conversationsNeedRefresh: false,
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -172,6 +187,7 @@ export const useChatStore = create<ChatStore>((set) => ({
     })),
   setConversationsLoading: (conversationsLoading) => set({ conversationsLoading }),
   setConversationsError: (conversationsError) => set({ conversationsError }),
+  clearConversationsNeedRefresh: () => set({ conversationsNeedRefresh: false }),
 
   setMessages: (messages) => set({ messages }),
   appendMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
@@ -193,6 +209,7 @@ export const useChatStore = create<ChatStore>((set) => ({
       streamError: null,
       lastUsage: usage,
       activeConversationId: s.activeConversationId ?? msg.conversation_id,
+      conversationsNeedRefresh: true, // UXB-1: triggers ConversationList re-fetch for auto-title+preview
     })),
 
   updateMessageCitations: (messageId, citations) =>
@@ -272,6 +289,12 @@ export const selectClearStream = (s: ChatStore): ChatActions["clearStream"] => s
 export const selectUpdateMessageCitations = (
   s: ChatStore,
 ): ChatActions["updateMessageCitations"] => s.updateMessageCitations;
+// UXB-1
+export const selectConversationsNeedRefresh = (s: ChatStore): boolean =>
+  s.conversationsNeedRefresh;
+export const selectClearConversationsNeedRefresh = (
+  s: ChatStore,
+): ChatActions["clearConversationsNeedRefresh"] => s.clearConversationsNeedRefresh;
 
 // ─── Shallow-equality hooks (I3) ─────────────────────────────────────────────
 

@@ -79,6 +79,8 @@ ignore = [
 # Cross-module pytest fixture reuse: importing a fixture and using it as a test
 # parameter is the documented pytest pattern but trips F811 (param shadows import).
 "tests/test_review_ai_adr0034.py" = ["ANN", "S", "F811"]
+"tests/test_r9_purpose_suggestions.py" = ["ANN", "S", "F811"]
+"tests/test_r9_schema_suggestions.py" = ["ANN", "S", "F811"]
 "tests/test_page_content_api.py" = ["ANN", "S", "F811"]
 "tests/test_put_content_no_llm.py" = ["ANN", "S", "F811"]
 "tests/test_write_wiki_page_upsert.py" = ["ANN", "S", "F811"]

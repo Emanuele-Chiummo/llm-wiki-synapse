@@ -16,6 +16,7 @@
 
 import { useState, useCallback, useEffect, useRef, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { CheckCircle2 } from "lucide-react";
 import logoUrl from "../../assets/synapse-logo.svg";
 import { getLastServerUrl, isTauri } from "../../api/base";
 import { useSettingsStore, selectSetServerUrl } from "../../store/settingsStore";
@@ -250,7 +251,7 @@ export function ConnectScreen() {
                 fontSize: 14,
                 fontFamily: "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace",
                 border: error
-                  ? "1.5px solid #ef4444"
+                  ? "1.5px solid var(--syn-red, #ef4444)"
                   : "1.5px solid var(--syn-border, #e2e8f0)",
                 borderRadius: 8,
                 background: "var(--syn-input-bg, #f8fafc)",
@@ -260,7 +261,7 @@ export function ConnectScreen() {
               }}
             />
 
-            {/* Local server detected hint */}
+            {/* Local server detected hint — UXA-23: CheckCircle2 icon for visual cue */}
             {detected && error === null && (
               <p
                 data-testid="connect-detected"
@@ -268,8 +269,12 @@ export function ConnectScreen() {
                   fontSize: 13,
                   color: "var(--syn-green, #1a7f37)",
                   margin: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
                 }}
               >
+                <CheckCircle2 size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
                 {t("connect.detected")}
               </p>
             )}
@@ -281,7 +286,7 @@ export function ConnectScreen() {
                 data-testid="connect-error"
                 style={{
                   fontSize: 13,
-                  color: "#ef4444",
+                  color: "var(--syn-red, #ef4444)",
                   margin: 0,
                 }}
               >
@@ -289,10 +294,11 @@ export function ConnectScreen() {
               </p>
             )}
 
-            {/* Connect button */}
+            {/* Connect button — UXB-2: .syn-btn--gradient preserves the branded look */}
             <button
               type="submit"
               disabled={connecting || url.trim().length === 0}
+              className={`syn-btn syn-btn--gradient${connecting ? "" : ""}`}
               style={{
                 marginTop: 4,
                 width: "100%",
@@ -300,14 +306,9 @@ export function ConnectScreen() {
                 fontSize: 15,
                 fontWeight: 700,
                 letterSpacing: "-0.01em",
-                border: "none",
                 borderRadius: 8,
-                cursor: connecting ? "wait" : "pointer",
-                background: connecting
-                  ? "var(--syn-border, #e2e8f0)"
-                  : "linear-gradient(135deg, #2563eb 0%, #5b4de0 100%)",
-                color: connecting ? "var(--syn-text-dim, #64748b)" : "#ffffff",
-                transition: "opacity 0.15s",
+                background: connecting ? "var(--syn-border)" : undefined,
+                color: connecting ? "var(--syn-text-dim)" : "#ffffff",
                 opacity: connecting ? 0.7 : 1,
               }}
             >
@@ -325,7 +326,7 @@ export function ConnectScreen() {
             marginTop: 16,
           }}
         >
-          Synapse Desktop · v0.6
+          Synapse Desktop · v{__APP_VERSION__}
         </p>
       </div>
     </div>

@@ -67,6 +67,7 @@ import {
 } from "../../api/providerClient";
 import type { ClipConfigResponse, ClipConfigStateResponse, WebSearchConfigResponse, CliAuthConfig } from "../../api/types";
 import { fetchScenarios, applyScenario, type ScenarioItem } from "../../api/scenariosClient";
+import { fetchCostsSummary, type CostsSummary } from "../../api/costsClient";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { showToast } from "../common/Toast";
 
@@ -84,7 +85,8 @@ type SettingsSection =
   | "interface"
   | "maintenance"
   | "about"
-  | "scenarios";
+  | "scenarios"
+  | "costs";
 
 // ─── Left nav item ────────────────────────────────────────────────────────────
 
@@ -208,6 +210,18 @@ function IconScenarios() {
   );
 }
 
+function IconWallet() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 12V22H4V12"/>
+      <path d="M22 7H2v5h20V7z"/>
+      <path d="M12 22V7"/>
+      <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
+      <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+    </svg>
+  );
+}
+
 const NAV_ITEMS: NavItem[] = [
   { id: "general",     labelKey: "settings.nav.general",     icon: <IconSliders /> },
   { id: "llmModels",   labelKey: "settings.nav.llmModels",   icon: <IconCpu /> },
@@ -218,6 +232,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "webClipper",  labelKey: "settings.nav.webClipper",  icon: <IconClip /> },
   { id: "output",      labelKey: "settings.nav.output",      icon: <IconType /> },
   { id: "interface",   labelKey: "settings.nav.interface",   icon: <IconMonitor /> },
+  { id: "costs",       labelKey: "settings.nav.costs",       icon: <IconWallet /> },
   { id: "scenarios",   labelKey: "settings.nav.scenarios",   icon: <IconScenarios /> },
   { id: "maintenance", labelKey: "settings.nav.maintenance", icon: <IconWrench /> },
   { id: "about",       labelKey: "settings.nav.about",       icon: <IconInfo /> },
@@ -347,6 +362,7 @@ export function SettingsPanel() {
         {activeSection === "webClipper" && <SectionWebClipper />}
         {activeSection === "output" && <SectionOutput />}
         {activeSection === "interface" && <SectionInterface />}
+        {activeSection === "costs" && <SectionCosts />}
         {activeSection === "maintenance" && <SectionMaintenance />}
         {activeSection === "about" && <SectionAbout />}
         {activeSection === "scenarios" && <SectionScenarios />}
@@ -454,12 +470,12 @@ function SectionLlmModels() {
       <SectionHeader title={t("settings.nav.llmModels")} desc={t("settings.llmModels.desc")} />
 
       {successMsg && (
-        <div style={{ marginBottom: 12, padding: "6px 12px", background: "color-mix(in srgb, var(--syn-green) 8%, white 92%)", border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)", borderRadius: 6, fontSize: 12, color: "var(--syn-green)" }}>
+        <div style={{ marginBottom: 12, padding: "6px 12px", background: "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)", border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)", borderRadius: 6, fontSize: 12, color: "var(--syn-green)" }}>
           {successMsg}
         </div>
       )}
       {providerError && (
-        <div style={{ marginBottom: 12, padding: "6px 12px", background: "color-mix(in srgb, var(--syn-red) 8%, white 92%)", border: "1px solid color-mix(in srgb, var(--syn-red) 30%, white 70%)", borderRadius: 6, fontSize: 12, color: "var(--syn-red)" }}>
+        <div style={{ marginBottom: 12, padding: "6px 12px", background: "color-mix(in srgb, var(--syn-red) 8%, var(--syn-mix-base) 92%)", border: "1px solid color-mix(in srgb, var(--syn-red) 30%, var(--syn-mix-base) 70%)", borderRadius: 6, fontSize: 12, color: "var(--syn-red)" }}>
           {providerError}
         </div>
       )}
@@ -649,8 +665,8 @@ function SectionEmbeddings() {
               alignItems: "center",
               gap: 8,
               padding: "6px 10px",
-              background: "color-mix(in srgb, var(--syn-green) 8%, white 92%)",
-              border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
+              background: "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)",
+              border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)",
               borderRadius: 6,
               fontSize: 12,
               color: "var(--syn-green)",
@@ -677,8 +693,8 @@ function SectionEmbeddings() {
               alignItems: "center",
               gap: 8,
               padding: "6px 10px",
-              background: "color-mix(in srgb, var(--syn-amber) 8%, white 92%)",
-              border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, white 70%)",
+              background: "color-mix(in srgb, var(--syn-amber) 8%, var(--syn-mix-base) 92%)",
+              border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, var(--syn-mix-base) 70%)",
               borderRadius: 6,
               fontSize: 12,
               color: "var(--syn-amber)",
@@ -886,8 +902,8 @@ function SectionWebSearch() {
               style={{
                 padding: "2px 8px",
                 borderRadius: 4,
-                background: cfg.configured ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "color-mix(in srgb, var(--syn-red) 8%, white 92%)",
-                border: `1px solid ${cfg.configured ? "color-mix(in srgb, var(--syn-green) 30%, white 70%)" : "color-mix(in srgb, var(--syn-red) 30%, white 70%)"}`,
+                background: cfg.configured ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)" : "color-mix(in srgb, var(--syn-red) 8%, var(--syn-mix-base) 92%)",
+                border: `1px solid ${cfg.configured ? "color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)" : "color-mix(in srgb, var(--syn-red) 30%, var(--syn-mix-base) 70%)"}`,
                 color: cfg.configured ? "var(--syn-green)" : "var(--syn-red)",
                 fontSize: 11,
                 fontWeight: 600,
@@ -1362,8 +1378,8 @@ function SectionApiMcp() {
               <div
                 style={{
                   padding: "12px 14px",
-                  background: "color-mix(in srgb, var(--syn-green) 8%, white 92%)",
-                  border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
+                  background: "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)",
+                  border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)",
                   borderRadius: 8,
                   marginBottom: 10,
                 }}
@@ -1381,7 +1397,7 @@ function SectionApiMcp() {
                       color: "var(--syn-text)",
                       padding: "6px 10px",
                       background: "var(--syn-bg)",
-                      border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
+                      border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)",
                       borderRadius: 4,
                       wordBreak: "break-all",
                       userSelect: "all",
@@ -1394,7 +1410,7 @@ function SectionApiMcp() {
                     onClick={handleCopyGeneratedToken}
                     style={{
                       padding: "6px 12px",
-                      border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
+                      border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)",
                       borderRadius: 4,
                       background: copiedGenToken ? "var(--syn-green)" : "transparent",
                       color: copiedGenToken ? "#fff" : "var(--syn-green)",
@@ -1434,7 +1450,7 @@ function SectionApiMcp() {
                 gap: 12,
                 padding: "10px 14px",
                 background: "var(--syn-bg-soft)",
-                border: `1px solid ${allowWithoutToken ? "color-mix(in srgb, var(--syn-amber) 30%, white 70%)" : "var(--syn-border)"}`,
+                border: `1px solid ${allowWithoutToken ? "color-mix(in srgb, var(--syn-amber) 30%, var(--syn-mix-base) 70%)" : "var(--syn-border)"}`,
                 borderRadius: 8,
                 opacity: authBusy ? 0.6 : 1,
                 transition: "border-color 0.15s, opacity 0.15s",
@@ -1582,7 +1598,7 @@ function SectionApiMcp() {
                   style={{
                     padding: "2px 8px",
                     borderRadius: 4,
-                    background: remoteWrite ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "var(--syn-surface-hover)",
+                    background: remoteWrite ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)" : "var(--syn-surface-hover)",
                     color: remoteWrite ? "var(--syn-green)" : "var(--syn-text-muted)",
                     fontSize: 10,
                     fontWeight: 600,
@@ -1612,7 +1628,7 @@ function SectionApiMcp() {
                         color: "var(--syn-accent)",
                         padding: "5px 8px",
                         background: "var(--syn-accent-soft)",
-                        border: "1px solid color-mix(in srgb, var(--syn-accent) 30%, white 70%)",
+                        border: "1px solid color-mix(in srgb, var(--syn-accent) 30%, var(--syn-mix-base) 70%)",
                         borderRadius: 4,
                         wordBreak: "break-all",
                       }}
@@ -1626,7 +1642,7 @@ function SectionApiMcp() {
                         padding: "5px 10px",
                         border: "1px solid var(--syn-border)",
                         borderRadius: 4,
-                        background: copiedRemote ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "transparent",
+                        background: copiedRemote ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)" : "transparent",
                         color: copiedRemote ? "var(--syn-green)" : "var(--syn-text-muted)",
                         fontSize: 11,
                         cursor: "pointer",
@@ -1668,7 +1684,7 @@ function SectionApiMcp() {
                       padding: "5px 12px",
                       border: "1px solid var(--syn-border)",
                       borderRadius: 6,
-                      background: copiedRemoteSnippet ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "transparent",
+                      background: copiedRemoteSnippet ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)" : "transparent",
                       color: copiedRemoteSnippet ? "var(--syn-green)" : "var(--syn-text-muted)",
                       fontSize: 11,
                       cursor: "pointer",
@@ -1718,7 +1734,7 @@ function SectionApiMcp() {
                   padding: "5px 12px",
                   border: "1px solid var(--syn-border)",
                   borderRadius: 6,
-                  background: copied ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "transparent",
+                  background: copied ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)" : "transparent",
                   color: copied ? "var(--syn-green)" : "var(--syn-text-muted)",
                   fontSize: 11,
                   cursor: "pointer",
@@ -1878,8 +1894,8 @@ function SectionCliAuth() {
               style={{
                 padding: "2px 8px",
                 borderRadius: 4,
-                background: posture.token_configured ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "color-mix(in srgb, var(--syn-red) 8%, white 92%)",
-                border: `1px solid ${posture.token_configured ? "color-mix(in srgb, var(--syn-green) 30%, white 70%)" : "color-mix(in srgb, var(--syn-red) 30%, white 70%)"}`,
+                background: posture.token_configured ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)" : "color-mix(in srgb, var(--syn-red) 8%, var(--syn-mix-base) 92%)",
+                border: `1px solid ${posture.token_configured ? "color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)" : "color-mix(in srgb, var(--syn-red) 30%, var(--syn-mix-base) 70%)"}`,
                 color: posture.token_configured ? "var(--syn-green)" : "var(--syn-red)",
                 fontSize: 11,
                 fontWeight: 600,
@@ -1900,7 +1916,7 @@ function SectionCliAuth() {
               style={{
                 padding: "2px 8px",
                 borderRadius: 4,
-                background: posture.auth_mode === "subscription" ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "var(--syn-surface-hover)",
+                background: posture.auth_mode === "subscription" ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)" : "var(--syn-surface-hover)",
                 color: posture.auth_mode === "subscription" ? "var(--syn-green)" : "var(--syn-text-muted)",
                 fontSize: 11,
               }}
@@ -1993,8 +2009,8 @@ function SectionCliAuth() {
             data-testid="cli-auth-caveat"
             style={{
               padding: "8px 12px",
-              background: "color-mix(in srgb, var(--syn-amber) 8%, white 92%)",
-              border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, white 70%)",
+              background: "color-mix(in srgb, var(--syn-amber) 8%, var(--syn-mix-base) 92%)",
+              border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, var(--syn-mix-base) 70%)",
               borderRadius: 6,
               fontSize: 11,
               color: "var(--syn-amber)",
@@ -2324,8 +2340,8 @@ function SectionWebClipper() {
               <div
                 style={{
                   padding: "12px 14px",
-                  background: "color-mix(in srgb, var(--syn-green) 8%, white 92%)",
-                  border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
+                  background: "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)",
+                  border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)",
                   borderRadius: 8,
                   marginBottom: 10,
                 }}
@@ -2343,7 +2359,7 @@ function SectionWebClipper() {
                       color: "var(--syn-text)",
                       padding: "6px 10px",
                       background: "var(--syn-bg)",
-                      border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
+                      border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)",
                       borderRadius: 4,
                       wordBreak: "break-all",
                       userSelect: "all",
@@ -2356,7 +2372,7 @@ function SectionWebClipper() {
                     onClick={handleCopyGeneratedToken}
                     style={{
                       padding: "6px 12px",
-                      border: "1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%)",
+                      border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)",
                       borderRadius: 4,
                       background: copiedGenToken ? "var(--syn-green)" : "transparent",
                       color: copiedGenToken ? "#fff" : "var(--syn-green)",
@@ -2457,7 +2473,7 @@ function SectionWebClipper() {
                   color: "var(--syn-accent)",
                   padding: "5px 8px",
                   background: "var(--syn-accent-soft)",
-                  border: "1px solid color-mix(in srgb, var(--syn-accent) 30%, white 70%)",
+                  border: "1px solid color-mix(in srgb, var(--syn-accent) 30%, var(--syn-mix-base) 70%)",
                   borderRadius: 4,
                   wordBreak: "break-all",
                 }}
@@ -2471,7 +2487,7 @@ function SectionWebClipper() {
                   padding: "5px 10px",
                   border: "1px solid var(--syn-border)",
                   borderRadius: 4,
-                  background: copiedUrl ? "color-mix(in srgb, var(--syn-green) 8%, white 92%)" : "transparent",
+                  background: copiedUrl ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)" : "transparent",
                   color: copiedUrl ? "var(--syn-green)" : "var(--syn-text-muted)",
                   fontSize: 11,
                   cursor: "pointer",
@@ -2709,11 +2725,7 @@ function SectionAbout() {
 
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 16px", fontSize: 12, marginBottom: 24 }}>
         <span style={{ color: "var(--syn-text-dim)" }}>{t("settings.about.version")}</span>
-        <span style={{ color: "var(--syn-text)", fontFamily: "monospace" }}>v0.5</span>
-        <span style={{ color: "var(--syn-text-dim)" }}>{t("settings.about.sprint")}</span>
-        <span style={{ color: "var(--syn-text)", fontFamily: "monospace" }}>sprint/v0.5</span>
-        <span style={{ color: "var(--syn-text-dim)" }}>{t("settings.about.milestone")}</span>
-        <span style={{ color: "var(--syn-text)", fontFamily: "monospace" }}>M5 — Feature parity core</span>
+        <span style={{ color: "var(--syn-text)", fontFamily: "monospace" }}>v{__APP_VERSION__}</span>
       </div>
 
       <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--syn-text-dim)" }}>
@@ -2835,6 +2847,232 @@ function SectionScenarios() {
           onConfirm={() => { void handleApplyConfirm(); }}
           onCancel={() => setPendingScenario(null)}
         />
+      )}
+    </div>
+  );
+}
+
+// ─── Section: Costs (R9-1) ────────────────────────────────────────────────────
+// I3: single fetch on mount + manual Refresh button; no background polling.
+// No Zustand store — local state only (I3).
+
+function SectionCosts() {
+  const { t } = useTranslation();
+  const [data, setData] = useState<CostsSummary | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState(false);
+
+  // Month selector — "YYYY-MM" string; null = current month
+  const [month, setMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  const load = useCallback(async (selectedMonth: string) => {
+    setLoading(true);
+    setErr(false);
+    try {
+      const result = await fetchCostsSummary(selectedMonth);
+      setData(result);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+      setErr(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load(month);
+  }, [load, month]);
+
+  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMonth(e.target.value);
+  };
+
+  // SVG bar chart for by_day (pure CSS/SVG, no chart lib — I9)
+  const renderDayBars = (days: CostsSummary["by_day"]) => {
+    if (days.length === 0) return null;
+    const max = Math.max(...days.map((d) => d.total_usd), 0.0001);
+    const BAR_W = 6;
+    const GAP = 2;
+    const H = 36;
+    const totalW = days.length * (BAR_W + GAP);
+
+    return (
+      <svg
+        width={totalW}
+        height={H + 16}
+        data-testid="costs-day-chart"
+        aria-label={t("settings.costs.byDay")}
+        role="img"
+        style={{ display: "block", overflow: "visible" }}
+      >
+        {days.map((d, i) => {
+          const barH = Math.max(2, Math.round((d.total_usd / max) * H));
+          const x = i * (BAR_W + GAP);
+          const y = H - barH;
+          return (
+            <g key={d.date}>
+              <title>{`${d.date}: $${d.total_usd.toFixed(4)}`}</title>
+              <rect
+                x={x}
+                y={y}
+                width={BAR_W}
+                height={barH}
+                fill="var(--syn-accent)"
+                opacity={0.8}
+                rx={1}
+              />
+            </g>
+          );
+        })}
+      </svg>
+    );
+  };
+
+  return (
+    <div>
+      <SectionHeader title={t("settings.costs.title")} desc={t("settings.costs.desc")} />
+
+      {/* Month selector + Refresh */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+        <label style={{ fontSize: 12, color: "var(--syn-text-muted)", flexShrink: 0 }}>
+          {t("settings.costs.period")}
+        </label>
+        <input
+          type="month"
+          data-testid="costs-month-selector"
+          value={month}
+          onChange={handleMonthChange}
+          style={{ ...INPUT_STYLE, width: 160 }}
+        />
+        <button
+          data-testid="costs-refresh-btn"
+          onClick={() => { void load(month); }}
+          disabled={loading}
+          style={{ ...BTN_PRIMARY, opacity: loading ? 0.4 : 1, cursor: loading ? "not-allowed" : "pointer" }}
+        >
+          {loading ? "…" : t("settings.costs.refresh")}
+        </button>
+      </div>
+
+      {err && (
+        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>{t("settings.costs.error")}</p>
+      )}
+      {loading && !data && (
+        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>{t("settings.costs.loading")}</p>
+      )}
+
+      {data !== null && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+          {/* Monthly total + threshold alert */}
+          <div>
+            {data.threshold_alert && (
+              <div
+                data-testid="costs-threshold-alert"
+                style={{
+                  marginBottom: 12,
+                  padding: "8px 12px",
+                  background: "color-mix(in srgb, var(--syn-red) 8%, var(--syn-mix-base) 92%)",
+                  border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  color: "var(--syn-red)",
+                  fontWeight: 600,
+                }}
+                role="alert"
+              >
+                {t("settings.costs.thresholdAlert", { threshold: data.threshold_usd.toFixed(2) })}
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span style={{ fontSize: 28, fontWeight: 700, color: "var(--syn-text)", fontFamily: "monospace" }} data-testid="costs-monthly-total">
+                ${data.monthly_total_usd.toFixed(4)}
+              </span>
+              <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
+                {t("settings.costs.monthlyTotal")}
+              </span>
+            </div>
+          </div>
+
+          {/* Daily bar chart */}
+          {data.by_day.length > 0 && (
+            <div>
+              <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                {t("settings.costs.byDay")}
+              </p>
+              <div style={{ overflowX: "auto" }}>
+                {renderDayBars(data.by_day)}
+              </div>
+            </div>
+          )}
+
+          {/* By provider */}
+          {data.by_provider.length > 0 && (
+            <div>
+              <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                {t("settings.costs.byProvider")}
+              </p>
+              {data.by_provider_note && (
+                <p style={{ fontSize: 11, color: "var(--syn-text-dim)", margin: "0 0 8px", lineHeight: 1.5 }}>
+                  {data.by_provider_note}
+                </p>
+              )}
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }} data-testid="costs-by-provider">
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--syn-border)" }}>
+                    <th style={{ padding: "4px 0", textAlign: "left", color: "var(--syn-text-muted)", fontWeight: 600 }}>{t("settings.costs.providerCol")}</th>
+                    <th style={{ padding: "4px 0", textAlign: "right", color: "var(--syn-text-muted)", fontWeight: 600 }}>{t("settings.costs.totalUsd")}</th>
+                    <th style={{ padding: "4px 0", textAlign: "right", color: "var(--syn-text-muted)", fontWeight: 600 }}>{t("settings.costs.callCount")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.by_provider.map((row) => (
+                    <tr key={row.provider} style={{ borderBottom: "1px solid var(--syn-border)" }}>
+                      <td style={{ padding: "6px 0", color: "var(--syn-text)", fontFamily: "monospace" }}>{row.provider}</td>
+                      <td style={{ padding: "6px 0", textAlign: "right", color: "var(--syn-text)", fontFamily: "monospace" }}>${row.total_usd.toFixed(4)}</td>
+                      <td style={{ padding: "6px 0", textAlign: "right", color: "var(--syn-text-muted)" }}>{row.call_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* By operation */}
+          {data.by_operation.length > 0 && (
+            <div>
+              <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                {t("settings.costs.byOperation")}
+              </p>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }} data-testid="costs-by-operation">
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--syn-border)" }}>
+                    <th style={{ padding: "4px 0", textAlign: "left", color: "var(--syn-text-muted)", fontWeight: 600 }}>{t("settings.costs.operationCol")}</th>
+                    <th style={{ padding: "4px 0", textAlign: "right", color: "var(--syn-text-muted)", fontWeight: 600 }}>{t("settings.costs.totalUsd")}</th>
+                    <th style={{ padding: "4px 0", textAlign: "right", color: "var(--syn-text-muted)", fontWeight: 600 }}>{t("settings.costs.callCount")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.by_operation.map((row) => (
+                    <tr key={row.operation} style={{ borderBottom: "1px solid var(--syn-border)" }}>
+                      <td style={{ padding: "6px 0", color: "var(--syn-text)", fontFamily: "monospace" }}>{row.operation}</td>
+                      <td style={{ padding: "6px 0", textAlign: "right", color: "var(--syn-text)", fontFamily: "monospace" }}>${row.total_usd.toFixed(4)}</td>
+                      <td style={{ padding: "6px 0", textAlign: "right", color: "var(--syn-text-muted)" }}>{row.call_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* No data */}
+          {data.by_provider.length === 0 && data.by_operation.length === 0 && (
+            <p style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("settings.costs.noData")}</p>
+          )}
+        </div>
       )}
     </div>
   );

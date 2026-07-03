@@ -104,7 +104,7 @@ const S = {
     flexShrink: 0,
   },
   warningBanner: {
-    background: "color-mix(in srgb, var(--syn-amber) 8%, white 92%)",
+    background: "color-mix(in srgb, var(--syn-amber) 8%, var(--syn-mix-base) 92%)",
     border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, transparent 70%)",
     borderRadius: "var(--syn-radius-sm)",
     padding: "10px 12px",
@@ -215,7 +215,7 @@ const S = {
     color: "var(--syn-red)",
     margin: 0,
     padding: "6px 8px",
-    background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
+    background: "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)",
     border: "1px solid color-mix(in srgb, var(--syn-red) 25%, transparent 75%)",
     borderRadius: "var(--syn-radius-sm)",
   },

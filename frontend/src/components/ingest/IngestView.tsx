@@ -315,7 +315,7 @@ export function IngestView() {
             flexShrink: 0,
             fontSize: 12,
             color: "var(--syn-red)",
-            background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
+            background: "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)",
           }}
         >
           {storeError}

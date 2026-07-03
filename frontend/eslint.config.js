@@ -80,6 +80,7 @@ export default [
       globals: {
         ...globals.browser,
         __DEV__: "readonly",
+        __APP_VERSION__: "readonly",
       },
     },
     plugins: {
@@ -127,6 +128,7 @@ export default [
         ...globals.browser,
         ...globals.node,
         __DEV__: "readonly",
+        __APP_VERSION__: "readonly",
       },
     },
     plugins: {

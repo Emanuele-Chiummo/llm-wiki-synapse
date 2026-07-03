@@ -75,9 +75,11 @@ function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: (id: 
 
   const isError = toast.variant === "error";
 
+  // UXA-16: error toasts use role="alert" (assertive live region) so screen readers
+  // announce them immediately. Informational toasts use role="status" (polite).
   return (
     <div
-      role="status"
+      role={isError ? "alert" : "status"}
       className={`syn-section-notice syn-section-notice--${isError ? "danger" : "success"}`}
       style={{
         pointerEvents: "auto",

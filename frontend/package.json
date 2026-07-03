@@ -1,6 +1,6 @@
 {
   "name": "synapse-frontend",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "private": true,
   "description": "Synapse v0.5 \u2014 feature parity core (Deep Research, Review, Multi-format, Cascade Delete)",
   "type": "module",
@@ -15,7 +15,8 @@
     "format": "prettier --write src",
     "format:check": "prettier --check src",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e:v09": "playwright test e2e/v09-happy-paths.spec.ts"
   },
   "dependencies": {
     "@tauri-apps/plugin-notification": "^2.0.0",

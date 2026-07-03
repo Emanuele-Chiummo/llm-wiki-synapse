@@ -614,7 +614,7 @@ export function SearchView() {
               padding: "12px 16px",
               fontSize: 12,
               color: "var(--syn-red)",
-              background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
+              background: "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)",
               borderBottom: "1px solid var(--syn-border)",
             }}
           >

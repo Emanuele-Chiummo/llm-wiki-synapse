@@ -222,6 +222,8 @@ export function PreviewPanel() {
           >
             Metadata
           </h3>
+          {/* UXA-07: UUID and raw x/y coordinates removed from user-facing panel.
+              "Connected to N pages" replaces raw Degree integer. */}
           <dl
             style={{
               margin: 0,
@@ -231,28 +233,54 @@ export function PreviewPanel() {
               fontSize: 12,
             }}
           >
-            <dt style={{ color: "var(--syn-text-muted)" }}>ID</dt>
-            <dd
-              style={{
-                margin: 0,
-                color: "var(--syn-text-dim)",
-                fontFamily: "monospace",
-                fontSize: 11,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-              title={selectedNode.id}
-            >
-              {selectedNode.id}
-            </dd>
-            <dt style={{ color: "var(--syn-text-muted)" }}>Degree</dt>
-            <dd style={{ margin: 0, color: "var(--syn-text)" }}>{incidentEdges.length}</dd>
-            <dt style={{ color: "var(--syn-text-muted)" }}>Position</dt>
-            <dd style={{ margin: 0, color: "var(--syn-text-dim)", fontFamily: "monospace", fontSize: 11 }}>
-              {selectedNode.x.toFixed(2)}, {selectedNode.y.toFixed(2)}
+            <dt style={{ color: "var(--syn-text-muted)" }}>Connections</dt>
+            <dd style={{ margin: 0, color: "var(--syn-text)" }}>
+              {t("previewPanel.connectedTo", { count: incidentEdges.length })}
             </dd>
           </dl>
+          {/* Technical details — collapsed by default (UXA-07) */}
+          <details style={{ marginTop: 8 }}>
+            <summary
+              style={{
+                fontSize: 10,
+                color: "var(--syn-text-dim)",
+                cursor: "pointer",
+                userSelect: "none",
+                letterSpacing: "0.03em",
+              }}
+            >
+              {t("previewPanel.technicalDetails")}
+            </summary>
+            <dl
+              style={{
+                margin: "6px 0 0",
+                display: "grid",
+                gridTemplateColumns: "auto 1fr",
+                gap: "4px 12px",
+                fontSize: 11,
+              }}
+            >
+              <dt style={{ color: "var(--syn-text-muted)" }}>ID</dt>
+              <dd
+                style={{
+                  margin: 0,
+                  color: "var(--syn-text-dim)",
+                  fontFamily: "monospace",
+                  fontSize: 10,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={selectedNode.id}
+              >
+                {selectedNode.id}
+              </dd>
+              <dt style={{ color: "var(--syn-text-muted)" }}>Position</dt>
+              <dd style={{ margin: 0, color: "var(--syn-text-dim)", fontFamily: "monospace", fontSize: 10 }}>
+                {selectedNode.x.toFixed(2)}, {selectedNode.y.toFixed(2)}
+              </dd>
+            </dl>
+          </details>
         </section>
 
         {/* Relationships section */}

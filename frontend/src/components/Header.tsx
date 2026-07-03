@@ -132,7 +132,7 @@ export function Header() {
             fontWeight: 400,
           }}
         >
-          v0.6
+          v{__APP_VERSION__}
         </span>
       </div>
 
@@ -173,7 +173,7 @@ export function Header() {
                 width: 6,
                 height: 6,
                 borderRadius: "50%",
-                background: "#22c55e",
+                background: "var(--syn-green)",
                 flexShrink: 0,
               }}
             />
@@ -217,20 +217,16 @@ export function Header() {
                     role="menuitem"
                     data-testid={`server-item-${host}`}
                     onClick={() => handleSwitchServer(url)}
+                    className="syn-btn syn-btn--ghost"
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
                       width: "100%",
-                      padding: "7px 12px",
+                      justifyContent: "flex-start",
                       fontSize: 12,
-                      textAlign: "left",
-                      background: "none",
-                      border: "none",
-                      cursor: isCurrent ? "default" : "pointer",
-                      color: "var(--syn-text)",
+                      padding: "7px 12px",
                       fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
                       fontWeight: isCurrent ? 600 : 400,
+                      color: "var(--syn-text)",
+                      cursor: isCurrent ? "default" : "pointer",
                     }}
                   >
                     {isCurrent && (
@@ -241,7 +237,7 @@ export function Header() {
                           width: 6,
                           height: 6,
                           borderRadius: "50%",
-                          background: "#22c55e",
+                          background: "var(--syn-green)",
                           flexShrink: 0,
                         }}
                       />
@@ -275,17 +271,8 @@ export function Header() {
                 role="menuitem"
                 data-testid="change-server-btn"
                 onClick={handleChangeServer}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  padding: "7px 12px",
-                  fontSize: 12,
-                  textAlign: "left",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "var(--syn-text-dim)",
-                }}
+                className="syn-btn syn-btn--ghost"
+                style={{ width: "100%", justifyContent: "flex-start", fontSize: 12, padding: "7px 12px" }}
               >
                 {t("connect.changeServer")}
               </button>

@@ -101,12 +101,14 @@ const ROW_ESTIMATE = 160;
 // color values are concrete hex so the bg alpha tint can be inline-computed.
 // These match --syn-green, --syn-amber, --syn-red + --syn-type-* tokens.
 
+// UXA-03: use var(--syn-mix-base) instead of literal white so dark-mode color-mix
+// resolves against the dark surface rather than #ffffff. Token defined in ADR-0048 / theme.css.
 const ITEM_TYPE_COLORS: Record<string, { color: string; bg: string }> = {
-  "missing-page":  { color: "#1a7f37", bg: "color-mix(in srgb, #1a7f37 10%, white 90%)" }, // --syn-green
-  suggestion:      { color: "#9a6700", bg: "color-mix(in srgb, #9a6700 10%, white 90%)" }, // --syn-amber
-  contradiction:   { color: "#cf222e", bg: "color-mix(in srgb, #cf222e 10%, white 90%)" }, // --syn-red
-  duplicate:       { color: "#8250df", bg: "color-mix(in srgb, #8250df 10%, white 90%)" }, // --syn-type-concept (purple)
-  confirm:         { color: "#2563eb", bg: "color-mix(in srgb, #2563eb 10%, white 90%)" }, // --syn-accent
+  "missing-page":  { color: "#1a7f37", bg: "color-mix(in srgb, #1a7f37 10%, var(--syn-mix-base) 90%)" }, // --syn-green
+  suggestion:      { color: "#9a6700", bg: "color-mix(in srgb, #9a6700 10%, var(--syn-mix-base) 90%)" }, // --syn-amber
+  contradiction:   { color: "#cf222e", bg: "color-mix(in srgb, #cf222e 10%, var(--syn-mix-base) 90%)" }, // --syn-red
+  duplicate:       { color: "#8250df", bg: "color-mix(in srgb, #8250df 10%, var(--syn-mix-base) 90%)" }, // --syn-type-concept (purple)
+  confirm:         { color: "#2563eb", bg: "color-mix(in srgb, #2563eb 10%, var(--syn-mix-base) 90%)" }, // --syn-accent
 };
 
 interface ItemTypeBadgeProps {
@@ -115,11 +117,14 @@ interface ItemTypeBadgeProps {
 }
 
 function ItemTypeBadge({ itemType, t }: ItemTypeBadgeProps) {
-  const { color, bg } = ITEM_TYPE_COLORS[itemType] ?? {
+  // UXA-18: backend may send underscore form (e.g. "new_page", "missing_page");
+  // translation keys use kebab-case ("missing-page"). Normalise before lookup.
+  const normalised = itemType.replace(/_/g, "-");
+  const { color, bg } = ITEM_TYPE_COLORS[normalised] ?? ITEM_TYPE_COLORS[itemType] ?? {
     color: "var(--syn-text-dim)",
     bg: "var(--syn-surface-hover)",
   };
-  const label = t(`review.itemType.${itemType}`);
+  const label = t(`review.itemType.${normalised}`);
   return (
     <span
       className="syn-chip"
@@ -201,15 +206,23 @@ interface ActionButtonProps {
   variant: "create" | "skip" | "dismiss" | "deep-research";
 }
 
+/**
+ * ActionButton — review queue per-item action (Create / Skip / Dismiss / Deep-Research).
+ * UXB-2 AC-UXB2-2: uses .syn-btn .syn-btn--secondary .syn-btn--sm as base.
+ * Variant-specific color overrides are applied via inline style only for the color/border
+ * (appearance tokens only — layout stays in the class).
+ */
 function ActionButton({ label, onClick, disabled, loading, variant }: ActionButtonProps) {
-  const COLORS: Record<string, { border: string; color: string }> = {
-    create:           { border: "var(--syn-green)",       color: "var(--syn-green)" },
-    skip:             { border: "var(--syn-border)",      color: "var(--syn-text-muted)" },
-    dismiss:          { border: "var(--syn-border)",      color: "var(--syn-text-dim)" },
-    "deep-research":  { border: "var(--syn-accent)",      color: "var(--syn-accent)" },
+  // Map variant → token-safe inline color overrides (only when enabled).
+  // These narrow the secondary ghost base to the variant's semantic color.
+  const VARIANT_STYLE: Record<string, { color: string; borderColor: string }> = {
+    create:          { color: "var(--syn-green)",  borderColor: "color-mix(in srgb, var(--syn-green) 30%, var(--syn-border) 70%)" },
+    skip:            { color: "var(--syn-text-muted)", borderColor: "var(--syn-border)" },
+    dismiss:         { color: "var(--syn-text-dim)",   borderColor: "var(--syn-border)" },
+    "deep-research": { color: "var(--syn-accent)", borderColor: "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)" },
   };
-  const fallback = { border: "var(--syn-border)", color: "var(--syn-text-muted)" };
-  const { border, color } = COLORS[variant] ?? fallback;
+  const fallbackStyle = { color: "var(--syn-text-muted)", borderColor: "var(--syn-border)" };
+  const variantStyle = VARIANT_STYLE[variant] ?? fallbackStyle;
   const isDisabled = disabled || loading;
   return (
     <button
@@ -218,22 +231,8 @@ function ActionButton({ label, onClick, disabled, loading, variant }: ActionButt
       aria-label={label}
       aria-busy={loading}
       data-testid={`review-action-${variant}`}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        padding: "3px 10px",
-        fontSize: 11,
-        fontWeight: 600,
-        border: `1px solid ${isDisabled ? "var(--syn-border)" : border}`,
-        borderRadius: "var(--syn-radius-sm)",
-        background: "transparent",
-        color: isDisabled ? "var(--syn-text-dim)" : color,
-        cursor: isDisabled ? "not-allowed" : "pointer",
-        whiteSpace: "nowrap",
-        transition: "opacity 0.1s",
-        opacity: isDisabled ? 0.6 : 1,
-      }}
+      className="syn-btn syn-btn--secondary syn-btn--sm"
+      style={isDisabled ? undefined : { color: variantStyle.color, borderColor: variantStyle.borderColor }}
     >
       {loading && (
         <span
@@ -343,7 +342,7 @@ function ReviewRow({
         background: isSelected
           ? "var(--syn-accent-soft)"
           : generationError
-          ? "color-mix(in srgb, var(--syn-red) 6%, white 94%)"
+          ? "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)"
           : undefined,
       }}
     >
@@ -887,9 +886,6 @@ export function ReviewQueueView() {
         background: "var(--syn-bg)",
       }}
     >
-      {/* Spinner keyframe — injected once as a style tag */}
-      <style>{`@keyframes syn-spin { to { transform: rotate(360deg); } }`}</style>
-
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div
         style={{
@@ -975,15 +971,7 @@ export function ReviewQueueView() {
             aria-label={t("review.clearResolved")}
             data-testid="review-clear-resolved-btn"
             title={t("review.clearResolvedHelp")}
-            style={{
-              padding: "4px 10px",
-              fontSize: 11,
-              border: "1px solid color-mix(in srgb, var(--syn-red) 30%, var(--syn-border) 70%)",
-              borderRadius: "var(--syn-radius-sm)",
-              background: "transparent",
-              color: loading ? "var(--syn-text-dim)" : "var(--syn-red)",
-              cursor: loading ? "wait" : "pointer",
-            }}
+            className="syn-btn syn-btn--danger syn-btn--sm"
           >
             {t("review.clearResolved")}
           </button>
@@ -1072,17 +1060,8 @@ export function ReviewQueueView() {
               onClick={handleBulkMarkResolved}
               disabled={loading}
               data-testid="review-bulk-mark-resolved"
-              style={{
-                padding: "3px 10px",
-                fontSize: 11,
-                fontWeight: 600,
-                border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-border) 70%)",
-                borderRadius: "var(--syn-radius-sm)",
-                background: "transparent",
-                color: loading ? "var(--syn-text-dim)" : "var(--syn-green)",
-                cursor: loading ? "wait" : "pointer",
-                whiteSpace: "nowrap",
-              }}
+              className="syn-btn syn-btn--secondary syn-btn--sm"
+              style={{ color: "var(--syn-green)", borderColor: "color-mix(in srgb, var(--syn-green) 30%, var(--syn-border) 70%)" }}
             >
               {t("review.markResolved")}
             </button>
@@ -1090,17 +1069,7 @@ export function ReviewQueueView() {
               onClick={handleBulkDismiss}
               disabled={loading}
               data-testid="review-bulk-dismiss"
-              style={{
-                padding: "3px 10px",
-                fontSize: 11,
-                fontWeight: 600,
-                border: "1px solid var(--syn-border)",
-                borderRadius: "var(--syn-radius-sm)",
-                background: "transparent",
-                color: loading ? "var(--syn-text-dim)" : "var(--syn-text-muted)",
-                cursor: loading ? "wait" : "pointer",
-                whiteSpace: "nowrap",
-              }}
+              className="syn-btn syn-btn--secondary syn-btn--sm"
             >
               {t("review.dismiss")}
             </button>
@@ -1108,17 +1077,7 @@ export function ReviewQueueView() {
               onClick={handleBulkSkip}
               disabled={loading}
               data-testid="review-bulk-skip"
-              style={{
-                padding: "3px 10px",
-                fontSize: 11,
-                fontWeight: 600,
-                border: "1px solid var(--syn-border)",
-                borderRadius: "var(--syn-radius-sm)",
-                background: "transparent",
-                color: loading ? "var(--syn-text-dim)" : "var(--syn-text-dim)",
-                cursor: loading ? "wait" : "pointer",
-                whiteSpace: "nowrap",
-              }}
+              className="syn-btn syn-btn--secondary syn-btn--sm"
             >
               {t("review.skip")}
             </button>

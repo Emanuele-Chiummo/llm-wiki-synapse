@@ -1,10 +1,10 @@
 # Synapse Deployment Guide
 
-<!-- Generated: v0.8 sprint 7 | 2026-07-03 -->
+<!-- Generated: v0.9 sprint 8 | 2026-07-03 -->
 
 > Target: TrueNAS SCALE 25.10 "Goldeye" + Docker Compose (backend) + PWA or Tauri v2 desktop (client)
-> Version: v0.8 — covers v0.8.0 release (M7 — Content power: Marker PDF, vision captions, AV transcription, vault export/backup, search filters, citation click-through, Chrome clipper release)
-> Status: CURRENT — updated for v0.8.0 release
+> Version: v0.9 — covers v0.9.0 release (M8 — Trust & observability: cost dashboard, health endpoint, conversation auto-titles, purpose/schema suggestions, graph drill-down, UX audit fixes, SectionErrorBoundary, Playwright E2E)
+> Status: CURRENT — updated for v0.9.0 release
 
 ---
 
@@ -141,6 +141,16 @@ cp .env.example .env
 | `AV_TRANSCRIPTION_ENABLED` | `false` | No | When `true`, Synapse transcribes audio and video files (`.mp3`/`.m4a`/`.wav`/`.mp4`/`.mov`/`.webm`) using the host Whisper microservice at `WHISPER_SERVICE_URL` before ingest (R8-3). Default `false` — AV files produce a stub placeholder without this flag. |
 | `WHISPER_SERVICE_URL` | `http://host.docker.internal:8556` | No | Base URL for the Whisper transcription microservice (`tools/whisper-service/`). Only read when `AV_TRANSCRIPTION_ENABLED=true`. The service exposes `POST /transcribe` (multipart audio/video → `{"text"}`) and `GET /health`. See `tools/whisper-service/README.md` for setup. |
 | `AV_MAX_FILES_PER_RUN` | `10` | No | Maximum number of audio/video files transcribed per ingest trigger when `AV_TRANSCRIPTION_ENABLED=true` (I7 cap). Files beyond the cap are deferred to the next run. |
+| `COST_ALERT_THRESHOLD_USD` | *(none)* | No | When set to a positive decimal (e.g. `5.00`), the Settings > Costi dashboard shows a red alert indicator when the month-to-date total cost across all providers and operations exceeds this value. The indicator is informational only — no AI calls are blocked or rate-limited when the threshold is exceeded. Default unset (alert always off). (R9-1, I7) |
+| `PURPOSE_SUGGESTION_ENABLED` | `true` | No | When `true`, the ingest orchestrator emits a `purpose-suggestion` ReviewItem after each orchestrated ingest run when scope-drift signals are detected. Default `true` — opt out with `false` for zero-LLM-cost operation. The proposal fires through the same anti-spam gate as other review proposals. (R9-3, F2, ADR-0034 §4.2) |
+| `PURPOSE_SUGGESTION_MAX_TOKENS` | `2000` | No | Token budget for the single bounded provider call that evaluates scope drift and drafts the purpose suggestion rationale. Small: only the analysis digest and current `purpose.md` are included. (R9-3, I7) |
+| `PURPOSE_SUGGESTION_MIN_SOURCES` | `3` | No | Minimum number of sources in the current ingest run before the purpose-suggestion gate is considered. Below this threshold the call is suppressed (no cost). (R9-3, I7 anti-spam gate) |
+| `PURPOSE_SUGGESTION_TIMEOUT_SECONDS` | `20.0` | No | Timeout (seconds) wrapping the purpose-suggestion provider call. On timeout → no suggestion emitted; ingest is unaffected. (R9-3, I7) |
+| `SCHEMA_SUGGESTION_ENABLED` | `false` | No | **Default off.** When `true`, the ingest orchestrator emits a `schema-suggestion` ReviewItem when emerging frontmatter patterns in recent pages deviate from `schema.md` rules. Disabled by default because an unreviewed schema change has a wide blast-radius — every future ingest run and every validation pass is affected. Enable only after reading ADR-0034 §4.2 and after ensuring you have a review process in place for schema proposals. (R9-4, K6, I7) |
+| `SCHEMA_SUGGESTION_MAX_TOKENS` | `2000` | No | Token budget for the schema-suggestion provider call. Only read when `SCHEMA_SUGGESTION_ENABLED=true`. (R9-4, I7) |
+| `SCHEMA_SUGGESTION_MIN_SOURCES` | `5` | No | Minimum number of sources in the run before the schema-suggestion gate is considered. Higher than the purpose-suggestion threshold because schema proposals require a stronger pattern signal. (R9-4, I7 anti-spam gate) |
+| `SCHEMA_SUGGESTION_TIMEOUT_SECONDS` | `20.0` | No | Timeout (seconds) wrapping the schema-suggestion provider call. On timeout → no suggestion emitted. (R9-4, I7) |
+| `GRAPH_COHESION_WARN` | `0.15` | No | Cohesion score threshold below which a community is flagged with a warning indicator in the graph community panel (`GET /graph/communities/{id}`). Default `0.15` (mirrors the llm_wiki threshold). Communities with `cohesion < GRAPH_COHESION_WARN` are marked visually in the drill-down panel. (R9-5) |
 
 ### 2.2 Example .env for TrueNAS Docker deployment
 
@@ -253,7 +263,41 @@ Expected response:
 }
 ```
 
-### 3.4 Open the frontend
+### 3.4 Detailed health check (v0.9)
+
+For monitoring probes and dashboards, the backend exposes a richer liveness endpoint:
+
+```bash
+curl -s http://localhost:8000/health/detailed | jq .
+```
+
+The response lists the status of each internal component:
+
+```json
+{
+  "status": "healthy",
+  "version": "0.9.0",
+  "components": {
+    "postgres":       { "status": "ok" },
+    "qdrant":         { "status": "ok" },
+    "ollama":         { "status": "ok" },
+    "watcher":        { "status": "ok", "last_event_seconds_ago": 12 },
+    "scheduler":      { "status": "ok", "next_run_in_seconds": 3588 },
+    "ingest_queue":   { "status": "idle", "running": 0, "queued": 0 }
+  }
+}
+```
+
+`status` at the top level is `"healthy"` if all components are `"ok"` or `"idle"`.
+It is `"degraded"` if any non-critical component has a transient issue (e.g. Qdrant
+temporarily unreachable when embeddings are enabled), and `"unhealthy"` if Postgres is
+unreachable. Use this endpoint in a Docker health check or a monitoring probe (e.g.
+Uptime Kuma, Prometheus blackbox exporter) in preference to `GET /status`.
+
+The basic `GET /status` endpoint (vault_id, data_version, uptime) remains available for
+the desktop app's Connect-screen probe and is not affected by this change.
+
+### 3.5 Open the frontend
 
 The frontend is served by the Vite dev server (development) or a static file server
 (production build). In v0.4 development mode:

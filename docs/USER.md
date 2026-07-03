@@ -1,8 +1,8 @@
 # Synapse User Guide
 
-<!-- Generated: v0.8 sprint 7 | 2026-07-03 -->
+<!-- Generated: v0.9 sprint 8 | 2026-07-03 -->
 
-> Version: v0.8 (M7 — "Content power")
+> Version: v0.9 (M8 — "Trust & observability")
 > Language toggle: English / Italian available in Settings.
 
 ---
@@ -190,6 +190,39 @@ inspector. Use the Wiki section if you want the graph alongside the page tree.
 The layout is computed server-side (ForceAtlas2 offline). The browser never runs a
 force-directed layout, so the UI stays responsive regardless of graph size.
 
+#### Graph drill-down — communities and edge signals (v0.9)
+
+**Community panel.** Nodes are grouped into communities by the Louvain algorithm.
+Click on a colored community area (or on a node belonging to a community) to open the
+community detail panel on the right side of the Graph section. The panel shows:
+
+- **Member list** — every page in the community, clickable to open that page in the
+  Wiki section.
+- **Cohesion score** — a number between 0 and 1 representing how tightly connected the
+  community is internally. The score is `intra-community edges / possible intra-community
+  edges`. A score below 0.15 is flagged with a warning indicator, meaning the community
+  is sparse and its members may not be strongly related. If `GRAPH_COHESION_WARN` is set
+  by the operator, the threshold can be adjusted.
+- The community panel is powered by `GET /graph/communities/{id}` and loads on demand
+  (only when you click a community — no data is prefetched).
+
+**Edge signal breakdown.** Click any edge between two nodes to open an edge detail
+panel showing the decomposition of that edge's relevance weight into its four
+contributing signals:
+
+| Signal | Weight coefficient | What it measures |
+|--------|-------------------|-----------------|
+| Direct wikilinks | 3.0 | Number of `[[wikilinks]]` between the two pages |
+| Shared sources | 4.0 | Number of raw source files that both pages derive from |
+| Adamic-Adar index | 1.5 | Common-neighbor structural similarity |
+| Type affinity | 1.0 | Cross-type bonus or same-type penalty from the type matrix |
+
+The breakdown helps you understand why two pages are connected and how strongly. A high
+shared-sources score means both pages were generated from the same source document. A
+high direct-wikilinks score means the pages explicitly reference each other. The edge
+detail panel is powered by `GET /graph/edges/{source_id}/{target_id}` and loads on
+demand.
+
 ---
 
 ### Sources section
@@ -273,6 +306,14 @@ provider.
 Create a new one with the `+` button (or press **Cmd/Ctrl+N**). Delete one with the `x`
 on hover. Conversations persist across page reloads.
 
+**Automatic conversation titles and list previews (v0.9).** When you send the first
+message in a new conversation, Synapse automatically sets the conversation title to the
+first 50 characters of your message (trimmed to the last word boundary so it never cuts
+mid-word). You do not need to name conversations manually. Each conversation row in the
+left panel also shows a one-line preview of the most recent message, so you can identify
+conversations at a glance without opening them. If you rename a conversation, the manual
+title takes permanent precedence over the auto-title.
+
 **Rename a conversation.** Double-click the conversation title in the list (or click the
 pencil icon on hover) to edit it inline. Press **Enter** or click away to save; press
 **Esc** to cancel. The title is persisted immediately via `PATCH /conversations/{id}`.
@@ -333,7 +374,8 @@ The ten sections are:
 | **Output** | Conversation history length; language toggle |
 | **Interface** | Theme (Light / Dark / System), and other UI preferences |
 | **Maintenance** | Reset settings |
-| **About** | Version and build information |
+| **About** | Version, build information, and dynamic version display |
+| **Costi** | Provider cost dashboard with monthly rollup and alert threshold (v0.9) |
 
 #### General
 
@@ -463,6 +505,40 @@ The Interface section controls the visual theme of the app.
 
 The selected theme is persisted in your browser's local storage. CodeMirror (the note editor) automatically switches between its default light theme and the One Dark theme to match. The knowledge graph's canvas background and label colors also follow the resolved theme.
 
+#### Costi (cost dashboard) {#settings-costi}
+
+The Costi section (Settings > Costi, shipped in v0.9) shows a live breakdown of what
+you have spent running Synapse's AI providers.
+
+**What it displays:**
+
+- A monthly cost rollup by provider type and operation (ingest, chat, lint, deep research,
+  review sweep). Each row shows the provider name, operation, and total USD to four decimal
+  places.
+- A **monthly total** line that sums across all providers and operations for the current
+  calendar month.
+- An **alert indicator** that turns red when the month-to-date total exceeds the
+  `COST_ALERT_THRESHOLD_USD` value configured by the operator (see DEPLOY.md §2.1).
+  The indicator is informational only — Synapse does not pause or block AI calls when the
+  threshold is reached. It is a visibility signal, not a hard cap.
+
+The data comes from `GET /costs/summary`, which aggregates `total_cost_usd` columns
+recorded on `ingest_runs`, `deep_research_runs`, `lint_runs`, and `messages` tables.
+Local Ollama runs always contribute `$0.0000` to the total.
+
+**What it does not show:**
+
+- Per-conversation or per-page granularity. That detail lives in the Sources run history
+  (click any run row to expand the full cost breakdown for that specific ingest).
+- Costs before the current month. Historical data is retained in the database but the
+  dashboard only displays the running month total and the current month's per-row
+  breakdown. If you need historical detail, query the database directly or export
+  `GET /export/data.json`.
+
+**Operator note:** the `COST_ALERT_THRESHOLD_USD` env var (default: no threshold, alert
+always off) must be set at deploy time. See DEPLOY.md §2.1 for the exact variable name
+and example values.
+
 ---
 
 ### Command palette {#command-palette}
@@ -576,6 +652,46 @@ virtualized for large queues.
 | `contradiction` | The AI detected a conflict between the new content and an existing wiki page. | **Create** a resolution page, **Deep Research** for more context, or **Skip** to ignore. |
 | `duplicate` | The proposed title may collide with an existing page (possible merge candidate). | Review the existing page; **Skip** if they cover distinct topics. |
 | `confirm` | The AI wants explicit human confirmation before acting on a finding. | **Create** if confirmed, otherwise **Skip**. The sweep never auto-resolves `confirm` items. |
+| `purpose-suggestion` | The AI detected that recent content may have drifted outside the current scope of `purpose.md` (v0.9). | Read the rationale; if you agree, open `purpose.md` in the Wiki editor and incorporate the suggestion. **Skip** if scope has not drifted. |
+| `schema-suggestion` | The AI detected a structural pattern in recent pages that does not fit the current `schema.md` rules (v0.9, opt-in). | Read the suggested schema change; apply it manually in the Wiki editor if you agree. **Skip** to leave schema unchanged. Schema suggestions are disabled by default; see the operator opt-in note below. |
+
+#### purpose.md suggestions (v0.9)
+
+After each orchestrated ingest run, Synapse can emit a `purpose-suggestion` review item
+when the AI analysis detects that the ingested content consistently falls outside the
+vault's stated scope, key questions, or thesis as declared in `purpose.md`. This gives
+the vault's guiding document a chance to evolve alongside the content you accumulate
+rather than remaining a static template.
+
+A `purpose-suggestion` card in the Review section shows:
+- The **rationale** — a brief explanation of what the AI observed (e.g. "Five recent
+  sources discuss time-series databases, but purpose.md does not mention operational
+  data systems as a scope area").
+- No automatic edit is made to `purpose.md`. Clicking Create on this card type does
+  not modify any file; it only marks the item resolved. If you agree with the suggestion,
+  open `purpose.md` via the Wiki section and edit it yourself.
+
+Purpose suggestions are emitted only when there is a concrete signal of scope drift; the
+anti-spam gate (`PURPOSE_SUGGESTION_MIN_SOURCES`, `PURPOSE_SUGGESTION_MIN_TOKENS`) ensures
+they do not fire on small or trivial ingest runs. See DEPLOY.md §2.1 for operator
+env vars (`PURPOSE_SUGGESTION_ENABLED`, `PURPOSE_SUGGESTION_MAX_TOKENS`,
+`PURPOSE_SUGGESTION_TIMEOUT_SECONDS`).
+
+#### schema.md suggestions (v0.9, default off)
+
+Similar to purpose suggestions, `schema-suggestion` review items propose changes to the
+structural rules in `schema.md` when the AI detects an emerging frontmatter pattern or
+page-type convention that the current rules do not accommodate.
+
+**This feature is disabled by default** (`SCHEMA_SUGGESTION_ENABLED=false`). The operator
+must explicitly enable it. The reason for the conservative default: schema changes affect
+every future ingest run and every validation pass. An unreviewed schema change can produce
+incorrectly structured pages until it is corrected. Always read a schema suggestion
+carefully before applying it.
+
+When enabled, schema suggestion cards appear in the Review section with the same three
+actions (Create / Deep Research / Skip). Create marks the item reviewed but does not
+write to `schema.md`; manual editing is required.
 
 #### The three actions
 
@@ -900,6 +1016,21 @@ to v0.7.
 
 ---
 
+## Error boundaries — section-level recovery
+
+Starting with v0.9, each main section of the app is wrapped in a `SectionErrorBoundary`.
+If a section encounters an unexpected JavaScript error (for example, a malformed API
+response causes a render failure), only that section shows an error message — the rest
+of the app continues to work normally. You will see a short message such as "An error
+occurred in this section" with a **Retry** button. Clicking Retry remounts the failed
+section and re-fetches its data. If the backend is temporarily unreachable, retrying
+after a few seconds is usually sufficient to recover.
+
+This replaces the previous behavior where an error in any section could produce a blank
+white screen for the entire app.
+
+---
+
 ## What shipped in M5 and M6
 
 The following features shipped in v0.5 (M5):
@@ -1100,3 +1231,19 @@ The following features shipped in v0.8 (M7 — "Content power"):
 | Search filters and sort (R8-5) | Type facet chips + relevance/newest/oldest sort selector in the Search (Cerca) section. |
 | Citation click-through in chat (R8-6) | `[n]` superscripts in assistant replies are now clickable; opens the referenced wiki page in the Wiki section. |
 | Chrome clipper in releases (R8-7, F11) | Extension zip included in GitHub release assets; see Web Clipper section above for install instructions. |
+
+The following features shipped in v0.9 (M8 — "Trust & observability"):
+
+| Feature | Notes |
+|---------|-------|
+| Cost dashboard (R9-1) | Settings > Costi: monthly rollup by provider/operation + `COST_ALERT_THRESHOLD_USD` alert indicator. Powered by `GET /costs/summary`. |
+| Health endpoint (R9-2) | `GET /health/detailed` — per-component liveness (watcher, scheduler, ingest queue, Postgres, Qdrant, Ollama). Use for monitoring probes. |
+| Conversation auto-titles + list previews (R9-3) | New conversations are titled from the first user message (50-char trim). Conversation list rows show a one-line message preview. |
+| purpose.md suggestions in Review (R9-3, F2) | `purpose-suggestion` ReviewItem type. After ingest, if scope drift is detected, a card appears in Review. No automatic edits — human edits `purpose.md` manually after reviewing the rationale. `PURPOSE_SUGGESTION_*` env vars. |
+| schema.md co-evolution in Review (R9-4, K6) | `schema-suggestion` ReviewItem type (default off — `SCHEMA_SUGGESTION_ENABLED=false`). Proposes schema rule updates when emerging patterns in ingested pages deviate from `schema.md`. Human applies manually after review. `SCHEMA_SUGGESTION_*` env vars. |
+| Graph community drill-down (R9-5) | Click a community to open a member list + cohesion score panel. `GRAPH_COHESION_WARN` threshold. Powered by `GET /graph/communities/{id}`. |
+| Graph edge 4-signal breakdown (R9-5) | Click any edge to see the decomposition: direct wikilinks (×3), shared sources (×4), Adamic-Adar (×1.5), type affinity (×1). Powered by `GET /graph/edges/{s}/{t}`. |
+| 11 UX audit fixes + button design-system (v0.9) | All W0 findings from UX-AUDIT-2026-07.md resolved. `components.css` design-system layer. UXB-1 (conversation density) and UXB-2 (nav rail labels) fixed. |
+| SectionErrorBoundary (v0.9) | Each section now isolates errors; shows "Retry" instead of a blank white screen. |
+| Playwright E2E suite (v0.9, I8) | `npm run e2e:v09` covers all major views and refreshes D5 screenshots automatically. |
+| Dynamic version in UI | Settings > About shows the version read from the backend at runtime rather than from a build-time constant. |
