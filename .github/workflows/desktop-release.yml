@@ -6,10 +6,58 @@ on:
       - v*
   workflow_dispatch:
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # R12-3: Build and push backend image to GHCR
+  # ──────────────────────────────────────────────────────────────────────────
+  # On every vX.Y.Z tag, build the backend Docker image and push to
+  # ghcr.io/emanuele-chiummo/llm-wiki-synapse-backend with both vX.Y.Z and latest tags.
+  # This job runs in parallel with the desktop build matrix (no dependencies).
+  # CI passes --build-arg APP_VERSION={tag} so the backend reports its version at runtime.
+  backend-image:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          # github.ref_name is the tag name (e.g. v1.2.0)
+          VERSION=${{ github.ref_name }}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.version }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/llm-wiki-synapse-backend:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/llm-wiki-synapse-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   build:
-    permissions:
-      contents: write
     strategy:
       matrix:
         include:
@@ -72,8 +120,6 @@ jobs:
     # before it exists fails with "release not found" (observed on v0.9.0).
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - uses: actions/checkout@v4

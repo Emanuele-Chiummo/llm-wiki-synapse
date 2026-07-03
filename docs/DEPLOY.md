@@ -925,7 +925,192 @@ the backend API at `http://truenas-node-ip:8000` or `http://truenas.local:8000`.
 
 ---
 
-## 9. Useful make targets
+## 9. Updating Synapse
+
+### 9.1 Manual updates
+
+The simplest way to update Synapse on TrueNAS is via the command line:
+
+```bash
+docker compose pull              # Download the latest backend image
+docker compose up -d             # Restart services with the new image
+```
+
+The backend service will restart with the new image. The Alembic migration runner
+(part of the startup sequence) automatically applies any pending database schema
+migrations — you do not need to run migrations manually.
+
+**Postgres and Qdrant:** the `pull` command only updates the `synapse-backend` service
+when using the GHCR image (see §9.2). Data services are not updated by default,
+which is correct and intentional — database containers should never be auto-updated
+without reading the release notes first.
+
+### 9.2 Automatic server updates (optional)
+
+Synapse supports zero-touch backend updates via **Watchtower**, an open-source container
+watcher. Watchtower runs as an optional Docker Compose service (disabled by default via
+a `autoupdate` profile) and polls the container registry hourly for new backend images.
+When an update is available, Watchtower automatically pulls the new image and restarts
+the backend service. The restart is graceful: existing connections are allowed to drain,
+and the new container starts immediately after.
+
+#### 9.2a Setting up Watchtower
+
+**Prerequisites:**
+- You must switch `docker-compose.yml` to use the GHCR image instead of building from source.
+- The backend service has the label `com.centurylinklabs.watchtower.enable=true` (already set).
+
+**Edit `docker-compose.yml`:**
+
+Comment out the `build:` block and uncomment the `image:` line in the `synapse-backend` service:
+
+```yaml
+synapse-backend:
+  # image: ghcr.io/emanuele-chiummo/llm-wiki-synapse-backend:latest
+  build:
+    context: ./backend
+    dockerfile: Dockerfile
+```
+
+becomes:
+
+```yaml
+synapse-backend:
+  image: ghcr.io/emanuele-chiummo/llm-wiki-synapse-backend:latest
+  # build:
+  #   context: ./backend
+  #   dockerfile: Dockerfile
+```
+
+**Enable the Watchtower service:**
+
+```bash
+docker compose --profile autoupdate up -d
+```
+
+This starts Watchtower alongside the backend, postgres, and qdrant services. Watchtower
+runs in the background and checks the GHCR registry every hour (configurable via the
+`--interval` flag in the service definition).
+
+**Verify Watchtower is running:**
+
+```bash
+docker compose logs -f watchtower | head -20
+# You should see logs like:
+# watchtower_1  | time="2026-07-03T12:00:00Z" level=info msg="Watchtower 1.x.x started"
+# watchtower_1  | time="2026-07-03T12:05:00Z" level=info msg="Checking synapse-backend..."
+```
+
+#### 9.2b Why only the backend is auto-updated
+
+The backend service carries the Watchtower enable label:
+
+```yaml
+labels:
+  com.centurylinklabs.watchtower.enable: "true"
+```
+
+Postgres and Qdrant **do NOT** carry this label. This is intentional and safe:
+
+- **Backend updates are safe:** Alembic migrations (run at startup) ensure the backend
+  can work with older or newer database schemas. Releases are backward-compatible (no
+  hard breaks). A restart takes ~10 seconds.
+- **Database updates are NOT safe without review:** Schema changes, index rewrites, and
+  data migrations require coordination. Always read the release notes for Postgres and
+  Qdrant before updating. **Never allow a database container to auto-update blindly.**
+
+#### 9.2c Safety: version mismatch banner
+
+The frontend also receives backend version information via `GET /status` (AC-R12-3-3).
+If the backend and frontend versions differ (and the backend version is not `"dev"`),
+the app displays a non-blocking, dismissible banner:
+
+```
+A server update is available (backend v1.2.0 / frontend v1.1.5).
+Pull the new image on TrueNAS to update.
+```
+
+This banner is:
+- **Non-blocking:** all functionality works; the mismatch is informational only.
+- **Dismissible:** click the dismiss button or the banner disappears for the session.
+- **Not shown when matching:** if backend and frontend versions are the same, no banner.
+
+The banner serves as a safety net: if Watchtower auto-updates the backend but the
+frontend is not reloaded in the browser, the user is reminded to refresh.
+
+#### 9.2d Disabling Watchtower
+
+To turn off auto-updates and go back to manual updates:
+
+```bash
+docker compose --profile autoupdate down watchtower
+# or simply:
+docker compose down
+docker compose up -d  # (without --profile autoupdate)
+```
+
+Existing deployments that do NOT use the `--profile autoupdate` flag will never start
+Watchtower — it is off by default.
+
+### 9.3 TrueNAS SCALE Custom App update button
+
+If you deployed Synapse via the TrueNAS Custom App interface (instead of CLI Docker
+Compose), TrueNAS may show an **Update available** button in the App card. Clicking it
+initiates an update of the backend image (if the Custom App is configured to pull from GHCR).
+
+**This is a semi-automatic option:** TrueNAS handles the pull and restart, but you control
+the timing — there is no polling interval like Watchtower. Check the TrueNAS app update
+UI for status.
+
+### 9.4 Diun — notify-only (most conservative)
+
+**Diun** (https://github.com/crazy-max/diun) is a container image notification daemon.
+Unlike Watchtower, Diun **does not update containers**; it only watches the registry and
+sends you a notification (email, Slack, webhook) when a new backend image is available.
+You then manually pull and restart at your convenience.
+
+**Use Diun if:**
+- You want to review release notes before updating.
+- You prefer explicit control over restart timing (e.g. no auto-restart during business hours).
+- You run a production environment and want human approval before any image update.
+
+Setup:
+
+```bash
+# Create a Diun config and run it as a separate Docker container.
+# See https://diun.io/docs/usage/overview for full instructions.
+```
+
+### 9.5 Database updates — manual + reviewed
+
+**IMPORTANT:** Postgres and Qdrant containers should **never** be auto-updated via Watchtower
+or any automatic mechanism. Always:
+
+1. **Read the release notes** for the new version.
+2. **Test in a staging environment** (or with a backup).
+3. **Plan a maintenance window** if needed (e.g. long migrations).
+4. **Update manually** via `docker compose pull postgres` and `docker compose up -d`.
+
+Example Postgres backup before updating:
+
+```bash
+# Dump the current database
+docker compose exec -T postgres pg_dump \
+  -U synapse -d synapse \
+  | gzip > /backup/synapse-pre-upgrade-$(date +%Y%m%d-%H%M%S).sql.gz
+
+# Check the new version
+docker pull postgres:16-alpine
+# (review the release notes)
+
+# Update and restart
+docker compose pull postgres
+docker compose up -d postgres
+```
+
+---
+
+## 11. Useful make targets
 
 ```bash
 make er         # Regenerate docs/er/schema.mmd from SQLAlchemy models
@@ -941,9 +1126,9 @@ The docs gate CI job will fail on drift.
 
 ---
 
-## 10. Backup strategy
+## 12. Backup strategy
 
-### 10.1 Postgres
+### 12.1 Postgres
 
 ```bash
 # Dump from inside the container
@@ -954,7 +1139,7 @@ docker compose exec -T postgres pg_dump \
 
 Automate with a TrueNAS periodic task or cron job.
 
-### 10.2 Vault filesystem
+### 12.2 Vault filesystem
 
 The `vault/` directory contains the raw documents and AI-generated wiki pages. Back
 it up with a ZFS snapshot:
@@ -965,9 +1150,9 @@ zfs snapshot pool/synapse@backup-$(date +%Y%m%d)
 
 ---
 
-## 11. CI/CD
+## 13. CI/CD
 
-### 11.1 CI stages
+### 13.1 CI stages
 
 | Stage | Trigger | Required | Purpose |
 |-------|---------|----------|---------|
@@ -977,7 +1162,7 @@ zfs snapshot pool/synapse@backup-$(date +%Y%m%d)
 | `docs` | push / PR | Yes | ER + OpenAPI drift check; mmdc Mermaid render |
 | `integration` | manual | Optional | docker-compose E2E (requires live TrueNAS services) |
 
-### 11.2 Docs gate
+### 13.2 Docs gate
 
 The `docs` stage runs `make er` and `make openapi`, then diffs the output against the
 committed files. A mismatch fails the PR. Fix it with:
@@ -991,9 +1176,9 @@ git commit -m "docs: refresh ER and OpenAPI [I8]"
 
 ---
 
-## 12. Troubleshooting
+## 14. Troubleshooting
 
-### 12.1 "connection refused" on EMBEDDING_URL or QDRANT_URL
+### 14.1 "connection refused" on EMBEDDING_URL or QDRANT_URL
 
 Cause: the external service is not running or the Docker container cannot reach the
 host network.
@@ -1007,7 +1192,7 @@ curl -s http://100.x.x.x:6333/health
 docker run --rm alpine ping -c 1 host.docker.internal
 ```
 
-### 12.2 EMBEDDING_DIM mismatch
+### 14.2 EMBEDDING_DIM mismatch
 
 Cause: the `EMBEDDING_DIM` env var does not match the actual output of the embedding
 model.
@@ -1028,7 +1213,7 @@ endpoint requires authentication. A malformed response (wrong format setting) su
 as an `EmbeddingError` in the backend logs. See §2.1 env var reference for the
 `EMBEDDING_FORMAT` and `EMBEDDING_API_KEY` variables. (ADR-0031)
 
-### 12.3 Pre-existing files are not ingested on startup
+### 14.3 Pre-existing files are not ingested on startup
 
 By design (incremental index — the watcher picks up new and modified files only).
 To ingest files that existed before Synapse started, trigger a run manually:
@@ -1039,19 +1224,19 @@ curl -X POST http://localhost:8000/ingest/trigger
 
 Or use the **Run Ingest** button in the Ingest section of the web UI.
 
-### 12.4 No provider_config row — hard error on ingest or chat
+### 14.4 No provider_config row — hard error on ingest or chat
 
 If the application logs "no provider_config found for scope=global", insert at least
 one global row (see §4). A missing global row is never silently ignored.
 
-### 12.5 Chat provider returns an error with CLI backend
+### 14.5 Chat provider returns an error with CLI backend
 
 `CliAgentProvider.chat()` is implemented in v0.5 as delegated streaming chat (bounded
 by `CHAT_AGENT_MAX_TURNS`, `token_budget`, and `timeout_seconds`). If it errors, check
 that `ANTHROPIC_API_KEY` is set (the CLI backend requires it), and that the model ID in
 `provider_config` is a valid Claude model name. Ingest with CLI works independently.
 
-### 12.6 Scheduled import: last_status="dir_missing"
+### 14.6 Scheduled import: last_status="dir_missing"
 
 The import schedule is enabled and a `source_dir` is configured, but scans report
 `dir_missing`.
@@ -1071,7 +1256,7 @@ docker compose exec synapse-backend ls /import
 4. In Settings → Automatic import, confirm the `source_dir` field shows the container
    path (e.g. `/import`), not a host path.
 
-### 12.7 Uploaded file is rejected with 415
+### 14.7 Uploaded file is rejected with 415
 
 Cause: the file extension is not in the accepted list.
 
@@ -1082,9 +1267,9 @@ full acceptance list explicitly. Files with unrecognized extensions are rejected
 
 ---
 
-## 13. Security — Shared Bearer token (R10-1 / ADR-0052) {#security}
+## 15. Security — Shared Bearer token (R10-1 / ADR-0052) {#security}
 
-### 13.1 Overview
+### 15.1 Overview
 
 Synapse v1.0 adds an optional shared Bearer token that gates the entire REST API (ADR-0052).
 When `SYNAPSE_AUTH_TOKEN` is unset or empty, the API is fully open — identical behaviour to
@@ -1095,7 +1280,7 @@ chat streaming path (one constant-time `secrets.compare_digest` per request, I3)
 non-Tailscale network.** For a Tailscale-only, private-network deployment behind no public
 entry point, leaving the token empty is reasonable.
 
-### 13.2 Enabling the token
+### 15.2 Enabling the token
 
 1. Generate a cryptographically secure token:
 
@@ -1141,7 +1326,7 @@ entry point, leaving the token empty is reasonable.
    | `/mcp/server/*` | MCP HTTP surface has its own bearer token (ADR-0033) |
    | `POST /clip` | Web-clipper ingress has its own `CLIP_TOKEN` (ADR-0038) |
 
-### 13.3 Token rotation
+### 15.3 Token rotation
 
 Server-side rotation requires an env change and a container restart — there is no
 rotation endpoint. There is deliberately no DB storage of this credential.
@@ -1155,7 +1340,7 @@ The client stores the token per-server in `localStorage` (`synapse.authToken`). 
 new token in Settings > Security is a client-side update only — it does not call the backend
 (§2.1 of ADR-0052).
 
-### 13.4 Client UX when auth is enabled
+### 15.4 Client UX when auth is enabled
 
 - **Desktop (Tauri) ConnectScreen:** a password field labelled "Access token" appears below
   the server URL field. Enter the token before clicking Connect. If the token is wrong, the
@@ -1170,9 +1355,9 @@ new token in Settings > Security is a client-side update only — it does not ca
 
 ---
 
-## 14. Code signing and notarization (R10-3) {#code-signing}
+## 16. Code signing and notarization (R10-3) {#code-signing}
 
-### 14.1 Why code signing
+### 16.1 Why code signing
 
 The Tauri v2 desktop binaries included in GitHub Releases are **unsigned by default**.
 Unsigned binaries trigger OS security warnings on every install:
@@ -1185,7 +1370,7 @@ but the warnings impede adoption. Code signing + notarization removes them entir
 
 ---
 
-### 14.2 macOS — Apple Developer Program + notarization
+### 16.2 macOS — Apple Developer Program + notarization
 
 **Prerequisites:**
 
@@ -1270,7 +1455,7 @@ The `tauri-action` step already accepts all notarization env vars. Add the secre
 
 ---
 
-### 14.3 Windows — OV or EV code-signing certificate
+### 16.3 Windows — OV or EV code-signing certificate
 
 **Prerequisites:**
 
@@ -1336,7 +1521,7 @@ env:
 
 ---
 
-### 14.4 Summary — per-platform signing secret matrix
+### 16.4 Summary — per-platform signing secret matrix
 
 | Secret | Platform | Where used |
 |--------|----------|-----------|
@@ -1359,12 +1544,12 @@ signed, auto-updatable release.
 
 ---
 
-## 15. Documentation site (MkDocs Material) {#docs-site}
+## 17. Documentation site (MkDocs Material) {#docs-site}
 
 Synapse v1.0 ships a full MkDocs Material documentation site (R10-6, CLAUDE.md §8 M6 optional).
 The site renders all Mermaid diagrams natively and is published to GitHub Pages.
 
-### 15.1 Live site
+### 17.1 Live site
 
 The public documentation site is available at:
 
@@ -1375,7 +1560,7 @@ https://emanuele-chiummo.github.io/llm-wiki-synapse/
 The site is published automatically on every push to the `main` branch via the GitHub Pages
 deployment workflow. The site is served from the `site/` directory (gitignored).
 
-### 15.2 Local preview
+### 17.2 Local preview
 
 To serve the docs site locally:
 
@@ -1392,7 +1577,7 @@ make docs-serve
 Navigate to `http://127.0.0.1:8000` to preview the site. Changes to files in `docs/` are
 reloaded automatically.
 
-### 15.3 Build and verify
+### 17.3 Build and verify
 
 To build the site and check for broken links or invalid Mermaid:
 
@@ -1405,7 +1590,7 @@ command run by the docs CI gate.
 
 ---
 
-## 16. ServiceNow doc connector (optional external tool) {#servicenow}
+## 18. ServiceNow doc connector (optional external tool) {#servicenow}
 
 The ServiceNow connector is an external Python tool (`tools/marker-converter/`) that
 converts ServiceNow documentation PDFs (docs.servicenow.com exports) into structured
@@ -1416,7 +1601,7 @@ developer's machine (or in a sidecar container).
 For full setup instructions, see the tool's own README:
 `tools/marker-converter/README.md`
 
-### 13.1 One-shot conversion
+### 18.1 One-shot conversion
 
 ```bash
 cd tools/marker-converter
@@ -1435,7 +1620,7 @@ one Markdown source file per section into `raw/sources/servicenow/<module>/<feat
 The Synapse watcher (or `POST /sources/ingest-all`) then ingests these source files via
 the standard analyze→generate→validate loop, producing typed, linked wiki pages.
 
-### 13.2 Watch-daemon mode
+### 18.2 Watch-daemon mode
 
 The `--watch-dir` flag runs the connector as a bounded scheduler daemon: once per tick it
 scans the watch directory for new PDFs, converts them, and sleeps until the next tick.
@@ -1455,7 +1640,7 @@ Key behavior:
 - At most 20 PDFs per tick (I7 cap; override with `--max-files`).
 - A `launchd` plist template for macOS is provided in `tools/marker-converter/com.synapse.sn-connector.plist.template`. On TrueNAS SCALE, use a cron job or a Docker Compose sidecar with `restart: unless-stopped` instead of launchd.
 
-### 13.3 Integration with Synapse
+### 18.3 Integration with Synapse
 
 The converter writes raw source files into `vault/raw/sources/servicenow/`. Synapse
 treats these exactly like any other source: the watchdog detects new files and triggers
@@ -1466,13 +1651,13 @@ that broke the wiki type system.
 
 ---
 
-## 17. Backup & restore (R8-4) {#backup-restore}
+## 19. Backup & restore (R8-4) {#backup-restore}
 
 Synapse provides two export artifacts that together constitute a full vault backup.
 There is no import/restore endpoint in v0.8 — restore is a manual procedure documented
 below. A `/import` endpoint is planned for a future sprint.
 
-### 14.1 Downloading the two artifacts
+### 19.1 Downloading the two artifacts
 
 While Synapse is running:
 
@@ -1494,7 +1679,7 @@ Bounds:
 - ZIP export is capped at 500 MB uncompressed (returns HTTP 413 if exceeded).
 - Only one export may run at a time per vault; a concurrent request returns HTTP 429.
 
-### 14.2 Restore path A — vault directory only (watcher re-ingest)
+### 19.2 Restore path A — vault directory only (watcher re-ingest)
 
 Use this path when: the Postgres database was lost but the vault filesystem was preserved,
 OR when you want to restore to a new host without migrating the database.
@@ -1522,7 +1707,7 @@ OR when you want to restore to a new host without migrating the database.
 (pages, links, edges, provider_config rows, conversation history). The re-ingest
 recreates metadata and re-embeds content, but conversation history is lost.
 
-### 14.3 Restore path B — full restore with Postgres volume
+### 19.3 Restore path B — full restore with Postgres volume
 
 Use this path when: you have a Postgres volume snapshot (e.g. `docker volume create` +
 `docker cp`) in addition to the vault ZIP. This is the fastest restore and preserves
@@ -1558,7 +1743,7 @@ a live Postgres connection.
 
 ---
 
-## 18. References
+## 20. References
 
 - `CLAUDE.md` — project context, invariants (I1–I9), and feature inventory
 - `docs/er/schema.mmd` — ER diagram (auto-generated by `make er`)
