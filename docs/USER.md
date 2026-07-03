@@ -1,6 +1,6 @@
 # Synapse User Guide
 
-<!-- Generated: v0.6 sprint 6 | 2026-07-02 -->
+<!-- Generated: v0.6 sprint 6 | 2026-07-03 -->
 
 > Version: v0.6 (M6 — "Shippable")
 > Language toggle: English / Italian available in Settings.
@@ -235,8 +235,14 @@ provider.
 ![Chat streaming](screens/chat-streaming.png)
 
 **Left panel — conversation list.** All your past conversations for the current vault.
-Create a new one with the `+` button. Delete one with the `x` on hover. Conversations
-persist across page reloads.
+Create a new one with the `+` button (or press **Cmd/Ctrl+N**). Delete one with the `x`
+on hover. Conversations persist across page reloads.
+
+**Starting a conversation — example prompts.** When a conversation has no messages yet,
+the center panel shows the Synapse logo and three clickable example-question chips. Click
+any chip to send that question immediately, exactly as if you had typed it and pressed
+Enter. The chips are a quick way to explore your vault without having to think of a first
+question; you can still type your own message at any time.
 
 **Center panel — message thread.** Each user message appears in teal; assistant
 replies in green. Responses stream token by token as they arrive — you see the reply
@@ -278,7 +284,7 @@ The nine sections are:
 | **Source Watch** | Automatic folder import (scheduled scan) |
 | **API + MCP** | MCP server connection details; tool list; Claude Desktop snippet |
 | **Output** | Conversation history length; language toggle |
-| **Interface** | UI preferences (coming in M6) |
+| **Interface** | Theme (Light / Dark / System), and other UI preferences |
 | **Maintenance** | Reset settings |
 | **About** | Version and build information |
 
@@ -359,6 +365,52 @@ section with their normal status and cost.
   configurable by the operator). Remaining files are picked up on the next tick.
 - A scan that is already in progress will not overlap with a new tick or a "Run now"
   request.
+
+#### Interface {#settings-interface}
+
+The Interface section controls the visual theme of the app.
+
+**Theme.** Three options are available from a selector in Settings > Interface:
+
+| Option | Behaviour |
+|--------|-----------|
+| **Light** | Always uses the light palette, regardless of OS setting. |
+| **Dark** | Always uses the dark palette, regardless of OS setting. |
+| **System** | Follows the OS appearance setting. If you switch your OS between light and dark mode, the app updates live — no page reload needed. |
+
+The selected theme is persisted in your browser's local storage. CodeMirror (the note editor) automatically switches between its default light theme and the One Dark theme to match. The knowledge graph's canvas background and label colors also follow the resolved theme.
+
+---
+
+### Command palette {#command-palette}
+
+The command palette gives keyboard-first access to every section and every wiki page in one step.
+
+**Opening and closing:**
+
+- Press **Cmd+K** (macOS) or **Ctrl+K** (Windows / Linux) to toggle the palette open or closed.
+- Press **Esc** to close without navigating.
+- The shortcut works even when the note editor has focus.
+
+**Navigating results:**
+
+1. Start typing to filter by title. The palette searches app sections and all wiki page titles simultaneously, returning up to 20 results.
+2. Press **↑** / **↓** to move between results.
+3. Press **Enter** to open the selected item. Sections switch the active nav-rail item; wiki pages open in the Wiki section note reader.
+
+**Keyboard shortcuts (no palette needed):**
+
+| Shortcut | Action |
+|----------|--------|
+| **Cmd/Ctrl+K** | Open / close command palette |
+| **Cmd/Ctrl+N** | New conversation (Chat section) |
+| **Cmd/Ctrl+1** | Switch to section 1 (Chat) |
+| **Cmd/Ctrl+2** | Switch to section 2 (Wiki) |
+| **Cmd/Ctrl+3** | Switch to section 3 (Sources) |
+| **Cmd/Ctrl+4** | Switch to section 4 (Graph) |
+| **Cmd/Ctrl+5** | Switch to section 5 (Review) |
+
+The section-switch and new-conversation shortcuts are ignored while you are typing in a text input or the note editor (to avoid conflicts), except for Cmd/Ctrl+K which remains reachable from any context.
 
 ---
 
@@ -690,14 +742,51 @@ The Connect screen is only shown in the desktop app. Opening Synapse in a browse
 (PWA or tab) is unaffected — browsers use a relative URL to the same origin and never
 see this screen.
 
-### Server chip in the header
+### Server chip in the header {#desktop-server-chip}
 
 Once connected, the header shows a small chip with the backend hostname. Click it to
-open a dropdown with a **Change server** option. Choosing **Change server** clears the
-stored URL and returns to the Connect screen. Use this to point the app at a different
-backend without reinstalling.
+open a dropdown. The dropdown lists up to the last five servers you have successfully
+connected to, plus a **Change server** entry at the bottom.
+
+- **Select a recent server** — the app switches to that backend immediately by saving the
+  URL and reloading the page. A full reload is intentional: switching backends resets all
+  cached queries, conversations, and graph data so no stale cross-server state leaks into
+  the new session.
+- **Change server** — clears the stored URL and returns to the Connect screen. Use this
+  to enter a new address that is not yet in the recent-servers list.
+
+Only servers that passed a successful `GET /status` probe are added to the list, so the
+dropdown never contains an address that has never connected.
 
 The server chip is only visible in the desktop app.
+
+### Zoom {#desktop-zoom}
+
+The desktop app supports adjustable UI zoom (Tauri only — not available in browser / PWA):
+
+| Shortcut | Action |
+|----------|--------|
+| **Cmd/Ctrl +** | Zoom in (up to 140 %) |
+| **Cmd/Ctrl −** | Zoom out (down to 80 %) |
+| **Cmd/Ctrl 0** | Reset to 100 % |
+
+Zoom adjusts in 10 % steps and is persisted across restarts. If text or controls appear
+too small or too large on your display (HiDPI or 4K screens especially), use
+**Cmd/Ctrl +** / **Cmd/Ctrl −** to tune it.
+
+### Ingest-completion notifications {#desktop-notifications}
+
+When an ingest run finishes, the desktop app sends a native OS notification — so you can
+start an ingest, switch to another app, and be notified when Synapse is done without
+polling the Sources section.
+
+The first time an ingest completes after installing the desktop app, the OS asks whether
+to allow notifications from Synapse. Grant permission to enable this feature; if you
+dismiss the prompt, no notification fires for that run. You can grant or revoke
+notification permission at any time via your OS system settings.
+
+Notifications are desktop-only (`isTauri()` guard) and do not appear in the browser /
+PWA build.
 
 The following features also shipped in v0.6 (M6):
 
@@ -709,3 +798,9 @@ The following features also shipped in v0.6 (M6):
 | Tauri v2 desktop shell (F15) | Native desktop app for macOS, Windows, and Linux (binaries on GitHub Releases) |
 | CI gate (F15) | Tests, pinned linters, and mmdc Mermaid render check on every `sprint/**` push |
 | purpose.md injection verified (F2) | `vault/purpose.md` confirmed injected into ingest and chat provider contexts |
+| Dark / Light / System theme (F16, ADR-0048) | Settings > Interface; follows OS live when "System"; CodeMirror + sigma follow the resolved theme |
+| Command palette + keyboard shortcuts (F16, ADR-0048) | Cmd/Ctrl+K palette (sections + wiki pages, ↑↓/Enter/Esc); Cmd/Ctrl+N new conversation; Cmd/Ctrl+1..5 section switch |
+| Chat empty-state example prompts (F1, ADR-0048) | Three clickable chips on a new conversation; click to send immediately |
+| Desktop multi-server dropdown (F15, ADR-0048) | Server chip lists last 5 connected servers; switching reloads the app |
+| Desktop zoom (F15, ADR-0048) | Cmd/Ctrl +/−/0 adjusts UI scale 80–140 %; persisted across restarts |
+| Desktop ingest notifications (F15, ADR-0048) | Native OS notification on ingest completion; permission requested on first fire |
