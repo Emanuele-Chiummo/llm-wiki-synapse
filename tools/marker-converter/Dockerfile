@@ -50,12 +50,12 @@ RUN pip install -r requirements.txt
 # Copy application code
 COPY service.py .
 
-# Create non-root user
-RUN useradd -m -u 1000 marker && chown -R marker:marker /app
+# Create non-root user + model cache dir (BOTH as root: the marker user cannot
+# mkdir in / — this exact ordering bug failed the first v1.2.0 image build)
+RUN useradd -m -u 1000 marker \
+    && chown -R marker:marker /app \
+    && mkdir -p /models && chown marker:marker /models && chmod 755 /models
 USER marker
-
-# Create model cache directory (owned by marker user)
-RUN mkdir -p /models && chmod 755 /models
 
 # Healthcheck: GET /health endpoint
 # Start period is generous (60s) because first model download is slow (~90s on slow net).
