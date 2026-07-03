@@ -1,6 +1,6 @@
 {
   "name": "synapse-frontend",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "private": true,
   "description": "Synapse v0.5 — feature parity core (Deep Research, Review, Multi-format, Cascade Delete)",
   "type": "module",
