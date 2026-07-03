@@ -706,3 +706,27 @@ F16 (status version field), F17 (I6 — classification hook).
 **Invariants with heightened priority:** I6 (empty-vocabulary skip rule + classification
 routed through InferenceProvider), I7 (backfill bounded by max_pages + token_budget +
 cost logged), I8 (openapi.json + CLAUDE.md §4 updated before first F18 commit).
+
+---
+
+## 10. AMENDMENT — Owner feedback on R12-1 (Emanuele, 2026-07-03, post-first-render)
+
+> Supersedes the R12-1 rendering priorities. "Le sezioni della home devono essere dinamiche
+> in base alle note dell'utente (raggruppate per fare i count); la home non deve essere solo
+> una dashboard ma un'overview sul sistema in generale."
+
+**A1 — Dynamic groups (zero-config).** New `GET /stats/groups`: sections derived
+automatically from the existing server-side Louvain communities (I2 — already computed,
+no new heavy work). Shape (FROZEN): `{groups:[{community:int, label:str, pages_total:int,
+pages_by_type:{}, top_pages:[{id,title,slug,degree}] (cap 5), last_activity:iso|null}]}`,
+ordered by pages_total DESC, cap 12; label = title of the highest-degree page in the
+community (truncated 48 chars); memoised on data_version. No AI call (heuristic label).
+
+**A2 — Home = system overview.** HomeDashboard gains a "System status" block sourced from
+the EXISTING `/health/detailed` + `/status` + active provider config: component health
+(watcher, scheduler, ingest queue, DB, Qdrant, graph cache), active provider/model,
+backend version, uptime, data version. No new backend endpoint.
+
+**A3 — Vocabulary demoted to optional curated layer.** Domain sections (R12-2) render
+ABOVE auto-groups when a vocabulary is defined; with no vocabulary the Home is fully
+functional with auto-groups only (zero-config default). R12-2 backfill/auto-tag unchanged.
