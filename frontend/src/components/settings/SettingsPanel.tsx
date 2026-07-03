@@ -18,6 +18,7 @@
 
 import React, { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ImportScheduleCard } from "./ImportScheduleCard";
+import { OpsScheduleCard } from "./OpsScheduleCard";
 import { useTranslation } from "react-i18next";
 import { getAppConfig, putAppConfig, resetAppConfig, type AppConfigEntry, type AppConfigKey } from "../../api/appConfigClient";
 import { useShallow } from "zustand/react/shallow";
@@ -397,6 +398,13 @@ function GroupAdvanced() {
         ]}
       />
       <GroupDivider />
+      {/* A5 / R12-7: Ops schedule card — lint + backfill job scheduling */}
+      <SectionHeader
+        title={t("settings.opsSchedule.title")}
+        desc={t("settings.opsSchedule.sectionDesc")}
+      />
+      <OpsScheduleCard />
+      <GroupDivider />
       <SectionAbout />
     </div>
   );
@@ -670,6 +678,9 @@ function configKeyToI18nSuffix(key: AppConfigKey): string {
     wikilink_enrich_enabled:    "wikilinkEnrichEnabled",
     // S9 — ADR-0054 §2.1, F18
     domain_vocabulary:          "domainVocabulary",
+    // A5 / R12-7 — ops schedule frequencies (managed by OpsScheduleCard, not SectionRuntimeConfig)
+    lint_schedule:              "lintSchedule",
+    backfill_schedule:          "backfillSchedule",
   };
   return map[key];
 }
