@@ -473,10 +473,13 @@ describe("ActivityPanel — Cancel All button", () => {
     expect(await screen.findByTestId("activity-cancel-all")).toBeTruthy();
   });
 
-  it("clicking Cancel All calls cancelRun for each active run_id", async () => {
+  it("clicking Cancel All then confirming the dialog calls cancelRun for each active run_id", async () => {
     renderBar();
     fireEvent.click(screen.getByTestId("activity-panel-toggle"));
     fireEvent.click(await screen.findByTestId("activity-cancel-all"));
+    // Cancel All now routes through ConfirmDialog (R7-12) — confirm to proceed.
+    const confirmBtn = await screen.findByTestId("confirm-dialog-confirm");
+    fireEvent.click(confirmBtn);
     await waitFor(() => {
       expect(mockActivityState.cancelRun).toHaveBeenCalledWith("r2");
       expect(mockActivityState.cancelRun).toHaveBeenCalledWith("r3");

@@ -32,9 +32,11 @@ import { ActivityBar } from "./activity/ActivityBar";
 import { ToastHost } from "./common/Toast";
 import { ConnectScreen } from "./connect/ConnectScreen";
 import { CommandPalette } from "./common/CommandPalette";
+import { UpdateBanner } from "./common/UpdateBanner";
 import { isTauri } from "../api/base";
 import { useSettingsStore, selectServerUrl } from "../store/settingsStore";
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
+import { useDesktopUpdater } from "../hooks/useDesktopUpdater";
 
 export function AppShell() {
   // ADR-0047 §2.3: gate is active only in Tauri and only when no server URL is set.
@@ -53,6 +55,9 @@ export function AppShell() {
     paletteOpen,
     onTogglePalette: handleTogglePalette,
   });
+
+  // ADR-0049 §U4: startup update check — once, non-blocking, Tauri-only.
+  const updaterState = useDesktopUpdater();
 
   if (inTauri && serverUrl === null) {
     return <ConnectScreen />;
@@ -76,6 +81,9 @@ export function AppShell() {
     >
       {/* ── Row 1: Header ──────────────────────────────────────────────────── */}
       <Header />
+
+      {/* ── Row 1b: Update banner (ADR-0049 §U4 — Tauri-only, slim, dismissible) ── */}
+      <UpdateBanner state={updaterState} />
 
       {/* ── Row 2: NavRail + SectionRouter ─────────────────────────────────── */}
       {/* minHeight:0 ensures height:100% inside children resolves in flex-column. */}

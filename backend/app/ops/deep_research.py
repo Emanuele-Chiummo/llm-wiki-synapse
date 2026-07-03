@@ -123,6 +123,7 @@ async def run_deep_research(
     max_iter: int | None = None,
     token_budget: int | None = None,
     run_id: uuid.UUID | None = None,
+    seed_queries: list[str] | None = None,
 ) -> DeepResearchResult:
     """
     Run ONE bounded deep-research operation end-to-end (S-F10-1, AC-F10-1..7).
@@ -138,6 +139,11 @@ async def run_deep_research(
     Bounds (I7) are FROZEN on the deep_research_runs row at start and never re-read mid-loop.
     Terminal status: converged | max_iter_reached | budget_exhausted | error.
     total_cost_usd accumulated + logged + $1 anomaly WARNING (ADR-0024 §3.3).
+
+    seed_queries (R7-5, AC-R7-5-2): a review item's stored search_queries. When provided
+    (non-empty), the FIRST iteration uses these curated queries VERBATIM instead of the provider
+    round-trip — no re-generation. Bounded to _max_queries() (I7). Subsequent refinement
+    iterations still generate from the assessed gaps. None/[] → generate from scratch (default).
     """
     # ── Resolve and freeze bounds (AQ-v0.5-4, ADR-0024 §3.1) ─────────────────
     frozen_max_iter: int = max_iter if max_iter is not None else _default_max_iter()
@@ -184,11 +190,23 @@ async def run_deep_research(
         max_iter_local: int = frozen_max_iter
         token_budget_local: int = frozen_token_budget
 
-        # Initial query generation (outside the loop — same as ADR-0024 §3.2 spec)
+        # Initial query generation (outside the loop — same as ADR-0024 §3.2 spec).
+        # R7-5 (AC-R7-5-2): if the caller supplied curated seed_queries (a review item's stored
+        # search_queries), use them VERBATIM for the first round — no provider round-trip, no
+        # re-generation. Bounded to _max_queries() (I7). Otherwise generate from scratch.
         _mq = _max_queries()
-        queries = await _generate_queries(
-            provider, topic, "", max_queries=_mq  # positional: prior_context="" (no prior gaps)
-        )
+        seeds = [q.strip() for q in (seed_queries or []) if q and q.strip()][:_mq]
+        if seeds:
+            queries = seeds
+            logger.info(
+                "run_deep_research: using %d curated seed queries for run_id=%s (no re-generation)",
+                len(seeds),
+                run_id,
+            )
+        else:
+            queries = await _generate_queries(
+                provider, topic, "", max_queries=_mq  # positional: prior_context="" (no gaps)
+            )
         all_queries.extend(queries)
 
         # ── THE BOUNDED LOOP (I7 — structural cap) ────────────────────────────
@@ -483,7 +501,7 @@ async def _synthesize(
     sources_full = _format_sources_for_prompt(collected, max_chars=40_000)
 
     instruction = (
-        f"You are writing a well-structured knowledge base article about: {topic}\n\n"
+        f"You are writing a research SYNTHESIS article about: {topic}\n\n"
         f"Use the following web research sources:\n{sources_full}\n\n"
         f"Write a comprehensive markdown document that:\n"
         f"- Has a clear # heading for the topic\n"
@@ -491,6 +509,11 @@ async def _synthesize(
         f"- Includes [[wikilinks]] for related concepts (e.g. [[Docker]], [[Kubernetes]])\n"
         f"- Cites sources as inline URLs or a References section\n"
         f"- Is factual, concise, and suitable for a personal knowledge base\n"
+        # R7-10(c): steer downstream ingest classification → this becomes a `synthesis` page
+        # (landing under wiki/synthesis/), not a generic concept/entity. The re-ingest analyze()
+        # step reads this framing sentence.
+        f"This is a SYNTHESIS of multiple web sources — a survey/overview page. When it is "
+        f"ingested into the wiki it MUST be classified as page type 'synthesis'.\n"
         f"Output ONLY the markdown document, no preamble."
     )
 

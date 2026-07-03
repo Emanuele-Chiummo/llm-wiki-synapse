@@ -9,11 +9,26 @@
  * - AC-F6-1: page refresh restores last active conversation (persisted in store → localStorage
  *   via the settingsStore pattern; the Postgres updated_at DESC sort ensures the right one
  *   is first in the list on reload).
+ *
+ * R7-3:
+ * - Inline rename via hover/kebab edit icon → PATCH /conversations/{id} (optimistic + rollback).
+ * - Filter/search input (client-side, debounced 200ms, AC-R7-3-2).
+ * - Virtualized list stays I4-compliant regardless of filter.
  */
 
-import { useEffect, useRef, useCallback, type ReactNode, type MouseEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useCallback,
+  useState,
+  useMemo,
+  type ReactNode,
+  type MouseEvent,
+  type KeyboardEvent,
+} from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
+import { Pencil, Check, X } from "lucide-react";
 import {
   useChatStore,
   useConversations,
@@ -22,6 +37,7 @@ import {
   selectSetConversations,
   selectAddConversation,
   selectRemoveConversation,
+  selectUpdateConversation,
   selectConversationsLoading,
   selectSetConversationsLoading,
   selectSetConversationsError,
@@ -34,6 +50,7 @@ import {
   fetchConversations,
   createConversation,
   deleteConversation,
+  renameConversation,
   fetchMessages,
 } from "../../api/chatClient";
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
@@ -41,6 +58,9 @@ import { showToast } from "../common/Toast";
 
 // Virtualize when list exceeds this threshold (I4)
 const VIRTUAL_THRESHOLD = 50;
+
+// AC-R7-3-3: debounce for the filter input (ms)
+const FILTER_DEBOUNCE_MS = 200;
 
 export function ConversationList(): ReactNode {
   const { t } = useTranslation();
@@ -54,13 +74,41 @@ export function ConversationList(): ReactNode {
   const setActiveId = useChatStore(selectSetActiveConversationId);
   const addConversation = useChatStore(selectAddConversation);
   const removeConversation = useChatStore(selectRemoveConversation);
+  const updateConversation = useChatStore(selectUpdateConversation);
   const setLoading = useChatStore(selectSetConversationsLoading);
   const setError = useChatStore(selectSetConversationsError);
   const setMessages = useChatStore(selectSetMessages);
   const setMessagesLoading = useChatStore(selectSetMessagesLoading);
   const setMessagesError = useChatStore(selectSetMessagesError);
 
+  // R7-3: filter state
+  const [filterRaw, setFilterRaw] = useState("");
+  const [filter, setFilter] = useState("");
+  const filterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const abortRef = useRef<AbortController | null>(null);
+
+  // Debounce filter (AC-R7-3-3)
+  const handleFilterChange = useCallback((value: string) => {
+    setFilterRaw(value);
+    if (filterTimerRef.current) clearTimeout(filterTimerRef.current);
+    filterTimerRef.current = setTimeout(() => setFilter(value), FILTER_DEBOUNCE_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (filterTimerRef.current) clearTimeout(filterTimerRef.current);
+    };
+  }, []);
+
+  // AC-R7-3-2: client-side title filter (no backend round-trip)
+  const filteredConversations = useMemo(() => {
+    const q = filter.toLowerCase().trim();
+    if (!q) return conversations;
+    return conversations.filter((c) =>
+      (c.title ?? "").toLowerCase().includes(q),
+    );
+  }, [conversations, filter]);
 
   // Fetch conversation list
   const loadConversations = useCallback(async () => {
@@ -77,7 +125,7 @@ export function ConversationList(): ReactNode {
         const first = res.items[0];
         if (first) {
           setActiveId(first.id);
-          loadMessages(first.id);
+          void loadMessages(first.id);
         }
       }
     } catch (err) {
@@ -148,7 +196,29 @@ export function ConversationList(): ReactNode {
     [activeId, removeConversation, setMessages, t],
   );
 
-  const shouldVirtualize = conversations.length > VIRTUAL_THRESHOLD;
+  // R7-3: Rename handler — optimistic update with rollback on error (AC-R7-3-1)
+  const handleRename = useCallback(
+    async (convId: string, newTitle: string) => {
+      const conv = conversations.find((c) => c.id === convId);
+      if (!conv) return;
+      const prevTitle = conv.title;
+
+      // Optimistic update
+      updateConversation(convId, { title: newTitle });
+      try {
+        const updated = await renameConversation(convId, newTitle);
+        updateConversation(convId, { title: updated.title });
+      } catch (err) {
+        // Rollback
+        updateConversation(convId, { title: prevTitle });
+        showToast(t("chat.renameError"), "error");
+        console.error("[chat] rename conversation error", err);
+      }
+    },
+    [conversations, updateConversation, t],
+  );
+
+  const shouldVirtualize = filteredConversations.length > VIRTUAL_THRESHOLD;
 
   return (
     <div
@@ -198,6 +268,28 @@ export function ConversationList(): ReactNode {
         </button>
       </div>
 
+      {/* R7-3: Search/filter input (AC-R7-3-2) */}
+      <div style={{ padding: "6px 8px", flexShrink: 0 }}>
+        <input
+          type="search"
+          data-testid="conversation-filter-input"
+          value={filterRaw}
+          onChange={(e) => handleFilterChange(e.target.value)}
+          placeholder={t("chat.searchConversations")}
+          aria-label={t("chat.searchConversations")}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            fontSize: 11,
+            padding: "4px 8px",
+            border: "1px solid var(--syn-border)",
+            borderRadius: 4,
+            background: "var(--syn-bg)",
+            color: "var(--syn-text)",
+          }}
+        />
+      </div>
+
       {/* Loading state */}
       {loading && (
         <div style={{ padding: "12px", color: "var(--syn-text-dim)", fontSize: 12 }}>
@@ -208,18 +300,19 @@ export function ConversationList(): ReactNode {
       {/* List */}
       {!loading && !shouldVirtualize && (
         <div style={{ flex: 1, overflowY: "auto" }}>
-          {conversations.map((conv) => (
+          {filteredConversations.map((conv) => (
             <ConvItem
               key={conv.id}
               conv={conv}
               isActive={conv.id === activeId}
               onSelect={handleSelect}
               onDelete={handleDelete}
+              onRename={handleRename}
             />
           ))}
-          {conversations.length === 0 && (
+          {filteredConversations.length === 0 && !loading && (
             <div style={{ padding: "16px 12px", color: "var(--syn-text-dim)", fontSize: 12 }}>
-              {t("chat.noConversations")}
+              {filter ? t("chat.noMatchingConversations") : t("chat.noConversations")}
             </div>
           )}
         </div>
@@ -228,10 +321,11 @@ export function ConversationList(): ReactNode {
       {/* Virtualized list for >50 items (I4) */}
       {!loading && shouldVirtualize && (
         <VirtualConvList
-          conversations={conversations}
+          conversations={filteredConversations}
           activeId={activeId}
           onSelect={handleSelect}
           onDelete={handleDelete}
+          onRename={handleRename}
         />
       )}
     </div>
@@ -245,11 +339,13 @@ function VirtualConvList({
   activeId,
   onSelect,
   onDelete,
+  onRename,
 }: {
   conversations: ConversationSummary[];
   activeId: string | null;
   onSelect: (c: ConversationSummary) => void;
   onDelete: (id: string, e: MouseEvent) => Promise<void>;
+  onRename: (id: string, title: string) => Promise<void>;
 }): ReactNode {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -284,6 +380,7 @@ function VirtualConvList({
                 isActive={conv.id === activeId}
                 onSelect={onSelect}
                 onDelete={onDelete}
+                onRename={onRename}
               />
             </div>
           );
@@ -300,18 +397,128 @@ function ConvItem({
   isActive,
   onSelect,
   onDelete,
+  onRename,
 }: {
   conv: ConversationSummary;
   isActive: boolean;
   onSelect: (c: ConversationSummary) => void;
   onDelete: (id: string, e: MouseEvent) => Promise<void>;
+  onRename: (id: string, title: string) => Promise<void>;
 }): ReactNode {
   const { t } = useTranslation();
-  const title = conv.title ?? t("chat.untitled");
+  const displayTitle = conv.title ?? t("chat.untitled");
   const date = new Date(conv.updated_at).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
   });
+
+  // R7-3: inline rename state
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(displayTitle);
+  const [hovered, setHovered] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const startRename = useCallback(
+    (e: MouseEvent) => {
+      e.stopPropagation();
+      setRenameValue(displayTitle);
+      setIsRenaming(true);
+    },
+    [displayTitle],
+  );
+
+  const commitRename = useCallback(async () => {
+    const newTitle = renameValue.trim();
+    if (newTitle && newTitle !== displayTitle) {
+      await onRename(conv.id, newTitle);
+    }
+    setIsRenaming(false);
+  }, [renameValue, displayTitle, onRename, conv.id]);
+
+  const cancelRename = useCallback(() => {
+    setRenameValue(displayTitle);
+    setIsRenaming(false);
+  }, [displayTitle]);
+
+  const handleRenameKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        void commitRename();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cancelRename();
+      }
+    },
+    [commitRename, cancelRename],
+  );
+
+  // Focus the input when rename mode starts
+  useEffect(() => {
+    if (isRenaming) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [isRenaming]);
+
+  if (isRenaming) {
+    return (
+      <div
+        data-testid="conv-item-renaming"
+        style={{
+          padding: "6px 8px",
+          background: isActive ? "var(--syn-accent-soft)" : "var(--syn-surface)",
+          borderLeft: isActive ? "2px solid var(--syn-accent)" : "2px solid transparent",
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          ref={inputRef}
+          data-testid="conv-rename-input"
+          type="text"
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onKeyDown={handleRenameKeyDown}
+          aria-label={t("chat.renameConversation")}
+          style={{
+            flex: 1,
+            fontSize: 12,
+            padding: "3px 6px",
+            border: "1px solid var(--syn-accent)",
+            borderRadius: 3,
+            background: "var(--syn-bg)",
+            color: "var(--syn-text)",
+            outline: "none",
+            minWidth: 0,
+          }}
+        />
+        <button
+          type="button"
+          data-testid="conv-rename-commit-btn"
+          onClick={() => { void commitRename(); }}
+          title={t("chat.renameCommit")}
+          aria-label={t("chat.renameCommit")}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--syn-accent)", padding: "2px" }}
+        >
+          <Check size={12} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          data-testid="conv-rename-cancel-btn"
+          onClick={cancelRename}
+          title={t("chat.renameCancel")}
+          aria-label={t("chat.renameCancel")}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--syn-text-dim)", padding: "2px" }}
+        >
+          <X size={12} aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -321,6 +528,8 @@ function ConvItem({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onSelect(conv);
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       aria-current={isActive ? "true" : undefined}
       style={{
         padding: "8px 12px",
@@ -344,28 +553,56 @@ function ConvItem({
             whiteSpace: "nowrap",
           }}
         >
-          {title}
+          {displayTitle}
         </div>
         <div style={{ fontSize: 11, color: "var(--syn-text-dim)", marginTop: 2 }}>{date}</div>
       </div>
-      <button
-        type="button"
-        onClick={(e) => void onDelete(conv.id, e)}
-        aria-label={t("chat.deleteConversation")}
-        title={t("chat.deleteConversation")}
-        style={{
-          background: "none",
-          border: "none",
-          color: "var(--syn-text-dim)",
-          cursor: "pointer",
-          fontSize: 14,
-          padding: "2px 4px",
-          flexShrink: 0,
-          lineHeight: 1,
-        }}
-      >
-        ×
-      </button>
+
+      {/* Actions: rename + delete (visible on hover or active) */}
+      <div style={{ display: "flex", gap: 2, flexShrink: 0, opacity: hovered || isActive ? 1 : 0 }}>
+        {/* Rename button (R7-3) */}
+        <button
+          type="button"
+          data-testid="conv-rename-btn"
+          onClick={startRename}
+          aria-label={t("chat.renameConversation")}
+          title={t("chat.renameConversation")}
+          style={{
+            background: "none",
+            border: "none",
+            color: "var(--syn-text-dim)",
+            cursor: "pointer",
+            fontSize: 12,
+            padding: "2px 4px",
+            flexShrink: 0,
+            lineHeight: 1,
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <Pencil size={11} aria-hidden="true" />
+        </button>
+
+        {/* Delete button */}
+        <button
+          type="button"
+          onClick={(e) => void onDelete(conv.id, e)}
+          aria-label={t("chat.deleteConversation")}
+          title={t("chat.deleteConversation")}
+          style={{
+            background: "none",
+            border: "none",
+            color: "var(--syn-text-dim)",
+            cursor: "pointer",
+            fontSize: 14,
+            padding: "2px 4px",
+            flexShrink: 0,
+            lineHeight: 1,
+          }}
+        >
+          ×
+        </button>
+      </div>
     </div>
   );
 }

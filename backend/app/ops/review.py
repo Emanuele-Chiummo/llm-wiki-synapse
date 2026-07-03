@@ -1496,6 +1496,29 @@ def _first_search_query(raw: Any) -> str | None:
     return None
 
 
+def _all_search_queries(raw: Any) -> list[str]:
+    """
+    Return every non-empty, de-duplicated string in a search_queries JSON value (R7-5).
+
+    Used to seed Deep Research with the FULL curated query list (AC-R7-5-2), not just the first.
+    Bounded to REVIEW_SEARCH_QUERIES_MAX (I7). Non-list / empty → [] (never raises).
+    """
+    if not isinstance(raw, list):
+        return []
+    cap = int(getattr(settings, "review_search_queries_max", 3))
+    out: list[str] = []
+    seen: set[str] = set()
+    for entry in raw:
+        s = _clean_str(entry)
+        if s is None or s in seen:
+            continue
+        seen.add(s)
+        out.append(s)
+        if len(out) >= cap:
+            break
+    return out
+
+
 async def skip(item_id: uuid.UUID) -> ReviewItem:
     """Set status=skipped, resolution=skipped, reviewed_at=now() (ADR-0034 §7).
     404 if the item is not found."""
@@ -1549,6 +1572,10 @@ async def deep_research(
             from fastapi import HTTPException
 
             raise HTTPException(status_code=404, detail=f"Review item {item_id} not found")
+
+        # Extract the FULL curated seed query list (R7-5, AC-R7-5-2) — passed to deep_research so
+        # iteration 1 uses them verbatim (no re-generation). topic falls back to the first.
+        seed_queries: list[str] = _all_search_queries(item.search_queries)
 
         # Extract topic: search_queries[0] (ADR-0044 §2.3 curated seed) → proposed_title →
         # rationale first line → page.title → fallback (ADR-0034 order when no seed).
@@ -1623,7 +1650,8 @@ async def deep_research(
         await session.refresh(item2)
         session.expunge(item2)
 
-    # Schedule the background task
+    # Schedule the background task. R7-5: pass the curated seed_queries so the first research
+    # round uses them verbatim (no re-generation) — AC-R7-5-2.
     _asyncio.create_task(
         run_deep_research(
             vault_id=effective_vault_id,
@@ -1631,15 +1659,17 @@ async def deep_research(
             max_iter=frozen_max_iter,
             token_budget=frozen_token_budget,
             run_id=run_id,
+            seed_queries=seed_queries or None,
         )
     )
 
     logger.info(
-        "deep_research action: review_item_id=%s → run_id=%s vault=%s topic=%r",
+        "deep_research action: review_item_id=%s → run_id=%s vault=%s topic=%r seeds=%d",
         item_id_str,
         run_id_str,
         effective_vault_id,
         topic,
+        len(seed_queries),
     )
     return DeepResearchResult(review_item_id=item_id, run_id=run_id)
 

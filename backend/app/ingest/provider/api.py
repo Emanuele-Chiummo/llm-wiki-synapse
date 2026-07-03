@@ -217,6 +217,13 @@ class ApiProvider(InferenceProvider):
 
         in_tok = 0
         out_tok = 0
+        # R7-10(a): DeepSeek/Qwen-family reasoning models (served OpenAI-compatibly) stream their
+        # chain-of-thought in a SEPARATE delta field — DeepSeek uses `reasoning_content`, Qwen uses
+        # `reasoning` — BEFORE the visible `content`. We wrap that reasoning in <think>…</think> so
+        # the shared server-side ThinkScanner routes it to the ThinkBlock exactly like a native
+        # <think> tag (no per-token parse here — I3; the scanner runs downstream). We open the
+        # span on the first reasoning delta and close it when visible content begins.
+        think_open = False
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 async with client.stream(
@@ -235,13 +242,29 @@ class ApiProvider(InferenceProvider):
                             continue
                         choices = evt.get("choices", [])
                         if choices:
-                            text = choices[0].get("delta", {}).get("content", "")
+                            delta = choices[0].get("delta", {})
+                            # Vendor reasoning field (DeepSeek: reasoning_content, Qwen: reasoning).
+                            reasoning = delta.get("reasoning_content")
+                            if reasoning is None:
+                                reasoning = delta.get("reasoning")
+                            if reasoning:
+                                if not think_open:
+                                    think_open = True
+                                    yield "<think>"
+                                yield reasoning
+                            text = delta.get("content", "")
                             if text:
+                                if think_open:
+                                    think_open = False
+                                    yield "</think>"
                                 yield text
                         usage = evt.get("usage")
                         if isinstance(usage, dict):
                             in_tok = int(usage.get("prompt_tokens", in_tok) or in_tok)
                             out_tok = int(usage.get("completion_tokens", out_tok) or out_tok)
+            # Close a still-open think span if the stream ended with only reasoning (defensive).
+            if think_open:
+                yield "</think>"
         finally:
             self._record_usage(
                 Usage(

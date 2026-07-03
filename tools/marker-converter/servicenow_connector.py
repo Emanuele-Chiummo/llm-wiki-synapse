@@ -34,8 +34,12 @@ Deterministic reference pages only (Increment 1). The per-feature LLM synthesis 
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import os
 import re
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -297,10 +301,284 @@ def render_page(sec: Section, source_label: str, source_url: str | None) -> str:
     return "\n".join(fm) + f"\n\n{context}\n\n# {sec.title}\n\n{sec.body}\n\n{footer}\n"
 
 
+# ── Daemon / watch-dir mode (R7-7, AC-R7-7-1..R7-7-3) ───────────────────────────
+#
+# The watch-dir daemon scans a local directory for new PDF files on a configurable
+# interval, converts them with Marker, and drops the resulting .md files into the
+# configured output directory so Synapse's watcher / import-schedule auto-ingests them.
+#
+# Bounds (I7-style, AC-R7-7-2):
+#   - Max 20 PDFs per tick (MAX_PDFS_PER_TICK).
+#   - SHA-256 hash gate: PDFs already converted are skipped (I1 spirit).
+#   - Logs total_files_converted and total_cost_usd=0.00 per tick (Marker is local).
+#
+# State is persisted in a small JSON file alongside the output dir so converted
+# hashes survive restarts.
+#
+# Auto-download stub (AC-R7-7-4, experimental):
+#   When SERVICENOW_AUTODOWNLOAD_EXPERIMENTAL=1, a warning is logged and the function
+#   exits immediately (not implemented). This path is never reached by the normal
+#   daemon loop and is not gate-blocking.
+
+_STATE_FILE_NAME = ".sn_connector_state.json"
+MAX_PDFS_PER_TICK = 20  # I7 cap (AC-R7-7-2)
+
+
+def _sha256_file(path: Path) -> str:
+    """Compute SHA-256 hex digest of a file (hash gate for I1-style deduplication)."""
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _load_state(state_path: Path) -> dict[str, str]:
+    """Load the conversion state dict {sha256 → output_path} from JSON, or {} if absent."""
+    if not state_path.exists():
+        return {}
+    try:
+        return json.loads(state_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _save_state(state_path: Path, state: dict[str, str]) -> None:
+    """Persist the conversion state dict atomically."""
+    tmp = state_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    tmp.replace(state_path)
+
+
+def _auto_download_stub() -> None:
+    """
+    Auto-download stub (AC-R7-7-4 — experimental, NOT gate-blocking).
+
+    When SERVICENOW_AUTODOWNLOAD_EXPERIMENTAL=1 this function is called and logs a
+    clear warning. It does NOT scrape docs.servicenow.com. Provide PDFs manually
+    in the watch dir instead.
+    """
+    print(
+        "[WARN] SERVICENOW_AUTODOWNLOAD_EXPERIMENTAL=1 detected. "
+        "Auto-download is NOT implemented — provide PDFs manually in the watch dir. "
+        "This stub exits immediately without downloading anything.",
+        file=sys.stderr,
+    )
+
+
+def run_watch_tick(
+    watch_dir: Path,
+    out_dir: Path,
+    *,
+    module_title: str = "IT Asset Management",
+    module_code: str = "ITAM",
+    source_url: str = "https://docs.servicenow.com",
+    file_depth: int = 3,
+    max_per_tick: int = MAX_PDFS_PER_TICK,
+    convert_fn: object = None,  # callable(pdf, start, end) -> str; injected in tests
+) -> dict[str, int]:
+    """
+    One scheduler tick: find NEW PDFs in watch_dir, convert up to max_per_tick, drop
+    resulting .md files into out_dir/servicenow/…, update the state file.
+
+    Returns {"total_files_converted": N, "total_cost_usd": 0} (Marker is local).
+
+    Args:
+        watch_dir:    Local directory to scan for PDF files (AC-R7-7-1).
+        out_dir:      Directory where converted .md files are written (picked up by watcher).
+        module_title: ServiceNow module name for frontmatter/path (default ITAM).
+        module_code:  Short module code for output path (default ITAM).
+        source_url:   Source URL for page citations.
+        file_depth:   Bookmark depth for section splitting (default 3).
+        max_per_tick: Max PDFs to convert per tick (I7 cap, AC-R7-7-2).
+        convert_fn:   Optional converter callable; if None, Marker is loaded lazily on first PDF.
+
+    Logs total_files_converted and total_cost_usd=0.00 per tick (I7, AC-R7-7-2).
+    """
+    state_path = out_dir / _STATE_FILE_NAME
+    out_dir.mkdir(parents=True, exist_ok=True)
+    state = _load_state(state_path)
+
+    pdfs = sorted(watch_dir.glob("*.pdf"))
+    new_pdfs = [p for p in pdfs if _sha256_file(p) not in state]
+
+    if not new_pdfs:
+        print(f"[tick] No new PDFs in {watch_dir} — skipping.")
+        return {"total_files_converted": 0, "total_cost_usd": 0}
+
+    # Apply I7 cap (AC-R7-7-2)
+    capped = new_pdfs[:max_per_tick]
+    if len(new_pdfs) > max_per_tick:
+        print(
+            f"[tick] {len(new_pdfs)} new PDFs found; capping at {max_per_tick} per tick (I7).",
+            file=sys.stderr,
+        )
+
+    # Lazy-load Marker converter on first PDF (not in __init__ so tests can inject a stub)
+    _convert = convert_fn
+    converted = 0
+
+    for pdf_path in capped:
+        sha = _sha256_file(pdf_path)
+        print(f"[tick] Converting {pdf_path.name} …", flush=True)
+        try:
+            # Read bookmarks from this PDF; if unreadable (no Marker/pypdfium2), skip cleanly.
+            try:
+                bms = read_bookmarks(pdf_path)
+                n_pages = page_count(pdf_path)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[tick] WARNING: could not read bookmarks for {pdf_path.name}: {exc}", file=sys.stderr)
+                # Mark as "seen" with a sentinel so we don't retry endlessly on a bad PDF.
+                state[sha] = f"error:{pdf_path.name}"
+                _save_state(state_path, state)
+                continue
+
+            sections = select_sections(
+                bms,
+                n_pages,
+                module_title=module_title,
+                module_code=module_code,
+                feature_filter=None,
+                group_filter=None,
+                file_depth=file_depth,
+                section_names=None,
+            )
+            if not sections:
+                print(f"[tick] No sections matched in {pdf_path.name} — skipping body.", file=sys.stderr)
+                # Still mark as seen to avoid repeated futile re-processing.
+                state[sha] = f"no_sections:{pdf_path.name}"
+                _save_state(state_path, state)
+                continue
+
+            # Lazy-load Marker converter (only if we have real sections to convert)
+            if _convert is None:
+                print("[tick] Loading Marker models (once) …")
+                _convert = make_converter_factory()
+
+            source_label = f"{VENDOR} Docs — {module_title}"
+            base = out_dir / "servicenow"
+            written_paths: list[str] = []
+
+            for sec in sections:
+                raw = _convert(pdf_path, sec.start_page, sec.end_page)  # type: ignore[operator]
+                sec.body = clean_markdown(raw)
+                page_text = render_page(sec, source_label, source_url)
+
+                sec_dir = base / sec.module_code.lower() / sec.feature_code.lower()
+                sec_dir.mkdir(parents=True, exist_ok=True)
+                out_file = sec_dir / f"{_slug(sec.title)}.md"
+                out_file.write_text(page_text, encoding="utf-8")
+                written_paths.append(str(out_file))
+
+            state[sha] = f"converted:{pdf_path.name}:{len(sections)}sections"
+            _save_state(state_path, state)
+            converted += 1
+            print(
+                f"[tick] {pdf_path.name} → {len(sections)} section(s) written to {base}",
+                flush=True,
+            )
+
+        except Exception as exc:  # noqa: BLE001
+            print(f"[tick] ERROR converting {pdf_path.name}: {exc}", file=sys.stderr)
+            # Do NOT mark as seen — allow retry next tick for transient failures.
+
+    result = {"total_files_converted": converted, "total_cost_usd": 0}
+    print(
+        f"[tick] Done — total_files_converted={converted}, total_cost_usd=0.00 (Marker is local)"
+    )
+    return result
+
+
+def watch_daemon(
+    watch_dir: Path,
+    out_dir: Path,
+    interval_minutes: int,
+    *,
+    module_title: str = "IT Asset Management",
+    module_code: str = "ITAM",
+    source_url: str = "https://docs.servicenow.com",
+    file_depth: int = 3,
+) -> None:
+    """
+    Run the watch-dir daemon: tick every interval_minutes, bounded at MAX_PDFS_PER_TICK
+    per tick (I7, AC-R7-7-2). Runs forever until interrupted (SIGINT/SIGTERM).
+
+    Each tick calls run_watch_tick(); converted .md files land in out_dir/servicenow/…
+    so Synapse's watcher / import-schedule auto-ingests them (AC-R7-7-1).
+    """
+    interval_seconds = max(60, interval_minutes * 60)
+    print(
+        f"[daemon] Starting ServiceNow connector daemon: "
+        f"watch_dir={watch_dir} out_dir={out_dir} interval={interval_minutes}m"
+    )
+
+    # Auto-download experimental stub (AC-R7-7-4)
+    if os.environ.get("SERVICENOW_AUTODOWNLOAD_EXPERIMENTAL") == "1":
+        _auto_download_stub()
+
+    while True:
+        print(f"[daemon] Tick at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        try:
+            run_watch_tick(
+                watch_dir,
+                out_dir,
+                module_title=module_title,
+                module_code=module_code,
+                source_url=source_url,
+                file_depth=file_depth,
+            )
+        except KeyboardInterrupt:
+            print("[daemon] Interrupted — stopping.")
+            return
+        except Exception as exc:  # noqa: BLE001
+            print(f"[daemon] ERROR during tick: {exc}", file=sys.stderr)
+
+        try:
+            time.sleep(interval_seconds)
+        except KeyboardInterrupt:
+            print("[daemon] Interrupted during sleep — stopping.")
+            return
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────────
 def main() -> int:
-    ap = argparse.ArgumentParser(description="ServiceNow PDF → LLM-wiki markdown tree")
-    ap.add_argument("--pdf", required=True, type=Path)
+    ap = argparse.ArgumentParser(
+        description=(
+            "ServiceNow PDF → LLM-wiki markdown tree.\n\n"
+            "Single-PDF mode (default): --pdf <file> converts one PDF.\n"
+            "Daemon mode: --watch-dir <dir> --out <dir> --interval-minutes N\n"
+            "  watches a local folder for new PDFs and converts them on a schedule.\n"
+            "  Converted .md files land in <out>/servicenow/ for Synapse auto-ingest.\n\n"
+            "Auto-download (experimental, not gate-blocking):\n"
+            "  Set SERVICENOW_AUTODOWNLOAD_EXPERIMENTAL=1 to see the stub warning.\n"
+            "  Actual download from docs.servicenow.com is NOT implemented — provide PDFs manually."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    # ── Daemon / watch-dir mode arguments (R7-7) ────────────────────────────────
+    ap.add_argument(
+        "--watch-dir",
+        type=Path,
+        default=None,
+        help="Directory to watch for new PDFs (daemon mode, R7-7). Enables --interval-minutes.",
+    )
+    ap.add_argument(
+        "--interval-minutes",
+        type=int,
+        default=60,
+        help="Tick interval in minutes for daemon mode (default 60, min 1).",
+    )
+    ap.add_argument(
+        "--auto-download",
+        action="store_true",
+        default=False,
+        help=(
+            "[EXPERIMENTAL] Enable auto-download stub (requires SERVICENOW_AUTODOWNLOAD_EXPERIMENTAL=1). "
+            "Currently logs a warning and does nothing — do NOT rely on this flag."
+        ),
+    )
+    # ── Single-PDF mode arguments (original) ───────────────────────────────────
+    ap.add_argument("--pdf", type=Path, default=None, help="PDF to convert (single-PDF mode)")
     ap.add_argument("--out", type=Path, default=Path(__file__).parent / "out")
     ap.add_argument("--module-title", default="IT Asset Management")
     ap.add_argument("--module-code", default="ITAM")
@@ -311,6 +589,28 @@ def main() -> int:
     ap.add_argument("--source-url", default="https://docs.servicenow.com")
     args = ap.parse_args()
 
+    # ── Daemon mode ────────────────────────────────────────────────────────────
+    if args.watch_dir is not None:
+        if not args.watch_dir.is_dir():
+            print(f"Watch directory not found: {args.watch_dir}", file=sys.stderr)
+            return 2
+        if args.auto_download and os.environ.get("SERVICENOW_AUTODOWNLOAD_EXPERIMENTAL") == "1":
+            _auto_download_stub()
+        watch_daemon(
+            watch_dir=args.watch_dir,
+            out_dir=args.out,
+            interval_minutes=max(1, args.interval_minutes),
+            module_title=args.module_title,
+            module_code=args.module_code,
+            source_url=args.source_url,
+            file_depth=args.file_depth,
+        )
+        return 0
+
+    # ── Single-PDF mode (original behaviour) ──────────────────────────────────
+    if args.pdf is None:
+        print("Error: --pdf is required in single-PDF mode (or use --watch-dir for daemon mode).", file=sys.stderr)
+        return 2
     if not args.pdf.exists():
         print(f"PDF not found: {args.pdf}", file=sys.stderr)
         return 2

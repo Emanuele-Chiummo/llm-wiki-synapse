@@ -96,6 +96,8 @@ export interface ChatActions {
   setActiveConversationId: (id: string | null) => void;
   addConversation: (conv: ConversationSummary) => void;
   removeConversation: (id: string) => void;
+  /** Update a single conversation's fields (used for optimistic rename). */
+  updateConversation: (id: string, patch: Partial<ConversationSummary>) => void;
   setConversationsLoading: (loading: boolean) => void;
   setConversationsError: (error: string | null) => void;
 
@@ -161,6 +163,12 @@ export const useChatStore = create<ChatStore>((set) => ({
     set((s) => ({
       conversations: s.conversations.filter((c) => c.id !== id),
       activeConversationId: s.activeConversationId === id ? null : s.activeConversationId,
+    })),
+  updateConversation: (id, patch) =>
+    set((s) => ({
+      conversations: s.conversations.map((c) =>
+        c.id === id ? { ...c, ...patch } : c,
+      ),
     })),
   setConversationsLoading: (conversationsLoading) => set({ conversationsLoading }),
   setConversationsError: (conversationsError) => set({ conversationsError }),
@@ -240,6 +248,8 @@ export const selectAddConversation = (s: ChatStore): ChatActions["addConversatio
   s.addConversation;
 export const selectRemoveConversation = (s: ChatStore): ChatActions["removeConversation"] =>
   s.removeConversation;
+export const selectUpdateConversation = (s: ChatStore): ChatActions["updateConversation"] =>
+  s.updateConversation;
 export const selectSetConversationsLoading = (
   s: ChatStore,
 ): ChatActions["setConversationsLoading"] => s.setConversationsLoading;

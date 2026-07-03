@@ -3,7 +3,7 @@ name: Desktop release
 on:
   push:
     tags:
-      - desktop-v*
+      - v*
   workflow_dispatch:
 
 jobs:
@@ -38,21 +38,24 @@ jobs:
       - name: Install dependencies (npm)
         run: npm ci --prefix frontend
 
-      # tauri-action runs `<tauriScript> build` from the repo root, where the
-      # CLI finds ./src-tauri. `npm --prefix frontend run ...` would chdir into
-      # frontend/ and break project detection — invoke the pinned CLI directly.
-      # Release params are set only on desktop-v* tag pushes; a workflow_dispatch
-      # run just builds and uploads artifacts (empty tagName = no release).
+      # ADR-0049: unified v* release channel. tauri-action runs from the repo
+      # root (src-tauri lives there; `npm --prefix` would break CLI project
+      # detection). On v* tags it creates/updates the release and attaches
+      # bundles + signed updater artifacts + latest.json (includeUpdaterJson).
+      # workflow_dispatch = build-only (empty tagName -> no release).
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         with:
           tauriScript: node frontend/node_modules/@tauri-apps/cli/tauri.js
-          tagName: ${{ startsWith(github.ref, 'refs/tags/desktop-v') && github.ref_name || '' }}
-          releaseName: ${{ startsWith(github.ref, 'refs/tags/desktop-v') && github.ref_name || '' }}
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
           releaseDraft: false
           prerelease: false
+          includeUpdaterJson: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

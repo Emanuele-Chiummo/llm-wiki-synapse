@@ -502,6 +502,15 @@ class Settings(BaseSettings):
     Env var: IMPORT_SCAN_MAX_SECONDS.
     """
 
+    import_scan_recursive: bool = False
+    """
+    Opt-in recursive folder import (R7-6). When True, the scheduled scan descends into
+    subdirectories of the configured source_dir; when False (default), only the top-level
+    directory is scanned (original behaviour). Recursion stays double-bounded by
+    IMPORT_SCAN_MAX_FILES + IMPORT_SCAN_MAX_SECONDS (I7 — no unbounded traversal).
+    Env var: IMPORT_SCAN_RECURSIVE.
+    """
+
     # ── MCP server introspection (F1-MCP-UI, ADR-0027 §2.3) ──────────────────────
 
     mcp_transport: str = "stdio"

@@ -49,7 +49,22 @@ def build_analyze_prompt(source_text: str, vault_context: str) -> str:
 
 
 def build_generate_prompt(analysis: Analysis, retrieval_context: str) -> str:
+    # R7-10(b) / F3 language-aware ingest: inject a MANDATORY output-language directive derived
+    # from the detected source language (analysis.language). Applies to BOTH orchestrated backends
+    # (Ollama + API) because both call this builder — parity with the CLI provider's behaviour.
+    # The directive is provider-neutral text (I6): the model must write page content AND the
+    # frontmatter `lang` in the source language, not default to English.
+    lang = (analysis.language or "").strip()
+    lang_directive = ""
+    if lang:
+        lang_directive = (
+            f"# MANDATORY OUTPUT LANGUAGE\n"
+            f"Write ALL page content and set every page's frontmatter `lang` to the source "
+            f"language: {lang} (ISO-639-1). Do NOT translate to English unless "
+            f"{lang!r} is 'en'.\n\n"
+        )
     return (
+        f"{lang_directive}"
         f"# Analysis\n{analysis.model_dump_json(indent=2)}\n\n"
         f"# Retrieval context\n{retrieval_context}\n\n"
         "Return the pages JSON now."

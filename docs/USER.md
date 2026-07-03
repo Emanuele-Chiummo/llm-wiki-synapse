@@ -1,6 +1,6 @@
 # Synapse User Guide
 
-<!-- Generated: v0.6 sprint 6 | 2026-07-03 -->
+<!-- Generated: v0.7 sprint 6 | 2026-07-03 -->
 
 > Version: v0.6 (M6 — "Shippable")
 > Language toggle: English / Italian available in Settings.
@@ -85,6 +85,13 @@ synthesis, comparison). Click any row to select that page: its content loads in 
 center panel and its metadata loads in the right panel. Click the `‹` chevron on the
 right edge of the left panel to collapse it and reclaim screen space.
 
+**New page button.** A `+` icon appears in the header of the left panel (top-right
+corner of the tree). Clicking it opens a small inline form where you enter a title and
+choose a page type. Confirming creates a stub wiki page directly in `vault/wiki/` with
+valid YAML frontmatter, adds it to the tree, and opens it immediately in the center
+panel. The page is incremental (one `data_version` bump, one graph node added — no
+rescan, I1).
+
 **Center panel — note reader/editor (NoteView).** Shows the raw markdown of the
 selected wiki page (including YAML frontmatter) in a read-only view by default.
 Click **Edit** (top-right of the panel) to switch to the CodeMirror 6 editor.
@@ -135,6 +142,13 @@ CodeMirror 6 editor, without leaving the app.
 - The backend re-indexes the page inline: wikilinks are re-parsed, embeddings updated,
   and the graph version is bumped — all for this single page, with no full rescan (I1).
 - The Graph section updates automatically (debounced, within about 5 seconds).
+
+**Unsaved-changes guard.** If you navigate away from a page while the CodeMirror editor
+has unsaved changes, Synapse intercepts the navigation and shows an "Unsaved changes —
+continue?" dialog with **Stay** and **Discard changes** buttons. Clicking **Stay**
+returns you to the editor so you can save; clicking **Discard changes** navigates away
+and discards your edits. No edits are silently lost by clicking a row in the tree,
+switching sections, or closing the panel.
 
 **If the note changed on disk while you were editing:**
 
@@ -225,6 +239,24 @@ After each ingest run the backend runs a proposal stage and emits review items f
 genuinely useful follow-up work (missing pages, research gaps, contradictions). Visit
 the **Review** section in the nav rail to act on them.
 
+#### Bulk select in Sources
+
+A **Select** button in the Sources section header activates bulk-select mode. In this
+mode:
+
+- Each row in the file tree gains a checkbox. Click a checkbox (or the row itself) to
+  toggle selection.
+- A **Select all** checkbox in the header selects or deselects every visible file at once.
+- The header shows a count of selected items (e.g. "3 selected").
+- A **Delete selected** button cascade-deletes all selected source files and their
+  derived wiki pages in one backend call (same cascade-delete logic as the single-file
+  delete — mandatory dry-run results are shown in a confirmation dialog before the
+  destructive apply).
+- Press **Esc** or click **Cancel** to exit bulk-select mode without deleting anything.
+
+Bulk select is useful when you want to remove a batch of draft sources that produced
+overlapping pages, or when cleaning up failed ingest runs.
+
 ---
 
 ### Chat section
@@ -237,6 +269,17 @@ provider.
 **Left panel — conversation list.** All your past conversations for the current vault.
 Create a new one with the `+` button (or press **Cmd/Ctrl+N**). Delete one with the `x`
 on hover. Conversations persist across page reloads.
+
+**Rename a conversation.** Double-click the conversation title in the list (or click the
+pencil icon on hover) to edit it inline. Press **Enter** or click away to save; press
+**Esc** to cancel. The title is persisted immediately via `PATCH /conversations/{id}`.
+Synapse auto-titles a new conversation from the first 50 characters of the first user
+message; renaming overrides that auto-title permanently.
+
+**Filter conversations.** A search box at the top of the conversation list filters rows
+in real time by title (case-insensitive substring match). Clear the field to see all
+conversations. The filter is local to the panel and does not send any request to the
+backend.
 
 **Starting a conversation — example prompts.** When a conversation has no messages yet,
 the center panel shows the Synapse logo and three clickable example-question chips. Click
@@ -274,7 +317,7 @@ item to switch the pane without a page reload.
 
 ![Settings — General section](screens/settings-section.png)
 
-The nine sections are:
+The ten sections are:
 
 | Section | Contents |
 |---------|----------|
@@ -282,6 +325,7 @@ The nine sections are:
 | **LLM Models** | Add, view, and delete inference provider configurations |
 | **Embeddings** | Vector embeddings on/off toggle; enabled/disabled state; lexical-only notice when off |
 | **Source Watch** | Automatic folder import (scheduled scan) |
+| **Scenarios** | Five vault presets that overwrite `purpose.md` and `schema.md` |
 | **API + MCP** | MCP server connection details; tool list; Claude Desktop snippet |
 | **Output** | Conversation history length; language toggle |
 | **Interface** | Theme (Light / Dark / System), and other UI preferences |
@@ -316,6 +360,39 @@ before the deletion is sent. If you are about to delete the last remaining provi
 warning is shown explaining that ingest and chat will fail without a provider — the
 deletion is still allowed, because a misconfigured sole provider should always be
 replaceable.
+
+#### Scenarios {#settings-scenarios}
+
+The Scenarios section gives you five ready-made vault presets, each tuned for a
+different knowledge-building style. Applying a scenario rewrites `vault/purpose.md` and
+`vault/schema.md` with pre-written goal, key questions, and frontmatter rules for that
+use case, then bumps the vault data version so the graph refreshes automatically.
+
+| Preset | Vault focus |
+|--------|------------|
+| **Research** | Academic or professional research; citations, hypotheses, methodology, evidence, conclusions |
+| **Reading** | Book and article notes; summaries, themes, vocabulary, author context |
+| **Personal Growth** | Habits, goals, reflections, journaling, skills, and self-improvement tracking |
+| **Business** | Strategy, market analysis, product, operations, stakeholders |
+| **General** | Balanced default; minimal schema constraints; suitable for any mixed-topic vault |
+
+**How to apply a scenario:**
+
+1. Open **Settings > Scenarios**.
+2. Read the short description under each preset card.
+3. Click **Apply** on the preset you want. A confirmation dialog explains that
+   `purpose.md` and `schema.md` will be overwritten.
+4. Confirm. The backend writes both files and bumps the data version. The graph
+   refreshes in the background (debounced, within about 5 seconds).
+
+**Important:** applying a scenario overwrites the current `purpose.md` and `schema.md`
+completely. If you have hand-crafted either file, copy its contents to a safe place
+before applying a preset. Scenarios are intended for first-time vault setup or for
+switching a vault to a new purpose — not for incremental tweaks. You can edit the
+resulting files manually in the Wiki editor after applying.
+
+The scenario definitions are read-only (built into the backend); you cannot create
+custom scenarios from the UI in v0.7.
 
 #### Output
 
@@ -787,6 +864,38 @@ notification permission at any time via your OS system settings.
 
 Notifications are desktop-only (`isTauri()` guard) and do not appear in the browser /
 PWA build.
+
+### Desktop auto-update {#desktop-auto-update}
+
+Starting with v0.7.0, the desktop app checks for a new release every time it starts up
+and shows a dismissible banner if one is available (ADR-0049, F15).
+
+**How the update check works:**
+
+- On launch, after the shell has rendered, the app performs a single non-blocking check
+  against the `latest.json` asset on the GitHub Releases page. The check is
+  fire-and-forget: a failed or timed-out check is silently ignored and the app starts
+  normally.
+- If a newer version is available, a banner appears at the top of the shell with the new
+  version number and the release notes from the GitHub release.
+
+**Two actions on the banner:**
+
+| Button | Behaviour |
+|--------|-----------|
+| **Update now** (IT: "Aggiorna ora") | Downloads the platform-specific installer bundle, verifies its minisign signature, installs it, and relaunches the app into the new version. A progress indicator shows the download percentage. |
+| **Later** (IT: "Più tardi") | Dismisses the banner for the current session. The banner does not reappear until the next app start. There is no "skip this version" option — the check runs on every launch. |
+
+**Notes:**
+
+- The app must be online at startup to receive the update notification. If the machine
+  is offline or the GitHub release endpoint is unreachable, the check silently fails and
+  the banner is not shown.
+- Update integrity is verified by a minisign cryptographic signature embedded in the
+  binary at build time (independent of macOS Gatekeeper / Windows SmartScreen). You do
+  not need to accept any OS security warning for updates — only for the first install
+  (see §7.1 in DEPLOY.md for the first-install warning workaround).
+- The update check runs exactly once per process start — there is no background polling.
 
 The following features also shipped in v0.6 (M6):
 

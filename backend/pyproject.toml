@@ -75,7 +75,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ANN", "S"]
+"tests/*" = ["ANN", "S", "E501", "E402"]
 # Cross-module pytest fixture reuse: importing a fixture and using it as a test
 # parameter is the documented pytest pattern but trips F811 (param shadows import).
 "tests/test_review_ai_adr0034.py" = ["ANN", "S", "F811"]

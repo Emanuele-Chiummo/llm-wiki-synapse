@@ -69,6 +69,32 @@ vi.mock("../components/ingest/UploadZone", () => ({
   UploadZone: () => <div data-testid="upload-zone">UploadZone</div>,
 }));
 
+// ─── Mock ConfirmDialog ───────────────────────────────────────────────────────
+
+vi.mock("../components/common/ConfirmDialog", () => ({
+  ConfirmDialog: ({
+    title,
+    confirmLabel,
+    cancelLabel,
+    onConfirm,
+    onCancel,
+  }: {
+    title: string;
+    body: string;
+    confirmLabel: string;
+    cancelLabel: string;
+    danger?: boolean;
+    onConfirm: () => void;
+    onCancel: () => void;
+  }) => (
+    <div data-testid="confirm-dialog">
+      <span>{title}</span>
+      <button data-testid="confirm-dialog-confirm" onClick={onConfirm}>{confirmLabel}</button>
+      <button data-testid="confirm-dialog-cancel" onClick={onCancel}>{cancelLabel}</button>
+    </div>
+  ),
+}));
+
 // ─── Mock i18n ────────────────────────────────────────────────────────────────
 
 vi.mock("react-i18next", () => ({
@@ -96,6 +122,21 @@ vi.mock("react-i18next", () => ({
         "sources.ingestAllRunning": `Indexing… ${String(params?.done ?? 0)}/${String(params?.total ?? 0)}`,
         "sources.ingestAllNone": "Nothing to index",
         "sources.ingestAllAlready": "Already running",
+        "sources.bulk.selectAll": "Select all files",
+        "sources.bulk.selectFile": `Select ${String(params?.name ?? "")}`,
+        "sources.bulk.selected": `${String(params?.count ?? 0)} selected`,
+        "sources.bulk.ingest": "Ingest selected",
+        "sources.bulk.delete": "Delete selected",
+        "sources.bulk.clearSelection": "Clear selection",
+        "sources.bulk.deleteDialogTitle": "Delete selected files",
+        "sources.bulk.deleteDialogBody": `Permanently delete ${String(params?.count ?? 0)} file(s) and their derived wiki pages?`,
+        "sources.bulk.deleteConfirm": "Delete",
+        "sources.bulk.deleteCancel": "Cancel",
+        "sources.bulk.progress": `${String(params?.current ?? 0)}/${String(params?.total ?? 0)} — ${String(params?.path ?? "")}`,
+        "sources.bulk.ingestDone": `Ingest complete: ${String(params?.count ?? 0)} file(s) processed`,
+        "sources.bulk.ingestPartial": `Ingest partial: ${String(params?.done ?? 0)}/${String(params?.total ?? 0)} succeeded, ${String(params?.failed ?? 0)} failed`,
+        "sources.bulk.deleteDone": `Deleted ${String(params?.count ?? 0)} file(s)`,
+        "sources.bulk.deletePartial": `Deleted ${String(params?.done ?? 0)}/${String(params?.total ?? 0)}, ${String(params?.failed ?? 0)} failed`,
         "common.loading": "Loading…",
       };
       return map[key] ?? key;
@@ -470,5 +511,231 @@ describe("SourcesView — Index All button", () => {
     );
     // Button re-enabled
     expect(screen.getByTestId("sources-ingest-all").hasAttribute("disabled")).toBe(false);
+  });
+});
+
+// ─── R7-11: Bulk multi-select ─────────────────────────────────────────────────
+
+describe("SourcesView — R7-11 bulk multi-select (AC-R7-11-1)", () => {
+  beforeEach(() => {
+    vi.mocked(sourcesClient.listSources).mockResolvedValue({
+      entries: [SAMPLE_ENTRIES[0]!, SAMPLE_ENTRIES[1]!],
+      total: 2,
+      truncated: false,
+    });
+  });
+
+  it("renders a select-all checkbox in the header", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-select-all")).toBeTruthy();
+    });
+  });
+
+  it("renders per-row checkboxes for file rows", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      const checkboxes = screen.getAllByTestId("source-row-checkbox");
+      expect(checkboxes.length).toBe(2);
+    });
+  });
+
+  it("shows bulk action bar when at least one row is checked", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getAllByTestId("source-row-checkbox").length).toBeGreaterThan(0);
+    });
+
+    const [firstCheckbox] = screen.getAllByTestId("source-row-checkbox");
+    fireEvent.click(firstCheckbox!);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-bulk-bar")).toBeTruthy();
+    });
+    expect(screen.getByTestId("sources-bulk-ingest")).toBeTruthy();
+    expect(screen.getByTestId("sources-bulk-delete")).toBeTruthy();
+  });
+
+  it("select-all checkbox selects all file rows", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-select-all")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-select-all"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-bulk-bar")).toBeTruthy();
+    });
+    expect(screen.getByText("2 selected")).toBeTruthy();
+  });
+
+  it("hides bulk bar when selection is cleared", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getAllByTestId("source-row-checkbox").length).toBeGreaterThan(0);
+    });
+
+    const [firstCheckbox] = screen.getAllByTestId("source-row-checkbox");
+    fireEvent.click(firstCheckbox!);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-bulk-bar")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByText("Clear selection"));
+    await waitFor(() => {
+      expect(screen.queryByTestId("sources-bulk-bar")).toBeNull();
+    });
+  });
+});
+
+describe("SourcesView — R7-11 bulk ingest (AC-R7-11-2)", () => {
+  beforeEach(() => {
+    vi.mocked(sourcesClient.listSources).mockResolvedValue({
+      entries: [SAMPLE_ENTRIES[0]!, SAMPLE_ENTRIES[1]!],
+      total: 2,
+      truncated: false,
+    });
+    vi.mocked(sourcesClient.triggerIngest).mockResolvedValue(undefined);
+  });
+
+  it("calls triggerIngest for each selected file sequentially", async () => {
+    const { showToast } = await import("../components/common/Toast");
+
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-select-all")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-select-all"));
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-bulk-ingest")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-bulk-ingest"));
+
+    await waitFor(() => {
+      expect(sourcesClient.triggerIngest).toHaveBeenCalledTimes(2);
+    });
+    expect(sourcesClient.triggerIngest).toHaveBeenCalledWith("raw/sources/doc1.md");
+    expect(sourcesClient.triggerIngest).toHaveBeenCalledWith("raw/sources/doc2.pdf");
+    await waitFor(() => {
+      expect(showToast).toHaveBeenCalledWith(
+        "Ingest complete: 2 file(s) processed",
+        "success",
+      );
+    });
+  });
+
+  it("shows partial-failure toast when some ingests fail", async () => {
+    const { showToast } = await import("../components/common/Toast");
+
+    vi.mocked(sourcesClient.triggerIngest)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("network error"));
+
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-select-all")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-select-all"));
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-bulk-ingest")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-bulk-ingest"));
+
+    await waitFor(() => {
+      expect(showToast).toHaveBeenCalledWith(
+        "Ingest partial: 1/2 succeeded, 1 failed",
+        "error",
+      );
+    });
+  });
+});
+
+describe("SourcesView — R7-11 bulk delete (AC-R7-11-3)", () => {
+  beforeEach(() => {
+    vi.mocked(sourcesClient.listSources).mockResolvedValue({
+      entries: [SAMPLE_ENTRIES[0]!, SAMPLE_ENTRIES[1]!],
+      total: 2,
+      truncated: false,
+    });
+    vi.mocked(sourcesClient.deleteSource).mockResolvedValue({
+      deleted_source: "doc1.md",
+      pages_deleted: 0,
+    });
+  });
+
+  it("shows ConfirmDialog when Delete selected is clicked", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-select-all")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-select-all"));
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-bulk-delete")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-bulk-delete"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("confirm-dialog")).toBeTruthy();
+    });
+    expect(screen.getByText("Delete selected files")).toBeTruthy();
+  });
+
+  it("calls deleteSource for each selected file after confirmation", async () => {
+    const { showToast } = await import("../components/common/Toast");
+
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-select-all")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-select-all"));
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-bulk-delete")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-bulk-delete"));
+    await waitFor(() => {
+      expect(screen.getByTestId("confirm-dialog-confirm")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+
+    await waitFor(() => {
+      expect(sourcesClient.deleteSource).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(showToast).toHaveBeenCalledWith("Deleted 2 file(s)", "success");
+    });
+  });
+
+  it("dismisses ConfirmDialog on cancel without deleting", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-select-all")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-select-all"));
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-bulk-delete")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-bulk-delete"));
+    await waitFor(() => {
+      expect(screen.getByTestId("confirm-dialog-cancel")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("confirm-dialog-cancel"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("confirm-dialog")).toBeNull();
+    });
+    expect(sourcesClient.deleteSource).not.toHaveBeenCalled();
   });
 });

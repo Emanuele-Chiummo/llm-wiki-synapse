@@ -14,10 +14,13 @@
  * Icons: lucide-react tree-shaken named imports [F1].
  * Group headers: type icon (16px) colored by var(--syn-type-*) replaces the colored dot.
  * Page rows: small type dot retained (6px) — consistent with llm_wiki file-row style.
+ *
+ * R7-2: "+" button in header opens a modal to create a new page.
  */
 
-import { useRef, type CSSProperties, type ElementType } from "react";
+import { useRef, useState, useCallback, type CSSProperties, type ElementType, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
   Lightbulb,
@@ -27,6 +30,7 @@ import {
   BarChart3,
   HelpCircle,
   File,
+  Plus,
 } from "lucide-react";
 import {
   useGraphStore,
@@ -37,6 +41,10 @@ import {
 } from "../../store/graphStore";
 import { useNavTreeData } from "./useNavTreeData";
 import type { TreeRow, KnownType } from "./useNavTreeData";
+import { createPage } from "../../api/pagesClient";
+import type { NewPageType } from "../../api/pagesClient";
+import { ApiError } from "../../api/graphClient";
+import { showToast } from "../common/Toast";
 
 // ─── Colour palette — consumed from CSS custom properties (theme.css) ─────────
 // Values reference --syn-type-* so they inherit light/dark theme automatically.
@@ -84,6 +92,241 @@ const TYPE_LABEL: Record<KnownType, string> = {
 const GROUP_ROW_HEIGHT = 32;
 const PAGE_ROW_HEIGHT = 28;
 
+// ─── New Page types available for creation (AC-R7-2-1) ───────────────────────
+
+const NEW_PAGE_TYPES: NewPageType[] = [
+  "concept",
+  "entity",
+  "source",
+  "synthesis",
+  "comparison",
+  "query",
+];
+
+// ─── NewPageModal ─────────────────────────────────────────────────────────────
+
+interface NewPageModalProps {
+  onClose: () => void;
+  onCreated: (pageId: string) => void;
+}
+
+function NewPageModal({ onClose, onCreated }: NewPageModalProps) {
+  const { t } = useTranslation();
+  const [title, setTitle] = useState("");
+  const [pageType, setPageType] = useState<NewPageType>("concept");
+  const [dir, setDir] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [conflictError, setConflictError] = useState<string | null>(null);
+
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  // Focus the title input on mount
+  const focusTitleRef = useCallback((el: HTMLInputElement | null) => {
+    if (el) {
+      if (titleRef.current) titleRef.current.value = "";
+      el.focus();
+    }
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      // AC-R7-2-3: client-side validation
+      setTitleError(t("nav.newPage.titleRequired"));
+      return;
+    }
+    setTitleError(null);
+    setConflictError(null);
+    setSubmitting(true);
+    try {
+      const dirTrimmed = dir.trim();
+      const resp = await createPage({
+        title: trimmedTitle,
+        page_type: pageType,
+        ...(dirTrimmed ? { dir: dirTrimmed } : {}),
+      });
+      showToast(t("nav.newPage.created", { title: resp.title }), "success");
+      onCreated(resp.id);
+      onClose();
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 409) {
+        // AC-R7-2-3 inline conflict error
+        setConflictError(t("nav.newPage.conflict"));
+      } else {
+        showToast(err instanceof Error ? err.message : String(err), "error");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [title, pageType, dir, t, onCreated, onClose]);
+
+  // Backdrop click / Esc close
+  const handleKeyDown = useCallback(
+    (e: ReactKeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "Enter" && !submitting) void handleSubmit();
+    },
+    [onClose, handleSubmit, submitting],
+  );
+
+  return (
+    <div
+      data-testid="new-page-modal-overlay"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("nav.newPage.title")}
+        data-testid="new-page-modal"
+        onKeyDown={handleKeyDown}
+        style={{
+          background: "var(--syn-bg-card, var(--syn-bg-soft))",
+          border: "1px solid var(--syn-border)",
+          borderRadius: 8,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+          padding: "20px 24px",
+          width: "min(440px, calc(100vw - 32px))",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--syn-text)" }}>
+          {t("nav.newPage.title")}
+        </h2>
+
+        {/* Title field */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: "var(--syn-text-muted)" }}>
+            {t("nav.newPage.titleLabel")} <span aria-hidden="true" style={{ color: "var(--syn-red)" }}>*</span>
+          </label>
+          <input
+            ref={focusTitleRef}
+            type="text"
+            data-testid="new-page-title-input"
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              if (titleError) setTitleError(null);
+              if (conflictError) setConflictError(null);
+            }}
+            placeholder={t("nav.newPage.titlePlaceholder")}
+            style={INPUT_STYLE}
+            aria-required="true"
+            aria-invalid={titleError !== null ? "true" : undefined}
+            aria-describedby={titleError ? "new-page-title-error" : undefined}
+          />
+          {titleError && (
+            <span id="new-page-title-error" role="alert" style={{ fontSize: 11, color: "var(--syn-red)" }}>
+              {titleError}
+            </span>
+          )}
+          {conflictError && (
+            <span role="alert" style={{ fontSize: 11, color: "var(--syn-red)" }}>
+              {conflictError}
+            </span>
+          )}
+        </div>
+
+        {/* Type field */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: "var(--syn-text-muted)" }}>
+            {t("nav.newPage.typeLabel")}
+          </label>
+          <select
+            data-testid="new-page-type-select"
+            value={pageType}
+            onChange={(e) => setPageType(e.target.value as NewPageType)}
+            style={INPUT_STYLE}
+          >
+            {NEW_PAGE_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {t(`nav.newPage.type.${type}`)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Directory field (optional) */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: "var(--syn-text-muted)" }}>
+            {t("nav.newPage.dirLabel")}
+          </label>
+          <input
+            type="text"
+            data-testid="new-page-dir-input"
+            value={dir}
+            onChange={(e) => setDir(e.target.value)}
+            placeholder={t("nav.newPage.dirPlaceholder")}
+            style={INPUT_STYLE}
+          />
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+          <button
+            type="button"
+            data-testid="new-page-cancel-btn"
+            onClick={onClose}
+            style={{
+              padding: "6px 14px",
+              border: "1px solid var(--syn-border)",
+              borderRadius: 6,
+              background: "transparent",
+              color: "var(--syn-text-muted)",
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            {t("nav.newPage.cancel")}
+          </button>
+          <button
+            type="button"
+            data-testid="new-page-create-btn"
+            disabled={submitting}
+            onClick={() => { void handleSubmit(); }}
+            style={{
+              padding: "6px 14px",
+              border: "1px solid var(--syn-accent)",
+              borderRadius: 6,
+              background: "var(--syn-accent)",
+              color: "#fff",
+              fontSize: 12,
+              cursor: submitting ? "not-allowed" : "pointer",
+              fontWeight: 600,
+              opacity: submitting ? 0.6 : 1,
+            }}
+          >
+            {submitting ? "…" : t("nav.newPage.create")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const INPUT_STYLE: CSSProperties = {
+  fontSize: 12,
+  padding: "6px 8px",
+  border: "1px solid var(--syn-border)",
+  borderRadius: 4,
+  background: "var(--syn-bg)",
+  color: "var(--syn-text)",
+  width: "100%",
+  boxSizing: "border-box",
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface NavTreeProps {
@@ -92,6 +335,8 @@ interface NavTreeProps {
 }
 
 export function NavTree({ vaultId }: NavTreeProps) {
+  const { t } = useTranslation();
+
   // Store subscriptions — typed selectors + shallow where needed (I3)
   const selectedNodeId = useGraphStore(selectSelectedNodeId);
   const selectPage = useGraphStore(selectSelectPage);
@@ -99,7 +344,19 @@ export function NavTree({ vaultId }: NavTreeProps) {
   const collapsed = useTreeCollapsed(); // shallow equality
 
   // Data hook
-  const { rows, loading, error } = useNavTreeData(vaultId, collapsed);
+  const { rows, loading, error, refresh } = useNavTreeData(vaultId, collapsed);
+
+  // New page modal state (R7-2)
+  const [showNewPageModal, setShowNewPageModal] = useState(false);
+
+  const handlePageCreated = useCallback(
+    (pageId: string) => {
+      // Navigate to the new page and refresh the tree
+      selectPage(pageId, "tree");
+      void refresh();
+    },
+    [selectPage, refresh],
+  );
 
   // Virtualizer
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -138,55 +395,110 @@ export function NavTree({ vaultId }: NavTreeProps) {
   const items = virtualizer.getVirtualItems();
 
   return (
-    <nav
-      className="nav-tree"
-      aria-label="Wiki pages"
-      data-testid="nav-tree"
-      // height:100% + flex-column gives the nav a *bounded* height so the inner
-      // scroll container's height resolves to a real pixel value (not auto).
-      // Without this, scrollRef.current.clientHeight equals the total virtual
-      // content height and TanStack Virtual thinks the whole list is visible,
-      // rendering every row (I4 violation).
-      style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}
-    >
-      <div
-        ref={scrollRef}
-        className="nav-tree__scroll"
-        // flex:1 + minHeight:0 (not height:100%) so the div fills available space
-        // without forcing the parent to grow to fit it — the bounded height above
-        // propagates correctly to TanStack Virtual's scroll element measurement.
-        style={{ overflow: "auto", flex: 1, minHeight: 0 }}
+    <>
+      <nav
+        className="nav-tree"
+        aria-label="Wiki pages"
+        data-testid="nav-tree"
+        // height:100% + flex-column gives the nav a *bounded* height so the inner
+        // scroll container's height resolves to a real pixel value (not auto).
+        // Without this, scrollRef.current.clientHeight equals the total virtual
+        // content height and TanStack Virtual thinks the whole list is visible,
+        // rendering every row (I4 violation).
+        style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}
       >
-        {/* Outer spacer for correct scroll height */}
-        <div style={{ height: totalHeight, position: "relative" }}>
-          {items.map((virtualRow) => {
-            const row = rows[virtualRow.index] as TreeRow;
+        {/* ── Tree header with + button (R7-2) ── */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "6px 8px 4px",
+            flexShrink: 0,
+            borderBottom: "1px solid var(--syn-border-subtle, var(--syn-border))",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "var(--syn-text-dim)",
+            }}
+          >
+            {t("nav.wiki")}
+          </span>
+          <button
+            type="button"
+            data-testid="nav-tree-new-page-btn"
+            onClick={() => setShowNewPageModal(true)}
+            title={t("nav.newPage.title")}
+            aria-label={t("nav.newPage.title")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "2px",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              color: "var(--syn-text-dim)",
+              borderRadius: 3,
+              lineHeight: 1,
+            }}
+          >
+            <Plus size={13} aria-hidden="true" />
+          </button>
+        </div>
 
-            if (row.kind === "group") {
+        <div
+          ref={scrollRef}
+          className="nav-tree__scroll"
+          // flex:1 + minHeight:0 (not height:100%) so the div fills available space
+          // without forcing the parent to grow to fit it — the bounded height above
+          // propagates correctly to TanStack Virtual's scroll element measurement.
+          style={{ overflow: "auto", flex: 1, minHeight: 0 }}
+        >
+          {/* Outer spacer for correct scroll height */}
+          <div style={{ height: totalHeight, position: "relative" }}>
+            {items.map((virtualRow) => {
+              const row = rows[virtualRow.index] as TreeRow;
+
+              if (row.kind === "group") {
+                return (
+                  <GroupHeader
+                    key={`group-${row.type}`}
+                    row={row}
+                    style={{ position: "absolute", top: virtualRow.start, width: "100%" }}
+                    onToggle={() => toggleGroup(row.type)}
+                  />
+                );
+              }
+
+              // row.kind === "page"
               return (
-                <GroupHeader
-                  key={`group-${row.type}`}
+                <PageRow
+                  key={row.id}
                   row={row}
+                  selected={row.id === selectedNodeId}
                   style={{ position: "absolute", top: virtualRow.start, width: "100%" }}
-                  onToggle={() => toggleGroup(row.type)}
+                  onClick={() => selectPage(row.id, "tree")}
                 />
               );
-            }
-
-            // row.kind === "page"
-            return (
-              <PageRow
-                key={row.id}
-                row={row}
-                selected={row.id === selectedNodeId}
-                style={{ position: "absolute", top: virtualRow.start, width: "100%" }}
-                onClick={() => selectPage(row.id, "tree")}
-              />
-            );
-          })}
+            })}
+          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+
+      {/* New page modal (R7-2) */}
+      {showNewPageModal && (
+        <NewPageModal
+          onClose={() => setShowNewPageModal(false)}
+          onCreated={handlePageCreated}
+        />
+      )}
+    </>
   );
 }
 

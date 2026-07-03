@@ -14,7 +14,28 @@
     "settings": "Opzioni",
     "settingsShort": "Impost.",
     "chatComingSoon": "Fase 3",
-    "comingSoon": "Prossimamente"
+    "comingSoon": "Prossimamente",
+    "newPage": {
+      "title": "Nuova pagina",
+      "titleLabel": "Titolo",
+      "titlePlaceholder": "es. Nuovo concetto",
+      "titleRequired": "Il titolo è obbligatorio",
+      "conflict": "Esiste già una pagina con questo titolo",
+      "created": "Pagina creata",
+      "typeLabel": "Tipo",
+      "type": {
+        "concept": "Concetto",
+        "entity": "Entità",
+        "source": "Sorgente",
+        "synthesis": "Sintesi",
+        "comparison": "Confronto",
+        "query": "Query"
+      },
+      "dirLabel": "Directory (opzionale)",
+      "dirPlaceholder": "es. concepts/",
+      "cancel": "Annulla",
+      "create": "Crea"
+    }
   },
   "ingest": {
     "title": "Attività di importazione",
@@ -113,7 +134,8 @@
       "output": "Output",
       "interface": "Interfaccia",
       "maintenance": "Manutenzione",
-      "about": "Informazioni"
+      "about": "Informazioni",
+      "scenarios": "Scenari"
     },
     "llmModels": {
       "title": "Modelli LLM",
@@ -343,6 +365,18 @@
       "guideSteps": "1) Sull'host esegui: claude setup-token\n2) Incolla qui il token sk-ant-oat01-… stampato\n3) Lascia ANTHROPIC_API_KEY non impostata — il token DB viene iniettato nel CLI Claude e la API key viene rimossa dal suo ambiente, quindi viene usato l'abbonamento ($0 per token).",
       "caveat": "Nota sicurezza: questo token è salvato nel database dell'applicazione in chiaro e dà accesso al tuo abbonamento Claude. Tratta i backup del database di conseguenza. Per ruotare: esegui nuovamente `claude setup-token` e incolla il nuovo valore. Per revocare: clicca Rimuovi e il CLI tornerà a usare le variabili d'ambiente o risulterà non configurato."
     },
+    "scenarios": {
+      "title": "Modelli di scenario",
+      "desc": "Applica uno scenario predefinito per configurare rapidamente il vault con uno scopo, uno schema e una struttura template.",
+      "apply": "Applica",
+      "applyConfirmTitle": "Applicare lo scenario?",
+      "applyConfirmBody": "Applicare \"{{name}}\" sovrascriverà purpose.md e schema.md del vault. Le pagine wiki esistenti non vengono modificate.",
+      "applyConfirm": "Applica scenario",
+      "applyCancel": "Annulla",
+      "applying": "Applicazione…",
+      "applied": "Scenario applicato con successo",
+      "loadError": "Impossibile caricare gli scenari. Il backend è in esecuzione?"
+    },
     "import": {
       "title": "Importazione cartella programmata",
       "enabled": "Abilitata",
@@ -404,13 +438,20 @@
     "costLabel": "${{cost}}",
     "reasoning": "Ragionamento",
     "thinking": "in elaborazione…",
+    "thinkPreviewLabel": "Anteprima ragionamento",
     "usingProvider": "{{provider}}",
     "ragActive": "Risponde dal tuo wiki",
     "examples": {
       "q1": "Mappa i concetti più forti del vault",
       "q2": "Riassumi cosa è cambiato nelle ultime sorgenti",
       "q3": "Trova lacune che richiedono ricerca profonda"
-    }
+    },
+    "searchConversations": "Cerca conversazioni…",
+    "noMatchingConversations": "Nessuna conversazione corrisponde alla ricerca.",
+    "renameConversation": "Rinomina conversazione",
+    "renameCommit": "Salva nome",
+    "renameCancel": "Annulla rinomina",
+    "renameError": "Impossibile rinominare la conversazione"
   },
   "research": {
     "title": "Ricerca Profonda",
@@ -537,7 +578,13 @@
     "wikilinkNotFound": "Pagina non trovata: {{title}}",
     "sources": "Sorgenti",
     "related": "Correlate ({{count}})",
-    "relatedError": "Impossibile caricare le pagine correlate"
+    "relatedError": "Impossibile caricare le pagine correlate",
+    "unsavedDot": "Modifiche non salvate",
+    "unsavedHint": "modifiche non salvate",
+    "unsavedDialogTitle": "Modifiche non salvate",
+    "unsavedDialogBody": "Hai modifiche non salvate. Scartarle e uscire?",
+    "unsavedDiscard": "Scarta",
+    "unsavedKeepEditing": "Continua a modificare"
   },
   "lint": {
     "title": "Lint",
@@ -645,7 +692,24 @@
     "ingestAllStarted": "{{count}} file in indicizzazione",
     "ingestAllRunning": "Indicizzo… {{done}}/{{total}}",
     "ingestAllNone": "Nulla da indicizzare",
-    "ingestAllAlready": "Già in corso"
+    "ingestAllAlready": "Già in corso",
+    "bulk": {
+      "selectAll": "Seleziona tutti i file",
+      "selectFile": "Seleziona {{name}}",
+      "selected": "{{count}} selezionati",
+      "ingest": "Importa selezionati",
+      "delete": "Elimina selezionati",
+      "clearSelection": "Deseleziona tutto",
+      "deleteDialogTitle": "Elimina file selezionati",
+      "deleteDialogBody": "Eliminare definitivamente {{count}} file e le relative pagine wiki?",
+      "deleteConfirm": "Elimina",
+      "deleteCancel": "Annulla",
+      "progress": "{{current}}/{{total}} — {{path}}",
+      "ingestDone": "Importazione completata: {{count}} file",
+      "ingestPartial": "Importazione parziale: {{done}}/{{total}} riusciti, {{failed}} falliti",
+      "deleteDone": "Eliminati {{count}} file",
+      "deletePartial": "Eliminati {{done}}/{{total}}, {{failed}} falliti"
+    }
   },
   "providerGate": {
     "title": "Nessun provider configurato",
@@ -662,6 +726,10 @@
     "resumeQueue": "Riprendi",
     "cancelAll": "Annulla tutti",
     "cancelAllConfirm": "Annullare tutti i task attivi e in attesa?",
+    "cancelAllDialogTitle": "Annulla tutti i task",
+    "cancelAllDialogBody": "Annullare tutti i task in esecuzione? Questa operazione non può essere annullata.",
+    "cancelAllDialogConfirm": "Annulla tutti",
+    "cancelAllDialogCancel": "Continua",
     "retryFailed": "Riprova falliti",
     "cancel": "Annulla",
     "retry": "Riprova",
@@ -726,6 +794,13 @@
       "ingestFailed": "Importazione fallita: {{label}}",
       "pagesCreated_one": "{{count}} pagina creata",
       "pagesCreated_other": "{{count}} pagine create"
+    },
+    "update": {
+      "available": "Nuova versione {{version}} disponibile",
+      "now": "Aggiorna ora",
+      "later": "Più tardi",
+      "installing": "Installazione…",
+      "error": "Aggiornamento non riuscito. Riprova al prossimo avvio."
     }
   }
 }

@@ -6,7 +6,7 @@
  *     It is NOT re-rendered per keystroke. CodeMirrorEditor owns its internal state;
  *     no keystroke is mirrored into Zustand or causes a React re-render here.
  *   - Zustand subscribed via typed scalar selectors only.
- *   - Related pages fetched ONCE per selection change via its own AbortController.
+ *   - Related pages fetched ONCE per selection change in READ mode.
  *     Never fetched per render, never fetched in edit mode.
  *
  * INVARIANT I4 compliance:
@@ -39,6 +39,17 @@
  *   Inside the card header a "Related (N)" section shows up to 10 related pages
  *   ranked by 4-signal edge weight. Each row is clickable via the same selectPage()
  *   mechanism used by wikilinks. The panel is hidden when total === 0.
+ *
+ * R7-4 — Unsaved-changes indicator + navigation guard:
+ *   - isDirty state tracks whether the editor buffer differs from savedContent.
+ *   - A visible dot on the Save button + hint text signal unsaved changes (AC-R7-4-1).
+ *   - Navigating away (Cancel, tree selection change) when dirty shows a ConfirmDialog
+ *     ("Discard / Keep editing") before proceeding (AC-R7-4-2).
+ *   - beforeunload guard fires when dirty in a browser context (AC-R7-4-2).
+ *   - AC-R7-4-3: dirty state lives in local component state (not Zustand), derived from
+ *     a ref comparison at onContentChange time. No prop-drilling needed: the guard sits
+ *     at the NoteView level, which already owns the mode switch.
+ *   - AC-R7-4-4: Tauri CloseRequested is not wired here (graceful no-op in browser).
  *
  * SEAM for future tags phase:
  *   The card header contains a SEAM comment for future TagChips.
@@ -77,6 +88,7 @@ import { ApiError } from "../../api/graphClient";
 import { renderMarkdown, stripLeadingFrontmatter } from "../chat/renderMarkdown";
 import { EmptyState } from "../common/EmptyState";
 import { showToast } from "../common/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
 import type { CodeMirrorEditorHandle } from "./CodeMirrorEditor";
 import "../../styles/markdown.css";
@@ -200,6 +212,14 @@ interface RelatedState {
   total: number;
 }
 
+/**
+ * Pending navigation intent: captures what action to perform once the user
+ * confirms they want to discard unsaved changes.
+ */
+type PendingNavIntent =
+  | { kind: "cancel" }
+  | { kind: "selectPage"; pageId: string; origin: string };
+
 export function NoteView() {
   const { t } = useTranslation();
   const selectedNodeId = useGraphStore(selectSelectedNodeId);
@@ -216,6 +236,17 @@ export function NoteView() {
   });
   const [mode, setMode] = useState<NoteViewMode>("read");
   const [isSaving, setIsSaving] = useState(false);
+
+  // ── R7-4: Dirty state ──────────────────────────────────────────────────────
+  // isDirty is true when the editor buffer differs from the last saved content.
+  // We do NOT store the live editor content in React state (I3: no per-keystroke
+  // re-renders). Instead, onContentChange is called by the editor on each change
+  // and we compare against the savedContent ref.
+  const [isDirty, setIsDirty] = useState(false);
+  const savedContentRef = useRef<string>("");
+
+  // Pending navigation intent while the ConfirmDialog is showing.
+  const [pendingNavIntent, setPendingNavIntent] = useState<PendingNavIntent | null>(null);
 
   // Related pages state — fetched once per selection change in READ mode.
   const [relatedState, setRelatedState] = useState<RelatedState>({
@@ -303,12 +334,14 @@ export function NoteView() {
     (pageId: string, abortSignal: AbortSignal) => {
       setState({ phase: "loading", data: null, errorMessage: null });
       setMode("read");
+      setIsDirty(false);
       // Reset related state whenever we navigate to a new page.
       setRelatedState({ phase: "idle", items: [], total: 0 });
 
       fetchPageContent(pageId, abortSignal)
         .then((data) => {
           setState({ phase: "ready", data, errorMessage: null });
+          savedContentRef.current = data.content;
         })
         .catch((err: unknown) => {
           if (err instanceof DOMException && err.name === "AbortError") return;
@@ -323,10 +356,35 @@ export function NoteView() {
     [t],
   );
 
+  // ── Guard: intercept page selection change when dirty ─────────────────────
+  // selectedNodeId changes when the user picks another page in the tree.
+  // If we're in edit mode with unsaved changes, we need to show the dialog first.
+  const prevSelectedNodeIdRef = useRef<string | null>(null);
+
   useEffect(() => {
+    const prev = prevSelectedNodeIdRef.current;
+    prevSelectedNodeIdRef.current = selectedNodeId;
+
+    // Selection changed while editing with unsaved changes → intercept.
+    if (
+      prev !== null &&
+      selectedNodeId !== null &&
+      prev !== selectedNodeId &&
+      mode === "edit" &&
+      isDirty
+    ) {
+      // We want to navigate to selectedNodeId, but we need confirmation first.
+      // Temporarily revert the store selection back is not possible here (store is external),
+      // so instead we record the intent and show the dialog. If confirmed, we load the new page.
+      // If cancelled, we programmatically re-select the old page (the user stays on prev).
+      setPendingNavIntent({ kind: "selectPage", pageId: selectedNodeId, origin: prev });
+      return;
+    }
+
     if (!selectedNodeId) {
       setState({ phase: "idle", data: null, errorMessage: null });
       setMode("read");
+      setIsDirty(false);
       setRelatedState({ phase: "idle", items: [], total: 0 });
       return;
     }
@@ -335,7 +393,23 @@ export function NoteView() {
     return () => {
       controller.abort();
     };
+    // We deliberately only react to selectedNodeId changes. mode and isDirty are guards
+    // checked synchronously, not reactive deps for this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNodeId, loadPage]);
+
+  // ── R7-4: beforeunload guard ───────────────────────────────────────────────
+  // Fires when the tab/window is closed while dirty (browser-level guard).
+  useEffect(() => {
+    if (!isDirty) return;
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      // Modern browsers ignore the returnValue string but still show a generic dialog.
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
 
   // ── Fetch related pages — once per selection, READ mode only (I3) ──────────
   // Separate AbortController from the content fetch so cancellation is independent.
@@ -370,11 +444,58 @@ export function NoteView() {
 
   const handleEdit = useCallback(() => {
     setMode("edit");
+    setIsDirty(false);
+  }, []);
+
+  /** Actually cancel (after guard confirmation or when not dirty). */
+  const doCancel = useCallback(() => {
+    setMode("read");
+    setIsDirty(false);
   }, []);
 
   const handleCancel = useCallback(() => {
-    setMode("read");
+    if (isDirty) {
+      setPendingNavIntent({ kind: "cancel" });
+    } else {
+      doCancel();
+    }
+  }, [isDirty, doCancel]);
+
+  // ── R7-4: Content change callback (called by CodeMirrorEditor on each change) ─
+  // Compares current content against savedContent to compute isDirty.
+  // This is NOT per-token — it fires on CodeMirror transaction dispatch (user edits).
+  const handleContentChange = useCallback((currentContent: string) => {
+    setIsDirty(currentContent !== savedContentRef.current);
   }, []);
+
+  // ── R7-4: Dialog confirm/cancel ────────────────────────────────────────────
+
+  const handleNavConfirm = useCallback(() => {
+    const intent = pendingNavIntent;
+    setPendingNavIntent(null);
+    setIsDirty(false);
+
+    if (!intent) return;
+
+    if (intent.kind === "cancel") {
+      doCancel();
+    } else if (intent.kind === "selectPage") {
+      // User confirmed discard; load the new page.
+      const controller = new AbortController();
+      loadPage(intent.pageId, controller.signal);
+    }
+  }, [pendingNavIntent, doCancel, loadPage]);
+
+  const handleNavCancel = useCallback(() => {
+    const intent = pendingNavIntent;
+    setPendingNavIntent(null);
+
+    // If the intent was a tree navigation, re-select the original page so the
+    // tree highlight returns to where the user was editing.
+    if (intent?.kind === "selectPage") {
+      selectPage(intent.origin, "tree");
+    }
+  }, [pendingNavIntent, selectPage]);
 
   // ── Save ───────────────────────────────────────────────────────────────────
 
@@ -390,6 +511,7 @@ export function NoteView() {
     try {
       const result = await savePageContent(selectedNodeId, newContent, expectedHash);
       // Update stored data with new content + hash so next read-mode render is fresh.
+      savedContentRef.current = newContent;
       setState((prev) => ({
         ...prev,
         errorMessage: null,
@@ -402,6 +524,7 @@ export function NoteView() {
             }
           : null,
       }));
+      setIsDirty(false);
       setMode("read");
       showToast(t("noteView.saved"), "success");
     } catch (err: unknown) {
@@ -425,6 +548,7 @@ export function NoteView() {
     if (!selectedNodeId) return;
     setState((prev) => ({ ...prev, errorMessage: null }));
     setMode("read");
+    setIsDirty(false);
     const controller = new AbortController();
     loadPage(selectedNodeId, controller.signal);
   }, [selectedNodeId, loadPage]);
@@ -513,6 +637,19 @@ export function NoteView() {
 
   return (
     <div data-testid="note-view" style={ROOT_STYLE}>
+      {/* ── R7-4: Unsaved-changes confirmation dialog ── */}
+      {pendingNavIntent !== null && (
+        <ConfirmDialog
+          title={t("noteView.unsavedDialogTitle")}
+          body={t("noteView.unsavedDialogBody")}
+          confirmLabel={t("noteView.unsavedDiscard")}
+          cancelLabel={t("noteView.unsavedKeepEditing")}
+          danger={false}
+          onConfirm={handleNavConfirm}
+          onCancel={handleNavCancel}
+        />
+      )}
+
       {/* ── Stale conflict banner ── */}
       {isStale && (
         <div
@@ -683,20 +820,55 @@ export function NoteView() {
               >
                 {t("noteView.cancel")}
               </button>
-              <button
-                type="button"
-                data-testid="note-save-btn"
-                onClick={() => void handleSave()}
-                className="syn-button syn-button--primary"
-                disabled={isSaving}
-              >
-                {isSaving ? t("noteView.saving") : t("noteView.save")}
-              </button>
+              {/* R7-4: Save button with dirty indicator (dot + hint) */}
+              <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+                <button
+                  type="button"
+                  data-testid="note-save-btn"
+                  onClick={() => void handleSave()}
+                  className="syn-button syn-button--primary"
+                  disabled={isSaving}
+                  style={{ position: "relative" }}
+                >
+                  {isSaving ? t("noteView.saving") : t("noteView.save")}
+                  {/* R7-4 unsaved indicator dot */}
+                  {isDirty && !isSaving && (
+                    <span
+                      data-testid="note-unsaved-dot"
+                      aria-label={t("noteView.unsavedDot")}
+                      style={{
+                        position: "absolute",
+                        top: -3,
+                        right: -3,
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        background: "var(--syn-accent)",
+                        border: "1.5px solid var(--syn-bg-soft)",
+                      }}
+                    />
+                  )}
+                </button>
+              </div>
+              {/* R7-4 unsaved hint text */}
+              {isDirty && !isSaving && (
+                <span
+                  data-testid="note-unsaved-hint"
+                  style={{
+                    fontSize: 11,
+                    color: "var(--syn-text-dim)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {t("noteView.unsavedHint")}
+                </span>
+              )}
             </div>
           </div>
           <CodeMirrorEditor
             initialContent={data.content}
             handleRef={editorHandleRef}
+            onContentChange={handleContentChange}
           />
         </div>
       )}

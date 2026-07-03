@@ -66,6 +66,9 @@ import {
   type McpAuthResponse,
 } from "../../api/providerClient";
 import type { ClipConfigResponse, ClipConfigStateResponse, WebSearchConfigResponse, CliAuthConfig } from "../../api/types";
+import { fetchScenarios, applyScenario, type ScenarioItem } from "../../api/scenariosClient";
+import { ConfirmDialog } from "../common/ConfirmDialog";
+import { showToast } from "../common/Toast";
 
 // ─── Settings section type ────────────────────────────────────────────────────
 
@@ -80,7 +83,8 @@ type SettingsSection =
   | "output"
   | "interface"
   | "maintenance"
-  | "about";
+  | "about"
+  | "scenarios";
 
 // ─── Left nav item ────────────────────────────────────────────────────────────
 
@@ -195,6 +199,15 @@ function IconSearch() {
   );
 }
 
+function IconScenarios() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+    </svg>
+  );
+}
+
 const NAV_ITEMS: NavItem[] = [
   { id: "general",     labelKey: "settings.nav.general",     icon: <IconSliders /> },
   { id: "llmModels",   labelKey: "settings.nav.llmModels",   icon: <IconCpu /> },
@@ -205,6 +218,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "webClipper",  labelKey: "settings.nav.webClipper",  icon: <IconClip /> },
   { id: "output",      labelKey: "settings.nav.output",      icon: <IconType /> },
   { id: "interface",   labelKey: "settings.nav.interface",   icon: <IconMonitor /> },
+  { id: "scenarios",   labelKey: "settings.nav.scenarios",   icon: <IconScenarios /> },
   { id: "maintenance", labelKey: "settings.nav.maintenance", icon: <IconWrench /> },
   { id: "about",       labelKey: "settings.nav.about",       icon: <IconInfo /> },
 ];
@@ -335,6 +349,7 @@ export function SettingsPanel() {
         {activeSection === "interface" && <SectionInterface />}
         {activeSection === "maintenance" && <SectionMaintenance />}
         {activeSection === "about" && <SectionAbout />}
+        {activeSection === "scenarios" && <SectionScenarios />}
       </div>
     </div>
   );
@@ -2714,6 +2729,113 @@ function SectionAbout() {
           {t("settings.about.github")} ↗
         </a>
       </div>
+    </div>
+  );
+}
+
+// ─── Section: Scenarios ───────────────────────────────────────────────────────
+// R7-1 (FE): fetches GET /scenarios, renders up to 5 cards, Apply → ConfirmDialog → POST apply.
+
+function SectionScenarios() {
+  const { t } = useTranslation();
+  const [scenarios, setScenarios] = useState<ScenarioItem[]>([]);
+  const [loadErr, setLoadErr] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [pendingScenario, setPendingScenario] = useState<ScenarioItem | null>(null);
+  const [applying, setApplying] = useState(false);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    setLoading(true);
+    fetchScenarios(ac.signal)
+      .then((items) => { setScenarios(items); setLoadErr(false); setLoading(false); })
+      .catch((e: unknown) => {
+        if (e instanceof Error && e.name === "AbortError") return;
+        setLoadErr(true);
+        setLoading(false);
+      });
+    return () => { ac.abort(); };
+  }, []);
+
+  const handleApplyConfirm = async () => {
+    if (!pendingScenario) return;
+    const scenario = pendingScenario;
+    setPendingScenario(null);
+    setApplying(true);
+    try {
+      await applyScenario(scenario.id);
+      showToast(t("settings.scenarios.applied"), "success");
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : t("settings.scenarios.loadError"), "error");
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  return (
+    <div>
+      <SectionHeader title={t("settings.scenarios.title")} desc={t("settings.scenarios.desc")} />
+
+      {loading && (
+        <p style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>{t("common.loading")}</p>
+      )}
+      {loadErr && (
+        <p style={{ fontSize: 12, color: "var(--syn-red)" }}>{t("settings.scenarios.loadError")}</p>
+      )}
+      {!loading && !loadErr && scenarios.length === 0 && (
+        <p style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("settings.scenarios.loadError")}</p>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {scenarios.slice(0, 5).map((sc) => (
+          <div
+            key={sc.id}
+            data-testid="scenario-card"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 12,
+              padding: "12px 14px",
+              border: "1px solid var(--syn-border)",
+              borderRadius: 8,
+              background: "var(--syn-surface)",
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "var(--syn-text)" }}>
+                {sc.name}
+              </p>
+              <p style={{ margin: 0, fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
+                {sc.description}
+              </p>
+            </div>
+            <button
+              data-testid="scenario-apply-btn"
+              style={{
+                ...BTN_PRIMARY,
+                flexShrink: 0,
+                opacity: applying ? 0.5 : 1,
+                cursor: applying ? "not-allowed" : "pointer",
+              }}
+              disabled={applying}
+              onClick={() => setPendingScenario(sc)}
+            >
+              {applying ? t("settings.scenarios.applying") : t("settings.scenarios.apply")}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {pendingScenario && (
+        <ConfirmDialog
+          title={t("settings.scenarios.applyConfirmTitle")}
+          body={t("settings.scenarios.applyConfirmBody", { name: pendingScenario.name })}
+          confirmLabel={t("settings.scenarios.applyConfirm")}
+          cancelLabel={t("settings.scenarios.applyCancel")}
+          onConfirm={() => { void handleApplyConfirm(); }}
+          onCancel={() => setPendingScenario(null)}
+        />
+      )}
     </div>
   );
 }

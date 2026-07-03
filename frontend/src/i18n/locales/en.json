@@ -14,7 +14,28 @@
     "settings": "Settings",
     "settingsShort": "Settings",
     "chatComingSoon": "Phase 3",
-    "comingSoon": "Coming soon"
+    "comingSoon": "Coming soon",
+    "newPage": {
+      "title": "New page",
+      "titleLabel": "Title",
+      "titlePlaceholder": "e.g. My new concept",
+      "titleRequired": "Title is required",
+      "conflict": "A page with this title already exists",
+      "created": "Page created",
+      "typeLabel": "Type",
+      "type": {
+        "concept": "Concept",
+        "entity": "Entity",
+        "source": "Source",
+        "synthesis": "Synthesis",
+        "comparison": "Comparison",
+        "query": "Query"
+      },
+      "dirLabel": "Directory (optional)",
+      "dirPlaceholder": "e.g. concepts/",
+      "cancel": "Cancel",
+      "create": "Create"
+    }
   },
   "ingest": {
     "title": "Ingest Activity",
@@ -113,7 +134,8 @@
       "output": "Output",
       "interface": "Interface",
       "maintenance": "Maintenance",
-      "about": "About"
+      "about": "About",
+      "scenarios": "Scenarios"
     },
     "llmModels": {
       "title": "LLM Models",
@@ -343,6 +365,18 @@
       "guideSteps": "1) On the host run: claude setup-token\n2) Paste the printed sk-ant-oat01-… token here\n3) Leave ANTHROPIC_API_KEY unset — the DB token is injected into the Claude CLI and the API key is scrubbed from its environment, so your subscription is used ($0 per token).",
       "caveat": "Security note: this token is stored in the application database in plaintext and grants access to your Claude subscription. Treat database backups accordingly. To rotate: re-run `claude setup-token` and paste the new value. To revoke: click Clear and the CLI will fall back to env / unconfigured."
     },
+    "scenarios": {
+      "title": "Scenario Templates",
+      "desc": "Apply a predefined scenario to quickly configure your vault with a purpose, schema, and structure template.",
+      "apply": "Apply",
+      "applyConfirmTitle": "Apply scenario?",
+      "applyConfirmBody": "Applying \"{{name}}\" will overwrite your vault's purpose.md and schema.md. Existing wiki pages are not affected.",
+      "applyConfirm": "Apply scenario",
+      "applyCancel": "Cancel",
+      "applying": "Applying…",
+      "applied": "Scenario applied successfully",
+      "loadError": "Could not load scenarios. Is the backend running?"
+    },
     "import": {
       "title": "Scheduled folder import",
       "enabled": "Enabled",
@@ -404,13 +438,20 @@
     "costLabel": "${{cost}}",
     "reasoning": "Reasoning",
     "thinking": "thinking…",
+    "thinkPreviewLabel": "Reasoning preview",
     "usingProvider": "{{provider}}",
     "ragActive": "Answers from your wiki",
     "examples": {
       "q1": "Map the strongest concepts in this vault",
       "q2": "Summarize what changed in the latest sources",
       "q3": "Find gaps that need deep research"
-    }
+    },
+    "searchConversations": "Search conversations…",
+    "noMatchingConversations": "No conversations match your search.",
+    "renameConversation": "Rename conversation",
+    "renameCommit": "Save rename",
+    "renameCancel": "Cancel rename",
+    "renameError": "Failed to rename conversation"
   },
   "research": {
     "title": "Deep Search",
@@ -537,7 +578,13 @@
     "wikilinkNotFound": "Page not found: {{title}}",
     "sources": "Sources",
     "related": "Related ({{count}})",
-    "relatedError": "Could not load related pages"
+    "relatedError": "Could not load related pages",
+    "unsavedDot": "Unsaved changes",
+    "unsavedHint": "unsaved changes",
+    "unsavedDialogTitle": "Unsaved changes",
+    "unsavedDialogBody": "You have unsaved changes. Discard them and leave?",
+    "unsavedDiscard": "Discard",
+    "unsavedKeepEditing": "Keep editing"
   },
   "lint": {
     "title": "Lint",
@@ -645,7 +692,24 @@
     "ingestAllStarted": "{{count}} files indexing",
     "ingestAllRunning": "Indexing… {{done}}/{{total}}",
     "ingestAllNone": "Nothing to index",
-    "ingestAllAlready": "Already running"
+    "ingestAllAlready": "Already running",
+    "bulk": {
+      "selectAll": "Select all files",
+      "selectFile": "Select {{name}}",
+      "selected": "{{count}} selected",
+      "ingest": "Ingest selected",
+      "delete": "Delete selected",
+      "clearSelection": "Clear selection",
+      "deleteDialogTitle": "Delete selected files",
+      "deleteDialogBody": "Permanently delete {{count}} file(s) and their derived wiki pages?",
+      "deleteConfirm": "Delete",
+      "deleteCancel": "Cancel",
+      "progress": "{{current}}/{{total}} — {{path}}",
+      "ingestDone": "Ingest complete: {{count}} file(s) processed",
+      "ingestPartial": "Ingest partial: {{done}}/{{total}} succeeded, {{failed}} failed",
+      "deleteDone": "Deleted {{count}} file(s)",
+      "deletePartial": "Deleted {{done}}/{{total}}, {{failed}} failed"
+    }
   },
   "providerGate": {
     "title": "No provider configured",
@@ -662,6 +726,10 @@
     "resumeQueue": "Resume",
     "cancelAll": "Cancel all",
     "cancelAllConfirm": "Cancel all active and pending tasks?",
+    "cancelAllDialogTitle": "Cancel all tasks",
+    "cancelAllDialogBody": "Cancel all running tasks? This cannot be undone.",
+    "cancelAllDialogConfirm": "Cancel all",
+    "cancelAllDialogCancel": "Keep running",
     "retryFailed": "Retry failed",
     "cancel": "Cancel",
     "retry": "Retry",
@@ -726,6 +794,13 @@
       "ingestFailed": "Ingest failed: {{label}}",
       "pagesCreated_one": "{{count}} page created",
       "pagesCreated_other": "{{count}} pages created"
+    },
+    "update": {
+      "available": "New version {{version}} available",
+      "now": "Update now",
+      "later": "Later",
+      "installing": "Installing…",
+      "error": "Update failed. Retry on next launch."
     }
   }
 }

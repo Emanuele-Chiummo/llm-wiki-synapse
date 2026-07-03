@@ -276,15 +276,22 @@ vi.mock("../api/providerClient", async (importOriginal) => {
   };
 });
 
+// ─── Mock scenariosClient ─────────────────────────────────────────────────────
+
+vi.mock("../api/scenariosClient", () => ({
+  fetchScenarios: vi.fn().mockResolvedValue([]),
+  applyScenario: vi.fn().mockResolvedValue({ applied: true }),
+}));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function renderPanel() {
   return render(<SettingsPanel />);
 }
 
-// ─── 1. All 11 sub-nav items render ──────────────────────────────────────────
+// ─── 1. All 12 sub-nav items render ──────────────────────────────────────────
 
-describe("SettingsPanel — 11 sub-nav items (AC-HARD-SET-1/3)", () => {
+describe("SettingsPanel — 12 sub-nav items (AC-HARD-SET-1/3)", () => {
   beforeEach(() => {
     renderPanel();
   });
@@ -301,15 +308,16 @@ describe("SettingsPanel — 11 sub-nav items (AC-HARD-SET-1/3)", () => {
     "webClipper",
     "output",
     "interface",
+    "scenarios",
     "maintenance",
     "about",
   ] as const;
 
-  it("renders exactly 11 section buttons in the left nav aside", () => {
+  it("renders exactly 12 section buttons in the left nav aside", () => {
     const aside = document.querySelector("aside");
     expect(aside).not.toBeNull();
     const buttons = aside!.querySelectorAll("button");
-    expect(buttons).toHaveLength(11);
+    expect(buttons).toHaveLength(12);
   });
 
   EXPECTED_SECTION_IDS.forEach((sectionId) => {
@@ -514,8 +522,10 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
   it("ArrowDown cycles past 'about' (last) back to 'general' (first)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Navigate to "about" (index 10) — 10 ArrowDown presses from "general"
-    for (let i = 0; i < 10; i++) {
+    // Navigate to "about" (index 11) — 11 ArrowDown presses from "general"
+    // NAV_ITEMS = general(0) llmModels(1) embeddings(2) sourceWatch(3) webSearch(4)
+    //             apiMcp(5) webClipper(6) output(7) interface(8) scenarios(9) maintenance(10) about(11)
+    for (let i = 0; i < 11; i++) {
       fireEvent.keyDown(aside, { key: "ArrowDown" });
     }
     expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
@@ -525,7 +535,7 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     expect(document.querySelector('[data-settings-section="general"]')?.getAttribute("aria-current")).toBe("true");
   });
 
-  it("ArrowUp from 'general' (index 0) wraps to 'about' (index 10)", () => {
+  it("ArrowUp from 'general' (index 0) wraps to 'about' (last index)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "ArrowUp" });
@@ -543,7 +553,7 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     expect(document.querySelector('[data-settings-section="general"]')?.getAttribute("aria-current")).toBe("true");
   });
 
-  it("End key moves focus to 'about' (index 10)", () => {
+  it("End key moves focus to 'about' (last index)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "End" });

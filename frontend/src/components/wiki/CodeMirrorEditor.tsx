@@ -36,6 +36,12 @@ interface CodeMirrorEditorProps {
   initialContent: string;
   /** Ref exposed to the parent so it can call getContent() at Save time. */
   handleRef: { current: CodeMirrorEditorHandle | null };
+  /**
+   * R7-4: Called whenever the editor document changes (on each CodeMirror transaction).
+   * The parent uses this to compute isDirty without storing the live content in state
+   * (I3: no per-keystroke React re-renders from the content itself).
+   */
+  onContentChange?: (content: string) => void;
 }
 
 /** Returns the currently resolved theme from the document element attribute. */
@@ -54,7 +60,7 @@ function buildThemeExtension(resolved: "light" | "dark"): Extension {
   return resolved === "dark" ? oneDark : [];
 }
 
-export function CodeMirrorEditor({ initialContent, handleRef }: CodeMirrorEditorProps) {
+export function CodeMirrorEditor({ initialContent, handleRef, onContentChange }: CodeMirrorEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -64,6 +70,16 @@ export function CodeMirrorEditor({ initialContent, handleRef }: CodeMirrorEditor
     // Holds the active theme extension so we can swap it without recreating the editor.
     const themeCompartment = new Compartment();
     const initialResolved = getResolvedTheme();
+
+    // R7-4: update listener — fires on document change, calls onContentChange with the
+    // new doc string so the parent can compute isDirty without per-keystroke state.
+    const updateListener = onContentChange
+      ? EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            onContentChange(update.state.doc.toString());
+          }
+        })
+      : ([] as Extension);
 
     const view = new EditorView({
       state: EditorState.create({
@@ -81,6 +97,7 @@ export function CodeMirrorEditor({ initialContent, handleRef }: CodeMirrorEditor
             ".cm-scroller": { overflow: "auto" },
             ".cm-content": { padding: "16px 20px" },
           }),
+          updateListener,
         ],
       }),
       parent: containerRef.current,
