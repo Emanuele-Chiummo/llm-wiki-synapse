@@ -75,6 +75,7 @@ import hmac
 import importlib.metadata
 import ipaddress
 import logging
+import os
 import re as _re
 import secrets
 import uuid
@@ -935,10 +936,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 # ── FastAPI app ────────────────────────────────────────────────────────────────
 
-try:
-    _app_version: str = importlib.metadata.version("synapse-backend")
-except importlib.metadata.PackageNotFoundError:
-    _app_version = "dev"
+
+def _resolve_backend_version() -> str:
+    """Backend version, preferring the release-stamped APP_VERSION env (ADR-0054 §6).
+
+    Priority:
+      1. APP_VERSION env var (set by the GHCR image build from the git tag, Dockerfile
+         ARG/ENV — R12-3). A leading 'v' is stripped ('v1.2.0' → '1.2.0').
+      2. importlib.metadata of the installed package. CAVEAT: for editable/dev installs
+         this is frozen at `pip install -e` time and can lag pyproject.toml — which is
+         exactly why the env var wins when present.
+      3. 'dev' fallback.
+    """
+    env_version = os.environ.get("APP_VERSION", "").strip().lstrip("v")
+    if env_version and env_version != "dev":
+        return env_version
+    try:
+        installed: str = importlib.metadata.version("synapse-backend")
+    except importlib.metadata.PackageNotFoundError:
+        return "dev"
+    return installed
+
+
+_app_version: str = _resolve_backend_version()
 
 app = FastAPI(
     title="Synapse",
@@ -2021,18 +2041,14 @@ async def get_status() -> StatusResponse:
 
     now = datetime.now(UTC)
     uptime = (now - _started_at).total_seconds()
-    # Read backend version from pyproject.toml via importlib.metadata (ADR-0054 §6).
-    # NEVER a hardcoded literal — the version is the installed package metadata.
-    try:
-        _pkg_version: str = importlib.metadata.version("synapse-backend")
-    except importlib.metadata.PackageNotFoundError:
-        _pkg_version = "dev"
+    # Backend version: APP_VERSION env (release-stamped) wins over installed package
+    # metadata, which can lag for editable/dev installs (ADR-0054 §6, R12-3).
     return StatusResponse(
         vault_id=settings.vault_id,
         data_version=data_version,
         started_at=_started_at,
         uptime_seconds=uptime,
-        version=_pkg_version,
+        version=_resolve_backend_version(),
     )
 
 
