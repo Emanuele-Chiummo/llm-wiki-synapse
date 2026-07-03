@@ -12,11 +12,18 @@
  *     editor owns its state after mount.
  *
  * INVARIANT I4: CodeMirror 6 ONLY — no ProseMirror / Milkdown.
+ *
+ * DARK MODE (ADR-0048 §T1):
+ *   A Compartment holds the theme extension so we can reconfigure it on resolved-
+ *   theme change without destroying/recreating the editor.
+ *   The swap is triggered by a MutationObserver on document.documentElement's
+ *   dataset.theme attribute — the same attribute written by settingsStore's applier.
+ *   This is NOT per-keystroke and NOT per-token (I3/I4 hold).
  */
 
 import { useEffect, useRef } from "react";
 import { EditorView } from "@codemirror/view";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Compartment, type Extension } from "@codemirror/state";
 import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
 
@@ -31,18 +38,39 @@ interface CodeMirrorEditorProps {
   handleRef: { current: CodeMirrorEditorHandle | null };
 }
 
+/** Returns the currently resolved theme from the document element attribute. */
+function getResolvedTheme(): "light" | "dark" {
+  try {
+    return (document.documentElement.dataset["theme"] as "light" | "dark" | undefined) === "dark"
+      ? "dark"
+      : "light";
+  } catch {
+    return "light";
+  }
+}
+
+/** Build the CodeMirror theme extension for the given resolved theme. */
+function buildThemeExtension(resolved: "light" | "dark"): Extension {
+  return resolved === "dark" ? oneDark : [];
+}
+
 export function CodeMirrorEditor({ initialContent, handleRef }: CodeMirrorEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // ── Theme compartment (ADR-0048 §T1) ──────────────────────────────────────
+    // Holds the active theme extension so we can swap it without recreating the editor.
+    const themeCompartment = new Compartment();
+    const initialResolved = getResolvedTheme();
+
     const view = new EditorView({
       state: EditorState.create({
         doc: initialContent,
         extensions: [
           markdown(),
-          oneDark,
+          themeCompartment.of(buildThemeExtension(initialResolved)),
           EditorView.lineWrapping,
           EditorView.theme({
             "&": {
@@ -58,12 +86,28 @@ export function CodeMirrorEditor({ initialContent, handleRef }: CodeMirrorEditor
       parent: containerRef.current,
     });
 
+    // ── Watch for resolved-theme changes via MutationObserver ─────────────────
+    // Observes dataset.theme on <html>; when it changes, reconfigure the compartment.
+    // This is event-driven (never per-keystroke, never per-token) — I3/I4 hold.
+    let lastResolved = initialResolved;
+    const observer = new MutationObserver(() => {
+      const next = getResolvedTheme();
+      if (next !== lastResolved) {
+        lastResolved = next;
+        view.dispatch({
+          effects: themeCompartment.reconfigure(buildThemeExtension(next)),
+        });
+      }
+    });
+    observer.observe(document.documentElement, { attributeFilter: ["data-theme"] });
+
     // Expose getContent to parent via handleRef
     handleRef.current = {
       getContent: () => view.state.doc.toString(),
     };
 
     return () => {
+      observer.disconnect();
       view.destroy();
       handleRef.current = null;
     };

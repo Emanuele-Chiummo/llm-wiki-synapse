@@ -29,9 +29,12 @@ import {
   selectSetLanguage,
   selectSetConversationHistoryLength,
   selectResetSettings,
+  selectTheme,
+  selectSetTheme,
   CONTEXT_WINDOW_OPTIONS,
   CONV_HISTORY_OPTIONS,
   type ConvHistoryLength,
+  type Theme,
   computeBudgetSplit,
   formatTokenCount,
 } from "../../store/settingsStore";
@@ -2567,10 +2570,46 @@ function SectionOutput() {
 
 function SectionInterface() {
   const { t } = useTranslation();
+  const theme = useSettingsStore(selectTheme);
+  const setTheme = useSettingsStore(selectSetTheme);
+
+  const THEME_OPTIONS: { value: Theme; labelKey: string }[] = [
+    { value: "system", labelKey: "settings.theme.system" },
+    { value: "light",  labelKey: "settings.theme.light" },
+    { value: "dark",   labelKey: "settings.theme.dark" },
+  ];
+
   return (
     <div>
       <SectionHeader title={t("settings.nav.interface")} desc={t("settings.interface.desc")} />
-      <ComingSoonBadge message={t("settings.interface.comingSoon")} />
+
+      <Field label={t("settings.theme.label")}>
+        <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--syn-text-muted)" }}>
+          {t("settings.theme.help")}
+        </p>
+        <div style={{ display: "flex", gap: 6 }}>
+          {THEME_OPTIONS.map(({ value, labelKey }) => (
+            <button
+              key={value}
+              data-testid={`theme-btn-${value}`}
+              onClick={() => setTheme(value)}
+              aria-pressed={theme === value}
+              style={{
+                padding: "6px 14px",
+                border: "1px solid var(--syn-border)",
+                borderRadius: 6,
+                background: theme === value ? "var(--syn-accent-soft)" : "transparent",
+                color: theme === value ? "var(--syn-accent)" : "var(--syn-text-muted)",
+                fontSize: 12,
+                cursor: "pointer",
+                fontWeight: theme === value ? 600 : 400,
+              }}
+            >
+              {t(labelKey)}
+            </button>
+          ))}
+        </div>
+      </Field>
     </div>
   );
 }
@@ -2697,25 +2736,6 @@ function Field({ label, children, compact }: { label: string; children: ReactNod
         {label}
       </label>
       {children}
-    </div>
-  );
-}
-
-function ComingSoonBadge({ message }: { message: string }) {
-  return (
-    <div style={{
-      padding: "12px 16px",
-      border: "1px solid var(--syn-border)",
-      borderRadius: 8,
-      background: "var(--syn-bg-soft)",
-      fontSize: 12,
-      color: "var(--syn-text-dim)",
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-    }}>
-      <span>⏳</span>
-      {message}
     </div>
   );
 }

@@ -196,7 +196,7 @@ export function ChatSection(): ReactNode {
         </div>
 
         {/* Message list (virtualized, I4) */}
-        <MessageList onRegenerate={handleRegenerate} />
+        <MessageList onRegenerate={handleRegenerate} onSend={handleSend} />
 
         {/* Input (plain textarea, I4) */}
         <MessageInput

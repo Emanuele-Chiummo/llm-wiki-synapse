@@ -15,6 +15,7 @@
     "core:window:allow-unminimize",
     "core:app:allow-app-hide",
     "core:app:allow-app-show",
-    "core:app:allow-version"
+    "core:app:allow-version",
+    "notification:default"
   ]
 }

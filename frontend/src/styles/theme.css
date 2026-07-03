@@ -1,10 +1,32 @@
 /*
- * theme.css — Synapse LIGHT design system, matched to the nashsu/llm_wiki reference.
+ * theme.css — Synapse design system, light + dark.
  *
  * Single source of truth for colors/typography/spacing. Components consume the --syn-*
- * CSS variables (never hardcoded hex). Flipping these values re-themes the whole app.
+ * CSS variables (never hardcoded hex). Flipping data-theme re-themes the whole app.
  * Imported globally from main.tsx.
+ *
+ * Dark mode: :root[data-theme="dark"] overrides every --syn-* var.
+ * Applied by settingsStore applier (document.documentElement.dataset.theme = "light"|"dark").
+ *
+ * AUDIT NOTE (ADR-0048 §T1):
+ *   - All color-mix(..., white NN%) sites in :root have been re-expressed against
+ *     --syn-mix-base and --syn-notice-*-bg / --syn-notice-*-border tokens so the dark
+ *     block can override them without literal "white".
+ *   - Raw scrollbar hex (#c7ccd4) → --syn-scrollbar-thumb token.
+ *   - Light-tuned shadow rgba → --syn-shadow-soft / --syn-shadow-pop (unchanged hex but
+ *     now overridden in dark block with dark-adapted values).
+ *   - graphPalette.ts keeps hardcoded hex per ADR-0015 §CVD-SAFE exception.
  */
+
+/* ── TRANSITIONS GUARD (ADR-0048 §T1 + §T3) ─────────────────────────────────
+ * When the theme is switching, suppress all transitions for 1 frame so the
+ * whole-document var swap doesn't produce a colour-smear animation.
+ * The JS applier adds .theme-switching during the theme attribute write,
+ * then removes it via requestAnimationFrame (one paint later).
+ */
+.theme-switching * {
+  transition: none !important;
+}
 
 :root {
   color-scheme: light;
@@ -54,9 +76,98 @@
   --syn-shadow-soft: 0 1px 2px rgba(31, 35, 40, 0.06), 0 1px 3px rgba(31, 35, 40, 0.08);
   --syn-shadow-pop: 0 8px 24px rgba(31, 35, 40, 0.12);
 
+  /* ── Scrollbar tokens (audit: was hardcoded #c7ccd4) ── */
+  --syn-scrollbar-thumb: #c7ccd4;
+
+  /* ── color-mix base token (audit: was literal "white" in color-mix() calls) ──
+   * Used as the second argument in: color-mix(in srgb, <semantic> NN%, <base> NN%)
+   * Light: white surface; Dark: overridden to the dark surface colour.
+   */
+  --syn-mix-base: #ffffff;
+
+  /* ── Semantic notice backgrounds / borders (derived from mix-base + semantic) ──
+   * These replace inline color-mix(..., white) in component styles so the dark
+   * override block can set them directly without literal "white".
+   */
+  --syn-notice-info-bg:      #eaf1fe;   /* color-mix(in srgb, --syn-accent 8%, white 92%) */
+  --syn-notice-info-border:  #c0d3fc;   /* color-mix(in srgb, --syn-accent 30%, white 70%) */
+  --syn-notice-success-bg:   #eafaee;   /* color-mix(in srgb, --syn-green 8%, white 92%) */
+  --syn-notice-success-border: #b4d9bf; /* color-mix(in srgb, --syn-green 30%, white 70%) */
+  --syn-notice-warning-bg:   #fdf5e6;   /* color-mix(in srgb, --syn-amber 8%, white 92%) */
+  --syn-notice-warning-border: #e8d0a0; /* color-mix(in srgb, --syn-amber 30%, white 70%) */
+  --syn-notice-danger-bg:    #fcecea;   /* color-mix(in srgb, --syn-red 8%, white 92%) */
+  --syn-notice-danger-border: #efb8ba;  /* color-mix(in srgb, --syn-red 30%, white 70%) */
+
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     Helvetica, Arial, sans-serif;
+}
+
+/* ── DARK THEME OVERRIDE (ADR-0048 §T1) ──────────────────────────────────────
+ * Applied when document.documentElement.dataset.theme === "dark".
+ * Covers EVERY --syn-* variable so no rule falls back to light values.
+ * GitHub-dark-like palette: bg #0d1117 family, accent stays blue.
+ * Per-type colors adjusted for dark-background contrast (lighter variants).
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ── Surfaces ── */
+  --syn-bg: #0d1117;
+  --syn-bg-soft: #161b22;
+  --syn-surface: #161b22;
+  --syn-surface-raised: #1c2128;
+  --syn-surface-hover: #21262d;
+  --syn-surface-sunken: #0d1117;
+
+  /* ── Borders ── */
+  --syn-border: #30363d;
+  --syn-border-subtle: #21262d;
+
+  /* ── Text ── */
+  --syn-text: #e6edf3;
+  --syn-text-muted: #8b949e;
+  --syn-text-dim: #484f58;
+
+  /* ── Accent ── */
+  --syn-accent: #58a6ff;
+  --syn-accent-strong: #79c0ff;
+  --syn-accent-soft: #1c2c3e;
+
+  /* ── Semantic ── */
+  --syn-green: #3fb950;
+  --syn-amber: #d29922;
+  --syn-red: #f85149;
+
+  /* ── Per-type colors (lightened for dark backgrounds) ── */
+  --syn-type-concept: #bc8cff;    /* purple — lighter */
+  --syn-type-entity: #58a6ff;     /* blue — lighter */
+  --syn-type-source: #f0883e;     /* orange — lighter */
+  --syn-type-synthesis: #ff7b72;  /* red — lighter */
+  --syn-type-comparison: #3fb950; /* green — lighter */
+  --syn-type-query: #56d364;      /* green — lighter */
+  --syn-type-overview: #e3b341;   /* amber — lighter */
+  --syn-type-other: #8b949e;
+
+  /* ── Shadow (dark-adapted: less intense, more visible on dark) ── */
+  --syn-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --syn-shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  /* ── Scrollbar token ── */
+  --syn-scrollbar-thumb: #30363d;
+
+  /* ── color-mix base (dark surface, not white) ── */
+  --syn-mix-base: #161b22;
+
+  /* ── Semantic notice backgrounds / borders (dark variants) ── */
+  --syn-notice-info-bg:      #1c2c3e;
+  --syn-notice-info-border:  #1f4080;
+  --syn-notice-success-bg:   #122920;
+  --syn-notice-success-border: #1a5235;
+  --syn-notice-warning-bg:   #2d2000;
+  --syn-notice-warning-border: #5a4000;
+  --syn-notice-danger-bg:    #2d1016;
+  --syn-notice-danger-border: #6e1a1f;
 }
 
 * {
@@ -90,12 +201,14 @@ button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--syn-accent) 70%, white 30%);
+  /* audit: was color-mix(in srgb, var(--syn-accent) 70%, white 30%) — literal white replaced with token */
+  outline: 2px solid color-mix(in srgb, var(--syn-accent) 70%, var(--syn-mix-base) 30%);
   outline-offset: 2px;
 }
 
 * {
-  scrollbar-color: #c7ccd4 transparent;
+  /* audit: was hardcoded #c7ccd4 — now uses the scrollbar token */
+  scrollbar-color: var(--syn-scrollbar-thumb) transparent;
   scrollbar-width: thin;
 }
 
@@ -105,7 +218,8 @@ select:focus-visible {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c7ccd4;
+  /* audit: was hardcoded #c7ccd4 — now uses the scrollbar token */
+  background: var(--syn-scrollbar-thumb);
   border: 2px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
@@ -123,6 +237,7 @@ select:focus-visible {
 }
 
 .syn-quick-prompt:hover {
+  /* audit: was color-mix(in srgb, var(--syn-accent) 45%, var(--syn-border) 55%) — token-safe */
   border-color: color-mix(in srgb, var(--syn-accent) 45%, var(--syn-border) 55%) !important;
   background: var(--syn-accent-soft) !important;
   color: var(--syn-text) !important;
@@ -235,27 +350,28 @@ select:focus-visible {
   line-height: 1.4;
 }
 
+/* audit: was color-mix(in srgb, var(--syn-*) NN%, white NN%) — now uses tokens */
 .syn-section-notice--info {
-  border: 1px solid color-mix(in srgb, var(--syn-accent) 30%, white 70%);
-  background: var(--syn-accent-soft);
+  border: 1px solid var(--syn-notice-info-border);
+  background: var(--syn-notice-info-bg);
   color: var(--syn-accent-strong);
 }
 
 .syn-section-notice--success {
-  border: 1px solid color-mix(in srgb, var(--syn-green) 30%, white 70%);
-  background: color-mix(in srgb, var(--syn-green) 8%, white 92%);
+  border: 1px solid var(--syn-notice-success-border);
+  background: var(--syn-notice-success-bg);
   color: var(--syn-green);
 }
 
 .syn-section-notice--warning {
-  border: 1px solid color-mix(in srgb, var(--syn-amber) 30%, white 70%);
-  background: color-mix(in srgb, var(--syn-amber) 8%, white 92%);
+  border: 1px solid var(--syn-notice-warning-border);
+  background: var(--syn-notice-warning-bg);
   color: var(--syn-amber);
 }
 
 .syn-section-notice--danger {
-  border: 1px solid color-mix(in srgb, var(--syn-red) 30%, white 70%);
-  background: color-mix(in srgb, var(--syn-red) 8%, white 92%);
+  border: 1px solid var(--syn-notice-danger-border);
+  background: var(--syn-notice-danger-bg);
   color: var(--syn-red);
 }
 
@@ -277,9 +393,22 @@ select:focus-visible {
 
 .syn-toolbar-button[aria-pressed="true"],
 .syn-toolbar-button:hover {
+  /* audit: was color-mix(in srgb, var(--syn-accent) 45%, var(--syn-border) 55%) — token-safe */
   border-color: color-mix(in srgb, var(--syn-accent) 45%, var(--syn-border) 55%);
   color: var(--syn-accent-strong);
   background: var(--syn-accent-soft);
+}
+
+/* ── Micro-transitions for interactive elements (ADR-0048 §T3) ───────────────
+ * Scoped to specific properties only — NEVER transition: all.
+ * These animate interactive state changes (hover, press) but NOT the theme swap.
+ * The .theme-switching guard above suppresses them during the attribute write.
+ */
+.syn-button,
+.syn-toolbar-button,
+.syn-chip,
+button {
+  transition: background-color 130ms ease, border-color 130ms ease, color 130ms ease, opacity 130ms ease;
 }
 
 @media (max-width: 720px) {

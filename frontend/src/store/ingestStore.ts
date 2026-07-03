@@ -9,12 +9,20 @@
  *   - Polls GET /ingest/runs every 5s ONLY while at least one run has status "running".
  *   - Uses a single AbortController + setTimeout chain — no setInterval, no runaway loop.
  *   - Stops automatically when no running rows remain.
+ *
+ * Ingest-completion notification (ADR-0048 §T4c):
+ *   - Fired when the poll detects runningCount transitions from >0 to 0 (terminal state).
+ *   - Only when isTauri(). Dynamic-import of @tauri-apps/plugin-notification so the
+ *     web/PWA build is never affected (tree-shaken; never bundled unless isTauri() at runtime).
+ *   - Fire-and-forget; permission requested lazily on first fire.
+ *   - INVARIANT I3: notification is event-driven (terminal state), never per-token.
  */
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { IngestRunItem } from "../api/types";
 import { fetchIngestRuns } from "../api/ingestClient";
+import { isTauri } from "../api/base";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -50,6 +58,63 @@ export type IngestStore = IngestState & IngestActions;
 
 function countRunning(runs: IngestRunItem[]): number {
   return runs.filter((r) => r.status === "running").length;
+}
+
+/**
+ * sendIngestNotification — fire a system notification when an ingest run completes.
+ *
+ * Dynamic-import guards the @tauri-apps/plugin-notification so it is NEVER bundled
+ * into the web/PWA build. This function is only called when isTauri() is true.
+ * It is fire-and-forget; any error is silently swallowed so it never breaks ingest.
+ *
+ * Permission is requested lazily on first call (ADR-0048 §T4c).
+ * Uses i18n key desktop.notify.ingestDone / desktop.notify.ingestFailed.
+ */
+async function sendIngestNotification(completed: IngestRunItem[]): Promise<void> {
+  try {
+    // Dynamic import — not bundled in web/PWA (tree-shaken when isTauri() is false)
+    const { isPermissionGranted, requestPermission, sendNotification } =
+      await import("@tauri-apps/plugin-notification");
+
+    let granted = await isPermissionGranted();
+    if (!granted) {
+      const permission = await requestPermission();
+      granted = permission === "granted";
+    }
+    if (!granted) return;
+
+    const failed = completed.filter((r) => r.status === "failed");
+    const succeeded = completed.filter((r) => r.status !== "failed");
+
+    // i18n instance works outside React components (i18n.t) — localized like the UI.
+    const { default: i18n } = await import("../i18n");
+
+    if (failed.length > 0) {
+      // Use pages_created + id as context — IngestRunItem has no file_path field
+      const count = failed.length;
+      const label =
+        count === 1
+          ? `run ${failed[0]?.id.slice(0, 8) ?? "?"}`
+          : `${count} run`;
+      sendNotification({
+        title: "Synapse",
+        body: i18n.t("desktop.notify.ingestFailed", { label }),
+      });
+    } else if (succeeded.length > 0) {
+      const count = succeeded.length;
+      const pages = succeeded.reduce((sum, r) => sum + r.pages_created, 0);
+      const label =
+        count === 1
+          ? i18n.t("desktop.notify.pagesCreated", { count: pages })
+          : `${count} run · ${i18n.t("desktop.notify.pagesCreated", { count: pages })}`;
+      sendNotification({
+        title: "Synapse",
+        body: i18n.t("desktop.notify.ingestDone", { label }),
+      });
+    }
+  } catch {
+    // Silently ignore — notification failure must never break ingest (ADR-0048 §T4c)
+  }
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -111,8 +176,8 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
 
     async function tick() {
       if (ctrl.signal.aborted) return;
-      const { runningCount } = get();
-      if (runningCount === 0) return; // bounded: stop when no running rows
+      const { runningCount: prevRunning, runs: prevRuns } = get();
+      if (prevRunning === 0) return; // bounded: stop when no running rows
       try {
         const pollOpts = vaultId !== undefined ? { limit: PAGE_LIMIT, offset: 0, vaultId } : { limit: PAGE_LIMIT, offset: 0 };
         const res = await fetchIngestRuns(pollOpts, ctrl.signal);
@@ -124,6 +189,23 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
             total: res.total,
             runningCount: running,
           }));
+
+          // ── Ingest-completion notification (ADR-0048 §T4c) ────────────────
+          // Detect transition: was running, now 0 running → terminal state.
+          // Find the runs that were "running" in the previous snapshot and are
+          // now completed/failed. Fire-and-forget; only when isTauri().
+          if (prevRunning > 0 && running === 0 && isTauri()) {
+            const prevRunningIds = new Set(
+              prevRuns.filter((r) => r.status === "running").map((r) => r.id),
+            );
+            const nowTerminal = res.items.filter(
+              (r) => prevRunningIds.has(r.id) && r.status !== "running",
+            );
+            if (nowTerminal.length > 0) {
+              void sendIngestNotification(nowTerminal);
+            }
+          }
+
           if (running > 0) {
             setTimeout(() => void tick(), POLL_INTERVAL_MS);
           }

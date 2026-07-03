@@ -4,14 +4,14 @@
     "wiki": "Wiki",
     "pages": "Wiki",
     "sources": "Sorgenti",
-    "ingest": "Importazione",
+    "ingest": "Import",
     "search": "Cerca",
     "graph": "Grafo",
     "lint": "Lint",
     "review": "Revisione",
-    "deepSearch": "Ricerca Profonda",
+    "deepSearch": "Profonda",
     "deepSearchShort": "Ricerca",
-    "settings": "Impostazioni",
+    "settings": "Opzioni",
     "settingsShort": "Impost.",
     "chatComingSoon": "Fase 3",
     "comingSoon": "Prossimamente"
@@ -237,6 +237,13 @@
       "currentHelp": "Etichette di navigazione, card compatte e stacking responsive sono attivi. Controlli tema e densità diventeranno modificabili più avanti.",
       "comingSoon": "Opzioni tema e densità — prossimamente."
     },
+    "theme": {
+      "label": "Tema",
+      "help": "Scegli come l'aspetto dell'app si adatta al tuo ambiente.",
+      "system": "Sistema",
+      "light": "Chiaro",
+      "dark": "Scuro"
+    },
     "maintenance": {
       "title": "Manutenzione",
       "desc": "Strumenti per la pulizia del wiki — rileva e unisci entità/concetti duplicati creati dall'LLM con nomi diversi tra re-ingest.",
@@ -398,7 +405,12 @@
     "reasoning": "Ragionamento",
     "thinking": "in elaborazione…",
     "usingProvider": "{{provider}}",
-    "ragActive": "Risponde dal tuo wiki"
+    "ragActive": "Risponde dal tuo wiki",
+    "examples": {
+      "q1": "Mappa i concetti più forti del vault",
+      "q2": "Riassumi cosa è cambiato nelle ultime sorgenti",
+      "q3": "Trova lacune che richiedono ricerca profonda"
+    }
   },
   "research": {
     "title": "Ricerca Profonda",
@@ -695,5 +707,25 @@
     "close": "Chiudi",
     "copy": "Copia",
     "unknown": "Sconosciuto"
+  },
+  "palette": {
+    "placeholder": "Cerca sezioni e pagine…",
+    "noResults": "Nessun risultato",
+    "sections": "Sezioni",
+    "pages": "Pagine",
+    "hint": "↑↓ naviga · Invio apri · Esc chiudi"
+  },
+  "desktop": {
+    "serverChip": {
+      "label": "Connesso a {{host}} — clicca per cambiare server",
+      "menuLabel": "Server conosciuti",
+      "current": "attivo"
+    },
+    "notify": {
+      "ingestDone": "Importazione completata: {{label}}",
+      "ingestFailed": "Importazione fallita: {{label}}",
+      "pagesCreated_one": "{{count}} pagina creata",
+      "pagesCreated_other": "{{count}} pagine create"
+    }
   }
 }

@@ -20,16 +20,21 @@
  *
  * ADR-0047 §2.3 (C3): if isTauri() && no serverUrl → render ConnectScreen instead.
  * Web/PWA: isTauri() is false, so this gate is never visible in the browser.
+ *
+ * ADR-0048 §T2: CommandPalette + global shortcuts mounted here (single listener).
  */
 
+import { useState, useCallback } from "react";
 import { Header } from "./Header";
 import { NavRail } from "./nav/NavRail";
 import { SectionRouter } from "./SectionRouter";
 import { ActivityBar } from "./activity/ActivityBar";
 import { ToastHost } from "./common/Toast";
 import { ConnectScreen } from "./connect/ConnectScreen";
+import { CommandPalette } from "./common/CommandPalette";
 import { isTauri } from "../api/base";
 import { useSettingsStore, selectServerUrl } from "../store/settingsStore";
+import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
 
 export function AppShell() {
   // ADR-0047 §2.3: gate is active only in Tauri and only when no server URL is set.
@@ -37,6 +42,17 @@ export function AppShell() {
   // ConnectScreen calls storeSetServerUrl, the field updates and this re-renders.
   const serverUrl = useSettingsStore(selectServerUrl);
   const inTauri = isTauri();
+
+  // ADR-0048 §T2: command palette open state.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const handleTogglePalette = useCallback(() => setPaletteOpen((v) => !v), []);
+  const handleClosePalette = useCallback(() => setPaletteOpen(false), []);
+
+  // Wire global keyboard shortcuts (single listener per shell mount).
+  useGlobalShortcuts({
+    paletteOpen,
+    onTogglePalette: handleTogglePalette,
+  });
 
   if (inTauri && serverUrl === null) {
     return <ConnectScreen />;
@@ -92,6 +108,9 @@ export function AppShell() {
 
       {/* ── Toast notifications (singleton, outside all panels) ────────────── */}
       <ToastHost />
+
+      {/* ── Command palette (ADR-0048 §T2) ─────────────────────────────────── */}
+      <CommandPalette open={paletteOpen} onClose={handleClosePalette} />
     </div>
   );
 }
