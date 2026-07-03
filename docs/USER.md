@@ -1,8 +1,8 @@
 # Synapse User Guide
 
-<!-- Generated: v0.7 sprint 6 | 2026-07-03 -->
+<!-- Generated: v0.8 sprint 7 | 2026-07-03 -->
 
-> Version: v0.6 (M6 — "Shippable")
+> Version: v0.8 (M7 — "Content power")
 > Language toggle: English / Italian available in Settings.
 
 ---
@@ -207,10 +207,13 @@ The top of the Sources section contains a drag-and-drop upload zone.
   click **Browse** to open a file picker.
 - Synapse saves the file to `vault/raw/sources/` and the watcher ingests it
   asynchronously. A new run row appears in the list within about 15–30 seconds.
-- **Accepted formats in v0.5:** Markdown, plain text (`.md`, `.txt`, `.markdown`), PDF,
-  DOCX, PPTX, and XLSX. Binary files are automatically converted to a companion
-  `.extracted.md` file for ingest (F12, ADR-0025); the original binary is stored in
-  `vault/raw/sources/`. Images and audio/video are not yet supported (planned for M6).
+- **Accepted formats in v0.8:** Markdown, plain text (`.md`, `.txt`, `.markdown`), PDF,
+  DOCX, PPTX, XLSX, images (`.png`, `.jpg`, `.jpeg`, `.webp`), and audio/video
+  (`.mp3`, `.m4a`, `.wav`, `.mp4`, `.mov`, `.webm`). Binary office files are
+  automatically converted to a companion `.extracted.md` file for ingest (F12,
+  ADR-0025). Image files produce an AI-generated caption (see Image captions below);
+  audio/video files are transcribed to text (see Audio/video transcription below).
+  The original binary is stored in `vault/raw/sources/`.
 - **Size limit:** 25 MB per file (configurable by the operator via `MAX_UPLOAD_BYTES`).
   Larger files are rejected with a message before any data is saved.
 - If you upload a file whose name already exists in `vault/raw/sources/`, the existing
@@ -433,9 +436,12 @@ identical files are skipped). Actual ingest runs for those files appear in the S
 section with their normal status and cost.
 
 **Important constraints:**
-- As of v0.5, Markdown, plain text, PDF, DOCX, PPTX, and XLSX files are imported (F12).
-  Binary files are converted to a companion `.extracted.md` before ingest. Images and
-  audio/video files in the scanned folder are silently skipped (planned for M6).
+- As of v0.8, Markdown, plain text, PDF, DOCX, PPTX, XLSX, images, and audio/video
+  files are imported (F12). Binary office files are converted to a companion
+  `.extracted.md` before ingest. Images require `VISION_CAPTIONS_ENABLED=true`; audio
+  and video require `AV_TRANSCRIPTION_ENABLED=true` (both opt-in — see the operator
+  env var reference in DEPLOY.md §2.1). Files of unrecognized types are silently
+  skipped.
 - The scan is non-recursive: only files directly inside the configured folder are
   imported, not files in sub-folders.
 - Each scan copies at most 200 files and runs for at most 60 seconds (both limits are
@@ -528,8 +534,9 @@ trigger a run manually with the **Run Ingest** button in the Sources section.
 mounted folder on a regular schedule. Any new or changed documents are imported
 automatically without manual action (see the Source Watch sub-section above).
 
-Supported formats in v0.5: Markdown, plain text, PDF, DOCX, PPTX, and XLSX (F12).
-Images and audio/video are planned for M6.
+Supported formats in v0.8: Markdown, plain text, PDF, DOCX, PPTX, XLSX, images
+(PNG/JPEG/WebP), and audio/video (MP3/M4A/WAV/MP4/MOV/WebM) (F12). Image
+captions and AV transcription are opt-in via operator env vars (see below).
 
 After ingest, the Sources section shows a Running row that changes to Completed once
 the AI has finished generating wiki pages. Switch to the Graph or Wiki section to see
@@ -661,44 +668,59 @@ The human gate is intentional: scan findings are never auto-applied across a run
 
 ---
 
-### Web Clipper section
+### Web Clipper
 
 The Synapse web clipper is a Chrome MV3 browser extension (F11, ADR-0038). It lets you clip any web page directly into your vault from the browser, without leaving the page you are reading.
 
 **Installing the extension:**
 
-The extension source lives under `extension/` in the repository. To install it:
+There are two ways to install the unpacked extension:
 
-1. Open Chrome and navigate to `chrome://extensions/`.
-2. Enable **Developer mode** (toggle in the top-right corner).
-3. Click **Load unpacked** and select the `extension/` directory from the repository root.
-4. The Synapse icon appears in the browser toolbar.
+1. **From the repository (for developers):**
+   - Clone or download the Synapse repository.
+   - Open Chrome and navigate to `chrome://extensions/`.
+   - Enable **Developer mode** (toggle in the top-right corner).
+   - Click **Load unpacked** and select the `extension/` directory from the repository root.
+   - The Synapse icon appears in the browser toolbar.
+
+2. **From a packaged zip (easier for non-developers):**
+   - Download `synapse-clipper-0.8.0.zip` (or later) from the [Synapse GitHub releases page](https://github.com/emanuelechiummo/synapse/releases).
+   - Extract the zip to a folder on your computer (e.g., `~/synapse-clipper`).
+   - Open Chrome and navigate to `chrome://extensions/`.
+   - Enable **Developer mode**.
+   - Click **Load unpacked** and select the extracted folder.
+   - The Synapse icon appears in the browser toolbar.
 
 **Configuring the extension (required before first use):**
 
-1. Click the Synapse icon and select **Options** (or right-click the icon and choose **Extension options**).
-2. Set the **Base URL** to your Synapse backend: `http://localhost:8000` for local development, or your Cloudflare Tunnel URL for remote access (e.g. `https://synapse.yourdomain.com`).
-3. Set the **Token** to the value of your `CLIP_TOKEN` environment variable (the bearer token you set when deploying the backend).
+1. Click the Synapse icon in the toolbar and select **Options** (or right-click the icon and choose **Extension options**).
+2. Set the **Synapse Base URL** to your backend: `http://localhost:8000` for local development, or your Cloudflare Tunnel / Tailscale hostname for remote access (e.g., `https://synapse.yourdomain.com`).
+3. Set the **Clip Token** to the bearer token displayed in Synapse's **Settings > Web Clipper** panel (or retrieve it from your `CLIP_TOKEN` environment variable).
 4. Click **Save**.
+5. Optionally, click **Test Connection** to verify the backend is reachable.
 
-The operator must also ensure the backend is configured with `CLIP_ENABLED=true` and `CLIP_TOKEN` set to the same value, and that `CLIP_ALLOWED_ORIGINS` includes your Chrome extension's origin ID (shown in `chrome://extensions/` as the extension's ID, prefixed with `chrome-extension://`).
+The backend must be configured with `CLIP_ENABLED=true` and `CLIP_TOKEN` set to the same value. Additionally, `CLIP_ALLOWED_ORIGINS` must include your extension's origin ID (shown in the options page under "Your Extension ID"). Add `chrome-extension://<extension-id>` to the environment variable.
 
 **Clipping a page:**
 
 1. Navigate to any web page you want to add to your vault.
 2. Click the Synapse extension icon in the toolbar.
 3. The popup shows the page title, URL, and a Markdown preview (converted from the page's main content via Mozilla Readability + Turndown).
-4. Optionally edit the title or select a target vault from the dropdown.
-5. Click **Clip**. The extension posts the Markdown to `POST /clip`, which writes it to `vault/raw/sources/` and triggers the normal watcher-based ingest pipeline (I1/K1). No second ingest path is introduced.
-6. A confirmation toast appears in the popup. The page appears in the Sources section of the Synapse UI within about 15–30 seconds (same timing as any other ingest).
+4. Optionally edit the title.
+5. Click **Clip**. The extension sends the page to `POST /clip`, which writes it to `vault/raw/sources/` and triggers the normal watcher-based ingest pipeline (I1/K1). No second ingest path is introduced.
+6. A confirmation message appears in the popup. The page appears in the Sources section of the Synapse UI within 15–30 seconds (same timing as any other ingest).
 
 **Security notes:**
 
 - Every clip request requires the bearer token. Requests without a valid token receive 401.
 - The body is capped at 2 MB (configurable via `CLIP_MAX_BODY_BYTES`). Oversized payloads receive 413.
-- The backend validates the request Origin against `CLIP_ALLOWED_ORIGINS` and writes only inside `vault/raw/sources/` (path-safe join). The design is the intentional inverse of the reference app's unauthenticated, unvalidated clip server (see ADR-0038 for the security rationale).
+- The backend validates the `Origin` header against `CLIP_ALLOWED_ORIGINS` and writes only inside `vault/raw/sources/` (path-safe join). This design is the intentional inverse of the reference app's unauthenticated, unvalidated clip server (see ADR-0038 for the security rationale).
 
----
+**Future: Chrome Web Store publication**
+
+Publishing to the Chrome Web Store is planned for a future release (requires a Google developer account and a one-time $5 developer fee). For now, use the unpacked installation method above.
+
+For more details on the extension's permissions and configuration, see `extension/README.md`.
 
 ## Opening the wiki in Obsidian
 
@@ -722,6 +744,159 @@ The status bar at the bottom of every section shows:
 - **Data version** (e.g. `v16`) — increments each time a page is created or updated
 - **Uptime** — how long the backend has been running
 - **Active provider** (also shown in the header)
+
+---
+
+## Search filters and sort {#search-filters}
+
+The Search section (also reachable via **Cmd/Ctrl+K** or the **Cerca** icon) supports
+filtering and sorting results to narrow a large vault.
+
+**Type facet.** A row of filter chips appears above the result list, one per wiki page
+type: All, Concept, Entity, Source, Synthesis, Comparison. Click a chip to restrict
+results to that type. The active chip is highlighted. Click **All** to clear the
+filter.
+
+**Date sort.** A sort selector in the search toolbar switches between:
+
+| Option | Behaviour |
+|--------|-----------|
+| **Relevance** (default) | Results ranked by vector similarity (or lexical score when embeddings are off). |
+| **Newest first** | Results sorted by `created_at` descending — most recently ingested pages first. |
+| **Oldest first** | Results sorted by `created_at` ascending — useful for tracing a topic chronologically. |
+
+Both the type facet and date sort are applied server-side; the `/search` endpoint
+accepts `page_type` and `sort` query parameters. Changing either re-fetches results
+immediately with no page reload.
+
+---
+
+## Citations in chat {#citation-click-through}
+
+When the assistant answer contains an inline citation such as `[1]`, you can click it
+to jump directly to the referenced wiki page.
+
+**How it works:**
+
+1. After the assistant reply finishes streaming, each `[n]` marker is rendered as a
+   superscript link.
+2. Click the superscript. The Wiki section opens (or the current Wiki section
+   refreshes) and the referenced page loads in the center panel with its metadata
+   visible in the right panel.
+3. Press your browser **Back** button (or click **Chat** in the nav rail) to return
+   to the conversation.
+
+Citations are available on all messages rendered in the Chat section, including saved
+conversations loaded from the left panel. The superscript links are not active during
+streaming — they become clickable once the `done` event arrives and the response is
+fully rendered.
+
+---
+
+## Vault export and backup {#export-backup}
+
+Synapse provides two lightweight export endpoints that together form a full backup
+snapshot. No special tooling is required — a plain `curl` command is enough.
+
+**Downloading the two artifacts:**
+
+```bash
+# 1 — Vault filesystem snapshot (ZIP of raw/ + wiki/ + purpose.md + schema.md + .obsidian/)
+curl -f http://localhost:8000/export \
+     -o synapse-vault-$(date +%Y%m%d).zip
+
+# 2 — Database metadata snapshot (pages, links, edges, ingest runs, review items)
+curl -f http://localhost:8000/export/data.json \
+     -o synapse-data-$(date +%Y%m%d).json
+```
+
+The ZIP is named `synapse-vault-{vault_id}-{date}.zip` and caps at 500 MB uncompressed.
+The JSON object contains the keys: `pages`, `links`, `edges`, `runs`, `review_items`,
+`exported_at`, `data_version`.
+
+**Restore:** there is no import endpoint in v0.8. See [DEPLOY.md §14](DEPLOY.md#14-backup--restore-r8-4)
+for the two restore paths: vault-directory-only re-ingest and full Postgres volume restore.
+
+---
+
+## Image captions {#image-captions}
+
+When `VISION_CAPTIONS_ENABLED=true` is set by the operator, Synapse generates an
+AI-written caption for each image file (`.png`, `.jpg`, `.jpeg`, `.webp`) that is
+ingested. The caption is used as the extracted text for that file — it is stored in
+the `image_captions` table, keyed by the file's SHA-256 hash, so the same image file
+is never captioned twice regardless of where it appears.
+
+**What changes for you as a user:**
+
+- Image files now produce real wiki pages instead of a "no text content" placeholder.
+- The wiki page for an image file contains the caption in its body, with the image
+  path in `sources[]`.
+- The caption is generated using the **currently active provider** via the standard
+  `provider.chat()` call. Only providers that report `supports_vision=true` in their
+  capabilities will attempt captioning; others fall back to a placeholder.
+- Captioning costs tokens and adds a few seconds per image to ingest time. The cost is
+  logged in the ingest run's `total_cost_usd` field.
+
+When `VISION_CAPTIONS_ENABLED` is unset or `false` (the default), image files produce
+a stub placeholder page — behavior identical to v0.7.
+
+---
+
+## Audio and video transcription {#av-transcription}
+
+When `AV_TRANSCRIPTION_ENABLED=true` is set by the operator, Synapse transcribes
+audio and video files before ingest using a host-side Whisper service.
+
+**Supported file types:** `.mp3`, `.m4a`, `.wav`, `.mp4`, `.mov`, `.webm`.
+
+**What changes for you as a user:**
+
+- Audio and video files now produce real wiki pages instead of a "no text content"
+  placeholder.
+- The wiki page body contains the transcript text, with the original file path in
+  `sources[]`.
+- Transcription is performed by a separate Whisper microservice running on the host
+  (see [DEPLOY.md §2.1](DEPLOY.md) for `WHISPER_SERVICE_URL` and setup). The backend
+  sends the file over HTTP and receives the transcript; the Whisper model never runs
+  inside the Synapse container.
+- Transcription is bounded per run by `AV_MAX_FILES_PER_RUN` (default: 10 files per
+  ingest trigger). Files beyond the cap are queued for the next run.
+- Cost is zero for transcription (Whisper runs locally on your GPU); the ingest
+  provider call that writes the wiki page is logged normally.
+
+When `AV_TRANSCRIPTION_ENABLED` is unset or `false` (the default), audio/video files
+produce a stub placeholder page.
+
+---
+
+## Higher-quality PDF extraction with Marker {#marker-pdf}
+
+By default Synapse uses **pypdf** to extract text from PDF files. This works well for
+most digitally-created PDFs. For scanned PDFs, multi-column layouts, PDFs with
+embedded tables, or files where pypdf produces garbled output, you can switch to the
+**Marker** extractor.
+
+**How to enable:**
+
+The operator sets `PDF_EXTRACTOR=marker` in `.env` and starts the Marker microservice
+(`tools/marker-converter/service.py`). See [DEPLOY.md §2.1](DEPLOY.md) for
+`PDF_EXTRACTOR`, `MARKER_SERVICE_URL`, and setup steps.
+
+**What changes for you as a user:**
+
+- PDF files that previously produced incomplete or garbled wiki pages will produce
+  richer, better-structured content.
+- Extraction takes longer per file (Marker runs a vision model pipeline on your GPU).
+- If the Marker service is unavailable or returns an error, Synapse automatically
+  falls back to pypdf — ingest never fails because of Marker. You will see a
+  `WARNING` in the backend logs when this happens.
+- The switch is transparent: you do not need to re-ingest existing PDFs unless you
+  want to improve their extracted text. Only new or changed files are affected
+  (incremental index, I1).
+
+When `PDF_EXTRACTOR` is unset or set to `pypdf` (the default), behavior is identical
+to v0.7.
 
 ---
 
@@ -913,3 +1088,15 @@ The following features also shipped in v0.6 (M6):
 | Desktop multi-server dropdown (F15, ADR-0048) | Server chip lists last 5 connected servers; switching reloads the app |
 | Desktop zoom (F15, ADR-0048) | Cmd/Ctrl +/−/0 adjusts UI scale 80–140 %; persisted across restarts |
 | Desktop ingest notifications (F15, ADR-0048) | Native OS notification on ingest completion; permission requested on first fire |
+
+The following features shipped in v0.8 (M7 — "Content power"):
+
+| Feature | Notes |
+|---------|-------|
+| Marker PDF extractor (R8-1, ADR-0051) | Opt-in high-quality PDF extraction via Marker microservice; pypdf fallback always active. `PDF_EXTRACTOR=marker`, `MARKER_SERVICE_URL`, `MARKER_TIMEOUT_SECONDS`. |
+| Vision captions for images (R8-2, G-P2-1) | Opt-in AI caption for `.png`/`.jpg`/`.jpeg`/`.webp` files; cached by SHA-256 in `image_captions` table. `VISION_CAPTIONS_ENABLED`, `VISION_MAX_IMAGES_PER_RUN`. |
+| Audio/video transcription (R8-3) | Opt-in transcription via host Whisper service; supports `.mp3`/`.m4a`/`.wav`/`.mp4`/`.mov`/`.webm`. `AV_TRANSCRIPTION_ENABLED`, `WHISPER_SERVICE_URL`, `AV_MAX_FILES_PER_RUN`. |
+| Vault export/backup (R8-4) | `GET /export` (ZIP of vault/ filesystem) + `GET /export/data.json` (metadata snapshot). No import endpoint yet; see DEPLOY.md §14 for restore paths. |
+| Search filters and sort (R8-5) | Type facet chips + relevance/newest/oldest sort selector in the Search (Cerca) section. |
+| Citation click-through in chat (R8-6) | `[n]` superscripts in assistant replies are now clickable; opens the referenced wiki page in the Wiki section. |
+| Chrome clipper in releases (R8-7, F11) | Extension zip included in GitHub release assets; see Web Clipper section above for install instructions. |

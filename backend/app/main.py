@@ -941,6 +941,11 @@ app.add_middleware(
 # ── Sources router (raw-source file browser — nashsu/llm_wiki parity) ────────
 app.include_router(sources_router)
 
+# ── Export router (vault ZIP + data.json backup — R8-4, AC-R8-4-4) ───────────
+from app.export import router as export_router  # noqa: E402
+
+app.include_router(export_router)
+
 # ── MCP HTTP mount (ADR-0033 §2.4 — always-mount; gate is the sole arbiter) ──
 # Mounted at MCP_MOUNT_PATH — always, regardless of token configuration.
 # The _BearerAuthMiddleware (now the full MCP access gate) is applied ONLY to
@@ -2854,6 +2859,17 @@ async def ingest_from_text(body: IngestFromTextRequest) -> IngestFromTextRespons
 # ── GET /search ───────────────────────────────────────────────────────────────
 
 
+# ── R8-5: valid page types for GET /search ?type= param (AC-R8-5-1) ───────────
+# Mirrors VALID_PAGE_TYPES in retrieval.py; kept here so FastAPI can build the 422
+# description from the same frozenset without importing retrieval at module import time.
+_SEARCH_VALID_TYPES: frozenset[str] = frozenset(
+    {"entity", "concept", "source", "synthesis", "comparison", "query"}
+)
+
+# R8-5: valid sort options for GET /search ?sort= param (AC-R8-5-1).
+_SEARCH_VALID_SORTS: frozenset[str] = frozenset({"relevance", "date_desc", "date_asc"})
+
+
 @app.get(
     "/search",
     response_model=SearchResponse,
@@ -2867,11 +2883,14 @@ async def ingest_from_text(body: IngestFromTextRequest) -> IngestFromTextRespons
         "Phase 4: context assembly with inline [n] markers. "
         "0-hit query → 200 with empty results + empty context (AC-F5-7a). "
         "READ-ONLY — never bumps data_version (AC-F5-5). "
+        "R8-5: optional `type` (comma-separated page types) and "
+        "`sort` (relevance|date_desc|date_asc) "
+        "params — 422 on unknown type or sort value (AC-R8-5-1). "
         "Documented in openapi.json (I8, AC-F5-6)."
     ),
     responses={
         200: {"description": "Retrieval result (0-hit → empty results array)"},
-        422: {"description": "Validation error (k out of range or missing q)"},
+        422: {"description": "Validation error (k out of range, missing q, or unknown type/sort)"},
     },
 )
 async def search(
@@ -2892,6 +2911,28 @@ async def search(
         le=1_000_000,
         description="Context window override (4096..1_000_000); null → 32 768 default (F14)",
     ),
+    type: str | None = Query(  # noqa: A002 — shadowing built-in is intentional for API param name
+        default=None,
+        description=(
+            "R8-5: Comma-separated page types to filter results. "
+            "Valid values: entity, concept, source, synthesis, comparison, query. "
+            "Multiple values: type=entity,concept. "
+            "Omit to return all types (AC-R8-5-1). "
+            "Unknown value → 422."
+        ),
+        alias="type",
+    ),
+    sort: str | None = Query(
+        default=None,
+        description=(
+            "R8-5: Sort order for results. "
+            "relevance (default) = cosine/edge-weight ranking unchanged. "
+            "date_desc = newest first (updated_at DESC). "
+            "date_asc = oldest first (updated_at ASC). "
+            "Phase internals (budgets, BFS) are never changed (I7). "
+            "Unknown value → 422 (AC-R8-5-1)."
+        ),
+    ),
 ) -> SearchResponse:
     """
     GET /search — F5 4-phase retrieval (ADR-0022, AC-F5-6).
@@ -2899,9 +2940,39 @@ async def search(
     Single bounded pass (I7): Qdrant bge-m3 dense search → edges BFS expansion → budget
     allocation → context assembly. Zero inference calls, zero vault walk (I1). Read-only
     — data_version is unchanged (AC-F5-5).
+
+    R8-5: optional `type` and `sort` params (AC-R8-5-1). 422 on unknown values.
     """
     from app.chat.context import DEFAULT_CONTEXT_WINDOW as _DEFAULT_WINDOW
-    from app.rag.retrieval import retrieve
+    from app.rag.retrieval import SearchSortOption, retrieve
+
+    # ── R8-5: validate and parse `type` param (AC-R8-5-1) ─────────────────────
+    type_filter: list[str] = []
+    if type is not None:
+        raw_types = [t.strip() for t in type.split(",") if t.strip()]
+        unknown = [t for t in raw_types if t not in _SEARCH_VALID_TYPES]
+        if unknown:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Unknown page type(s): {unknown!r}. "
+                    f"Valid values: {sorted(_SEARCH_VALID_TYPES)}"
+                ),
+            )
+        type_filter = raw_types
+
+    # ── R8-5: validate `sort` param (AC-R8-5-1) ───────────────────────────────
+    effective_sort: SearchSortOption = "relevance"
+    if sort is not None:
+        if sort not in _SEARCH_VALID_SORTS:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Unknown sort value: {sort!r}. "
+                    f"Valid values: {sorted(_SEARCH_VALID_SORTS)}"
+                ),
+            )
+        effective_sort = sort  # type: ignore[assignment]  # validated above
 
     effective_vault_id = vault_id or settings.vault_id
     window = context_window or _DEFAULT_WINDOW
@@ -2911,6 +2982,8 @@ async def search(
         vault_id=effective_vault_id,
         context_window=window,
         k=k,
+        type_filter=type_filter or None,
+        sort=effective_sort,
     )
 
     results: list[SearchResultItem] = [

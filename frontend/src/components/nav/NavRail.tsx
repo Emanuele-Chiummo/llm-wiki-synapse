@@ -42,7 +42,6 @@ import {
   ListChecks,
   Globe,
   Settings,
-  Zap,
   Activity,
 } from "lucide-react";
 import { useGraphStore, selectActiveSection, selectSetActiveSection } from "../../store/graphStore";
@@ -98,7 +97,7 @@ function Logo() {
         width: 32,
         height: 32,
         borderRadius: "var(--syn-radius-md)",
-        background: "linear-gradient(135deg, var(--syn-accent) 0%, color-mix(in srgb, var(--syn-accent) 60%, white 40%) 100%)",
+        background: "linear-gradient(135deg, #1d4ed8 0%, #4338ca 50%, #7c3aed 100%)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -107,7 +106,20 @@ function Logo() {
         boxShadow: "var(--syn-shadow-soft)",
       }}
     >
-      <Zap size={18} stroke="white" strokeWidth={2} aria-hidden="true" />
+      {/* Synaptic-S brand mark (white variant of synapse-appicon.svg core path) */}
+      <svg viewBox="0 0 1024 1024" width={20} height={20} fill="none" aria-hidden="true">
+        <path
+          d="M700 312 C 480 276 368 414 512 512 C 656 610 544 748 324 712"
+          stroke="#ffffff"
+          strokeWidth="66"
+          strokeLinecap="round"
+        />
+        <circle cx="700" cy="312" r="78" fill="#ffffff" />
+        <circle cx="324" cy="712" r="78" fill="#ffffff" />
+        <circle cx="512" cy="512" r="45" fill="#ffffff" />
+        <circle cx="700" cy="312" r="30" fill="#4338ca" />
+        <circle cx="324" cy="712" r="30" fill="#4338ca" />
+      </svg>
     </div>
   );
 }

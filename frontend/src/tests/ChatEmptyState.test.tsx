@@ -68,11 +68,18 @@ vi.mock("../store/chatStore", () => ({
   selectStreamingThink: (s: { streamingThink: string }) => s.streamingThink,
 }));
 
-// graphStore mock
+// graphStore mock — R8-6: must export selectSelectPage + selectSetActiveSection
+// because MessageList now imports those selectors for citation click-through.
 vi.mock("../store/graphStore", () => ({
   useGraphStore: (selector: (s: unknown) => unknown) =>
-    selector({ vaultId: "test-vault" }),
+    selector({
+      vaultId: "test-vault",
+      selectPage: vi.fn(),
+      setActiveSection: vi.fn(),
+    }),
   selectVaultId: (s: { vaultId: string }) => s.vaultId,
+  selectSelectPage: (s: { selectPage: unknown }) => s.selectPage,
+  selectSetActiveSection: (s: { setActiveSection: unknown }) => s.setActiveSection,
 }));
 
 // TanStack Virtual mock — return empty virtualItems for zero messages.

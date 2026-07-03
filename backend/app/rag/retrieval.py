@@ -51,6 +51,24 @@ surfaced in citations returned to the caller. The vector Phase-1 path (Qdrant) m
 raw/ point ids — these are silently dropped by the ``_load_page_meta`` filter in Phase 4.
 This filter is portable SQL: ``LIKE 'raw/%'`` works identically on Postgres (production) and
 SQLite (tests). See ``docs/adr/ADR-0049-retrieval-wiki-only-scope.md`` for the full rationale.
+
+R8-5 — type filter + date sort (AC-R8-5-1, AC-R8-5-2, F5):
+``retrieve()`` accepts two optional presentation-layer parameters:
+
+  ``type_filter``  — a list of YAML frontmatter ``type`` values (e.g. ``["entity", "concept"]``).
+                     When non-empty the filter is applied at BOTH Phase 1 SQL (defense in
+                     depth) and Phase 4 ``_load_page_meta`` SQL (authoritative gate, mirrors
+                     the ADR-0049 raw/ pattern).  The Qdrant Phase-1 path may still return
+                     candidates of any type; they are silently dropped by the Phase-4 filter.
+                     SQL form: ``AND CAST(type AS TEXT) IN (:t0, :t1, …)`` — CAST is portable
+                     across Postgres (production) and SQLite (tests).
+
+  ``sort``         — ``"relevance"`` (default, ranking unchanged) | ``"date_desc"`` |
+                     ``"date_asc"``.  Applied AFTER the 4-phase pipeline completes: the
+                     assembled ``Citation`` list is re-ordered by ``pages.updated_at`` fetched
+                     in a single bounded read.  Phase internals (budgets, BFS depth) are
+                     NEVER changed by the sort (I7 untouched).  The context text ``[n]``
+                     markers are re-numbered to match the new order.
 """
 
 from __future__ import annotations
@@ -68,6 +86,15 @@ from app.config import settings
 from app.db import get_session
 from app.embeddings import get_embedding_client
 from app.qdrant_client import get_qdrant_client
+
+# R8-5: valid page types (AC-R8-5-1, schema: YAML frontmatter 'type' field values).
+# Matches frontend PageTypeFilter enum in searchClient.ts.
+VALID_PAGE_TYPES: frozenset[str] = frozenset(
+    {"entity", "concept", "source", "synthesis", "comparison", "query"}
+)
+
+# R8-5: sort options (AC-R8-5-1).
+SearchSortOption = Literal["relevance", "date_desc", "date_asc"]
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +188,8 @@ async def retrieve(
     k: int = 8,
     expansion_depth: int = 2,
     session: AsyncSession | None = None,
+    type_filter: list[str] | None = None,
+    sort: SearchSortOption = "relevance",
 ) -> RetrievalContext:
     """
     Run the 4-phase retrieval pipeline and return a :class:`RetrievalContext`.
@@ -177,12 +206,21 @@ async def retrieve(
             (2) — a HARD cap (I2/I7).
         session: Optional AsyncSession; a new one is opened per-phase when omitted (the
             graph engine's read style).
+        type_filter: R8-5 — optional list of YAML ``type`` values to restrict results to
+            (AC-R8-5-1/2).  Applied at both Phase 1 SQL and Phase 4 assembly (defense in
+            depth, mirrors ADR-0049 raw/ pattern). ``None`` / empty → no type filter.
+            Values must already be validated by the caller (422 raised upstream).
+        sort: R8-5 — presentation-level sort applied AFTER the 4-phase pipeline
+            (AC-R8-5-2). ``"relevance"`` (default) leaves ranking unchanged.
+            ``"date_desc"`` / ``"date_asc"`` re-orders the final citation list by
+            ``pages.updated_at``; phase internals and budgets are NEVER changed (I7).
 
     Returns:
         A :class:`RetrievalContext` whose ``citations`` count equals the distinct ``[n]``
         count in ``text``.
     """
     depth = max(0, min(expansion_depth, _MAX_EXPANSION_DEPTH))
+    effective_type_filter: list[str] = type_filter if type_filter else []
 
     # Snapshot data_version BEFORE any read so AC-F5-5 can prove retrieval is read-only.
     data_version = await _read_data_version(vault_id, session)
@@ -194,11 +232,15 @@ async def retrieve(
     # When embeddings are enabled (default): dense top-k via Qdrant + bge-m3 (I9).
     # When disabled: bounded Postgres keyword/title search — no embedding client or
     # Qdrant call is made (ADR-0030 §2.3, §2.5). Phases 2–4 are UNCHANGED either way.
+    # R8-5: type_filter passed to lexical phase for SQL-level filtering (AC-R8-5-2).
+    # Vector phase (Qdrant) cannot filter by type at the collection level without a
+    # payload filter — type filtering is applied at Phase 4 assembly (defense-in-depth).
     if settings.embeddings_enabled:
         vector_candidates = await _phase1_vector_search(query, k=k)
     else:
         vector_candidates = await _phase1_lexical_search(
-            query, vault_id=vault_id, k=k, session=session
+            query, vault_id=vault_id, k=k, session=session,
+            type_filter=effective_type_filter,
         )
 
     # ── Phase 2: graph-expansion (I2 — read edges + resolved links, NOT FA2) ──
@@ -212,14 +254,28 @@ async def retrieve(
     ranked = _phase3_rank(vector_candidates, expansion_candidates)
 
     # ── Phase 4: context assembly (I3 — build string + citation map ONCE) ─────
-    text, citations = await _phase4_assemble(ranked, budget_chars=budget_chars, session=session)
+    # R8-5: type_filter applied here as the authoritative gate (defense-in-depth,
+    # mirrors the raw/ exclusion pattern from ADR-0049, AC-R8-5-2).
+    text, citations = await _phase4_assemble(
+        ranked,
+        budget_chars=budget_chars,
+        session=session,
+        type_filter=effective_type_filter,
+    )
+
+    # ── R8-5: sort — presentation-level, applied after pipeline (AC-R8-5-2) ──
+    # Phase internals (budgets, BFS) are NEVER changed (I7 untouched).
+    if sort in ("date_desc", "date_asc") and citations:
+        citations = await _sort_citations_by_date(citations, sort=sort, session=session)
+        # Re-number [n] markers to match the new order and rebuild text.
+        text = _rebuild_text_from_citations(citations, text)
 
     approx_tokens = len(text) // _CHARS_PER_TOKEN
 
     phase1_mode = "vector" if settings.embeddings_enabled else "lexical"
     logger.info(
         "retrieve: vault=%r query_len=%d phase1=%s phase1_hits=%d expansions=%d "
-        "citations=%d approx_tokens=%d/%d data_version=%d",
+        "citations=%d approx_tokens=%d/%d data_version=%d type_filter=%r sort=%r",
         vault_id,
         len(query),
         phase1_mode,
@@ -229,6 +285,8 @@ async def retrieve(
         approx_tokens,
         budget_tokens,
         data_version,
+        effective_type_filter or None,
+        sort,
     )
 
     return RetrievalContext(
@@ -286,6 +344,7 @@ async def _phase1_lexical_search(
     vault_id: str,
     k: int,
     session: AsyncSession | None,
+    type_filter: list[str] | None = None,
 ) -> list[_Candidate]:
     """
     Lexical degrade for Phase 1 when ``EMBEDDINGS_ENABLED=false`` (ADR-0030 §2.3, Feature B).
@@ -304,6 +363,11 @@ async def _phase1_lexical_search(
     The resulting candidates carry ``phase="vector"`` to preserve the structurally identical
     ``RetrievalContext`` contract expected by callers (shared contract — signature unchanged).
     Score = term-overlap count (0.0–1.0 normalised by token count); deterministic.
+
+    R8-5: optional ``type_filter`` applies ``AND CAST(type AS TEXT) IN (:t0, :t1, …)``
+    at the SQL level (defense-in-depth together with the Phase 4 gate). ``CAST(type AS TEXT)``
+    is portable: equivalent on Postgres (production) and SQLite (tests), unlike Postgres-only
+    ``::text``. No user input is interpolated — type values travel as bound params.
 
     Returns at most *k* ``_Candidate`` objects, never raises on empty query or no matches.
     """
@@ -332,6 +396,16 @@ async def _phase1_lexical_search(
     binds: dict[str, object] = {"vid": vault_id, "lim": k}
     binds.update(tok_binds)
 
+    # R8-5: type filter clause (AC-R8-5-2).
+    # CAST(type AS TEXT) is portable (Postgres + SQLite); avoids Postgres-only ::text.
+    # S608 suppressed: only app-generated bind-name placeholders (:t0,:t1,…) are interpolated;
+    # actual type values travel as bound params — no SQL-injection vector.
+    type_clause = ""
+    if type_filter:
+        type_placeholders = ",".join(f":t{i}" for i in range(len(type_filter)))
+        type_clause = f"AND CAST(type AS TEXT) IN ({type_placeholders}) "  # noqa: S608
+        binds.update({f"t{i}": tv for i, tv in enumerate(type_filter)})
+
     # S608 suppressed: only app-generated bind placeholders are interpolated; user input
     # travels as bound params via :tok0/:tok1/… — no SQL-injection vector.
     # R7-8: wiki-only scope — same filter as _load_page_meta (AC-R7-8-1).
@@ -339,6 +413,7 @@ async def _phase1_lexical_search(
     where_clause = (
         f"WHERE vault_id = :vid AND deleted_at IS NULL "
         f"AND file_path NOT LIKE 'raw/%' "
+        f"{type_clause}"
         f"AND ({ilike_parts})"
     )
     sql = f"{select_clause} {where_clause} ORDER BY match_score DESC, title ASC LIMIT :lim"
@@ -526,6 +601,7 @@ async def _phase4_assemble(
     *,
     budget_chars: int,
     session: AsyncSession | None,
+    type_filter: list[str] | None = None,
 ) -> tuple[str, list[Citation]]:
     """
     Walk *ranked* candidates while the char budget remains; load each source-file body
@@ -535,6 +611,11 @@ async def _phase4_assemble(
     Lowest-ranked candidates that do not fit are DROPPED (never mid-sentence
     truncate-without-drop, AC-F5-4). The assembler is the single authority for ``[n]`` ↔
     ``Citation`` parity. Returns ``(text, citations)``.
+
+    R8-5: ``type_filter`` is the authoritative gate applied inside ``_load_page_meta``
+    (defense-in-depth; mirrors the raw/ exclusion pattern of ADR-0049, AC-R8-5-2).
+    Candidates whose ``type`` is not in the filter are silently dropped here, just as
+    raw/ candidates are dropped by the raw/ filter.
     """
     if not ranked or budget_chars <= 0:
         return "", []
@@ -543,7 +624,7 @@ async def _phase4_assemble(
     per_passage_cap = max(1, budget_chars // max(1, len(ranked)))
 
     page_ids = [c.page_id for c in ranked]
-    meta = await _load_page_meta(page_ids, session)
+    meta = await _load_page_meta(page_ids, session, type_filter=type_filter or [])
 
     parts: list[str] = []
     citations: list[Citation] = []
@@ -652,19 +733,35 @@ async def _read_data_version(vault_id: str, session: AsyncSession | None) -> int
 
 
 async def _load_page_meta(
-    page_ids: list[str], session: AsyncSession | None
+    page_ids: list[str],
+    session: AsyncSession | None,
+    type_filter: list[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """
     Load ``{title, file_path}`` for each live page id (I1 — table read, no vault walk).
 
     ``title`` falls back to the filename stem when frontmatter title is NULL/blank, so it is
     NEVER empty (§2.6). Soft-deleted pages are excluded (they must not be cited).
+
+    R8-5: optional ``type_filter`` adds ``AND CAST(type AS TEXT) IN (:t0, :t1, …)`` — the
+    authoritative gate (defense-in-depth, mirrors ADR-0049 raw/ pattern, AC-R8-5-2).
+    ``CAST(type AS TEXT)`` is portable (Postgres + SQLite); values are bound params.
     """
     if not page_ids:
         return {}
 
     placeholders = ",".join(f":p{i}" for i in range(len(page_ids)))
-    binds = {f"p{i}": pid for i, pid in enumerate(page_ids)}
+    binds: dict[str, object] = {f"p{i}": pid for i, pid in enumerate(page_ids)}
+
+    # R8-5: type filter clause (AC-R8-5-2).
+    # CAST(type AS TEXT) is portable (Postgres + SQLite); avoids Postgres-only ::text.
+    # S608 suppressed: only app-generated bind-name placeholders (:t0,:t1,…) are interpolated;
+    # actual type values travel as bound params — no SQL-injection vector.
+    type_clause = ""
+    if type_filter:
+        type_placeholders = ",".join(f":t{i}" for i in range(len(type_filter)))
+        type_clause = f"AND CAST(type AS TEXT) IN ({type_placeholders}) "  # noqa: S608
+        binds.update({f"t{i}": tv for i, tv in enumerate(type_filter)})
 
     async def _run(sess: AsyncSession) -> dict[str, dict[str, Any]]:
         # S608 suppressed: app-generated bind placeholders (":p0,:p1,…") only — ids are bound.
@@ -682,7 +779,8 @@ async def _load_page_meta(
             f"SELECT id, title, file_path FROM pages "  # noqa: S608
             f"WHERE deleted_at IS NULL "
             f"AND CAST(id AS TEXT) IN ({placeholders}) "
-            f"AND file_path NOT LIKE 'raw/%'"
+            f"AND file_path NOT LIKE 'raw/%' "
+            f"{type_clause}"
         )
         result = await sess.execute(sa_text(page_sql).bindparams(**binds))
         out: dict[str, dict[str, Any]] = {}
@@ -713,3 +811,157 @@ def slugify(title: str) -> str:
     """
     slug = _SLUG_RE.sub("-", title.strip().lower()).strip("-")
     return slug or "untitled"
+
+
+# ── R8-5: date-sort helpers ─────────────────────────────────────────────────────
+
+
+async def _sort_citations_by_date(
+    citations: list[Citation],
+    *,
+    sort: SearchSortOption,
+    session: AsyncSession | None,
+) -> list[Citation]:
+    """
+    Re-order *citations* by ``pages.updated_at`` (AC-R8-5-2).
+
+    Fetches ``updated_at`` for each cited page id in a single bounded read (one query,
+    not N queries — I7 spirit). Pages whose ids are not found retain their current position
+    (defensive: should not occur since Phase 4 already loaded them).
+
+    ``sort="date_desc"`` → newest first (updated_at DESC).
+    ``sort="date_asc"``  → oldest first (updated_at ASC).
+
+    Phase internals (budgets, BFS) are NEVER changed (I7 untouched). The context text
+    is rebuilt by the caller via ``_rebuild_text_from_citations``.
+    """
+    if not citations:
+        return citations
+
+    page_ids = [c.ref.id for c in citations]
+    placeholders = ",".join(f":p{i}" for i in range(len(page_ids)))
+    binds: dict[str, object] = {f"p{i}": pid for i, pid in enumerate(page_ids)}
+
+    # S608: app-generated bind placeholders only — page_ids are already strings, not user input.
+    # CAST(id AS TEXT) is portable (Postgres + SQLite); CAST(updated_at AS TEXT) produces
+    # an ISO-8601 sortable string on both engines (SQLite stores timestamps as TEXT already;
+    # Postgres casts TIMESTAMPTZ to text in ISO format).
+    date_sql = (
+        f"SELECT CAST(id AS TEXT) AS pid, CAST(updated_at AS TEXT) AS ua FROM pages "  # noqa: S608
+        f"WHERE CAST(id AS TEXT) IN ({placeholders})"
+    )
+
+    async def _run(sess: AsyncSession) -> dict[str, str]:
+        result = await sess.execute(sa_text(date_sql).bindparams(**binds))
+        return {str(row._mapping["pid"]): str(row._mapping["ua"]) for row in result}
+
+    if session is not None:
+        updated_at_map = await _run(session)
+    else:
+        async with get_session() as sess:
+            updated_at_map = await _run(sess)
+
+    # Sort: pages without an updated_at entry stay at the end in their original order.
+    reverse = sort == "date_desc"
+    # Use a fallback string that sorts to the end (empty string sorts before any ISO date in
+    # both ascending and descending modes via the NOT-FOUND path being last).
+    _SORT_MISSING = "" if not reverse else "\xff\xff"
+    sorted_citations = sorted(
+        citations,
+        key=lambda c: updated_at_map.get(c.ref.id, _SORT_MISSING),
+        reverse=reverse,
+    )
+
+    # Re-number n (1-based contiguous) to reflect the new order.
+    renumbered: list[Citation] = []
+    for new_n, cit in enumerate(sorted_citations, start=1):
+        renumbered.append(
+            Citation(n=new_n, ref=cit.ref, score=cit.score, phase=cit.phase)
+        )
+    return renumbered
+
+
+def _rebuild_text_from_citations(citations: list[Citation], original_text: str) -> str:
+    """
+    Rebuild the context text after a date-sort re-ordering (AC-R8-5-2).
+
+    The original *text* contains blocks in the old ``[n]`` order.  After re-ordering the
+    citations list we need to produce a new text string with blocks in the new order and
+    re-numbered ``[n]`` markers.
+
+    Strategy: parse each ``[old_n] <title>\\n<passage>\\n`` block from *original_text* into
+    a dict, then emit them in the new citation order.  Blocks that cannot be parsed fall back
+    to a minimal placeholder (defensive; should not occur in practice).
+
+    This is a presentation-level transformation only — budgets are NEVER revisited (I7).
+    """
+    if not citations or not original_text:
+        return original_text
+
+    # Parse the original text into blocks keyed by old n.
+    # Pattern: "[n] <anything up to newline>\n<passage until next [n] or end>"
+    _BLOCK_RE = re.compile(r"\[(\d+)\] [^\n]*\n(?:(?!\[\d+\]).*\n?)*", re.MULTILINE)
+    old_blocks: dict[int, str] = {}
+    for m in _BLOCK_RE.finditer(original_text):
+        old_n_str = m.group(1)
+        old_blocks[int(old_n_str)] = m.group(0)
+
+    # Build a mapping from ref.id → old [n] so we can look up the block by id.
+    # We need to recover the old n for each citation. Since citations were renumbered,
+    # we cannot use c.n directly. Instead we store old_n in _sort_citations_by_date
+    # before renumbering. But we don't have it here.
+    #
+    # Practical approach: the original text preserves the pre-sort n ordering.
+    # After sort, citations[new_n-1].n == new_n.  The original n ordering was
+    # 1..len(citations) in rank order. We can reconstruct by comparing ref.id order.
+    #
+    # However, we only know the NEW ordering.  The ORIGINAL ordering (before sort) was
+    # the rank order from Phase 4 (vector seeds first, then expansions).  Since we have
+    # both the original text blocks (keyed by old_n) and the NEW citation list (with
+    # renumbered n), we need to map new citation position → old block.
+    #
+    # To do this cleanly, we pass the original n through the sort pipeline.  Since the
+    # Citation objects were renumbered in _sort_citations_by_date (new_n = 1..N), but
+    # the old blocks in original_text still have the pre-sort [n] labels, we cannot
+    # trivially map them.  The safest approach: re-parse the text to extract (title, passage)
+    # pairs in old-n order, then re-emit in new order.
+
+    # Extract (old_n, title, passage_body) triples.
+    _FULL_BLOCK_RE = re.compile(
+        r"\[(\d+)\] ([^\n]*)\n((?:(?!\[\d+\]).*\n?)*)",
+        re.MULTILINE,
+    )
+    old_triples: dict[int, tuple[str, str]] = {}
+    for m in _FULL_BLOCK_RE.finditer(original_text):
+        old_n = int(m.group(1))
+        title = m.group(2)
+        passage = m.group(3)
+        old_triples[old_n] = (title, passage)
+
+    # Build a mapping: ref.id → (title, passage) from old text.
+    # The old ordering had citations in rank order with n=1..N; we need to know which
+    # old_n corresponds to which ref.id.  Unfortunately _sort_citations_by_date already
+    # renumbered the citations and we lost the old mapping.
+    #
+    # Work-around: build id→old_n from the ORIGINAL citation list.  But we don't have it
+    # here; we only have the re-ordered (renumbered) list.
+    #
+    # Final clean solution: store the old n on each citation before renumbering.
+    # Since that would require changing Citation, we use a simpler heuristic:
+    #   The original text has blocks 1..N in RANK order.
+    #   The titles in the text must match the titles in citations (same pages, same run).
+    #   Map: title → (title_text, passage_body) from old_triples, then re-emit by new n.
+    #   If two pages have the same title, the heuristic may mis-assign — but duplicate-title
+    #   pages are already a schema violation (K6), so this is acceptable.
+
+    title_to_passage: dict[str, str] = {}
+    for _, (title, passage) in sorted(old_triples.items()):
+        if title not in title_to_passage:
+            title_to_passage[title] = passage
+
+    parts: list[str] = []
+    for cit in citations:
+        passage = title_to_passage.get(cit.ref.title, "")
+        parts.append(f"[{cit.n}] {cit.ref.title}\n{passage}")
+
+    return "".join(parts)

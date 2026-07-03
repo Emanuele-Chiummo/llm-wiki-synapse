@@ -8,10 +8,66 @@ No model id / key / endpoint here — those are confined to the concrete provide
 
 from __future__ import annotations
 
+import base64
 import json
+from pathlib import Path
 from typing import Any
 
 from app.ingest.schemas import Analysis, WikiPage
+
+# ── Vision captioning (R8-2 / F12) ──────────────────────────────────────────────
+
+CAPTION_INSTRUCTION = (
+    "Describe this image for a knowledge-base entry. Be factual and concise: state what the "
+    "image shows, any visible text, diagrams, or data, and its likely subject. Return plain "
+    "prose only — no markdown headings, no preamble like 'This image shows'."
+)
+
+# Image extension → MIME media type for provider vision blocks (R8-2). Kept here so all three
+# vision providers agree on the media type without re-deriving it per module.
+_IMAGE_MEDIA_TYPES: dict[str, str] = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
+
+# Magic-byte sniffing for the bytes-only path (no filename to key off).
+_MAGIC_MEDIA_TYPES: tuple[tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+)
+
+
+def resolve_image_bytes_and_media_type(path_or_bytes: str | Path | bytes) -> tuple[bytes, str]:
+    """
+    Normalize a caption_image() input into (raw_bytes, media_type) for a provider vision block.
+
+    Accepts a filesystem path (str/Path) — media type derived from the suffix — or raw bytes,
+    for which the media type is sniffed from magic bytes (WEBP via the RIFF/WEBP header),
+    defaulting to image/png when unknown. Never raises for an unknown type; the default keeps
+    the provider call well-formed and lets the model interpret the payload.
+    """
+    if isinstance(path_or_bytes, (str, Path)):
+        p = Path(path_or_bytes)
+        data = p.read_bytes()
+        media_type = _IMAGE_MEDIA_TYPES.get(p.suffix.lower(), "image/png")
+        return data, media_type
+    data = bytes(path_or_bytes)
+    for magic, media_type in _MAGIC_MEDIA_TYPES:
+        if data.startswith(magic):
+            return data, media_type
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return data, "image/webp"
+    return data, "image/png"
+
+
+def encode_image_base64(data: bytes) -> str:
+    """Return the standard base64 (ASCII) encoding of image *data* for a provider vision block."""
+    return base64.standard_b64encode(data).decode("ascii")
 
 # ── System prompts (provider-neutral) ───────────────────────────────────────────
 

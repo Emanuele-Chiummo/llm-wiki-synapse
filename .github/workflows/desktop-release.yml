@@ -63,3 +63,109 @@ jobs:
           name: ${{ matrix.artifact }}
           path: src-tauri/target/release/bundle/
           retention-days: 7
+
+  # Package Chrome MV3 extension as a zip artifact (lightweight job, runs on ubuntu).
+  # On v* tags, attaches the zip to the GitHub release. On workflow_dispatch, uploads
+  # as an artifact only.
+  package-clipper:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate extension manifest
+        run: |
+          python3 << 'VALIDATE_EOF'
+          import json
+          import sys
+          
+          # Load and validate manifest
+          try:
+            with open('extension/manifest.json', 'r') as f:
+              manifest = json.load(f)
+            
+            # Check required fields
+            assert manifest.get('manifest_version') == 3, "Must be MV3"
+            assert 'name' in manifest, "Missing 'name'"
+            assert 'version' in manifest, "Missing 'version'"
+            assert 'action' in manifest, "Missing 'action'"
+            assert 'permissions' in manifest, "Missing 'permissions'"
+            assert 'host_permissions' in manifest, "Missing 'host_permissions'"
+            
+            # Check all referenced files exist
+            import os
+            errors = []
+            
+            # Check icons
+            if 'default_icon' in manifest.get('action', {}):
+              icons = manifest['action']['default_icon']
+              if isinstance(icons, dict):
+                for size, path in icons.items():
+                  if not os.path.exists(path):
+                    errors.append(f"Missing icon: {path}")
+            
+            # Check HTML files
+            for html_key in ['default_popup', 'options_page']:
+              if html_key in manifest.get('action', {}):
+                path = manifest['action'][html_key]
+                if not os.path.exists(path):
+                  errors.append(f"Missing HTML: {path}")
+              elif html_key == 'options_page' and html_key in manifest:
+                path = manifest[html_key]
+                if not os.path.exists(path):
+                  errors.append(f"Missing HTML: {path}")
+            
+            if errors:
+              for err in errors:
+                print(f"✗ {err}")
+              sys.exit(1)
+            
+            print(f"✓ Manifest valid (v{manifest['version']})")
+            print(f"✓ All referenced files exist")
+            
+          except json.JSONDecodeError as e:
+            print(f"✗ Invalid JSON: {e}")
+            sys.exit(1)
+          except AssertionError as e:
+            print(f"✗ Manifest error: {e}")
+            sys.exit(1)
+          except Exception as e:
+            print(f"✗ Validation error: {e}")
+            sys.exit(1)
+          VALIDATE_EOF
+
+      - name: Create extension zip
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['version'])")
+          ZIP_NAME="synapse-clipper-${VERSION}.zip"
+          
+          cd extension
+          zip -r "../${ZIP_NAME}" \
+            manifest.json \
+            popup.html popup.js \
+            options.html options.js \
+            icons/ \
+            vendor/ \
+            README.md \
+            -x "*.git*" "__pycache__/*" "*.pyc" "node_modules/*"
+          
+          cd ..
+          ls -lh "${ZIP_NAME}"
+          echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
+
+      - name: Upload clipper artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synapse-clipper
+          path: ${{ env.ZIP_NAME }}
+          retention-days: 30
+
+      - name: Attach clipper to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          gh release upload "${{ github.ref_name }}" "${{ env.ZIP_NAME }}" \
+            --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

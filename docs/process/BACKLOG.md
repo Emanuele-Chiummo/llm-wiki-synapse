@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-06-29 (Sprint 5 / v0.5 Phase 5 DONE — PM phase-5 sign-off: docs/sprints/v0.5-pm-phase5-signoff.md; F1-MCP-UI → done-with-followups; M5 milestone verdict: MET-PENDING-EC-M5-HCP — docs/sprints/v0.5-m5-exit-criteria.md; Sprint 6 BLOCKED until EC-M5-HCP confirmed by Emanuele in browser)
+> Last updated: 2026-07-03 (Sprint 8 / v0.8 scope locked — SPRINT-v0.8-SCOPE.md; Sprint 7 / v0.7.0 shipped — scope locked in SPRINT-v0.7-SCOPE.md)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -1638,6 +1638,152 @@ Baseline at cut: backend 926 pytest / frontend 621 vitest. Now: **backend 968 / 
 | **F2** (purpose.md context) | `vault/purpose.md` injected into ingest prompts (`orchestrator.py:961`) and chat context (`context.py:86`) | **done** (pre-existing, verified) — `test_chat::test_includes_purpose_and_overview` green | (pre-existing) |
 | **D1–D7** (docs gate) | All docs artifacts complete and consistent | **PASS-PENDING-D5/HCP** — D5 screenshots deferred to live-stack HCP session | this gate |
 | **MkDocs** | Optional docs site | **not started** — explicitly optional per scope §2; no code impact |  |
+
+---
+
+## Sprint 7 — v0.7 — M7 "Core completeness & daily UX"
+
+**Sprint status: DONE — v0.7.0 shipped (GitHub release confirmed by Emanuele)**
+Branch: `sprint/v0.7`. Scope: `docs/sprints/SPRINT-v0.7-SCOPE.md`.
+
+| Feature ID | Item ID | Description | Status |
+|------------|---------|-------------|--------|
+| F1, K1 | R7-1 | Scenario templates (5 vault presets) | done |
+| F1 | R7-2 | New page from UI | done |
+| F6 | R7-3 | Rename conversations + conversation search/filter | done |
+| F1 | R7-4 | Unsaved-changes indicator + navigation guard | done |
+| F9, F10 | R7-5 | Review search_queries JSONB populated at proposal time | done |
+| F3, F12 | R7-6 | Recursive folder import + folderContext hint | done |
+| F3, F12 | R7-7 | ServiceNow scheduler (local-folder watch) | done |
+| F5 | R7-8 | Retrieval scope: citations from wiki/ only | done |
+| F7 | R7-9 | ThinkBlock streaming preview (rolling fade) | done |
+| F17, F3, F10 | R7-10 | Multi-provider routing verifications | done |
+| F1 | R7-11 | Bulk ops on sources | done |
+| F1 | R7-12 | Cancel-all confirmation dialog | done |
+| docs | R7-13 | Refresh SYNAPSE-VS-LLMWIKI-PARITY.md | done |
+| F15 | AUTO-UPDATE | Desktop auto-update (pulled forward from R10-4) | done |
+
+---
+
+## Sprint 8 — v0.8 — M8 "Content power"
+
+**Sprint status: IN PROGRESS**
+Branch: `sprint/v0.8` (cut from sprint/v0.7 after v0.7.0 tag).
+Scope: `docs/sprints/SPRINT-v0.8-SCOPE.md`.
+Sequencing constraint: R8-1 → R8-2 → R8-3 (extract.py chain); R8-4 → R8-5 backend (main.py chain).
+
+---
+
+### R8-1 — Marker as first-class PDF extractor (pluggable seam + pypdf fallback)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F12, F3 |
+| Sprint | v0.8 |
+| Status | backlog |
+| Owner | backend-engineer + devops-engineer |
+| Priority | P0 — gates R8-2 and R8-3 |
+
+**Acceptance criteria:** AC-R8-1-1 through AC-R8-1-6 (see SPRINT-v0.8-SCOPE.md §R8-1).
+Summary: pluggable `PDF_EXTRACTOR` env var; `POST /convert` microservice in
+`tools/marker-converter/service.py`; pypdf-always fallback; ADR-0050; DEPLOY.md updated.
+
+---
+
+### R8-2 — Vision captions for images
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F12, F17 |
+| Sprint | v0.8 |
+| Status | blocked — depends on R8-1 merged |
+| Owner | ai-agent-engineer + backend-engineer |
+| Priority | P0 |
+
+**Acceptance criteria:** AC-R8-2-1 through AC-R8-2-6 (see SPRINT-v0.8-SCOPE.md §R8-2).
+Summary: `supports_vision` capability flag; `image_captions` DB table (Alembic migration);
+SHA256 cache; `VISION_MAX_IMAGES_PER_RUN` cap; ER diagram regenerated.
+
+---
+
+### R8-3 — Audio/video transcription (local Whisper, opt-in)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F12, F3 |
+| Sprint | v0.8 |
+| Status | blocked — depends on R8-2 merged |
+| Owner | backend-engineer + devops-engineer |
+| Priority | P1 — opt-in; placeholder fallback exists if deferred |
+
+**Acceptance criteria:** AC-R8-3-1 through AC-R8-3-6 (see SPRINT-v0.8-SCOPE.md §R8-3).
+Summary: `AV_TRANSCRIPTION` opt-in flag; `POST /transcribe` microservice in
+`tools/whisper-service/`; mlx-whisper on MPS; bounded by duration + file count; DEPLOY.md updated.
+
+---
+
+### R8-4 — Vault export / backup
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F15, K1 |
+| Sprint | v0.8 |
+| Status | backlog |
+| Owner | backend-engineer |
+| Priority | P0 — gates R8-5 backend (main.py sequencing) |
+
+**Acceptance criteria:** AC-R8-4-1 through AC-R8-4-5 (see SPRINT-v0.8-SCOPE.md §R8-4).
+Summary: `GET /export` streaming ZIP (500 MB cap, 429 on concurrent); `GET /export/data.json`
+full DB dump; export.py router module; USER.md Backup & Restore section.
+
+---
+
+### R8-5 — Search filters and sort (type facet + date sort)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F5, F1 |
+| Sprint | v0.8 |
+| Status | blocked — backend depends on R8-4 merged (main.py); frontend can start in parallel |
+| Owner | backend-engineer (GET /search params) + frontend-engineer (facet UI) |
+| Priority | P0 |
+
+**Acceptance criteria:** AC-R8-5-1 through AC-R8-5-5 (see SPRINT-v0.8-SCOPE.md §R8-5).
+Summary: `type` and `sort` query params on `GET /search`; Qdrant metadata filter + date sort;
+facet sidebar with TanStack Virtual; i18n EN/IT; openapi.json regenerated.
+
+---
+
+### R8-6 — Citation click-through audit (wire onCitationClick everywhere)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F5, F1 |
+| Sprint | v0.8 |
+| Status | backlog |
+| Owner | frontend-engineer |
+| Priority | P0 |
+
+**Acceptance criteria:** AC-R8-6-1 through AC-R8-6-4 (see SPRINT-v0.8-SCOPE.md §R8-6).
+Summary: grep audit of all MarkdownView/CitationBadge uses; onCitationClick wired in all
+contexts; vitest for each context; no new `any` escapes.
+
+---
+
+### R8-7 — Chrome clipper packaging and CI artifact
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F11 |
+| Sprint | v0.8 |
+| Status | backlog |
+| Owner | devops-engineer (CI zip) + frontend-engineer (extension audit + doc) |
+| Priority | P0 — CI artifact required for EC-M8-9 |
+
+**Acceptance criteria:** AC-R8-7-1 through AC-R8-7-4 (see SPRINT-v0.8-SCOPE.md §R8-7).
+Summary: host_permissions audit + fix; icon file verification; CI job produces versioned
+`synapse-clipper-{version}.zip` artifact; USER.md Chrome Clipper section; manifest version
+bumped to 0.8.0. Chrome Web Store publication is explicitly OUT OF SCOPE.
 
 ---
 

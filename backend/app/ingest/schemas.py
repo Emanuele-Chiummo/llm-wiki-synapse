@@ -190,6 +190,13 @@ class ProviderCapabilities:
     """
     Immutable provider descriptor. `supports_agentic_loop` is the ONLY routing signal the
     orchestrator may read (I6); `name`/`mode` are audit metadata, never routing inputs.
+
+    `supports_vision` (R8-2 / F12) advertises whether the backend can caption an image via
+    `InferenceProvider.caption_image()`. Defaults to False so the field is additive — providers
+    that cannot see images (or whose local model was not pulled with vision weights) keep the
+    existing text-only behaviour and the orchestrator falls back to the extract.py placeholder.
+    It is NOT a routing input (I6): image captioning is a capability the ingest orchestrator
+    checks explicitly for the image-file path, never a branch on class/type.
     """
 
     mode: Literal["local", "api", "cli"]
@@ -197,6 +204,7 @@ class ProviderCapabilities:
     supports_agentic_loop: bool
     max_context: int
     name: str
+    supports_vision: bool = False
 
 
 @dataclass(frozen=True)

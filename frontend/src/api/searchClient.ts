@@ -3,7 +3,15 @@
  *
  * Backend contract (main.py §2582, ADR-0022 §2.5):
  *   GET /search?q=<query>&vault_id=<id>&k=<n>&context_window=<n>
+ *               [&type=<comma-sep-types>][&sort=relevance|date_desc|date_asc]
  *   → SearchResponse { query, context, results: SearchResultItem[], data_version, approx_tokens, token_budget }
+ *
+ * R8-5 filter params (AC-R8-5-1, AC-R8-5-3):
+ *   type   — comma-separated page types (concept|entity|source|synthesis|comparison|query)
+ *   sort   — "relevance" (default) | "date_desc" | "date_asc"
+ *
+ *   Until the backend honours these params they are simply forwarded; the server ignores
+ *   unknown params and returns normal results — no client-side crash (AC-R8-5-3 guard).
  *
  * SearchResultItem fields (mirrored from backend SearchResultItem Pydantic model, line 1281):
  *   n       — 1-based citation index
@@ -60,6 +68,26 @@ export interface SearchResponse {
   token_budget: number;
 }
 
+/**
+ * R8-5: valid page types for the `type` filter (AC-R8-5-1).
+ * Matches YAML frontmatter `type` field values used by the backend schema.
+ */
+export type PageTypeFilter =
+  | "concept"
+  | "entity"
+  | "source"
+  | "synthesis"
+  | "comparison"
+  | "query";
+
+/**
+ * R8-5: sort options for GET /search (AC-R8-5-1).
+ * "relevance" = cosine/edge-weight ranking (default, backend behaviour unchanged).
+ * "date_desc"  = newest first (updated_at DESC).
+ * "date_asc"   = oldest first (updated_at ASC).
+ */
+export type SearchSortOption = "relevance" | "date_desc" | "date_asc";
+
 /** Options for searchWiki — all optional beyond the required query. */
 export interface SearchWikiOptions {
   vault_id?: string;
@@ -68,6 +96,19 @@ export interface SearchWikiOptions {
   /** Context window override (4096–1_000_000); null → 32 768 default (F14). */
   context_window?: number | null;
   signal?: AbortSignal;
+  /**
+   * R8-5: type facet filter (AC-R8-5-3).
+   * Empty array / undefined → no type filter sent (all types returned).
+   * Non-empty → comma-joined and appended as `type=<value>` query param.
+   * The backend filters to pages whose YAML `type` matches one of the listed values.
+   * Until the backend honours this param it is silently ignored server-side (AC-R8-5-3).
+   */
+  types?: PageTypeFilter[];
+  /**
+   * R8-5: sort order (AC-R8-5-3).
+   * Undefined → param not sent; backend uses "relevance" default.
+   */
+  sort?: SearchSortOption;
 }
 
 // ─── Client function ──────────────────────────────────────────────────────────
@@ -92,6 +133,9 @@ async function checkResponse(res: Response): Promise<void> {
  * are the responsibility of the caller (SearchView.tsx uses a 300ms debounce
  * and a 2-character minimum per the spec).
  *
+ * R8-5: optional `types` and `sort` params are forwarded to the backend.
+ * If the backend does not yet honour them it returns normal results (no crash).
+ *
  * I3: single bounded fetch per user query; no per-token work; abortable.
  */
 export async function searchWiki(
@@ -103,6 +147,12 @@ export async function searchWiki(
   if (opts.k !== undefined) params.set("k", String(opts.k));
   if (opts.context_window != null)
     params.set("context_window", String(opts.context_window));
+  // R8-5: type facet — only send param when at least one type is selected
+  if (opts.types && opts.types.length > 0)
+    params.set("type", opts.types.join(","));
+  // R8-5: sort — only send param when a non-default (non-relevance) sort is requested
+  if (opts.sort && opts.sort !== "relevance")
+    params.set("sort", opts.sort);
 
   const url = `${apiBase()}/search?${params.toString()}`;
 

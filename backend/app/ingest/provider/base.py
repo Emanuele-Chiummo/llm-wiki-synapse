@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import abc
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 from app.ingest.schemas import (
     Analysis,
@@ -116,3 +117,27 @@ class InferenceProvider(abc.ABC):
         Return the immutable capability descriptor. The orchestrator reads ONLY
         `supports_agentic_loop` from this for routing (I6). Pure descriptor read — no I/O.
         """
+
+    # ── Vision (R8-2 / F12) ─────────────────────────────────────────────────────
+
+    async def caption_image(self, path_or_bytes: str | Path | bytes, context: str) -> str:
+        """
+        Describe an image for a knowledge-base entry (R8-2 / F12) — one bounded, non-streaming
+        provider call, no agent loop (I3 not applicable: no per-token DOM/parse work; the caption
+        is consumed as plain text by the normal analyze→generate flow). Records Usage out of band
+        exactly like analyze()/generate() so the orchestrator's run-scoped ledger stays truthful
+        (I7).
+
+        `path_or_bytes` is a filesystem path (str/Path) or the raw image bytes. `context` is a
+        short instruction / vault-context string (e.g. purpose.md excerpt) the provider may fold
+        into the prompt.
+
+        The DEFAULT raises NotImplementedError so a backend that does not (or cannot) see images
+        never silently returns a bogus caption — providers with `capabilities().supports_vision`
+        True MUST override this. The orchestrator only calls this after checking `supports_vision`,
+        and falls back to the extract.py placeholder on NotImplementedError / any error (R8-2).
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support vision captioning "
+            "(capabilities().supports_vision is False)"
+        )

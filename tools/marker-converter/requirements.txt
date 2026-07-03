@@ -4,3 +4,9 @@
 # Marker pulls torch + surya-ocr; on Apple Silicon set TORCH_DEVICE=mps.
 marker-pdf>=1.10
 pypdfium2>=4.30
+
+# R8-1 (ADR-0051): Marker microservice — expose POST /convert + GET /health
+# Run: ./.venv/bin/python service.py --port 8555
+fastapi>=0.111
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
