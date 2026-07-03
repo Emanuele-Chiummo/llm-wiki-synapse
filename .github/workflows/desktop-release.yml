@@ -57,6 +57,51 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # R12-5: Build and push Marker image to GHCR
+  # ──────────────────────────────────────────────────────────────────────────
+  # On every vX.Y.Z tag, build the Marker microservice image and push to
+  # ghcr.io/emanuele-chiummo/llm-wiki-synapse-marker with both vX.Y.Z and latest tags.
+  # This job runs in parallel with the backend-image and desktop build matrix.
+  # WARNING: torch is heavy; uses pip cache mount to speed up repeated builds.
+  marker-image:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${{ github.ref_name }}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Build and push marker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./tools/marker-converter
+          file: ./tools/marker-converter/Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.version }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/llm-wiki-synapse-marker:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/llm-wiki-synapse-marker:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   build:
     strategy:
       matrix:
