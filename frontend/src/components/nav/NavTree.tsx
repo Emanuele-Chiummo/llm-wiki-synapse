@@ -18,7 +18,7 @@
  * R7-2: "+" button in header opens a modal to create a new page.
  */
 
-import { useRef, useState, useCallback, type CSSProperties, type ElementType, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useRef, useState, useCallback, useLayoutEffect, type CSSProperties, type ElementType, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import {
@@ -88,9 +88,12 @@ const TYPE_LABEL: Record<KnownType, string> = {
 };
 
 // ─── Row heights (px) ─────────────────────────────────────────────────────────
+// AC-R11-4-BUG3: both heights are >= 32px so estimateSize never returns a
+// sub-32 value. The old PAGE_ROW_HEIGHT of 28 was raised to 32 to match the
+// minimum required by the virtualizer zero-height fix.
 
 const GROUP_ROW_HEIGHT = 32;
-const PAGE_ROW_HEIGHT = 28;
+const PAGE_ROW_HEIGHT = 32;
 
 // ─── New Page types available for creation (AC-R7-2-1) ───────────────────────
 
@@ -366,10 +369,45 @@ export function NavTree({ vaultId }: NavTreeProps) {
     getScrollElement: () => scrollRef.current,
     estimateSize: (index) => {
       const row = rows[index];
+      // AC-R11-4-BUG3: always return >= 32 so getTotalSize() > 0 on initial
+      // render when the row data is available.
       return row?.kind === "group" ? GROUP_ROW_HEIGHT : PAGE_ROW_HEIGHT;
     },
     overscan: 10,
   });
+
+  // AC-R11-4-BUG3: remeasure on mount and whenever the scroll container first
+  // acquires non-zero height. In JSDOM (tests) and on very fast mounts in the
+  // browser the scroll element may have clientHeight = 0 when the virtualizer
+  // first reads it (ResizeObserver hasn't fired yet). A ResizeObserver here
+  // calls virtualizer.measure() once when height becomes non-zero so the
+  // virtual items are immediately correct without waiting for a scroll event.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    // Trigger an immediate remeasure so that if the container already has
+    // height (e.g. after a hot-reload or when the panel has a known size),
+    // the virtualizer reflects it without waiting for a ResizeObserver tick.
+    virtualizer.measure();
+
+    if (typeof ResizeObserver === "undefined") return;
+
+    let measured = false;
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const h = entry?.contentRect.height ?? el.clientHeight;
+      if (h > 0 && !measured) {
+        measured = true;
+        virtualizer.measure();
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    // virtualizer is stable (same instance across renders); scrollRef.current
+    // is read inside the effect so it is not a dependency here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 

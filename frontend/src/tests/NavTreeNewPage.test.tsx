@@ -32,6 +32,8 @@ vi.mock("@tanstack/react-virtual", () => ({
       })),
     getTotalSize: () => opts.count * 30,
     measureElement: () => undefined,
+    // AC-R11-4-BUG3: measure() added; called by NavTree's useLayoutEffect remeasure.
+    measure: () => undefined,
   }),
 }));
 
