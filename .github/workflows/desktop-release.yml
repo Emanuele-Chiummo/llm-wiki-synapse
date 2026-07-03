@@ -68,6 +68,9 @@ jobs:
   # On v* tags, attaches the zip to the GitHub release. On workflow_dispatch, uploads
   # as an artifact only.
   package-clipper:
+    # needs: the release is created by tauri-action in the build matrix; attaching
+    # before it exists fails with "release not found" (observed on v0.9.0).
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write

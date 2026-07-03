@@ -83,9 +83,7 @@ class TestR75MigrationAppliesSqlite:
         factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as sess:
             row = (
-                await sess.execute(
-                    sa_text("SELECT search_queries FROM review_items WHERE id='r1'")
-                )
+                await sess.execute(sa_text("SELECT search_queries FROM review_items WHERE id='r1'"))
             ).scalar_one()
         assert json.loads(row) == ["alpha", "beta"]
         await engine.dispose()
@@ -208,9 +206,10 @@ class TestR75SeedQueriesEndToEnd:
 
         await _aio.sleep(0)
 
-        assert captured.get("seed_queries") == ["curated one", "curated two"], (
-            "the FULL curated search_queries list must be passed as seed_queries (AC-R7-5-2)"
-        )
+        assert captured.get("seed_queries") == [
+            "curated one",
+            "curated two",
+        ], "the FULL curated search_queries list must be passed as seed_queries (AC-R7-5-2)"
         assert captured.get("topic") == "curated one"  # topic still seeds from [0]
         await engine.dispose()
 
@@ -284,9 +283,10 @@ class TestR75DeepResearchUsesSeedsVerbatim:
             )
 
         assert generate_called[0] == 0, "iteration 1 must NOT call _generate_queries (uses seeds)"
-        assert searched_with[0] == ["seed a", "seed b"], (
-            "the seed queries must be searched verbatim"
-        )
+        assert searched_with[0] == [
+            "seed a",
+            "seed b",
+        ], "the seed queries must be searched verbatim"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -402,9 +402,9 @@ class TestR76FolderContext:
             pass
 
         assert captured.get("vault_context") is not None
-        assert "folderContext" in captured["vault_context"], (
-            "folderContext hint must be injected into the analysis prompt (AC-R7-6-2)"
-        )
+        assert (
+            "folderContext" in captured["vault_context"]
+        ), "folderContext hint must be injected into the analysis prompt (AC-R7-6-2)"
         assert "servicenow / itam" in captured["vault_context"]
 
 
@@ -600,9 +600,7 @@ class TestR710OllamaReasoning:
     """AC-R7-10-1 parity: Ollama message.thinking routed as <think> events."""
 
     @pytest.mark.asyncio
-    async def test_ollama_thinking_wrapped_in_think(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_ollama_thinking_wrapped_in_think(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from app.ingest.provider.config import ProviderSettings
         from app.ingest.provider.ollama import OllamaProvider
 
@@ -679,9 +677,7 @@ class TestR710LanguageDirective:
             )
 
         monkeypatch.setattr(ApiProvider, "_complete", _fake_complete)
-        cfg = ProviderSettings(
-            provider_type="api", model_id="claude-sonnet-4-6", base_url=None
-        )
+        cfg = ProviderSettings(provider_type="api", model_id="claude-sonnet-4-6", base_url=None)
         provider = ApiProvider(cfg)
         await provider.generate(self._analysis("it"), "")
         assert "MANDATORY OUTPUT LANGUAGE" in captured["user"]

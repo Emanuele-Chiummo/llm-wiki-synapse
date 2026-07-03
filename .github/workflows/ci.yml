@@ -218,11 +218,12 @@ jobs:
 
       - name: Validate Mermaid diagrams
         run: |
-          for f in docs/architecture/*.mmd docs/er/*.mmd docs/sequences/*.mmd 2>/dev/null; do
-            if [ -f "$f" ]; then
-              echo "Validating $f..."
-              mmdc -i "$f" -o /dev/null || { echo "Mermaid syntax error in $f"; exit 1; }
-            fi
+          # NOTE: a redirection inside the for-list is a bash syntax error —
+          # this step could never run before this fix.
+          for f in docs/architecture/*.mmd docs/er/*.mmd docs/sequences/*.mmd; do
+            [ -f "$f" ] || continue
+            echo "Validating $f..."
+            mmdc -i "$f" -o /dev/null || { echo "Mermaid syntax error in $f"; exit 1; }
           done
           echo "All Mermaid diagrams are valid."
 

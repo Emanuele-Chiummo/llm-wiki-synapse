@@ -41,13 +41,13 @@ import struct
 import uuid
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-
 # ── Shared fixture (mirrors api_env pattern from test_api.py) ─────────────────
+
 
 @pytest.fixture()
 async def src_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
@@ -285,9 +285,8 @@ async def src_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
     )
 
     # ── FastAPI app with mocked lifespan ──────────────────────────────────────
-    from fastapi import FastAPI
-
     from app.main import app
+    from fastapi import FastAPI
 
     @asynccontextmanager
     async def test_lifespan(application: FastAPI):  # type: ignore[override]
@@ -423,11 +422,13 @@ class TestListSources:
         self, src_client: AsyncClient, src_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """T-SRC-002: returns empty list when raw/sources/ does not exist."""
+
         from app import config as cfg
-        from pathlib import Path
 
         missing_dir = src_env["vault_root"] / "raw" / "nonexistent"
-        monkeypatch.setattr(type(cfg.settings), "raw_sources_dir", property(lambda self: missing_dir))
+        monkeypatch.setattr(
+            type(cfg.settings), "raw_sources_dir", property(lambda self: missing_dir)
+        )
 
         resp = await src_client.get("/sources")
         assert resp.status_code == 200
@@ -493,9 +494,7 @@ class TestSourceContent:
         assert data["is_text"] is False
         assert data["text"] is None
 
-    async def test_category_mapping_for_extensions(
-        self, src_env: dict[str, Any]
-    ) -> None:
+    async def test_category_mapping_for_extensions(self, src_env: dict[str, Any]) -> None:
         """T-SRC-005b: category helper maps extensions correctly."""
         from app.sources import _get_category
 
@@ -554,8 +553,17 @@ class TestSourceContent:
         resp = await src_client.get("/sources/content", params={"path": "note.md"})
         assert resp.status_code == 200
         data = resp.json()
-        for field in ("path", "name", "ext", "size_bytes", "mtime", "category", "is_text",
-                      "ingested", "page_ids"):
+        for field in (
+            "path",
+            "name",
+            "ext",
+            "size_bytes",
+            "mtime",
+            "category",
+            "is_text",
+            "ingested",
+            "page_ids",
+        ):
             assert field in data, f"Missing field: {field!r}"
 
 
@@ -698,8 +706,9 @@ class TestDeleteSource:
                     {"id": str(page_uuid)},
                 )
                 await sess.commit()
+
             from app.ops.cascade_delete import CascadeResult
-            import uuid as _uuid
+
             return CascadeResult(
                 deleted_page_id=page_uuid,
                 wikilinks_cleaned=0,
@@ -796,7 +805,9 @@ class TestOpenAPISourcesPaths:
 
         p = Path(__file__).resolve().parent.parent.parent / "docs" / "api" / "openapi.json"
         if not p.exists():
-            pytest.skip("openapi.json not generated yet — run: cd backend && python scripts/generate_openapi.py")
+            pytest.skip(
+                "openapi.json not generated yet — run: cd backend && python scripts/generate_openapi.py"
+            )
 
         data = json.loads(p.read_text(encoding="utf-8"))
         paths = data.get("paths", {})
@@ -866,11 +877,12 @@ class TestIngestAll:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """T-SRC-021: 202 + candidate_files = count of SUPPORTED files (nested incl, junk excl)."""
-        import app.sources as src_module
         from contextlib import asynccontextmanager
+
+        import app.sources as src_module
+        from app.main import app
         from fastapi import FastAPI
         from httpx import ASGITransport, AsyncClient
-        from app.main import app
 
         @asynccontextmanager
         async def test_lifespan(application: FastAPI):  # type: ignore[override]
@@ -889,18 +901,16 @@ class TestIngestAll:
 
         monkeypatch.setattr(src_module, "_ingest_all_driver", _patched_driver)
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post("/sources/ingest-all")
 
         assert resp.status_code == 202, f"Expected 202, got {resp.status_code}: {resp.text}"
         data = resp.json()
         assert data["started"] is True
         # 3 supported: alpha.md, beta.txt, sub/gamma.md
-        assert data["candidate_files"] == 3, (
-            f"Expected 3 supported files, got {data['candidate_files']}"
-        )
+        assert (
+            data["candidate_files"] == 3
+        ), f"Expected 3 supported files, got {data['candidate_files']}"
 
         # Drain the event loop so the fire-and-forget create_task runs the patched driver.
         await asyncio.sleep(0)
@@ -951,9 +961,7 @@ class TestIngestAll:
             return result
 
         # Patch ingest_file inside the sources module (where _ingest_all_driver imports it)
-        monkeypatch.setattr(
-            "app.ingest.orchestrator.ingest_file", _fake_ingest, raising=False
-        )
+        monkeypatch.setattr("app.ingest.orchestrator.ingest_file", _fake_ingest, raising=False)
 
         # Run the driver directly (not via HTTP) to avoid the fire-and-forget task
         await _ingest_all_driver(candidates)
@@ -968,9 +976,9 @@ class TestIngestAll:
         )
         # With cap>=2 and 3 candidates, files should overlap (proves the parallel speedup).
         if SOURCES_INGEST_ALL_CONCURRENCY >= 2:
-            assert in_flight_max[0] >= 2, (
-                f"Expected concurrent processing, but max in-flight={in_flight_max[0]}"
-            )
+            assert (
+                in_flight_max[0] >= 2
+            ), f"Expected concurrent processing, but max in-flight={in_flight_max[0]}"
         # Flag cleared
         assert src_module._ingest_all_running is False
         assert src_module._ingest_all_done == 3
@@ -981,11 +989,12 @@ class TestIngestAll:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """T-SRC-023: second POST while running → 409 {detail: 'ingest-all already running'}."""
-        import app.sources as src_module
         from contextlib import asynccontextmanager
+
+        import app.sources as src_module
+        from app.main import app
         from fastapi import FastAPI
         from httpx import ASGITransport, AsyncClient
-        from app.main import app
 
         @asynccontextmanager
         async def test_lifespan(application: FastAPI):  # type: ignore[override]
@@ -996,9 +1005,7 @@ class TestIngestAll:
         # Simulate a scan already running
         monkeypatch.setattr(src_module, "_ingest_all_running", True)
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post("/sources/ingest-all")
 
         assert resp.status_code == 409
@@ -1010,12 +1017,13 @@ class TestIngestAll:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """T-SRC-024: empty raw/sources/ → {started: false, candidate_files: 0}."""
+        from contextlib import asynccontextmanager
+
         import app.sources as src_module
         from app import config as cfg
-        from contextlib import asynccontextmanager
+        from app.main import app
         from fastapi import FastAPI
         from httpx import ASGITransport, AsyncClient
-        from app.main import app
 
         @asynccontextmanager
         async def test_lifespan(application: FastAPI):  # type: ignore[override]
@@ -1026,13 +1034,9 @@ class TestIngestAll:
         # Point sources_dir at an empty directory
         empty_dir = ingest_all_env["vault_root"] / "raw" / "empty_sources"
         empty_dir.mkdir(parents=True)
-        monkeypatch.setattr(
-            type(cfg.settings), "raw_sources_dir", property(lambda self: empty_dir)
-        )
+        monkeypatch.setattr(type(cfg.settings), "raw_sources_dir", property(lambda self: empty_dir))
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post("/sources/ingest-all")
 
         assert resp.status_code == 202
@@ -1049,8 +1053,9 @@ class TestIngestAll:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """T-SRC-025: more than max files → truncated + logged."""
-        import app.sources as src_module
         import logging
+
+        import app.sources as src_module
 
         sources_dir = ingest_all_env["sources_dir"]
 
@@ -1061,9 +1066,9 @@ class TestIngestAll:
             candidates = src_module._collect_ingest_all_candidates(sources_dir, max_files=2)
 
         assert len(candidates) == 2, f"Expected 2 (capped), got {len(candidates)}"
-        assert any("truncated" in r.message for r in caplog.records), (
-            "Expected a truncation WARNING log"
-        )
+        assert any(
+            "truncated" in r.message for r in caplog.records
+        ), "Expected a truncation WARNING log"
 
     async def test_status_endpoint_reflects_counters(
         self,
@@ -1071,11 +1076,12 @@ class TestIngestAll:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """T-SRC-026: GET /sources/ingest-all/status returns running/done/total."""
-        import app.sources as src_module
         from contextlib import asynccontextmanager
+
+        import app.sources as src_module
+        from app.main import app
         from fastapi import FastAPI
         from httpx import ASGITransport, AsyncClient
-        from app.main import app
 
         @asynccontextmanager
         async def test_lifespan(application: FastAPI):  # type: ignore[override]
@@ -1088,9 +1094,7 @@ class TestIngestAll:
         monkeypatch.setattr(src_module, "_ingest_all_done", 2)
         monkeypatch.setattr(src_module, "_ingest_all_total", 5)
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/sources/ingest-all/status")
 
         assert resp.status_code == 200

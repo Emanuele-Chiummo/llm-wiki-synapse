@@ -54,7 +54,9 @@ class RunHandle:
     written_page_ids: list[uuid.UUID] = field(default_factory=list)
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     status: str = "running"  # "running" | "cancelling"
-    phase: str = "queued"  # human-facing short key: "queued" | "analyzing" | "generating (N/M)" | "validating" | "writing" | "agent running"
+    # human-facing short key: "queued" | "analyzing" | "generating (N/M)" |
+    # "validating" | "writing" | "agent running" — set by orchestrator before routing
+    phase: str = "queued"
     route: str | None = None  # "orchestrated" | "delegated" — set by orchestrator before routing
 
 
@@ -438,7 +440,7 @@ class IngestQueueManager:
 
     # ── Snapshot (GET /ingest/queue) ───────────────────────────────────────────
 
-    def snapshot(self, avg_duration_by_route: dict[str, float] | None = None) -> dict:
+    def snapshot(self, avg_duration_by_route: dict[str, float] | None = None) -> dict[str, Any]:
         """
         Pure in-memory summary for GET /ingest/queue (ADR-0046 §6, no DB scan).
 
@@ -456,7 +458,7 @@ class IngestQueueManager:
         now_utc = datetime.now(UTC)
         avg_by_route: dict[str, float] = avg_duration_by_route or {}
 
-        tasks: list[dict] = []
+        tasks: list[dict[str, Any]] = []
 
         for source_path, handle in self._active.items():
             display = self._display_path(source_path)
@@ -484,7 +486,7 @@ class IngestQueueManager:
                 }
             )
 
-        for source_path, entry in self._pending.items():
+        for source_path, _entry in self._pending.items():
             display = self._display_path(source_path)
             filename = Path(source_path).name
             tasks.append(

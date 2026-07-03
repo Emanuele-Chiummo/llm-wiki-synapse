@@ -153,9 +153,7 @@ async def env(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> dict[str, Any]:
 
 @pytest.fixture()
 async def client(env: dict[str, Any]) -> AsyncClient:
-    async with AsyncClient(
-        transport=ASGITransport(app=env["app"]), base_url="http://test"
-    ) as c:
+    async with AsyncClient(transport=ASGITransport(app=env["app"]), base_url="http://test") as c:
         yield c
 
 
@@ -194,16 +192,20 @@ async def test_A_reingest_same_proposal_one_pending_row(env: dict[str, Any]) -> 
     """Re-emitting the same proposal twice → ONE pending row (upsert on content_key)."""
     from app.ops.review import _content_key, enqueue_review
 
-    key = _content_key(
-        vault_id="test-vault", item_type="missing-page", proposed_title="Widget"
+    key = _content_key(vault_id="test-vault", item_type="missing-page", proposed_title="Widget")
+    await enqueue_review(
+        vault_id="test-vault",
+        item_type="missing-page",
+        proposed_title="Widget",
+        rationale="first",
+        content_key=key,
     )
     await enqueue_review(
-        vault_id="test-vault", item_type="missing-page", proposed_title="Widget",
-        rationale="first", content_key=key,
-    )
-    await enqueue_review(
-        vault_id="test-vault", item_type="missing-page", proposed_title="Widget",
-        rationale="second", content_key=key,
+        vault_id="test-vault",
+        item_type="missing-page",
+        proposed_title="Widget",
+        rationale="second",
+        content_key=key,
     )
     assert await _count(env) == 1
 
@@ -214,13 +216,20 @@ async def test_A_pending_rationale_refreshes_keeping_id(env: dict[str, Any]) -> 
 
     key = _content_key(vault_id="test-vault", item_type="suggestion", proposed_title="Gap")
     first = await enqueue_review(
-        vault_id="test-vault", item_type="suggestion", proposed_title="Gap",
-        rationale="v1", content_key=key,
+        vault_id="test-vault",
+        item_type="suggestion",
+        proposed_title="Gap",
+        rationale="v1",
+        content_key=key,
     )
     second = await enqueue_review(
-        vault_id="test-vault", item_type="suggestion", proposed_title="Gap",
-        rationale="v2", content_key=key,
-        referenced_page_ids=["ref-1"], search_queries=["q1"],
+        vault_id="test-vault",
+        item_type="suggestion",
+        proposed_title="Gap",
+        rationale="v2",
+        content_key=key,
+        referenced_page_ids=["ref-1"],
+        search_queries=["q1"],
     )
     assert str(first.id) == str(second.id)  # same row/id
     assert second.rationale == "v2"  # refreshed
@@ -242,14 +251,20 @@ async def test_A_skipped_item_not_resurrected(env: dict[str, Any]) -> None:
 
     key = _content_key(vault_id="test-vault", item_type="missing-page", proposed_title="Gone")
     item = await enqueue_review(
-        vault_id="test-vault", item_type="missing-page", proposed_title="Gone",
-        rationale="orig", content_key=key,
+        vault_id="test-vault",
+        item_type="missing-page",
+        proposed_title="Gone",
+        rationale="orig",
+        content_key=key,
     )
     await skip(uuid.UUID(str(item.id)))
     # Re-emit the same proposal — must be a NO-OP (respect the human's skip).
     await enqueue_review(
-        vault_id="test-vault", item_type="missing-page", proposed_title="Gone",
-        rationale="re-emitted", content_key=key,
+        vault_id="test-vault",
+        item_type="missing-page",
+        proposed_title="Gone",
+        rationale="re-emitted",
+        content_key=key,
     )
     assert await _count(env) == 1
     assert await _count(env, status="pending") == 0
@@ -261,13 +276,15 @@ async def test_A_confirm_always_inserts(env: dict[str, Any]) -> None:
     from app.ops.review import _content_key, enqueue_review
 
     assert (
-        _content_key(vault_id="test-vault", item_type="confirm", proposed_title="Please X")
-        is None
+        _content_key(vault_id="test-vault", item_type="confirm", proposed_title="Please X") is None
     )
     for _ in range(3):
         await enqueue_review(
-            vault_id="test-vault", item_type="confirm", proposed_title="Please X",
-            rationale="confirm me", content_key=None,
+            vault_id="test-vault",
+            item_type="confirm",
+            proposed_title="Please X",
+            rationale="confirm me",
+            content_key=None,
         )
     assert await _count(env) == 3
 
@@ -344,12 +361,16 @@ async def test_B_referenced_titles_resolve_invented_dropped(
         sess.expunge(written_page)
 
     analysis = Analysis(
-        topics=["t"], entities=[], language="en",
+        topics=["t"],
+        entities=[],
+        language="en",
         suggested_pages=[SuggestedPage(title="x", type=PageType.CONCEPT)],
     )
     await review_mod.propose_reviews(
-        vault_id="test-vault", analysis=analysis,
-        written_pages=[written_page], origin_source="raw/s.md",
+        vault_id="test-vault",
+        analysis=analysis,
+        written_pages=[written_page],
+        origin_source="raw/s.md",
     )
 
     async with env["session_factory"]() as sess:
@@ -369,9 +390,7 @@ async def test_B_referenced_titles_resolve_invented_dropped(
     assert queries == ["seed query"]
 
 
-async def test_B_single_provider_call(
-    env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_B_single_provider_call(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
     """The enriched proposal still rides EXACTLY ONE provider call (no extra call)."""
     from app.ingest.schemas import Analysis, PageType, SuggestedPage
     from app.ops import review as review_mod
@@ -382,9 +401,7 @@ async def test_B_single_provider_call(
     from sqlalchemy import cast, select
 
     async with env["session_factory"]() as sess:
-        wp = (
-            await sess.execute(select(Page).where(cast(Page.id, _S) == written))
-        ).scalar_one()
+        wp = (await sess.execute(select(Page).where(cast(Page.id, _S) == written))).scalar_one()
         sess.expunge(wp)
 
     call_counter = {"n": 0}
@@ -406,9 +423,7 @@ async def test_B_single_provider_call(
         total_cost_usd = 0.0
         calls = 0
 
-    monkeypatch.setattr(
-        "app.ingest.provider.base.UsageAccumulator", lambda: _Acc()
-    )
+    monkeypatch.setattr("app.ingest.provider.base.UsageAccumulator", lambda: _Acc())
     # provider needs bind_accumulator; give the fake provider one via a wrapper
     fake_provider = type("P", (), {"bind_accumulator": lambda self, a: None})()
     monkeypatch.setattr(
@@ -418,14 +433,18 @@ async def test_B_single_provider_call(
     )
 
     analysis = Analysis(
-        topics=["t"], entities=[], language="en",
+        topics=["t"],
+        entities=[],
+        language="en",
         suggested_pages=[
             SuggestedPage(title="Extra", type=PageType.CONCEPT),  # not written → gate passes
         ],
     )
     await review_mod.propose_reviews(
-        vault_id="test-vault", analysis=analysis,
-        written_pages=[wp], origin_source="raw/s.md",
+        vault_id="test-vault",
+        analysis=analysis,
+        written_pages=[wp],
+        origin_source="raw/s.md",
     )
     assert call_counter["n"] == 1
 
@@ -459,9 +478,7 @@ async def test_B_deep_research_seeds_from_search_query(
         captured.update(kwargs)
 
     # Avoid a real DeepResearchRun insert path complexity — patch the scheduled coroutine.
-    monkeypatch.setattr(
-        "app.ops.deep_research.run_deep_research", _fake_run_deep_research
-    )
+    monkeypatch.setattr("app.ops.deep_research.run_deep_research", _fake_run_deep_research)
     # The deep_research op inserts a DeepResearchRun row; our SQLite lacks that table, so patch
     # the whole op to just capture the derived topic via the same seed logic.
     # Instead, exercise the topic-derivation branch directly through _first_search_query.
@@ -482,8 +499,11 @@ async def _seed(env: dict[str, Any], *, status: str, item_type: str = "missing-p
     from app.ops.review import enqueue_review
 
     item = await enqueue_review(
-        vault_id="test-vault", item_type=item_type,
-        proposed_title=f"T-{uuid.uuid4().hex[:6]}", rationale="r", content_key=None,
+        vault_id="test-vault",
+        item_type=item_type,
+        proposed_title=f"T-{uuid.uuid4().hex[:6]}",
+        rationale="r",
+        content_key=None,
     )
     if status != "pending":
         async with env["session_factory"]() as sess:
@@ -584,9 +604,7 @@ async def test_C_status_filter_partitions(client: AsyncClient, env: dict[str, An
     assert default["total"] == 2
 
 
-async def test_C_projection_carries_new_fields(
-    client: AsyncClient, env: dict[str, Any]
-) -> None:
+async def test_C_projection_carries_new_fields(client: AsyncClient, env: dict[str, Any]) -> None:
     """The GET projection carries content_key, referenced_page_ids, referenced_pages, queries."""
     import json
 

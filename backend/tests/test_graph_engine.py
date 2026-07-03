@@ -78,9 +78,7 @@ def _uid() -> str:
 async def _setup_sqlite(engine: Any) -> None:
     """Create the minimal pages + links + edges tables in SQLite for graph tests."""
     async with engine.begin() as conn:
-        await conn.execute(
-            sa_text(
-                """
+        await conn.execute(sa_text("""
             CREATE TABLE pages (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -99,12 +97,8 @@ async def _setup_sqlite(engine: Any) -> None:
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
-        """
-            )
-        )
-        await conn.execute(
-            sa_text(
-                """
+        """))
+        await conn.execute(sa_text("""
             CREATE TABLE links (
                 id TEXT PRIMARY KEY,
                 source_page_id TEXT NOT NULL,
@@ -114,12 +108,8 @@ async def _setup_sqlite(engine: Any) -> None:
                 dangling INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
-        """
-            )
-        )
-        await conn.execute(
-            sa_text(
-                """
+        """))
+        await conn.execute(sa_text("""
             CREATE TABLE edges (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -130,9 +120,7 @@ async def _setup_sqlite(engine: Any) -> None:
                 kind TEXT,
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
-        """
-            )
-        )
+        """))
 
 
 async def _insert_page(
@@ -379,7 +367,9 @@ class TestFourSignalWeights:
         snapshot = await GraphEngine().recompute(vault_id)
         edge = _find_edge(snapshot.edges, p["P1"], p["P2"])
         assert edge is not None, "P1-P2 edge must be present (structural: 2 direct links)"
-        assert edge.weight >= 10.0, f"P1-P2 weight {edge.weight} < 10.0 (base without AA: 6+4+0+0.8=10.8)"
+        assert (
+            edge.weight >= 10.0
+        ), f"P1-P2 weight {edge.weight} < 10.0 (base without AA: 6+4+0+0.8=10.8)"
 
     async def test_p1_p4_weight_ge_8(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
         """
@@ -574,25 +564,25 @@ class TestTypeAffinity:
         """entity↔concept is a cross-type pair -> 1.2 (the highest reward value)."""
         from app.graph.engine import _type_affinity
 
-        assert _type_affinity("entity", "concept") == 1.2, (
-            "entity↔concept cross-type pair should get 1.2 reward"
-        )
+        assert (
+            _type_affinity("entity", "concept") == 1.2
+        ), "entity↔concept cross-type pair should get 1.2 reward"
 
     def test_same_type_entity_penalty(self) -> None:
         """entity↔entity is a same-type pair -> 0.8 (same-type penalty)."""
         from app.graph.engine import _type_affinity
 
-        assert _type_affinity("entity", "entity") == 0.8, (
-            "entity↔entity same-type pair should get 0.8 (mild penalty)"
-        )
+        assert (
+            _type_affinity("entity", "entity") == 0.8
+        ), "entity↔entity same-type pair should get 0.8 (mild penalty)"
 
     def test_same_type_source_penalty(self) -> None:
         """source↔source is a same-type pair -> 0.5 (strongest same-type penalty)."""
         from app.graph.engine import _type_affinity
 
-        assert _type_affinity("source", "source") == 0.5, (
-            "source↔source same-type pair should get 0.5 (strong penalty — sources cluster)"
-        )
+        assert (
+            _type_affinity("source", "source") == 0.5
+        ), "source↔source same-type pair should get 0.5 (strong penalty — sources cluster)"
 
     def test_symmetry_concept_synthesis(self) -> None:
         """concept↔synthesis == synthesis↔concept == 1.2 (matrix is symmetric)."""
@@ -608,52 +598,52 @@ class TestTypeAffinity:
         """Type strings are lowercased before lookup -> Entity↔Concept == 1.2."""
         from app.graph.engine import _type_affinity
 
-        assert _type_affinity("Entity", "Concept") == 1.2, (
-            "type_affinity must be case-insensitive: Entity↔Concept == 1.2"
-        )
-        assert _type_affinity("ENTITY", "ENTITY") == 0.8, (
-            "type_affinity must be case-insensitive: ENTITY↔ENTITY == 0.8"
-        )
+        assert (
+            _type_affinity("Entity", "Concept") == 1.2
+        ), "type_affinity must be case-insensitive: Entity↔Concept == 1.2"
+        assert (
+            _type_affinity("ENTITY", "ENTITY") == 0.8
+        ), "type_affinity must be case-insensitive: ENTITY↔ENTITY == 0.8"
 
     def test_none_type_a_returns_default(self) -> None:
         """_type_affinity(None, 'entity') returns 0.5 (default fallback)."""
         from app.graph.engine import _type_affinity
 
-        assert _type_affinity(None, "entity") == 0.5, (
-            "_type_affinity(None, 'entity') should return 0.5 default"
-        )
+        assert (
+            _type_affinity(None, "entity") == 0.5
+        ), "_type_affinity(None, 'entity') should return 0.5 default"
 
     def test_none_type_b_returns_default(self) -> None:
         """_type_affinity('entity', None) returns 0.5 (default fallback)."""
         from app.graph.engine import _type_affinity
 
-        assert _type_affinity("entity", None) == 0.5, (
-            "_type_affinity('entity', None) should return 0.5 default"
-        )
+        assert (
+            _type_affinity("entity", None) == 0.5
+        ), "_type_affinity('entity', None) should return 0.5 default"
 
     def test_both_none_returns_default(self) -> None:
         """_type_affinity(None, None) returns 0.5 (default fallback)."""
         from app.graph.engine import _type_affinity
 
-        assert _type_affinity(None, None) == 0.5, (
-            "_type_affinity(None, None) should return 0.5 default"
-        )
+        assert (
+            _type_affinity(None, None) == 0.5
+        ), "_type_affinity(None, None) should return 0.5 default"
 
     def test_unknown_type_comparison_returns_default(self) -> None:
         """Unknown type 'comparison' is outside the 5-type set -> 0.5."""
         from app.graph.engine import _type_affinity
 
-        assert _type_affinity("comparison", "entity") == 0.5, (
-            "'comparison' is not in the affinity matrix -> 0.5 default"
-        )
+        assert (
+            _type_affinity("comparison", "entity") == 0.5
+        ), "'comparison' is not in the affinity matrix -> 0.5 default"
 
     def test_unknown_type_overview_both_returns_default(self) -> None:
         """Two unknown types (overview↔overview) both outside the 5-type set -> 0.5."""
         from app.graph.engine import _type_affinity
 
-        assert _type_affinity("overview", "overview") == 0.5, (
-            "'overview'↔'overview' both outside affinity matrix -> 0.5 default"
-        )
+        assert (
+            _type_affinity("overview", "overview") == 0.5
+        ), "'overview'↔'overview' both outside affinity matrix -> 0.5 default"
 
     def test_all_known_types_in_matrix(self) -> None:
         """
@@ -1094,7 +1084,6 @@ class TestFA2LayoutHelper:
     def test_single_node_returns_origin(self) -> None:
         """Single-node graph returns a single (0.0, 0.0) coordinate."""
         import igraph
-
         from app.graph.engine import _forceatlas2_layout
 
         g = igraph.Graph(n=1, edges=[], directed=False)
@@ -1105,7 +1094,6 @@ class TestFA2LayoutHelper:
     def test_empty_graph_returns_empty(self) -> None:
         """Zero-node graph returns empty list."""
         import igraph
-
         from app.graph.engine import _forceatlas2_layout
 
         g = igraph.Graph(n=0, edges=[], directed=False)
@@ -1196,7 +1184,7 @@ class TestClampOutliers:
 
     def test_pulls_in_extreme_outlier(self) -> None:
         """A single millions-scale outlier is pulled onto the cap; core is untouched."""
-        from app.graph.engine import FA2_CLAMP_FACTOR, _clamp_outliers
+        from app.graph.engine import _clamp_outliers
 
         # Dense core near origin + one runaway node at 1.4M (the observed bug).
         coords = [(float(i % 10), float(i // 10)) for i in range(60)]

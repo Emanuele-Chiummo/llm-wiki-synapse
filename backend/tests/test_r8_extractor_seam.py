@@ -95,7 +95,9 @@ class TestDefaultPypdfPath:
         with patch.object(ext_module, "_extract_pdf_via_marker", side_effect=fake_marker):
             ext_module.extract_text(pdf_file)
 
-        assert not marker_called, "_extract_pdf_via_marker must NOT be called when PDF_EXTRACTOR=pypdf"
+        assert (
+            not marker_called
+        ), "_extract_pdf_via_marker must NOT be called when PDF_EXTRACTOR=pypdf"
 
     def test_pypdf_path_calls_extract_pdf(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -224,20 +226,18 @@ class TestMarkerFallback:
         ):
             result = ext_module.extract_text(pdf_file)
 
-        assert "pypdf fallback text" in result, f"pypdf fallback text expected in result: {result!r}"
+        assert (
+            "pypdf fallback text" in result
+        ), f"pypdf fallback text expected in result: {result!r}"
         return pypdf_calls, marker_calls
 
-    def test_fallback_on_none_return(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_fallback_on_none_return(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """T-R81-004: Marker returns None → pypdf fallback."""
         pypdf_calls, marker_calls = self._setup(tmp_path, monkeypatch, None)
         assert marker_calls, "Marker should have been attempted"
         assert pypdf_calls, "pypdf should have been called as fallback"
 
-    def test_fallback_on_exception(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_fallback_on_exception(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Marker raises Exception → pypdf fallback (covers ConnectError, ReadTimeout, etc.)."""
         # We test the _extract_pdf_via_marker function itself returning None on exceptions,
         # which is the tested contract (the helper catches and returns None).
@@ -265,9 +265,7 @@ class TestMarkerFallback:
 
         assert result is None, "_extract_pdf_via_marker must return None on ConnectError"
 
-    def test_fallback_on_timeout(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_fallback_on_timeout(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """T-R81-005: Marker times out → _extract_pdf_via_marker returns None."""
         from app import config as cfg
         from app.ingest import extract as ext_module
@@ -291,9 +289,7 @@ class TestMarkerFallback:
 
         assert result is None, "_extract_pdf_via_marker must return None on ReadTimeout"
 
-    def test_fallback_on_non_200(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_fallback_on_non_200(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """T-R81-006: Marker returns non-200 → _extract_pdf_via_marker returns None."""
         from app import config as cfg
         from app.ingest import extract as ext_module
@@ -410,9 +406,7 @@ class TestExtractMaxCharsWithMarker:
 class TestMarkerRequestShape:
     """T-R81-009: _extract_pdf_via_marker sends correct multipart 'file' field."""
 
-    def test_correct_request_shape(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_correct_request_shape(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verifies multipart 'file' field with PDF bytes is sent to {url}/convert."""
         from app import config as cfg
         from app.ingest import extract as ext_module
@@ -453,7 +447,9 @@ class TestMarkerRequestShape:
         # Must use multipart files= kwarg
         assert "files" in call, "Must send multipart 'files=' kwarg"
         files = call["files"]
-        assert "file" in files, f"'file' field required in multipart; got keys: {list(files.keys())}"
+        assert (
+            "file" in files
+        ), f"'file' field required in multipart; got keys: {list(files.keys())}"
         # The 'file' tuple must contain the PDF bytes
         file_tuple = files["file"]
         assert pdf_bytes in file_tuple, "PDF bytes must be present in the 'file' field"
@@ -475,6 +471,7 @@ class TestMarkerRequestShape:
         captured_timeouts: list[float] = []
 
         with patch("httpx.Client") as mock_client_cls:
+
             def capture_client(timeout: float, **kwargs: object) -> MagicMock:
                 captured_timeouts.append(timeout)
                 mock_client = MagicMock()

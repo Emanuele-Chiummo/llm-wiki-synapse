@@ -330,12 +330,8 @@ async def get_health_detailed() -> JSONResponse:
         and qdrant_ok_raw is True
         and qdrant_latency > _QDRANT_LATENCY_WARN_MS
     )
-    degraded = (
-        not any_error
-        and (
-            (db_latency is not None and db_latency > _DB_LATENCY_WARN_MS)
-            or qdrant_slow
-        )
+    degraded = not any_error and (
+        (db_latency is not None and db_latency > _DB_LATENCY_WARN_MS) or qdrant_slow
     )
 
     if any_error:

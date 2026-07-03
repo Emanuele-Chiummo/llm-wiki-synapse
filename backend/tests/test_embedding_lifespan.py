@@ -229,9 +229,7 @@ class TestEmbeddingToggleSideEffectFree:
         )
 
         async with engine.begin() as conn:
-            await conn.execute(
-                sa_text(
-                    """
+            await conn.execute(sa_text("""
                 CREATE TABLE pages (
                     id TEXT PRIMARY KEY,
                     vault_id TEXT NOT NULL,
@@ -251,12 +249,8 @@ class TestEmbeddingToggleSideEffectFree:
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
                     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
                 )
-            """
-                )
-            )
-            await conn.execute(
-                sa_text(
-                    """
+            """))
+            await conn.execute(sa_text("""
                 CREATE TABLE links (
                     id TEXT PRIMARY KEY,
                     source_page_id TEXT NOT NULL,
@@ -264,12 +258,8 @@ class TestEmbeddingToggleSideEffectFree:
                     target_page_id TEXT,
                     dangling INTEGER NOT NULL DEFAULT 0
                 )
-            """
-                )
-            )
-            await conn.execute(
-                sa_text(
-                    """
+            """))
+            await conn.execute(sa_text("""
                 CREATE TABLE vault_state (
                     id TEXT PRIMARY KEY,
                     vault_id TEXT NOT NULL UNIQUE,
@@ -286,9 +276,7 @@ class TestEmbeddingToggleSideEffectFree:
                     searxng_max_queries_db INTEGER,
                     updated_at TEXT NOT NULL
                 )
-            """
-                )
-            )
+            """))
 
         session_factory = async_sessionmaker(
             engine, class_=AsyncSession, expire_on_commit=False, autoflush=False

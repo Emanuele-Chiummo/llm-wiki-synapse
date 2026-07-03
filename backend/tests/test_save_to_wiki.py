@@ -17,12 +17,10 @@ Coverage:
 from __future__ import annotations
 
 import uuid
-from contextlib import asynccontextmanager
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -78,9 +76,7 @@ async def client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
         poolclass=StaticPool,
     )
     async with engine_db.begin() as conn:
-        await conn.execute(
-            sa_text(
-                """
+        await conn.execute(sa_text("""
             CREATE TABLE vault_state (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL UNIQUE,
@@ -97,9 +93,7 @@ async def client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
                 searxng_max_queries_db INTEGER,
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
-        """
-            )
-        )
+        """))
         await conn.execute(
             sa_text(
                 "INSERT INTO vault_state (id, vault_id, data_version, updated_at) "
@@ -179,15 +173,18 @@ class TestContentCleaning:
 class TestSaveToWikiEndpoint:
     """G-P0-1: POST /chat/save-to-wiki endpoint contract."""
 
-    async def test_201_response(
-        self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_201_response(self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
         """POST /chat/save-to-wiki returns 201 on success."""
         fake_page = _make_fake_page()
         with patch(
-            "app.main.save_chat_to_wiki.__wrapped__"
-            if hasattr(getattr(__import__("app.main", fromlist=["save_chat_to_wiki"]), "save_chat_to_wiki"), "__wrapped__")
-            else "app.ingest.orchestrator.write_wiki_page",
+            (
+                "app.main.save_chat_to_wiki.__wrapped__"
+                if hasattr(
+                    __import__("app.main", fromlist=["save_chat_to_wiki"]).save_chat_to_wiki,
+                    "__wrapped__",
+                )
+                else "app.ingest.orchestrator.write_wiki_page"
+            ),
             new=AsyncMock(return_value=fake_page),
         ):
             resp = await client.post(
@@ -386,6 +383,6 @@ class TestSaveToWikiValidation:
         resp = await client.get("/openapi.json")
         assert resp.status_code == 200
         schema = resp.json()
-        assert "/chat/save-to-wiki" in schema.get("paths", {}), (
-            "POST /chat/save-to-wiki must appear in the OpenAPI schema (G-P0-1)"
-        )
+        assert "/chat/save-to-wiki" in schema.get(
+            "paths", {}
+        ), "POST /chat/save-to-wiki must appear in the OpenAPI schema (G-P0-1)"

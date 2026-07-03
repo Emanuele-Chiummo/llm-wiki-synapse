@@ -34,9 +34,7 @@ from sqlalchemy.pool import StaticPool
 async def _setup_sqlite_full(engine: Any) -> None:
     """Create the minimal schema needed by both retrieval and conversation tests."""
     async with engine.begin() as conn:
-        await conn.execute(
-            sa_text(
-                """
+        await conn.execute(sa_text("""
             CREATE TABLE IF NOT EXISTS pages (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -47,12 +45,8 @@ async def _setup_sqlite_full(engine: Any) -> None:
                 content_hash TEXT NOT NULL DEFAULT '',
                 deleted_at TEXT
             )
-        """
-            )
-        )
-        await conn.execute(
-            sa_text(
-                """
+        """))
+        await conn.execute(sa_text("""
             CREATE TABLE IF NOT EXISTS links (
                 id TEXT PRIMARY KEY,
                 source_page_id TEXT NOT NULL,
@@ -60,12 +54,8 @@ async def _setup_sqlite_full(engine: Any) -> None:
                 target_page_id TEXT,
                 dangling INTEGER NOT NULL DEFAULT 0
             )
-        """
-            )
-        )
-        await conn.execute(
-            sa_text(
-                """
+        """))
+        await conn.execute(sa_text("""
             CREATE TABLE IF NOT EXISTS edges (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -73,12 +63,8 @@ async def _setup_sqlite_full(engine: Any) -> None:
                 target_page_id TEXT NOT NULL,
                 weight REAL NOT NULL
             )
-        """
-            )
-        )
-        await conn.execute(
-            sa_text(
-                """
+        """))
+        await conn.execute(sa_text("""
             CREATE TABLE IF NOT EXISTS vault_state (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -94,12 +80,8 @@ async def _setup_sqlite_full(engine: Any) -> None:
                 searxng_categories_db TEXT,
                 searxng_max_queries_db INTEGER
             )
-        """
-            )
-        )
-        await conn.execute(
-            sa_text(
-                """
+        """))
+        await conn.execute(sa_text("""
             CREATE TABLE IF NOT EXISTS conversations (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -108,9 +90,7 @@ async def _setup_sqlite_full(engine: Any) -> None:
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 deleted_at TEXT
             )
-        """
-            )
-        )
+        """))
 
 
 def _uid(tag: int) -> str:
@@ -253,17 +233,19 @@ async def test_ac_r7_8_wiki_included(retrieval_env: Any) -> None:
         await sess.execute(
             sa_text(
                 "INSERT INTO pages (id, vault_id, file_path, title) VALUES (:id, :vid, :fp, :t)"
-            ).bindparams(id=wiki_id, vid=VAULT, fp="wiki/concepts/machine-learning.md", t="Machine Learning")
+            ).bindparams(
+                id=wiki_id, vid=VAULT, fp="wiki/concepts/machine-learning.md", t="Machine Learning"
+            )
         )
         await sess.commit()
 
-    _write_file(
-        retrieval_env.vault_root, "wiki/concepts/machine-learning.md", "ML concept body"
-    )
+    _write_file(retrieval_env.vault_root, "wiki/concepts/machine-learning.md", "ML concept body")
     retrieval_mod.get_qdrant_client = lambda: _FakeQdrant([(wiki_id, 0.95)])  # type: ignore[assignment]
 
     async with retrieval_env.factory() as sess:
-        ctx = await retrieve("machine learning", vault_id=VAULT, context_window=10_000, session=sess)
+        ctx = await retrieve(
+            "machine learning", vault_id=VAULT, context_window=10_000, session=sess
+        )
 
     assert len(ctx.citations) == 1, "wiki/ page should be cited"
     assert ctx.citations[0].ref.id == wiki_id
@@ -302,9 +284,9 @@ def test_scenario_purpose_md_content(tmp_path: Path, monkeypatch: pytest.MonkeyP
         assert len(purpose_content) > 50, f"Scenario {s['id']!r} purpose_md too short"
         assert len(schema_content) > 50, f"Scenario {s['id']!r} schema_md too short"
         # Preset-specific: purpose should contain the scenario name
-        assert s["name"].lower() in purpose_content.lower() or s["id"] in purpose_content.lower(), (
-            f"Scenario {s['id']!r} purpose_md must be preset-specific (contains name or id)"
-        )
+        assert (
+            s["name"].lower() in purpose_content.lower() or s["id"] in purpose_content.lower()
+        ), f"Scenario {s['id']!r} purpose_md must be preset-specific (contains name or id)"
         # Schema must document required fields
         assert "type" in schema_content, f"Scenario {s['id']!r} schema_md must mention 'type'"
         assert "title" in schema_content, f"Scenario {s['id']!r} schema_md must mention 'title'"
@@ -435,7 +417,9 @@ def test_conversation_rename_response_model() -> None:
 # ── R7-8 retrieval scope: lexical path also excludes raw/ ─────────────────────
 
 
-async def test_ac_r7_8_lexical_excludes_raw(retrieval_env: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_ac_r7_8_lexical_excludes_raw(
+    retrieval_env: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """
     AC-R7-8-1 (lexical path): When EMBEDDINGS_ENABLED=false, the lexical Phase-1
     search must also exclude raw/ pages (same wiki-only scope).
@@ -454,12 +438,16 @@ async def test_ac_r7_8_lexical_excludes_raw(retrieval_env: Any, monkeypatch: pyt
         await sess.execute(
             sa_text(
                 "INSERT INTO pages (id, vault_id, file_path, title) VALUES (:id, :vid, :fp, :t)"
-            ).bindparams(id=raw_id, vid=VAULT, fp="raw/sources/lexical-raw.md", t="Lexical Raw Source")
+            ).bindparams(
+                id=raw_id, vid=VAULT, fp="raw/sources/lexical-raw.md", t="Lexical Raw Source"
+            )
         )
         await sess.execute(
             sa_text(
                 "INSERT INTO pages (id, vault_id, file_path, title) VALUES (:id, :vid, :fp, :t)"
-            ).bindparams(id=wiki_id, vid=VAULT, fp="wiki/concepts/lexical-concept.md", t="Lexical Concept")
+            ).bindparams(
+                id=wiki_id, vid=VAULT, fp="wiki/concepts/lexical-concept.md", t="Lexical Concept"
+            )
         )
         await sess.commit()
 
@@ -473,8 +461,8 @@ async def test_ac_r7_8_lexical_excludes_raw(retrieval_env: Any, monkeypatch: pyt
         ctx = await retrieve("lexical", vault_id=VAULT, context_window=10_000, k=8, session=sess)
 
     cited_ids = {c.ref.id for c in ctx.citations}
-    assert raw_id not in cited_ids, (
-        "AC-R7-8-1 (lexical): raw/ page must not appear in citations even via lexical search"
-    )
+    assert (
+        raw_id not in cited_ids
+    ), "AC-R7-8-1 (lexical): raw/ page must not appear in citations even via lexical search"
     # wiki/ page with matching title must be found
     assert wiki_id in cited_ids, "wiki/ page should be found by lexical search on 'lexical'"

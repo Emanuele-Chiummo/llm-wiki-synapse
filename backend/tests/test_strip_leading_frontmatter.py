@@ -23,7 +23,6 @@ import pytest
 # Re-use the shared SQLite + FakeQdrant/FakeEmbedding fixture for the composition test.
 from tests.test_api import api_env  # noqa: F401
 
-
 # ── Pure helper unit tests (no DB) ───────────────────────────────────────────
 
 
@@ -60,11 +59,7 @@ def test_strip_leading_frontmatter_later_horizontal_rule_untouched() -> None:
     from app.ingest.orchestrator import _strip_leading_frontmatter
 
     body = (
-        "Intro paragraph before the rule.\n"
-        "\n"
-        "---\n"
-        "\n"
-        "Section after a horizontal rule.\n"
+        "Intro paragraph before the rule.\n" "\n" "---\n" "\n" "Section after a horizontal rule.\n"
     )
     # The body does not START with a fence, so nothing is removed.
     assert _strip_leading_frontmatter(body) == body
@@ -151,7 +146,5 @@ async def test_write_wiki_page_produces_single_frontmatter_block(
 
     # DB content hash == hash of bytes on disk (I1/I5 — no desync).
     async with get_session() as sess:
-        db_row = (
-            await sess.execute(select(Page).where(Page.id == row.id))
-        ).scalar_one()
+        db_row = (await sess.execute(select(Page).where(Page.id == row.id))).scalar_one()
     assert db_row.content_hash == hashlib.sha256(file_bytes).hexdigest()

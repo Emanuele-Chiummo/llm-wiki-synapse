@@ -104,17 +104,13 @@ def is_default_title(title: str | None, first_user_message: str | None) -> bool:
     return False
 
 
-async def _generate_title_text(
-    provider: object, first_user_message: str
-) -> str:
+async def _generate_title_text(provider: object, first_user_message: str) -> str:
     """ONE bounded provider.chat() turn → cleaned title string (may raise on provider error).
 
     The output is capped at ~60 tokens at the call site by closing the async generator once the
     accumulated text crosses the char budget. No retry.
     """
-    prompt = _TITLE_PROMPT.format(
-        first_message=first_user_message[:_FIRST_MESSAGE_PROMPT_CHARS]
-    )
+    prompt = _TITLE_PROMPT.format(first_message=first_user_message[:_FIRST_MESSAGE_PROMPT_CHARS])
     # Support both chat() shapes (async-gen fn OR coroutine returning one) — same as stream.py.
     maybe = provider.chat(  # type: ignore[attr-defined]
         messages=[Message(role="user", content=prompt)],

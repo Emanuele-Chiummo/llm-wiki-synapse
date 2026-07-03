@@ -40,9 +40,10 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
@@ -91,8 +92,7 @@ async def get_costs_summary(
     month: str | None = Query(
         default=None,
         description=(
-            "Calendar month to aggregate (YYYY-MM). "
-            "Defaults to the current UTC month."
+            "Calendar month to aggregate (YYYY-MM). " "Defaults to the current UTC month."
         ),
         pattern=r"^\d{4}-\d{2}$",
     ),
@@ -140,7 +140,7 @@ async def get_costs_summary(
 
     async with get_session() as session:
         # ── ingest_runs (month window) ────────────────────────────────────────
-        ingest_month_rows = (
+        ingest_month_rows: Sequence[Any] = (
             await session.execute(
                 select(
                     IngestRun.started_at,
@@ -160,7 +160,7 @@ async def get_costs_summary(
         # with a subquery to scope to this vault's conversations.
         from app.models import Conversation
 
-        msg_month_rows = (
+        msg_month_rows: Sequence[Any] = (
             await session.execute(
                 select(
                     ChatMessage.created_at,
@@ -181,7 +181,7 @@ async def get_costs_summary(
         ).all()
 
         # ── deep_research_runs (month window) ─────────────────────────────────
-        dr_month_rows = (
+        dr_month_rows: Sequence[Any] = (
             await session.execute(
                 select(
                     DeepResearchRun.started_at,
@@ -195,7 +195,7 @@ async def get_costs_summary(
         ).all()
 
         # ── lint_runs (month window) ──────────────────────────────────────────
-        lint_month_rows = (
+        lint_month_rows: Sequence[Any] = (
             await session.execute(
                 select(
                     LintRun.started_at,
@@ -209,7 +209,7 @@ async def get_costs_summary(
         ).all()
 
         # ── last-30-days rows for by_day ──────────────────────────────────────
-        ingest_30d = (
+        ingest_30d: Sequence[Any] = (
             await session.execute(
                 select(IngestRun.started_at, IngestRun.total_cost_usd).where(
                     IngestRun.vault_id == vault_id,
@@ -218,7 +218,7 @@ async def get_costs_summary(
             )
         ).all()
 
-        msg_30d = (
+        msg_30d: Sequence[Any] = (
             await session.execute(
                 select(ChatMessage.created_at, ChatMessage.total_cost_usd).where(
                     ChatMessage.conversation_id.in_(
@@ -233,7 +233,7 @@ async def get_costs_summary(
             )
         ).all()
 
-        dr_30d = (
+        dr_30d: Sequence[Any] = (
             await session.execute(
                 select(DeepResearchRun.started_at, DeepResearchRun.total_cost_usd).where(
                     DeepResearchRun.vault_id == vault_id,
@@ -242,7 +242,7 @@ async def get_costs_summary(
             )
         ).all()
 
-        lint_30d = (
+        lint_30d: Sequence[Any] = (
             await session.execute(
                 select(LintRun.started_at, LintRun.total_cost_usd).where(
                     LintRun.vault_id == vault_id,
@@ -313,7 +313,7 @@ async def get_costs_summary(
             # SQLite stores timestamps as ISO strings; take the date part
             return ts[:10]
         if hasattr(ts, "date"):
-            return ts.date().isoformat()
+            return cast("str", ts.date().isoformat())
         return str(ts)[:10]
 
     for row in ingest_30d:
@@ -326,10 +326,7 @@ async def get_costs_summary(
         day_totals[_extract_date(row.started_at)] += _safe_float(row.total_cost_usd)
 
     # Emit sorted, last-30-days only (already bounded by the query window)
-    by_day = [
-        {"date": d, "total_usd": round(v, 4)}
-        for d, v in sorted(day_totals.items())
-    ]
+    by_day = [{"date": d, "total_usd": round(v, 4)} for d, v in sorted(day_totals.items())]
 
     # monthly_total_usd: sum across all 4 operation buckets
     monthly_total = sum(data["total_usd"] for data in op_totals.values())

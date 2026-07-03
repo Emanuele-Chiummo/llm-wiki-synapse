@@ -87,6 +87,10 @@ ignore = [
 "tests/test_page_content_generated.py" = ["ANN", "S", "F811"]
 "tests/test_page_tags.py" = ["ANN", "S", "F811"]
 "tests/test_overview_regen.py" = ["ANN", "S", "F811"]
+# Cross-module pytest fixture reuse: imported fixture name collides with the
+# function-parameter fixture name at call sites — the documented pytest pattern.
+"tests/test_related_pages.py" = ["ANN", "S", "F811"]
+"tests/test_strip_leading_frontmatter.py" = ["ANN", "S", "F811"]
 "scripts/*" = ["ANN", "S", "E501"]  # scripts are not production code — relax annotations and line length
 
 [tool.ruff.lint.flake8-bugbear]

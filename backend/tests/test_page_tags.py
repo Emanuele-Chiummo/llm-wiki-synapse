@@ -175,9 +175,7 @@ async def test_write_wiki_page_without_tags_omits_key_and_stores_null(
 
 
 @pytest.mark.asyncio
-async def test_get_page_content_returns_tags(
-    api_env: dict[str, Any], api_client: Any
-) -> None:
+async def test_get_page_content_returns_tags(api_env: dict[str, Any], api_client: Any) -> None:
     """GET /pages/{id}/content includes the `tags` key (additive, like type/sources)."""
     from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage

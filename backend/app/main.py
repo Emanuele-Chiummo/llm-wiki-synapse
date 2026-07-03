@@ -1326,7 +1326,8 @@ class QueueBatchProgress(BaseModel):
     done: int = Field(description="Files processed so far in the current batch")
     total: int = Field(description="Total files in the current batch")
     eta_seconds: int | None = Field(
-        default=None, description="Estimated seconds remaining for the whole batch (None if unknown)"
+        default=None,
+        description="Estimated seconds remaining for the whole batch (None if unknown)",
     )
 
 
@@ -2138,8 +2139,7 @@ async def get_related_pages(
         #    and the parameter so the comparison is format-agnostic on SQLite (test)
         #    and Postgres (production).  The neighbour_id is returned as-cast (no
         #    strip needed — uuid.UUID() handles both formats).
-        neighbours_sql = sa_text(
-            """
+        neighbours_sql = sa_text("""
             SELECT e.weight,
                    CAST(p.id AS TEXT)  AS neighbour_id,
                    p.title             AS neighbour_title,
@@ -2170,15 +2170,13 @@ async def get_related_pages(
 
             ORDER BY weight DESC
             LIMIT :lim
-            """
-        ).bindparams(vault_id=vault, page_id=pid_str, lim=limit)
+            """).bindparams(vault_id=vault, page_id=pid_str, lim=limit)
 
         result = await session.execute(neighbours_sql)
         rows = result.all()
 
         # 3. Count total related (before limit) — same UNION, wrapped in COUNT
-        count_sql = sa_text(
-            """
+        count_sql = sa_text("""
             SELECT COUNT(*) FROM (
                 SELECT 1
                 FROM edges e
@@ -2202,8 +2200,7 @@ async def get_related_pages(
                   AND REPLACE(CAST(e.target_page_id AS TEXT), '-', '')
                     = REPLACE(:page_id, '-', '')
             ) AS _related
-            """
-        ).bindparams(vault_id=vault, page_id=pid_str)
+            """).bindparams(vault_id=vault, page_id=pid_str)
 
         total_result = await session.execute(count_sql)
         total: int = total_result.scalar_one()
@@ -3016,8 +3013,7 @@ async def search(
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    f"Unknown sort value: {sort!r}. "
-                    f"Valid values: {sorted(_SEARCH_VALID_SORTS)}"
+                    f"Unknown sort value: {sort!r}. " f"Valid values: {sorted(_SEARCH_VALID_SORTS)}"
                 ),
             )
         effective_sort = sort  # type: ignore[assignment]  # validated above
@@ -3193,7 +3189,7 @@ async def _compute_avg_duration_by_route() -> dict[str, float]:
                 ]
                 if durations:
                     result[route_val] = sum(durations) / len(durations)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001,S110
             # Per-route failure is non-fatal; skip this route → eta_seconds=None for it.
             pass
     return result
@@ -4224,7 +4220,7 @@ async def list_conversations(
         # markdown in Python and cap at 80 chars. Portable SQL: latest = max(created_at) per
         # conversation via a grouped subquery joined back to messages (SQLite + Postgres).
         conv_ids = [c.id for c in convs]
-        previews: dict[uuid.UUID, str] = {}
+        previews: dict[uuid.UUID, str | None] = {}
         if conv_ids:
             latest = (
                 select(
@@ -4616,8 +4612,8 @@ class RegenerateOverviewResponse(BaseModel):
 
     regenerated: True if the overview.md note was rewritten this call (False = degrade-safe
                  keep-previous, e.g. no provider configured or the provider call failed/timed out).
-    detected_language: the language the overview was requested in (ISO-639-1) — from the vault's
-                       existing pages; None when undetectable (the model then matches purpose+pages).
+    detected_language: the language the overview was requested in (ISO-639-1) — from
+                       the vault's existing pages; None when undetectable.
     """
 
     regenerated: bool = Field(description="Whether overview.md was rewritten this call.")
@@ -4711,9 +4707,7 @@ class ReresolveLinksResponse(BaseModel):
         description="Links still dangling after the pass (target has no matching live page)."
     )
 
-    model_config = {
-        "json_schema_extra": {"example": {"reconnected": 42, "remaining_dangling": 7}}
-    }
+    model_config = {"json_schema_extra": {"example": {"reconnected": 42, "remaining_dangling": 7}}}
 
 
 @app.post(
@@ -4866,11 +4860,7 @@ class GraphCommunityResponse(BaseModel):
     size: int
     cohesion: float = Field(description="Intra-edge density [0,1]; 0 for singletons")
 
-    model_config = {
-        "json_schema_extra": {
-            "example": {"id": 0, "size": 12, "cohesion": 0.42}
-        }
-    }
+    model_config = {"json_schema_extra": {"example": {"id": 0, "size": 12, "cohesion": 0.42}}}
 
 
 class GraphResponse(BaseModel):
@@ -5225,9 +5215,7 @@ async def get_graph_community(community_id: int) -> GraphCommunityDetailResponse
     global _graph_cache
 
     # I2 guard: read directly from the in-memory snapshot, never call recompute.
-    snapshot: GraphSnapshot | None = (
-        _graph_cache._snapshot if _graph_cache is not None else None
-    )
+    snapshot: GraphSnapshot | None = _graph_cache._snapshot if _graph_cache is not None else None
     if snapshot is None:
         raise HTTPException(
             status_code=409,
@@ -5239,9 +5227,7 @@ async def get_graph_community(community_id: int) -> GraphCommunityDetailResponse
         )
 
     # Find the community summary in the snapshot for cohesion
-    community_snap = next(
-        (c for c in snapshot.communities if c.id == community_id), None
-    )
+    community_snap = next((c for c in snapshot.communities if c.id == community_id), None)
     if community_snap is None:
         # Also check if any node belongs to this community_id (handles edge case
         # where communities list was not populated but nodes were assigned).
@@ -7965,6 +7951,7 @@ async def clip_ingest(
 # ── GET /scenarios + POST /scenarios/{id}/apply  (R7-1, [F1, K1]) ─────────────
 # 5 vault-bootstrap presets: Research, Reading, PersonalGrowth, Business, General.
 # Each preset overwrites vault/purpose.md + vault/schema.md on explicit user action.
+
 
 class ScenarioItem(BaseModel):
     """One scenario preset descriptor (R7-1 list response)."""

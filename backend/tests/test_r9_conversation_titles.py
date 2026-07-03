@@ -51,9 +51,7 @@ class _CountingProvider:
     def bind_accumulator(self, acc: Any) -> None:
         self._acc = acc
 
-    async def chat(
-        self, messages: list[Any], retrieval_context: str
-    ) -> AsyncIterator[str]:
+    async def chat(self, messages: list[Any], retrieval_context: str) -> AsyncIterator[str]:
         from app.ingest.schemas import Usage
 
         self.calls += 1
@@ -322,9 +320,7 @@ async def list_client(
         yield
 
     app.router.lifespan_context = test_lifespan  # type: ignore[assignment]
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as c:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
 

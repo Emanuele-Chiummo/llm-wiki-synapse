@@ -70,9 +70,7 @@ class _FakeQdrant:
 
 async def _setup_sqlite(engine: Any) -> None:
     async with engine.begin() as conn:
-        await conn.execute(
-            sa_text(
-                """
+        await conn.execute(sa_text("""
             CREATE TABLE pages (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -84,12 +82,8 @@ async def _setup_sqlite(engine: Any) -> None:
                 deleted_at TEXT,
                 updated_at TEXT NOT NULL DEFAULT '2025-01-01T00:00:00'
             )
-            """
-            )
-        )
-        await conn.execute(
-            sa_text(
-                """
+            """))
+        await conn.execute(sa_text("""
             CREATE TABLE links (
                 id TEXT PRIMARY KEY,
                 source_page_id TEXT NOT NULL,
@@ -97,12 +91,8 @@ async def _setup_sqlite(engine: Any) -> None:
                 target_page_id TEXT,
                 dangling INTEGER NOT NULL DEFAULT 0
             )
-            """
-            )
-        )
-        await conn.execute(
-            sa_text(
-                """
+            """))
+        await conn.execute(sa_text("""
             CREATE TABLE edges (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -110,12 +100,8 @@ async def _setup_sqlite(engine: Any) -> None:
                 target_page_id TEXT NOT NULL,
                 weight REAL NOT NULL
             )
-            """
-            )
-        )
-        await conn.execute(
-            sa_text(
-                """
+            """))
+        await conn.execute(sa_text("""
             CREATE TABLE vault_state (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -131,9 +117,7 @@ async def _setup_sqlite(engine: Any) -> None:
                 searxng_categories_db TEXT,
                 searxng_max_queries_db INTEGER
             )
-            """
-            )
-        )
+            """))
 
 
 def _uid(tag: int) -> str:
@@ -223,9 +207,7 @@ def _write_source(vault_root: Path, file_path: str, body: str) -> None:
 # ── T-R85-001: type=entity single filter ───────────────────────────────────────
 
 
-async def test_type_filter_single_entity(
-    env: _Env, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_type_filter_single_entity(env: _Env, monkeypatch: pytest.MonkeyPatch) -> None:
     """Only entity-typed pages are returned when type=['entity']."""
     p_entity = _uid(1)
     p_concept = _uid(2)
@@ -422,9 +404,11 @@ async def test_sort_date_desc_orders_newest_first(
     assert len(ctx.citations) == 3
     cited_ids_in_order = [c.ref.id for c in ctx.citations]
     # date_desc: newest first (2026, 2025, 2024)
-    assert cited_ids_in_order == [p_new, p_mid, p_old], (
-        f"Expected [new, mid, old], got {cited_ids_in_order}"
-    )
+    assert cited_ids_in_order == [
+        p_new,
+        p_mid,
+        p_old,
+    ], f"Expected [new, mid, old], got {cited_ids_in_order}"
     # n is contiguous from 1
     ns = [c.n for c in ctx.citations]
     assert ns == [1, 2, 3]
@@ -485,9 +469,7 @@ async def test_sort_date_asc_orders_oldest_first(
     assert len(ctx.citations) == 2
     cited_ids = [c.ref.id for c in ctx.citations]
     # date_asc: oldest first (2024, 2026)
-    assert cited_ids == [p_old, p_new], (
-        f"Expected [old, new], got {cited_ids}"
-    )
+    assert cited_ids == [p_old, p_new], f"Expected [old, new], got {cited_ids}"
     assert ctx.citations[0].n == 1
     assert ctx.citations[1].n == 2
 
@@ -641,9 +623,7 @@ async def test_search_endpoint_422_on_unknown_type() -> None:
 
     from app.main import app as _app
 
-    async with AsyncClient(
-        transport=ASGITransport(app=_app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=_app), base_url="http://test") as client:
         resp = await client.get("/search", params={"q": "hello", "type": "badtype"})
 
     assert resp.status_code == 422, f"Expected 422, got {resp.status_code}: {resp.text}"
@@ -665,9 +645,7 @@ async def test_search_endpoint_422_on_unknown_sort() -> None:
 
     from app.main import app as _app
 
-    async with AsyncClient(
-        transport=ASGITransport(app=_app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=_app), base_url="http://test") as client:
         resp = await client.get("/search", params={"q": "hello", "sort": "newest"})
 
     assert resp.status_code == 422, f"Expected 422, got {resp.status_code}: {resp.text}"
@@ -678,9 +656,7 @@ async def test_search_endpoint_422_on_unknown_sort() -> None:
 # ── T-R85-010: type filter in lexical path (embeddings=False) ─────────────────
 
 
-async def test_type_filter_lexical_path(
-    env: _Env, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_type_filter_lexical_path(env: _Env, monkeypatch: pytest.MonkeyPatch) -> None:
     """
     When embeddings are disabled (lexical path), type_filter is applied at Phase 1 SQL
     AND Phase 4 assembly (defense-in-depth). Only matching-type pages are returned.
@@ -725,7 +701,9 @@ async def test_type_filter_lexical_path(
 
     cited_ids = {c.ref.id for c in ctx.citations}
     assert p_entity in cited_ids, "entity page must be cited in lexical path"
-    assert p_concept not in cited_ids, "concept page must be excluded by type filter in lexical path"
+    assert (
+        p_concept not in cited_ids
+    ), "concept page must be excluded by type filter in lexical path"
 
 
 # ── T-R85-011: sort=relevance explicit default unchanged ──────────────────────

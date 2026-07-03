@@ -68,6 +68,7 @@ def _model_supports_vision(model_id: str) -> bool:
     markers.extend(tok.strip().lower() for tok in extra.split(",") if tok.strip())
     return any(marker and marker in name for marker in markers)
 
+
 # ── num_ctx derivation (BUG A1) ──────────────────────────────────────────────────
 # Ollama defaults options.num_ctx to 4096 and SILENTLY truncates anything longer — long
 # sources + vault context + retry augmentation get cut, causing non-convergence on small

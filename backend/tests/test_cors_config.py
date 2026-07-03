@@ -22,7 +22,7 @@ VITE_ORIGINS = [
 ]
 
 TAURI_ORIGINS = [
-    "tauri://localhost",       # macOS / Linux — Tauri v2 WebKit webview
+    "tauri://localhost",  # macOS / Linux — Tauri v2 WebKit webview
     "http://tauri.localhost",  # Windows — Tauri v2 WebView2
 ]
 
@@ -45,23 +45,22 @@ class TestCorsOriginDefault:
         raw = _get_cors_default()
         for origin in VITE_ORIGINS:
             assert origin in raw, (
-                f"Expected Vite origin {origin!r} in cors_allow_origins default. "
-                f"Got: {raw!r}"
+                f"Expected Vite origin {origin!r} in cors_allow_origins default. " f"Got: {raw!r}"
             )
 
     def test_default_contains_tauri_macos_linux_origin(self) -> None:
         """tauri://localhost must be in the default (macOS/Linux WebKit webview, ADR-0047 §C4)."""
         raw = _get_cors_default()
-        assert "tauri://localhost" in raw, (
-            f"Expected 'tauri://localhost' in cors_allow_origins default. Got: {raw!r}"
-        )
+        assert (
+            "tauri://localhost" in raw
+        ), f"Expected 'tauri://localhost' in cors_allow_origins default. Got: {raw!r}"
 
     def test_default_contains_tauri_windows_origin(self) -> None:
         """http://tauri.localhost must be in the default (Windows WebView2, ADR-0047 §C4)."""
         raw = _get_cors_default()
-        assert "http://tauri.localhost" in raw, (
-            f"Expected 'http://tauri.localhost' in cors_allow_origins default. Got: {raw!r}"
-        )
+        assert (
+            "http://tauri.localhost" in raw
+        ), f"Expected 'http://tauri.localhost' in cors_allow_origins default. Got: {raw!r}"
 
     def test_default_does_not_contain_wildcard(self) -> None:
         """
@@ -81,9 +80,9 @@ class TestCorsOriginDefault:
         """The default must produce a non-empty origins list."""
         raw = _get_cors_default()
         parsed = [o.strip() for o in raw.split(",") if o.strip()]
-        assert len(parsed) >= 4, (
-            f"Expected at least 4 origins in the default list, got {len(parsed)}: {parsed}"
-        )
+        assert (
+            len(parsed) >= 4
+        ), f"Expected at least 4 origins in the default list, got {len(parsed)}: {parsed}"
 
 
 class TestCorsOriginsListProperty:
@@ -111,9 +110,9 @@ class TestCorsOriginsListProperty:
             )
             origins = cfg.settings.cors_origins_list
             for origin in REQUIRED_ORIGINS:
-                assert origin in origins, (
-                    f"cors_origins_list missing {origin!r}. Full list: {origins}"
-                )
+                assert (
+                    origin in origins
+                ), f"cors_origins_list missing {origin!r}. Full list: {origins}"
         finally:
             cfg.settings.cors_allow_origins = original
 
@@ -129,9 +128,9 @@ class TestCorsOriginsListProperty:
                 "tauri://localhost,"
                 "http://tauri.localhost"
             )
-            assert "*" not in cfg.settings.cors_origins_list, (
-                "cors_origins_list must not contain '*' with allow_credentials=True"
-            )
+            assert (
+                "*" not in cfg.settings.cors_origins_list
+            ), "cors_origins_list must not contain '*' with allow_credentials=True"
         finally:
             cfg.settings.cors_allow_origins = original
 
@@ -141,13 +140,11 @@ class TestCorsOriginsListProperty:
 
         original = cfg.settings.cors_allow_origins
         try:
-            cfg.settings.cors_allow_origins = (
-                " http://localhost:5173 , http://127.0.0.1:5173 "
-            )
+            cfg.settings.cors_allow_origins = " http://localhost:5173 , http://127.0.0.1:5173 "
             for origin in cfg.settings.cors_origins_list:
-                assert origin == origin.strip(), (
-                    f"Origin {origin!r} has leading/trailing whitespace"
-                )
+                assert (
+                    origin == origin.strip()
+                ), f"Origin {origin!r} has leading/trailing whitespace"
         finally:
             cfg.settings.cors_allow_origins = original
 
@@ -157,9 +154,7 @@ class TestCorsOriginsListProperty:
 
         original = cfg.settings.cors_allow_origins
         try:
-            cfg.settings.cors_allow_origins = (
-                "http://localhost:5173,,http://127.0.0.1:5173,"
-            )
+            cfg.settings.cors_allow_origins = "http://localhost:5173,,http://127.0.0.1:5173,"
             result = cfg.settings.cors_origins_list
             assert "" not in result
             assert len(result) == 2

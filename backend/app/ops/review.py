@@ -41,9 +41,10 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from sqlalchemy import func, select
+from sqlalchemy.engine import CursorResult
 
 from app.config import settings
 from app.db import get_session
@@ -1053,7 +1054,7 @@ def _build_schema_pattern_instruction(
         "no change. Do NOT invent conventions the pages do not actually exhibit.\n\n"
         f"# Current schema.md\n{schema_block}\n\n"
         f"# Frontmatter of pages written this run\n{frontmatter_digest}\n\n"
-        'Return ONLY a JSON object. If no schema change is warranted, return '
+        "Return ONLY a JSON object. If no schema change is warranted, return "
         '{"needs_change": false}. If a new convention SHOULD be codified, return '
         '{"needs_change": true, "convention": "<short name of the convention, ≤6 words>", '
         '"why": "<one sentence: what recurring pattern you observed and why schema.md should '
@@ -1659,9 +1660,7 @@ async def propose_reviews(
         # Bounded indexed reads (reuse the exact target_page_title lookup pattern). Titles that
         # do not resolve to a live page are DROPPED — the model must not fabricate references
         # (Do-NOT #4: JSON array, no FK). Rule-based ids (resolved by id) are merged in first.
-        referenced_ids: list[str] = list(
-            _rule_ref_ids.get(proposal.proposed_title or "", [])
-        )
+        referenced_ids: list[str] = list(_rule_ref_ids.get(proposal.proposed_title or "", []))
         ref_cap = int(getattr(settings, "review_referenced_pages_max", 8))
         for ref_title in proposal.referenced_page_titles[:ref_cap]:
             if len(referenced_ids) >= ref_cap:
@@ -1958,9 +1957,7 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
             ) from exc
 
         async with get_session() as session:
-            row_ps = await session.execute(
-                select(ReviewItem).where(ReviewItem.id == item_id_str)
-            )
+            row_ps = await session.execute(select(ReviewItem).where(ReviewItem.id == item_id_str))
             item_ps = row_ps.scalar_one_or_none()
             if item_ps is None:
                 raise HTTPException(status_code=404, detail=f"Review item {item_id} not found")
@@ -2002,9 +1999,7 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
             ) from exc
 
         async with get_session() as session:
-            row_ss = await session.execute(
-                select(ReviewItem).where(ReviewItem.id == item_id_str)
-            )
+            row_ss = await session.execute(select(ReviewItem).where(ReviewItem.id == item_id_str))
             item_ss = row_ss.scalar_one_or_none()
             if item_ss is None:
                 raise HTTPException(status_code=404, detail=f"Review item {item_id} not found")
@@ -2308,11 +2303,14 @@ async def clear_resolved_reviews(vault_id: str) -> int:
     from sqlalchemy import delete
 
     async with get_session() as session:
-        result = await session.execute(
-            delete(ReviewItem).where(
-                ReviewItem.vault_id == vault_id,
-                ReviewItem.status.in_(list(_TERMINAL_STATUSES)),
-            )
+        result = cast(
+            "CursorResult[Any]",
+            await session.execute(
+                delete(ReviewItem).where(
+                    ReviewItem.vault_id == vault_id,
+                    ReviewItem.status.in_(list(_TERMINAL_STATUSES)),
+                )
+            ),
         )
         deleted = int(result.rowcount or 0)
 

@@ -453,7 +453,7 @@ class TestBuildSdkMcpServerBoundOrigin:
         effective_origin computed by the closure (`bound or tool_arg`).
         """
         import uuid
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import MagicMock, patch
 
         bound = "raw/sources/delegated-run.md"
 
@@ -464,7 +464,9 @@ class TestBuildSdkMcpServerBoundOrigin:
 
         written_origin: list[str] = []
 
-        async def _capture_wwp(session: object, wiki_page: object, origin_source_arg: str) -> MagicMock:  # noqa: ANN001
+        async def _capture_wwp(
+            session: object, wiki_page: object, origin_source_arg: str
+        ) -> MagicMock:  # noqa: ANN001
             written_origin.append(origin_source_arg)
             return fake_page_row
 
@@ -489,6 +491,6 @@ class TestBuildSdkMcpServerBoundOrigin:
             )
 
         assert "error" not in result, f"unexpected error: {result}"
-        assert written_origin == [bound], (
-            f"write_wiki_page received origin_source={written_origin!r}, expected {bound!r}"
-        )
+        assert written_origin == [
+            bound
+        ], f"write_wiki_page received origin_source={written_origin!r}, expected {bound!r}"

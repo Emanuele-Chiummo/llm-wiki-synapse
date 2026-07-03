@@ -27,12 +27,10 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
-
 from app.ingest.queue_manager import (
     MAX_INGEST_RETRIES,
     IngestQueueManager,
 )
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -423,7 +421,6 @@ class TestPathNormalizationRegression:
         Previously this failed when open_run received a RELATIVE path but should_skip
         received an ABSOLUTE path — the key mismatch made the suppression miss.
         """
-        import time
 
         mgr = make_manager()
         abs_path = "/vault/raw/sources/x.md"
@@ -446,7 +443,6 @@ class TestPathNormalizationRegression:
         is prevented by the fix — i.e. the queue now enforces absolute keys on both
         sides, so the mismatch scenario cannot silently re-admit.
         """
-        import time
 
         mgr = make_manager()
         abs_path = "/vault/raw/sources/y.md"
@@ -467,7 +463,6 @@ class TestPathNormalizationRegression:
         Full reproduce of the live bug: pause → ingest reaches processing →
         cancel → resume → the cancelled path must NOT reappear in _pending.
         """
-        import time
 
         mgr = make_manager()
         abs_path = "/vault/raw/sources/cancel-test.md"
@@ -496,7 +491,10 @@ class TestPathNormalizationRegression:
     def test_display_path_helper(self) -> None:
         """_display_path strips /vault/ prefix to give a clean relative display form."""
         assert IngestQueueManager._display_path("/vault/raw/sources/foo.md") == "raw/sources/foo.md"
-        assert IngestQueueManager._display_path("/data/vault/raw/sources/bar.md") == "raw/sources/bar.md"
+        assert (
+            IngestQueueManager._display_path("/data/vault/raw/sources/bar.md")
+            == "raw/sources/bar.md"
+        )
         # Fall back to basename when the marker is absent
         assert IngestQueueManager._display_path("/some/other/path/baz.txt") == "baz.txt"
 
@@ -514,7 +512,6 @@ class TestIngestCancelledException:
 
     def test_cancel_event_triggers_ingest_cancelled(self) -> None:
         """Verify the cancel check in run_orchestrated_loop raises IngestCancelled."""
-        import asyncio
 
         from app.ingest.loop import IngestCancelled, run_orchestrated_loop
         from app.ingest.provider.base import UsageAccumulator
@@ -528,6 +525,7 @@ class TestIngestCancelledException:
 
             async def analyze(self, source_text: str, vault_context: str) -> object:
                 from app.ingest.schemas import Analysis, PageType, SuggestedPage
+
                 cancel_event.set()  # set before first generate() check
                 return Analysis(
                     topics=["t"],
@@ -638,35 +636,43 @@ class TestPhaseToProgress:
 
     def test_queued(self) -> None:
         from app.ingest.queue_manager import _phase_to_progress
+
         assert _phase_to_progress("queued") == 0.0
 
     def test_analyzing(self) -> None:
         from app.ingest.queue_manager import _phase_to_progress
+
         assert _phase_to_progress("analyzing") == 0.2
 
     def test_generating_prefix(self) -> None:
         from app.ingest.queue_manager import _phase_to_progress
+
         assert _phase_to_progress("generating (1/3)") == 0.5
         assert _phase_to_progress("generating (2/3)") == 0.5
 
     def test_validating(self) -> None:
         from app.ingest.queue_manager import _phase_to_progress
+
         assert _phase_to_progress("validating") == 0.8
 
     def test_writing(self) -> None:
         from app.ingest.queue_manager import _phase_to_progress
+
         assert _phase_to_progress("writing") == 0.95
 
     def test_agent_running_is_none(self) -> None:
         from app.ingest.queue_manager import _phase_to_progress
+
         assert _phase_to_progress("agent running") is None
 
     def test_unknown_phase_is_none(self) -> None:
         from app.ingest.queue_manager import _phase_to_progress
+
         assert _phase_to_progress("something_unknown") is None
 
     def test_failed_phase_is_none(self) -> None:
         from app.ingest.queue_manager import _phase_to_progress
+
         assert _phase_to_progress("failed") is None
 
 
@@ -683,8 +689,7 @@ class TestEtaComputation:
 
     def test_eta_computed_when_avg_available(self) -> None:
         """eta_seconds = max(0, round(avg_duration - elapsed))."""
-        import time
-        from datetime import UTC, datetime, timedelta
+        from datetime import timedelta
 
         mgr = make_manager()
         run_id = uuid.uuid4()
@@ -702,7 +707,7 @@ class TestEtaComputation:
 
     def test_eta_zero_when_elapsed_exceeds_avg(self) -> None:
         """eta_seconds floors at 0 when elapsed > avg (run took longer than expected)."""
-        from datetime import UTC, datetime, timedelta
+        from datetime import timedelta
 
         mgr = make_manager()
         run_id = uuid.uuid4()
@@ -738,7 +743,7 @@ class TestEtaComputation:
 
     def test_elapsed_seconds_increases_over_time(self) -> None:
         """elapsed_seconds reflects wall-clock time since started_at."""
-        from datetime import UTC, datetime, timedelta
+        from datetime import timedelta
 
         mgr = make_manager()
         run_id = uuid.uuid4()
@@ -769,7 +774,6 @@ class TestOnPhaseCallback:
     """Verify on_phase is called at the correct loop boundaries."""
 
     def test_on_phase_called_with_correct_phases(self) -> None:
-        import asyncio
 
         from app.ingest.loop import run_orchestrated_loop
         from app.ingest.provider.base import UsageAccumulator
@@ -831,7 +835,6 @@ class TestOnPhaseCallback:
 
     def test_on_phase_none_does_not_raise(self) -> None:
         """on_phase=None (default) must not cause any error."""
-        import asyncio
 
         from app.ingest.loop import run_orchestrated_loop
         from app.ingest.provider.base import UsageAccumulator

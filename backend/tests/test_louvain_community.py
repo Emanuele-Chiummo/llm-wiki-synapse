@@ -15,9 +15,7 @@ Coverage:
 
 from __future__ import annotations
 
-import uuid
 from typing import Any
-from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -81,8 +79,9 @@ class TestComputeLouvainCommunities:
         Build a graph with 4 nodes in one cluster and 1 isolated.
         The 4-node cluster should be community 0.
         """
-        from app.graph.engine import _compute_louvain_communities
         from collections import Counter
+
+        from app.graph.engine import _compute_louvain_communities
 
         # 4-node clique + 1 isolated node
         n = 5
@@ -94,9 +93,9 @@ class TestComputeLouvainCommunities:
         counts = Counter(result)
         # id 0 must be the largest community
         most_common_id, _ = counts.most_common(1)[0]
-        assert most_common_id == 0, (
-            f"Expected community 0 to be the largest; got distribution {dict(counts)}"
-        )
+        assert (
+            most_common_id == 0
+        ), f"Expected community 0 to be the largest; got distribution {dict(counts)}"
 
     def test_connected_nodes_may_share_community(self) -> None:
         """Two strongly connected nodes tend to share a community (heuristic check)."""
@@ -207,13 +206,13 @@ class TestGraphSnapshotCommunities:
 async def graph_client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
     """Minimal client for GET /graph with community data in the fake snapshot."""
     import uuid as _uuid
-    from sqlalchemy import text as sa_text
-    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-    from sqlalchemy.pool import StaticPool
-    from httpx import ASGITransport, AsyncClient
 
     from app import config as cfg
     from app.graph.engine import CommunitySnapshot, EdgeSnapshot, GraphSnapshot, NodeSnapshot
+    from httpx import ASGITransport, AsyncClient
+    from sqlalchemy import text as sa_text
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
 
     vault_root = tmp_path / "vault"
     vault_root.mkdir()
@@ -237,9 +236,7 @@ async def graph_client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
         poolclass=StaticPool,
     )
     async with engine_db.begin() as conn:
-        await conn.execute(
-            sa_text(
-                """
+        await conn.execute(sa_text("""
             CREATE TABLE pages (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL,
@@ -258,12 +255,8 @@ async def graph_client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
-        """
-            )
-        )
-        await conn.execute(
-            sa_text(
-                """
+        """))
+        await conn.execute(sa_text("""
             CREATE TABLE vault_state (
                 id TEXT PRIMARY KEY,
                 vault_id TEXT NOT NULL UNIQUE,
@@ -280,9 +273,7 @@ async def graph_client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
                 searxng_max_queries_db INTEGER,
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
-        """
-            )
-        )
+        """))
         await conn.execute(
             sa_text(
                 "INSERT INTO vault_state (id, vault_id, data_version, updated_at) "
@@ -360,18 +351,18 @@ class TestGraphCommunityResponse:
         assert len(body["nodes"]) > 0
         for node in body["nodes"]:
             assert "community" in node, f"Node missing 'community' field: {node}"
-            assert isinstance(node["community"], int), (
-                f"community must be int, got {type(node['community'])}"
-            )
+            assert isinstance(
+                node["community"], int
+            ), f"community must be int, got {type(node['community'])}"
 
     async def test_nodes_community_matches_snapshot(self, graph_client: Any) -> None:
         """Nodes return the community values from the snapshot."""
         resp = await graph_client.get("/graph")
         body = resp.json()
         for node in body["nodes"]:
-            assert node["community"] == 0, (
-                f"Expected community=0 from fake snapshot, got {node['community']}"
-            )
+            assert (
+                node["community"] == 0
+            ), f"Expected community=0 from fake snapshot, got {node['community']}"
 
     async def test_communities_summary_present(self, graph_client: Any) -> None:
         """GET /graph response includes a 'communities' array."""
@@ -405,9 +396,9 @@ class TestGraphCommunityResponse:
         resp = await graph_client.get("/graph")
         body = resp.json()
         for comm in body["communities"]:
-            assert 0.0 <= comm["cohesion"] <= 1.0, (
-                f"Cohesion out of [0,1] range: {comm['cohesion']}"
-            )
+            assert (
+                0.0 <= comm["cohesion"] <= 1.0
+            ), f"Cohesion out of [0,1] range: {comm['cohesion']}"
 
     async def test_openapi_graph_has_community_in_node(self, graph_client: Any) -> None:
         """OpenAPI schema for GET /graph nodes includes 'community' property."""

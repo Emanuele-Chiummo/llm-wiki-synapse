@@ -170,7 +170,9 @@ class TestDisabledByDefault:
             )
 
         assert item is None
-        assert provider._chat_calls[0] == 0, "disabled → must short-circuit before any provider call"
+        assert (
+            provider._chat_calls[0] == 0
+        ), "disabled → must short-circuit before any provider call"
         assert await _count_schema_suggestions(review_env_0034) == 0
 
 
@@ -386,9 +388,12 @@ class TestProviderFailure:
         for i in range(5):
             await _insert_source_page(review_env_0034, title=f"Src {i}")
 
-        with _enable_schema(), patch(
-            "app.ops.review._resolve_review_provider",
-            new=AsyncMock(return_value=None),
+        with (
+            _enable_schema(),
+            patch(
+                "app.ops.review._resolve_review_provider",
+                new=AsyncMock(return_value=None),
+            ),
         ):
             item = await review_mod.generate_schema_suggestion(
                 vault_id="test-vault",

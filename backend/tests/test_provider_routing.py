@@ -134,13 +134,13 @@ def _patch_persistence(monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
     written: list = []
     runs: list = []
 
-    import uuid as _uuid
-
     async def fake_write_wiki_page(session, page, origin):  # type: ignore[no-untyped-def]
         written.append(page)
+
         # Return a stub with .id so record_written() doesn't fail (ADR-0046)
         class _PageStub:
             id = _uuid.uuid4()
+
         return _PageStub()
 
     async def fake_update_overview(analysis, origin):  # type: ignore[no-untyped-def]
