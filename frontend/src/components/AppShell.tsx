@@ -34,6 +34,7 @@ import { ConnectScreen } from "./connect/ConnectScreen";
 import { TokenGate } from "./connect/TokenGate";
 import { CommandPalette } from "./common/CommandPalette";
 import { UpdateBanner } from "./common/UpdateBanner";
+import { VersionMismatchBanner } from "./common/VersionMismatchBanner";
 import { FirstRunWizard, useFirstRunSetup } from "./setup/FirstRunWizard";
 import { isTauri, register401Handler } from "../api/base";
 import {
@@ -151,6 +152,9 @@ export function AppShell() {
 
       {/* ── Row 1b: Update banner (ADR-0049 §U4 — Tauri-only, slim, dismissible) ── */}
       <UpdateBanner state={updaterState} />
+
+      {/* ── Row 1c: Version mismatch banner (R12-3/ADR-0054 §6 — non-blocking) ── */}
+      <VersionMismatchBanner />
 
       {/* ── Row 2: NavRail + SectionRouter ─────────────────────────────────── */}
       {/* minHeight:0 ensures height:100% inside children resolves in flex-column. */}

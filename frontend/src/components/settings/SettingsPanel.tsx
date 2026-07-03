@@ -393,6 +393,7 @@ function GroupAdvanced() {
           "embedding_format",
           "overview_language",
           "wikilink_enrich_enabled",
+          "domain_vocabulary",
         ]}
       />
       <GroupDivider />
@@ -667,6 +668,8 @@ function configKeyToI18nSuffix(key: AppConfigKey): string {
     embedding_format:           "embeddingFormat",
     overview_language:          "overviewLanguage",
     wikilink_enrich_enabled:    "wikilinkEnrichEnabled",
+    // S9 — ADR-0054 §2.1, F18
+    domain_vocabulary:          "domainVocabulary",
   };
   return map[key];
 }
@@ -777,6 +780,49 @@ function RcControl({
         placeholder={t("config.markerServiceUrl.placeholder")}
         style={INPUT_STYLE}
       />
+    );
+  }
+
+  // S9: domain_vocabulary — tag-chip textarea (JSON array wire format, ADR-0054 §2.1).
+  // The UI shows a plain comma-separated text input; the user types domain names
+  // WITHOUT the "domain/" prefix (that prefix is an implementation detail hidden here).
+  // On save the parent serialises the current localValue as a JSON array string.
+  // We store comma-separated text in localValue; the parent's onSave sends it as-is
+  // (the backend validates & normalises the JSON array format).
+  if (configKey === "domain_vocabulary") {
+    // Parse the stored JSON array into a comma-separated display value.
+    // localValue may be "" (not yet set), a JSON array string, or comma-separated text
+    // (after first edit). We normalise the display on first render only.
+    let displayValue = entry.localValue;
+    if (displayValue.trim().startsWith("[")) {
+      try {
+        const parsed = JSON.parse(displayValue) as string[];
+        displayValue = parsed.join(", ");
+      } catch {
+        // leave as-is if malformed
+      }
+    }
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <input
+          type="text"
+          data-testid="rc-control-domain_vocabulary"
+          value={displayValue}
+          onChange={(e) => {
+            // Serialise the comma-separated user input as a JSON array string so the
+            // backend receives the canonical wire format (ADR-0054 §2.1).
+            const raw = e.target.value;
+            const names = raw.split(",").map((s) => s.trim()).filter(Boolean);
+            const jsonValue = JSON.stringify(names);
+            onLocalChange(configKey, jsonValue);
+          }}
+          placeholder={t("config.domainVocabulary.placeholder")}
+          style={INPUT_STYLE}
+        />
+        <p style={{ margin: 0, fontSize: 10, color: "var(--syn-text-dim)", lineHeight: 1.4 }}>
+          {t("config.domainVocabulary.chipHint")}
+        </p>
+      </div>
     );
   }
 

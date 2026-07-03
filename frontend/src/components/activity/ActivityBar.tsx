@@ -43,6 +43,7 @@ import { ConfirmDialog } from "../common/ConfirmDialog";
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
 import { useGraphMeta } from "../../store/graphStore";
 import { fetchStatus } from "../../api/pagesClient";
+import { useStatusStore } from "../../store/statusStore";
 import { useProviderStore, selectActiveProvider } from "../../store/providerStore";
 import {
   useActivityStore,
@@ -406,6 +407,8 @@ export function ActivityBar(): ReactNode {
         const res = await fetchStatus(ctrl.signal);
         if (!ctrl.signal.aborted) {
           setStatus({ dataVersion: res.data_version, uptimeSeconds: res.uptime_seconds });
+          // Surface backend version to statusStore (R12-3/ADR-0054 §6 — no new poller).
+          useStatusStore.getState().setBackendVersion(res.version);
           setPollError(false);
         }
       } catch {

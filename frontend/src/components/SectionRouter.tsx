@@ -2,6 +2,7 @@
  * SectionRouter.tsx — reads activeSection from graphStore and renders the matching layout.
  *
  * Section → layout mapping:
+ *   home        → <HomeDashboard/> (v1.2 [F18/R12-1] — landing dashboard, default section)
  *   chat        → <ChatSection/>
  *   pages       → <PanelGroup/>  (NavTree | GraphPanel | PreviewPanel)
  *   sources     → <SourcesView/> (v0.6 [F11] — raw-source file browser)
@@ -35,6 +36,7 @@ import { LintView } from "./lint/LintView";
 import { SearchView } from "./search/SearchView";
 import { SourcesView } from "./sources/SourcesView";
 import { ConvertPanel } from "./convert/ConvertPanel";
+import { HomeDashboard } from "./home/HomeDashboard";
 
 // ─── SectionRouter ────────────────────────────────────────────────────────────
 
@@ -48,6 +50,17 @@ export function SectionRouter() {
 }
 
 function SectionContent({ activeSection }: { activeSection: ReturnType<typeof selectActiveSection> }) {
+
+  if (activeSection === "home") {
+    return (
+      <div
+        style={{ flex: 1, overflow: "auto", width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        data-testid="section-home"
+      >
+        <HomeDashboard />
+      </div>
+    );
+  }
 
   if (activeSection === "chat") {
     return <ChatSection />;

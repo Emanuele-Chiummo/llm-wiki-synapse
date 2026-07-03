@@ -1,5 +1,6 @@
 {
   "nav": {
+    "home": "Home",
     "chat": "Chat",
     "wiki": "Wiki",
     "pages": "Wiki",
@@ -984,6 +985,12 @@
       "on": "Enabled",
       "off": "Disabled"
     },
+    "domainVocabulary": {
+      "label": "Domain vocabulary",
+      "help": "Comma-separated list of domain names. Pages ingested after this is set will be auto-tagged against this vocabulary (domain/Name tag convention). Empty = feature dormant, no provider calls.",
+      "placeholder": "e.g. ServiceNow, SAM, Procurement, TPRM",
+      "chipHint": "Enter domain names separated by commas. Do not include the domain/ prefix — it is added automatically."
+    },
     "pdfExtractorSection": {
       "title": "PDF extraction",
       "desc": "Configure which engine extracts text from PDF files and how to reach the Marker microservice."
@@ -1036,6 +1043,42 @@
       "title": "All set!",
       "desc": "Synapse is configured and ready. You can adjust these settings any time from Settings › Getting started.",
       "cta": "Start using Synapse"
+    }
+  },
+  "home": {
+    "title": "Home",
+    "subtitle": "At-a-glance view of your knowledge base",
+    "kpi": {
+      "ariaLabel": "Key performance indicators",
+      "pagesTotal": "Pages",
+      "linksTotal": "Links",
+      "communities": "Communities",
+      "reviewPending": "Review",
+      "lintOpen": "Lint",
+      "monthlyCost": "Monthly spend",
+      "dataVersion": "Data version"
+    },
+    "activity": {
+      "ariaLabel": "Recent activity",
+      "title": "Recent activity",
+      "empty": "No recent activity."
+    },
+    "sections": {
+      "ariaLabel": "Domain sections",
+      "title": "Domains",
+      "untaggedLabel": "Untagged",
+      "filterHint": "Browse",
+      "emptyVocab": "No domain vocabulary configured. Add domains in Settings › Advanced to see per-domain breakdowns.",
+      "goSettings": "Configure domains"
+    },
+    "placeholder": {
+      "title": "Server v1.1 — update to enable the Home dashboard",
+      "body": "The backend does not yet expose /stats/overview or /stats/sections. Update the backend to v1.2 to enable the Home dashboard."
+    },
+    "versionBanner": {
+      "message": "Server is at v{{backendVersion}} — frontend expects v{{appVersion}}. Update the backend image to get the latest features.",
+      "deployLink": "How to update",
+      "dismiss": "Dismiss version notice"
     }
   }
 }

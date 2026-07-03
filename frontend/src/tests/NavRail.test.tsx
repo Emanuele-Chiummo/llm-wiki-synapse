@@ -7,12 +7,14 @@
  * v0.6 (F5/llm_wiki parity): Search added to TOP_ITEMS between Sources and Graph.
  * sprint/v1.1 (R11-3): Logo removed from NavRail; branding lives in Header only.
  * sprint/v1.1 (R11-1/A1): Convert section added to M5_ITEMS (F12 Marker PDF conversion).
+ * sprint/v1.2 (R12-1/F18): Home section added to TOP_ITEMS as the first (top) item.
  *
  * Covers:
  *   AC-HARD-LBL-7: each rendered item has both an SVG icon and a visible label span.
- *   AC-HARD-M5P-6 (updated for v1.1): search PRESENT; lint + deep-search + review + convert present.
- *   AC-HARD-ORD-1 (updated for v1.1): exactly 11 interactive items
- *                  (Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Ingest/Convert/Settings).
+ *   AC-HARD-M5P-6 (updated for v1.2): search PRESENT; lint + deep-search + review + convert present.
+ *   AC-HARD-ORD-1 (updated for v1.2): exactly 12 interactive items
+ *                  (Home/Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Ingest/Convert/Settings).
+ *   AC-R12-1-4: Home icon is present at the top of the NavRail.
  *   AC-F10-8a: "Deep Search" nav item renders in the rail.
  *   AC-F9-5: "Review" nav item renders in the rail.
  *   AC-R11-3-1: NavRail contains no Synapse brand SVG / logo image.
@@ -69,15 +71,20 @@ function renderNavRail() {
 // v1.1 [R11-1/A1]: "convert" added to M5_ITEMS (Marker PDF conversion surface).
 // Total interactive items = 11.
 
-describe("NavRail — item count and order (AC-HARD-ORD-1 v1.1+Convert, AC-F10-8a, AC-F9-5)", () => {
+describe("NavRail — item count and order (AC-HARD-ORD-1 v1.2+Home, AC-R12-1-4, AC-F10-8a, AC-F9-5)", () => {
   beforeEach(() => {
     renderNavRail();
   });
 
-  it("renders exactly 11 interactive buttons (Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Ingest/Convert/Settings)", () => {
+  it("renders exactly 12 interactive buttons (Home/Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Ingest/Convert/Settings) [R12-1]", () => {
     const buttons = screen.getAllByRole("button");
-    // 11 nav buttons: chat, pages, sources, search, graph, lint, review, deep-search, ingest, convert, settings
-    expect(buttons).toHaveLength(11);
+    // 12 nav buttons: home, chat, pages, sources, search, graph, lint, review, deep-search, ingest, convert, settings
+    expect(buttons).toHaveLength(12);
+  });
+
+  it("AC-R12-1-4: renders a Home button at the top of the rail (data-section='home')", () => {
+    const homeBtn = document.querySelector("[data-section='home']");
+    expect(homeBtn).not.toBeNull();
   });
 
   it("renders a Chat button", () => {
@@ -119,7 +126,7 @@ describe("NavRail — item count and order (AC-HARD-ORD-1 v1.1+Convert, AC-F10-8
 
 // ─── AC-HARD-M5P-6 (v1.1+Convert update) + AC-F10-8a + AC-F9-5 ─────────────
 
-describe("NavRail — v1.1+Convert items (AC-HARD-M5P-6 updated, AC-F10-8a, AC-F9-5)", () => {
+describe("NavRail — v1.2+Home items (AC-HARD-M5P-6 updated, AC-R12-1-4, AC-F10-8a, AC-F9-5)", () => {
   beforeEach(() => {
     renderNavRail();
   });
