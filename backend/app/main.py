@@ -135,6 +135,7 @@ from app.models import (
     ReviewItem,
     VaultState,
 )
+from app.ops_scheduler import OpsScheduler
 from app.qdrant_client import ensure_collection
 from app.scenarios_data import SCENARIO_INDEX as _SCENARIO_INDEX
 from app.scenarios_data import SCENARIOS as _SCENARIOS
@@ -146,6 +147,7 @@ from app.watcher import start_watcher, stop_watcher
 # ── Module-level singletons (initialised in lifespan) ─────────────────────────
 _graph_cache: GraphCache | None = None
 _import_scheduler: ImportScheduler | None = None
+_ops_scheduler: OpsScheduler | None = None
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -841,7 +843,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     that MCP sessions are properly initialised before serving requests and torn down on
     shutdown. FastAPI does NOT forward lifespan events to mounted sub-apps automatically.
     """
-    global _started_at, _graph_cache, _import_scheduler
+    global _started_at, _graph_cache, _import_scheduler, _ops_scheduler
     _started_at = datetime.now(UTC)
 
     # 1. Vault skeleton (K1, I5, AC-K7-1)
@@ -898,6 +900,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _import_scheduler.start()
     logger.info("ImportScheduler started")
 
+    # 6c. Start OpsScheduler asyncio task (R12-7/A5; AFTER load_overrides so schedule keys
+    #     are effective on the first tick — the scheduler reads them from the in-memory cache).
+    _ops_scheduler = OpsScheduler()
+    _ops_scheduler.start()
+    logger.info("OpsScheduler started")
+
     # 6b. Inject singletons into the health details router (R9-2) so it can read
     #     GraphCache and ImportScheduler state without circular imports.
     from app.health import set_health_singletons  # noqa: PLC0415
@@ -926,6 +934,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         yield
 
     # ── Shutdown ───────────────────────────────────────────────────────────────
+    if _ops_scheduler is not None:
+        _ops_scheduler.stop()
     if _import_scheduler is not None:
         _import_scheduler.stop()
     if _graph_cache is not None:
@@ -938,19 +948,32 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 def _resolve_backend_version() -> str:
-    """Backend version, preferring the release-stamped APP_VERSION env (ADR-0054 §6).
+    """Backend version, truthful in every deployment mode (ADR-0054 §6, R12-3).
 
     Priority:
-      1. APP_VERSION env var (set by the GHCR image build from the git tag, Dockerfile
-         ARG/ENV — R12-3). A leading 'v' is stripped ('v1.2.0' → '1.2.0').
-      2. importlib.metadata of the installed package. CAVEAT: for editable/dev installs
-         this is frozen at `pip install -e` time and can lag pyproject.toml — which is
-         exactly why the env var wins when present.
-      3. 'dev' fallback.
+      1. APP_VERSION env var (release-stamped by the GHCR image build from the git tag,
+         Dockerfile ARG/ENV). A leading 'v' is stripped ('v1.2.0' → '1.2.0').
+      2. pyproject.toml NEXT TO THE SOURCE — always current for source-mounted dev
+         containers and editable installs, where importlib.metadata is frozen at
+         `pip install` time (observed lagging at 0.1.0 on the dev container).
+      3. importlib.metadata of the installed package (non-editable installs).
+      4. 'dev' fallback.
     """
     env_version = os.environ.get("APP_VERSION", "").strip().lstrip("v")
     if env_version and env_version != "dev":
         return env_version
+
+    pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
+    try:
+        import tomllib  # noqa: PLC0415 — stdlib (py3.11+), lazy: only this fallback needs it
+
+        with pyproject.open("rb") as fh:
+            version = tomllib.load(fh).get("project", {}).get("version")
+        if isinstance(version, str) and version.strip():
+            return version.strip()
+    except OSError:
+        pass
+
     try:
         installed: str = importlib.metadata.version("synapse-backend")
     except importlib.metadata.PackageNotFoundError:
@@ -1141,6 +1164,131 @@ async def get_backfill_domains_status() -> BackfillDomainsStatusResponse:
         running=_bd.is_running(),
         last_summary=asdict(last) if last is not None else None,
     )
+
+
+# ── GET /ops/schedules + POST /ops/schedules/{op}/run-now (R12-7/A5) ─────────
+# OpsScheduler status + manual trigger. Schedule FREQUENCIES are set via the existing
+# PUT /config/app/{key} (S10 lint_schedule / S11 backfill_schedule — no new write endpoint).
+
+
+class OpsScheduleEntry(BaseModel):
+    """One row in the GET /ops/schedules response — state of one schedulable op."""
+
+    op: str = Field(description="Operation name: 'lint' or 'backfill'")
+    schedule: str = Field(description="Effective schedule: off|hourly|daily|weekly")
+    last_run_at: str | None = Field(
+        default=None, description="ISO-8601 timestamp of the last completed run, or null."
+    )
+    last_status: str | None = Field(
+        default=None, description="'ok' | 'error:<msg>' | null (never run)."
+    )
+    in_flight: bool = Field(description="True while this op is currently executing.")
+
+
+class OpsSchedulesResponse(BaseModel):
+    """Response body for GET /ops/schedules."""
+
+    ops: list[OpsScheduleEntry]
+
+
+@app.get(
+    "/ops/schedules",
+    response_model=OpsSchedulesResponse,
+    summary="List schedulable ops with their effective schedule and last-run state (R12-7/A5)",
+    description=(
+        "Returns the in-memory state of the OpsScheduler for each schedulable op "
+        "(lint, backfill). Schedule frequencies are set via PUT /config/app/lint_schedule "
+        "and PUT /config/app/backfill_schedule (S10/S11 — allowed values: "
+        "off|hourly|daily|weekly). "
+        "State is in-memory and resets on container restart. "
+        "Auth: SynapseAuthMiddleware (ADR-0052)."
+    ),
+)
+async def get_ops_schedules() -> OpsSchedulesResponse:
+    """GET /ops/schedules — OpsScheduler state for lint and backfill ops (R12-7/A5)."""
+    from app.config_overrides import get_effective  # noqa: PLC0415
+    from app.ops_scheduler import _OP_NAMES  # noqa: PLC0415
+
+    scheduler = _ops_scheduler
+
+    entries: list[OpsScheduleEntry] = []
+    for op in _OP_NAMES:
+        schedule_key = f"{op}_schedule"
+        schedule = get_effective(schedule_key, "off")
+        if scheduler is not None:
+            state = scheduler.get_state(op)
+            last_run_at = state.last_run_at.isoformat() if state.last_run_at is not None else None
+            last_status = state.last_status
+            in_flight = state.in_flight
+        else:
+            last_run_at = None
+            last_status = None
+            in_flight = False
+        entries.append(
+            OpsScheduleEntry(
+                op=op,
+                schedule=schedule,
+                last_run_at=last_run_at,
+                last_status=last_status,
+                in_flight=in_flight,
+            )
+        )
+    return OpsSchedulesResponse(ops=entries)
+
+
+@app.post(
+    "/ops/schedules/{op}/run-now",
+    status_code=202,
+    summary="Trigger a schedulable op immediately (R12-7/A5)",
+    description=(
+        "Manually trigger one scheduled op ('lint' or 'backfill') regardless of the "
+        "configured schedule. Returns 202 if triggered, 409 if already in-flight, "
+        "400 if the op is 'backfill' and the domain vocabulary is empty (dormant). "
+        "Auth: SynapseAuthMiddleware (ADR-0052)."
+    ),
+    responses={
+        202: {"description": "Op triggered successfully."},
+        400: {"description": "backfill: vocabulary dormant (feature off)."},
+        404: {"description": "Unknown op name."},
+        409: {"description": "Op is already in-flight."},
+    },
+)
+async def run_ops_schedule_now(op: str) -> dict[str, str]:
+    """POST /ops/schedules/{op}/run-now — manual trigger for lint or backfill (R12-7/A5)."""
+    from app.ops_scheduler import _OP_NAMES, OpName  # noqa: PLC0415
+
+    if op not in _OP_NAMES:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown op {op!r}. Valid ops: {list(_OP_NAMES)}",
+        )
+    op_name: OpName = op
+
+    # For backfill: check vocabulary dormant state upfront (reuse the same check
+    # as POST /ops/backfill-domains to avoid duplicating the dormant vocabulary logic).
+    if op_name == "backfill":
+        from app.config_overrides import effective_domain_vocabulary  # noqa: PLC0415
+
+        if not effective_domain_vocabulary():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Domain vocabulary is empty — configure Settings > Advanced > "
+                    "domain_vocabulary first (backfill is dormant without it)."
+                ),
+            )
+
+    scheduler = _ops_scheduler
+    if scheduler is None:
+        # Fallback: create a temporary scheduler (test environments that bypass lifespan).
+        scheduler = OpsScheduler()
+
+    try:
+        await scheduler.run_now(op_name)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    return {"status": "triggered", "op": op}
 
 
 # ── MCP HTTP mount (ADR-0033 §2.4 — always-mount; gate is the sole arbiter) ──
@@ -8144,7 +8292,7 @@ class AppConfigListResponse(BaseModel):
     """Response body for GET /config/app (ADR-0053 §3.1)."""
 
     settings: list[AppConfigSetting] = Field(
-        description="All 9 migrated settings in stable S1..S9 order."
+        description="All 11 migrated settings in stable S1..S11 order."
     )
 
 
@@ -8168,6 +8316,9 @@ def _build_app_config_response() -> AppConfigListResponse:
         "wikilink_enrich_enabled": str(settings.wikilink_enrich_enabled).lower(),
         # S9: domain_vocabulary has no env var; default is dormant empty list (ADR-0054 §2.1)
         "domain_vocabulary": "[]",
+        # S10/S11: schedule keys have no env-var baseline; default is "off" (R12-7/A5).
+        "lint_schedule": "off",
+        "backfill_schedule": "off",
     }
 
     result: list[AppConfigSetting] = []
@@ -8187,9 +8338,9 @@ def _build_app_config_response() -> AppConfigListResponse:
 @app.get(
     "/config/app",
     response_model=AppConfigListResponse,
-    summary="List all 9 runtime config overrides with effective value + source (ADR-0053)",
+    summary="List all 11 runtime config overrides with effective value + source (ADR-0053)",
     description=(
-        "Returns the 9 migrated settings (S1..S9) in stable order. "
+        "Returns the 11 migrated settings (S1..S11) in stable order. "
         "Each entry has key, effective value (override wins over env), and source "
         "('override' iff a DB row exists, else 'env'). "
         "All values from in-process cache — no DB round-trip (I7). "
@@ -8198,7 +8349,7 @@ def _build_app_config_response() -> AppConfigListResponse:
     ),
 )
 async def get_app_config() -> AppConfigListResponse:
-    """GET /config/app — list effective values + source for all 9 settings (ADR-0053 §3.1)."""
+    """GET /config/app — list effective values + source for all 11 settings (ADR-0053 §3.1)."""
     return _build_app_config_response()
 
 
@@ -8219,7 +8370,7 @@ class AppConfigPutBody(BaseModel):
     status_code=204,
     summary="Upsert one config override (ADR-0053)",
     description=(
-        "Sets or updates the DB override for one of the 9 allowed keys. "
+        "Sets or updates the DB override for one of the 11 allowed keys. "
         "Returns 204 on success. "
         "Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. "
         "Returns 422 on value validation failure (per-key rules — ADR-0053 §2.3). "

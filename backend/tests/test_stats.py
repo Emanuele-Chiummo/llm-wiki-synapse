@@ -905,12 +905,12 @@ async def test_effective_domain_vocabulary_malformed_returns_empty() -> None:
         co._cache.pop("domain_vocabulary", None)
 
 
-# ── T-STATS-013: GET /config/app returns 9 settings with domain_vocabulary last ─
+# ── T-STATS-013: GET /config/app returns 11 settings; backfill_schedule is last ─
 
 
 @pytest.mark.asyncio
 async def test_get_config_app_has_9_settings_with_domain_vocabulary() -> None:
-    """T-STATS-013: GET /config/app returns 9 settings; domain_vocabulary is last."""
+    """T-STATS-013: GET /config/app returns 11 settings (S1..S11); order matches ORDERED_KEYS."""
     import app.config_overrides as co
     from app.config_overrides import ORDERED_KEYS
 
@@ -933,11 +933,11 @@ async def test_get_config_app_has_9_settings_with_domain_vocabulary() -> None:
     assert resp.status_code == 200
     body = resp.json()
     settings_list = body["settings"]
-    # Now 9 keys (S1..S9)
-    assert len(settings_list) == 9, f"Expected 9 settings, got {len(settings_list)}"
+    # Now 11 keys (S1..S11; S10=lint_schedule, S11=backfill_schedule added in R12-7/A5)
+    assert len(settings_list) == 11, f"Expected 11 settings, got {len(settings_list)}"
     keys = [s["key"] for s in settings_list]
     assert keys == ORDERED_KEYS, f"Keys out of order: {keys}"
-    assert keys[-1] == "domain_vocabulary", "domain_vocabulary must be the last key (S9)"
+    assert keys[-1] == "backfill_schedule", "backfill_schedule must be the last key (S11)"
 
 
 # ── T-STATS-014..018: GET /stats/groups (A1 amendment) ───────────────────────

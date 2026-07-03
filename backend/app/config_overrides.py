@@ -1,12 +1,13 @@
 """
-Runtime config-override layer (R11-2 / ADR-0053; extended by ADR-0054 for S9).
+Runtime config-override layer (R11-2 / ADR-0053; extended by ADR-0054 for S9;
+extended by R12-7/A5 for S10/S11).
 
 Merges env baseline (settings.<key>) with DB overrides (app_config table).
 Load once at lifespan startup; O(1) reads from in-memory cache thereafter (I7).
 
 Public API
 ----------
-ALLOWED_CONFIG_KEYS  : frozenset[str]   — the 9 keys the UI may override (§2.2)
+ALLOWED_CONFIG_KEYS  : frozenset[str]   — the 11 keys the UI may override (§2.2)
 load_overrides(session) → None          — called ONCE at lifespan startup
 get_effective(key, env_default) → str   — O(1) cache read (override-else-default)
 source_of(key) → str                    — "override" | "env"
@@ -17,6 +18,7 @@ effective_str(key, default) → str | None
 effective_bool(key, default) → bool
 effective_float(key, default) → float
 effective_domain_vocabulary() → list[str]  — S9 typed accessor (ADR-0054 §2.1)
+effective_schedule(key) → str              — S10/S11 typed accessor (R12-7/A5)
 
 Invariants
 ----------
@@ -24,9 +26,11 @@ I7  : single bounded SELECT at startup; no per-request DB read; refresh only on 
 I6  : S5/S6 are routed through the EXISTING embedding gate/adapter (callers do this);
       this module only stores and retrieves the effective string — it never hardcodes shapes.
       S9: empty vocabulary ⇒ zero provider calls at auto-tag (dormant — I6 satisfied).
+      S10/S11: schedule keys are read by OpsScheduler; no provider call in this module.
 I1  : no vault re-scan, no Qdrant re-embed — changing S5/S6/S9 applies to SUBSEQUENT
       ingests/queries only (documented behaviour, not a bug).
-ADR-0053 §2.5, §2.6, §3, §4.1 · ADR-0054 §2.1 (domain_vocabulary).
+ADR-0053 §2.5, §2.6, §3, §4.1 · ADR-0054 §2.1 (domain_vocabulary) ·
+R12-7/A5 (lint_schedule, backfill_schedule).
 """
 
 from __future__ import annotations
@@ -40,8 +44,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
-# ── Allow-list (security boundary — ADR-0053 §2.2; extended by ADR-0054 §2.1) ─
-# ONLY these 9 keys may be written via PUT /config/app/{key}.
+# ── Allow-list (security boundary — ADR-0053 §2.2; extended by ADR-0054 §2.1,
+#   further extended by R12-7/A5 for S10/S11) ───────────────────────────────────
+# ONLY these 11 keys may be written via PUT /config/app/{key}.
 # Infra/secret keys are structurally unreachable through this surface (§2.4).
 ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
     {
@@ -54,10 +59,12 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "overview_language",  # S7  (F3)
         "wikilink_enrich_enabled",  # S8  (ADR-0036)
         "domain_vocabulary",  # S9  (ADR-0054, F18) — JSON array of domain names
+        "lint_schedule",  # S10 (R12-7/A5) — enum: off|hourly|daily|weekly; default "off"
+        "backfill_schedule",  # S11 (R12-7/A5) — enum: off|hourly|daily|weekly; default "off"
     }
 )
 
-# ── Stable GET /config/app ordering (S1..S9) ─────────────────────────────────
+# ── Stable GET /config/app ordering (S1..S11) ────────────────────────────────
 # The FE snapshot test needs a stable order; always emit in this sequence.
 ORDERED_KEYS: list[str] = [
     "pdf_extractor",
@@ -68,7 +75,9 @@ ORDERED_KEYS: list[str] = [
     "embedding_format",
     "overview_language",
     "wikilink_enrich_enabled",
-    "domain_vocabulary",  # S9 appended last (ADR-0054 §2.1)
+    "domain_vocabulary",  # S9  (ADR-0054 §2.1)
+    "lint_schedule",  # S10 (R12-7/A5)
+    "backfill_schedule",  # S11 (R12-7/A5)
 ]
 
 # ── Per-key value validation rules (ADR-0053 §2.3) ───────────────────────────
@@ -150,6 +159,12 @@ def validate_value(key: str, value: str) -> str | None:
         if len(parsed) > 100:
             return f"domain_vocabulary must have at most 100 entries, got {len(parsed)}"
         # Empty array [] is VALID (explicit dormant state — ADR-0054 §2.1)
+
+    elif key in ("lint_schedule", "backfill_schedule"):
+        # S10/S11 (R12-7/A5): enum off|hourly|daily|weekly.
+        _SCHEDULE_VALUES: frozenset[str] = frozenset({"off", "hourly", "daily", "weekly"})
+        if value not in _SCHEDULE_VALUES:
+            return f"{key} must be one of {sorted(_SCHEDULE_VALUES)}, got {value!r}"
 
     return None
 
@@ -314,6 +329,33 @@ def effective_domain_vocabulary() -> list[str]:
         return []
     # Filter to non-empty strings only (defensive; canonical write guarantees this)
     return [s for s in parsed if isinstance(s, str) and s]
+
+
+_VALID_SCHEDULE_VALUES: frozenset[str] = frozenset({"off", "hourly", "daily", "weekly"})
+
+
+def effective_schedule(key: str) -> str:
+    """
+    S10/S11 typed accessor — return the effective schedule value for *key*
+    (one of: off|hourly|daily|weekly). Falls back to "off" when unset or malformed.
+
+    The schedule keys (lint_schedule / backfill_schedule) have no env-var baseline;
+    the deployment default is "off" (feature dormant — R12-7/A5).
+
+    Pure in-memory O(1) on the ADR-0053 cache; never touches the DB.
+    """
+    raw = _cache.get(key)
+    if raw is None:
+        return "off"
+    if raw not in _VALID_SCHEDULE_VALUES:
+        logger.warning(
+            "config_overrides.effective_schedule: key=%r has unknown value %r — "
+            "returning 'off' (fail-closed, R12-7/A5)",
+            key,
+            raw,
+        )
+        return "off"
+    return raw
 
 
 # ── Cache write helpers ───────────────────────────────────────────────────────
