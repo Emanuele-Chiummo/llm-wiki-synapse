@@ -1094,8 +1094,8 @@ export function HomeDashboard() {
         flexDirection: "column",
         gap: 32,
         padding: "28px 32px 48px",
-        maxWidth: 1100,
-        margin: "0 auto",
+        // Full-width dashboard (owner request, v1.2.1): no max-width cap — the KPI
+        // and section grids are responsive (auto-fill minmax) and use the space.
         width: "100%",
         boxSizing: "border-box",
         overflowY: "auto",
