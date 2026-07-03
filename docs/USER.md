@@ -1,8 +1,8 @@
 # Synapse User Guide
 
-<!-- Generated: v1.0 sprint 9 | 2026-07-03 -->
+<!-- Generated: v1.1 sprint 11 | 2026-07-03 -->
 
-> Version: v1.0 (M10 — "Distribution": shared-token auth, mobile/PWA polish, MkDocs site)
+> Version: v1.1 (M11 — "Convert & Configure": Marker Convert panel, runtime settings, logo dedup, bugfixes)
 > Language toggle: English / Italian available in Settings.
 
 ---
@@ -57,14 +57,17 @@ The rail contains items from top to bottom:
 |-------|---------|
 | **Chat** | Multi-conversation streaming chat (default on first load) |
 | **Wiki** | File tree + knowledge graph + page inspector |
-| **Sources** | Ingest activity history, upload zone, Run Ingest button |
+| **Sources** | Raw source file browser |
+| **Search** | Full-text and semantic search across wiki pages |
 | **Graph** | Full-bleed sigma knowledge graph |
+| **Lint** | Bounded wiki health check — flag and fix structural issues |
 | **Review** | HITL proposal queue — act on AI-proposed follow-up work |
 | **Deep Research** | Web-search loop via SearXNG — synthesize and auto-ingest |
-| **Lint** | Bounded wiki health check — flag and fix structural issues |
-| **Settings** (pinned at bottom) | LLM providers, context window, language, maintenance |
+| **Ingest** | Ingest run history and cost ledger |
+| **Convert** | Dedicated Marker PDF conversion surface (v1.1) |
+| **Settings** (pinned at bottom) | All runtime configuration — 5 groups |
 
-The nav rail also carries **Review**, **Deep Research**, and **Lint** sections (Review and Deep Research shipped in v0.5; Lint shipped in v0.6).
+The nav rail groups secondary tools (**Lint**, **Review**, **Deep Research**, **Ingest**, **Convert**) in a collapsible "Tools" section below the primary items.
 
 The vault name, data version, and active provider appear in the status bar at the
 bottom of every section.
@@ -295,6 +298,51 @@ overlapping pages, or when cleaning up failed ingest runs.
 
 ---
 
+### Convert section
+
+The Convert section (nav label: **Convert**) is the dedicated surface for converting
+PDF files with the Marker microservice and automatically ingesting the results. It is a
+first-class section, not a button inside the Sources section.
+
+Marker is **optional**. If you do not run the Marker microservice, the Convert section
+is still accessible but the action button will be disabled. The default PDF extractor
+is pypdf, which requires no microservice. See [Converting PDFs with Marker](#converting-pdfs-marker)
+for full details.
+
+**How to use the Convert section:**
+
+1. Navigate to **Convert** in the nav rail (under the Tools group).
+2. Check the Marker status badge at the top of the panel.
+   - Green badge ("Marker online"): the microservice is reachable and the action is enabled.
+   - Red badge ("Marker offline"): the microservice is unreachable; the action button is
+     disabled with a tooltip explaining the state.
+3. Drag PDF files onto the drop zone, or click the zone to open a file picker.
+   The panel accepts only `.pdf` files. Non-PDF files are rejected with an inline message.
+   You can queue up to **10 PDF files** per submission (hard limit — I7).
+4. Review the per-file list. Each file shows its name and current status (pending, clock
+   icon). Click the `X` on a pending row to remove it before converting.
+5. Click **Convert & ingest** (disabled when Marker is offline or no files are queued).
+   The panel updates each row in real time:
+   - Spinning loader: converting.
+   - Green check: conversion done; the resulting `.extracted.md` has been written to
+     `vault/raw/sources/` and the watcher will ingest it automatically within 15–30 seconds.
+   - Red X + error message: Marker returned an error for this file. The error text from
+     the backend response is shown inline. No silent fallback to pypdf occurs — if you
+     chose Marker, a failure is reported, not swallowed (I7).
+6. When at least one file succeeds, a hint appears pointing you to the Sources section
+   (or the Wiki tree) to see the new page(s) appear after ingest.
+7. Click **Close** (or clear the list) to reset the panel and start a new batch.
+
+**Marker health badge.** The badge is checked once on panel mount. Click the refresh
+icon (circular arrow) next to the badge to re-check health at any time — useful if you
+just started the Marker service.
+
+**After conversion.** The watcher picks up each `.extracted.md` file written by the
+Convert endpoint and runs the normal incremental ingest (I1 — no full vault rescan).
+New wiki pages appear in the tree and graph automatically.
+
+---
+
 ### Chat section
 
 The Chat section is a multi-conversation interface backed by the configured inference
@@ -355,35 +403,38 @@ that cannot be converted is left as a fenced code block.
 
 ### Settings section
 
-The Settings section uses a two-column layout: a left sub-navigation list of nine
-sections and a right content pane that shows the selected section. Click any sub-nav
-item to switch the pane without a page reload.
+The Settings section uses a two-column layout: a left sub-navigation list of five
+top-level groups and a right content pane that shows the selected group. Click any item
+to switch the pane without a page reload. (v1.1: the previous 14-section flat list was
+consolidated into five plain-language groups — A2.1.)
 
 ![Settings — General section](screens/settings-section.png)
 
-The ten sections are:
+The five groups are:
 
-| Section | Contents |
-|---------|----------|
-| **General** | Context window size and token-budget bar chart |
-| **LLM Models** | Add, view, and delete inference provider configurations |
-| **Embeddings** | Vector embeddings on/off toggle; enabled/disabled state; lexical-only notice when off |
-| **Source Watch** | Automatic folder import (scheduled scan) |
-| **Scenarios** | Five vault presets that overwrite `purpose.md` and `schema.md` |
-| **API + MCP** | MCP server connection details; tool list; Claude Desktop snippet |
-| **Output** | Conversation history length; language toggle |
-| **Interface** | Theme (Light / Dark / System), and other UI preferences |
-| **Maintenance** | Reset settings |
-| **About** | Version, build information, and dynamic version display |
-| **Costi** | Provider cost dashboard with monthly rollup and alert threshold (v0.9) |
-| **Security** | Update the client-side access token when the server `SYNAPSE_AUTH_TOKEN` changes (v1.0) |
+| Group | Contents |
+|-------|----------|
+| **Getting started** | Context window and token-budget bar chart; Setup wizard re-open button |
+| **AI & Models** | LLM provider CRUD; vector embeddings toggle and format; web search URL; API + MCP details |
+| **Sources & PDF** | Automatic folder import (Source Watch); web clipper; **PDF extractor and Marker runtime settings** (v1.1) |
+| **Output & Appearance** | Conversation history length; language toggle; theme; scenarios |
+| **Advanced** | Cost dashboard; security (token rotation); maintenance; About; remaining runtime overrides (v1.1) |
 
-#### General
+#### Getting started
 
-Choose how many tokens Synapse sends to the model per request: 4K, 8K, 16K, 32K
-(default), 64K, 128K, 256K, 512K, or 1M. The token budget is split 60 % conversation
-history / 20 % retrieved context / 5 % system prompt / 15 % generation headroom. The
-bar chart visualizes absolute token counts for the chosen window size.
+The Getting started group contains two items:
+
+**Context window.** Choose how many tokens Synapse sends to the model per request: 4K,
+8K, 16K, 32K (default), 64K, 128K, 256K, 512K, or 1M. The token budget is split
+60 % conversation history / 20 % retrieved context / 5 % system prompt / 15 % generation
+headroom. The bar chart visualizes absolute token counts for the chosen window size.
+
+**Setup wizard.** A "Re-open setup wizard" button re-launches the first-run guided
+wizard (A2.2). The wizard walks through backend health check, inference provider choice,
+and PDF extractor selection. It is skippable at any step and writes only through the
+same runtime-settings endpoints described in [Runtime Settings](#runtime-settings).
+The wizard is shown automatically when the app has no saved configuration; use this
+button to return to it at any time.
 
 #### LLM Models
 
@@ -508,8 +559,8 @@ The selected theme is persisted in your browser's local storage. CodeMirror (the
 
 #### Costi (cost dashboard) {#settings-costi}
 
-The Costi section (Settings > Costi, shipped in v0.9) shows a live breakdown of what
-you have spent running Synapse's AI providers.
+The Costi section (Settings > **Advanced** > cost dashboard, shipped in v0.9) shows a
+live breakdown of what you have spent running Synapse's AI providers.
 
 **What it displays:**
 
@@ -536,9 +587,10 @@ Local Ollama runs always contribute `$0.0000` to the total.
   breakdown. If you need historical detail, query the database directly or export
   `GET /export/data.json`.
 
-**Operator note:** the `COST_ALERT_THRESHOLD_USD` env var (default: no threshold, alert
-always off) must be set at deploy time. See DEPLOY.md §2.1 for the exact variable name
-and example values.
+**Operator and user note:** the alert threshold can be set at deploy time via the
+`COST_ALERT_THRESHOLD_USD` env var (see DEPLOY.md §2.1), or changed at runtime via
+**Settings > Advanced** without restarting Docker (v1.1 — see
+[Runtime Settings](#runtime-settings), "Monthly cost alert").
 
 ---
 
@@ -992,28 +1044,83 @@ produce a stub placeholder page.
 By default Synapse uses **pypdf** to extract text from PDF files. This works well for
 most digitally-created PDFs. For scanned PDFs, multi-column layouts, PDFs with
 embedded tables, or files where pypdf produces garbled output, you can switch to the
-**Marker** extractor.
+**Marker** extractor. Marker is **optional** and requires a separately running
+microservice (`tools/marker-converter/service.py`).
 
-**How to enable:**
+**How to enable at deploy time:**
 
-The operator sets `PDF_EXTRACTOR=marker` in `.env` and starts the Marker microservice
-(`tools/marker-converter/service.py`). See [DEPLOY.md §2.1](DEPLOY.md) for
-`PDF_EXTRACTOR`, `MARKER_SERVICE_URL`, and setup steps.
+The operator sets `PDF_EXTRACTOR=marker` in `.env` and starts the Marker microservice.
+See [DEPLOY.md §2.1](DEPLOY.md) for `PDF_EXTRACTOR`, `MARKER_SERVICE_URL`,
+`MARKER_TIMEOUT_SECONDS`, and setup steps.
+
+**How to switch at runtime (v1.1 — no restart needed):**
+
+As of v1.1, the PDF extractor and Marker connection settings can be changed from the
+Settings panel without editing `.env` or restarting Docker. See
+[Runtime Settings](#runtime-settings) for the step-by-step procedure.
 
 **What changes for you as a user:**
 
 - PDF files that previously produced incomplete or garbled wiki pages will produce
   richer, better-structured content.
 - Extraction takes longer per file (Marker runs a vision model pipeline on your GPU).
-- If the Marker service is unavailable or returns an error, Synapse automatically
-  falls back to pypdf — ingest never fails because of Marker. You will see a
-  `WARNING` in the backend logs when this happens.
+- When Marker is selected as the extractor and Synapse ingests a PDF via the normal
+  watcher path (drop into `vault/raw/sources/`), a failure causes Synapse to fall back
+  to pypdf and log a `WARNING`. This silent fallback applies only to the automatic
+  watcher path.
+- When you use the **Convert** section to send PDFs explicitly to Marker, there is
+  **no silent fallback**: a Marker failure is reported as an error (red X + detail)
+  so you know the conversion did not succeed (I7).
 - The switch is transparent: you do not need to re-ingest existing PDFs unless you
   want to improve their extracted text. Only new or changed files are affected
   (incremental index, I1).
 
 When `PDF_EXTRACTOR` is unset or set to `pypdf` (the default), behavior is identical
-to v0.7.
+to earlier versions.
+
+---
+
+### Converting PDFs with Marker {#converting-pdfs-marker}
+
+The **Convert** section (v1.1, F12, R11-1) is the dedicated interface for sending PDF
+files directly through the Marker microservice and automatically ingesting the results.
+
+**Prerequisites:**
+
+- The Marker microservice (`tools/marker-converter/service.py`) must be running and
+  reachable at the configured URL (`MARKER_SERVICE_URL`, default:
+  `http://host.docker.internal:8555`). Marker is optional — pypdf is always available
+  without any microservice.
+- If Marker is not running, the "Convert & ingest" button is disabled and a "Marker
+  offline" badge is shown. The rest of Synapse works normally — pypdf ingest is
+  unaffected.
+
+**File limits:**
+
+- Accepted types: `.pdf` only (non-PDF files are rejected before any upload).
+- Maximum files per submission: **10** (rejected client-side before the request is sent).
+- Maximum file size per file: governed by `MAX_UPLOAD_BYTES` (operator-configured,
+  default 25 MB). Files over the limit are rejected with an HTTP 413 response.
+
+**What happens on success:**
+
+Each successfully converted PDF produces a `.extracted.md` companion file written to
+`vault/raw/sources/`. The watcher picks it up within about 15–30 seconds and runs the
+normal ingest loop (I1 — incremental, no full vault rescan). The new wiki page(s) then
+appear in the tree and the graph automatically.
+
+**What happens on Marker failure:**
+
+If the Marker microservice returns an error or is unreachable during an explicit Convert
+action, the backend returns HTTP 502 and the frontend shows a red X with the error
+detail. No `.extracted.md` is written. No silent fallback to pypdf occurs on this path
+— the failure is visible so you can investigate and retry.
+
+**Marker online / offline badge:**
+
+The badge at the top of the Convert section reflects the result of
+`GET /ingest/marker-health`. It is checked once on panel mount. Click the refresh icon
+to re-check immediately (useful after starting the Marker service).
 
 ---
 
@@ -1066,6 +1173,77 @@ The following endpoints are always reachable without a Bearer token, even when
 | `OPTIONS` (any path) | CORS preflight — cannot carry a Bearer header |
 | `/mcp/server/*` | MCP HTTP surface has its own token (ADR-0033) |
 | `POST /clip` | Web-clipper ingress has its own `CLIP_TOKEN` (ADR-0038) |
+
+---
+
+## Runtime Settings (v1.1) {#runtime-settings}
+
+As of v1.1, eight behaviour settings can be changed directly from the Synapse Settings
+panel **without editing `.env` or restarting Docker**. The changes take effect for
+subsequent operations immediately (the backend reads the effective value from its
+in-memory cache, which is updated on each save). You do not need to touch
+`docker-compose.yml` for day-to-day tuning.
+
+These settings are found in two places in the Settings panel:
+
+- **Settings > Sources & PDF** — PDF extractor and Marker connection settings (S1–S3).
+- **Settings > Advanced** — cost alert, embeddings, embedding format, overview language,
+  and auto wikilink enrichment (S4–S8).
+
+### The eight runtime settings
+
+| Setting | Where in Settings | What it controls | Default |
+|---------|------------------|-----------------|---------|
+| **PDF extractor** | Sources & PDF | Which extractor is used when the watcher ingests a PDF: `pypdf` (no microservice needed) or `marker` (requires the Marker microservice) | `pypdf` |
+| **Marker service URL** | Sources & PDF | The URL of the Marker microservice. Change this if you run Marker on a non-default port or hostname. | `http://host.docker.internal:8555` |
+| **Marker timeout (s)** | Sources & PDF | How long (in seconds) the backend waits for a Marker conversion before treating it as a failure. | `120` |
+| **Monthly cost alert (USD)** | Advanced | The month-to-date provider cost threshold that triggers the red alert indicator in Settings > Advanced (cost dashboard). Set to `0` to disable the alert. | `5.00` |
+| **Vector embeddings** | Advanced | Toggle. When on, wiki pages are embedded with bge-m3 into Qdrant for semantic search. When off, search degrades to lexical only (no Qdrant calls at startup). Applies to subsequent ingests and queries — does not retroactively change existing embeddings. | On |
+| **Embedding format** | Advanced | The request/response format used when calling the embedding service: `ollama` (default, for bge-m3 via Ollama) or `openai` (for OpenAI-compatible hosted endpoints). Change this only if your embedding endpoint uses the OpenAI API shape. | `ollama` |
+| **Overview language** | Advanced | The language Synapse uses when generating `overview.md` and overview-style pages. Leave blank (the `(auto)` default) to let the AI detect the vault's dominant language automatically. Enter an ISO language code (e.g. `it`, `en`) to fix the language. | (auto) |
+| **Auto wikilink enrichment** | Advanced | Toggle. When on, the post-ingest pass scans related pages for opportunities to add `[[wikilinks]]` between them. Turn off if you prefer to add all wikilinks manually. | On |
+
+### How to change a setting
+
+1. Open **Settings** from the nav rail (bottom, pinned).
+2. Select **Sources & PDF** (for S1–S3) or **Advanced** (for S4–S8) from the left nav.
+3. Find the setting by its plain-language label. Each field shows a one-line description
+   below the label.
+4. Change the value using the control (dropdown, text input, or toggle).
+5. Click **Save** next to the field. A brief "Saved" confirmation appears.
+6. To undo a change and return to the deploy-time default, click **Reset to default**
+   (appears next to Save when the field has a custom value).
+
+### Default vs Custom badge
+
+Each field displays a small badge next to its label:
+
+- **Default** (grey): the value comes from the environment variable set at deploy time.
+  No override is stored in the database.
+- **Custom** (teal): an override is stored in the database and takes precedence over the
+  env var. The effective value shown in the field is the one actually in use.
+
+Clicking **Reset to default** removes the stored override (a database row is deleted).
+The field immediately reverts to the env-var baseline and the badge changes back to
+**Default**.
+
+### Notes
+
+- **Env vars are unchanged.** Setting an override in the UI does not write to `.env` or
+  `docker-compose.yml`. The env var remains the deploy-time default; the UI only stores
+  a named override on top of it. Deployments that rely solely on env vars are unaffected.
+- **Persistence across restarts.** Overrides are stored in the Postgres `app_config`
+  table and loaded into memory on each backend startup. A changed setting survives a
+  container restart without any `.env` edit (ADR-0053).
+- **Vector embeddings: in-session toggle.** Toggling **Vector embeddings** or changing
+  **Embedding format** applies to the next ingest run or search query, not retroactively.
+  If you disable embeddings mid-vault, existing Qdrant vectors remain but are no longer
+  consulted; re-enabling resumes normal embedding for new content. A full re-embed of the
+  existing vault requires a manual operation (see DEPLOY.md §17 for the restore path).
+- **Infra settings remain env-only.** Database URL, Qdrant URL, vault path,
+  `SYNAPSE_AUTH_TOKEN`, and other infrastructure-class settings are intentionally
+  excluded from the UI. They would require a container restart anyway and could cause data
+  corruption if changed while the service is live. See ADR-0053 for the full excluded list.
 
 ---
 
@@ -1355,3 +1533,16 @@ The following features shipped in v1.0 (M10 — "Distribution"):
 | Mobile/PWA polish (R10-5) | Compact icon-only nav rail on < 768 px; stacked single-column panels in Wiki section on mobile; pinch-to-zoom + tap-to-select on the graph canvas; PWA install instructions for iOS and Android. |
 | MkDocs Material documentation site (R10-6) | Published to GitHub Pages at `https://emanuele-chiummo.github.io/llm-wiki-synapse/`. Local preview via `make docs-serve`. All Mermaid diagrams render natively. |
 | Code-signing guide (R10-3) | DEPLOY.md §14: step-by-step Apple Developer ID + notarization (macOS) and OV/EV certificate (Windows) guide; GitHub Actions secrets matrix. |
+
+The following features shipped in v1.1 (M11 — "Convert & Configure"):
+
+| Feature | Notes |
+|---------|-------|
+| Marker Convert panel (R11-1, F12, A1) | Dedicated **Convert** section in the nav rail. Drag-drop or pick 1–10 PDFs; per-file status rows (pending / converting / done / failed); "Convert & ingest" writes `.extracted.md` to `vault/raw/sources/` and the watcher ingests automatically (I1). "Marker offline" badge disables the action when the microservice is unreachable; failures are shown inline with no silent pypdf fallback. `POST /ingest/convert-marker`, `GET /ingest/marker-health`. |
+| Runtime settings (R11-2, F16, ADR-0053) | Eight user-facing settings now editable in **Settings > Sources & PDF** and **Settings > Advanced** without editing `.env` or restarting Docker. Overrides are stored in a new `app_config` Postgres table (loaded once at startup, refreshed on each save — I7). Default/Custom source badge and Reset-to-default action. Env-var contract unchanged; empty table = v1.0 behaviour. `GET /config/app`, `PUT /config/app/{key}`, `DELETE /config/app/{key}`. |
+| Settings IA redesign — 5 groups (R11-2, A2.1) | The previous 14-section flat list is replaced by five plain-language groups: Getting started / AI & Models / Sources & PDF / Output & Appearance / Advanced. All existing controls are preserved inside the new structure. No env-var name appears as a primary field label. |
+| First-run setup wizard (R11-2, A2.2) | Guided onboarding wizard shown when the app has no saved configuration: backend health check → inference provider → PDF extractor → done. Skippable, re-openable from Settings > Getting started. Writes only via `PUT /config/app/{key}` and the existing provider-config endpoints — no parallel persistence path. |
+| Logo deduplication (R11-3, F1) | The Synapse logo now appears exactly once per viewport (Header only). Removed from the NavRail. |
+| renderMarkdown null guard (R11-4-BUG1, I3) | `renderMarkdown` returns `""` early on null/empty input; no spurious DOMParser errors on empty chat messages or empty preview panes. |
+| Ingest polling dedup (R11-4-BUG2) | The ingest polling effect cleanup now correctly cancels the previous interval on re-mount, preventing overlapping polls. |
+| Virtualizer zero-height recovery (R11-4-BUG3, I4) | `estimateSize` returns a non-zero default (≥ 32 px) and the scroll container forces a remeasure on mount; virtualized lists render correctly on initial load without a resize event. |
