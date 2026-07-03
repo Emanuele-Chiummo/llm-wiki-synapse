@@ -285,23 +285,32 @@ function GroupDivider() {
   );
 }
 
-/** Group 1: Getting started — context window + wizard placeholder (A2.2 seam). */
+/** Group 1: Getting started — context window + wizard re-open button (A2.2). */
 function GroupGettingStarted() {
   const { t } = useTranslation();
+
+  /** Fire the custom event that AppShell listens to (avoids prop-drilling). */
+  function handleOpenWizard() {
+    window.dispatchEvent(new Event("synapse:openWizard"));
+  }
+
   return (
     <div>
       <GroupHeader title={t("settings.nav.groupGettingStarted")} />
       <SectionGeneral />
       <GroupDivider />
-      {/* A2.2 seam — first-run wizard placeholder. Do NOT implement the wizard here.
-          The disabled button is the clean seam for the future A2.2 task. */}
+      {/* A2.2: wizard re-open slot — previously a "coming soon" placeholder. */}
       <div data-testid="wizard-placeholder-slot">
         <SectionHeader
           title={t("config.gettingStarted.wizardSlot")}
           desc={t("config.gettingStarted.wizardSlotDesc")}
         />
-        <button disabled style={{ ...BTN_SECONDARY, opacity: 0.45, cursor: "not-allowed" }}>
-          {t("config.gettingStarted.wizardComingSoon")}
+        <button
+          data-testid="wizard-reopen-btn"
+          onClick={handleOpenWizard}
+          style={BTN_PRIMARY}
+        >
+          {t("config.gettingStarted.wizardReopen")}
         </button>
       </div>
     </div>

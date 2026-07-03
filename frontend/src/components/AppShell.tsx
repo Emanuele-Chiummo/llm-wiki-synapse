@@ -34,6 +34,7 @@ import { ConnectScreen } from "./connect/ConnectScreen";
 import { TokenGate } from "./connect/TokenGate";
 import { CommandPalette } from "./common/CommandPalette";
 import { UpdateBanner } from "./common/UpdateBanner";
+import { FirstRunWizard, useFirstRunSetup } from "./setup/FirstRunWizard";
 import { isTauri, register401Handler } from "../api/base";
 import {
   useSettingsStore,
@@ -41,6 +42,12 @@ import {
   selectAuthRequired,
   selectSetAuthRequired,
 } from "../store/settingsStore";
+import {
+  useProviderStore,
+  selectProviderList,
+  selectFetchProviderList,
+} from "../store/providerStore";
+import { useShallow } from "zustand/react/shallow";
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
 import { useDesktopUpdater } from "../hooks/useDesktopUpdater";
 
@@ -78,6 +85,40 @@ export function AppShell() {
 
   // ADR-0049 §U4: startup update check — once, non-blocking, Tauri-only.
   const updaterState = useDesktopUpdater();
+
+  // ── First-run wizard (A2.2) ────────────────────────────────────────────────
+  // Fetch the provider list once on mount so the wizard can detect "unconfigured".
+  // We reuse the same providerStore that SectionLlmModels uses — no second fetch
+  // if the store already has data (length > 0 check inside useFirstRunSetup).
+  const providerList = useProviderStore(useShallow(selectProviderList));
+  const fetchProviders = useProviderStore(selectFetchProviderList);
+
+  useEffect(() => {
+    void fetchProviders();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on AppShell mount
+
+  const { shouldShow, markDone } = useFirstRunSetup(providerList.length);
+
+  // Re-openable from Settings "Getting started" button.
+  const [wizardForceOpen, setWizardForceOpen] = useState(false);
+  const handleWizardClose = useCallback(() => {
+    markDone();
+    setWizardForceOpen(false);
+  }, [markDone]);
+
+  /** Exposed via the window for SettingsPanel's "Reopen" button to call. */
+  useEffect(() => {
+    // The SettingsPanel "Getting started" slot fires this to re-open the wizard.
+    // We use a custom DOM event rather than prop-drilling through SectionRouter.
+    function onReopenWizard() {
+      setWizardForceOpen(true);
+    }
+    window.addEventListener("synapse:openWizard", onReopenWizard);
+    return () => window.removeEventListener("synapse:openWizard", onReopenWizard);
+  }, []);
+
+  const showWizard = shouldShow || wizardForceOpen;
 
   if (inTauri && serverUrl === null) {
     return <ConnectScreen />;
@@ -145,6 +186,9 @@ export function AppShell() {
 
       {/* ── Command palette (ADR-0048 §T2) ─────────────────────────────────── */}
       <CommandPalette open={paletteOpen} onClose={handleClosePalette} />
+
+      {/* ── First-run wizard (A2.2) — overlays after server is connected ────── */}
+      {showWizard && <FirstRunWizard onClose={handleWizardClose} />}
     </div>
   );
 }

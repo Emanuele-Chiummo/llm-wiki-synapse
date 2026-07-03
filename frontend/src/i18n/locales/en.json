@@ -994,8 +994,48 @@
     },
     "gettingStarted": {
       "wizardSlot": "First-run setup wizard",
-      "wizardSlotDesc": "A guided setup to connect your backend and choose a provider. Coming soon.",
-      "wizardComingSoon": "Coming soon"
+      "wizardSlotDesc": "A guided setup to connect your backend, choose an inference provider, and configure PDF extraction.",
+      "wizardComingSoon": "Coming soon",
+      "wizardOpen": "Open setup wizard",
+      "wizardReopen": "Reopen setup wizard"
+    }
+  },
+  "wizard": {
+    "label": "Setup wizard",
+    "title": "Welcome to Synapse",
+    "next": "Next",
+    "back": "Back",
+    "skipStep": "Skip this step",
+    "skipAll": "Skip setup",
+    "saving": "Saving…",
+    "step1": {
+      "title": "Connect to backend",
+      "desc": "Verify that the Synapse backend is reachable. If you are running Synapse locally, it should already be connected.",
+      "check": "Check connection",
+      "checking": "Checking…",
+      "ok": "Backend is reachable.",
+      "errNotOk": "Backend returned status {{status}}. Check that the service is running.",
+      "errUnknown": "Could not reach the backend. Check the URL in Settings › Security.",
+      "relativeOrigin": "(same origin)"
+    },
+    "step2": {
+      "title": "Choose an inference provider",
+      "desc": "Select the AI provider and model Synapse will use for ingest and chat. You can add more providers later in Settings › AI & Models.",
+      "save": "Save provider",
+      "saved": "Provider saved.",
+      "err": "Could not save provider. Check the details and try again."
+    },
+    "step3": {
+      "title": "Choose PDF extraction",
+      "desc": "Select how Synapse extracts text from PDF files. The built-in pypdf engine requires no extra services; Marker produces higher-quality output but needs the Marker microservice running.",
+      "save": "Save",
+      "saved": "PDF extraction settings saved.",
+      "err": "Could not save PDF extractor setting. Try again."
+    },
+    "step4": {
+      "title": "All set!",
+      "desc": "Synapse is configured and ready. You can adjust these settings any time from Settings › Getting started.",
+      "cta": "Start using Synapse"
     }
   }
 }
