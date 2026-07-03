@@ -1,14 +1,19 @@
 # Synapse backend Docker image (Python 3.11+ slim, non-root, healthcheck)
 # Built context: backend/
 # Image: synapse-backend:latest
+# Build args: APP_VERSION (e.g. "1.2.0", default "dev")
 
 FROM python:3.11-slim
+
+# Build argument: version tag (passed via --build-arg APP_VERSION=...)
+ARG APP_VERSION=dev
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    APP_VERSION=${APP_VERSION}
 
 WORKDIR /app
 

@@ -58,9 +58,21 @@ services:
   # Synapse FastAPI backend — watcher + ingest + REST API
   # ─────────────────────────────────────────────────────────────────────────
   synapse-backend:
+    # ── R12-3: Server release channel ──────────────────────────────────────────────
+    # For local development: build from source (below).
+    # For TrueNAS server deployment: swap the 'build:' block for the 'image:' line below
+    # to pull the latest backend image from GHCR. This enables Watchtower auto-updates
+    # (when the autoupdate profile is enabled).
+    # image: ghcr.io/emanuele-chiummo/llm-wiki-synapse-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        APP_VERSION: dev
+    labels:
+      # Watchtower auto-update label: enables backend-only updates (R12-3, AC-R12-3-6).
+      # Postgres and Qdrant do NOT carry this label (data services must never be auto-updated).
+      com.centurylinklabs.watchtower.enable: "true"
     environment:
       # Database (postgres service above)
       DATABASE_URL: postgresql+asyncpg://synapse:synapse@postgres:5432/synapse
@@ -160,6 +172,27 @@ services:
       retries: 3
       start_period: 10s
 
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Watchtower — optional auto-update service (disabled by default)
+  # ─────────────────────────────────────────────────────────────────────────
+  # R12-3: Auto-update service, disabled by default via Compose profile.
+  # To enable zero-touch backend updates on TrueNAS, run:
+  #   docker compose --profile autoupdate up -d
+  # Watchtower will poll the container registry hourly and update any service
+  # with the label `com.centurylinklabs.watchtower.enable=true` (synapse-backend only).
+  # Postgres and Qdrant are never touched (no label).
+  # See docs/DEPLOY.md §Updating Synapse for details.
+  watchtower:
+    image: containrrr/watchtower:latest
+    profiles:
+      - autoupdate
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: >
+      --interval 3600
+      --label-enable
     restart: unless-stopped
 
 volumes:
