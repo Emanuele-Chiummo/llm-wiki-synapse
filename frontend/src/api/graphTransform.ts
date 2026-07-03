@@ -161,8 +161,29 @@ function computeNormalizedWeights(edges: GraphEdge[]): Float64Array {
  *
  * Two-kind distinction is preserved: link=neutral gray, source=blue-gray tint.
  */
-function edgeColor(normalizedWeight: number, kind: "link" | "source"): string {
+function edgeColor(
+  normalizedWeight: number,
+  kind: "link" | "source",
+  theme: "light" | "dark" = "light",
+): string {
   const t = Math.max(0, Math.min(1, normalizedWeight));
+  if (theme === "dark") {
+    // DARK THEME: the light-theme ramps read as glaring white on a #0d1117 canvas
+    // (owner report, v1.2). Rest edges stay DIM slate; weight ramps toward a readable
+    // mid-tone, never white. "Thicker + brighter = stronger" (inverted-luminance ramp).
+    if (kind === "source") {
+      // Blue-gray: low=#2a3450 (42,52,80) → high=#5e73a8 (94,115,168)
+      const r = Math.round(42 + 52 * t);
+      const g = Math.round(52 + 63 * t);
+      const b = Math.round(80 + 88 * t);
+      return `rgb(${r},${g},${b})`;
+    }
+    // Neutral slate: low=#2c313c (44,49,60) → high=#6b7688 (107,118,136)
+    const r = Math.round(44 + 63 * t);
+    const g = Math.round(49 + 69 * t);
+    const b = Math.round(60 + 76 * t);
+    return `rgb(${r},${g},${b})`;
+  }
   if (kind === "source") {
     // Blue-gray tint: low=#d8dff0 (r=216,g=223,b=240) → high=#7d90bf (r=125,g=144,b=191)
     const r = Math.round(216 - 91 * t);
@@ -192,7 +213,11 @@ function edgeColor(normalizedWeight: number, kind: "link" | "source"): string {
  * @param edges - Edge array from GraphResponse
  * @returns A graphology UndirectedGraph ready for sigma to render
  */
-export function buildGraphologyGraph(nodes: GraphNode[], edges: GraphEdge[]): SynapseGraph {
+export function buildGraphologyGraph(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  theme: "light" | "dark" = "light",
+): SynapseGraph {
   // I2 DEV ASSERTION: verify no layout was applied (coords should be non-zero after a real ingest)
   if (typeof __DEV__ !== "undefined" && __DEV__ && nodes.length > 0) {
     const allZero = nodes.every((n) => n.x === 0 && n.y === 0);
@@ -241,7 +266,7 @@ export function buildGraphologyGraph(nodes: GraphNode[], edges: GraphEdge[]): Sy
       weight: edge.weight,
       normalizedWeight: nw,
       size: EDGE_MIN_SIZE + nw * EDGE_SIZE_RANGE, // 0.5–4 px: thicker + darker = stronger (llm_wiki parity)
-      color: edgeColor(nw, kind),
+      color: edgeColor(nw, kind, theme),
       kind,
     });
   }
