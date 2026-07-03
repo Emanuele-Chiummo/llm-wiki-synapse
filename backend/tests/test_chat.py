@@ -205,6 +205,15 @@ async def chat_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
     monkeypatch.setattr("app.chat.stream.resolve_provider_config", fake_resolve_config)
     monkeypatch.setattr("app.chat.stream.resolve_provider", fake_resolve_provider)
 
+    # Neutralise the fire-and-forget auto-title task (UXB-1): on the StaticPool-shared
+    # SQLite connection its rollback can land inside a LATER request's transaction and
+    # wipe uncommitted rows (CI-only flake in test_regenerate_replaces_last_assistant).
+    # Auto-titling has its own awaited suite: test_r9_conversation_titles.py.
+    async def _noop_autotitle(conversation_id, vault_id):  # type: ignore[no-untyped-def]
+        return None
+
+    monkeypatch.setattr("app.chat.autotitle.maybe_generate_conversation_title", _noop_autotitle)
+
     # Mock retrieve() so chat tests do not need Qdrant or Postgres (ADR-0022 §2.7 isolation).
     # The mock returns a RetrievalContext with one citation so citation-stamping tests work.
     from app.rag.retrieval import Citation, PageRef, RetrievalContext

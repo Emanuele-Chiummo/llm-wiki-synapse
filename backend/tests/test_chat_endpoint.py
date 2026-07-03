@@ -141,6 +141,13 @@ async def _make_chat_client(
     monkeypatch.setattr("app.chat.stream.resolve_provider_config", fake_resolve_config)
     monkeypatch.setattr("app.chat.stream.resolve_provider", lambda row: recording)  # type: ignore[arg-type]
 
+    # Neutralise the fire-and-forget auto-title task (UXB-1) — see test_chat.py: on the
+    # StaticPool-shared SQLite connection its rollback can corrupt a later transaction.
+    async def _noop_autotitle(conversation_id, vault_id):  # type: ignore[no-untyped-def]
+        return None
+
+    monkeypatch.setattr("app.chat.autotitle.maybe_generate_conversation_title", _noop_autotitle)
+
     # Mock retrieve() so the test asserts on what reaches the provider (not on Qdrant).
     async def fake_retrieve(  # type: ignore[no-untyped-def]
         query: str, *, vault_id: str, context_window: int, **kwargs: Any
