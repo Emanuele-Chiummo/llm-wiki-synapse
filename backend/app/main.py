@@ -72,6 +72,7 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import importlib.metadata
 import ipaddress
 import logging
 import re as _re
@@ -934,9 +935,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 # ── FastAPI app ────────────────────────────────────────────────────────────────
 
+try:
+    _app_version: str = importlib.metadata.version("synapse-backend")
+except importlib.metadata.PackageNotFoundError:
+    _app_version = "dev"
+
 app = FastAPI(
     title="Synapse",
-    version="0.6.0",
+    version=_app_version,
     description=(
         "Self-organising wiki backend — M5 Phase 1 (F5 4-phase retrieval + [n] citations). "
         "4-signal knowledge graph (F4): direct×3 + source-overlap×4 + Adamic-Adar×1.5 + type×1. "
@@ -1003,6 +1009,11 @@ app.include_router(costs_router)
 from app.health import router as health_router  # noqa: E402
 
 app.include_router(health_router)
+
+# ── Stats router (R12-1 / F18 / ADR-0054 §5) ─────────────────────────────────
+from app.stats import router as stats_router  # noqa: E402
+
+app.include_router(stats_router)
 
 # ── MCP HTTP mount (ADR-0033 §2.4 — always-mount; gate is the sole arbiter) ──
 # Mounted at MCP_MOUNT_PATH — always, regardless of token configuration.
@@ -1081,6 +1092,12 @@ class StatusResponse(BaseModel):
     data_version: int
     started_at: datetime
     uptime_seconds: float
+    version: str = Field(
+        description=(
+            "Backend package version from pyproject.toml via importlib.metadata "
+            "(ADR-0054 §6). Read at runtime — never a hardcoded literal."
+        )
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -1089,6 +1106,7 @@ class StatusResponse(BaseModel):
                 "data_version": 3,
                 "started_at": "2026-06-28T10:00:00Z",
                 "uptime_seconds": 42.7,
+                "version": "1.2.0",
             }
         }
     }
@@ -1895,11 +1913,18 @@ async def get_status() -> StatusResponse:
 
     now = datetime.now(UTC)
     uptime = (now - _started_at).total_seconds()
+    # Read backend version from pyproject.toml via importlib.metadata (ADR-0054 §6).
+    # NEVER a hardcoded literal — the version is the installed package metadata.
+    try:
+        _pkg_version: str = importlib.metadata.version("synapse-backend")
+    except importlib.metadata.PackageNotFoundError:
+        _pkg_version = "dev"
     return StatusResponse(
         vault_id=settings.vault_id,
         data_version=data_version,
         started_at=_started_at,
         uptime_seconds=uptime,
+        version=_pkg_version,
     )
 
 
@@ -7968,7 +7993,7 @@ async def put_cli_auth_config(body: CliAuthConfigRequest) -> CliAuthConfigRespon
     )
 
 
-# ── GET /config/app — list all 8 effective settings with source (ADR-0053 §3.1) ─
+# ── GET /config/app — list all 9 effective settings with source (ADR-0053 §3.1) ─
 # ── PUT /config/app/{key} — upsert one override (ADR-0053 §3.2) ─────────────────
 # ── DELETE /config/app/{key} — remove override → revert to env (ADR-0053 §3.3) ──
 #
@@ -7995,7 +8020,7 @@ class AppConfigListResponse(BaseModel):
     """Response body for GET /config/app (ADR-0053 §3.1)."""
 
     settings: list[AppConfigSetting] = Field(
-        description="All 8 migrated settings in stable S1..S8 order."
+        description="All 9 migrated settings in stable S1..S9 order."
     )
 
 
@@ -8005,6 +8030,7 @@ def _build_app_config_response() -> AppConfigListResponse:
 
     Value resolution per key (ADR-0053 §3.1):
       • S7 overview_language: None env-default → serialised as "" (auto sentinel).
+      • S9 domain_vocabulary: no env var; env-default is "[]" (empty JSON array — dormant).
       • All others: str env-default passed directly.
     """
     env_defaults: dict[str, str] = {
@@ -8016,6 +8042,8 @@ def _build_app_config_response() -> AppConfigListResponse:
         "embedding_format": settings.embedding_format,
         "overview_language": settings.overview_language or "",
         "wikilink_enrich_enabled": str(settings.wikilink_enrich_enabled).lower(),
+        # S9: domain_vocabulary has no env var; default is dormant empty list (ADR-0054 §2.1)
+        "domain_vocabulary": "[]",
     }
 
     result: list[AppConfigSetting] = []
@@ -8035,9 +8063,9 @@ def _build_app_config_response() -> AppConfigListResponse:
 @app.get(
     "/config/app",
     response_model=AppConfigListResponse,
-    summary="List all 8 runtime config overrides with effective value + source (ADR-0053)",
+    summary="List all 9 runtime config overrides with effective value + source (ADR-0053)",
     description=(
-        "Returns the 8 migrated settings (S1..S8) in stable order. "
+        "Returns the 9 migrated settings (S1..S9) in stable order. "
         "Each entry has key, effective value (override wins over env), and source "
         "('override' iff a DB row exists, else 'env'). "
         "All values from in-process cache — no DB round-trip (I7). "
@@ -8046,7 +8074,7 @@ def _build_app_config_response() -> AppConfigListResponse:
     ),
 )
 async def get_app_config() -> AppConfigListResponse:
-    """GET /config/app — list effective values + source for all 8 settings (ADR-0053 §3.1)."""
+    """GET /config/app — list effective values + source for all 9 settings (ADR-0053 §3.1)."""
     return _build_app_config_response()
 
 
@@ -8067,7 +8095,7 @@ class AppConfigPutBody(BaseModel):
     status_code=204,
     summary="Upsert one config override (ADR-0053)",
     description=(
-        "Sets or updates the DB override for one of the 8 allowed keys. "
+        "Sets or updates the DB override for one of the 9 allowed keys. "
         "Returns 204 on success. "
         "Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. "
         "Returns 422 on value validation failure (per-key rules — ADR-0053 §2.3). "

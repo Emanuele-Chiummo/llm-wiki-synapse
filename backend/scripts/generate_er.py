@@ -140,11 +140,14 @@ def main() -> None:
     assert "DEEP_RESEARCH_SOURCES" in mermaid
     assert "REVIEW_ITEMS" in mermaid
     assert "APP_CONFIG" in mermaid
+    assert "LINT_RUNS" in mermaid
+    assert "LINT_FINDINGS" in mermaid
     print(
-        "Sanity check passed: all 13 tables present "
+        "Sanity check passed: all 15 tables present "
         "(PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES, "
         "CONVERSATIONS, MESSAGES, IMPORT_SCHEDULES, "
-        "DEEP_RESEARCH_RUNS, DEEP_RESEARCH_SOURCES, REVIEW_ITEMS, APP_CONFIG)"
+        "DEEP_RESEARCH_RUNS, DEEP_RESEARCH_SOURCES, REVIEW_ITEMS, APP_CONFIG, "
+        "LINT_RUNS, LINT_FINDINGS) — no new table in v1.2 (ADR-0054 §1, I8/D2 unchanged)"
     )
 
 

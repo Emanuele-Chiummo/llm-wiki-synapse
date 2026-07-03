@@ -4,6 +4,11 @@ Cost aggregation endpoint (R9-1, AC-R9-1-1..AC-R9-1-6).
 Endpoint:
   GET /costs/summary  — aggregated spend across all cost-bearing tables.
 
+Shared helper (used by GET /stats/overview — AC-R12-1-3, ADR-0054 §5.1):
+  get_monthly_cost_usd(session, vault_id, month_start, month_end) → float
+  Extracts the current-month total from the 4 cost tables. Called by both
+  GET /costs/summary and GET /stats/overview so NO duplicate SQL exists.
+
 Sources of cost data (I7 — cost is logged per run/message on each table):
   ingest_runs.total_cost_usd   — per-file ingest runs
   messages.total_cost_usd      — per-chat-message cost (chat operation)
@@ -48,6 +53,7 @@ from typing import Any, cast
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db import get_session
@@ -68,6 +74,83 @@ def _safe_float(val: Any) -> float:
     if isinstance(val, Decimal):
         return float(val)
     return float(val)
+
+
+# ── Shared monthly-cost helper (ADR-0054 §5.1 / AC-R12-1-3) ──────────────────
+
+
+async def get_monthly_cost_usd(
+    session: AsyncSession,
+    vault_id: str,
+    month_start: datetime,
+    month_end: datetime,
+) -> float:
+    """
+    Return the total AI inference cost for *vault_id* in [month_start, month_end).
+
+    Queries the same 4 cost tables as GET /costs/summary with an identical month filter
+    so GET /stats/overview.monthly_cost_usd is ALWAYS identical to the current-month
+    total returned by GET /costs/summary (AC-R12-1-3 — no duplicate SQL, I9 no reinvent).
+
+    Portable: Python-side sum over bounded SELECTs (SQLite unit tests + Postgres runtime).
+    Pure I/O — no InferenceProvider call (I1/I6).
+    """
+    from app.models import Conversation  # noqa: PLC0415
+
+    # ── ingest_runs ──────────────────────────────────────────────────────────
+    ingest_rows = (
+        await session.execute(
+            select(IngestRun.total_cost_usd).where(
+                IngestRun.vault_id == vault_id,
+                IngestRun.started_at >= month_start,
+                IngestRun.started_at < month_end,
+            )
+        )
+    ).all()
+
+    # ── messages ─────────────────────────────────────────────────────────────
+    msg_rows = (
+        await session.execute(
+            select(ChatMessage.total_cost_usd).where(
+                ChatMessage.conversation_id.in_(
+                    select(Conversation.id).where(
+                        Conversation.vault_id == vault_id,
+                        Conversation.deleted_at.is_(None),
+                    )
+                ),
+                ChatMessage.role == "assistant",
+                ChatMessage.created_at >= month_start,
+                ChatMessage.created_at < month_end,
+            )
+        )
+    ).all()
+
+    # ── deep_research_runs ────────────────────────────────────────────────────
+    dr_rows = (
+        await session.execute(
+            select(DeepResearchRun.total_cost_usd).where(
+                DeepResearchRun.vault_id == vault_id,
+                DeepResearchRun.started_at >= month_start,
+                DeepResearchRun.started_at < month_end,
+            )
+        )
+    ).all()
+
+    # ── lint_runs ─────────────────────────────────────────────────────────────
+    lint_rows = (
+        await session.execute(
+            select(LintRun.total_cost_usd).where(
+                LintRun.vault_id == vault_id,
+                LintRun.started_at >= month_start,
+                LintRun.started_at < month_end,
+            )
+        )
+    ).all()
+
+    total = sum(
+        _safe_float(r[0]) for rows in (ingest_rows, msg_rows, dr_rows, lint_rows) for r in rows
+    )
+    return round(total, 4)
 
 
 # ── GET /costs/summary ────────────────────────────────────────────────────────
@@ -330,9 +413,11 @@ async def get_costs_summary(
     # Emit sorted, last-30-days only (already bounded by the query window)
     by_day = [{"date": d, "total_usd": round(v, 4)} for d, v in sorted(day_totals.items())]
 
-    # monthly_total_usd: sum across all 4 operation buckets
-    monthly_total = sum(data["total_usd"] for data in op_totals.values())
-    monthly_total = round(monthly_total, 4)
+    # monthly_total_usd: delegated to the shared helper so GET /stats/overview returns
+    # the SAME value (AC-R12-1-3 / ADR-0054 §5.1 — no duplicate SQL).
+    # The helper runs a fresh bounded SELECT within a new session (simple, portable).
+    async with get_session() as helper_session:
+        monthly_total = await get_monthly_cost_usd(helper_session, vault_id, month_start, month_end)
 
     # threshold_alert (AC-R9-1-2)
     threshold_alert: bool = False
