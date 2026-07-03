@@ -684,7 +684,8 @@
       "scheme": "Sono accettati solo URL http:// e https://.",
       "unreachable": "Impossibile raggiungere il server. Controlla l'indirizzo e riprova.",
       "status": "Il server ha restituito un errore ({{status}}). Controlla l'indirizzo e riprova."
-    }
+    },
+    "detected": "Rilevato un server Synapse su questa macchina"
   },
   "common": {
     "loading": "Caricamento…",

@@ -14,21 +14,59 @@
  * No Tauri IPC/commands called here — isTauri() check is in AppShell (ADR-0047 §6 Do-NOT #5).
  */
 
-import { useState, useCallback, useRef, type FormEvent } from "react";
+import { useState, useCallback, useEffect, useRef, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import logoUrl from "../../assets/synapse-logo.svg";
+import { getLastServerUrl, isTauri } from "../../api/base";
 import { useSettingsStore, selectSetServerUrl } from "../../store/settingsStore";
 
 const PROBE_TIMEOUT_MS = 6_000;
+
+/** Probed on first launch (no previous server) to prefill a local backend. */
+const LOCAL_DETECT_URL = "http://localhost:8000";
+const DETECT_TIMEOUT_MS = 3_000;
 
 export function ConnectScreen() {
   const { t } = useTranslation();
   const storeSetServerUrl = useSettingsStore(selectSetServerUrl);
 
-  const [url, setUrl] = useState("http://");
+  // Prefill with the last successfully-connected URL ("change server" UX);
+  // fall back to the bare scheme on a true first launch.
+  const [url, setUrl] = useState(() => getLastServerUrl() ?? "http://");
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [detected, setDetected] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  // First launch only (desktop, no previous server): silently probe a local
+  // backend and prefill it when found. Never auto-connects — the user confirms.
+  // Guarded by isTauri() so web/test environments never fire the probe.
+  useEffect(() => {
+    if (!isTauri() || getLastServerUrl() !== null) {
+      return;
+    }
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, DETECT_TIMEOUT_MS);
+    void fetch(`${LOCAL_DETECT_URL}/status`, { signal: controller.signal })
+      .then((res) => {
+        if (res.ok) {
+          setUrl((current) => (current === "http://" ? LOCAL_DETECT_URL : current));
+          setDetected(true);
+        }
+      })
+      .catch(() => {
+        // no local server — keep the empty prefill
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, []);
 
   const handleSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
@@ -111,6 +149,8 @@ export function ConnectScreen() {
         {/* Card */}
         <div
           style={{
+            position: "relative",
+            overflow: "hidden",
             background: "var(--syn-surface, #ffffff)",
             borderRadius: 16,
             padding: "40px 36px 36px",
@@ -220,6 +260,20 @@ export function ConnectScreen() {
               }}
             />
 
+            {/* Local server detected hint */}
+            {detected && error === null && (
+              <p
+                data-testid="connect-detected"
+                style={{
+                  fontSize: 13,
+                  color: "var(--syn-green, #1a7f37)",
+                  margin: 0,
+                }}
+              >
+                {t("connect.detected")}
+              </p>
+            )}
+
             {/* Error message */}
             {error !== null && (
               <p
@@ -261,6 +315,18 @@ export function ConnectScreen() {
             </button>
           </form>
         </div>
+
+        {/* Version footer */}
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: 12,
+            color: "var(--syn-text-dim, #8b949e)",
+            marginTop: 16,
+          }}
+        >
+          Synapse Desktop · v0.6
+        </p>
       </div>
     </div>
   );

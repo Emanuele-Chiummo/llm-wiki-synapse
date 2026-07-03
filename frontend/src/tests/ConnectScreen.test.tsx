@@ -309,3 +309,70 @@ describe("ConnectScreen — successful /status probe persists URL", () => {
     });
   });
 });
+
+// ─── Prefill + local auto-detect (first-launch UX) ────────────────────────────
+
+describe("ConnectScreen — prefill and local auto-detect", () => {
+  afterEach(() => {
+    delete (window as unknown as Record<string, unknown>)["__TAURI_INTERNALS__"];
+  });
+
+  it("prefills the input with the last connected server URL", () => {
+    fakeStorage.setItem("synapse.lastServerUrl", "http://truenas:8000");
+    vi.stubGlobal("fetch", vi.fn());
+    renderConnectScreen();
+    expect(getUrlInput().value).toBe("http://truenas:8000");
+  });
+
+  it("does NOT probe localhost on mount outside Tauri", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    renderConnectScreen();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("probes localhost:8000 on mount in Tauri and prefills on 2xx", async () => {
+    (window as unknown as Record<string, unknown>)["__TAURI_INTERNALS__"] = {};
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    renderConnectScreen();
+    await waitFor(() => {
+      expect(getUrlInput().value).toBe("http://localhost:8000");
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/status",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(screen.getByTestId("connect-detected")).toBeTruthy();
+  });
+
+  it("does NOT auto-probe in Tauri when a last server URL exists", async () => {
+    (window as unknown as Record<string, unknown>)["__TAURI_INTERNALS__"] = {};
+    fakeStorage.setItem("synapse.lastServerUrl", "http://truenas:8000");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    renderConnectScreen();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(getUrlInput().value).toBe("http://truenas:8000");
+  });
+
+  it("keeps the empty prefill when the local probe fails", async () => {
+    (window as unknown as Record<string, unknown>)["__TAURI_INTERNALS__"] = {};
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("network"));
+    vi.stubGlobal("fetch", fetchMock);
+    renderConnectScreen();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(getUrlInput().value).toBe("http://");
+    expect(screen.queryByTestId("connect-detected")).toBeNull();
+  });
+});
