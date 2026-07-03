@@ -88,6 +88,7 @@ export function OpsScheduleCard() {
     lint: "off",
     backfill: "off",
     schema_review: "off",
+    reclassify: "off",
   });
 
   /** Per-op saving state (while PUT is in-flight). */
@@ -95,6 +96,7 @@ export function OpsScheduleCard() {
     lint: false,
     backfill: false,
     schema_review: false,
+    reclassify: false,
   });
 
   /** Per-op run-now busy state. */
@@ -102,6 +104,7 @@ export function OpsScheduleCard() {
     lint: false,
     backfill: false,
     schema_review: false,
+    reclassify: false,
   });
 
   /** When 400-dormant is returned, show the vocabulary hint for that op. */
@@ -109,6 +112,7 @@ export function OpsScheduleCard() {
     lint: false,
     backfill: false,
     schema_review: false,
+    reclassify: false,
   });
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
@@ -129,6 +133,7 @@ export function OpsScheduleCard() {
         lint: "off",
         backfill: "off",
         schema_review: "off",
+        reclassify: "off",
       };
       for (const entry of data.ops) {
         freqs[entry.op] = entry.schedule;
@@ -160,11 +165,12 @@ export function OpsScheduleCard() {
     setLocalFreqs((prev) => ({ ...prev, [op]: value }));
     setSaving((prev) => ({ ...prev, [op]: true }));
 
-    // Map op name → AppConfigKey (S10/S11/S12 — R12-7/A5/R12-8)
+    // Map op name → AppConfigKey (S10/S11/S12/S13 — R12-7/A5/R12-8/R12-9)
     const scheduleKeyMap: Record<OpsScheduleOp, AppConfigKey> = {
       lint: "lint_schedule",
       backfill: "backfill_schedule",
       schema_review: "schema_review_schedule",
+      reclassify: "reclassify_schedule",
     };
     const key: AppConfigKey = scheduleKeyMap[op];
     try {

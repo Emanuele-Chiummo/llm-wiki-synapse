@@ -220,7 +220,7 @@ def test_validate_value_overview_language() -> None:
 
 @pytest.mark.asyncio
 async def test_get_config_app_all_env_sources() -> None:
-    """AC-R11-2-2a: with no overrides, all 8 settings have source='env'."""
+    """AC-R11-2-2a: with no overrides, all 13 settings have source='env'."""
     import app.config_overrides as co
 
     # Ensure cache is clean (env-only)
@@ -234,8 +234,8 @@ async def test_get_config_app_all_env_sources() -> None:
     body = resp.json()
     settings_list = body["settings"]
     assert (
-        len(settings_list) == 12
-    )  # S1..S12 (S9=domain_vocabulary ADR-0054; S10/S11=schedule R12-7/A5; S12=schema_review R12-8)
+        len(settings_list) == 13
+    )  # S1..S13 (S9=domain_vocabulary ADR-0054; S10/S11=schedule R12-7/A5; S12=schema_review R12-8; S13=reclassify R12-9)
     for entry in settings_list:
         assert entry["source"] == "env", f"Expected source=env for {entry['key']}"
 

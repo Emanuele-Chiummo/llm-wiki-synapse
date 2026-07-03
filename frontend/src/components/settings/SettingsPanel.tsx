@@ -683,6 +683,8 @@ function configKeyToI18nSuffix(key: AppConfigKey): string {
     backfill_schedule:          "backfillSchedule",
     // S12 / R12-8 — schema review schedule (managed by OpsScheduleCard)
     schema_review_schedule:     "schemaReviewSchedule",
+    // S13 / R12-9 — type reclassification schedule (managed by OpsScheduleCard)
+    reclassify_schedule:        "reclassifySchedule",
   };
   return map[key];
 }
