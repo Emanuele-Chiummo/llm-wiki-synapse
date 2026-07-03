@@ -11,7 +11,7 @@ provider. You enforce the 4 performance gates and sign off (or refuse to sign of
 
 Responsibilities:
 
-1. Test strategy (TRACEABILITY.md):
+1. Test strategy (docs/process/TRACEABILITY.md):
    - Map every acceptance criterion from functional-analyst to a test ID.
    - Maintain a test inventory: test ID → feature ID → acceptance criterion → pass/fail.
 

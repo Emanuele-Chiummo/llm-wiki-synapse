@@ -1,0 +1,40 @@
+<svg viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Synapse app icon">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="1024" x2="1024" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1d4ed8"/>
+      <stop offset="0.5" stop-color="#4338ca"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.32" cy="0.28" r="0.9">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- squircle background -->
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#bgGrad)"/>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#glow)"/>
+
+  <!-- satellite edges -->
+  <path d="M700 312 L806 234" stroke="#ffffff" stroke-opacity="0.45" stroke-width="20" stroke-linecap="round"/>
+  <path d="M324 712 L218 790" stroke="#ffffff" stroke-opacity="0.45" stroke-width="20" stroke-linecap="round"/>
+  <path d="M512 512 L744 578" stroke="#ffffff" stroke-opacity="0.45" stroke-width="20" stroke-linecap="round"/>
+
+  <!-- main synaptic S-path -->
+  <path d="M700 312 C 480 276 368 414 512 512 C 656 610 544 748 324 712"
+        stroke="#ffffff" stroke-width="66" stroke-linecap="round" fill="none"/>
+
+  <!-- core nodes -->
+  <circle cx="700" cy="312" r="78" fill="#ffffff"/>
+  <circle cx="324" cy="712" r="78" fill="#ffffff"/>
+  <circle cx="512" cy="512" r="45" fill="#ffffff"/>
+
+  <!-- satellite nodes -->
+  <circle cx="806" cy="234" r="30" fill="#ffffff" fill-opacity="0.9"/>
+  <circle cx="218" cy="790" r="30" fill="#ffffff" fill-opacity="0.9"/>
+  <circle cx="744" cy="578" r="24" fill="#ffffff" fill-opacity="0.9"/>
+
+  <!-- synaptic spark cores (gradient dot inside white nodes) -->
+  <circle cx="700" cy="312" r="30" fill="#4338ca"/>
+  <circle cx="324" cy="712" r="30" fill="#4338ca"/>
+</svg>
