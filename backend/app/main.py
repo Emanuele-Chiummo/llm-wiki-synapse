@@ -1015,6 +1015,114 @@ from app.stats import router as stats_router  # noqa: E402
 
 app.include_router(stats_router)
 
+
+# ── POST/GET /ops/backfill-domains — one-time bounded domain backfill (ADR-0054 §6) ──
+# Background asyncio task + 202, mirroring POST /research/start. Single-flight (409 while
+# running), 400 when the vocabulary is dormant (no provider calls ever fire dormant, I6/I7).
+# Strong task reference kept in a module-level set — a bare create_task can be GC'd mid-run.
+
+_backfill_tasks: set[asyncio.Task[Any]] = set()
+
+
+class BackfillDomainsRequest(BaseModel):
+    """Request body for POST /ops/backfill-domains (ADR-0054 §6)."""
+
+    max_pages: int | None = Field(
+        default=None, ge=1, description="Cap on pages processed this run (clamped server-side)."
+    )
+    token_budget: int | None = Field(
+        default=None, ge=1, description="Token budget for the run (clamped server-side, I7)."
+    )
+    force: bool = Field(
+        default=False,
+        description="Re-classify pages that already carry a domain/ tag (default: skip them).",
+    )
+
+
+class BackfillDomainsStartResponse(BaseModel):
+    """202 response for POST /ops/backfill-domains."""
+
+    status: str = Field(default="started", description="'started' — backfill runs in background")
+    max_pages: int = Field(description="Effective (clamped) page cap for this run")
+    token_budget: int = Field(description="Effective (clamped) token budget for this run")
+    force: bool = Field(description="Whether already-tagged pages are re-classified")
+
+
+class BackfillDomainsStatusResponse(BaseModel):
+    """GET /ops/backfill-domains — single-flight state + last completed summary."""
+
+    running: bool = Field(description="True while a backfill run is in flight")
+    last_summary: dict[str, Any] | None = Field(
+        default=None, description="Summary of the most recent completed run (null if never ran)"
+    )
+
+
+@app.post(
+    "/ops/backfill-domains",
+    status_code=202,
+    response_model=BackfillDomainsStartResponse,
+    responses={
+        400: {"description": "Domain vocabulary is empty (feature dormant)"},
+        409: {"description": "A backfill run is already in flight"},
+    },
+)
+async def start_backfill_domains(body: BackfillDomainsRequest) -> BackfillDomainsStartResponse:
+    """Start ONE bounded domain backfill over the existing vault (R12-2, ADR-0054 §6)."""
+    from app.config_overrides import effective_domain_vocabulary
+    from app.ops import backfill_domains as _bd
+
+    if _bd.is_running():
+        raise HTTPException(
+            status_code=409,
+            detail="A domain backfill is already running. Poll GET /ops/backfill-domains.",
+        )
+    if not effective_domain_vocabulary():
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Domain vocabulary is empty — configure Settings > Advanced > "
+                "domain_vocabulary first (the feature is dormant without it)."
+            ),
+        )
+
+    mp, tb = _bd.clamp_bounds(body.max_pages, body.token_budget)
+
+    async def _run() -> None:
+        try:
+            await _bd.run_backfill(
+                vault_id=settings.vault_id,
+                max_pages=body.max_pages,
+                token_budget=body.token_budget,
+                force=body.force,
+            )
+        except (
+            Exception
+        ) as exc:  # noqa: BLE001 — run_backfill never raises by contract; belt+braces
+            logger.error("backfill-domains: unhandled error in background run: %s", exc)
+
+    task = asyncio.create_task(_run())
+    _backfill_tasks.add(task)
+    task.add_done_callback(_backfill_tasks.discard)
+
+    return BackfillDomainsStartResponse(
+        status="started", max_pages=mp, token_budget=tb, force=body.force
+    )
+
+
+@app.get("/ops/backfill-domains", response_model=BackfillDomainsStatusResponse)
+async def get_backfill_domains_status() -> BackfillDomainsStatusResponse:
+    """Single-flight state + last summary of the domain backfill (ADR-0054 §6)."""
+    from dataclasses import asdict
+
+    from app.ops import backfill_domains as _bd
+
+    last = _bd.get_last_summary()
+    return BackfillDomainsStatusResponse(
+        running=_bd.is_running(),
+        last_summary=asdict(last) if last is not None else None,
+    )
+
+
 # ── MCP HTTP mount (ADR-0033 §2.4 — always-mount; gate is the sole arbiter) ──
 # Mounted at MCP_MOUNT_PATH — always, regardless of token configuration.
 # The _BearerAuthMiddleware (now the full MCP access gate) is applied ONLY to
