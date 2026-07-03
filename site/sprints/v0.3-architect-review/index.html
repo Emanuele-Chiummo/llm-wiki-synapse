@@ -1,0 +1,819 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.3-architect-review/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint 3 — v0.3 / M3 — Architect PR Review + I2 Gate + Diagram Sign-off - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-3-v03-m3-architect-pr-review-i2-gate-diagram-sign-off" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint 3 — v0.3 / M3 — Architect PR Review + I2 Gate + Diagram Sign-off
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-i2-server-side-layout-cached-no-client-force-layout-headline-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. I2 — server-side layout, cached, NO client force layout (HEADLINE) — APPROVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-edge-weight-formula-adr-0012-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Edge-weight formula (ADR-0012) — APPROVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-i1-incremental-no-rescan-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. I1 — incremental (no rescan) — APPROVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-i4-webgl-bounded-dom-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. I4 — WebGL / bounded DOM — APPROVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-i3-zustand-selectors-shallow-equality-pre-compliance-for-v04-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. I3 — Zustand selectors + shallow equality (pre-compliance for v0.4) — APPROVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-data-model-migration-er-d2-approve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Data model / migration / ER (D2) — APPROVE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-diagram-sign-off-ec-m3-14-approve-with-2-non-blocking-cosmetic-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Diagram sign-off (EC-M3-14) — APPROVE (with 2 non-blocking cosmetic notes)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-mainpy-version-check-pass-v03-m3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. main.py version check — PASS (v0.3 / M3)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-blocking-defects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Blocking defects
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-architect-verdict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. ARCHITECT VERDICT
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-3-v03-m3-architect-pr-review-i2-gate-diagram-sign-off">Sprint 3 — v0.3 / M3 — Architect PR Review + I2 Gate + Diagram Sign-off<a class="headerlink" href="#sprint-3-v03-m3-architect-pr-review-i2-gate-diagram-sign-off" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Reviewer: solution-architect (claude-opus-4-8)
+Date: 2026-06-28
+Gate: EC-M3-14 (architect review) — the <strong>I2 gate</strong> (headline invariant of M3)
+Scope: implementation vs design (<code>v0.3-architecture.md</code>, ADR-0012..0015) + invariant compliance
+Inputs reviewed: engine.py, cache.py, GET /graph in main.py, models.py, alembic 0003,
+GraphViewer.tsx, graphStore.ts, graphTransform.ts, no-client-layout.test.ts, eslint.config.js,
+package.json (+ lockfile), test_graph_engine.py, component.mmd, graph-recompute.mmd, schema.mmd.
+Code was reviewed read-only; no implementation files were modified.</p>
+</blockquote>
+<hr />
+<h2 id="1-i2-server-side-layout-cached-no-client-force-layout-headline-approve">1. I2 — server-side layout, cached, NO client force layout (HEADLINE) — <strong>APPROVE</strong><a class="headerlink" href="#1-i2-server-side-layout-cached-no-client-force-layout-headline-approve" title="Permanent link">&para;</a></h2>
+<p><strong>Server side (engine.py):</strong>
+- Force layout runs ONLY in <code>GraphEngine.recompute()</code> — <code>g_weighted.layout_fruchterman_reingold(weights=..., niter=500)</code>.
+  This is the python-igraph (R9, I9) force-directed layout explicitly sanctioned by ADR-0013 §1
+  as the "FA2-family" layout (<code>layout_fruchterman_reingold</code> / <code>layout_drl</code>). Not a deviation —
+  it is exactly what my own ADR-0013 §1 architect note authorised. Library locked to igraph. ✅
+- Determinism: <code>igraph.set_random_number_generator(_SeedableRNG(FA2_SEED))</code>, <code>FA2_SEED=42</code>
+  (env <code>GRAPH_LAYOUT_SEED</code> override). <code>TestFA2Determinism.test_same_coords_two_runs</code> asserts
+  byte-stable coords across two runs (|Δ| &lt; 1e-9). Matches ADR-0013 §2. ✅
+- Coords persisted to <code>pages.x/y</code> via column-level <code>UPDATE pages SET x,y WHERE id</code> inside one
+  transaction with the edges delete-then-insert (<code>_persist_results</code>). Matches ADR-0013 §3/§5. ✅</p>
+<p><strong>Cache (cache.py):</strong>
+- <code>GraphCache</code> debounces recompute on <code>data_version</code> bump (<code>notify_bump</code> → <code>fire_at = clock()+window</code>,
+  default 5s; burst collapse resets the deadline). Injectable clock. Bounded queue: max 1 in-flight +
+  1 pending (<code>_in_flight</code> / <code>_pending</code>), exactly one follow-up after a run. Matches ADR-0014 §2/§3. ✅
+- HIT (<code>_marker == current_version</code>) returns the in-process <code>_snapshot</code> with NO recompute — no FA2. ✅
+- MISS runs ONE inline recompute behind the shared in-flight guard (no concurrent FA2). ✅</p>
+<p><strong>Endpoint (main.py GET /graph):</strong>
+- Synchronous 200. <code>X-Graph-Cache: hit|miss</code> set from the <code>cached</code> flag. No 202 path. Matches
+  ADR-0014 §5/§6 and AQ-v0.3-3. ✅</p>
+<p><strong>Frontend (GraphViewer.tsx + graphTransform.ts + graphStore.ts):</strong>
+- <code>buildGraphologyGraph</code> assigns <code>x: node.x, y: node.y</code> verbatim from the server response; no
+  layout function is called anywhere. Sigma is instantiated over the prebuilt graphology graph and
+  renders the fixed positions; no rAF physics loop, no supervisor. ✅
+- <code>package.json</code> dependencies = graphology, react, react-dom, sigma, zustand. <strong>No</strong>
+  forceatlas2 / d3-force / graphology-layout-<em> dependency. Confirmed absent from <code>package.json</code>
+  </em><em>and</em>* <code>package-lock.json</code> (transitive deps included). ✅
+- Enforcement is genuine and double-layered:
+  - eslint <code>no-restricted-imports</code> blocks forceatlas2, d3-force, @antv/layout, graphology-layout
+    (+ random/circular variants) — P0 message.
+  - <code>no-client-layout.test.ts</code> scans BOTH the built <code>dist/assets/*.js</code> bundle AND non-test source
+    imports for 10 forbidden patterns (forceAtlas2, fa2Worker, forceSimulation, d3-force, etc.),
+    failing with a P0 escalation message on any hit. Both layers are real, not stubs. ✅</p>
+<p><strong>Verdict: I2 APPROVE.</strong> No client-side layout exists or can be introduced without tripping two
+independent gates. FA2 is server-side, seeded, deterministic, and cached. <strong>No P0 block.</strong></p>
+<hr />
+<h2 id="2-edge-weight-formula-adr-0012-approve">2. Edge-weight formula (ADR-0012) — <strong>APPROVE</strong><a class="headerlink" href="#2-edge-weight-formula-adr-0012-approve" title="Permanent link">&para;</a></h2>
+<p>engine.py implements exactly:
+<code>w = 3.0·direct + 4.0·shared + 1.5·aa + 1.0·same_type</code> (lines computing <code>w</code> in <code>recompute</code>). ✅
+- <code>direct</code>: both link orientations counted separately via <code>pair_direct</code> (canonical key). ✅
+- <code>shared</code>: <code>len(sources_A ∩ sources_B)</code> over JSONB arrays; NULL→∅. ✅
+- <code>aa</code>: <code>Σ_{c∈N(A)∩N(B)} 1/ln(deg(c))</code>, deg&gt;1 guard, over the undirected unweighted resolved-link
+  graph. Candidate-pair restricted (not O(N²)). ✅
+- <code>same_type</code>: 1 iff both non-NULL and equal; NULL≠NULL. ✅
+- Persisted iff <code>w&gt;0</code>. Pairs canonicalised (smaller UUID first) via <code>_canonical_key</code>. ✅
+- <code>signals</code> JSONB persists the per-term breakdown for audit. ✅</p>
+<p><code>test_graph_engine.py</code> asserts <strong>exact hand-computed</strong> values, not just smoke:
+- P3–P4 <code>== 7.0</code> (direct 3 + source 4, AA 0, type 0) — exact. ✅
+- signals isolation on P3–P4: direct=3.0, source=4.0, aa=0.0, type=0.0 — exact. ✅
+- P1–P2 type signal == 1.0 (both entity); NULL-type pair type signal == 0.0 (NULL≠NULL). ✅
+- Lower bounds for AA-bearing pairs: P1–P2 ≥ 11, P1–P4 ≥ 8, P2–P4 ≥ 5. ✅
+- P3–P5 absent — and the QA fixture correctly applied the AQ-1 correction (P5 type=<code>person</code>,
+  not <code>concept</code>), so weight=0 → not persisted. The architect-flagged fixture reconciliation was
+  honoured. ✅</p>
+<p><strong>Verdict: APPROVE — formula is exact and exactly tested.</strong></p>
+<hr />
+<h2 id="3-i1-incremental-no-rescan-approve">3. I1 — incremental (no rescan) — <strong>APPROVE</strong><a class="headerlink" href="#3-i1-incremental-no-rescan-approve" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>_load_data</code> issues SQL only against <code>pages</code> + <code>links</code>. No <code>os.walk</code> / <code>glob</code> / vault filesystem
+  access in engine.py or cache.py. ✅</li>
+<li><code>_persist_results</code> does column-level <code>UPDATE pages SET x,y</code> per node + <code>DELETE FROM edges WHERE
+  vault_id</code> then re-insert; no full pages-table rewrite. ✅</li>
+<li>One ingest → that page's rows + ONE debounced recompute. FA2 repositioning all nodes is the
+  documented and CORRECT global-layout semantics (ADR-0013 §4); AC-F4-9 asserts row-level
+  incrementality, not coord stability. This is <strong>not</strong> an I1 violation. ✅</li>
+</ul>
+<p><strong>Verdict: APPROVE.</strong></p>
+<hr />
+<h2 id="4-i4-webgl-bounded-dom-approve">4. I4 — WebGL / bounded DOM — <strong>APPROVE</strong><a class="headerlink" href="#4-i4-webgl-bounded-dom-approve" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Sigma renders into ONE <code>&lt;canvas&gt;</code> mounted in <code>#sigma-container</code>; overlays (StatusBar, Legend,
+  one Tooltip) are a small fixed set of absolutely-positioned divs (~6 DOM nodes, ≪ 20). No
+  per-node DOM. ✅</li>
+<li>No editor / CodeMirror introduced (correctly deferred to v0.4). ✅</li>
+<li><code>@tanstack/virtual-core</code> is present in devDependencies — TanStack Virtual is available for the
+  future node/search lists required by I4 (no lists exist in v0.3, so nothing to virtualise yet). ✅</li>
+<li>Runtime fps/DOM Playwright assertions (T-E2E-G4-*) are DEFERRED-TO-LIVE — acceptable; the
+  architecture makes G4 true by construction. ✅</li>
+</ul>
+<p><strong>Verdict: APPROVE.</strong></p>
+<hr />
+<h2 id="5-i3-zustand-selectors-shallow-equality-pre-compliance-for-v04-approve">5. I3 — Zustand selectors + shallow equality (pre-compliance for v0.4) — <strong>APPROVE</strong><a class="headerlink" href="#5-i3-zustand-selectors-shallow-equality-pre-compliance-for-v04-approve" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>graphStore.ts</code> exports typed selectors; multi-field selectors (<code>selectStatus</code>, <code>selectMeta</code>)
+  are consumed through <code>useShallow</code> hooks (<code>useGraphStatus</code>, <code>useGraphMeta</code>). ✅</li>
+<li>No component calls <code>useGraphStore()</code> without a selector; GraphViewer subscribes via individual
+  typed selectors. ✅</li>
+</ul>
+<p><strong>Verdict: APPROVE (pre-compliance confirmed).</strong></p>
+<hr />
+<h2 id="6-data-model-migration-er-d2-approve">6. Data model / migration / ER (D2) — <strong>APPROVE</strong><a class="headerlink" href="#6-data-model-migration-er-d2-approve" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>models.py</code>: <code>Page.x</code> / <code>Page.y</code> (<code>Double</code>, nullable); new <code>Edge</code> model with <code>vault_id</code>,
+  canonical <code>source_page_id</code> / <code>target_page_id</code> (FK→pages.id), <code>weight</code> (Double, NOT NULL),
+  <code>signals</code> (JSONB nullable), <code>created_at</code>; unique <code>(vault_id, source_page_id, target_page_id)</code>;
+  indexes on both endpoints. Matches v0.3-architecture §3 and ADR-0012/0013 exactly. ✅</li>
+<li><code>alembic/versions/0003_v0_3_graph.py</code>: adds pages.x/y + creates edges with identical columns,
+  FKs, unique constraint <code>uq_edges_vault_pair</code>, and both endpoint indexes. <strong>Migration matches the
+  models</strong> — no drift. Single migration = one schema-change event (I8). ✅</li>
+<li><code>docs/er/schema.mmd</code>: 6 tables (PAGES, PROVIDER_CONFIG, VAULT_STATE, EDGES, INGEST_RUNS, LINKS),
+  pages.x/y present, EDGES present. ER reflects reality; QA reports <code>make er</code> zero drift. ✅</li>
+</ul>
+<p><strong>Verdict: APPROVE.</strong></p>
+<hr />
+<h2 id="7-diagram-sign-off-ec-m3-14-approve-with-2-non-blocking-cosmetic-notes">7. Diagram sign-off (EC-M3-14) — <strong>APPROVE (with 2 non-blocking cosmetic notes)</strong><a class="headerlink" href="#7-diagram-sign-off-ec-m3-14-approve-with-2-non-blocking-cosmetic-notes" title="Permanent link">&para;</a></h2>
+<p><strong><code>docs/sequences/graph-recompute.mmd</code> — APPROVE.</strong> Server-side seeded FA2, debounce/burst-collapse,
+bounded queue (1 in-flight + 1 pending), I1 read-only-from-Postgres, 4-signal note (×3/×4/×1.5/×1),
+one-txn coord+edge write, and both cache-hit/miss paths with correct <code>X-Graph-Cache</code> headers and
+<code>cached</code> flags. Client addNode with server coords + "NO client layout (ADR-0015)". No v0.4 features.
+- Non-blocking note D-1: line 49 draws the hit path as <code>GC-&gt;&gt;PG: SELECT pages.x/y + edges</code>.
+  The implementation serves a cache HIT from the in-process <code>_snapshot</code> (it does not re-query
+  Postgres on a hit). The diagram's load-bearing claim — "NO FA2, pure read" — is correct; the
+  source of the read (in-memory snapshot vs PG) is a cosmetic simplification. Optional polish for
+  tech-writer; does not misrepresent I2.</p>
+<p><strong><code>docs/architecture/component.mmd</code> — APPROVE.</strong> GraphEngine, GraphCache, coord/edge persistence,
+sigma viewer, graph Zustand store, Postgres <code>pages (+x,y)</code> + <code>edges</code>, I2 header annotation, ADR
+refs, notify_bump/recompute/GET-graph relations all present and accurate. No v0.4 chat/3-panel/
+provider-selector/CodeMirror drawn.
+- Non-blocking note D-2: the store component <code>gstore</code> is labelled <code>store/graph.ts</code>; the real file
+  is <code>store/graphStore.ts</code>. One-word label drift; optional fix for tech-writer.</p>
+<p>Both notes are cosmetic. They do NOT block the gate (the diagrams correctly convey every
+invariant-relevant fact). Routed to tech-writer as optional polish via handoff.</p>
+<hr />
+<h2 id="8-mainpy-version-check-pass-v03-m3">8. main.py version check — <strong>PASS (v0.3 / M3)</strong><a class="headerlink" href="#8-mainpy-version-check-pass-v03-m3" title="Permanent link">&para;</a></h2>
+<p><code>app/main.py</code>: <code>FastAPI(title="Synapse", version="0.3.0", ...)</code>, description references
+"M3 (graph live, no main-thread freeze)", the 4-signal formula, server-side FA2, GraphCache, and
+GET /graph. <strong>Not</strong> the stale "0.2.0 / M2". OpenAPI <code>info.version</code> = "0.3.0" (per DOCS_STATUS §5).
+No flag. ✅</p>
+<hr />
+<h2 id="9-blocking-defects">9. Blocking defects<a class="headerlink" href="#9-blocking-defects" title="Permanent link">&para;</a></h2>
+<p><strong>NONE.</strong> No invariant is traded. No P0 client-layout. No formula/migration/ER drift. Version correct.</p>
+<hr />
+<h2 id="10-architect-verdict">10. ARCHITECT VERDICT<a class="headerlink" href="#10-architect-verdict" title="Permanent link">&para;</a></h2>
+<p><strong>APPROVED.</strong></p>
+<p>The v0.3 implementation faithfully realises the approved design and satisfies every in-scope
+invariant: <strong>I2 (headline)</strong>, I1, I3, I4, I5, I7, I8, I9, I6. The 4-signal additive formula is
+implemented exactly and asserted with exact hand-computed values; server-side seeded FA2 is the
+only force layout in the repo and is deterministic and cached; client-layout is forbidden by two
+independent enforcement layers with zero forbidden dependencies in the lockfile; the data model,
+migration, and ER are mutually consistent (6 tables, zero drift); and main.py reports v0.3/M3.</p>
+<p>Two cosmetic diagram notes (D-1 hit-path read source, D-2 store filename label) are routed to
+tech-writer as optional polish and do NOT hold the gate.</p>
+<p>EC-M3-14 (architect gate): <strong>MET.</strong> The remaining open items for full-green M3 are the
+DEFERRED-TO-LIVE runtime/perf/D5 captures (G2 longtask, G4 fps/DOM, screenshots) and the
+EC-M3-17 human checkpoint — none of which are architect-gated.</p>
+<p>— solution-architect · 2026-06-28</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

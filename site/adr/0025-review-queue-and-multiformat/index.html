@@ -1,0 +1,1364 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0025-review-queue-and-multiformat/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0025 — HITL Review Queue + Multi-format ingest (F9 + F12) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0025-hitl-review-queue-multi-format-ingest-f9-f12" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0025 — HITL Review Queue + Multi-format ingest (F9 + F12)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-ground-truth-consumed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Ground truth consumed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-f9-hitl-review-queue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. F9 — HITL Review Queue
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. F9 — HITL Review Queue">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-review_items-table-alembic-0010" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 review_items table (Alembic 0010)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-module-opsreviewpy-interface-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Module ops/review.py — interface contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-where-items-come-from-locked-the-bounded-post-ingest-generator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Where items come from (LOCKED) — the bounded post-ingest generator
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-consistencycontradiction-scan-reserved-and-bounded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Consistency/contradiction scan — reserved and bounded
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-f9-rest-surface-d4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 F9 REST surface (D4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#36-f9-frontend-ac-f9-5-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.6 F9 frontend (AC-F9-5/-7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-f12-multi-format-ingest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. F12 — Multi-format ingest
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. F12 — Multi-format ingest">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-module-ingestextractpy-interface-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Module ingest/extract.py — interface contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-where-it-plugs-in-post-ingestupload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Where it plugs in — POST /ingest/upload
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-why-companion-on-upload-not-extract-in-watcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Why companion-on-upload (not extract-in-watcher)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-companion-extractedmd-is-obsidian-valid-i5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Companion .extracted.md is Obsidian-valid (I5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-images-av-placeholder-only-out-of-scope-locked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 Images / AV — placeholder only (out of scope, locked)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#46-new-dependencies-pinned-lean-i9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.6 New dependencies (pinned, lean — I9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-do-not-list-rejection-triggers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Do-NOT list (rejection triggers)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-invariant-compliance-statement-phase-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Invariant compliance statement (Phase 3)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-flagged-tensions-risks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Flagged tensions &amp; risks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-sign-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Sign-off
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0025-hitl-review-queue-multi-format-ingest-f9-f12">ADR-0025 — HITL Review Queue + Multi-format ingest (F9 + F12)<a class="headerlink" href="#adr-0025-hitl-review-queue-multi-format-ingest-f9-f12" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-06-29</li>
+<li><strong>Sprint:</strong> v0.5 (M5 Phase 3)</li>
+<li><strong>Features:</strong> F9 (Async HITL review queue) · F12 (Multi-format ingest)</li>
+<li><strong>Supersedes the F9/F12 interface stubs in:</strong> <code>docs/sprints/v0.5-architecture.md</code> §2.2 / §2.4 / §6.2 / §6.4 (this ADR is the detailed design; the stubs stand as the coherence map)</li>
+<li><strong>Resolves:</strong> AQ-v0.5-6 (<code>review_items.vault_id</code> is the existing <code>vault_id</code> String, no <code>vaults</code> table; <code>review_items</code> is Alembic <strong>0010</strong> — F10 took 0009)</li>
+<li><strong>Invariants owned:</strong> <strong>I7</strong> (HEADLINE — the F9 pre-gen query call is bounded to exactly 1 call/item) · <strong>I1</strong> (F12 stays incremental via the hash gate) · <strong>I5</strong> (extracted pages are Obsidian-valid; binary never reaches <code>wiki/</code>) · <strong>I6</strong> (pre-gen queries via the resolved <code>InferenceProvider</code>, no hardcoded backend) · <strong>I9</strong> (well-known extractor libs, no reinvention) · <strong>I4</strong> (review list virtualized &gt; 50)</li>
+<li><strong>Author:</strong> solution-architect</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>Phase 3 is the broadest M5 phase: it lands two independent features that share only the
+sprint gate. They are designed together here because both reuse existing seams and both have
+sharp invariant edges that must be locked before engineers code.</p>
+<p><strong>F9 — HITL review queue.</strong> Karpathy's K8 principle is "human curates, LLM maintains." After
+an ingest writes a <code>wiki/</code> page, F9 surfaces it (and any AI-proposed follow-up questions) in a
+<strong>Review</strong> nav section so the human can Approve / Skip / Deep-Research. The queue is <strong>advisory</strong>:
+the page is already on disk (AC-F9-2/6); the queue never blocks ingest and never re-triggers it.
+The danger is the <strong>pre-generated query</strong> step — an inference call per item. Left unbounded it is
+exactly the I7 failure class. It is bounded here to <strong>exactly one</strong> <code>InferenceProvider</code> call per
+item, with a timeout, degrading to a null query on failure.</p>
+<p><strong>F12 — Multi-format ingest.</strong> Today only <code>.md/.txt/.markdown</code> enter the vault (the <code>app.upload</code>
+allow-list, mirrored by the watcher). F12 accepts PDF/DOCX/PPTX/XLSX by extracting their text to a
+companion markdown file and letting the <strong>existing</strong> ingest pipeline take over. The danger is two
+seams colliding (upload → watcher → <code>ingest_file</code>) and producing a double-ingest, or a binary file
+reaching the indexer. Both are designed out below.</p>
+<h3 id="11-ground-truth-consumed">1.1 Ground truth consumed<a class="headerlink" href="#11-ground-truth-consumed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>app.upload</code></strong> (<code>safe_source_name</code> / <code>resolve_under_sources</code>) gates <code>POST /ingest/upload</code>. Its
+  <code>_ALLOWED_EXTENSIONS = {".md", ".txt", ".markdown"}</code> is the <strong>single</strong> source of truth for what the
+  watcher ingests — <code>app.watcher._is_text_file</code> imports the exact same frozenset. <strong>This coupling is
+  the linchpin of the F12 design</strong> (§4.3): binary extensions stay OUT of that set, so the watcher
+  ignores the binary and only ingests the companion <code>.extracted.md</code>.</li>
+<li><strong><code>POST /ingest/upload</code></strong> (M4-EXT, ADR-0020) writes to <code>vault/raw/sources/</code> and returns <strong>202</strong>;
+  the <strong>watcher</strong> ingests asynchronously. F12 must run extraction <em>synchronously on upload</em> (before
+  202) so the companion markdown exists when the watcher fires — never inside the watcher.</li>
+<li><strong><code>ingest/orchestrator.py</code> <code>ingest_file(path)</code></strong> — the single intake seam (ADR-0003). Extracted text
+  re-enters here unchanged; the mtime/hash gate (ADR-0001) dedups regardless of source type (I1).</li>
+<li><strong><code>run_ingest_pipeline()</code></strong> (orchestrator) is where each <code>WikiPage</code> is written via <code>write_wiki_page</code>.
+  F9's <code>enqueue_review()</code> is called <strong>fire-and-forget</strong> from the orchestrator's post-write step.</li>
+<li><strong><code>resolve_provider_config("ingest", vault_id)</code></strong> (<code>provider_config_service.py</code>) resolves the provider
+  row by operation precedence and raises <code>ConfigNotFoundError</code> when none is configured. F9's query-gen
+  uses the resolved <strong><code>"ingest"</code></strong> provider via <code>InferenceProvider.chat()</code> — the same backend-neutral
+  text-in/text-out seam F10 uses (no new ABC method, I6).</li>
+<li><strong><code>POST /research/start</code></strong> (F10, ADR-0024) — F9's Deep-Research action calls this with the item's
+  <code>pre_generated_query</code> (or the page topic) and stores the returned <code>run_id</code> on the review row (AC-F10-5).</li>
+<li><strong><code>graph/engine.py</code> / <code>edges</code> table</strong> — the post-ingest consistency scan (CLAUDE.md §7) may <strong>read</strong>
+  the <code>edges</code> table to find graph-related pages. It <strong>never</strong> triggers FA2 (I2). Phase 3 keeps the
+  generator scope minimal (see §3.4): consistency/contradiction flagging is a <strong>reserved, bounded</strong>
+  extension; the shipped generator produces follow-up <code>suggested_query</code> items only.</li>
+</ul>
+<hr />
+<h2 id="2-decision-summary">2. Decision summary<a class="headerlink" href="#2-decision-summary" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>F9 stores one new table</strong> <code>review_items</code> (Alembic <strong>0010</strong>), scoped by the existing <code>vault_id</code>
+   String (AQ-v0.5-6 — no <code>vaults</code> table). <code>page_id</code> is a real nullable FK → <code>pages.id</code>.</li>
+<li><strong>Items come from exactly one source in Phase 3:</strong> the orchestrator's post-write hook enqueues one
+   <code>new_page</code> review item per generated wiki page, and <strong>at most one</strong> bounded <code>InferenceProvider.chat()</code>
+   call generates 1–3 follow-up <code>suggested_query</code> strings stored on that row. No second call, no loop (I7).</li>
+<li><strong>F9 REST:</strong> <code>GET /review/queue</code> (paginated, <code>vault_id</code> filter), <code>POST /review/queue/{id}/approve</code>,
+   <code>POST /review/queue/{id}/skip</code>, <code>POST /review/queue/{id}/deep-research</code>. The deep-research action
+   delegates to <code>POST /research/start</code> (F10) and stores <code>run_id</code> + <code>deep_research_run_id</code> on the row.</li>
+<li><strong>F12 extraction lives in one module</strong> <code>ingest/extract.py</code> with a single dispatch <code>extract_text(path)
+   -&gt; str</code> (no LLM, no loop). Format libs (<code>pypdf</code>, <code>python-docx</code>, <code>python-pptx</code>, <code>openpyxl</code>) are
+   imported <strong>only</strong> there (static guard, AC-F12-7).</li>
+<li><strong>F12 plug-in point:</strong> <code>POST /ingest/upload</code> widens its allow-list for binary types; on a binary it
+   (a) writes the original binary to <code>raw/sources/</code>, (b) <strong>synchronously</strong> extracts → writes
+   <code>&lt;stem&gt;.extracted.md</code> next to it, (c) returns 202. The <strong>watcher ingests only the <code>.extracted.md</code></strong>
+   (the binary extension is not in <code>_ALLOWED_EXTENSIONS</code>). One ingest, one hash gate (I1), Obsidian-valid (I5).</li>
+<li><strong><code>unstructured</code> is NOT added in M5.</strong> Images/AV are explicit placeholder stubs (out of scope, §4.5).
+   This keeps the dependency bundle lean (I9) — decision locked here, narrowing the scope-doc list.</li>
+</ol>
+<hr />
+<h2 id="3-f9-hitl-review-queue">3. F9 — HITL Review Queue<a class="headerlink" href="#3-f9-hitl-review-queue" title="Permanent link">&para;</a></h2>
+<h3 id="31-review_items-table-alembic-0010">3.1 <code>review_items</code> table (Alembic 0010)<a class="headerlink" href="#31-review_items-table-alembic-0010" title="Permanent link">&para;</a></h3>
+<p>New SQLAlchemy model <code>ReviewItem</code> in <code>backend/app/models.py</code>. DDL (Postgres; SQLite variant for unit
+tests follows the <code>deep_research_runs</code> pattern — <code>UUID(as_uuid=True).with_variant(String(36), "sqlite")</code>,
+<code>JSONB().with_variant(JSON(), "sqlite")</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Null</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID PK</td>
+<td>no</td>
+<td><code>gen_random_uuid()</code> server default</td>
+</tr>
+<tr>
+<td><code>vault_id</code></td>
+<td>String</td>
+<td>no</td>
+<td><strong>The existing <code>vault_id</code> String</strong> (AQ-v0.5-6); matches <code>pages</code>/<code>edges</code>/<code>conversations</code>. No FK — there is no <code>vaults</code> table.</td>
+</tr>
+<tr>
+<td><code>page_id</code></td>
+<td>UUID FK → <code>pages.id</code></td>
+<td><strong>yes</strong></td>
+<td>The wiki page this item reviews; NULL for page-less items (e.g. a future gap item not tied to one page).</td>
+</tr>
+<tr>
+<td><code>item_type</code></td>
+<td>Text (enum-by-convention)</td>
+<td>no</td>
+<td><code>new_page</code> | <code>update_page</code> | <code>deep_research_candidate</code>. Enforced at app level by handler <code>Literal</code> types — no DB CHECK constraint (see §3.1 amendment note below). Sub-kinds (<code>suggested_query</code>/<code>gap</code>/<code>contradiction</code>) are <strong>payload sub-kinds</strong> inside <code>pre_generated_query</code>, not column values — see §3.4.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>Text (enum-by-convention)</td>
+<td>no</td>
+<td><code>pending</code> | <code>approved</code> | <code>skipped</code> | <code>deep_researched</code>. Defaults <code>pending</code> (server default). Enforced at app level by handler <code>Literal</code> types — no DB CHECK constraint (see §3.1 amendment note below).</td>
+</tr>
+<tr>
+<td><code>pre_generated_query</code></td>
+<td>Text</td>
+<td>yes</td>
+<td>Newline-separated 1–3 questions from the bounded gen call; <strong>NULL</strong> when the call failed/timed out or was not configured (AC-F9-4).</td>
+</tr>
+<tr>
+<td><code>deep_research_run_id</code></td>
+<td>UUID FK → <code>deep_research_runs.id</code></td>
+<td>yes</td>
+<td>Set when the Deep-Research action fired (AC-F10-5); NULL otherwise.</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>TIMESTAMP(tz)</td>
+<td>no</td>
+<td><code>func.now()</code></td>
+</tr>
+<tr>
+<td><code>reviewed_at</code></td>
+<td>TIMESTAMP(tz)</td>
+<td>yes</td>
+<td>Set on approve/skip/deep-research; NULL while <code>pending</code>.</td>
+</tr>
+<tr>
+<td><code>reviewed_by</code></td>
+<td>Text</td>
+<td>yes</td>
+<td>Free-text actor (e.g. <code>"web-ui"</code>); NULL while <code>pending</code>. M5 is single-operator, so this is audit-only.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>§3.1 Amendment (docs gate, M5 Phase 3 — 2026-06-29):</strong> Migration 0010 implements <code>item_type</code>
+and <code>status</code> as plain <code>Text</code> columns with <strong>no DB CHECK constraint</strong>. Validation is enforced
+application-side via handler <code>Literal</code> types (FastAPI/Pydantic) and the <code>_set_status</code> helper in
+<code>ops/review.py</code>. This is the <strong>established Synapse convention</strong> — <code>ingest_runs.status</code> and
+<code>deep_research_runs.status</code> are identically structured (Text + app-level Literal, no CHECK). The
+original ADR text read "CHECK constraint"; that was aspirational and was not implemented. No
+follow-up migration is required; enum-by-convention (app-level Literal types + mapped Literal on the
+handlers) is accepted as the house standard, consistent with <code>ingest_runs</code> and <code>deep_research_runs</code>.
+Architect condition (Phase 3 review, item 1) resolved by this amendment.</p>
+</blockquote>
+<p><strong>Index:</strong> <code>ix_review_items_vault_status_created</code> on <code>(vault_id, status, created_at)</code> — the
+paginated pending-queue read (<code>WHERE vault_id=? AND status='pending' ORDER BY created_at</code>). No
+partial-unique constraint is needed (a page may legitimately appear multiple times across re-ingests;
+the queue is an event log, not a per-page singleton).</p>
+<blockquote>
+<p><strong>Naming reconciliation with the scope doc.</strong> AC-F9-1 lists <code>vault_id (uuid FK)</code>. AQ-v0.5-6 already
+overrode this to the <strong>String <code>vault_id</code></strong> with no <code>vaults</code> table; this ADR is the authority. The
+scope-doc <code>item_type</code> enum (<code>new_page</code>/<code>update_page</code>/<code>deep_research_candidate</code>) is honored verbatim;
+the §intro mention of <code>suggested_query</code>/<code>gap</code>/<code>contradiction</code> in the design brief maps to <strong>payload
+sub-kinds inside <code>pre_generated_query</code></strong>, not extra column values — see §3.4.</p>
+</blockquote>
+<p><strong>ER / D2 impact.</strong> <code>make er</code> regenerates <code>docs/er/schema.mmd</code> with the <code>review_items</code> entity and its two
+FKs (<code>page_id</code> → <code>pages</code>, <code>deep_research_run_id</code> → <code>deep_research_runs</code>). Zero-drift gate (I8, EC-M5-17).</p>
+<h3 id="32-module-opsreviewpy-interface-contract">3.2 Module <code>ops/review.py</code> — interface contract<a class="headerlink" href="#32-module-opsreviewpy-interface-contract" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># backend/app/ops/review.py  — F9 (ADR-0025). No new ingest logic; advisory queue only.</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">enqueue_review</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">vault_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">item_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;new_page&quot;</span><span class="p">,</span> <span class="s2">&quot;update_page&quot;</span><span class="p">,</span> <span class="s2">&quot;deep_research_candidate&quot;</span><span class="p">],</span>
+    <span class="n">pre_generated_query</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReviewItem</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Insert one pending review_items row. Pure DB write; never calls a provider itself.</span>
+<span class="sd">    Idempotency is NOT required — the queue is an event log (§3.1).&quot;&quot;&quot;</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">generate_review_queries</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span> <span class="n">vault_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">page_title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">page_excerpt</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Make EXACTLY ONE InferenceProvider.chat() call (operation=&#39;ingest&#39;, I6) to produce</span>
+<span class="sd">    1–3 follow-up research questions, returned newline-separated. BOUNDED (I7):</span>
+<span class="sd">      - one call, no loop, no refine;</span>
+<span class="sd">      - wrapped in asyncio.wait_for(..., REVIEW_QUERY_TIMEOUT_SECONDS);</span>
+<span class="sd">      - token_budget from the resolved provider row (or REVIEW_QUERY_TOKEN_BUDGET default);</span>
+<span class="sd">      - on ConfigNotFoundError / timeout / any provider error → return None (item still enqueued).</span>
+<span class="sd">    Cost is pushed through the UsageAccumulator and logged like any provider call (I7).&quot;&quot;&quot;</span>
+
+<span class="c1"># REST handlers (thin; live in main.py or an ops/review router, calling the above):</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">list_queue</span><span class="p">(</span><span class="n">vault_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReviewQueuePage</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">approve</span><span class="p">(</span><span class="n">item_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReviewItem</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">skip</span><span class="p">(</span><span class="n">item_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReviewItem</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">deep_research</span><span class="p">(</span><span class="n">item_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReviewItem</span>   <span class="c1"># → POST /research/start, store run_id</span>
+</code></pre></div>
+<h3 id="33-where-items-come-from-locked-the-bounded-post-ingest-generator">3.3 Where items come from (LOCKED) — the bounded post-ingest generator<a class="headerlink" href="#33-where-items-come-from-locked-the-bounded-post-ingest-generator" title="Permanent link">&para;</a></h3>
+<p>The <strong>only</strong> producer in Phase 3 is the orchestrator's existing post-write step. In
+<code>run_ingest_pipeline</code> (orchestrator), after the orchestrated branch finishes writing pages
+(<code>write_wiki_page</code> + <code>_update_overview</code>), a <strong>fire-and-forget</strong> hook runs:</p>
+<div class="highlight"><pre><span></span><code>for each WikiPage written:
+    # ONE bounded provider call per page (I7); failure → query=None, item still enqueued
+    query = await generate_review_queries(vault_id, page.title, excerpt(page.content))
+    await enqueue_review(vault_id, page_id, item_type=&quot;new_page&quot;, pre_generated_query=query)
+</code></pre></div>
+<p><strong>Hard rules (the I7 + AC-F9-2 contract):</strong></p>
+<ol>
+<li>The hook is wrapped in <code>try/except</code> and <strong>NEVER fails the ingest</strong> (AC-F9-2). The page is already on
+   disk; the queue is advisory. A generator exception logs a WARNING and enqueues the item with
+   <code>pre_generated_query=NULL</code>.</li>
+<li><strong>Exactly one</strong> <code>generate_review_queries</code> call per page. No second call, no loop, no retry. The single
+   call is itself bounded by a timeout + token_budget (§3.2). This is the I7 surface for F9.</li>
+<li>The hook is <strong>non-blocking to the ingest critical path</strong>: it runs after the page write and its cost is
+   logged but it does not gate <code>IngestRunResult</code>. (Implementation may <code>asyncio.create_task</code> it or run it
+   inline after the run row is written — engineer's choice — but it must not raise into the ingest caller.)</li>
+<li>It is attached to the <strong>orchestrated</strong> branch only. The <strong>delegated (CLI)</strong> branch writes pages through
+   the MCP <code>write_page</code> tool and the orchestrator does not enumerate them; enqueue for the delegated path
+   is a <strong>reserved, out-of-Phase-3 follow-up</strong> (recorded in §7 risks). M5 EC-M5-8 ("review queue populated
+   on ingest") is satisfied by the orchestrated path, which is the default dev provider (Ollama/API).</li>
+</ol>
+<h3 id="34-consistencycontradiction-scan-reserved-and-bounded">3.4 Consistency/contradiction scan — reserved and bounded<a class="headerlink" href="#34-consistencycontradiction-scan-reserved-and-bounded" title="Permanent link">&para;</a></h3>
+<p>CLAUDE.md §7 lists a "consistency/contradiction post-ingest" loop that "scans related pages via the graph
+→ flags to review (F9), bounded." Phase 3 <strong>reserves</strong> this: the shipped generator produces
+<code>suggested_query</code> follow-ups only. If a consistency scan is added later it MUST:
+- read the <code>edges</code> table for graph-related pages (I2 — never call FA2);
+- be bounded by <code>REVIEW_SCAN_MAX_ITEMS</code> (max items enqueued per scan) <strong>and</strong> the same single-call
+  token_budget (I7);
+- enqueue <code>deep_research_candidate</code> / page-less items with the flagged context in <code>pre_generated_query</code>.</p>
+<p>This reservation is explicit so a future PR cannot smuggle an unbounded graph walk in under F9.</p>
+<h3 id="35-f9-rest-surface-d4">3.5 F9 REST surface (D4)<a class="headerlink" href="#35-f9-rest-surface-d4" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Method + path</th>
+<th>Body / params</th>
+<th>Success</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /review/queue</code></td>
+<td><code>?vault_id&amp;limit&amp;offset</code> (limit default 50, max 200 — I7 cap on the page)</td>
+<td>200 <code>{items:[…], total, limit, offset}</code></td>
+<td>Pending items, <code>created_at</code> order. Mirrors <code>/ingest/runs</code> paging.</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/{id}/approve</code></td>
+<td>—</td>
+<td>200 <code>ReviewItem</code></td>
+<td><code>status=approved</code>, <code>reviewed_at=now()</code>. Human confirmation only; does <strong>not</strong> re-trigger ingest (AC-F9-6).</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/{id}/skip</code></td>
+<td>—</td>
+<td>200 <code>ReviewItem</code></td>
+<td><code>status=skipped</code>, <code>reviewed_at=now()</code>.</td>
+</tr>
+<tr>
+<td><code>POST /review/queue/{id}/deep-research</code></td>
+<td>—</td>
+<td><strong>202</strong> <code>{review_item_id, run_id}</code></td>
+<td><code>status=deep_researched</code>; calls <code>POST /research/start</code> with <code>pre_generated_query</code> (first line) or the page topic when query is NULL; stores <code>deep_research_run_id</code>. 503 if <code>SEARXNG_URL</code> unset (inherits F10's guard).</td>
+</tr>
+<tr>
+<td>(all)</td>
+<td>unknown <code>id</code></td>
+<td>404</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><code>ReviewItem</code> JSON projection: <code>{id, vault_id, page_id, page_title?, item_type, status,
+pre_generated_query, deep_research_run_id, created_at, reviewed_at}</code>. <code>page_title</code> is a convenience
+join from <code>pages</code> for the UI list (AC-F9-5). All four documented in <code>openapi.json</code> (<code>make openapi</code>, I8).</p>
+<h3 id="36-f9-frontend-ac-f9-5-7">3.6 F9 frontend (AC-F9-5/-7)<a class="headerlink" href="#36-f9-frontend-ac-f9-5-7" title="Permanent link">&para;</a></h3>
+<p>The <strong>Review</strong> nav section (its <code>Section</code> union member + <code>SectionRouter</code> branch were retained per
+ADR-0021's M5-item-removal pattern) is activated: a list of pending items showing page title / item
+type / pre-generated query / Approve·Skip·Deep-Research buttons. The list is <strong>virtualized with TanStack
+Virtual when &gt; 50 items</strong> (I4). F9 is a <strong>separate</strong> section from the M4 Ingest Activity View — no
+Approve/Skip/Deep-Research is added to the Sources/Ingest section (AC-F9-7, the §10 boundary).</p>
+<hr />
+<h2 id="4-f12-multi-format-ingest">4. F12 — Multi-format ingest<a class="headerlink" href="#4-f12-multi-format-ingest" title="Permanent link">&para;</a></h2>
+<h3 id="41-module-ingestextractpy-interface-contract">4.1 Module <code>ingest/extract.py</code> — interface contract<a class="headerlink" href="#41-module-ingestextractpy-interface-contract" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># backend/app/ingest/extract.py  — F12 (ADR-0025). SOLE home of format libs (static guard, AC-F12-7).</span>
+
+<span class="c1"># Extension → extractor dispatch. No LLM, no loop, single pass per file (I7 n/a — stateless).</span>
+<span class="n">EXTRACTABLE_BINARY_EXTENSIONS</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+    <span class="p">{</span><span class="s2">&quot;.pdf&quot;</span><span class="p">,</span> <span class="s2">&quot;.docx&quot;</span><span class="p">,</span> <span class="s2">&quot;.pptx&quot;</span><span class="p">,</span> <span class="s2">&quot;.xlsx&quot;</span><span class="p">}</span>
+<span class="p">)</span>
+<span class="c1"># Placeholder-only (no transcription/OCR in M5 — §4.5):</span>
+<span class="n">PLACEHOLDER_EXTENSIONS</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+    <span class="p">{</span><span class="s2">&quot;.png&quot;</span><span class="p">,</span> <span class="s2">&quot;.jpg&quot;</span><span class="p">,</span> <span class="s2">&quot;.jpeg&quot;</span><span class="p">,</span> <span class="s2">&quot;.gif&quot;</span><span class="p">,</span> <span class="s2">&quot;.webp&quot;</span><span class="p">,</span> <span class="s2">&quot;.mp3&quot;</span><span class="p">,</span> <span class="s2">&quot;.mp4&quot;</span><span class="p">,</span> <span class="s2">&quot;.wav&quot;</span><span class="p">,</span> <span class="s2">&quot;.m4a&quot;</span><span class="p">}</span>
+<span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_text</span><span class="p">(</span><span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Dispatch on the lower-cased suffix → plain text.</span>
+<span class="sd">      .pdf  → pypdf (page text joined; embedded images skipped with a log warning, AC-F12-1)</span>
+<span class="sd">      .docx → python-docx (paragraph text; basic structure)</span>
+<span class="sd">      .pptx → python-pptx (slide text; one logical doc per presentation)</span>
+<span class="sd">      .xlsx → openpyxl (sheet name + rows rendered as a GFM markdown table)</span>
+<span class="sd">      image/AV (PLACEHOLDER_EXTENSIONS) → a one-line placeholder string (§4.5)</span>
+<span class="sd">      anything else → raise UnsupportedFormatError  (caller maps to HTTP 415)</span>
+<span class="sd">    Output is capped at EXTRACT_MAX_CHARS (config, default ~2_000_000) to bound a pathological file.&quot;&quot;&quot;</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">UnsupportedFormatError</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span> <span class="o">...</span>
+</code></pre></div>
+<p><code>extract_text</code> is <strong>pure</strong> (path in, text out) and makes <strong>no</strong> LLM/provider call (I6/I9, AC-F12-1, the
+§10 "extraction only, not new inference" boundary). The static guard (AC-F12-7) asserts no <code>pypdf</code>/<code>docx</code>/
+<code>pptx</code>/<code>openpyxl</code> import exists outside this module.</p>
+<h3 id="42-where-it-plugs-in-post-ingestupload">4.2 Where it plugs in — <code>POST /ingest/upload</code><a class="headerlink" href="#42-where-it-plugs-in-post-ingestupload" title="Permanent link">&para;</a></h3>
+<p>The upload allow-list widens. <code>app.upload.safe_source_name</code> is extended so its extension gate accepts the
+binary set in addition to text:</p>
+<div class="highlight"><pre><span></span><code>_ALLOWED_EXTENSIONS        = {&quot;.md&quot;, &quot;.txt&quot;, &quot;.markdown&quot;}                 # watcher ingests THESE
+_EXTRACTABLE_EXTENSIONS    = {&quot;.pdf&quot;, &quot;.docx&quot;, &quot;.pptx&quot;, &quot;.xlsx&quot;}          # extracted on upload
+_PLACEHOLDER_EXTENSIONS    = {&quot;.png&quot;,&quot;.jpg&quot;,&quot;.jpeg&quot;,&quot;.gif&quot;,&quot;.webp&quot;,
+                              &quot;.mp3&quot;,&quot;.mp4&quot;,&quot;.wav&quot;,&quot;.m4a&quot;}                 # placeholder on upload
+_UPLOAD_ACCEPTED           = _ALLOWED_EXTENSIONS | _EXTRACTABLE_EXTENSIONS | _PLACEHOLDER_EXTENSIONS
+# 415 iff suffix not in _UPLOAD_ACCEPTED (AC-F12-2). _ALLOWED_EXTENSIONS is UNCHANGED so the
+# watcher&#39;s import of it still means &quot;text companions only&quot;.
+</code></pre></div>
+<p>Upload handler flow for a binary (<code>POST /ingest/upload</code>, still returns <strong>202</strong>):</p>
+<div class="highlight"><pre><span></span><code>1. safe_source_name(filename) — now allows binary ext; 415 only for truly unknown types.
+2. stream body to temp with the MAX_UPLOAD_BYTES cap (413) — unchanged.
+3. atomic move → vault/raw/sources/&lt;name&gt;.&lt;ext&gt;            (the ORIGINAL binary, preserved; I5/K1)
+4. if suffix in _EXTRACTABLE | _PLACEHOLDER:
+       text = extract_text(dst)            # SYNCHRONOUS, on the upload path (NOT in the watcher)
+       atomic-write text → vault/raw/sources/&lt;stem&gt;.extracted.md   (Obsidian-valid; see §4.4)
+   else (.md/.txt/.markdown): no companion — the file is already watcher-ingestable.
+5. return 202 {file_path, status:&quot;queued&quot;, overwritten}
+</code></pre></div>
+<p>The <strong>watcher</strong> then fires on the new <code>.extracted.md</code> (which IS in <code>_ALLOWED_EXTENSIONS</code>) and runs
+<code>ingest_file</code> exactly once. It <strong>ignores the binary</strong> (<code>.pdf</code>/etc. are not in <code>_is_text_file</code>). Net:
+<strong>one</strong> ingest, <strong>one</strong> hash gate (I1), <strong>one</strong> wiki page produced by the unchanged pipeline (I6).</p>
+<h3 id="43-why-companion-on-upload-not-extract-in-watcher">4.3 Why companion-on-upload (not extract-in-watcher)<a class="headerlink" href="#43-why-companion-on-upload-not-extract-in-watcher" title="Permanent link">&para;</a></h3>
+<p>Two seams already exist: upload writes + watcher ingests. The temptation is to teach the watcher to
+extract. <strong>Rejected</strong> — that would put binary-parsing on the ingest hot path and inside the watchdog
+thread, and the watcher deliberately knows nothing about formats. Extracting <strong>synchronously on the
+upload request</strong>, before the 202, keeps:
+- the watcher unchanged (it only ever sees text it can ingest);
+- a single ingest path (<code>ingest_file</code>), no double-ingest, hash gate intact (I1);
+- the binary as an immutable <code>raw/</code> artifact (K1 3-layer rule, AC-F12-4).</p>
+<p>Files arriving via the <strong>scheduled importer (Feature S)</strong> or copied directly into <code>raw/sources/</code> that are
+binary will be <strong>silently ignored by the watcher</strong> (no companion exists). That is the correct,
+conservative behavior for M5: extraction is an <strong>upload-time</strong> capability. Auto-extraction of binaries
+that appear in <code>raw/sources/</code> by other means is a reserved follow-up (§7) — it must not be smuggled into
+the watcher without an ADR.</p>
+<h3 id="44-companion-extractedmd-is-obsidian-valid-i5">4.4 Companion <code>.extracted.md</code> is Obsidian-valid (I5)<a class="headerlink" href="#44-companion-extractedmd-is-obsidian-valid-i5" title="Permanent link">&para;</a></h3>
+<p>The companion is written with minimal valid YAML frontmatter so the pipeline's frontmatter parser (K6)
+and the Obsidian-compat check (<code>test_obsidian_check.py</code>) stay green:</p>
+<div class="highlight"><pre><span></span><code>---
+type: source
+title: &lt;original filename stem&gt;
+sources: [&quot;raw/sources/&lt;name&gt;.&lt;ext&gt;&quot;]
+---
+
+&lt;extracted text&gt;
+</code></pre></div>
+<p><code>sources[]</code> points back at the binary (F3 traceability). <code>wiki/</code> is written <strong>only</strong> by the ingest
+pipeline (AC-F12-4, EC-M5-11). The companion lives in <code>raw/sources/</code> alongside the binary — <strong>not</strong> in
+<code>raw/assets/</code> and <strong>not</strong> in <code>wiki/</code>.</p>
+<h3 id="45-images-av-placeholder-only-out-of-scope-locked">4.5 Images / AV — placeholder only (out of scope, locked)<a class="headerlink" href="#45-images-av-placeholder-only-out-of-scope-locked" title="Permanent link">&para;</a></h3>
+<p>Per AC-F12-1 and the §10 boundary, images and AV are <strong>not transcribed/OCR'd in M5</strong>. For a placeholder
+extension the companion body is a single line — <code>"Image file: no text extracted (transcription out of
+scope in this release)."</code> / <code>"AV file: transcript not available in this release."</code> — so the upload is
+accepted (not 415) and produces a traceable stub page, while no transcription machinery is added. This
+<strong>confirms</strong> the scope-doc intent.</p>
+<h3 id="46-new-dependencies-pinned-lean-i9">4.6 New dependencies (pinned, lean — I9)<a class="headerlink" href="#46-new-dependencies-pinned-lean-i9" title="Permanent link">&para;</a></h3>
+<p>Added to <code>backend/pyproject.toml</code>, <strong>pinned with floors</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Floor</th>
+<th>Why</th>
+<th>Bundle note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pypdf</code></td>
+<td><code>&gt;=4.2,&lt;6</code></td>
+<td>PDF text (pure-Python, no native build)</td>
+<td>tiny, pure-Python</td>
+</tr>
+<tr>
+<td><code>python-docx</code></td>
+<td><code>&gt;=1.1,&lt;2</code></td>
+<td>DOCX paragraphs</td>
+<td>small; pulls <code>lxml</code></td>
+</tr>
+<tr>
+<td><code>python-pptx</code></td>
+<td><code>&gt;=0.6.23,&lt;1.1</code></td>
+<td>PPTX slide text</td>
+<td>small; shares <code>lxml</code>/<code>Pillow</code>(optional)</td>
+</tr>
+<tr>
+<td><code>openpyxl</code></td>
+<td><code>&gt;=3.1,&lt;4</code></td>
+<td>XLSX cells → markdown table</td>
+<td>small; pure-Python</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>unstructured</code> is deliberately NOT added</strong> (the scope doc listed it for image OCR). It is a heavy
+dependency tree (pulls model/runtime deps) for a capability M5 explicitly defers (§4.5). Adding it for
+placeholder-only image handling violates I9 ("minimize deps / do not over-add"). If real OCR is scoped in
+M6, <code>unstructured</code> (or a lighter OCR path) is introduced <strong>then</strong>, behind the same <code>extract.py</code> dispatch,
+under its own ADR. This is the one place this ADR narrows the scope-doc dependency list — recorded as a
+decision, not a silent omission.</p>
+<p>The Docker image rebuilds cleanly with the four pure-Python/lxml libs (AC-F12-5). All four are pinned.</p>
+<hr />
+<h2 id="5-do-not-list-rejection-triggers">5. Do-NOT list (rejection triggers)<a class="headerlink" href="#5-do-not-list-rejection-triggers" title="Permanent link">&para;</a></h2>
+<p>A PR touching F9 or F12 is <strong>rejected on review</strong> if it does any of the following:</p>
+<p><strong>F9</strong></p>
+<ol>
+<li><strong>DO NOT</strong> make more than one <code>InferenceProvider</code> call per review item, or put the query-gen in any
+   loop / retry. Exactly one bounded call; failure → <code>pre_generated_query=NULL</code> (I7, AC-F9-4).</li>
+<li><strong>DO NOT</strong> let the post-ingest enqueue hook raise into or block the ingest path. The page is already
+   written; the queue is advisory (AC-F9-2/6). <code>try/except</code>, log, continue.</li>
+<li><strong>DO NOT</strong> add a <code>vaults</code> table or make <code>review_items.vault_id</code> a UUID FK. It is the existing
+   <code>vault_id</code> String (AQ-v0.5-6).</li>
+<li><strong>DO NOT</strong> hardcode a backend or model for query-gen. Resolve via <code>resolve_provider_config("ingest")</code>;
+   route by capabilities, never by isinstance/provider_type (I6).</li>
+<li><strong>DO NOT</strong> add Approve/Skip/Deep-Research actions to the M4 Ingest Activity View (Sources section). F9
+   is a separate Review section (AC-F9-7, §10).</li>
+<li><strong>DO NOT</strong> re-trigger ingest on Approve, or re-scan the vault on any review action. Approve is a status
+   write only (AC-F9-6, I1).</li>
+<li><strong>DO NOT</strong> introduce a consistency/contradiction graph walk that calls FA2 or is unbounded. Reserved
+   and bounded only (§3.4, I2/I7).</li>
+<li><strong>DO NOT</strong> return an unbounded <code>GET /review/queue</code> page — <code>limit</code> is capped (default 50, max 200).</li>
+<li><strong>DO NOT</strong> skip TanStack virtualization for the review list when it can exceed 50 rows (I4).</li>
+</ol>
+<p><strong>F12</strong></p>
+<ol>
+<li><strong>DO NOT</strong> import <code>pypdf</code>/<code>docx</code>/<code>pptx</code>/<code>openpyxl</code> anywhere outside <code>ingest/extract.py</code> (static
+    guard, AC-F12-7).</li>
+<li><strong>DO NOT</strong> call any LLM/provider during extraction. <code>extract_text</code> is pure text-in/text-out (AC-F12-1,
+    I6, §10).</li>
+<li><strong>DO NOT</strong> extract inside the watcher or make the watcher format-aware. Extraction is synchronous on
+    the upload request (§4.3).</li>
+<li><strong>DO NOT</strong> add the binary extensions to <code>app.upload._ALLOWED_EXTENSIONS</code> (the watcher imports it).
+    Binaries go in a separate accepted-but-not-watched set; only <code>.extracted.md</code> is watcher-ingestable.</li>
+<li><strong>DO NOT</strong> write extracted output to <code>vault/wiki/</code> directly, or bypass <code>ingest_file</code>. Companion goes
+    to <code>raw/sources/</code>; the pipeline writes <code>wiki/</code> (I1/I5, AC-F12-4).</li>
+<li><strong>DO NOT</strong> delete or mutate the original binary after extraction. It is an immutable <code>raw/</code> artifact
+    (K1, AC-F12-4).</li>
+<li><strong>DO NOT</strong> add <code>unstructured</code> (or any heavy OCR/model dep) in M5. Images/AV are placeholder-only (§4.5,
+    I9).</li>
+<li><strong>DO NOT</strong> bypass the <code>MAX_UPLOAD_BYTES</code> cap or the <code>EXTRACT_MAX_CHARS</code> output cap (I7 — bound a
+    pathological file).</li>
+</ol>
+<hr />
+<h2 id="6-invariant-compliance-statement-phase-3">6. Invariant compliance statement (Phase 3)<a class="headerlink" href="#6-invariant-compliance-statement-phase-3" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Inv</th>
+<th>How F9 + F12 guarantee it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I1</strong></td>
+<td>F12 reuses <code>ingest_file</code>'s mtime/hash gate; re-uploading the same file is a <code>skipped</code> no-op (AC-F12-3). No review action re-scans the vault; Approve is a status write.</td>
+</tr>
+<tr>
+<td><strong>I2</strong></td>
+<td>F9 query-gen does not touch the graph. The reserved consistency scan reads <code>edges</code> only — never FA2 (§3.4).</td>
+</tr>
+<tr>
+<td><strong>I5</strong></td>
+<td>F12 companion has valid YAML frontmatter; binary stays in <code>raw/sources/</code>; <code>wiki/</code> written only by the pipeline. <code>test_obsidian_check.py</code> 15/15 stays green (EC-M5-14).</td>
+</tr>
+<tr>
+<td><strong>I6</strong></td>
+<td>F9 query-gen resolves the provider via <code>resolve_provider_config("ingest")</code> and rides <code>InferenceProvider.chat()</code> — no hardcoded backend. F12 extractors make zero inference calls.</td>
+</tr>
+<tr>
+<td><strong>I7</strong></td>
+<td>F9 query-gen = exactly one bounded call (timeout + token_budget) per item; failure → NULL; no loop. <code>GET /review/queue</code> <code>limit</code> capped. F12 extraction is single-pass with an output cap; no loop.</td>
+</tr>
+<tr>
+<td><strong>I8</strong></td>
+<td>D2 regenerated (<code>review_items</code>). D4 regenerated (4 review endpoints + widened upload). Zero drift (EC-M5-17).</td>
+</tr>
+<tr>
+<td><strong>I9</strong></td>
+<td>F12 uses well-known pure-Python extractor libs; <code>unstructured</code>/heavy OCR deliberately deferred. No reinvention.</td>
+</tr>
+<tr>
+<td><strong>I4</strong></td>
+<td>Review list virtualized &gt; 50 rows (AC-F9-5).</td>
+</tr>
+</tbody>
+</table>
+<p>No invariant is traded for convenience in Phase 3.</p>
+<hr />
+<h2 id="7-flagged-tensions-risks">7. Flagged tensions &amp; risks<a class="headerlink" href="#7-flagged-tensions-risks" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Delegated (CLI) ingest does not enqueue review items in Phase 3.</strong> The orchestrator does not
+   enumerate pages written by the CLI agent through MCP <code>write_page</code>, so the post-write hook attaches to
+   the <strong>orchestrated</strong> branch only (§3.3.4). EC-M5-8 is met because the default dev provider is
+   orchestrated (Ollama/API). Enqueue-from-delegated (e.g. the MCP <code>write_page</code> tool enqueuing on write)
+   is a <strong>reserved follow-up</strong>, not an invariant violation. Recorded so it is a conscious gap, not a
+   silent one.</li>
+<li><strong>Query-gen cost on every ingested page.</strong> One extra provider call per generated page adds latency and
+   (for API providers) cost. Mitigated by the single-call bound + timeout + the existing $1 anomaly
+   WARNING via the accumulator. The call is fire-and-forget off the critical path (§3.3.3).</li>
+<li><strong>Binaries arriving outside upload are not auto-extracted</strong> (Feature S / direct copy). Conservative for
+   M5 (§4.3): extraction is an upload-time capability. Auto-extraction in <code>raw/sources/</code> is a reserved
+   follow-up behind a future ADR — it must not be added to the watcher silently.</li>
+<li><strong><code>unstructured</code> deferral narrows the scope doc.</strong> AC-F12-1 mentions <code>unstructured</code> for image OCR; this
+   ADR defers it (§4.6) to keep the bundle lean (I9). Images/AV ship as placeholders, satisfying the
+   accept-not-415 behavior without the heavy dep. PM/tech-writer note: the scope doc's <code>unstructured</code>
+   line is read as "image handling exists" (placeholder), not "OCR ships in M5."</li>
+<li><strong><code>review_items</code> is an event log, not a per-page singleton.</strong> Re-ingesting a page enqueues another
+   item. Accepted: the queue reflects ingest events; the human disposes of duplicates by skipping. A
+   dedupe/coalesce policy is a post-M5 refinement, not an M5 requirement.</li>
+</ol>
+<hr />
+<h2 id="8-sign-off">8. Sign-off<a class="headerlink" href="#8-sign-off" title="Permanent link">&para;</a></h2>
+<p><strong>APPROVED to implement (Phase 3).</strong> The <code>review_items</code> table (Alembic <strong>0010</strong>, String <code>vault_id</code>,
+nullable FKs to <code>pages</code> and <code>deep_research_runs</code>), the <strong>exactly-one-bounded-call</strong> post-ingest query
+generator (I7), the four <code>/review/queue</code> endpoints delegating Deep-Research to F10, the pure
+<code>extract_text</code> dispatch in <code>ingest/extract.py</code> (four pure-Python libs, <code>unstructured</code> deferred), and the
+<strong>companion-<code>.extracted.md</code>-on-upload / watcher-ingests-the-companion</strong> plug-in (one ingest, hash gate
+intact, binary never reaches <code>wiki/</code>) together satisfy I1, I2, I4, I5, I6, I7, I8, I9. AQ-v0.5-6 is
+honored. The Do-NOT list (§5) is the rejection gate.</p>
+<p>Conditions on the Phase 3 gate (architect review, EC-M5-19):
+1. F9 query-gen makes <strong>exactly one</strong> provider call per item; a forced timeout/error leaves the item
+   enqueued with <code>pre_generated_query=NULL</code> and never fails the ingest (test required).
+2. The post-ingest hook cannot raise into the ingest caller (try/except proven by test).
+3. <code>review_items.vault_id</code> is String; no <code>vaults</code> table; migration is <strong>0010</strong>; <code>make er</code> shows the
+   entity with both FKs, zero drift.
+4. Static guard: no <code>pypdf</code>/<code>docx</code>/<code>pptx</code>/<code>openpyxl</code> import outside <code>ingest/extract.py</code>; no <code>unstructured</code>
+   added; no LLM call in <code>extract.py</code>.
+5. Uploading a binary writes the original to <code>raw/sources/</code>, produces one <code>.extracted.md</code>, and the
+   watcher ingests <strong>only</strong> the companion (one <code>pages</code> row, one Qdrant point); re-upload is <code>skipped</code>
+   (I1). <code>_ALLOWED_EXTENSIONS</code> is unchanged.
+6. D4 regenerated with the 4 review endpoints + widened upload accept list; zero drift (I8).</p>
+<blockquote>
+<p><strong>Architect condition (item — non-blocking) RESOLVED:</strong> DB-level CHECK constraints on <code>item_type</code>
+and <code>status</code> were absent from migration 0010. Resolution: §3.1 amended to document
+<strong>enum-by-convention (app-level Literal types + handler validation)</strong> as the accepted approach,
+consistent with <code>ingest_runs.status</code> and <code>deep_research_runs.status</code> (same Text + Literal pattern).
+No migration added. See §3.1 amendment note. Resolved by tech-writer docs gate, M5 Phase 3, 2026-06-29.</p>
+<p>Handoff: ADR-0025 → tech-writer (formatting + README row). Interface contracts (§3.2, §4.1) →
+backend-engineer (<code>ops/review.py</code>, <code>ingest/extract.py</code>, the orchestrator hook, the upload widening,
+migration 0010) + frontend-engineer (Review section list + actions). C4: no new container/component —
+<code>review.py</code> and <code>extract.py</code> are components inside the existing FastAPI service; no D1 topology change.
+Phase verdict → orchestrator.</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

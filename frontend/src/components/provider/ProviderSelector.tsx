@@ -140,7 +140,7 @@ export function ProviderSelector() {
       <button
         ref={triggerRef}
         onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
+        aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={`${t("provider.label")}: ${triggerLabel}`}
         data-testid="provider-selector-trigger"
@@ -237,7 +237,6 @@ export function ProviderSelector() {
 
           {/* Provider list */}
           <div
-            role="listbox"
             aria-label={t("provider.label")}
             style={{ maxHeight: 280, overflow: "auto" }}
           >
@@ -258,8 +257,7 @@ export function ProviderSelector() {
               return (
                 <button
                   key={item.id}
-                  role="option"
-                  aria-selected={isActive}
+                  aria-pressed={isActive}
                   onClick={() => void handleSelect(item)}
                   disabled={writing}
                   data-testid="provider-option"

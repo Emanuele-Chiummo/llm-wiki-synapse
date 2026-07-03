@@ -1,0 +1,1205 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0052-auth-token-model/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0052 — Shared Bearer token authentication (single-owner posture); env-only credential, FastAPI middleware, CORS-safe 401 - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0052-shared-bearer-token-authentication-single-owner-posture-env-only-credential-fastapi-middleware-cors-safe-401" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0052 — Shared Bearer token authentication (single-owner posture); env-only credential, FastAPI middleware, CORS-safe 401
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-credential-model-one-shared-bearer-token-synapse_auth_token-env-only-fail-open-when-empty" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Credential model — one shared Bearer token, SYNAPSE_AUTH_TOKEN, env-only, fail-OPEN when empty
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-enforcement-fastapi-http-middleware-not-per-route-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Enforcement — FastAPI HTTP middleware, NOT per-route dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-exempt-set-exact-paths-and-the-mount-exclusions-do-not-double-gate-mcp-or-clip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Exempt set — exact paths, and the mount exclusions (do NOT double-gate MCP or clip)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-response-cors-interplay-401-body-www-authenticate-and-exact-middleware-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Response + CORS interplay — 401 body, WWW-Authenticate, and exact middleware ORDER
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-openapi-security-scheme-i8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 OpenAPI security scheme (I8)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-rotation-the-clientserver-asymmetry-stated-precisely" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Rotation — the client/server asymmetry, stated precisely
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Configuration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-frontend-contract-r10-2-api-client-connectscreen-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Frontend contract (R10-2 — API client + ConnectScreen + Settings)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-updater-desktop-implications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Updater / desktop implications
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-do-not-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Do-NOT list
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-acceptance-checks-dod-maps-to-ac-r10-1-ac-r10-2-" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Acceptance checks (DoD — maps to AC-R10-1-, AC-R10-2-)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0052-shared-bearer-token-authentication-single-owner-posture-env-only-credential-fastapi-middleware-cors-safe-401">ADR-0052 — Shared Bearer token authentication (single-owner posture); env-only credential, FastAPI middleware, CORS-safe 401<a class="headerlink" href="#adr-0052-shared-bearer-token-authentication-single-owner-posture-env-only-credential-fastapi-middleware-cors-safe-401" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-03</li>
+<li><strong>Sprint:</strong> v1.0 (M10 — Distribution &amp; multi-user; R10-1 rescoped from OIDC to a shared token)</li>
+<li><strong>Features:</strong> F16 (Settings / config surface) · F15 (cross-platform security hardening) ·
+  R10-1 (auth middleware) · R10-2 (auth UX — client contract only; UI built by frontend-engineer)</li>
+<li><strong>Reference:</strong> docs/sprints/SPRINT-v1.0-SCOPE.md §R10-1 / §R10-2 (PM decisions locked) ·
+  ADR-0033 (MCP token — salted hash in <code>vault_state</code>, source-trust gate) ·
+  ADR-0038 (F11 clip token — env bearer, constant-time compare) ·
+  ADR-0028 (relative browser API base) · ADR-0047 (desktop runtime server URL + Connect gate) ·
+  ADR-0049 (desktop auto-update over GitHub Releases)</li>
+<li><strong>Invariants owned:</strong> <strong>I6</strong> (nothing hardcoded — the token is an env var; no provider or model
+  touched; the auth layer is provider-agnostic and must never branch on backend type) ·
+  <strong>I3</strong> (the enforcement is a single <code>secrets.compare_digest</code> — a constant-time byte compare — on
+  the streaming chat path; NO KDF, NO DB round-trip, NO per-token work; auth adds a fixed, negligible
+  cost to <code>POST /chat/stream</code>) · <strong>I8</strong> (OpenAPI regenerated: <code>BearerAuth</code> scheme declared, all routes
+  reference it except the exempt set, which declare <code>security: []</code>) · <strong>I1/I5</strong> (vault-write and
+  index paths untouched — auth is a transport gate in front of the router, never inside ingest)</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> backend-engineer (<code>app/auth.py</code> module, middleware wiring in <code>main.py</code>, env var,
+  OpenAPI security scheme, pytests) · frontend-engineer (<code>api/base.ts</code> <code>authHeaders()</code>, per-server
+  <code>localStorage</code> token, ConnectScreen probe + token field, web 401 gate, Settings › Security)
+  · tech-writer (D4 OpenAPI regen, DEPLOY.md Security section, USER.md auth section, D5 screenshot)</li>
+<li><strong>Gate:</strong> This ADR <strong>GATES all v1.0 auth code</strong> (AC-R10-1-0). No <code>auth.py</code>, no middleware, and no
+  frontend header injection may be written until this ADR is Accepted.</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>R10-1 was rescoped by the PM (2026-07-03) from "token/OIDC login + request-scoped vault routing"
+to a <strong>single shared Bearer token</strong>. The rationale is settled and NOT re-litigated here (see
+SPRINT-v1.0-SCOPE.md §R10-1): Synapse is a <strong>self-hosted single-owner</strong> product on a private
+TrueNAS box, reached over <strong>Tailscale mesh</strong> (private) <strong>and Cloudflare Tunnel</strong> (public), by
+<strong>one</strong> person. OIDC adds an identity-provider dependency the owner does not have, and multi-user
+is a structural commitment that would constrain the data model across every future sprint.
+Multi-vault routing stays deferred: the <code>vault_id</code> column continues to exist but routing remains
+single-vault for 1.0.</p>
+<p>This ADR is the <strong>technical contract</strong> the PM decision requires before any code is written. It
+specifies the credential model, the enforcement mechanism, the exact exempt set, the response +
+CORS interplay, the frontend injection point, and the desktop/updater implications. Where the PM
+brief and the live codebase disagree on a name (the brief says "<code>GET /health</code>"; the service
+actually exposes <code>GET /status</code> and <code>GET /health/detailed</code> — there is <strong>no</strong> plain <code>/health</code>
+route, verified in <code>main.py</code> + <code>health.py</code> + <code>openapi.json</code>), <strong>this ADR binds to the real
+endpoints.</strong> The exempt set below uses the routes that actually exist.</p>
+<p>Two token mechanisms already exist and are <strong>out of scope for this ADR — they keep their own auth</strong>:
+- The <strong>MCP HTTP surface</strong> at <code>/mcp/server</code> (ADR-0029/0032/0033): salted-hash token in
+  <code>vault_state</code>, source-trust PRIVATE/PUBLIC classifier, <code>remote_enabled</code> flag, 404-floor. This
+  is a <strong>mounted sub-app</strong>, not a route on the main router.
+- The <strong>clip ingress</strong> <code>POST /clip</code> (ADR-0038/0040): its own <code>CLIP_TOKEN</code> bearer + origin
+  allowlist + body cap, driven by a cross-origin browser extension.</p>
+<p>The new auth layer <strong>must not double-gate</strong> either surface. §2.3 spells out the exact path
+exclusions.</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-credential-model-one-shared-bearer-token-synapse_auth_token-env-only-fail-open-when-empty">2.1 Credential model — one shared Bearer token, <code>SYNAPSE_AUTH_TOKEN</code>, env-only, fail-OPEN when empty<a class="headerlink" href="#21-credential-model-one-shared-bearer-token-synapse_auth_token-env-only-fail-open-when-empty" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A single env var <strong><code>SYNAPSE_AUTH_TOKEN</code></strong> (string). It is read <strong>once at startup</strong> into
+  <code>app/auth.py</code> (a new module — SHOULD keep <code>main.py</code> surface minimal, per AC-R10-1-1).</li>
+<li><strong>Empty string or absent ⇒ authentication is DISABLED.</strong> All routes behave exactly as v0.9 —
+  no 401s, no behaviour change, no header required. This is the backward-compatible default and is
+  the load-bearing compatibility property (EC-M10-11 / EC-M10-HCP-a).</li>
+<li><strong>Set (non-empty) ⇒ every non-exempt request MUST carry <code>Authorization: Bearer &lt;token&gt;</code></strong>,
+  compared <strong>constant-time</strong> with <code>secrets.compare_digest</code> against the configured value. Absent
+  header, malformed header, or wrong token ⇒ <strong>401</strong> (§2.4).</li>
+<li>The comparison is a raw byte compare on the <strong>presented</strong> token only. <strong>No hashing, no KDF, no
+  DB read per request.</strong> This is deliberate and is the I3 guarantee: the auth cost on the hot
+  <code>POST /chat/stream</code> path is a single <code>compare_digest</code>, constant-time, O(len(token)).</li>
+</ul>
+<p><strong>Why env-only, no DB storage, no hashing — justified against the two existing token patterns:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Where stored</th>
+<th>Hashed?</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Provider API keys (ADR-0008 / §12)</td>
+<td>env only</td>
+<td>n/a (never in DB)</td>
+<td>Third-party billed keys; a DB/backup leak must not leak them.</td>
+</tr>
+<tr>
+<td>MCP token (ADR-0033)</td>
+<td><code>vault_state</code>, <strong>PBKDF2 salted hash</strong></td>
+<td>yes</td>
+<td><strong>UI-settable at runtime</strong> by the owner ⇒ the app stores it ⇒ it must survive a DB dump without yielding a usable credential ⇒ hash.</td>
+</tr>
+<tr>
+<td>CLI subscription token (ADR-0043)</td>
+<td><code>vault_state</code>, plaintext</td>
+<td>no</td>
+<td>Must be <strong>replayed OUTBOUND</strong> into the spawned <code>claude</code> CLI ⇒ a one-way hash cannot be replayed.</td>
+</tr>
+<tr>
+<td><strong><code>SYNAPSE_AUTH_TOKEN</code> (this ADR)</strong></td>
+<td><strong>env only</strong></td>
+<td><strong>no</strong></td>
+<td>See below.</td>
+</tr>
+</tbody>
+</table>
+<p>The MCP token is hashed <strong>because it is UI-settable and therefore lives in the database</strong>, where a
+<code>pg_dump</code> or backup file is a leak surface (ADR-0033 §2.1). <code>SYNAPSE_AUTH_TOKEN</code> is the opposite
+case on every axis:</p>
+<ol>
+<li><strong>It is deployment configuration, not app-issued state.</strong> The owner sets it in
+   <code>docker-compose.yml</code> / <code>.env</code> alongside <code>DATABASE_URL</code>, <code>SEARXNG_URL</code>, and every other secret.
+   It is a peer of the existing env secrets, not of the runtime-settable MCP/clip tokens. Keeping
+   it in env means it is <strong>never</strong> in the DB, never in a <code>pg_dump</code>, never in a backup, never in git
+   — exactly the §12 posture for the highest-blast-radius credential (the one gating the <strong>whole</strong>
+   REST API, broader than the MCP surface or the clip ingress).</li>
+<li><strong>Hashing would buy nothing here.</strong> Hashing protects a <em>stored</em> secret against a <em>storage</em>
+   leak. This secret is not stored by the app; it lives only in the process environment. There is
+   no DB row to leak. A salted hash would add a per-request KDF (ADR-0033 explicitly notes PBKDF2
+   is "intentionally slow") to the <strong>hot chat streaming path</strong> for zero security gain — a direct
+   I3 violation. Constant-time plaintext compare is both <strong>more secure</strong> (no stored artifact at
+   all) <strong>and</strong> faster.</li>
+<li><strong>Single-owner posture makes "look up the token later" a non-goal.</strong> There is no multi-user
+   rotation workflow. Rotation is an env change + container restart (§2.6). The owner always has
+   the token in their compose file.</li>
+</ol>
+<p><strong>Decision: <code>SYNAPSE_AUTH_TOKEN</code> is env-only, compared in constant time, never stored, never
+hashed.</strong> This honours §12's letter (secret in env, not code, not DB) and its spirit (no
+recoverable secret in Postgres) while respecting I3 (no KDF on the hot path).</p>
+<p><strong>No sessions, no cookies, no JWT, no expiry.</strong> The token is a static bearer. Single owner ⇒ no
+session lifecycle to manage. (SPRINT-v1.0-SCOPE §R10-1 locked.)</p>
+<h3 id="22-enforcement-fastapi-http-middleware-not-per-route-dependencies">2.2 Enforcement — FastAPI HTTP middleware, NOT per-route dependencies<a class="headerlink" href="#22-enforcement-fastapi-http-middleware-not-per-route-dependencies" title="Permanent link">&para;</a></h3>
+<p>The token is enforced by a single <strong><code>app.middleware("http")</code></strong> callable installed in <code>main.py</code>
+(the check itself lives in <code>app/auth.py</code>; <code>main.py</code> only wires it). It is <strong>not</strong> a
+<code>Depends(verify_token)</code> on each route and <strong>not</strong> a global <code>dependencies=[...]</code> on the app
+constructor.</p>
+<p><strong>Why middleware, not per-route dependencies (justified):</strong></p>
+<ol>
+<li><strong>Zero-miss guarantee across 60+ routes.</strong> The service exposes 60+ endpoints across <code>main.py</code>
+   and several included routers (<code>sources</code>, <code>export</code>, <code>costs</code>, <code>health</code>). A per-route dependency
+   is a per-route decision — every new route in every future sprint must remember to add it, and a
+   forgotten <code>Depends</code> is a silently unauthenticated endpoint. A single middleware in front of the
+   router is <strong>enforced by construction</strong>: a new route is gated the moment it is registered, with
+   no per-route action. For a security boundary, default-secure beats default-open.</li>
+<li><strong>It catches paths a route dependency cannot.</strong> A middleware runs for <em>every</em> ASGI HTTP scope,
+   including 404s (unknown paths), 405s, and — critically — requests to <strong>mounted sub-apps</strong>. This
+   lets the middleware make one authoritative decision about the whole surface and explicitly
+   <em>exclude</em> the MCP mount (§2.3), rather than relying on each router's dependencies.</li>
+<li><strong>It composes cleanly with CORS ordering</strong> (§2.4) — a single middleware layer whose position
+   relative to <code>CORSMiddleware</code> is explicit and testable, versus dependency exceptions that raise
+   <em>inside</em> the route and interact with exception handlers in subtler ways.</li>
+<li><strong>The exempt set is expressed in one place</strong> (§2.3) as a path check, not scattered as
+   <code>security=[]</code> markers across route decorators. (The OpenAPI <code>security</code> markers of §2.5 are a
+   <em>documentation</em> concern and are separate from enforcement.)</li>
+</ol>
+<p>Trade-off acknowledged: a middleware sees the raw path string, not the resolved route object, so
+the exempt set is matched on <strong>exact path</strong> (not on route name or tag). This is fine — the exempt
+set is small and stable (§2.3) and exact-path matching is the least surprising, least
+over-matching rule (it will not accidentally exempt <code>/status/foo</code>).</p>
+<p><strong>WebSocket note.</strong> The service uses <strong>NDJSON-over-POST</strong> for chat streaming (<code>POST /chat/stream</code>,
+ADR-0019 — "not SSE/WebSocket"). There is <strong>no WebSocket route</strong> in the codebase. <code>POST
+/chat/stream</code> is an ordinary POST and is gated by the HTTP middleware like any other route — the
+<code>Authorization</code> header rides the POST request. AC-R10-1-3's WebSocket handshake / <code>?token=</code> /
+close-code-4401 requirement is therefore <strong>not applicable to the current architecture</strong>; it is
+recorded here as a <strong>forward constraint</strong>: <em>if</em> a WebSocket streaming path is ever added, the
+token must be verifiable on the upgrade request (query param <code>?token=</code> or first-frame handshake,
+reject with close code <code>4401</code>) — and that will require its own ADR amendment because ASGI
+<code>websocket</code> scopes bypass <code>app.middleware("http")</code>. For v1.0 the middleware covers 100% of the
+live surface.</p>
+<h3 id="23-exempt-set-exact-paths-and-the-mount-exclusions-do-not-double-gate-mcp-or-clip">2.3 Exempt set — exact paths, and the mount exclusions (do NOT double-gate MCP or clip)<a class="headerlink" href="#23-exempt-set-exact-paths-and-the-mount-exclusions-do-not-double-gate-mcp-or-clip" title="Permanent link">&para;</a></h3>
+<p>When <code>SYNAPSE_AUTH_TOKEN</code> is set, the middleware <strong>bypasses the token check</strong> for exactly the
+following, and <strong>only</strong> these:</p>
+<p><strong>A. Monitoring-safe endpoints (always reachable for liveness/readiness probes):</strong>
+- <code>GET /status</code> — the real service-health + <code>data_version</code> endpoint (the brief's "<code>GET /health</code>"
+  maps here; there is no plain <code>/health</code>).
+- <code>GET /health/detailed</code> — the per-component health snapshot (R9-2).</p>
+<p><em>Justification:</em> container orchestration, the frontend health poll, and external uptime monitors
+must reach liveness without a credential. These endpoints expose only non-sensitive posture
+(version counter, component up/down) — no page content, no vault data, no config secrets. Exempting
+them is standard and safe. <strong><code>GET /status</code> staying exempt is also what lets the desktop
+ConnectScreen auto-detect a reachable server before the user has entered a token</strong> (§2.4, §4).</p>
+<p><strong>B. API documentation (decided: EXEMPT):</strong>
+- <code>GET /docs</code> — Swagger UI.
+- <code>GET /openapi.json</code> — the OpenAPI schema.
+- <code>GET /redoc</code> — if present.</p>
+<p><em>Decision + justification:</em> these are <strong>exempted</strong>. Reasoning: (1) the schema is not a secret — it
+describes routes, not data, and the same information is in the public git repo (<code>docs/api/openapi.json</code>);
+(2) leaving <code>/docs</code> reachable lets the owner sanity-check the API and read the <code>BearerAuth</code> scheme
+without first authenticating a browser tab that has no way to send a bearer header; (3) it avoids a
+confusing state where the docs page loads but every "Try it out" 401s with no obvious remedy. The
+schema exposes route shapes only; all data-bearing routes remain gated. <em>If the owner later wants
+the docs gated too (e.g. a fully public tunnel), that is a one-line addition to the exempt
+predicate — recorded as a documented knob, not built now.</em></p>
+<p><strong>C. CORS preflight:</strong>
+- <strong>All <code>OPTIONS</code> requests</strong> (any path) bypass the token check.</p>
+<p><em>Justification:</em> a CORS preflight is an unauthenticated <code>OPTIONS</code> the browser sends <strong>before</strong> the
+real request and <strong>cannot</strong> carry an <code>Authorization</code> header. If the middleware 401'd the preflight,
+every cross-origin call from the PWA (split-origin deployments) would fail before the real request
+is ever attempted. The preflight must reach <code>CORSMiddleware</code> and return its CORS headers. (§2.4
+covers ordering so this actually happens.)</p>
+<p><strong>D. Mount exclusions — MCP and clip keep their OWN token (do NOT double-gate):</strong>
+- Any path <strong>prefixed with <code>/mcp/server</code></strong> is <strong>excluded from this middleware entirely</strong>. The MCP
+  HTTP surface is a <strong>mounted sub-app</strong> wrapped by its own gate (<code>_BearerAuthMiddleware</code> /
+  ADR-0033 access gate). Applying <code>SYNAPSE_AUTH_TOKEN</code> on top would (a) double-gate it with a
+  <em>different</em> credential, breaking every existing MCP client, and (b) defeat ADR-0033's
+  source-trust PRIVATE/PUBLIC logic and <code>allow_without_token</code> posture. The predicate is an exact
+  <strong>prefix</strong> check: <code>path == "/mcp/server" or path.startswith("/mcp/server/")</code>. <strong>Note the
+  boundary:</strong> the <code>/mcp/*</code> <em>management</em> routes on the main router — <code>GET /mcp/info</code>, <code>PUT
+  /mcp/auth</code>, <code>PUT /mcp/remote</code> — are <strong>NOT</strong> the mounted surface; they are ordinary REST routes
+  and therefore <strong>ARE</strong> gated by <code>SYNAPSE_AUTH_TOKEN</code> like the rest of the API. Only the mounted
+  <code>/mcp/server</code> sub-app is excluded.
+- <strong><code>POST /clip</code></strong> keeps its own <code>CLIP_TOKEN</code> bearer (ADR-0038). It is reached by a <strong>cross-origin
+  browser extension</strong> that sends <code>Authorization: Bearer &lt;CLIP_TOKEN&gt;</code> — a <em>different</em> token from
+  <code>SYNAPSE_AUTH_TOKEN</code>. Gating <code>/clip</code> with <code>SYNAPSE_AUTH_TOKEN</code> would break the extension (it has
+  no way to know the API token) and duplicate an already-audited gate (S-1..S-6). <strong>Decision:
+  <code>POST /clip</code> is excluded from this middleware</strong> (exact path). Its own token + origin allowlist +
+  body cap remain the gate. The clip <strong>config</strong> routes (<code>GET</code>/<code>PUT /clip/config</code>) are ordinary
+  same-origin REST routes and <strong>ARE</strong> gated by <code>SYNAPSE_AUTH_TOKEN</code>.</p>
+<p><strong>Exempt predicate (authoritative summary):</strong>
+<div class="highlight"><pre><span></span><code>bypass_auth(request) := (
+    request.method == &quot;OPTIONS&quot;
+    or request.url.path in {&quot;/status&quot;, &quot;/health/detailed&quot;, &quot;/docs&quot;, &quot;/redoc&quot;, &quot;/openapi.json&quot;}
+    or request.url.path == &quot;/mcp/server&quot; or request.url.path.startswith(&quot;/mcp/server/&quot;)
+    or request.url.path == &quot;/clip&quot;
+)
+</code></pre></div>
+Everything not matched by <code>bypass_auth</code> requires the bearer token when <code>SYNAPSE_AUTH_TOKEN</code> is set.
+The exempt set is defined as a <strong>named module-level constant</strong> in <code>auth.py</code> (I6 — no scattered
+literals); the two mount-exclusion prefixes reuse the existing <code>MCP_MOUNT_PATH</code> constant.</p>
+<h3 id="24-response-cors-interplay-401-body-www-authenticate-and-exact-middleware-order">2.4 Response + CORS interplay — 401 body, <code>WWW-Authenticate</code>, and exact middleware ORDER<a class="headerlink" href="#24-response-cors-interplay-401-body-www-authenticate-and-exact-middleware-order" title="Permanent link">&para;</a></h3>
+<p><strong>401 response (auth failure):</strong>
+<div class="highlight"><pre><span></span><code>HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer
+Content-Type: application/json
+
+{&quot;error&quot;: &quot;unauthorized&quot;, &quot;hint&quot;: &quot;Set Authorization: Bearer &lt;token&gt;&quot;}
+</code></pre></div>
+- The body shape is the PM-locked contract (SPRINT-v1.0-SCOPE §R10-1:
+  <code>{"error": "unauthorized", "hint": "..."}</code>). The task brief's shorthand "<code>401 {detail}</code>" is
+  satisfied by this concrete body; the hint field is the human-actionable part.
+- <code>WWW-Authenticate: Bearer</code> is included per RFC 6750 so the response is a well-formed bearer
+  challenge (and so any generic HTTP client can present the standard auth prompt).
+- <strong>The token value is NEVER echoed</strong>, not even a prefix (Do-NOT §6).</p>
+<p><strong>CORS interplay — the 401 MUST still carry CORS headers, which fixes the middleware ORDER.</strong></p>
+<p>The failure mode to avoid: the browser makes a cross-origin request with a bad/absent token; the
+auth middleware returns a bare 401 with no <code>Access-Control-Allow-Origin</code> header; the browser then
+<strong>hides the 401 from JavaScript</strong> behind an opaque CORS error, so the frontend cannot detect "401"
+and cannot show the token prompt (R10-2). To detect 401 in the browser (AC-R10-2-2), the 401
+response itself must carry CORS headers.</p>
+<p>In Starlette/FastAPI, <strong>middlewares wrap in reverse order of registration</strong> — the middleware added
+<strong>last</strong> is the <strong>outermost</strong> layer (it sees the request first and the response last). Therefore
+the required order is:</p>
+<ol>
+<li><strong>Register <code>CORSMiddleware</code> LAST</strong> (so it is <strong>outermost</strong>). <code>CORSMiddleware</code> is already
+   registered in <code>main.py</code> (§the existing <code>app.add_middleware(CORSMiddleware, ...)</code> block).</li>
+<li><strong>Register the auth middleware BEFORE <code>CORSMiddleware</code></strong> in source order (so auth is <strong>inner</strong>,
+   CORS wraps it).</li>
+</ol>
+<p>Concretely in <code>main.py</code>, source order becomes:
+<div class="highlight"><pre><span></span><code><span class="c1"># auth first in source order  ⇒  INNER layer (runs after CORS on the way in)</span>
+<span class="n">app</span><span class="o">.</span><span class="n">add_middleware</span><span class="p">(</span><span class="n">SynapseAuthMiddleware</span><span class="p">)</span>      <span class="c1"># ADR-0052 — the token gate</span>
+<span class="c1"># CORS last in source order   ⇒  OUTER layer (adds CORS headers to EVERY response, incl. 401)</span>
+<span class="n">app</span><span class="o">.</span><span class="n">add_middleware</span><span class="p">(</span><span class="n">CORSMiddleware</span><span class="p">,</span> <span class="n">allow_origins</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">cors_origins_list</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</code></pre></div>
+Because CORS is outermost, the auth middleware's 401 passes back <strong>out through</strong> <code>CORSMiddleware</code>,
+which stamps <code>Access-Control-Allow-Origin</code> (and friends) onto it. The browser then sees a real,
+readable 401 and the frontend interceptor fires (§4). This also makes the <code>OPTIONS</code> exemption
+coherent: the preflight is exempted by auth (§2.3-C) <strong>and</strong> CORS is outermost, so preflights are
+answered correctly regardless.</p>
+<blockquote>
+<p>Implementation note for backend-engineer: the current <code>main.py</code> uses
+<code>app.add_middleware(CORSMiddleware, ...)</code>. Add <code>app.add_middleware(SynapseAuthMiddleware)</code> on the
+line <strong>immediately before</strong> that call so registration order yields CORS-outermost / auth-inner. A
+pytest MUST assert a 401 to a cross-origin request carries <code>access-control-allow-origin</code>
+(AC below). Do NOT implement the gate as a bare <code>@app.middleware("http")</code> function placed after
+the CORS block — that would reverse the layering. Use <code>add_middleware</code> with the ordering above,
+or place the <code>@app.middleware("http")</code> decorator call so its registration precedes the CORS
+<code>add_middleware</code>. Verify with the CORS-on-401 test, not by reading the source.</p>
+</blockquote>
+<h3 id="25-openapi-security-scheme-i8">2.5 OpenAPI security scheme (I8)<a class="headerlink" href="#25-openapi-security-scheme-i8" title="Permanent link">&para;</a></h3>
+<p><code>docs/api/openapi.json</code> MUST be regenerated so that:
+- <code>components.securitySchemes.BearerAuth</code> is declared:
+  <code>{"type": "http", "scheme": "bearer"}</code>.
+- Every route <strong>except</strong> the exempt set references it: <code>security: [{"BearerAuth": []}]</code>.
+- The exempt routes (<code>GET /status</code>, <code>GET /health/detailed</code>) declare <strong><code>security: []</code></strong> explicitly
+  (the FastAPI idiom for "no auth on this route") so the schema is truthful about what is gated.
+- <code>/docs</code>, <code>/openapi.json</code>, <code>/redoc</code> are framework-served and are documented as exempt in the ADR
+  text (they do not appear as <code>paths</code> entries that need a <code>security</code> marker).
+- The <code>/mcp/server</code> mounted sub-app and <code>POST /clip</code> retain their existing OpenAPI posture — this
+  ADR does not add <code>BearerAuth</code> to them (they use their own tokens).</p>
+<p>The FastAPI-level wiring is a global security requirement plus per-route <code>security=[]</code> overrides on
+the exempt routes; this is a <strong>documentation</strong> concern and is independent of the middleware
+enforcement (§2.2). Both must agree (the middleware is the enforcer; OpenAPI describes it).</p>
+<h3 id="26-rotation-the-clientserver-asymmetry-stated-precisely">2.6 Rotation — the client/server asymmetry, stated precisely<a class="headerlink" href="#26-rotation-the-clientserver-asymmetry-stated-precisely" title="Permanent link">&para;</a></h3>
+<p>There is a deliberate asymmetry, and the UI must not pretend otherwise:</p>
+<ul>
+<li><strong>Server-side rotation = env change + restart.</strong> The owner edits <code>SYNAPSE_AUTH_TOKEN</code> in
+  <code>docker-compose.yml</code> (or <code>.env</code>) and restarts the container. There is <strong>no server-side rotation
+  endpoint</strong> — the token is env-managed by construction (§2.1). No API call can change it.</li>
+<li><strong>Client-side "rotation" = updating the STORED client token.</strong> Settings › Security "Rotate
+  token" (§4) updates the token held in the browser's <code>localStorage</code> for the current server. It
+  <strong>calls nothing server-side.</strong> It is purely "I changed the server env; now tell my client the
+  new value."</li>
+</ul>
+<p>The Settings UI copy MUST make this explicit (AC-R10-2-5): <em>"To rotate the server token: set
+<code>SYNAPSE_AUTH_TOKEN</code> to a new value in your docker-compose.yml and restart the container. Then
+enter the new token here."</em> This asymmetry is intentional (single-owner, env-managed) and is the
+correct posture for the audience — it keeps the secret out of the DB (§2.1) at the cost of a
+restart, which the owner performs anyway for any config change.</p>
+<hr />
+<h2 id="3-configuration">3. Configuration<a class="headerlink" href="#3-configuration" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Env var</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SYNAPSE_AUTH_TOKEN</code></td>
+<td><code>""</code> (empty)</td>
+<td>Shared Bearer token for the REST API. <strong>Empty/absent = auth DISABLED</strong> (backward-compatible). Set (non-empty) = every non-exempt route requires <code>Authorization: Bearer &lt;token&gt;</code>. Constant-time compared; never stored, never hashed, never logged. Recommend ≥ 32 chars (document in DEPLOY.md).</td>
+</tr>
+</tbody>
+</table>
+<p>No DB column. No migration. No D2/ER change (the credential lives in env, not in <code>vault_state</code> —
+the contrast with ADR-0033/0040/0043, which each added a <code>vault_state</code> column, is the whole point
+of §2.1). D4 (OpenAPI) regenerated (§2.5). D6b (DEPLOY.md) gains the Security section (AC-R10-1-4).</p>
+<hr />
+<h2 id="4-frontend-contract-r10-2-api-client-connectscreen-settings">4. Frontend contract (R10-2 — API client + ConnectScreen + Settings)<a class="headerlink" href="#4-frontend-contract-r10-2-api-client-connectscreen-settings" title="Permanent link">&para;</a></h2>
+<p><strong>There is no shared fetch wrapper today.</strong> The shared module is <code>frontend/src/api/base.ts</code>, which
+exposes <code>apiBase()</code> (call-time server-URL resolution, ADR-0047). Every <code>frontend/src/api/*.ts</code>
+client builds URLs from <code>apiBase()</code>. The <code>Authorization</code> header MUST be injected in <strong>exactly one
+place</strong> — <code>base.ts</code> — and <strong>no component constructs the header directly</strong> (SPRINT-v1.0-SCOPE
+§R10-2, the key architectural rule).</p>
+<p><strong>4.1 Token storage — per server, in <code>localStorage</code>, never in Zustand.</strong>
+- Key: <strong><code>synapse.authToken</code></strong> (namespaced like the existing <code>synapse.serverUrl</code>, <code>synapse.servers</code>
+  in <code>base.ts</code>). It survives across sessions exactly like <code>serverUrl</code> does (ADR-0047 semantics).
+  <em>(The PM brief also names a per-server-keyed form <code>synapse_token_{serverUrl}</code>; the implementer
+  MAY key per server URL to match multi-server support — the contract is: </em><em>one namespaced key,
+  read by <code>base.ts</code> at request time, scoped to the current server</em><em>. Whichever form is chosen must
+  be a single constant in <code>base.ts</code>, mirroring <code>LS_SERVER_URL</code>.)</em>
+- <strong>Never</strong> stored in Zustand state (avoids accidental serialization into persisted store blobs).
+  Read at request time only.</p>
+<p><strong>4.2 The single injection point — <code>authHeaders()</code> in <code>base.ts</code>.</strong>
+Add a new exported helper <code>authHeaders(): Record&lt;string, string&gt;</code> (or a thin <code>fetchWithAuth</code>
+wrapper) in <code>base.ts</code> that returns <code>{ Authorization: "Bearer &lt;token&gt;" }</code> when a token is stored
+for the current server, and <code>{}</code> otherwise. Every client merges <code>authHeaders()</code> into its request
+headers. This covers <strong>all</strong> REST calls, the NDJSON <code>POST /chat/stream</code> fetch, the graph poll, and
+the 30-second <code>GET /health/detailed</code> health poll (AC-R10-2-8) — because they all go through the
+<code>base.ts</code>-derived request path. <strong><code>GET /status</code> and <code>GET /health/detailed</code> are exempt server-side</strong>
+(§2.3), so the header is harmless on them (an exempt route ignores the header) — the client may
+send it uniformly; it does no harm.</p>
+<p><strong>4.3 401 handling — one interceptor, not per-component.</strong>
+When any API call returns <strong>401</strong>, the client layer (a single response check colocated with the
+<code>base.ts</code>/fetch path) MUST: clear the stored token for the current server, and trigger the Zustand
+action that resets the connected-server state so the app shows ConnectScreen with an
+<code>"Authentication required"</code> error (AC-R10-2-2). Implemented once, at the client level.</p>
+<p><strong>4.4 ConnectScreen — probe <code>/status</code> (exempt), then a protected endpoint to detect 401.</strong>
+- On connect, ConnectScreen first probes <strong><code>GET /status</code></strong> (exempt — always answers if the server
+  is reachable, even with auth on and no token) to confirm the server exists and get
+  <code>data_version</code>. This is why <code>/status</code> stays exempt (§2.3-A) and why the updater/desktop
+  auto-detect still works (§5).
+- It then calls a <strong>protected</strong> endpoint (e.g. <code>GET /pages</code>). If that returns <strong>401</strong>, the server
+  has auth enabled and the entered/stored token is missing or wrong ⇒ show the token field with the
+  inline error (AC-R10-2-4). If it returns 200, the connection is authenticated (or auth is
+  disabled) ⇒ proceed and persist the token (if non-empty).
+- The token field is shown <strong>unconditionally</strong> below the server-URL field (the owner may want to
+  set the token before connecting), <code>type=password</code> with a show/hide <code>&lt;Eye&gt;</code>/<code>&lt;EyeOff&gt;</code> toggle
+  (AC-R10-2-3).</p>
+<p><strong>4.5 Web (non-Tauri) gets the same gate.</strong>
+The 401 → ConnectScreen flow (§4.3–4.4) is <strong>not desktop-specific</strong>. When the web/PWA build
+receives a 401, it shows the same minimal token prompt: the ConnectScreen (or a minimal inline
+token entry over the current server) with the token field auto-focused and the
+<code>"Invalid or missing access token…"</code> inline error (<code>var(--syn-red)</code>, <code>role="alert"</code>, matching the
+UXA-16 pattern). The web build already knows its server (same-origin, ADR-0028), so the "server
+URL" field MAY be pre-filled/read-only while the token field is the actionable control. The UX
+contract: <strong>any 401, on any platform, surfaces a token entry that, once filled, retries and
+proceeds</strong> — no dead-end error.</p>
+<p><strong>4.6 Settings › Security — client-side rotation only.</strong>
+A new "Security" section (Settings sidebar) shows: (a) the current server URL (read-only, for
+context); (b) a "Rotate token" field where the owner pastes a new token and clicks "Update",
+which replaces the stored token in <code>localStorage</code> and updates the in-memory value — <strong>no server
+call</strong> (§2.6). Plus the info banner from §2.6 explaining the server-side procedure (env + restart).
+i18n EN/IT parity for all new keys.</p>
+<hr />
+<h2 id="5-updater-desktop-implications">5. Updater / desktop implications<a class="headerlink" href="#5-updater-desktop-implications" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>The auto-updater is unaffected.</strong> It hits <strong>GitHub Releases</strong> (ADR-0049), not the Synapse
+  backend. <code>SYNAPSE_AUTH_TOKEN</code> gates the backend REST API; GitHub is an external origin with its
+  own (no) auth. The update check, download of <code>latest.json</code>, and artifact fetch never touch the
+  gated API. <strong>The token MUST NEVER appear in any <code>latest.json</code> flow</strong> (Do-NOT §6).</li>
+<li><strong>ConnectScreen auto-detect still works</strong> because <code>GET /status</code> is exempt (§2.3-A / §4.4): a
+  freshly-launched desktop app can reach <code>/status</code> on the configured server without a token,
+  confirm reachability + <code>data_version</code>, and <em>then</em> discover (via the protected probe) whether a
+  token is required. Auth-on does not break the Connect gate; it adds a token step after detection.</li>
+<li>No change to the Tauri shell, the service worker, or the split-origin PWA plumbing (ADR-0028/0039)
+  — the token is a request header injected in <code>base.ts</code>, transparent to all of them.</li>
+</ul>
+<hr />
+<h2 id="6-do-not-list">6. Do-NOT list<a class="headerlink" href="#6-do-not-list" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>DO NOT</strong> hash or store <code>SYNAPSE_AUTH_TOKEN</code> in the DB — it is env-only by design (§2.1);
+   hashing buys nothing and adds a KDF to the hot path (I3). Contrast ADR-0033 (UI-settable ⇒ DB ⇒
+   hash); this credential is deployment config, not app state.</li>
+<li><strong>DO NOT</strong> log the token — not the value, not a prefix, not the hash-of (there is no hash). Not
+   at INFO, not at DEBUG, not in an exception message. (Mirrors ADR-0038 Do-NOT §4.)</li>
+<li><strong>DO NOT</strong> put the token in a URL, a query string, a path, or a redirect. Bearer header only.
+   (The one future exception — a WebSocket <code>?token=</code> — is explicitly deferred and out of scope, §2.2.)</li>
+<li><strong>DO NOT</strong> include the token in any <code>latest.json</code> / updater / GitHub Release flow (§5).</li>
+<li><strong>DO NOT</strong> enforce auth via per-route <code>Depends</code> or a global <code>dependencies=[...]</code> — use the
+   middleware, so new routes are gated by construction (§2.2); a forgotten dependency is a silent
+   hole.</li>
+<li><strong>DO NOT</strong> double-gate <code>/mcp/server</code> (ADR-0033 keeps its own token) or <code>POST /clip</code> (ADR-0038
+   keeps <code>CLIP_TOKEN</code>). Exclude both from this middleware (§2.3-D). But DO gate the <em>management</em>
+   routes <code>GET /mcp/info</code>, <code>PUT /mcp/auth</code>, <code>PUT /mcp/remote</code>, <code>GET</code>/<code>PUT /clip/config</code> (ordinary
+   REST routes).</li>
+<li><strong>DO NOT</strong> 401 the CORS preflight — <code>OPTIONS</code> is always exempt (§2.3-C), and CORS must be the
+   <strong>outermost</strong> middleware so even a real 401 carries CORS headers (§2.4). Verify with the
+   CORS-on-401 test, not by reading the source.</li>
+<li><strong>DO NOT</strong> break backward compatibility: empty/unset <code>SYNAPSE_AUTH_TOKEN</code> MUST be byte-for-byte
+   v0.9 behaviour (no 401s anywhere). The disabled path adds zero required headers (EC-M10-11).</li>
+<li><strong>DO NOT</strong> compare the token with <code>==</code> — use <code>secrets.compare_digest</code> (constant-time) to close
+   the timing side-channel (mirrors ADR-0038 §2.2).</li>
+<li><strong>DO NOT</strong> store the token in Zustand or any persisted store blob — <code>base.ts</code> <code>localStorage</code>
+    only, read at request time (§4.1); no component constructs the <code>Authorization</code> header directly.</li>
+</ol>
+<hr />
+<h2 id="7-acceptance-checks-dod-maps-to-ac-r10-1-ac-r10-2-">7. Acceptance checks (DoD — maps to AC-R10-1-<em>, AC-R10-2-</em>)<a class="headerlink" href="#7-acceptance-checks-dod-maps-to-ac-r10-1-ac-r10-2-" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Disabled default (backward compat).</strong> With <code>SYNAPSE_AUTH_TOKEN=""</code>, <code>GET /pages</code> returns 200
+   with no <code>Authorization</code> header; the full v0.9 E2E suite passes unchanged (AC-R10-1-1a,
+   EC-M10-11).</li>
+<li><strong>Enabled — reject.</strong> With <code>SYNAPSE_AUTH_TOKEN="test-token"</code>, <code>GET /pages</code> with no header ⇒ 401
+   with body <code>{"error":"unauthorized","hint":...}</code> and <code>WWW-Authenticate: Bearer</code> (AC-R10-1-1b).</li>
+<li><strong>Enabled — accept.</strong> Same, with correct Bearer ⇒ 200 (AC-R10-1-1c).</li>
+<li><strong>Exempt set.</strong> With the token set, <code>GET /status</code> and <code>GET /health/detailed</code> return 200 with no
+   header (AC-R10-1-2). <code>/docs</code> and <code>/openapi.json</code> load with no header.</li>
+<li><strong>CORS-on-401 (the ordering test).</strong> A cross-origin request with a bad/absent token returns 401
+   <strong>carrying</strong> <code>access-control-allow-origin</code> (proves CORS is outermost, §2.4).</li>
+<li><strong>OPTIONS exempt.</strong> An <code>OPTIONS</code> preflight to any gated route returns the CORS preflight
+   response (not 401), with the token set.</li>
+<li><strong>Mount not double-gated.</strong> With <code>SYNAPSE_AUTH_TOKEN</code> set and no <code>Authorization</code> header, a
+   request to <code>/mcp/server</code> is handled by the MCP gate's own logic (ADR-0033), NOT 401'd by this
+   middleware; <code>POST /clip</code> is handled by its own <code>CLIP_TOKEN</code> gate. <code>GET /mcp/info</code> and
+   <code>GET /clip/config</code> ARE 401'd without the API token.</li>
+<li><strong>No secret leak.</strong> <code>grep</code> of logs shows no token value/prefix; no response body ever echoes it.</li>
+<li><strong>OpenAPI (I8).</strong> <code>docs/api/openapi.json</code> declares <code>BearerAuth</code>; all routes reference it except
+   <code>/status</code> and <code>/health/detailed</code>, which carry <code>security: []</code>; <code>make openapi</code> is drift-clean
+   (EC-M10-4).</li>
+<li><strong>mypy strict / lint.</strong> <code>app/auth.py</code> passes <code>ruff</code> + <code>black --check</code> + <code>mypy</code> (strict), no
+    <code>Any</code>, <code>verify_token</code> fully typed (AC-R10-1-5).</li>
+<li><strong>Frontend injection (R10-2).</strong> With a token in <code>localStorage</code>, the injected <code>Authorization</code>
+    header is present on REST, chat-stream, graph poll, and the health poll; absent when no token
+    stored (AC-R10-2-1, -8). A 401 clears the stored token and resets connected-server state via
+    the single interceptor (AC-R10-2-2).</li>
+<li><strong>ConnectScreen + Settings.</strong> <code>/status</code> probe then protected probe drives the token field;
+    field is password + show/hide; Settings › Security rotates the <em>client</em> token with no server
+    call and shows the env-restart banner; EN/IT parity (AC-R10-2-3..6). D5 screenshot
+    <code>connect-screen-auth.png</code> (AC-R10-2-7).</li>
+</ol>
+<hr />
+<h2 id="8-consequences">8. Consequences<a class="headerlink" href="#8-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong> — the owner gets a real, zero-miss access gate for exposing Synapse on a public tunnel,
+with <strong>full backward compatibility</strong> (unset = v0.9). The credential stays in env (never DB, never a
+<code>pg_dump</code>, never git — §12 for the highest-blast-radius secret) and is enforced by a single
+constant-time compare that respects I3 on the streaming path. One middleware gates 60+ routes by
+construction; new routes are secure by default. The MCP and clip surfaces keep their own,
+already-audited, auth (no double-gating, no regression). One injection point in <code>base.ts</code> keeps the
+header contract in a single file. No migration, no D2 change.</p>
+<p><strong>Trade-offs (explicit)</strong> —
+- <strong>Server-side rotation requires a restart</strong> (§2.6). Accepted: single-owner, env-managed, keeps
+  the secret out of the DB; the owner restarts for any config change anyway. The client/server
+  asymmetry is documented in the Settings copy so it is not surprising.
+- <strong>One shared token, no per-user identity, no audit-per-user.</strong> This is the PM-locked scope; OIDC
+  and multi-user are deferred (SPRINT-v1.0-SCOPE §R10-1). Single-vault routing is retained.
+- <strong><code>/docs</code> + <code>/openapi.json</code> are exempt</strong> (§2.3-B) — the schema (route shapes, not data) is
+  reachable without a token. Accepted (it is already public in git); a documented knob can gate it
+  if a future deployment needs it.
+- <strong>Middleware matches on exact path, not route object</strong> (§2.2). The exempt set is small, stable,
+  and a named constant; exact-path matching avoids over-exemption.
+- <strong>WebSocket handshake auth is not built</strong> — there is no WebSocket route today (ADR-0019 is
+  POST-NDJSON). A forward constraint is recorded for if/when one is added (§2.2); it will need an
+  ADR amendment because <code>websocket</code> scopes bypass <code>app.middleware("http")</code>.</p>
+<p><strong>Invariant check</strong> — <strong>I6:</strong> the token is an env var; the auth layer never branches on provider
+type, never hardcodes a backend/model, uses named constants for the exempt set + mount prefixes.
+<strong>I3:</strong> enforcement is a single <code>secrets.compare_digest</code> — no KDF, no DB read, no per-token work —
+on <code>POST /chat/stream</code> and every other route. <strong>I8:</strong> OpenAPI regenerated (<code>BearerAuth</code> scheme +
+per-route <code>security</code>); DEPLOY.md Security section; D5 screenshot. <strong>I1/I5:</strong> ingest, index, and
+vault-write paths untouched — auth is a transport gate in front of the router. <strong>I2/I4/I7/I9:</strong>
+untouched. The §12 "no secrets in DB" rule is honoured by keeping the credential in env (unlike the
+UI-settable MCP/clip/CLI tokens, which had to live in <code>vault_state</code> and therefore had to be
+hashed/handled specially — §2.1 makes the categorical distinction).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,4 +1,4 @@
-.PHONY: help up down dev dev-down migrate logs test lint typecheck fmt er openapi clean
+.PHONY: help up down dev dev-down migrate logs test lint typecheck fmt er openapi docs-serve docs-build clean
 
 # Default target
 help:
@@ -24,6 +24,8 @@ help:
 	@echo "Documentation (service-free):"
 	@echo "  make er         - Generate docs/er/schema.mmd from SQLAlchemy models"
 	@echo "  make openapi    - Generate docs/api/openapi.json from FastAPI app"
+	@echo "  make docs-serve - Serve documentation locally (http://localhost:8001)"
+	@echo "  make docs-build - Build documentation site (strict mode)"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean      - Remove generated files and cache"
@@ -81,6 +83,22 @@ openapi:
 	cd backend && python scripts/generate_openapi.py
 
 # ──────────────────────────────────────────────────────────────────────────
+# Documentation site (MkDocs Material)
+# ──────────────────────────────────────────────────────────────────────────
+
+docs-serve:
+	@command -v pip >/dev/null 2>&1 && pip install mkdocs-material mkdocs-swagger-ui-tag >/dev/null 2>&1 || \
+	command -v pipx >/dev/null 2>&1 && pipx install mkdocs-material >/dev/null 2>&1 || \
+	(echo "ERROR: pip or pipx not found. Install Python first." && exit 1)
+	python -m mkdocs serve
+
+docs-build:
+	@command -v pip >/dev/null 2>&1 && pip install mkdocs-material mkdocs-swagger-ui-tag >/dev/null 2>&1 || \
+	command -v pipx >/dev/null 2>&1 && pipx install mkdocs-material >/dev/null 2>&1 || \
+	(echo "ERROR: pip or pipx not found. Install Python first." && exit 1)
+	python -m mkdocs build --strict
+
+# ──────────────────────────────────────────────────────────────────────────
 # Cleanup
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -90,3 +108,4 @@ clean:
 	find backend -type f -name "*.py[cod]" -delete
 	rm -f docs/er/schema.mmd docs/api/openapi.json
 	rm -rf docs/screens/*.png
+	rm -rf site/

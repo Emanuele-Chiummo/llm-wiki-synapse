@@ -1,0 +1,1332 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.1-scope/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint 1 — v0.1 — Scope Lock - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-1-v01-scope-lock" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint 1 — v0.1 — Scope Lock
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-sprint-objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Sprint objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-in-scope-feature-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. In-scope feature IDs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-explicitly-deferred-feature-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Explicitly deferred feature IDs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-invariants-in-force-for-sprint-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Invariants in force for Sprint 1
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-m1-exit-criteria-concrete-checkable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. M1 Exit Criteria (concrete, checkable)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. M1 Exit Criteria (concrete, checkable)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ec-1-k1-k4-k6-k7-vault-structure-valid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-1 (K1 + K4 + K6 + K7): Vault structure valid
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-2-watcher-i1-incremental-ingest-fires-correctly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-2 (Watcher + I1): Incremental ingest fires correctly
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-3-k4-logmd-append-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-3 (K4): log.md append-only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-4-k6-postgres-frontmatter-stored-correctly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-4 (K6 + Postgres): Frontmatter stored correctly
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-5-qdrant-i9-vectors-from-existing-bge-m3-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-5 (Qdrant + I9): Vectors from existing bge-m3 service
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-6-rest-api-all-4-endpoints-operational" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-6 (REST API): All 4 endpoints operational
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-7-f16-dataversion-version-increments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-7 (F16 dataVersion): Version increments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-8-docker-compose-devtools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-8 (Docker Compose + devtools):
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-9-d1-docs-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-9 (D1 — docs gate):
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-10-d2-docs-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-10 (D2 — docs gate):
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-11-d4-docs-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-11 (D4 — docs gate):
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-12-qa-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-12 (QA gate):
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-13-architect-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-13 (Architect gate):
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-14-tech-writer-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-14 (Tech-Writer gate):
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ec-15-human-checkpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EC-15 (Human checkpoint):
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-required-d-artifacts-for-this-sprints-docs-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Required D-artifacts for this sprint's docs gate
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Required D-artifacts for this sprint&#39;s docs gate">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#d-artifacts-explicitly-not-required-for-v01" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D-artifacts explicitly NOT required for v0.1
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-sign-off-register-to-be-completed-at-sprint-end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Sign-off register (to be completed at sprint end)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-velocity-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Velocity note
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-1-v01-scope-lock">Sprint 1 — v0.1 — Scope Lock<a class="headerlink" href="#sprint-1-v01-scope-lock" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Milestone: M1 — "Data flows end-to-end"
+Branch: sprint/v0.1
+Locked by: product-manager on 2026-06-28
+Status: LOCKED — no changes without PM + orchestrator approval</p>
+</blockquote>
+<hr />
+<h2 id="1-sprint-objective">1. Sprint objective<a class="headerlink" href="#1-sprint-objective" title="Permanent link">&para;</a></h2>
+<p>Prove that the data pipeline is correctly wired: a Markdown file dropped into
+vault/raw/sources/ is detected by the watcher, indexed into Postgres (metadata)
+and Qdrant (bge-m3 vector), and retrievable via the REST API. No AI inference,
+no graph layout, no frontend UI.</p>
+<p>The walking skeleton establishes the foundation that every later sprint builds on.
+It is intentionally thin.</p>
+<hr />
+<h2 id="2-in-scope-feature-ids">2. In-scope feature IDs<a class="headerlink" href="#2-in-scope-feature-ids" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature ID</th>
+<th>What is in scope for v0.1</th>
+<th>Why needed now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>K1</td>
+<td>vault directory skeleton: raw/sources/, raw/assets/, wiki/ (index.md, log.md), schema.md, purpose.md stub</td>
+<td>All later features assume this layout exists</td>
+</tr>
+<tr>
+<td>K4</td>
+<td>log.md append-only history — INDEXED event type only</td>
+<td>Required by I1: log is the parse source for incremental refresh decisions; must exist from day 1</td>
+</tr>
+<tr>
+<td>K6</td>
+<td>YAML frontmatter parser (type, title, sources[]); store fields in Postgres</td>
+<td>Pivot for Postgres metadata; required for D2 ER to be meaningful</td>
+</tr>
+<tr>
+<td>K7</td>
+<td>vault/wiki/.obsidian/app.json auto-generated on startup; valid frontmatter in all service-written files</td>
+<td>Invariant I5 is non-negotiable; must hold from sprint 1</td>
+</tr>
+<tr>
+<td>F16 (partial)</td>
+<td>dataVersion integer in vault_state table; bumped on each ingest; exposed via GET /status</td>
+<td>Required by I2 architecture (graph recompute trigger) even though graph is not built yet. Full F16 deferred.</td>
+</tr>
+<tr>
+<td>K2 (partial)</td>
+<td>REST read API only: GET /status, GET /pages, GET /pages/{id}, POST /ingest/trigger</td>
+<td>The "end-to-end" demo requires a way to observe that data arrived; ingest operation itself (LLM) deferred</td>
+</tr>
+<tr>
+<td>Watcher</td>
+<td>backend/app/watcher.py — watchdog-based incremental file detector; upserts Postgres + Qdrant</td>
+<td>The entire M1 goal depends on this working correctly and honouring I1</td>
+</tr>
+<tr>
+<td>Postgres models</td>
+<td>backend/app/models.py — SQLAlchemy 2; tables: pages, vault_state; Alembic migrations</td>
+<td>D2 is generated from models.py; correct schema is the contract for all agents</td>
+</tr>
+<tr>
+<td>Qdrant integration</td>
+<td>Upsert/delete bge-m3 vectors for each indexed page; reuses running instance (I9)</td>
+<td>Half of "data flows end-to-end" is the vector store</td>
+</tr>
+<tr>
+<td>Docker Compose</td>
+<td>docker-compose.yml with synapse-backend + postgres16; Makefile targets: up, test, er, openapi</td>
+<td>Required to satisfy I8 (reproducible build) and for QA/devops sign-off</td>
+</tr>
+<tr>
+<td>D1</td>
+<td>C4 context + container diagrams in docs/architecture/ (Mermaid)</td>
+<td>Required by I8 docs-as-DoD; v0.1 is D1's first sprint per CLAUDE.md §9</td>
+</tr>
+<tr>
+<td>D2</td>
+<td>ER diagram docs/er/schema.mmd generated by <code>make er</code></td>
+<td>Required by I8; must match live schema; first sprint per CLAUDE.md §9</td>
+</tr>
+<tr>
+<td>D4</td>
+<td>OpenAPI JSON docs/api/openapi.json generated by <code>make openapi</code></td>
+<td>Required by I8; first sprint per CLAUDE.md §9</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-explicitly-deferred-feature-ids">3. Explicitly deferred feature IDs<a class="headerlink" href="#3-explicitly-deferred-feature-ids" title="Permanent link">&para;</a></h2>
+<p>The items below are tempting but out of scope for v0.1. Any engineer proposing one
+must escalate to orchestrator for explicit approval before work begins.</p>
+<table>
+<thead>
+<tr>
+<th>Feature ID</th>
+<th>Why tempting</th>
+<th>Why deferred</th>
+<th>Target sprint</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F17</td>
+<td>Defines Synapse; I6 is a non-negotiable invariant</td>
+<td>v0.1 has no LLM inference calls at all; the InferenceProvider ABC exists only as a stub import if needed for type annotations. Full implementation in v0.2.</td>
+<td>v0.2</td>
+</tr>
+<tr>
+<td>F3</td>
+<td>Two-step CoT ingest (analyze → generate)</td>
+<td>Requires F17 providers to exist. No AI in v0.1.</td>
+<td>v0.2</td>
+</tr>
+<tr>
+<td>K3</td>
+<td>index.md auto-maintained by ingest</td>
+<td>Requires ingest loop (F3 + F17). Stub file created manually in v0.1.</td>
+<td>v0.2</td>
+</tr>
+<tr>
+<td>K5</td>
+<td>[[wikilink]] parser</td>
+<td>Not needed until graph edges are computed (F4).</td>
+<td>v0.2</td>
+</tr>
+<tr>
+<td>K8</td>
+<td>Human curates / review queue</td>
+<td>Principle applied; F9 implementation deferred.</td>
+<td>v0.5</td>
+</tr>
+<tr>
+<td>F4</td>
+<td>Knowledge graph, 4-signal weighting, FA2, sigma.js</td>
+<td>Requires pages in DB first (v0.1 provides that), but graph engine and viewer are v0.3 work.</td>
+<td>v0.3</td>
+</tr>
+<tr>
+<td>F1</td>
+<td>3-panel web UI</td>
+<td>No frontend in v0.1.</td>
+<td>v0.4</td>
+</tr>
+<tr>
+<td>F2</td>
+<td>purpose.md injection</td>
+<td>Requires provider layer.</td>
+<td>v0.6</td>
+</tr>
+<tr>
+<td>F5</td>
+<td>4-phase RAG retrieval</td>
+<td>Requires graph (F4) and chat (F6).</td>
+<td>v0.5</td>
+</tr>
+<tr>
+<td>F6</td>
+<td>Multi-conversation chat</td>
+<td>No chat at all in v0.1.</td>
+<td>v0.4</td>
+</tr>
+<tr>
+<td>F7</td>
+<td>think reasoning display</td>
+<td>Depends on chat streaming.</td>
+<td>v0.4</td>
+</tr>
+<tr>
+<td>F8</td>
+<td>LaTeX to Unicode</td>
+<td>Depends on chat.</td>
+<td>v0.4</td>
+</tr>
+<tr>
+<td>F9</td>
+<td>HITL review queue</td>
+<td>v0.5 feature.</td>
+<td>v0.5</td>
+</tr>
+<tr>
+<td>F10</td>
+<td>Deep Research (SearXNG loop)</td>
+<td>v0.5 feature.</td>
+<td>v0.5</td>
+</tr>
+<tr>
+<td>F11</td>
+<td>Chrome MV3 clipper</td>
+<td>v0.6 feature.</td>
+<td>v0.6</td>
+</tr>
+<tr>
+<td>F12</td>
+<td>Multi-format ingest</td>
+<td>Markdown .md only in v0.1; PDF/DOCX/etc in v0.5.</td>
+<td>v0.5</td>
+</tr>
+<tr>
+<td>F13</td>
+<td>Cascade deletion</td>
+<td>Requires graph + wikilink parser.</td>
+<td>v0.5</td>
+</tr>
+<tr>
+<td>F14</td>
+<td>Configurable context window</td>
+<td>Requires provider layer.</td>
+<td>v0.4</td>
+</tr>
+<tr>
+<td>F15 (most)</td>
+<td>PWA + Tauri v2, CI/CD pipeline</td>
+<td>Docker Compose only in v0.1; CI pipeline and PWA in v0.6.</td>
+<td>v0.6</td>
+</tr>
+<tr>
+<td>F16 (rest)</td>
+<td>i18n, settings, .obsidian full auto-gen, GFM, multi-provider chat, timeout</td>
+<td>Only dataVersion column is in scope for v0.1.</td>
+<td>v0.4</td>
+</tr>
+<tr>
+<td>MCP server</td>
+<td>FastMCP standalone server</td>
+<td>v0.2 deliverable.</td>
+<td>v0.2</td>
+</tr>
+<tr>
+<td>D3</td>
+<td>Sequence diagrams</td>
+<td>Not required until v0.2 (ingest loop) and v0.3 (graph).</td>
+<td>v0.2/v0.3</td>
+</tr>
+<tr>
+<td>D5</td>
+<td>UI screenshots via Playwright</td>
+<td>No UI in v0.1.</td>
+<td>v0.3</td>
+</tr>
+<tr>
+<td>D6</td>
+<td>User guide + Deploy guide</td>
+<td>v0.4 draft.</td>
+<td>v0.4</td>
+</tr>
+<tr>
+<td>D7</td>
+<td>Architecture Decision Records</td>
+<td>Required from v0.2 per CLAUDE.md §9.</td>
+<td>v0.2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-invariants-in-force-for-sprint-1">4. Invariants in force for Sprint 1<a class="headerlink" href="#4-invariants-in-force-for-sprint-1" title="Permanent link">&para;</a></h2>
+<p>All 9 invariants apply from day 1. The ones most directly tested by v0.1:</p>
+<table>
+<thead>
+<tr>
+<th>Invariant</th>
+<th>How it manifests in v0.1</th>
+<th>Test / verification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>I1 — INCREMENTAL INDEX ONLY</td>
+<td>Watcher uses mtime + content hash; skip unchanged files; NEVER rescans directory on startup</td>
+<td>pytest: drop same file twice → single DB row</td>
+</tr>
+<tr>
+<td>I5 — OBSIDIAN COMPATIBILITY</td>
+<td>vault/wiki/.obsidian/app.json auto-created; all written .md files have valid YAML frontmatter</td>
+<td>Manual: open vault/wiki/ in Obsidian; no errors</td>
+</tr>
+<tr>
+<td>I7 — LOOPS ARE BOUNDED</td>
+<td>No loops in v0.1 (no LLM inference). The file-event handler is not a loop.</td>
+<td>N/A in v0.1; architecture decisions made now must not preclude bounds later</td>
+</tr>
+<tr>
+<td>I8 — DOCS-AS-DoD</td>
+<td>D1+D2+D4 required before M1 sign-off; <code>make er</code> and <code>make openapi</code> are automated</td>
+<td>CI: make er + make openapi must exit 0 with correct output</td>
+</tr>
+<tr>
+<td>I9 — DO NOT REINVENT</td>
+<td>bge-m3 via existing running service (env var URL); Qdrant via existing running instance; no new services introduced</td>
+<td>docker-compose.yml must NOT start a new Qdrant or embedding container</td>
+</tr>
+</tbody>
+</table>
+<p>Invariants I2, I3, I4, I6 are not directly exercised in v0.1 (no graph, no chat,
+no editor, no provider routing), but no design decision in v0.1 may make them harder
+to honour in v0.2+. Any such conflict must be escalated to solution-architect.</p>
+<hr />
+<h2 id="5-m1-exit-criteria-concrete-checkable">5. M1 Exit Criteria (concrete, checkable)<a class="headerlink" href="#5-m1-exit-criteria-concrete-checkable" title="Permanent link">&para;</a></h2>
+<p>All items must be MET before PM sign-off and before advancing to Sprint 2.</p>
+<h3 id="ec-1-k1-k4-k6-k7-vault-structure-valid">EC-1 (K1 + K4 + K6 + K7): Vault structure valid<a class="headerlink" href="#ec-1-k1-k4-k6-k7-vault-structure-valid" title="Permanent link">&para;</a></h3>
+<ul>
+<li>vault/raw/sources/, vault/raw/assets/ exist.</li>
+<li>vault/wiki/index.md, vault/wiki/log.md exist with valid YAML frontmatter.</li>
+<li>vault/wiki/.obsidian/app.json is present and parseable as valid JSON.</li>
+<li>vault/schema.md and vault/purpose.md (stub) exist.</li>
+<li>Opening vault/wiki/ in Obsidian shows no errors (human checkpoint).</li>
+</ul>
+<h3 id="ec-2-watcher-i1-incremental-ingest-fires-correctly">EC-2 (Watcher + I1): Incremental ingest fires correctly<a class="headerlink" href="#ec-2-watcher-i1-incremental-ingest-fires-correctly" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Drop a new .md file into vault/raw/sources/ → within 5 seconds: a row appears in Postgres pages table AND a point appears in Qdrant synapse_pages collection.</li>
+<li>Drop the same unchanged file again → no new Postgres row, no new Qdrant point, no new log.md entry (I1).</li>
+<li>Modify the file → Postgres row updated (updated_at changes), Qdrant vector replaced, log.md gets one new INDEXED entry.</li>
+<li>Delete the file → Postgres row has deleted_at set, Qdrant point removed.</li>
+<li>Service startup does NOT trigger any DB writes (no rescan).</li>
+</ul>
+<h3 id="ec-3-k4-logmd-append-only">EC-3 (K4): log.md append-only<a class="headerlink" href="#ec-3-k4-logmd-append-only" title="Permanent link">&para;</a></h3>
+<ul>
+<li>After 3 distinct ingest events, log.md has exactly 3 entries.</li>
+<li>File is never shorter than after the previous run (append-only contract).</li>
+</ul>
+<h3 id="ec-4-k6-postgres-frontmatter-stored-correctly">EC-4 (K6 + Postgres): Frontmatter stored correctly<a class="headerlink" href="#ec-4-k6-postgres-frontmatter-stored-correctly" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A .md file with frontmatter type: entity, title: "Test", sources: ["a.pdf"] produces a Postgres row with those exact values.</li>
+<li>A .md file with missing frontmatter produces a row with NULL for missing fields (no exception).</li>
+</ul>
+<h3 id="ec-5-qdrant-i9-vectors-from-existing-bge-m3-service">EC-5 (Qdrant + I9): Vectors from existing bge-m3 service<a class="headerlink" href="#ec-5-qdrant-i9-vectors-from-existing-bge-m3-service" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Qdrant synapse_pages collection exists after service startup.</li>
+<li>After ingest, a point with correct payload is retrievable via Qdrant API.</li>
+<li>EMBEDDING_URL env var is the only way the service reaches bge-m3; no local model loaded.</li>
+</ul>
+<h3 id="ec-6-rest-api-all-4-endpoints-operational">EC-6 (REST API): All 4 endpoints operational<a class="headerlink" href="#ec-6-rest-api-all-4-endpoints-operational" title="Permanent link">&para;</a></h3>
+<ul>
+<li>GET /status → HTTP 200, JSON with data_version field.</li>
+<li>GET /pages → HTTP 200, paginated list; new page visible after ingest.</li>
+<li>GET /pages/{id} → HTTP 200 for valid id; HTTP 404 for unknown id.</li>
+<li>POST /ingest/trigger {"file_path": "..."} → HTTP 202; triggers ingest pipeline.</li>
+</ul>
+<h3 id="ec-7-f16-dataversion-version-increments">EC-7 (F16 dataVersion): Version increments<a class="headerlink" href="#ec-7-f16-dataversion-version-increments" title="Permanent link">&para;</a></h3>
+<ul>
+<li>data_version starts at 0.</li>
+<li>After first ingest: data_version = 1 (GET /status confirms).</li>
+<li>After second ingest: data_version = 2.</li>
+<li>No ingest = no version change.</li>
+</ul>
+<h3 id="ec-8-docker-compose-devtools">EC-8 (Docker Compose + devtools):<a class="headerlink" href="#ec-8-docker-compose-devtools" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>docker compose up</code> on a clean environment starts synapse-backend and postgres16 without error.</li>
+<li><code>make test</code> exits 0 with all pytest tests green.</li>
+<li><code>make er</code> generates docs/er/schema.mmd.</li>
+<li><code>make openapi</code> generates docs/api/openapi.json.</li>
+<li>No secrets in committed files (.env is gitignored).</li>
+</ul>
+<h3 id="ec-9-d1-docs-gate">EC-9 (D1 — docs gate):<a class="headerlink" href="#ec-9-d1-docs-gate" title="Permanent link">&para;</a></h3>
+<ul>
+<li>docs/architecture/context.mmd is a valid Mermaid C4Context diagram.</li>
+<li>docs/architecture/container.mmd is a valid Mermaid C4Container diagram.</li>
+<li>Both reviewed and approved by solution-architect.</li>
+</ul>
+<h3 id="ec-10-d2-docs-gate">EC-10 (D2 — docs gate):<a class="headerlink" href="#ec-10-d2-docs-gate" title="Permanent link">&para;</a></h3>
+<ul>
+<li>docs/er/schema.mmd is generated by <code>make er</code> (not hand-written).</li>
+<li>ER diagram matches live Postgres schema (pages + vault_state tables with all columns).</li>
+<li>Reviewed and approved by solution-architect.</li>
+</ul>
+<h3 id="ec-11-d4-docs-gate">EC-11 (D4 — docs gate):<a class="headerlink" href="#ec-11-d4-docs-gate" title="Permanent link">&para;</a></h3>
+<ul>
+<li>docs/api/openapi.json is valid OpenAPI 3.1.</li>
+<li>All 4 v0.1 endpoints documented with request/response schemas.</li>
+<li>Generated by <code>make openapi</code>.</li>
+<li>Reviewed and approved by tech-writer.</li>
+</ul>
+<h3 id="ec-12-qa-gate">EC-12 (QA gate):<a class="headerlink" href="#ec-12-qa-gate" title="Permanent link">&para;</a></h3>
+<ul>
+<li>QA-test-engineer has run the full test suite and signed off (green).</li>
+<li>No open P0 or P1 bugs.</li>
+</ul>
+<h3 id="ec-13-architect-gate">EC-13 (Architect gate):<a class="headerlink" href="#ec-13-architect-gate" title="Permanent link">&para;</a></h3>
+<ul>
+<li>solution-architect has reviewed models.py, watcher.py, main.py and signed off.</li>
+<li>No invariant violations identified.</li>
+</ul>
+<h3 id="ec-14-tech-writer-gate">EC-14 (Tech-Writer gate):<a class="headerlink" href="#ec-14-tech-writer-gate" title="Permanent link">&para;</a></h3>
+<ul>
+<li>tech-writer has verified D1, D2, D4 are complete and internally consistent.</li>
+<li>Signed off.</li>
+</ul>
+<h3 id="ec-15-human-checkpoint">EC-15 (Human checkpoint):<a class="headerlink" href="#ec-15-human-checkpoint" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Human (Emanuele) has reviewed the demo (EC-2 live run) and approved advancement to Sprint 2.</li>
+</ul>
+<hr />
+<h2 id="6-required-d-artifacts-for-this-sprints-docs-gate">6. Required D-artifacts for this sprint's docs gate<a class="headerlink" href="#6-required-d-artifacts-for-this-sprints-docs-gate" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>Path</th>
+<th>How generated</th>
+<th>Gate requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1</td>
+<td>docs/architecture/context.mmd + container.mmd</td>
+<td>Hand-authored Mermaid C4 by tech-writer</td>
+<td>Architect + tech-writer sign-off</td>
+</tr>
+<tr>
+<td>D2</td>
+<td>docs/er/schema.mmd</td>
+<td><code>make er</code> from models.py</td>
+<td>Must match live schema; architect + tech-writer sign-off</td>
+</tr>
+<tr>
+<td>D4</td>
+<td>docs/api/openapi.json</td>
+<td><code>make openapi</code> from FastAPI</td>
+<td>Tech-writer sign-off; all 4 endpoints present</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d-artifacts-explicitly-not-required-for-v01">D-artifacts explicitly NOT required for v0.1<a class="headerlink" href="#d-artifacts-explicitly-not-required-for-v01" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>First required sprint</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D3 — Sequence diagrams</td>
+<td>v0.2 (ingest loop)</td>
+</tr>
+<tr>
+<td>D5 — UI screenshots</td>
+<td>v0.3 (graph viewer)</td>
+</tr>
+<tr>
+<td>D6 — User/Deploy guides</td>
+<td>v0.4 (draft)</td>
+</tr>
+<tr>
+<td>D7 — ADRs</td>
+<td>v0.2 (first ADR: InferenceProvider)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-sign-off-register-to-be-completed-at-sprint-end">7. Sign-off register (to be completed at sprint end)<a class="headerlink" href="#7-sign-off-register-to-be-completed-at-sprint-end" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Gate</th>
+<th>Owner</th>
+<th>Status</th>
+<th>Date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QA green</td>
+<td>qa-test-engineer</td>
+<td>PENDING</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Architect review</td>
+<td>solution-architect</td>
+<td>PENDING</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Tech-writer docs gate</td>
+<td>tech-writer</td>
+<td>PENDING</td>
+<td>—</td>
+</tr>
+<tr>
+<td>PM exit-criteria verdict</td>
+<td>product-manager</td>
+<td>PENDING</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Human checkpoint</td>
+<td>Emanuele</td>
+<td>PENDING</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>All 5 must be MET before sprint/v0.1 is merged and Sprint 2 begins.</p>
+<hr />
+<h2 id="8-velocity-note">8. Velocity note<a class="headerlink" href="#8-velocity-note" title="Permanent link">&para;</a></h2>
+<p>Sprint 1 is intentionally minimal: walking skeleton only, no AI inference, no frontend.
+Estimated scope for a solo evening developer: 8–12 evening sessions (~2 weeks per roadmap).
+If any EC item slips, the human checkpoint is the final gate before scope creep can enter Sprint 2.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -2,7 +2,12 @@
  * Small shared HTTP helpers for frontend clients.
  *
  * Keeps request timeouts consistent without changing backend contracts.
+ *
+ * fetchWithTimeout delegates to apiFetch (from base.ts) so every timed call
+ * automatically carries the Authorization header (ADR-0052 §4.2).
  */
+
+import { apiFetch } from "./base";
 
 export class ApiTimeoutError extends Error {
   constructor(timeoutMs: number) {
@@ -19,7 +24,7 @@ export async function fetchWithTimeout(
   timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS,
 ): Promise<Response> {
   if (timeoutMs <= 0) {
-    return fetch(input, init);
+    return apiFetch(input, init);
   }
 
   const controller = new AbortController();
@@ -42,7 +47,7 @@ export async function fetchWithTimeout(
   }, timeoutMs);
 
   try {
-    return await fetch(input, { ...init, signal: controller.signal });
+    return await apiFetch(input, { ...init, signal: controller.signal });
   } catch (err) {
     if (didTimeout) {
       throw new ApiTimeoutError(timeoutMs);

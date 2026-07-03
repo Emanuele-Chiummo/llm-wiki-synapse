@@ -513,28 +513,21 @@ test.describe("OPZIONI (Settings) — nav through sections incl. Scenari and Cos
     }
   });
 
-  test("Costi nav item: loads or tolerates absence gracefully", async ({ page }) => {
+  test("Costi nav item: navigates to costs section and shows content", async ({ page }) => {
     await gotoApp(page);
     await navTo(page, "settings");
     await expect(page.getByTestId("settings-panel")).toBeVisible({ timeout: 8_000 });
 
-    // Look for the "Costi" settings nav button.
-    const costiBtn = page.locator("[data-testid='settings-panel'] button, [data-testid='settings-panel'] [role='button']").filter({ hasText: "Costi" }).first();
-    const isCostiPresent = await costiBtn.isVisible({ timeout: 2_000 }).catch(() => false);
-
-    if (!isCostiPresent) {
-      // R9-1 may not be implemented yet — tolerate gracefully.
-      console.log("[OPZIONI] Costi section not yet present — skipped (R9-1 deferred)");
-      test.skip(true, "Costi section not yet implemented (R9-1 pending)");
-      return;
-    }
-
+    // Use the stable data-testid added in QA-LO-1 (settings-nav-{item.id}).
+    const costiBtn = page.getByTestId("settings-nav-costs");
+    await expect(costiBtn).toBeVisible({ timeout: 5_000 });
+    await costiBtn.scrollIntoViewIfNeeded();
     await costiBtn.click();
     await page.waitForTimeout(1_000);
 
-    // The section title should mention "Costi" or "Costi e utilizzo".
+    // The section heading is "Cost & Usage" (EN) / "Costi" (IT) — match the common root.
     const settingsContent = page.getByTestId("section-settings");
-    await expect(settingsContent).toContainText("Costi", { timeout: 5_000 });
+    await expect(settingsContent).toContainText(/Cost/i, { timeout: 5_000 });
     console.log("[OPZIONI] Costi section loaded");
   });
 });

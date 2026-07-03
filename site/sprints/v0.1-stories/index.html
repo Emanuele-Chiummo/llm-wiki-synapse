@@ -1,0 +1,1979 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.1-stories/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint 1 — v0.1 — User Stories and Acceptance Criteria - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-1-v01-user-stories-and-acceptance-criteria" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint 1 — v0.1 — User Stories and Acceptance Criteria
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#roles-used-in-stories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roles used in stories
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-k1-vault-directory-skeleton" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-K1 — Vault directory skeleton
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-K1 — Vault directory skeleton">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-k1-1-raw-subdirectories-exist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K1-1 — raw/ subdirectories exist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-k1-2-wiki-seed-files-exist-with-valid-yaml-frontmatter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K1-2 — wiki/ seed files exist with valid YAML frontmatter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-k1-3-schemamd-exists-and-documents-required-frontmatter-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K1-3 — schema.md exists and documents required frontmatter fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-k1-4-purposemd-exists-as-an-editable-stub" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K1-4 — purpose.md exists as an editable stub
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-k1-5-watcher-never-writes-to-vaultraw" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K1-5 — watcher never writes to vault/raw/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-k4-logmd-append-only-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-K4 — log.md append-only history
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-K4 — log.md append-only history">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-k4-1-one-log-entry-per-indexed-file-correct-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K4-1 — one log entry per indexed file, correct format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-k4-2-logmd-is-never-truncated-or-rewritten" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K4-2 — log.md is never truncated or rewritten
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-k4-3-duplicate-ingest-of-unchanged-file-does-not-append" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K4-3 — duplicate ingest of unchanged file does not append
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-k6-yaml-frontmatter-parse-and-postgres-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-K6 — YAML frontmatter parse and Postgres persistence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-K6 — YAML frontmatter parse and Postgres persistence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-k6-1-valid-frontmatter-extracted-correctly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K6-1 — valid frontmatter extracted correctly
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-k6-2-missing-frontmatter-fields-produce-nulls-not-exceptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K6-2 — missing frontmatter fields produce NULLs, not exceptions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-k6-3-completely-absent-frontmatter-handled-gracefully" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K6-3 — completely absent frontmatter handled gracefully
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-k6-4-parsed-fields-persisted-to-postgres-with-correct-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K6-4 — parsed fields persisted to Postgres with correct types
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-k7-obsidian-compatibility-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-K7 — Obsidian compatibility baseline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-K7 — Obsidian compatibility baseline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-k7-1-obsidianappjson-created-on-startup-if-absent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K7-1 — .obsidian/app.json created on startup if absent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-k7-2-service-written-wiki-files-have-valid-yaml-frontmatter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K7-2 — service-written wiki files have valid YAML frontmatter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-k7-3-vaultwiki-opens-without-errors-in-obsidian-manual-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-K7-3 — vault/wiki/ opens without errors in Obsidian (manual gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-f16dv-dataversion-integer-in-vault_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-F16dv — dataVersion integer in vault_state
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-F16dv — dataVersion integer in vault_state">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-f16dv-1-vault_state-table-has-correct-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-F16dv-1 — vault_state table has correct columns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-f16dv-2-data_version-increments-on-each-successful-ingest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-F16dv-2 — data_version increments on each successful ingest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-f16dv-3-get-status-returns-current-data_version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-F16dv-3 — GET /status returns current data_version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-f16dv-4-data_version-never-decremented-or-reset-by-normal-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-F16dv-4 — data_version never decremented or reset by normal operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-watch-watchdog-incremental-file-watcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-WATCH — Watchdog incremental file watcher
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-WATCH — Watchdog incremental file watcher">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-watch-1-new-file-indexed-within-5-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-WATCH-1 — new file indexed within 5 seconds
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-watch-2-unchanged-file-re-drop-does-not-duplicate-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-WATCH-2 — unchanged file re-drop does not duplicate records
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-watch-3-modified-file-updates-existing-records-upsert-no-orphan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-WATCH-3 — modified file updates existing records (upsert, no orphan)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-watch-4-deleted-file-marked-in-postgres-and-removed-from-qdrant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-WATCH-4 — deleted file marked in Postgres and removed from Qdrant
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-watch-5-no-startup-rescan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-WATCH-5 — no startup rescan
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-watch-6-bge-m3-called-via-existing-service-not-a-new-local-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-WATCH-6 — bge-m3 called via existing service, not a new local model
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-pg-postgres-models-and-alembic-migrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-PG — Postgres models and Alembic migrations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-PG — Postgres models and Alembic migrations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-pg-1-docker-compose-up-runs-alembic-migrations-on-fresh-db" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-PG-1 — docker compose up runs Alembic migrations on fresh DB
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-pg-2-make-er-generates-d2-from-modelspy-no-manual-edits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-PG-2 — make er generates D2 from models.py (no manual edits)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-pg-3-all-required-columns-present-and-typed-correctly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-PG-3 — all required columns present and typed correctly
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-pg-4-no-raw-sql-strings-in-application-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-PG-4 — no raw SQL strings in application code
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-rest-rest-read-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-REST — REST read endpoints
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-REST — REST read endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-rest-1-get-status-returns-http-200-with-data_version-and-uptime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-REST-1 — GET /status returns HTTP 200 with data_version and uptime
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-rest-2-get-pages-lists-pages-newly-ingested-page-appears" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-REST-2 — GET /pages lists pages; newly ingested page appears
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-rest-3-get-pagesid-returns-full-metadata-or-404" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-REST-3 — GET /pages/{id} returns full metadata or 404
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-rest-4-post-ingesttrigger-accepts-file_path-and-returns-http-202" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-REST-4 — POST /ingest/trigger accepts file_path and returns HTTP 202
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-rest-5-openapijson-is-valid-openapi-31-and-saved-as-d4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-REST-5 — /openapi.json is valid OpenAPI 3.1 and saved as D4
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-rest-6-all-endpoints-return-correct-http-status-codes-on-bad-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-REST-6 — all endpoints return correct HTTP status codes on bad input
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-qd-qdrant-vector-store-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-QD — Qdrant vector store integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-QD — Qdrant vector store integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-qd-1-synapse_pages-collection-created-on-startup-with-correct-dimensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-QD-1 — synapse_pages collection created on startup with correct dimensions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-qd-2-ingest-creates-qdrant-point-with-correct-payload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-QD-2 — ingest creates Qdrant point with correct payload
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-qd-3-file-deletion-removes-qdrant-point" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-QD-3 — file deletion removes Qdrant point
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-qd-4-embedding-fetched-from-embedding_url-env-var-no-local-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-QD-4 — embedding fetched from EMBEDDING_URL env var; no local model
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-dc-docker-compose-and-developer-tooling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-DC — Docker Compose and developer tooling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-DC — Docker Compose and developer tooling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-dc-1-docker-compose-up-starts-cleanly-on-clean-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-DC-1 — docker compose up starts cleanly on clean machine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-dc-2-make-test-exits-0-with-all-tests-green" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-DC-2 — make test exits 0 with all tests green
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-dc-3-make-er-generates-docserschemammd-without-manual-edits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-DC-3 — make er generates docs/er/schema.mmd without manual edits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-dc-4-make-openapi-saves-docsapiopenapijson" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-DC-4 — make openapi saves docs/api/openapi.json
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-dc-5-no-secrets-in-committed-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-DC-5 — no secrets in committed files
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-d1-c4-architecture-diagrams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-D1 — C4 Architecture Diagrams
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-D1 — C4 Architecture Diagrams">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-d1-1-contextmmd-is-valid-mermaid-c4context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-D1-1 — context.mmd is valid Mermaid C4Context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-d1-2-containermmd-is-valid-mermaid-c4container-showing-all-v01-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-D1-2 — container.mmd is valid Mermaid C4Container showing all v0.1 containers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-d1-3-both-diagrams-reviewed-and-approved-by-solution-architect-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-D1-3 — both diagrams reviewed and approved by solution-architect (gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-d2-er-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-D2 — ER Diagram
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-D2 — ER Diagram">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-d2-1-schemammd-is-generated-by-make-er-not-hand-written" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-D2-1 — schema.mmd is generated by make er, not hand-written
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-d2-2-er-diagram-matches-live-postgres-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-D2-2 — ER diagram matches live Postgres schema
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-d2-3-reviewed-and-approved-by-solution-architect-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-D2-3 — reviewed and approved by solution-architect (gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#us-d4-openapi-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US-D4 — OpenAPI Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="US-D4 — OpenAPI Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ac-d4-1-docsapiopenapijson-is-valid-openapi-31" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-D4-1 — docs/api/openapi.json is valid OpenAPI 3.1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-d4-2-file-generated-by-make-openapi-not-hand-written" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-D4-2 — file generated by make openapi, not hand-written
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ac-d4-3-all-four-v01-endpoints-documented-with-requestresponse-schemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC-D4-3 — all four v0.1 endpoints documented with request/response schemas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ambiguities-and-invariant-risks-flagged-for-solution-architect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ambiguities and invariant risks flagged for solution-architect
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Ambiguities and invariant risks flagged for solution-architect">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aq-1-bge-m3-embedding-dimension-blocks-ac-qd-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AQ-1 — bge-m3 embedding dimension (blocks AC-QD-1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aq-2-i1-compliance-how-unchanged-file-is-determined-blocks-ac-watch-2-ac-k4-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AQ-2 — I1 compliance: how "unchanged file" is determined (blocks AC-WATCH-2, AC-K4-3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aq-3-ac-watch-5-startup-behaviour-empty-vault-vs-pre-populated-vault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AQ-3 — AC-WATCH-5 startup behaviour: empty vault vs. pre-populated vault
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aq-4-vault_state-row-initialisation-one-row-or-per-vault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AQ-4 — vault_state row initialisation: one row or per-vault?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aq-5-ac-k7-3-is-a-manual-human-gate-not-automatable-coverage-gap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AQ-5 — AC-K7-3 is a manual human gate, not automatable (coverage gap)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aq-6-post-ingesttrigger-synchronous-in-v01-but-async-later-ac-rest-4-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AQ-6 — POST /ingest/trigger: synchronous in v0.1 but async later (AC-REST-4 scope)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aq-7-ac-pg-4-no-raw-sql-clashes-with-alembic-migration-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AQ-7 — AC-PG-4 (no raw SQL) clashes with Alembic migration files
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-1-v01-user-stories-and-acceptance-criteria">Sprint 1 — v0.1 — User Stories and Acceptance Criteria<a class="headerlink" href="#sprint-1-v01-user-stories-and-acceptance-criteria" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Produced by: functional-analyst
+Sprint: v0.1 (M1 — "Data flows end-to-end")
+Date: 2026-06-28
+Source ACs: BACKLOG.md § Sprint 1 (AC-K1-<em>, AC-K4-</em>, AC-K6-<em>, AC-K7-</em>, AC-F16dv-<em>, AC-WATCH-</em>, AC-PG-<em>, AC-REST-</em>, AC-QD-<em>, AC-DC-</em>, AC-D1-<em>, AC-D2-</em>, AC-D4-*)
+Exit criteria covered: EC-1 through EC-15 (v0.1-scope.md § 5)
+Invariants touched: I1, I5, I8, I9 (I2/I3/I4/I6 not exercised in v0.1 but must not be precluded)</p>
+</blockquote>
+<hr />
+<h2 id="roles-used-in-stories">Roles used in stories<a class="headerlink" href="#roles-used-in-stories" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Who</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>vault owner</td>
+<td>Emanuele — the human who drops files into the vault and reads the results</td>
+</tr>
+<tr>
+<td>the Synapse service</td>
+<td>The running FastAPI + watcher process — an autonomous actor in several stories</td>
+</tr>
+<tr>
+<td>downstream sprint</td>
+<td>A future sprint or agent that depends on this sprint's outputs being correct</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us-k1-vault-directory-skeleton">US-K1 — Vault directory skeleton<a class="headerlink" href="#us-k1-vault-directory-skeleton" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> K1
+<strong>Story:</strong>
+As a vault owner, I want the Synapse repository to initialise a well-known directory skeleton on first setup, so that every later feature has a stable, predictable file-system contract to build on.</p>
+<p><strong>Invariants touched:</strong> I5 (Obsidian compatibility baseline established here), I8 (docs gate depends on the repo layout being present)</p>
+<hr />
+<h3 id="ac-k1-1-raw-subdirectories-exist">AC-K1-1 — raw/ subdirectories exist<a class="headerlink" href="#ac-k1-1-raw-subdirectories-exist" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the repository has been cloned and set up (e.g. <code>docker compose up</code> run once),
+<strong>When</strong> a test inspects the filesystem,
+<strong>Then</strong> both <code>vault/raw/sources/</code> and <code>vault/raw/assets/</code> directories exist.</p>
+<p>Testable assert: <code>assert Path("vault/raw/sources").is_dir() and Path("vault/raw/assets").is_dir()</code></p>
+<p>Content files under these paths are gitignored; the directories themselves are tracked via a <code>.gitkeep</code>.</p>
+<hr />
+<h3 id="ac-k1-2-wiki-seed-files-exist-with-valid-yaml-frontmatter">AC-K1-2 — wiki/ seed files exist with valid YAML frontmatter<a class="headerlink" href="#ac-k1-2-wiki-seed-files-exist-with-valid-yaml-frontmatter" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the service has started for the first time on an empty vault,
+<strong>When</strong> a test inspects <code>vault/wiki/</code>,
+<strong>Then</strong> both <code>vault/wiki/index.md</code> and <code>vault/wiki/log.md</code> exist, and each file can be parsed by <code>python-frontmatter</code> without raising an exception, and each parsed document contains at minimum the keys <code>type</code> and <code>title</code>.</p>
+<p>Testable assert:
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">frontmatter</span>
+<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;vault/wiki/index.md&quot;</span><span class="p">,</span> <span class="s2">&quot;vault/wiki/log.md&quot;</span><span class="p">]:</span>
+    <span class="n">doc</span> <span class="o">=</span> <span class="n">frontmatter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="s2">&quot;type&quot;</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">and</span> <span class="s2">&quot;title&quot;</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span>
+</code></pre></div></p>
+<hr />
+<h3 id="ac-k1-3-schemamd-exists-and-documents-required-frontmatter-fields">AC-K1-3 — schema.md exists and documents required frontmatter fields<a class="headerlink" href="#ac-k1-3-schemamd-exists-and-documents-required-frontmatter-fields" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the repository is initialised,
+<strong>When</strong> a test reads <code>vault/schema.md</code>,
+<strong>Then</strong> the file exists and its content contains the strings <code>type</code>, <code>title</code>, and <code>sources</code> (the three required frontmatter field names for v0.1).</p>
+<p>Testable assert:
+<div class="highlight"><pre><span></span><code><span class="n">text</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/schema.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">,</span> <span class="s2">&quot;sources&quot;</span><span class="p">]:</span>
+    <span class="k">assert</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">text</span>
+</code></pre></div></p>
+<hr />
+<h3 id="ac-k1-4-purposemd-exists-as-an-editable-stub">AC-K1-4 — purpose.md exists as an editable stub<a class="headerlink" href="#ac-k1-4-purposemd-exists-as-an-editable-stub" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the repository is initialised,
+<strong>When</strong> a test reads <code>vault/purpose.md</code>,
+<strong>Then</strong> the file exists and is non-empty (contains placeholder / stub content for the human to fill in). Its presence alone is sufficient; content validity is a human concern.</p>
+<p>Testable assert: <code>assert Path("vault/purpose.md").stat().st_size &gt; 0</code></p>
+<hr />
+<h3 id="ac-k1-5-watcher-never-writes-to-vaultraw">AC-K1-5 — watcher never writes to vault/raw/<a class="headerlink" href="#ac-k1-5-watcher-never-writes-to-vaultraw" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the watcher is running and a .md file is present in <code>vault/raw/sources/</code>,
+<strong>When</strong> an ingest event fires for that file,
+<strong>Then</strong> the watcher code path does not open any file under <code>vault/raw/</code> for writing. No file under <code>vault/raw/</code> has its <code>mtime</code> updated by the service.</p>
+<p>Testable assert: record <code>mtime</code> of every file in <code>vault/raw/</code> before ingest; assert no <code>mtime</code> changed after ingest. Additionally, a code-path test must assert that no <code>open(..., 'w')</code> call targets a path beginning with the <code>raw/</code> prefix.</p>
+<hr />
+<h2 id="us-k4-logmd-append-only-history">US-K4 — log.md append-only history<a class="headerlink" href="#us-k4-logmd-append-only-history" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> K4
+<strong>Story:</strong>
+As the Synapse service, I want to append a structured entry to <code>vault/wiki/log.md</code> on every successful file ingest, so that the log can be parsed as the authoritative source for incremental refresh decisions (satisfying I1).</p>
+<p><strong>Invariants touched:</strong> I1 (log is the incremental-refresh parse source — must never truncate), I5 (log.md must retain valid YAML frontmatter header), I8 (log.md is a runtime artefact whose format is locked here)</p>
+<hr />
+<h3 id="ac-k4-1-one-log-entry-per-indexed-file-correct-format">AC-K4-1 — one log entry per indexed file, correct format<a class="headerlink" href="#ac-k4-1-one-log-entry-per-indexed-file-correct-format" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a new <code>.md</code> file is dropped into <code>vault/raw/sources/</code>,
+<strong>When</strong> the watcher successfully indexes it,
+<strong>Then</strong> exactly one new line is appended to <code>vault/wiki/log.md</code> matching the regex:</p>
+<div class="highlight"><pre><span></span><code>^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z \| INDEXED \| .+$
+</code></pre></div>
+<p>Testable assert: capture log line count before and after; assert <code>after == before + 1</code>; assert the new line matches the regex.</p>
+<hr />
+<h3 id="ac-k4-2-logmd-is-never-truncated-or-rewritten">AC-K4-2 — log.md is never truncated or rewritten<a class="headerlink" href="#ac-k4-2-logmd-is-never-truncated-or-rewritten" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>vault/wiki/log.md</code> contains N lines after a prior ingest run,
+<strong>When</strong> any number of additional ingest events fire,
+<strong>Then</strong> the line count of <code>vault/wiki/log.md</code> never decreases below N. The file is only ever opened in append mode by the service.</p>
+<p>Testable assert: record <code>len(log.md.splitlines())</code> before; run further ingests; assert <code>len</code> after &gt;= <code>len</code> before for every intermediate state.</p>
+<hr />
+<h3 id="ac-k4-3-duplicate-ingest-of-unchanged-file-does-not-append">AC-K4-3 — duplicate ingest of unchanged file does not append<a class="headerlink" href="#ac-k4-3-duplicate-ingest-of-unchanged-file-does-not-append" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a file has already been indexed (mtime and content hash recorded in Postgres),
+<strong>When</strong> the same file is dropped or detected again with identical content and mtime,
+<strong>Then</strong> no new line is appended to <code>vault/wiki/log.md</code>.</p>
+<p>Testable assert: record log line count; trigger watcher event with same file; assert line count unchanged. This directly tests I1 compliance.</p>
+<hr />
+<h2 id="us-k6-yaml-frontmatter-parse-and-postgres-persistence">US-K6 — YAML frontmatter parse and Postgres persistence<a class="headerlink" href="#us-k6-yaml-frontmatter-parse-and-postgres-persistence" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> K6
+<strong>Story:</strong>
+As the Synapse service, I want to parse YAML frontmatter from every <code>.md</code> file ingested from <code>vault/raw/sources/</code>, extract the <code>type</code>, <code>title</code>, and <code>sources[]</code> fields, and persist them to the Postgres <code>pages</code> table, so that the metadata is available as a pivot for the knowledge graph and cascade-delete operations in later sprints.</p>
+<p><strong>Invariants touched:</strong> I1 (parse happens per-file event, not on full-rescan), I8 (Postgres schema is source of truth for D2 ER diagram)</p>
+<hr />
+<h3 id="ac-k6-1-valid-frontmatter-extracted-correctly">AC-K6-1 — valid frontmatter extracted correctly<a class="headerlink" href="#ac-k6-1-valid-frontmatter-extracted-correctly" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a <code>.md</code> file with a valid YAML frontmatter block containing <code>type: entity</code>, <code>title: "Test Entity"</code>, and <code>sources: ["a.pdf", "b.pdf"]</code> is dropped into <code>vault/raw/sources/</code>,
+<strong>When</strong> the watcher indexes it,
+<strong>Then</strong> the Postgres <code>pages</code> row for that file has <code>type = "entity"</code>, <code>title = "Test Entity"</code>, and <code>sources = ["a.pdf", "b.pdf"]</code> (JSONB array).</p>
+<p>Testable assert: query <code>SELECT type, title, sources FROM pages WHERE file_path = ?</code>; assert exact equality on all three fields.</p>
+<hr />
+<h3 id="ac-k6-2-missing-frontmatter-fields-produce-nulls-not-exceptions">AC-K6-2 — missing frontmatter fields produce NULLs, not exceptions<a class="headerlink" href="#ac-k6-2-missing-frontmatter-fields-produce-nulls-not-exceptions" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a <code>.md</code> file whose YAML frontmatter block is present but omits one or more of <code>type</code>, <code>title</code>, <code>sources</code>,
+<strong>When</strong> the watcher indexes it,
+<strong>Then</strong> the Postgres <code>pages</code> row exists, missing fields are stored as <code>NULL</code>, no exception is raised by the service, and a warning is written to the application log.</p>
+<p>Testable assert: assert row exists; assert <code>type IS NULL</code> for each missing field; assert no exception in service stderr; assert warning string in log output.</p>
+<hr />
+<h3 id="ac-k6-3-completely-absent-frontmatter-handled-gracefully">AC-K6-3 — completely absent frontmatter handled gracefully<a class="headerlink" href="#ac-k6-3-completely-absent-frontmatter-handled-gracefully" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a <code>.md</code> file with no <code>---</code> delimiters at all (no frontmatter block whatsoever),
+<strong>When</strong> the watcher indexes it,
+<strong>Then</strong> the Postgres <code>pages</code> row exists with <code>type = NULL</code>, <code>title = NULL</code>, <code>sources = NULL</code>, and the service does not raise an unhandled exception.</p>
+<p>Testable assert: assert row exists; assert all three metadata columns are NULL; assert no 500 error or unhandled exception traceback in logs.</p>
+<hr />
+<h3 id="ac-k6-4-parsed-fields-persisted-to-postgres-with-correct-types">AC-K6-4 — parsed fields persisted to Postgres with correct types<a class="headerlink" href="#ac-k6-4-parsed-fields-persisted-to-postgres-with-correct-types" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a valid <code>.md</code> file with all three frontmatter fields present,
+<strong>When</strong> the ingest completes and a SELECT is run against the <code>pages</code> table,
+<strong>Then</strong> <code>type</code> is stored as <code>VARCHAR</code>/<code>TEXT</code>, <code>title</code> as <code>VARCHAR</code>/<code>TEXT</code>, and <code>sources</code> as <code>JSONB</code> (confirmed by querying <code>information_schema.columns</code> or by SQLAlchemy column type introspection in the test).</p>
+<p>Testable assert: compare SQLAlchemy column types in <code>models.py</code> against a live <code>DESCRIBE</code>/<code>information_schema</code> query. Assert that <code>sources</code> column type in Postgres is <code>jsonb</code>.</p>
+<hr />
+<h2 id="us-k7-obsidian-compatibility-baseline">US-K7 — Obsidian compatibility baseline<a class="headerlink" href="#us-k7-obsidian-compatibility-baseline" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> K7
+<strong>Story:</strong>
+As a vault owner, I want <code>vault/wiki/</code> to be a valid Obsidian vault from the very first service startup, so that I can open it in Obsidian at any point without errors and without the service having corrupted the vault structure (invariant I5).</p>
+<p><strong>Invariants touched:</strong> I5 (non-negotiable — must hold every sprint)</p>
+<hr />
+<h3 id="ac-k7-1-obsidianappjson-created-on-startup-if-absent">AC-K7-1 — .obsidian/app.json created on startup if absent<a class="headerlink" href="#ac-k7-1-obsidianappjson-created-on-startup-if-absent" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>vault/wiki/.obsidian/app.json</code> does not exist when the service starts,
+<strong>When</strong> the FastAPI service completes its startup sequence,
+<strong>Then</strong> <code>vault/wiki/.obsidian/app.json</code> exists, is valid JSON (parseable by <code>json.loads</code>), and contains at minimum the key <code>"legacyEditor"</code> with value <code>false</code>.</p>
+<p>Testable assert:
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/.obsidian/app.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<span class="k">assert</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;legacyEditor&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">False</span>
+</code></pre></div></p>
+<hr />
+<h3 id="ac-k7-2-service-written-wiki-files-have-valid-yaml-frontmatter">AC-K7-2 — service-written wiki files have valid YAML frontmatter<a class="headerlink" href="#ac-k7-2-service-written-wiki-files-have-valid-yaml-frontmatter" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the service has started and written any <code>.md</code> files to <code>vault/wiki/</code> (at minimum <code>index.md</code> and <code>log.md</code>),
+<strong>When</strong> each such file is parsed with <code>python-frontmatter</code>,
+<strong>Then</strong> no file raises a parse exception. All service-written files have at minimum a non-empty frontmatter block.</p>
+<p>Testable assert: iterate all <code>.md</code> files in <code>vault/wiki/</code>; assert <code>frontmatter.load(p)</code> does not raise for any of them.</p>
+<hr />
+<h3 id="ac-k7-3-vaultwiki-opens-without-errors-in-obsidian-manual-gate">AC-K7-3 — vault/wiki/ opens without errors in Obsidian (manual gate)<a class="headerlink" href="#ac-k7-3-vaultwiki-opens-without-errors-in-obsidian-manual-gate" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the service has run through at least one ingest cycle,
+<strong>When</strong> the vault owner opens <code>vault/wiki/</code> in Obsidian,
+<strong>Then</strong> Obsidian shows no error banners, no missing plugin warnings unrelated to Synapse, and all seed files appear in the file explorer.</p>
+<p>This criterion is a mandatory human verification step recorded in the sign-off register (EC-1). It is not automatable by pytest but is a binary pass/fail gate for M1.</p>
+<hr />
+<h2 id="us-f16dv-dataversion-integer-in-vault_state">US-F16dv — dataVersion integer in vault_state<a class="headerlink" href="#us-f16dv-dataversion-integer-in-vault_state" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> F16 (partial — dataVersion only)
+<strong>Story:</strong>
+As a downstream sprint, I want a <code>data_version</code> integer in Postgres that is incremented on every successful ingest, so that the future graph-recompute trigger (I2) has a reliable signal to debounce against, even though the graph engine is not built yet.</p>
+<p><strong>Invariants touched:</strong> I2 (data_version is the future graph-recompute signal — its shape must be correct now), I8 (vault_state table appears in D2 ER diagram)</p>
+<hr />
+<h3 id="ac-f16dv-1-vault_state-table-has-correct-columns">AC-F16dv-1 — vault_state table has correct columns<a class="headerlink" href="#ac-f16dv-1-vault_state-table-has-correct-columns" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> Alembic migrations have run on a fresh Postgres database,
+<strong>When</strong> the schema is inspected,
+<strong>Then</strong> a table named <code>vault_state</code> exists with at minimum the columns: <code>id</code> (primary key), <code>vault_id</code> (text or uuid), <code>data_version</code> (integer, not null), <code>updated_at</code> (timestamp with time zone).</p>
+<p>Testable assert: query <code>information_schema.columns WHERE table_name = 'vault_state'</code>; assert all four column names are present with compatible types.</p>
+<hr />
+<h3 id="ac-f16dv-2-data_version-increments-on-each-successful-ingest">AC-F16dv-2 — data_version increments on each successful ingest<a class="headerlink" href="#ac-f16dv-2-data_version-increments-on-each-successful-ingest" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>vault_state.data_version</code> has value V before an ingest,
+<strong>When</strong> the watcher successfully indexes a new or modified file,
+<strong>Then</strong> <code>vault_state.data_version</code> equals V + 1 immediately after the ingest transaction commits.</p>
+<p>Testable assert: read <code>data_version</code> before; trigger ingest; read <code>data_version</code> after; assert <code>after == before + 1</code>.</p>
+<hr />
+<h3 id="ac-f16dv-3-get-status-returns-current-data_version">AC-F16dv-3 — GET /status returns current data_version<a class="headerlink" href="#ac-f16dv-3-get-status-returns-current-data_version" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>vault_state.data_version</code> has been incremented to value N by prior ingests,
+<strong>When</strong> <code>GET /status</code> is called,
+<strong>Then</strong> the response body is HTTP 200 JSON containing a <code>data_version</code> field whose value equals N.</p>
+<p>Testable assert:
+<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/status&quot;</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
+<span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s2">&quot;data_version&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">expected_n</span>
+</code></pre></div></p>
+<hr />
+<h3 id="ac-f16dv-4-data_version-never-decremented-or-reset-by-normal-operations">AC-F16dv-4 — data_version never decremented or reset by normal operations<a class="headerlink" href="#ac-f16dv-4-data_version-never-decremented-or-reset-by-normal-operations" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>vault_state.data_version</code> is at value N (N &gt; 0),
+<strong>When</strong> any combination of: service restart, file deletion, duplicate-file detection (I1 skip), or GET requests is executed,
+<strong>Then</strong> <code>vault_state.data_version</code> does not decrease below N and is not reset to 0.</p>
+<p>Testable assert: run service restart + deletion + skip scenario; assert <code>data_version &gt;= N</code> at all intermediate and final checkpoints.</p>
+<hr />
+<h2 id="us-watch-watchdog-incremental-file-watcher">US-WATCH — Watchdog incremental file watcher<a class="headerlink" href="#us-watch-watchdog-incremental-file-watcher" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> Watcher (cross-cutting K1 + K4 + K6 implementation)
+<strong>Story:</strong>
+As the Synapse service, I want a watchdog-based file watcher that detects CREATE, MODIFY, and DELETE events in <code>vault/raw/sources/</code>, and upserts Postgres + Qdrant incrementally on each event, so that the full data pipeline is wired end-to-end without any full-directory rescan (satisfying I1).</p>
+<p><strong>Invariants touched:</strong> I1 (incremental only — skip unchanged files; no startup rescan), I9 (bge-m3 called via existing service, not new process)</p>
+<hr />
+<h3 id="ac-watch-1-new-file-indexed-within-5-seconds">AC-WATCH-1 — new file indexed within 5 seconds<a class="headerlink" href="#ac-watch-1-new-file-indexed-within-5-seconds" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the watcher is running,
+<strong>When</strong> a new <code>.md</code> file is written to <code>vault/raw/sources/</code>,
+<strong>Then</strong> within 5 seconds a row for that file appears in the Postgres <code>pages</code> table AND a point for that file appears in the Qdrant <code>synapse_pages</code> collection.</p>
+<p>Testable assert: write file; <code>time.sleep(5)</code>; query Postgres and Qdrant; assert both records exist.</p>
+<hr />
+<h3 id="ac-watch-2-unchanged-file-re-drop-does-not-duplicate-records">AC-WATCH-2 — unchanged file re-drop does not duplicate records<a class="headerlink" href="#ac-watch-2-unchanged-file-re-drop-does-not-duplicate-records" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a file has already been indexed (Postgres row exists, Qdrant point exists),
+<strong>When</strong> the same file is copied to <code>vault/raw/sources/</code> again with identical content and mtime,
+<strong>Then</strong> the Postgres <code>pages</code> table still contains exactly one row for that file path, and the Qdrant <code>synapse_pages</code> collection still contains exactly one point for that page UUID.</p>
+<p>Testable assert: count rows <code>WHERE file_path = ?</code> before and after; assert count remains 1 in both stores. This is the primary I1 compliance test.</p>
+<hr />
+<h3 id="ac-watch-3-modified-file-updates-existing-records-upsert-no-orphan">AC-WATCH-3 — modified file updates existing records (upsert, no orphan)<a class="headerlink" href="#ac-watch-3-modified-file-updates-existing-records-upsert-no-orphan" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a file has been indexed,
+<strong>When</strong> the file's content is changed and saved (new mtime, new hash),
+<strong>Then</strong> the Postgres row for that file has <code>updated_at</code> greater than before, <code>content_hash</code> changed to the new hash, and the Qdrant point at the same UUID has been replaced (no orphan point from the old version).</p>
+<p>Testable assert: record <code>updated_at</code> and <code>content_hash</code> before; modify file; wait; assert <code>updated_at</code> increased and <code>content_hash</code> changed; assert Qdrant point count for that UUID is still 1.</p>
+<hr />
+<h3 id="ac-watch-4-deleted-file-marked-in-postgres-and-removed-from-qdrant">AC-WATCH-4 — deleted file marked in Postgres and removed from Qdrant<a class="headerlink" href="#ac-watch-4-deleted-file-marked-in-postgres-and-removed-from-qdrant" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a file has been indexed,
+<strong>When</strong> the file is deleted from <code>vault/raw/sources/</code>,
+<strong>Then</strong> the Postgres <code>pages</code> row has <code>deleted_at</code> set to a non-NULL timestamp, and the Qdrant point for that UUID has been removed (Qdrant returns not-found for that point ID).</p>
+<p>Testable assert: assert <code>pages.deleted_at IS NOT NULL</code>; assert Qdrant <code>get_point(uuid)</code> returns empty or raises not-found.</p>
+<hr />
+<h3 id="ac-watch-5-no-startup-rescan">AC-WATCH-5 — no startup rescan<a class="headerlink" href="#ac-watch-5-no-startup-rescan" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>vault/raw/sources/</code> contains pre-existing files at the time the service starts,
+<strong>When</strong> the service starts up,
+<strong>Then</strong> no new rows are written to the Postgres <code>pages</code> table during startup (the watcher does not process pre-existing files on launch).</p>
+<p>Testable assert: seed <code>vault/raw/sources/</code> with a file before starting the service; capture Postgres row count at service startup + 2 seconds; assert count is 0 (or unchanged from any prior test state). The watcher must register watchdog handlers only; it must not iterate the directory.</p>
+<hr />
+<h3 id="ac-watch-6-bge-m3-called-via-existing-service-not-a-new-local-model">AC-WATCH-6 — bge-m3 called via existing service, not a new local model<a class="headerlink" href="#ac-watch-6-bge-m3-called-via-existing-service-not-a-new-local-model" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the service is configured with <code>EMBEDDING_URL</code> environment variable pointing to the already-running bge-m3/Ollama endpoint,
+<strong>When</strong> a file is ingested and its embedding is computed,
+<strong>Then</strong> the HTTP call for embedding goes to the URL specified in <code>EMBEDDING_URL</code> (verified by test that mocks <code>EMBEDDING_URL</code> and asserts the mock is called), and no new embedding model process is spawned by the service.</p>
+<p>Testable assert: mock the HTTP client at <code>EMBEDDING_URL</code>; assert it is called exactly once per ingest; assert no subprocess with model-loading arguments is spawned.</p>
+<hr />
+<h2 id="us-pg-postgres-models-and-alembic-migrations">US-PG — Postgres models and Alembic migrations<a class="headerlink" href="#us-pg-postgres-models-and-alembic-migrations" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> Postgres + SQLAlchemy models (cross-cutting K6 + F16(partial))
+<strong>Story:</strong>
+As a downstream sprint, I want the SQLAlchemy models in <code>backend/app/models.py</code> to be the single source of truth for the database schema, with Alembic migrations that run cleanly on a fresh database, so that the ER diagram (D2) is always generated from the live model and the schema contract is unambiguous.</p>
+<p><strong>Invariants touched:</strong> I8 (models.py → <code>make er</code> → D2; must stay in sync)</p>
+<hr />
+<h3 id="ac-pg-1-docker-compose-up-runs-alembic-migrations-on-fresh-db">AC-PG-1 — docker compose up runs Alembic migrations on fresh DB<a class="headerlink" href="#ac-pg-1-docker-compose-up-runs-alembic-migrations-on-fresh-db" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a clean Postgres 16 instance with no prior schema,
+<strong>When</strong> <code>docker compose up</code> (or <code>make up</code>) is run,
+<strong>Then</strong> Alembic applies all migrations cleanly (exit code 0, no error output) and the <code>pages</code> and <code>vault_state</code> tables exist in the target schema.</p>
+<p>Testable assert: run migrations in pytest fixture; assert <code>alembic upgrade head</code> exits 0; query <code>information_schema.tables</code> for both table names.</p>
+<hr />
+<h3 id="ac-pg-2-make-er-generates-d2-from-modelspy-no-manual-edits">AC-PG-2 — make er generates D2 from models.py (no manual edits)<a class="headerlink" href="#ac-pg-2-make-er-generates-d2-from-modelspy-no-manual-edits" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>backend/app/models.py</code> has been saved with the v0.1 schema,
+<strong>When</strong> <code>make er</code> is executed,
+<strong>Then</strong> <code>docs/er/schema.mmd</code> is created or overwritten by the command (not pre-existing static content), and the file contains valid Mermaid <code>erDiagram</code> syntax.</p>
+<p>Testable assert: delete <code>docs/er/schema.mmd</code>; run <code>make er</code>; assert file exists; assert first non-empty line or content contains <code>erDiagram</code>.</p>
+<hr />
+<h3 id="ac-pg-3-all-required-columns-present-and-typed-correctly">AC-PG-3 — all required columns present and typed correctly<a class="headerlink" href="#ac-pg-3-all-required-columns-present-and-typed-correctly" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> Alembic migrations have been applied,
+<strong>When</strong> <code>information_schema.columns</code> is queried for the <code>pages</code> table,
+<strong>Then</strong> the following columns are present with compatible types:
+- <code>id</code> (uuid, primary key)
+- <code>vault_id</code> (text or varchar)
+- <code>file_path</code> (text or varchar)
+- <code>title</code> (text or varchar, nullable)
+- <code>type</code> (text or varchar, nullable)
+- <code>sources</code> (jsonb, nullable)
+- <code>content_hash</code> (text or varchar)
+- <code>qdrant_point_id</code> (uuid, nullable)
+- <code>deleted_at</code> (timestamp with time zone, nullable)
+- <code>created_at</code> (timestamp with time zone, not null)
+- <code>updated_at</code> (timestamp with time zone, not null)</p>
+<p>Testable assert: for each column name, assert it exists in <code>information_schema.columns WHERE table_name = 'pages'</code> with the declared data type.</p>
+<hr />
+<h3 id="ac-pg-4-no-raw-sql-strings-in-application-code">AC-PG-4 — no raw SQL strings in application code<a class="headerlink" href="#ac-pg-4-no-raw-sql-strings-in-application-code" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the codebase in <code>backend/app/</code>,
+<strong>When</strong> a grep / AST scan is run for raw SQL string patterns (<code>cursor.execute</code>, <code>text("SELECT</code>, <code>"INSERT INTO"</code>, <code>f"SELECT</code>),
+<strong>Then</strong> no matches are found outside of test helpers and migration files. All queries use SQLAlchemy 2 ORM or Core expressions.</p>
+<p>Testable assert: <code>pytest</code> test that uses <code>subprocess.run(["grep", "-rn", "cursor.execute", "backend/app/"])</code> and asserts empty output.</p>
+<hr />
+<h2 id="us-rest-rest-read-endpoints">US-REST — REST read endpoints<a class="headerlink" href="#us-rest-rest-read-endpoints" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> K2 (partial — read API only)
+<strong>Story:</strong>
+As a vault owner, I want a REST API with four endpoints (<code>GET /status</code>, <code>GET /pages</code>, <code>GET /pages/{id}</code>, <code>POST /ingest/trigger</code>) so that I can observe the indexed state of the vault and manually trigger ingests during development, without needing a frontend UI.</p>
+<p><strong>Invariants touched:</strong> I8 (OpenAPI JSON feeds D4 — must be auto-generated, not hand-written)</p>
+<hr />
+<h3 id="ac-rest-1-get-status-returns-http-200-with-data_version-and-uptime">AC-REST-1 — GET /status returns HTTP 200 with data_version and uptime<a class="headerlink" href="#ac-rest-1-get-status-returns-http-200-with-data_version-and-uptime" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the FastAPI service is running,
+<strong>When</strong> <code>GET /status</code> is called,
+<strong>Then</strong> the response is HTTP 200 with a JSON body containing at minimum the keys <code>data_version</code> (integer) and one of <code>uptime</code> or <code>started_at</code> (a duration or timestamp indicating service uptime).</p>
+<p>Testable assert:
+<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/status&quot;</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;data_version&quot;</span><span class="p">],</span> <span class="nb">int</span><span class="p">)</span>
+<span class="k">assert</span> <span class="s2">&quot;uptime&quot;</span> <span class="ow">in</span> <span class="n">data</span> <span class="ow">or</span> <span class="s2">&quot;started_at&quot;</span> <span class="ow">in</span> <span class="n">data</span>
+</code></pre></div></p>
+<hr />
+<h3 id="ac-rest-2-get-pages-lists-pages-newly-ingested-page-appears">AC-REST-2 — GET /pages lists pages; newly ingested page appears<a class="headerlink" href="#ac-rest-2-get-pages-lists-pages-newly-ingested-page-appears" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a file has been ingested via the watcher or <code>POST /ingest/trigger</code>,
+<strong>When</strong> <code>GET /pages</code> is called (with default or explicit <code>limit</code>/<code>offset</code>),
+<strong>Then</strong> the response is HTTP 200 with a JSON body containing a list (or paginated wrapper) that includes the newly ingested page, identified by its <code>file_path</code> or <code>id</code>.</p>
+<p>Testable assert: ingest a test file; call <code>GET /pages</code>; assert response contains an entry with matching <code>file_path</code>.</p>
+<hr />
+<h3 id="ac-rest-3-get-pagesid-returns-full-metadata-or-404">AC-REST-3 — GET /pages/{id} returns full metadata or 404<a class="headerlink" href="#ac-rest-3-get-pagesid-returns-full-metadata-or-404" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a page with a known UUID has been ingested,
+<strong>When</strong> <code>GET /pages/{id}</code> is called with that UUID,
+<strong>Then</strong> the response is HTTP 200 with a JSON body containing all metadata fields (<code>id</code>, <code>title</code>, <code>type</code>, <code>sources</code>, <code>file_path</code>, <code>created_at</code>, <code>updated_at</code>).</p>
+<p><strong>And given</strong> an unknown UUID is supplied,
+<strong>When</strong> <code>GET /pages/{unknown_id}</code> is called,
+<strong>Then</strong> the response is HTTP 404.</p>
+<p>Testable asserts:
+<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;/pages/</span><span class="si">{</span><span class="n">known_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
+<span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s2">&quot;file_path&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">expected_path</span>
+
+<span class="n">resp404</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/pages/00000000-0000-0000-0000-000000000000&quot;</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">resp404</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span>
+</code></pre></div></p>
+<hr />
+<h3 id="ac-rest-4-post-ingesttrigger-accepts-file_path-and-returns-http-202">AC-REST-4 — POST /ingest/trigger accepts file_path and returns HTTP 202<a class="headerlink" href="#ac-rest-4-post-ingesttrigger-accepts-file_path-and-returns-http-202" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the FastAPI service is running and a <code>.md</code> file exists at the given path,
+<strong>When</strong> <code>POST /ingest/trigger</code> is called with body <code>{"file_path": "&lt;relative_path&gt;"}</code>,
+<strong>Then</strong> the response is HTTP 202, and the ingest pipeline runs synchronously before the response is returned (v0.1 behaviour), resulting in a Postgres row and Qdrant point for that file.</p>
+<p>Testable assert:
+<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/ingest/trigger&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;file_path&quot;</span><span class="p">:</span> <span class="s2">&quot;vault/raw/sources/test.md&quot;</span><span class="p">})</span>
+<span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">202</span>
+<span class="c1"># Then confirm Postgres row exists</span>
+</code></pre></div></p>
+<hr />
+<h3 id="ac-rest-5-openapijson-is-valid-openapi-31-and-saved-as-d4">AC-REST-5 — /openapi.json is valid OpenAPI 3.1 and saved as D4<a class="headerlink" href="#ac-rest-5-openapijson-is-valid-openapi-31-and-saved-as-d4" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the FastAPI service is running,
+<strong>When</strong> <code>GET /openapi.json</code> is called OR <code>make openapi</code> is run,
+<strong>Then</strong> the response / saved file is valid OpenAPI 3.1 (validated by <code>jsonschema</code> or <code>openapi-spec-validator</code>) and is saved to <code>docs/api/openapi.json</code>.</p>
+<p>Testable assert: parse <code>docs/api/openapi.json</code>; assert <code>"openapi": "3.1.0"</code> in root keys; run <code>openapi-spec-validator docs/api/openapi.json</code> and assert exit code 0.</p>
+<hr />
+<h3 id="ac-rest-6-all-endpoints-return-correct-http-status-codes-on-bad-input">AC-REST-6 — all endpoints return correct HTTP status codes on bad input<a class="headerlink" href="#ac-rest-6-all-endpoints-return-correct-http-status-codes-on-bad-input" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the FastAPI service is running,
+<strong>When</strong> any endpoint receives invalid input (missing required fields, wrong types, unknown IDs),
+<strong>Then</strong> the response is a 4xx HTTP status code with a JSON error body; no endpoint returns HTTP 500 on bad but well-formed input.</p>
+<p>Testable assert: call <code>POST /ingest/trigger</code> with body <code>{}</code>; assert status is 422. Call <code>GET /pages/-1</code>; assert status is 422 or 404. Assert no test case in the suite produces a 5xx response from valid-but-wrong input.</p>
+<hr />
+<h2 id="us-qd-qdrant-vector-store-integration">US-QD — Qdrant vector store integration<a class="headerlink" href="#us-qd-qdrant-vector-store-integration" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> Qdrant integration (cross-cutting K2 + I9)
+<strong>Story:</strong>
+As the Synapse service, I want to upsert and delete bge-m3 embedding vectors in the already-running Qdrant instance for every page indexed by the watcher, so that the vector search capability needed by later sprints (F5) is populated correctly from day one, without introducing any new embedding infrastructure (I9).</p>
+<p><strong>Invariants touched:</strong> I9 (reuse existing Qdrant + bge-m3; do not introduce new services)</p>
+<hr />
+<h3 id="ac-qd-1-synapse_pages-collection-created-on-startup-with-correct-dimensions">AC-QD-1 — synapse_pages collection created on startup with correct dimensions<a class="headerlink" href="#ac-qd-1-synapse_pages-collection-created-on-startup-with-correct-dimensions" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the Qdrant instance is running and the <code>synapse_pages</code> collection does not exist,
+<strong>When</strong> the FastAPI service starts,
+<strong>Then</strong> the <code>synapse_pages</code> collection is created with vector dimension 1024 (matching bge-m3 output — confirmed against the running instance before hardcoding).</p>
+<p>Testable assert: call Qdrant <code>get_collection("synapse_pages")</code>; assert <code>config.params.vectors.size == 1024</code>.</p>
+<p>Note for architect: BACKLOG.md AC-QD-1 notes "bge-m3 = 1024 dims — verify against running instance." The dimension must be confirmed against the actual running bge-m3 service before it is hardcoded in the collection creation call. This is flagged as Ambiguity AQ-1 below.</p>
+<hr />
+<h3 id="ac-qd-2-ingest-creates-qdrant-point-with-correct-payload">AC-QD-2 — ingest creates Qdrant point with correct payload<a class="headerlink" href="#ac-qd-2-ingest-creates-qdrant-point-with-correct-payload" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a <code>.md</code> file has been ingested by the watcher,
+<strong>When</strong> the Qdrant <code>synapse_pages</code> collection is queried for the point matching the page UUID,
+<strong>Then</strong> the point exists and its payload contains exactly the fields <code>file_path</code>, <code>title</code>, and <code>type</code> with values matching the Postgres row for that page.</p>
+<p>Testable assert:
+<div class="highlight"><pre><span></span><code><span class="n">point</span> <span class="o">=</span> <span class="n">qdrant_client</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="s2">&quot;synapse_pages&quot;</span><span class="p">,</span> <span class="n">ids</span><span class="o">=</span><span class="p">[</span><span class="n">page_uuid</span><span class="p">])</span>
+<span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">point</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+<span class="k">assert</span> <span class="n">point</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">payload</span><span class="p">[</span><span class="s2">&quot;file_path&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">expected_path</span>
+</code></pre></div></p>
+<hr />
+<h3 id="ac-qd-3-file-deletion-removes-qdrant-point">AC-QD-3 — file deletion removes Qdrant point<a class="headerlink" href="#ac-qd-3-file-deletion-removes-qdrant-point" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a file has been ingested and its Qdrant point exists,
+<strong>When</strong> the file is deleted from <code>vault/raw/sources/</code>,
+<strong>Then</strong> the Qdrant point for that page UUID is removed from <code>synapse_pages</code> (confirmed by a direct Qdrant API call returning empty result for that UUID).</p>
+<p>Testable assert:
+<div class="highlight"><pre><span></span><code><span class="c1"># after deletion event processed</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">qdrant_client</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="s2">&quot;synapse_pages&quot;</span><span class="p">,</span> <span class="n">ids</span><span class="o">=</span><span class="p">[</span><span class="n">page_uuid</span><span class="p">])</span>
+<span class="k">assert</span> <span class="n">result</span> <span class="o">==</span> <span class="p">[]</span>
+</code></pre></div></p>
+<hr />
+<h3 id="ac-qd-4-embedding-fetched-from-embedding_url-env-var-no-local-model">AC-QD-4 — embedding fetched from EMBEDDING_URL env var; no local model<a class="headerlink" href="#ac-qd-4-embedding-fetched-from-embedding_url-env-var-no-local-model" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the service is started with <code>EMBEDDING_URL</code> set to the existing bge-m3 endpoint,
+<strong>When</strong> a file is ingested,
+<strong>Then</strong> the embedding HTTP call is made to exactly the URL specified in <code>EMBEDDING_URL</code>, and no additional processes or containers for running a language model are spawned.</p>
+<p>Testable assert: mock/patch the HTTP client; assert the URL called matches <code>os.environ["EMBEDDING_URL"]</code>; assert <code>docker ps</code> or <code>subprocess</code> list contains no new model-runner processes after ingest.</p>
+<hr />
+<h2 id="us-dc-docker-compose-and-developer-tooling">US-DC — Docker Compose and developer tooling<a class="headerlink" href="#us-dc-docker-compose-and-developer-tooling" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> Docker Compose + dev tooling (cross-cutting F15 partial)
+<strong>Story:</strong>
+As a vault owner, I want a single <code>docker compose up</code> command to bring up the entire Synapse backend (FastAPI service + Postgres), and <code>make</code> targets to run tests and generate documentation artefacts, so that the environment is reproducible and I can hand the repo to any engineer without a setup guide.</p>
+<p><strong>Invariants touched:</strong> I8 (make er and make openapi are the only valid D2/D4 generation mechanisms), I9 (Qdrant and bge-m3 remain external — no new containers)</p>
+<hr />
+<h3 id="ac-dc-1-docker-compose-up-starts-cleanly-on-clean-machine">AC-DC-1 — docker compose up starts cleanly on clean machine<a class="headerlink" href="#ac-dc-1-docker-compose-up-starts-cleanly-on-clean-machine" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> a machine with Docker Compose installed, Postgres 16 listed in <code>docker-compose.yml</code>, and <code>EMBEDDING_URL</code> / <code>QDRANT_URL</code> pointing to the TrueNAS running services via env vars,
+<strong>When</strong> <code>docker compose up</code> is run with no pre-existing state,
+<strong>Then</strong> the <code>synapse-backend</code> service starts without error, the health endpoint <code>GET /status</code> returns HTTP 200 within 30 seconds.</p>
+<p>Testable assert: run <code>docker compose up -d</code>; poll <code>GET /status</code> every 2 seconds for up to 30 seconds; assert HTTP 200 received.</p>
+<hr />
+<h3 id="ac-dc-2-make-test-exits-0-with-all-tests-green">AC-DC-2 — make test exits 0 with all tests green<a class="headerlink" href="#ac-dc-2-make-test-exits-0-with-all-tests-green" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the test environment is set up (Postgres running, EMBEDDING_URL configured with a mock or real endpoint),
+<strong>When</strong> <code>make test</code> is run,
+<strong>Then</strong> the pytest suite exits with code 0 and all tests pass (no failures, no errors). The suite must include at minimum: one watcher integration test and one REST API test.</p>
+<p>Testable assert: <code>assert subprocess.run(["make", "test"]).returncode == 0</code></p>
+<hr />
+<h3 id="ac-dc-3-make-er-generates-docserschemammd-without-manual-edits">AC-DC-3 — make er generates docs/er/schema.mmd without manual edits<a class="headerlink" href="#ac-dc-3-make-er-generates-docserschemammd-without-manual-edits" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>backend/app/models.py</code> exists with v0.1 SQLAlchemy models,
+<strong>When</strong> <code>make er</code> is run,
+<strong>Then</strong> <code>docs/er/schema.mmd</code> is created (or overwritten) with content generated from the models, not from a hand-written template. The generated file contains <code>erDiagram</code> Mermaid syntax and lists both <code>pages</code> and <code>vault_state</code> entities.</p>
+<p>Testable assert: delete <code>docs/er/schema.mmd</code>; run <code>make er</code>; assert file exists and contains <code>erDiagram</code> and both table names.</p>
+<hr />
+<h3 id="ac-dc-4-make-openapi-saves-docsapiopenapijson">AC-DC-4 — make openapi saves docs/api/openapi.json<a class="headerlink" href="#ac-dc-4-make-openapi-saves-docsapiopenapijson" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the FastAPI service's routes are defined in <code>backend/app/main.py</code>,
+<strong>When</strong> <code>make openapi</code> is run,
+<strong>Then</strong> <code>docs/api/openapi.json</code> is created or overwritten with the output of FastAPI's OpenAPI generation. The file is valid JSON and contains the four v0.1 endpoint paths.</p>
+<p>Testable assert: run <code>make openapi</code>; parse <code>docs/api/openapi.json</code> as JSON; assert <code>paths</code> key contains <code>/status</code>, <code>/pages</code>, <code>/pages/{id}</code>, <code>/ingest/trigger</code>.</p>
+<hr />
+<h3 id="ac-dc-5-no-secrets-in-committed-files">AC-DC-5 — no secrets in committed files<a class="headerlink" href="#ac-dc-5-no-secrets-in-committed-files" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> the repository is scanned,
+<strong>When</strong> <code>git grep</code> or a secrets-scanner (e.g. <code>truffleHog</code>, <code>detect-secrets</code>) is run against committed files,
+<strong>Then</strong> no API keys, passwords, tokens, or connection strings with credentials are found in any committed file. All sensitive values are referenced via env vars and stored in <code>.env</code> (which is gitignored).</p>
+<p>Testable assert: assert <code>.env</code> is in <code>.gitignore</code>; run <code>git ls-files | xargs grep -l "password\s*=\s*\S"</code> and assert empty output (excluding test fixtures with obviously fake values).</p>
+<hr />
+<h2 id="us-d1-c4-architecture-diagrams">US-D1 — C4 Architecture Diagrams<a class="headerlink" href="#us-d1-c4-architecture-diagrams" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> D1 (docs artefact)
+<strong>Story:</strong>
+As a downstream sprint, I want C4 context and container diagrams in <code>docs/architecture/</code> describing the v0.1 system boundary, so that every new engineer and agent has an accurate visual overview of what exists, and the I8 docs-as-DoD gate is satisfied.</p>
+<p><strong>Invariants touched:</strong> I8 (D1 is a required M1 artefact; must be reviewed and approved before sign-off)</p>
+<hr />
+<h3 id="ac-d1-1-contextmmd-is-valid-mermaid-c4context">AC-D1-1 — context.mmd is valid Mermaid C4Context<a class="headerlink" href="#ac-d1-1-contextmmd-is-valid-mermaid-c4context" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>docs/architecture/context.mmd</code> has been authored by the tech-writer,
+<strong>When</strong> it is passed to a Mermaid CLI renderer (<code>mmdc -i context.mmd -o /dev/null</code>),
+<strong>Then</strong> the command exits 0 (no parse errors), and the file begins with <code>C4Context</code> or uses valid <code>C4Context</code> Mermaid syntax.</p>
+<p>Testable assert: <code>subprocess.run(["mmdc", "-i", "docs/architecture/context.mmd", "-o", "/dev/null"]).returncode == 0</code></p>
+<hr />
+<h3 id="ac-d1-2-containermmd-is-valid-mermaid-c4container-showing-all-v01-containers">AC-D1-2 — container.mmd is valid Mermaid C4Container showing all v0.1 containers<a class="headerlink" href="#ac-d1-2-containermmd-is-valid-mermaid-c4container-showing-all-v01-containers" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>docs/architecture/container.mmd</code> has been authored by the tech-writer,
+<strong>When</strong> it is passed to a Mermaid CLI renderer,
+<strong>Then</strong> the command exits 0, and the file content includes labels or identifiers for at minimum: Synapse FastAPI backend, Postgres 16, Qdrant, bge-m3 (embedding service), and the vault filesystem.</p>
+<p>Testable assert: parse file content; assert each of the five identifiers appears as a string somewhere in the file.</p>
+<hr />
+<h3 id="ac-d1-3-both-diagrams-reviewed-and-approved-by-solution-architect-gate">AC-D1-3 — both diagrams reviewed and approved by solution-architect (gate)<a class="headerlink" href="#ac-d1-3-both-diagrams-reviewed-and-approved-by-solution-architect-gate" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>context.mmd</code> and <code>container.mmd</code> are present and pass AC-D1-1 and AC-D1-2,
+<strong>When</strong> the solution-architect reviews them,
+<strong>Then</strong> the architect records approval in the sign-off register in <code>docs/sprints/v0.1-scope.md</code> before M1 sign-off. This is a mandatory human gate; it is binary (approved / not approved).</p>
+<hr />
+<h2 id="us-d2-er-diagram">US-D2 — ER Diagram<a class="headerlink" href="#us-d2-er-diagram" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> D2 (docs artefact)
+<strong>Story:</strong>
+As a downstream sprint, I want <code>docs/er/schema.mmd</code> to be generated by <code>make er</code> from the live SQLAlchemy models, so that the ER diagram always reflects the actual Postgres schema and never drifts out of sync.</p>
+<p><strong>Invariants touched:</strong> I8 (D2 must match live schema; <code>make er</code> is the only valid generation path)</p>
+<hr />
+<h3 id="ac-d2-1-schemammd-is-generated-by-make-er-not-hand-written">AC-D2-1 — schema.mmd is generated by make er, not hand-written<a class="headerlink" href="#ac-d2-1-schemammd-is-generated-by-make-er-not-hand-written" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>docs/er/schema.mmd</code> may or may not exist,
+<strong>When</strong> <code>make er</code> is run after deleting the file,
+<strong>Then</strong> the file is (re-)created by the make target. If the file was hand-deleted and <code>make er</code> did not recreate it, the test fails.</p>
+<p>Testable assert: <code>Path("docs/er/schema.mmd").unlink(missing_ok=True)</code>; <code>subprocess.run(["make", "er"])</code>; <code>assert Path("docs/er/schema.mmd").exists()</code></p>
+<hr />
+<h3 id="ac-d2-2-er-diagram-matches-live-postgres-schema">AC-D2-2 — ER diagram matches live Postgres schema<a class="headerlink" href="#ac-d2-2-er-diagram-matches-live-postgres-schema" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> Alembic migrations have been applied to a Postgres instance,
+<strong>When</strong> <code>make er</code> is run and then the generated <code>schema.mmd</code> is compared against the live schema (queried via <code>information_schema</code>),
+<strong>Then</strong> every table and column name present in the Postgres schema appears in the Mermaid ER diagram, and no table or column in the diagram is absent from Postgres.</p>
+<p>Testable assert: parse <code>schema.mmd</code> for entity and attribute names; query Postgres for all tables and columns; assert both sets match exactly (no extras, no omissions).</p>
+<hr />
+<h3 id="ac-d2-3-reviewed-and-approved-by-solution-architect-gate">AC-D2-3 — reviewed and approved by solution-architect (gate)<a class="headerlink" href="#ac-d2-3-reviewed-and-approved-by-solution-architect-gate" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>docs/er/schema.mmd</code> passes AC-D2-1 and AC-D2-2,
+<strong>When</strong> the solution-architect reviews it,
+<strong>Then</strong> approval is recorded in the sign-off register before M1 sign-off. Binary gate.</p>
+<hr />
+<h2 id="us-d4-openapi-reference">US-D4 — OpenAPI Reference<a class="headerlink" href="#us-d4-openapi-reference" title="Permanent link">&para;</a></h2>
+<p><strong>Feature ID:</strong> D4 (docs artefact)
+<strong>Story:</strong>
+As a downstream sprint, I want <code>docs/api/openapi.json</code> to be auto-generated from the FastAPI application and committed to the repository, so that API consumers and future agents have an always-current reference for the four v0.1 endpoints.</p>
+<p><strong>Invariants touched:</strong> I8 (D4 is a required M1 artefact; must be generated, not hand-written)</p>
+<hr />
+<h3 id="ac-d4-1-docsapiopenapijson-is-valid-openapi-31">AC-D4-1 — docs/api/openapi.json is valid OpenAPI 3.1<a class="headerlink" href="#ac-d4-1-docsapiopenapijson-is-valid-openapi-31" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>make openapi</code> has been run,
+<strong>When</strong> <code>openapi-spec-validator docs/api/openapi.json</code> is executed,
+<strong>Then</strong> the validator exits 0 (no schema violations) and the JSON root contains <code>"openapi": "3.1.0"</code>.</p>
+<p>Testable assert: run validator; assert exit code 0; parse JSON; assert <code>data["openapi"].startswith("3.1")</code>.</p>
+<hr />
+<h3 id="ac-d4-2-file-generated-by-make-openapi-not-hand-written">AC-D4-2 — file generated by make openapi, not hand-written<a class="headerlink" href="#ac-d4-2-file-generated-by-make-openapi-not-hand-written" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>docs/api/openapi.json</code> may or may not exist,
+<strong>When</strong> the file is deleted and <code>make openapi</code> is run,
+<strong>Then</strong> the file is (re-)created by the make target. The file's content must match what FastAPI serves at <code>/openapi.json</code> (byte-for-byte or semantically equivalent JSON).</p>
+<p>Testable assert: delete file; run <code>make openapi</code>; assert file exists; compare content with <code>GET /openapi.json</code> response.</p>
+<hr />
+<h3 id="ac-d4-3-all-four-v01-endpoints-documented-with-requestresponse-schemas">AC-D4-3 — all four v0.1 endpoints documented with request/response schemas<a class="headerlink" href="#ac-d4-3-all-four-v01-endpoints-documented-with-requestresponse-schemas" title="Permanent link">&para;</a></h3>
+<p><strong>Given</strong> <code>docs/api/openapi.json</code> has been generated,
+<strong>When</strong> its <code>paths</code> object is inspected,
+<strong>Then</strong> all four paths are present: <code>/status</code> (GET), <code>/pages</code> (GET), <code>/pages/{id}</code> (GET), <code>/ingest/trigger</code> (POST), each with at minimum one response schema defined.</p>
+<p>Testable assert:
+<div class="highlight"><pre><span></span><code><span class="n">spec</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/api/openapi.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<span class="k">assert</span> <span class="s2">&quot;/status&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">]</span>
+<span class="k">assert</span> <span class="s2">&quot;/pages&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">]</span>
+<span class="k">assert</span> <span class="s2">&quot;/pages/</span><span class="si">{id}</span><span class="s2">&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">]</span>
+<span class="k">assert</span> <span class="s2">&quot;/ingest/trigger&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">]</span>
+<span class="k">for</span> <span class="n">path</span><span class="p">,</span> <span class="n">ops</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">method</span><span class="p">,</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">ops</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">assert</span> <span class="s2">&quot;responses&quot;</span> <span class="ow">in</span> <span class="n">op</span>
+</code></pre></div></p>
+<hr />
+<h2 id="ambiguities-and-invariant-risks-flagged-for-solution-architect">Ambiguities and invariant risks flagged for solution-architect<a class="headerlink" href="#ambiguities-and-invariant-risks-flagged-for-solution-architect" title="Permanent link">&para;</a></h2>
+<p>The following issues were identified during AC authoring and must be resolved before engineers begin implementation.</p>
+<h3 id="aq-1-bge-m3-embedding-dimension-blocks-ac-qd-1">AQ-1 — bge-m3 embedding dimension (blocks AC-QD-1)<a class="headerlink" href="#aq-1-bge-m3-embedding-dimension-blocks-ac-qd-1" title="Permanent link">&para;</a></h3>
+<p>BACKLOG.md AC-QD-1 states "bge-m3 = 1024 dims — verify against running instance." The value is not confirmed in the specification; it is noted as needing verification. If the running bge-m3 instance returns a different dimension (768 is another common bge-m3 variant), the collection creation call and all downstream embedding tests will fail.</p>
+<p><strong>Required action:</strong> architect or devops-engineer must query the running bge-m3 endpoint before the Qdrant collection schema is committed, and record the confirmed dimension in an env var (<code>EMBEDDING_DIM</code>) rather than hardcoding 1024.</p>
+<h3 id="aq-2-i1-compliance-how-unchanged-file-is-determined-blocks-ac-watch-2-ac-k4-3">AQ-2 — I1 compliance: how "unchanged file" is determined (blocks AC-WATCH-2, AC-K4-3)<a class="headerlink" href="#aq-2-i1-compliance-how-unchanged-file-is-determined-blocks-ac-watch-2-ac-k4-3" title="Permanent link">&para;</a></h3>
+<p>BACKLOG.md states the watcher uses "mtime/hash" to detect unchanged files. The AC as written assumes both mtime AND content hash are checked. However, the implementation could use mtime-only (cheaper but less safe on copy operations that preserve mtime) or hash-only (safe but slower). The mechanism must be decided and locked before the watcher is coded, because the test in AC-WATCH-2 must know which condition to simulate.</p>
+<p><strong>Required action:</strong> architect to decide and document the skip policy (mtime-only / hash-only / mtime-then-hash-on-mismatch). Recommend mtime-then-hash as the default: skip if mtime unchanged; recompute hash only if mtime changed.</p>
+<h3 id="aq-3-ac-watch-5-startup-behaviour-empty-vault-vs-pre-populated-vault">AQ-3 — AC-WATCH-5 startup behaviour: empty vault vs. pre-populated vault<a class="headerlink" href="#aq-3-ac-watch-5-startup-behaviour-empty-vault-vs-pre-populated-vault" title="Permanent link">&para;</a></h3>
+<p>AC-WATCH-5 requires that service startup does NOT trigger DB writes for pre-existing files. BACKLOG.md and the scope lock are clear that no startup rescan should happen. However, it is unclear whether the watcher should silently ignore pre-existing files or log a startup warning that files exist but were not scanned. The test harness needs to know which behaviour to assert.</p>
+<p><strong>Required action:</strong> architect to confirm: on startup with pre-existing files, should the service log a warning (and what level/format) or be completely silent? This affects what the test asserts beyond "no DB write."</p>
+<h3 id="aq-4-vault_state-row-initialisation-one-row-or-per-vault">AQ-4 — vault_state row initialisation: one row or per-vault?<a class="headerlink" href="#aq-4-vault_state-row-initialisation-one-row-or-per-vault" title="Permanent link">&para;</a></h3>
+<p>AC-F16dv-1 defines <code>vault_state</code> with columns <code>id</code>, <code>vault_id</code>, <code>data_version</code>, <code>updated_at</code>, implying potentially multiple vaults. In v0.1 there is exactly one vault. It is ambiguous whether the service creates this row on startup (if absent) or only on first ingest. AC-F16dv-4 tests that version is not reset on restart, which requires the row to survive restarts — implying it must be created on startup, not first ingest.</p>
+<p><strong>Required action:</strong> architect to confirm: (a) <code>vault_state</code> is seeded on service startup if no row exists (with <code>data_version = 0</code>); (b) one row per vault (vault_id = configurable); (c) restart preserves the existing row. Confirm all three so engineers code it correctly and AC-F16dv-4 is unambiguous.</p>
+<h3 id="aq-5-ac-k7-3-is-a-manual-human-gate-not-automatable-coverage-gap">AQ-5 — AC-K7-3 is a manual human gate, not automatable (coverage gap)<a class="headerlink" href="#aq-5-ac-k7-3-is-a-manual-human-gate-not-automatable-coverage-gap" title="Permanent link">&para;</a></h3>
+<p>AC-K7-3 ("Opening vault/wiki/ in Obsidian shows no errors") cannot be expressed as a pytest assertion. It is recorded here as a mandatory human verification step (human gate in EC-1). QA-test-engineer should note this as a non-automatable criterion and ensure it appears explicitly in the sign-off register. No pytest test ID will cover it; QA should mark it as MANUAL in the traceability matrix.</p>
+<h3 id="aq-6-post-ingesttrigger-synchronous-in-v01-but-async-later-ac-rest-4-scope">AQ-6 — POST /ingest/trigger: synchronous in v0.1 but async later (AC-REST-4 scope)<a class="headerlink" href="#aq-6-post-ingesttrigger-synchronous-in-v01-but-async-later-ac-rest-4-scope" title="Permanent link">&para;</a></h3>
+<p>AC-REST-4 states the endpoint "triggers ingest pipeline synchronously in v0.1." This means in v0.1 the endpoint blocks until ingest is complete and returns 202 only after the Postgres row and Qdrant point exist. This is intentionally not the production pattern (async in later sprints). Engineers must not design the endpoint in a way that makes moving to async harder. The response schema must include a <code>task_id</code> field even in v0.1 (stubbed as null or a synchronous token) so the contract can be extended in v0.2 without a breaking change.</p>
+<p><strong>Required action:</strong> architect to confirm the v0.1 response schema for POST /ingest/trigger (recommend: <code>{"task_id": null, "status": "completed", "page_id": "&lt;uuid&gt;"}</code>) so that v0.2 can swap <code>task_id</code> for a real async ID without breaking callers.</p>
+<h3 id="aq-7-ac-pg-4-no-raw-sql-clashes-with-alembic-migration-files">AQ-7 — AC-PG-4 (no raw SQL) clashes with Alembic migration files<a class="headerlink" href="#aq-7-ac-pg-4-no-raw-sql-clashes-with-alembic-migration-files" title="Permanent link">&para;</a></h3>
+<p>AC-PG-4 bans raw SQL strings from <code>backend/app/</code> but migration files (Alembic) necessarily contain SQL. The grep-based test must exclude the <code>alembic/versions/</code> path to avoid false positives.</p>
+<p><strong>Required action:</strong> engineers note that the AC-PG-4 test scope is <code>backend/app/</code> excluding <code>alembic/</code> subdirectory. Confirm with architect whether the Alembic directory lives inside <code>backend/app/</code> or at <code>backend/alembic/</code> (the latter is the conventional layout and would make the exclusion implicit).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

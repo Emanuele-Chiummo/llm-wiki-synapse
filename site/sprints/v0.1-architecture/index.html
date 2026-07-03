@@ -1,0 +1,1132 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.1-architecture/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint 1 — v0.1 — Architecture & Design Note - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-1-v01-architecture-design-note" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint 1 — v0.1 — Architecture &amp; Design Note
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-resolved-ambiguities-aq-decision-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Resolved ambiguities (AQ decision table)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-module-component-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Module / component design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Module / component design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-backendappmodelspy-sqlalchemy-2-source-of-truth-for-d2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 backend/app/models.py — SQLAlchemy 2, source of truth for D2
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-backendappwatcherpy-watchdog-incremental-indexer-i1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 backend/app/watcher.py — watchdog incremental indexer (I1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-backendappingestorchestratorpy-the-thin-seam-adr-0003-i6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 backend/app/ingest/orchestrator.py — the thin seam (ADR-0003, I6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-qdrant-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Qdrant integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-backendappmainpy-fastapi-4-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 backend/app/main.py — FastAPI (4 endpoints)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-config-env-vars-no-secrets-in-code-ac-dc-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Config (env vars, no secrets in code — AC-DC-5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-invariant-compliance-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Invariant-compliance statement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-ec-satisfiability-flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. EC satisfiability — flags
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-sign-off-basis-ec-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Sign-off basis (EC-13)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-1-v01-architecture-design-note">Sprint 1 — v0.1 — Architecture &amp; Design Note<a class="headerlink" href="#sprint-1-v01-architecture-design-note" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Author: solution-architect
+Date: 2026-06-28
+Status: Design sign-off basis for EC-13 (architect gate)
+Source of truth: CLAUDE.md (§3 invariants, §6 architecture). Scope: docs/sprints/v0.1-scope.md.
+Companion ADRs: docs/adr/0001..0006. C4: docs/architecture/context.mmd, container.mmd.</p>
+</blockquote>
+<p>This note is the contract engineers follow for the v0.1 walking skeleton. It resolves the
+seven functional-analyst ambiguities, specifies the data model, and states how the design
+honours the invariants in force (I1, I5, I8, I9) without precluding I2/I3/I4/I6 in later
+sprints.</p>
+<hr />
+<h2 id="1-resolved-ambiguities-aq-decision-table">1. Resolved ambiguities (AQ decision table)<a class="headerlink" href="#1-resolved-ambiguities-aq-decision-table" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>AQ</th>
+<th>Question</th>
+<th>DECISION (locked)</th>
+<th>ADR</th>
+<th>Blocks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AQ-1</td>
+<td>bge-m3 embedding dimension</td>
+<td><code>EMBEDDING_DIM</code> is a <strong>required env var</strong> (documented default <strong>1024</strong>); collection created with that value; <strong>validated against the live bge-m3 service at startup</strong>, fail-fast on mismatch. No integer literal in code.</td>
+<td>0004</td>
+<td>AC-QD-1</td>
+</tr>
+<tr>
+<td>AQ-2</td>
+<td>"Unchanged file" detection</td>
+<td><strong>mtime-then-hash</strong>: mtime equal → skip (fast path); mtime differs → sha256 over raw bytes; hash is the authoritative change signal. Never mtime-only.</td>
+<td>0001</td>
+<td>AC-WATCH-2, AC-K4-3</td>
+</tr>
+<tr>
+<td>AQ-3</td>
+<td>Startup with pre-existing files</td>
+<td><strong>No rescan, no DB write.</strong> Emit exactly one <strong>INFO</strong> line naming the watched dir and stating pre-existing files are not auto-indexed (I1). Not a warning. Test asserts zero rows + the INFO line.</td>
+<td>0006</td>
+<td>AC-WATCH-5</td>
+</tr>
+<tr>
+<td>AQ-4</td>
+<td><code>vault_state</code> seeding</td>
+<td><strong>Seed on startup</strong> (idempotent), one row per <code>vault_id</code> (<code>VAULT_ID</code> env), <code>data_version = 0</code> if absent; survives restart; monotonic +1 only on successful upsert ingest.</td>
+<td>0005</td>
+<td>AC-F16dv-1, AC-F16dv-4</td>
+</tr>
+<tr>
+<td>AQ-5</td>
+<td>AC-K7-3 Obsidian open</td>
+<td>Not an architectural ambiguity — <strong>MANUAL human gate</strong> (GAP-1). Recorded in sign-off register; no pytest id.</td>
+<td>—</td>
+<td>AC-K7-3</td>
+</tr>
+<tr>
+<td>AQ-6</td>
+<td><code>POST /ingest/trigger</code> v0.1 response</td>
+<td><strong>HTTP 202</strong>, body <code>{"task_id": null, "status": "completed"\|"skipped", "page_id": "&lt;uuid&gt;"}</code>. v0.2 fills <code>task_id</code>, adds <code>"queued"</code>/<code>"running"</code>; non-breaking superset.</td>
+<td>0006</td>
+<td>AC-REST-4</td>
+</tr>
+<tr>
+<td>AQ-7</td>
+<td>Alembic location vs AC-PG-4 grep</td>
+<td>Alembic lives at <strong><code>backend/alembic/</code></strong> (outside <code>backend/app/</code>). The no-raw-SQL grep scope is <code>backend/app/</code> only, so the exclusion is implicit.</td>
+<td>—</td>
+<td>AC-PG-4</td>
+</tr>
+</tbody>
+</table>
+<p>These decisions are locked. An engineer who needs to deviate escalates to solution-architect
+before coding (per scope §4 and CLAUDE.md §3).</p>
+<hr />
+<h2 id="2-module-component-design">2. Module / component design<a class="headerlink" href="#2-module-component-design" title="Permanent link">&para;</a></h2>
+<p>All modules are provider-free in v0.1 (no F17, no LLM, no model id anywhere — ADR-0003).</p>
+<h3 id="21-backendappmodelspy-sqlalchemy-2-source-of-truth-for-d2">2.1 <code>backend/app/models.py</code> — SQLAlchemy 2, source of truth for D2<a class="headerlink" href="#21-backendappmodelspy-sqlalchemy-2-source-of-truth-for-d2" title="Permanent link">&para;</a></h3>
+<p>Two tables. <code>make er</code> introspects these models to generate <code>docs/er/schema.mmd</code> (I8); the
+ER diagram MUST match the live schema, so this file is the single contract.</p>
+<p><strong>Table <code>pages</code></strong> — one row per source file in <code>vault/raw/sources/</code> (soft-deleted, never
+dropped; ADR-0005).</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Null</th>
+<th>Key / default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td>no</td>
+<td>PK, default uuid4</td>
+<td>Page identity; <strong>also</strong> the Qdrant point id (ADR-0002)</td>
+</tr>
+<tr>
+<td><code>vault_id</code></td>
+<td>TEXT</td>
+<td>no</td>
+<td>from <code>VAULT_ID</code> env</td>
+<td>Multi-vault key (single vault in v0.1)</td>
+</tr>
+<tr>
+<td><code>file_path</code></td>
+<td>TEXT</td>
+<td>no</td>
+<td>unique among live rows</td>
+<td>Relative path under <code>vault/raw/sources/</code>; join key to filesystem</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>TEXT</td>
+<td>yes</td>
+<td>NULL if absent</td>
+<td>K6 frontmatter <code>title</code></td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>TEXT</td>
+<td>yes</td>
+<td>NULL if absent</td>
+<td>K6 frontmatter <code>type</code></td>
+</tr>
+<tr>
+<td><code>sources</code></td>
+<td>JSONB</td>
+<td>yes</td>
+<td>NULL if absent</td>
+<td>K6 frontmatter <code>sources[]</code> (array of strings)</td>
+</tr>
+<tr>
+<td><code>content_hash</code></td>
+<td>TEXT</td>
+<td>no</td>
+<td>—</td>
+<td>sha256 of raw file bytes; authoritative change signal (ADR-0001)</td>
+</tr>
+<tr>
+<td><code>source_mtime_ns</code></td>
+<td>BIGINT</td>
+<td>yes</td>
+<td>—</td>
+<td>Last seen <code>st_mtime_ns</code>; cheap fast-path gate (ADR-0001)</td>
+</tr>
+<tr>
+<td><code>qdrant_point_id</code></td>
+<td>UUID</td>
+<td>yes</td>
+<td>== <code>id</code></td>
+<td>Explicit Postgres↔Qdrant join (ADR-0002)</td>
+</tr>
+<tr>
+<td><code>deleted_at</code></td>
+<td>TIMESTAMPTZ</td>
+<td>yes</td>
+<td>NULL = live</td>
+<td>Soft-delete marker (ADR-0005, F13)</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>TIMESTAMPTZ</td>
+<td>no</td>
+<td>default now()</td>
+<td>Audit</td>
+</tr>
+<tr>
+<td><code>updated_at</code></td>
+<td>TIMESTAMPTZ</td>
+<td>no</td>
+<td>onupdate now()</td>
+<td>Changes on every upsert (AC-WATCH-3)</td>
+</tr>
+</tbody>
+</table>
+<p>Recommended index (cheap, add in v0.1 if trivial): partial unique
+<code>(vault_id, file_path) WHERE deleted_at IS NULL</code> — enforces one live row per path (ADR-0005).</p>
+<blockquote>
+<p>Note vs backlog column list (AC-PG-3): <code>source_mtime_ns</code> is <strong>added</strong> beyond the backlog
+list because ADR-0001's fast path requires a stored mtime. It is a superset, not a
+conflict; the AC-PG-3 columns are all present. The ER diagram and the test column set must
+include it.</p>
+</blockquote>
+<p><strong>Table <code>vault_state</code></strong> — one row per vault; the <code>data_version</code> debounce signal for future
+FA2 recompute (I2). Seeded on startup (ADR-0005).</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Null</th>
+<th>Key / default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td>no</td>
+<td>PK, default uuid4</td>
+<td>Row identity</td>
+</tr>
+<tr>
+<td><code>vault_id</code></td>
+<td>TEXT</td>
+<td>no</td>
+<td>unique</td>
+<td>One row per vault; from <code>VAULT_ID</code></td>
+</tr>
+<tr>
+<td><code>data_version</code></td>
+<td>INTEGER</td>
+<td>no</td>
+<td>default 0</td>
+<td>Monotonic; +1 per successful upsert ingest (AC-F16dv-2/4)</td>
+</tr>
+<tr>
+<td><code>updated_at</code></td>
+<td>TIMESTAMPTZ</td>
+<td>no</td>
+<td>onupdate now()</td>
+<td>Last bump time</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>provider_config</code> is OUT of v0.1</strong> (confirmed): no provider exists this sprint (ADR-0003),
+so the table would be empty schema with no reader. It enters in v0.2 with the F17 ABC.</p>
+<h3 id="22-backendappwatcherpy-watchdog-incremental-indexer-i1">2.2 <code>backend/app/watcher.py</code> — watchdog incremental indexer (I1)<a class="headerlink" href="#22-backendappwatcherpy-watchdog-incremental-indexer-i1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Registers a watchdog <code>Observer</code> on <code>vault/raw/sources/</code> for <code>*.md</code> CREATE / MODIFY / DELETE.</li>
+<li><strong>Never enumerates the directory</strong> (no <code>os.listdir</code>, no <code>glob</code>, no <code>rglob</code>). Startup
+  registers handlers only (AC-WATCH-5). This is the literal I1 guard — any directory walk in
+  this file is a PR rejection.</li>
+<li>Per event delegates to the seam: CREATE/MODIFY → <code>ingest_file(path)</code>; DELETE →
+  <code>delete_file(path)</code>. The watcher contains <strong>no</strong> Postgres/Qdrant/embedding code (ADR-0003).</li>
+<li>Change gate (ADR-0001) lives in the seam, not the handler, so <code>POST /ingest/trigger</code> shares
+  it.</li>
+<li>Writes nothing under <code>raw/</code> (AC-K1-5); the only file the ingest path writes is
+  <code>wiki/log.md</code> (append) plus DB/vector stores.</li>
+</ul>
+<h3 id="23-backendappingestorchestratorpy-the-thin-seam-adr-0003-i6">2.3 <code>backend/app/ingest/orchestrator.py</code> — the thin seam (ADR-0003, I6)<a class="headerlink" href="#23-backendappingestorchestratorpy-the-thin-seam-adr-0003-i6" title="Permanent link">&para;</a></h3>
+<p>Single entry points used by BOTH watcher and REST:</p>
+<ul>
+<li><code>ingest_file(file_path) -&gt; IngestResult</code> — mechanical only in v0.1:
+  read bytes → mtime/hash gate → parse frontmatter (K6, tolerant: missing → NULL + warning,
+  AC-K6-2/3) → <code>persist_metadata</code> (Postgres upsert) → <code>upsert_vector</code> (embed via
+  <code>EMBEDDING_URL</code> + Qdrant upsert) → <code>append_log</code> (one INDEXED line) → <code>bump_version</code>.
+  Returns <code>{page_id, status: "completed"|"skipped"}</code>.</li>
+<li><code>delete_file(file_path)</code> — set <code>deleted_at</code>, remove Qdrant point.</li>
+<li>Helpers <code>persist_metadata</code> / <code>upsert_vector</code> / <code>append_log</code> / <code>bump_version</code> are factored so
+  v0.2's orchestrated loop reuses them as <code>validate</code> / <code>write_page</code> primitives.</li>
+<li><strong>Marked extension point</strong> (comment + no code): where v0.2 resolves a provider from
+  <code>provider_config</code>, calls <code>capabilities()</code>, and branches orchestrated-loop vs delegated-CLI.
+  v0.1 leaves it empty (I6 preserved; ADR-0003).</li>
+</ul>
+<h3 id="24-qdrant-integration">2.4 Qdrant integration<a class="headerlink" href="#24-qdrant-integration" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Collection <code>synapse_pages</code>, vector size = <code>EMBEDDING_DIM</code> (ADR-0004), distance Cosine.</li>
+<li>Created on startup if absent; if it exists with a different size, fail-fast (no silent
+  recreate, ADR-0004).</li>
+<li>Point id == <code>pages.id</code>. Payload = <code>{file_path, title, type}</code> (AC-QD-2). Upsert replaces in
+  place (no orphan, AC-WATCH-3); delete by id (AC-WATCH-4 / AC-QD-3).</li>
+<li>Embeddings fetched ONLY from <code>EMBEDDING_URL</code> (I9); no local model (AC-QD-4 / AC-WATCH-6).</li>
+</ul>
+<h3 id="25-backendappmainpy-fastapi-4-endpoints">2.5 <code>backend/app/main.py</code> — FastAPI (4 endpoints)<a class="headerlink" href="#25-backendappmainpy-fastapi-4-endpoints" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Behaviour</th>
+<th>AC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/status</code></td>
+<td>200; <code>{data_version, started_at, uptime}</code></td>
+<td>AC-REST-1, AC-F16dv-3</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/pages</code></td>
+<td>200; paginated (<code>limit</code>/<code>offset</code>), <code>deleted_at IS NULL</code></td>
+<td>AC-REST-2</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/pages/{id}</code></td>
+<td>200 full metadata; <strong>404</strong> unknown; <strong>422</strong> malformed UUID</td>
+<td>AC-REST-3, AC-REST-6</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/ingest/trigger</code></td>
+<td>sync <code>ingest_file</code>, <strong>202</strong>, body per AQ-6; <strong>422</strong> on bad body</td>
+<td>AC-REST-4, AC-REST-6</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Startup sequence (ordered): ensure <code>vault/wiki/.obsidian/app.json</code> (I5, AC-K7-1) → seed
+  <code>vault_state</code> (ADR-0005) → validate <code>EMBEDDING_DIM</code> vs live service + ensure <code>synapse_pages</code>
+  (ADR-0004) → start watcher Observer → emit AQ-3 INFO line if <code>raw/sources/</code> non-empty.</li>
+<li>OpenAPI auto-served at <code>/openapi.json</code>; <code>make openapi</code> snapshots it to <code>docs/api/openapi.json</code>
+  (D4, AC-D4-*).</li>
+</ul>
+<h3 id="26-config-env-vars-no-secrets-in-code-ac-dc-5">2.6 Config (env vars, no secrets in code — AC-DC-5)<a class="headerlink" href="#26-config-env-vars-no-secrets-in-code-ac-dc-5" title="Permanent link">&para;</a></h3>
+<p><code>DATABASE_URL</code>, <code>QDRANT_URL</code>, <code>EMBEDDING_URL</code>, <code>EMBEDDING_DIM</code> (required), <code>VAULT_ID</code>,
+<code>VAULT_PATH</code>. Defaults in <code>.env.example</code> + <code>docker-compose.yml</code>; <code>.env</code> gitignored.</p>
+<hr />
+<h2 id="3-invariant-compliance-statement">3. Invariant-compliance statement<a class="headerlink" href="#3-invariant-compliance-statement" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Inv</th>
+<th>In force?</th>
+<th>How v0.1 honours it</th>
+<th>Verifying AC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I1</strong> Incremental only</td>
+<td>YES (core)</td>
+<td>Watcher reacts to events only, never walks the dir; mtime-then-hash skip (ADR-0001); duplicate drop → no row/point/log/version change.</td>
+<td>AC-WATCH-1..5, AC-K4-3</td>
+</tr>
+<tr>
+<td><strong>I2</strong> Server-side cached layout</td>
+<td>Not exercised (no graph)</td>
+<td><code>data_version</code> shaped now as the future debounce signal; seeded + monotonic so v0.3 can rely on it. No decision precludes server-side FA2.</td>
+<td>AC-F16dv-*</td>
+</tr>
+<tr>
+<td><strong>I3</strong> No per-token chat work</td>
+<td>Not exercised (no chat)</td>
+<td>No chat path exists; nothing precludes stream-end parsing later.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>I4</strong> CodeMirror, virtualised</td>
+<td>Not exercised (no UI)</td>
+<td>No frontend in v0.1; no editor choice baked.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>I5</strong> Obsidian compatibility</td>
+<td>YES</td>
+<td><code>.obsidian/app.json</code> auto-written on startup; all service-written <code>wiki/*.md</code> (<code>index.md</code>, <code>log.md</code>) carry valid YAML frontmatter; <code>raw/</code> never written.</td>
+<td>AC-K7-1/2/3, AC-K1-5</td>
+</tr>
+<tr>
+<td><strong>I6</strong> Pluggable inference</td>
+<td>Not exercised, <strong>protected</strong></td>
+<td>Zero provider/model id/LLM call in v0.1; ingest routed through a thin seam with a marked extension point so v0.2 slots F17 without touching callers (ADR-0003).</td>
+<td>design / EC-13</td>
+</tr>
+<tr>
+<td><strong>I7</strong> Bounded loops</td>
+<td>Not exercised (no loops)</td>
+<td>No loop in v0.1; the seam's empty branch is where v0.2's <code>max_iter</code>+<code>token_budget</code> loop lands; straight-line body imposes no loop assumptions.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>I8</strong> Docs-as-DoD</td>
+<td>YES</td>
+<td>D1 hand-authored C4 (context+container); D2 generated by <code>make er</code> from <code>models.py</code> (must match live schema); D4 by <code>make openapi</code> from FastAPI. ADRs 0001–0006 committed (D7 early, allowed).</td>
+<td>AC-D1/D2/D4-*, AC-DC-3/4</td>
+</tr>
+<tr>
+<td><strong>I9</strong> Do not reinvent</td>
+<td>YES</td>
+<td>Qdrant + bge-m3 reused via <code>QDRANT_URL</code> / <code>EMBEDDING_URL</code>; <strong>no new embedding/vector container</strong> in compose (only <code>synapse-backend</code> + <code>postgres16</code>); no Tavily; no local model.</td>
+<td>AC-QD-*, AC-WATCH-6, AC-DC-1</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-ec-satisfiability-flags">4. EC satisfiability — flags<a class="headerlink" href="#4-ec-satisfiability-flags" title="Permanent link">&para;</a></h2>
+<p>The design satisfies all 15 M1 exit criteria with the following explicit notes (no EC is
+un-satisfiable, but three carry conditions):</p>
+<table>
+<thead>
+<tr>
+<th>EC</th>
+<th>Status</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EC-1</td>
+<td>Satisfiable</td>
+<td>Includes AC-K7-3 = <strong>MANUAL</strong> human gate (open in Obsidian). Not automatable; recorded in sign-off register (GAP-1 / AQ-5).</td>
+</tr>
+<tr>
+<td>EC-2</td>
+<td>Satisfiable</td>
+<td>Hinges on ADR-0001 mtime-then-hash; "modify → updated_at changes + 1 log line" requires editor save to change mtime (it does).</td>
+</tr>
+<tr>
+<td>EC-3..EC-7</td>
+<td>Satisfiable</td>
+<td>Covered by ADR-0001/0005/0006; <code>data_version</code> monotonic by construction.</td>
+</tr>
+<tr>
+<td>EC-5</td>
+<td><strong>Conditional</strong></td>
+<td>AC-QD-1 dimension must be <strong>confirmed against the running bge-m3 at startup</strong> (ADR-0004). If the live service is unreachable at CI time, the dimension-validation test needs a mock endpoint returning a vector of <code>EMBEDDING_DIM</code> length (see GAP-4). The collection-creation value itself is never hardcoded.</td>
+</tr>
+<tr>
+<td>EC-8</td>
+<td><strong>Conditional</strong></td>
+<td><code>docker compose up</code> starts only <code>synapse-backend</code> + <code>postgres16</code>; Qdrant/bge-m3 are external (I9). AC-DC-1's full integration therefore needs reachable TrueNAS services OR mocked URLs — handled by GAP-4's split unit/integration CI stages. Not a design defect; a test-environment condition.</td>
+</tr>
+<tr>
+<td>EC-9</td>
+<td>Satisfiable</td>
+<td>C4 context+container authored; <strong><code>mmdc</code> render check (AC-D1-1/2) must run in CI</strong> — not validated on the architect's machine (mmdc not installed locally). Flagged to devops for the docs CI stage.</td>
+</tr>
+<tr>
+<td>EC-10</td>
+<td>Satisfiable</td>
+<td><code>make er</code> must emit <code>source_mtime_ns</code> too (superset note in §2.1); the live-schema match test must expect it.</td>
+</tr>
+<tr>
+<td>EC-11..EC-15</td>
+<td>Satisfiable</td>
+<td>Human/agent gates; no architectural blocker.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>No EC is impossible to satisfy.</strong> The conditions on EC-5 / EC-8 / EC-9 are
+test-environment matters (external service reachability, CI tooling), already anticipated by
+the QA gap register (GAP-4) — they are called out so devops/QA wire the CI stages
+accordingly, not because the design cannot meet them.</p>
+<hr />
+<h2 id="5-sign-off-basis-ec-13">5. Sign-off basis (EC-13)<a class="headerlink" href="#5-sign-off-basis-ec-13" title="Permanent link">&para;</a></h2>
+<p>Architect approves the v0.1 design (<code>models.py</code>, <code>watcher.py</code>, <code>main.py</code>, ingest seam,
+Qdrant integration) on the basis above, conditional on engineers honouring:
+the thin-seam rule (ADR-0003), the no-directory-walk rule (I1/ADR-0001), the
+no-hardcoded-dimension rule (ADR-0004), and the <code>make er</code> superset including
+<code>source_mtime_ns</code>. PR review enforces these.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

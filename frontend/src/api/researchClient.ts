@@ -15,7 +15,7 @@ import type {
   ResearchRunDetail,
 } from "./types";
 import { ApiError } from "./graphClient";
-import { apiBase } from "./base";
+import { apiBase, apiFetch } from "./base";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 async function checkResponse(res: Response): Promise<void> {
@@ -46,7 +46,7 @@ export async function startResearch(
   signal?: AbortSignal,
 ): Promise<ResearchStartResponse> {
   const url = `${apiBase()}/research/start`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -67,7 +67,7 @@ export async function fetchResearchRuns(
   const { limit = 20, offset = 0, vaultId } = options;
   let url = `${apiBase()}/research/runs?limit=${limit}&offset=${offset}`;
   if (vaultId) url += `&vault_id=${encodeURIComponent(vaultId)}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as ResearchRunListResponse;
 }
@@ -82,7 +82,7 @@ export async function fetchResearchRunDetail(
   signal?: AbortSignal,
 ): Promise<ResearchRunDetail> {
   const url = `${apiBase()}/research/runs/${encodeURIComponent(runId)}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as ResearchRunDetail;
 }

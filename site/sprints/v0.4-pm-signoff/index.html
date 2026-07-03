@@ -1,0 +1,1000 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.4-pm-signoff/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint 4 — v0.4 / M4 — PM Exit-Criteria Sign-Off - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-4-v04-m4-pm-exit-criteria-sign-off" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint 4 — v0.4 / M4 — PM Exit-Criteria Sign-Off
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-per-criterion-assessment-dod-gate-checklist-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Per-Criterion Assessment — DoD Gate Checklist (§5)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Per-Criterion Assessment — DoD Gate Checklist (§5)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gate-1-all-acs-in-2-green" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate 1 — All ACs in §2 green
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gate-2-g3-playwright-streaming-test-green" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate 2 — G3 Playwright streaming test green
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gate-3-g2-and-g4-tests-from-v03-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate 3 — G2 and G4 tests from v0.3 status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gate-4-architect-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate 4 — Architect gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gate-5-tech-writer-gate-d-artifacts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate 5 — Tech-writer gate (D-artifacts)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gate-6-nb-6-mmdc-ci-render-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate 6 — NB-6 mmdc CI render check
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gate-7-adr-0016-signed-off-by-architect-and-tech-writer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate 7 — ADR-0016 signed off by architect and tech-writer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gate-8-traceabilitymd-updated-sprint-4-coverage-adr-0012-p3p5-fixture-correction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate 8 — TRACEABILITY.md updated: Sprint 4 coverage + ADR-0012 P3–P5 fixture correction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gate-9-backlogmd-updated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate 9 — BACKLOG.md updated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gate-10-i5-regression-obsidian-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate 10 — I5 regression: Obsidian compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gate-11-human-checkpoint-ec-m4-hcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate 11 — Human checkpoint (EC-M4-HCP)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-overall-verdict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Overall Verdict
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-backlogmd-updates-recorded-here-applied-in-backlogmd-directly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. BACKLOG.md Updates (recorded here; applied in BACKLOG.md directly)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-velocity-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Velocity Note
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-carried-items-to-m5-non-blocking-on-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Carried Items to M5 (non-blocking, on record)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-4-v04-m4-pm-exit-criteria-sign-off">Sprint 4 — v0.4 / M4 — PM Exit-Criteria Sign-Off<a class="headerlink" href="#sprint-4-v04-m4-pm-exit-criteria-sign-off" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Author: product-manager (claude-sonnet-4-6)
+Date: 2026-06-28
+Milestone: M4 "Usable &amp; fluid"
+Branch: sprint/v0.4
+Verdict: <strong>M4 MET — WITH DOCUMENTED DEFERRALS (M5) AND ONE OPEN GAP (D6)</strong>
+Next action: EC-M4-HCP human checkpoint by Emanuele before Sprint 5 begins.</p>
+</blockquote>
+<hr />
+<h2 id="1-per-criterion-assessment-dod-gate-checklist-5">1. Per-Criterion Assessment — DoD Gate Checklist (§5)<a class="headerlink" href="#1-per-criterion-assessment-dod-gate-checklist-5" title="Permanent link">&para;</a></h2>
+<p>Each gate maps to docs/sprints/v0.4-pm-scope.md §5.</p>
+<h3 id="gate-1-all-acs-in-2-green">Gate 1 — All ACs in §2 green<a class="headerlink" href="#gate-1-all-acs-in-2-green" title="Permanent link">&para;</a></h3>
+<p>Verdict: <strong>MET-WITH-DEFERRALS</strong></p>
+<p>Evidence:
+- QA gate confirmed GO after in-sprint fixes: NavTree virtualization fix (F1/AC-F1-2),
+  Chat disabled in Phase 2 (AC-F1-NAV-1 respected), token label fix (F14/AC-F14-1).
+- ruff + black + mypy + ESLint + Prettier reported clean.
+- Deferred ACs (not gaps — PM-approved deferrals to M5):
+  - AC-F6-3: [n] citation markers — messages.citations not populated. Button present in UI
+    but citation data is empty. This is a known M5 item (F5 full pipeline).
+  - AC-F6-5: save-to-wiki — button disabled in UI ("coming in M5"). No ingest triggered.
+  - AC-F7 partial: chat-think-block D5 screenshot deferred (qwen2.5:3b emits no <think>).
+  - F17 (CLI): CliAgentProvider.chat() raises honest NotImplementedError. AC-F17-2 intent
+    preserved: explicit not-yet signal, not a silent failure.</p>
+<h3 id="gate-2-g3-playwright-streaming-test-green">Gate 2 — G3 Playwright streaming test green<a class="headerlink" href="#gate-2-g3-playwright-streaming-test-green" title="Permanent link">&para;</a></h3>
+<p>Verdict: <strong>MET</strong></p>
+<p>Evidence: T-E2E-G3-001 PASS. Mandatory gate confirmed GO by QA. No deferred-to-live waiver
+needed. 0 main-thread long tasks during live stream confirmed. Parse-once at stream end
+verified (I3). Zustand buffer appends raw string per token; selector fires exactly once on
+done event (AC-G3-2, AC-G3-3 green). Existing messages do not re-render on token arrival
+(AC-G3-4 green).</p>
+<h3 id="gate-3-g2-and-g4-tests-from-v03-status">Gate 3 — G2 and G4 tests from v0.3 status<a class="headerlink" href="#gate-3-g2-and-g4-tests-from-v03-status" title="Permanent link">&para;</a></h3>
+<p>Verdict: <strong>MET (waiver re-issued from M3)</strong></p>
+<p>Evidence: G2 static (T-NCL-001..022) confirmed green post all GraphUX changes. G4 fps test
+(T-E2E-G4-001/002) remains DEFERRED-TO-LIVE — waiver inherited from M3 (live TrueNAS
+environment required). No regression introduced. QA confirmed no T-NCL violation.</p>
+<h3 id="gate-4-architect-gate">Gate 4 — Architect gate<a class="headerlink" href="#gate-4-architect-gate" title="Permanent link">&para;</a></h3>
+<p>Verdict: <strong>MET</strong></p>
+<p>Evidence: docs/adr/0016-obsidian-graph-rendering.md accepted; docs/adr/0017-three-panel-shell.md,
+0018-navrail-ingest-provider.md, 0019-chat-streaming.md all produced and approved. Architect
+APPROVED across all phases:
+- M4-GUX: ADR-0016 formalized + signed off.
+- Phase 1 (F1 shell): I3/I4 reviewed, APPROVED.
+- Phase 2 (nav-rail, ingest view, provider selector, settings): APPROVED after retiring
+  redundant MainTabs component.
+- Phase 3 (chat streaming): APPROVED-WITH-NITS. Nits on record:
+  - P1: capability heuristic (non-blocking nit)
+  - P2: optimistic think reconstruction on reconnect (non-blocking nit)
+  - P3: token_budget stream-stop test (non-blocking nit)
+  These are carried to M5 hardening. None are blocking for M4 sign-off.
+- PATCH /pages/{id}/position: I2-compatible confirmed, T-NCL guard retained.</p>
+<h3 id="gate-5-tech-writer-gate-d-artifacts">Gate 5 — Tech-writer gate (D-artifacts)<a class="headerlink" href="#gate-5-tech-writer-gate-d-artifacts" title="Permanent link">&para;</a></h3>
+<p>Verdict: <strong>MET-WITH-GAP (D6 partial)</strong></p>
+<p>Evidence:
+- D1: component.mmd updated for 3-panel shell, chat components, Provider Selector. PASS.
+- D2: schema.mmd regenerated via make er after migrations 0004 (edges.kind), 0005
+  (pages.pinned), 0006 (ingest_runs view fields), 0007 (conversations/messages). Zero drift.
+- D4: openapi.json regenerated after adding GET /ingest/runs, PATCH /pages/{id}/position,
+  POST /chat/stream, GET /conversations endpoints. Zero drift.
+- D5: 10 PNGs committed in docs/screens/ — covers: graph-obsidian.png,
+  graph-obsidian-node-selected.png, shell-3panel.png, shell-3panel-selected.png,
+  ingest-section.png, settings-section.png, provider-selector-open.png,
+  navrail-graph-active.png, chat-streaming.png, chat-conversation.png.
+  AC-D5-upd-1..2 green. chat-think-block screenshot deferred (no <think> from qwen2.5:3b
+  during the capture run — acceptable; block is tested by vitest).
+- D6: PARTIAL GAP.
+  - docs/USER.md: DOES NOT EXIST. AC-D6-1 NOT MET.
+  - docs/DEPLOY.md: EXISTS but is v0.1-only draft. No v0.4 content (chat, provider selector,
+    3-panel UI). AC-D6-2 PARTIAL — prerequisites section exists but is not a v0.4 draft.
+  - AC-D6-3 and AC-D6-4 cannot be assessed for USER.md (file absent).
+- ADRs 0017/0018/0019 reviewed and consistent (tech-writer approved). PASS.
+- NB-7 (cosmetic graph-recompute.mmd): status: cosmetic, optional. Not shipped in M4. Carried.
+- NB-8 (cosmetic component.mmd store label): status: cosmetic, optional. Not shipped in M4. Carried.</p>
+<p>D6 gap assessment: docs/USER.md is absent. This is a genuine gap against AC-D6-1. docs/DEPLOY.md
+was not promoted to a v0.4 draft. This is a gap against AC-D6-2. However, no feature code is
+missing because of this; the gap is documentation-only. The verdict below treats D6 as a
+CONDITIONAL PASS: M4 MET is declared with the explicit condition that USER.md + DEPLOY.md
+v0.4 draft are delivered by tech-writer before the EC-M4-HCP human checkpoint is confirmed
+to the orchestrator. The human checkpoint (Gate 11) already requires Emanuele to confirm
+features in browser — D6 delivery can be parallelized with that.</p>
+<h3 id="gate-6-nb-6-mmdc-ci-render-check">Gate 6 — NB-6 mmdc CI render check<a class="headerlink" href="#gate-6-nb-6-mmdc-ci-render-check" title="Permanent link">&para;</a></h3>
+<p>Verdict: <strong>MET</strong></p>
+<p>Evidence: .github/workflows/ci.yml now includes:
+- <code>npm install -g @mermaid-js/mermaid-cli</code> step
+- mmdc loop over all docs/architecture/<em>.mmd, docs/er/</em>.mmd, docs/sequences/*.mmd
+- exits non-zero on parse error
+T-DOCS-MANUAL-003 sentinel replaced by real mmdc assertion. AC-NB6-1..3 green.
+Note: CI branch trigger list in ci.yml still shows only sprint/v0.1, sprint/v0.2, main.
+This is a devops nit — the mmdc logic is wired; the branch filter needs expanding to
+sprint/v0.3, sprint/v0.4 before next push. Carried as NB-9 (non-blocking for M4 verdict).</p>
+<h3 id="gate-7-adr-0016-signed-off-by-architect-and-tech-writer">Gate 7 — ADR-0016 signed off by architect and tech-writer<a class="headerlink" href="#gate-7-adr-0016-signed-off-by-architect-and-tech-writer" title="Permanent link">&para;</a></h3>
+<p>Verdict: <strong>MET</strong></p>
+<p>Evidence: docs/adr/0016-obsidian-graph-rendering.md status updated to Accepted + Reviewed.
+All M4-GUX sub-items gated through this ADR.</p>
+<h3 id="gate-8-traceabilitymd-updated-sprint-4-coverage-adr-0012-p3p5-fixture-correction">Gate 8 — TRACEABILITY.md updated: Sprint 4 coverage + ADR-0012 P3–P5 fixture correction<a class="headerlink" href="#gate-8-traceabilitymd-updated-sprint-4-coverage-adr-0012-p3p5-fixture-correction" title="Permanent link">&para;</a></h3>
+<p>Verdict: <strong>MET</strong></p>
+<p>Evidence: TRACEABILITY.md Sprint 4 section present with all M4 AC IDs and test IDs. The
+ADR-0012 §5 P3–P5 fixture expectation corrected from "weight == 1.0, present" to "absent
+(no structural tie)" per ADR-0016 §6 requirement. The T-GENG suite updated to match the
+new structural-only gate. Green.</p>
+<h3 id="gate-9-backlogmd-updated">Gate 9 — BACKLOG.md updated<a class="headerlink" href="#gate-9-backlogmd-updated" title="Permanent link">&para;</a></h3>
+<p>Verdict: <strong>MET</strong> (this update — see §3 below)</p>
+<p>All M4 items are now marked done or done-with-deferral. Deferred items moved to M5. Carried
+nits logged. BACKLOG.md Sprint 4 section updated by this PM sign-off.</p>
+<h3 id="gate-10-i5-regression-obsidian-compatibility">Gate 10 — I5 regression: Obsidian compatibility<a class="headerlink" href="#gate-10-i5-regression-obsidian-compatibility" title="Permanent link">&para;</a></h3>
+<p>Verdict: <strong>MET</strong></p>
+<p>Evidence: test_obsidian_check.py 15/15 green (T-OBS-001..015). vault/wiki/.obsidian/app.json
+generated correctly including vault_id change handling (F16-obsidian AC met). No wikilink
+syntax regressions. I5 intact.</p>
+<h3 id="gate-11-human-checkpoint-ec-m4-hcp">Gate 11 — Human checkpoint (EC-M4-HCP)<a class="headerlink" href="#gate-11-human-checkpoint-ec-m4-hcp" title="Permanent link">&para;</a></h3>
+<p>Verdict: <strong>PENDING — conditions below</strong></p>
+<p>Emanuele must confirm the following in browser before Sprint 5 may begin:</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>What to verify</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EC-M4-HCP-1</td>
+<td>3-panel shell loads in browser with nav rail showing Pages / Graph / Ingest / Settings icons. All 4 sections are switchable without page reload.</td>
+</tr>
+<tr>
+<td>EC-M4-HCP-2</td>
+<td>Ingest section shows list of recent ingest runs with status badge, cost (4dp), and relative timestamp. Run Ingest button is present.</td>
+</tr>
+<tr>
+<td>EC-M4-HCP-3</td>
+<td>Chat section opens (nav rail Chat icon active); a message can be sent; the response streams token by token with no UI freeze; at least one assistant message appears in the message list.</td>
+</tr>
+<tr>
+<td>EC-M4-HCP-4</td>
+<td>Provider selector dropdown is accessible in Settings; changing the provider persists across page refresh.</td>
+</tr>
+<tr>
+<td>EC-M4-HCP-5</td>
+<td>Graph section shows the sigma viewer with structural-only edges, node-size variation proportional to connections, and hover-dim behavior.</td>
+</tr>
+<tr>
+<td>EC-M4-HCP-6</td>
+<td>docs/USER.md exists and covers the core user journey (prerequisite condition — tech-writer must deliver before this checkpoint is closed).</td>
+</tr>
+</tbody>
+</table>
+<p>Sprint 5 is BLOCKED until Emanuele confirms all 6 conditions above and records confirmation
+in this document (or a designated closure note).</p>
+<hr />
+<h2 id="2-overall-verdict">2. Overall Verdict<a class="headerlink" href="#2-overall-verdict" title="Permanent link">&para;</a></h2>
+<p><strong>M4 MET — with documented M5 deferrals and one conditional documentation requirement.</strong></p>
+<p>M4 is declared MET on the following basis:
+- All feature code for F1, F1-NAV, F1-INGEST-VIEW, F6, F7, F8, F14, F17-UI, F16-rest,
+  G3, M4-GUX (1-8), and BE-INGEST-RUNS is shipped and gate-tested.
+- The three G3 performance invariants (I3) are verified by automated tests — this sprint's
+  primary non-negotiable gate is GREEN.
+- All 4 sign-offs required by CLAUDE.md DoD are recorded: QA GO, Architect APPROVED,
+  Tech-Writer PASS (with D6 conditional), PM sign-off (this document).
+- M5 deferrals are explicitly PM-approved, documented, and do not represent unfinished
+  in-scope work:
+  - F5 4-phase retrieval + [n] citation population → M5
+  - messages.citations population → M5 (F5 dependency)
+  - save-to-wiki button → M5 (button disabled, not removed)
+  - CliAgentProvider.chat() → M5 (honest NotImplementedError, not silent failure)
+  - Selected-page context injection into chat → M5
+  - chat-think-block D5 screenshot → M5 (no <think> model available during capture)
+- D6 is the one genuine gap: USER.md absent, DEPLOY.md not promoted. This is a
+  documentation-only gap with no feature regression. M4 MET is declared conditional on
+  tech-writer delivering docs/USER.md and promoting docs/DEPLOY.md before EC-M4-HCP is
+  confirmed to the orchestrator.</p>
+<p>Milestone M4 "Usable &amp; fluid" is closed upon Emanuele's EC-M4-HCP confirmation.</p>
+<hr />
+<h2 id="3-backlogmd-updates-recorded-here-applied-in-backlogmd-directly">3. BACKLOG.md Updates (recorded here; applied in BACKLOG.md directly)<a class="headerlink" href="#3-backlogmd-updates-recorded-here-applied-in-backlogmd-directly" title="Permanent link">&para;</a></h2>
+<p>See BACKLOG.md Sprint 4 section — all items updated to done / done-with-deferral /
+backlog-M5 status. See also Sprint 5 section for newly moved items.</p>
+<hr />
+<h2 id="4-velocity-note">4. Velocity Note<a class="headerlink" href="#4-velocity-note" title="Permanent link">&para;</a></h2>
+<p>Sprint 4 was LARGE by design (see v0.4-pm-scope.md §7). Scope was EXECUTED within the
+2-week envelope with the 4-phase delivery plan intact. The 2 Phase 2 additions (F1-NAV,
+F1-INGEST-VIEW) were absorbed without phase slippage. G3 was not deferred-to-live —
+the pattern of accumulated live-run deferrals from v0.3 was broken. One documentation
+gap (D6) accumulated; this is the primary velocity lesson for Sprint 5: tech-writer
+work on USER.md and DEPLOY.md must be started at Sprint 5 kickoff and not left to the
+final phase.</p>
+<p>Sprint 5 scope estimate: F5 (retrieval + citations) is the most complex item; F9 (review
+queue), F10 (deep research), F12 (multi-format), F13 (cascade delete) are individually
+scoped but collectively large. Recommend the orchestrator consider a 3-phase plan for M5
+as M4 was for M4. Velocity note: M4 proved that 4 features + 2 additions + 1 backend
+endpoint + 8 GUX sub-items can be delivered in 2 weeks with disciplined phasing.
+M5 carries 5 major features — phasing is mandatory.</p>
+<hr />
+<h2 id="5-carried-items-to-m5-non-blocking-on-record">5. Carried Items to M5 (non-blocking, on record)<a class="headerlink" href="#5-carried-items-to-m5-non-blocking-on-record" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D6 — USER.md</td>
+<td>Documentation gap</td>
+<td>Must be delivered before EC-M4-HCP is closed</td>
+</tr>
+<tr>
+<td>D6 — DEPLOY.md v0.4</td>
+<td>Documentation gap</td>
+<td>Must be promoted before EC-M4-HCP is closed</td>
+</tr>
+<tr>
+<td>NB-7 — graph-recompute.mmd cosmetic</td>
+<td>Optional polish</td>
+<td>Tech-writer, non-blocking</td>
+</tr>
+<tr>
+<td>NB-8 — component.mmd store label</td>
+<td>Optional polish</td>
+<td>Tech-writer, non-blocking</td>
+</tr>
+<tr>
+<td>NB-9 — CI branch filter (v0.3/v0.4 missing)</td>
+<td>Devops nit</td>
+<td>Add sprint/v0.3, sprint/v0.4 to ci.yml trigger list</td>
+</tr>
+<tr>
+<td>Architect P1 nit — capability heuristic</td>
+<td>Backend nit</td>
+<td>Non-blocking; M5 hardening</td>
+</tr>
+<tr>
+<td>Architect P2 nit — optimistic think reconstruction</td>
+<td>Frontend nit</td>
+<td>Non-blocking; M5</td>
+</tr>
+<tr>
+<td>Architect P3 nit — token_budget stream-stop test</td>
+<td>QA nit</td>
+<td>Non-blocking; M5</td>
+</tr>
+<tr>
+<td>G4 fps Playwright test</td>
+<td>Live-run deferred</td>
+<td>Inherited from M3; requires TrueNAS live run</td>
+</tr>
+<tr>
+<td>G2 runtime Playwright test</td>
+<td>Live-run deferred</td>
+<td>Inherited from M3; T-E2E-G2-001/002 status</td>
+</tr>
+<tr>
+<td>chat-think-block D5 screenshot</td>
+<td>Screenshot</td>
+<td>qwen2.5:3b emits no <think>; needs <think>-capable model</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<blockquote>
+<p>PM sign-off: M4 MET-WITH-DEFERRALS | product-manager (claude-sonnet-4-6) | 2026-06-28
+Feature IDs covered: F1, F1-NAV, F1-INGEST-VIEW, F6, F7, F8, F14, F17-UI, F16-rest,
+  G3, D5-update, D6(partial), NB-6, M4-GUX-1..8, BE-INGEST-RUNS
+Handoff: exit-criteria verdict → orchestrator
+Human checkpoint: EC-M4-HCP — Sprint 5 BLOCKED until Emanuele confirms in browser</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

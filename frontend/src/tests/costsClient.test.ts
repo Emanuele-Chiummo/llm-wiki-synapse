@@ -203,9 +203,9 @@ describe("fetchCostsSummary — AbortSignal forwarded to fetch", () => {
 
     await fetchCostsSummary();
 
-    // When no signal: second arg is undefined (no RequestInit)
-    const callOpts = mockFetch.mock.calls[0]![1] as { signal?: AbortSignal } | undefined;
-    expect(callOpts).toBeUndefined();
+    // When no signal: second arg has no signal property (apiFetch always passes headers)
+    const callOpts = mockFetch.mock.calls[0]![1] as { signal?: AbortSignal; headers?: unknown } | undefined;
+    expect(callOpts?.signal).toBeUndefined();
   });
 });
 

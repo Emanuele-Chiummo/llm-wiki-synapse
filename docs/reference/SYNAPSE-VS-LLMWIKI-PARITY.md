@@ -25,6 +25,20 @@
 > `schema-suggestion` ReviewItem) are also **CLOSED** with v0.9.0, closing all remaining
 > open P2 items.
 >
+> **v1.0 / PROGRAM COMPLETE (2026-07-03):** The parity program is complete. All P0 and P1
+> items are closed. All P2 items are closed except:
+>   - **G-P2-3** (cancel in-flight ingest — `DELETE /ingest/{run_id}`) — explicitly deferred;
+>     the ADR-0046 queue infrastructure is present; the cancel endpoint is a future follow-up.
+> Items explicitly NOT closed by design (deferred):
+>   - **OIDC / multi-user** (R10-2): single-vault single-owner remains the v1.0 posture;
+>     `vault_id` column is plumbed for future use.
+>   - **Store publication** (Chrome Web Store): unpacked extension install is the supported
+>     path; store listing is a post-1.0 task.
+> Features added in v1.0 that have no llm_wiki counterpart (beyond-parity):
+>   - Shared Bearer token auth (ADR-0052, R10-1 rescoped from OIDC).
+>   - Code-signing guide (R10-3 — guide only; certificates not yet purchased).
+>   - MkDocs Material documentation site (R10-6, GitHub Pages).
+>
 > Verdict legend:
 >   ✅ parity — behavior matches or exceeds user-facing expectations.
 >   🟡 partial — core exists but a sub-behavior or edge case is absent.

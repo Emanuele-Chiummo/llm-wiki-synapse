@@ -441,6 +441,146 @@ button {
   100% { transform: translateX(350%); }
 }
 
+/* ── MOBILE / PWA BREAKPOINT (R10-5, AC-R10-5-1 through AC-R10-5-3) ──────────
+ * Approach: CSS-only, no new navigation library.
+ *
+ * 1. Nav rail collapses to icons-only (48px wide, labels hidden).
+ *    Chosen over a bottom-tab-bar redesign because:
+ *    (a) the rail already renders icons + labels; hiding labels is one CSS rule;
+ *    (b) keeps the same component tree and Playwright locators unchanged;
+ *    (c) avoids any JS/prop changes that could regress desktop behaviour.
+ *    Desktop (≥768px): rail width 72px, labels visible — UNCHANGED.
+ *
+ * 2. 3-panel shell stacks: left and right panels hidden by default on mobile.
+ *    The center (editor/note) panel takes full width. Left tree panel is
+ *    accessible via the existing collapse toggle which is still rendered.
+ *    react-resizable-panels retains its horizontal orientation; CSS hides the
+ *    side panels instead of rebuilding the layout. This is the simplest robust
+ *    approach that requires no changes to PanelGroup.tsx.
+ *    NOTE: right panel (PreviewPanel) is hidden entirely on mobile by default;
+ *    user can reveal it with the collapse button if needed.
+ *
+ * 3. Touch targets: interactive elements minimum 44×44px (WCAG 2.5.5 AAA).
+ *    Nav rail buttons, send/stop buttons, tree rows, chat items.
+ *
+ * 4. Sigma graph touch-action: `touch-action: none` on .sigma-container-mobile
+ *    prevents the page from scrolling during pinch-zoom on the graph canvas.
+ *    Applied in theme.css so it covers the sigma container class added in GraphViewer.
+ */
+
+@media (max-width: 767px) {
+  /* ── 1. Nav rail: icons-only, 48px wide (labels hidden) ── */
+  .nav-rail {
+    width: 48px !important;
+  }
+
+  .nav-rail__label {
+    display: none !important;
+  }
+
+  /* Rail buttons: wider touch target (full 44px+ height; icon centred) */
+  .nav-rail__item {
+    width: 44px !important;
+    height: 48px !important;
+    padding: 6px 4px !important;
+  }
+
+  /* ── 2. 3-panel stacking: hide side panels by default ── */
+  /*
+   * react-resizable-panels Panel components receive className props added in
+   * PanelGroup.tsx (panel-group__panel--left / --center / --right and
+   * panel-group__separator--left / --right). On mobile we hide the side panels
+   * so the center fills the full width.
+   *
+   * IMPORTANT: react-resizable-panels uses inline flex sizing; we must use !important
+   * to override its inline styles.
+   */
+
+  /* Hide the left tree panel and its right separator */
+  .panel-group__panel--left {
+    display: none !important;
+  }
+  .panel-group__separator--left {
+    display: none !important;
+  }
+
+  /* Hide the right preview panel and its left separator */
+  .panel-group__panel--right {
+    display: none !important;
+  }
+  .panel-group__separator--right {
+    display: none !important;
+  }
+
+  /* Center panel fills the full width */
+  .panel-group__panel--center {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* ── 3. Touch targets: minimum 44×44px on critical controls ── */
+
+  /* Chat send / stop button: already 38px tall — bump to 44px */
+  .chat-send-btn,
+  .chat-stop-btn {
+    min-height: 44px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  /* Chat input: taller for comfortable touch */
+  .chat-input-textarea {
+    min-height: 44px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  /* Tree rows: minimum 44px row height (TanStack Virtual rows) */
+  .nav-tree__row {
+    min-height: 44px !important;
+  }
+
+  /* Conversation list items */
+  .conversation-list__item {
+    min-height: 44px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  /* ConnectScreen connect button */
+  .connect-btn {
+    min-height: 44px !important;
+    font-size: 14px !important;
+  }
+
+  /* Generic syn-btn--sm: bump from 28px to 44px on mobile */
+  .syn-btn--sm {
+    min-height: 44px !important;
+    padding: 10px 14px !important;
+  }
+
+  /* ── 4. Sigma graph container: prevent page scroll during pinch-zoom ── */
+  /*
+   * Without touch-action: none, a two-finger pinch on the sigma canvas will
+   * trigger the browser's native page-zoom or scroll, competing with sigma's
+   * pointer-event-based zoom handler. Setting touch-action: none on the container
+   * hands all pointer events exclusively to sigma, enabling correct pinch-zoom.
+   * I2 is preserved: sigma's camera zoom changes the rendering scale of the
+   * precomputed coords — no FA2 re-invocation occurs.
+   */
+  #sigma-container {
+    touch-action: none;
+  }
+
+  /* Also apply to graph-root in case the hit-test lands on the outer wrapper */
+  #graph-root {
+    touch-action: none;
+  }
+}
+
+/* ── Existing mobile tweaks (kept at 720px breakpoint for backwards compat) ── */
+
 @media (max-width: 720px) {
   .chat-section__conversations {
     display: none !important;

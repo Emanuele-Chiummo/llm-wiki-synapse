@@ -1,0 +1,59 @@
+site_name: Synapse
+site_description: Self-hosted AI wiki that organizes itself.
+site_author: Emanuele Chiummo
+site_url: https://github.com/Emanuele-Chiummo/llm-wiki-synapse
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  logo: assets/synapse-appicon.svg
+  favicon: assets/synapse-appicon.svg
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - User Guide: USER.md
+  - Deploy Guide: DEPLOY.md
+  - Architecture: architecture/index.md
+  - ADRs: adr/index.md
+  - API Reference: api/index.md
+  - Sequences: sequences/index.md
+  - Roadmap: reference/ROADMAP-v0.7-v1.0.md

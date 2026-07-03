@@ -26,7 +26,7 @@ import type {
   LintFinding,
 } from "./types";
 import { ApiError } from "./graphClient";
-import { apiBase } from "./base";
+import { apiBase, apiFetch } from "./base";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 async function checkResponse(res: Response): Promise<void> {
@@ -53,7 +53,7 @@ export async function runLintScan(
   signal?: AbortSignal,
 ): Promise<LintScanResponse> {
   const url = `${apiBase()}/lint/scan`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -74,7 +74,7 @@ export async function fetchLintRuns(
   const { limit = 20, offset = 0, vaultId } = options;
   let url = `${apiBase()}/lint/runs?limit=${limit}&offset=${offset}`;
   if (vaultId) url += `&vault_id=${encodeURIComponent(vaultId)}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as LintRunListResponse;
 }
@@ -89,7 +89,7 @@ export async function fetchLintRun(
   signal?: AbortSignal,
 ): Promise<LintRun> {
   const url = `${apiBase()}/lint/runs/${encodeURIComponent(runId)}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as LintRun;
 }
@@ -115,7 +115,7 @@ export async function fetchLintFindings(
     `?vault_id=${encodeURIComponent(vaultId)}` +
     `&status=${encodeURIComponent(status)}` +
     `&limit=${limit}&offset=${offset}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as LintFindingListResponse;
 }
@@ -130,7 +130,7 @@ export async function fetchLintFindings(
  */
 export async function applyLintFinding(findingId: string): Promise<LintFinding> {
   const url = `${apiBase()}/lint/findings/${encodeURIComponent(findingId)}/apply`;
-  const res = await fetch(url, { method: "POST" });
+  const res = await apiFetch(url, { method: "POST" });
   await checkResponse(res);
   return (await res.json()) as LintFinding;
 }
@@ -141,7 +141,7 @@ export async function applyLintFinding(findingId: string): Promise<LintFinding> 
  */
 export async function dismissLintFinding(findingId: string): Promise<LintFinding> {
   const url = `${apiBase()}/lint/findings/${encodeURIComponent(findingId)}/dismiss`;
-  const res = await fetch(url, { method: "POST" });
+  const res = await apiFetch(url, { method: "POST" });
   await checkResponse(res);
   return (await res.json()) as LintFinding;
 }

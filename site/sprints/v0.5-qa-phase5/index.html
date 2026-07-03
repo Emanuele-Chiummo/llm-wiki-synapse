@@ -1,0 +1,951 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-qa-phase5/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>QA Gate — M5 Phase 5 (F1-MCP-UI) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#qa-gate-m5-phase-5-f1-mcp-ui" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              QA Gate — M5 Phase 5 (F1-MCP-UI)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-test-suites-run-results-two-independent-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Test Suites — Run Results (two independent runs)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-ac-coverage-table-ac-f1-mcp-ui-1-to-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. AC Coverage Table (AC-F1-MCP-UI-1 to -10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-nothing-hardcoded-confirmation-i6-i9-headline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Nothing-Hardcoded Confirmation (I6 + I9 — Headline)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Nothing-Hardcoded Confirmation (I6 + I9 — Headline)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-read-only-confirmation-do-not-list-adr-0027-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Read-Only Confirmation (Do-NOT list, ADR-0027 §4)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-d4-zero-drift-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. D4 Zero-Drift Check
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Notes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Notes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#note-1-d5-screenshot-not-yet-captured-ac-f1-mcp-ui-9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NOTE-1 — D5 Screenshot Not Yet Captured (AC-F1-MCP-UI-9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#note-2-i18n-comingsoon-key-retired" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NOTE-2 — i18n comingSoon Key Retired
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#note-3-baseline-tests-unchanged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NOTE-3 — Baseline Tests Unchanged
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-deliverable-to-phase-5-sign-off-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Deliverable to Phase 5 Sign-Off Chain
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="qa-gate-m5-phase-5-f1-mcp-ui">QA Gate — M5 Phase 5 (F1-MCP-UI)<a class="headerlink" href="#qa-gate-m5-phase-5-f1-mcp-ui" title="Permanent link">&para;</a></h1>
+<p><strong>Verdict: PASS-WITH-NOTES</strong></p>
+<ul>
+<li>QA engineer: qa-test-engineer (claude-sonnet-4-6)</li>
+<li>Date: 2026-06-29</li>
+<li>Branch: sprint/v0.5</li>
+<li>Feature: F1-MCP-UI (Amendment A1) — MCP Configuration UI</li>
+<li>ADR: docs/adr/0027-mcp-info-ui.md</li>
+</ul>
+<hr />
+<h2 id="1-test-suites-run-results-two-independent-runs">1. Test Suites — Run Results (two independent runs)<a class="headerlink" href="#1-test-suites-run-results-two-independent-runs" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Suite</th>
+<th>Run 1</th>
+<th>Run 2</th>
+<th>Flakes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pytest (backend, all tests)</td>
+<td>688 passed, 3 skipped</td>
+<td>688 passed, 3 skipped</td>
+<td>0</td>
+</tr>
+<tr>
+<td>vitest (frontend, all tests)</td>
+<td>557 passed</td>
+<td>557 passed</td>
+<td>0</td>
+</tr>
+<tr>
+<td>ruff + black + mypy (backend)</td>
+<td>CLEAN</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>tsc --noEmit + ESLint (frontend)</td>
+<td>CLEAN</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>No regressions introduced. No flaky tests observed.</p>
+<hr />
+<h2 id="2-ac-coverage-table-ac-f1-mcp-ui-1-to-10">2. AC Coverage Table (AC-F1-MCP-UI-1 to -10)<a class="headerlink" href="#2-ac-coverage-table-ac-f1-mcp-ui-1-to-10" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>AC</th>
+<th>Description (summary)</th>
+<th>Test(s)</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-F1-MCP-UI-1</td>
+<td>GET /mcp/info returns correct JSON shape from live FastMCP registry</td>
+<td><code>test_mcp_info_returns_200</code>, <code>test_mcp_info_response_shape</code>, <code>test_mcp_info_tool_count_ge_4</code></td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>AC-F1-MCP-UI-2</td>
+<td>No hardcoded values — server_name/entry_point_command/transport from mcp object + settings</td>
+<td><code>test_mcp_info_server_name_is_synapse</code>, <code>test_mcp_info_entry_point_command_from_settings</code>, <code>test_mcp_info_transport_from_settings</code>, <code>test_mcp_info_tools_match_live_registry</code>, <code>test_mcp_info_tool_descriptions_match_live_registry</code>, <code>test_mcp_info_input_schema_matches_live_registry</code></td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>AC-F1-MCP-UI-3</td>
+<td>SectionApiMcp stub replaced; fetch-on-mount; degraded state on failure</td>
+<td><code>SettingsPanel.test.tsx §11</code>: loading state, error state, no comingSoon key</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>AC-F1-MCP-UI-4</td>
+<td>Connection panel: transport + entry_point_command + copy-to-clipboard snippet generated from payload</td>
+<td><code>SettingsPanel.test.tsx §11</code>: snippet content, server_name key, tokenised command+args</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>AC-F1-MCP-UI-5</td>
+<td>Tools list from info.tools only; first-sentence truncation; param count; no hardcoded tool names</td>
+<td><code>SettingsPanel.test.tsx §11</code>: 4 tool names rendered, param counts via data-param-count</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>AC-F1-MCP-UI-6</td>
+<td>i18n EN + IT parity; comingSoon retired from apiMcp</td>
+<td>Python key-parity check (automated inline); grep confirms no apiMcp.comingSoon key</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>AC-F1-MCP-UI-7</td>
+<td>I9: no second MCP server, no tool call, no logic duplication</td>
+<td>Code inspection: handler calls only <code>await _mcp_server.list_tools()</code>, no DB/Qdrant, no tool execution; frontend has no MCP call path</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>AC-F1-MCP-UI-8</td>
+<td>D4: GET /mcp/info present in openapi.json; zero drift</td>
+<td>grep confirms <code>/mcp/info</code>, <code>McpInfoResponse</code>, <code>McpToolInfo</code> in docs/api/openapi.json</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>AC-F1-MCP-UI-9</td>
+<td>D5: docs/screens/settings-api-mcp.png captured by Playwright</td>
+<td>Playwright spec created: <code>frontend/e2e/shell-m5-phase5-mcp-ui.spec.ts</code> — <strong>NOT YET EXECUTED</strong> (requires live backend+frontend)</td>
+<td>NOTE-1</td>
+</tr>
+<tr>
+<td>AC-F1-MCP-UI-10</td>
+<td>pytest: HTTP 200, tool_count &gt;= 4, server_name == "synapse", entry_point_command non-empty; vitest: 4 tools rendered, copy button present</td>
+<td><code>test_mcp_info_*.py</code> (14 tests, all pass); <code>SettingsPanel.test.tsx §11</code> (copy button, tool names)</td>
+<td>PASS</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-nothing-hardcoded-confirmation-i6-i9-headline">3. Nothing-Hardcoded Confirmation (I6 + I9 — Headline)<a class="headerlink" href="#3-nothing-hardcoded-confirmation-i6-i9-headline" title="Permanent link">&para;</a></h2>
+<h3 id="backend">Backend<a class="headerlink" href="#backend" title="Permanent link">&para;</a></h3>
+<p>The <code>get_mcp_info()</code> handler at line 1626 of <code>backend/app/main.py</code>:
+- Calls <code>await _mcp_server.list_tools()</code> to source the tool list; builds <code>McpToolInfo</code> from <code>t.name</code>, <code>t.description</code>, <code>t.parameters</code> — no string literal for any tool name, description, or schema.
+- Returns <code>server_name=_mcp_server.name</code> — derived from the live FastMCP object.
+- Returns <code>transport=settings.mcp_transport</code> — from <code>app/config.py</code>, env var <code>MCP_TRANSPORT</code>, default <code>"stdio"</code>.
+- Returns <code>entry_point_command=settings.mcp_entry_command</code> — from <code>app/config.py</code>, env var <code>MCP_ENTRY_COMMAND</code>, default <code>"python -m app.mcp.server"</code>.
+- No DB query (<code>get_session</code> is not called). No Qdrant call. No MCP stdio transport opened.</p>
+<p>Test <code>test_mcp_info_tools_match_live_registry</code> specifically verifies that the returned tool names equal exactly <code>{t.name for t in await mcp.list_tools()}</code> — a dynamic check that would fail if the handler returned a hardcoded list.</p>
+<p>Tests <code>test_mcp_info_entry_point_command_from_settings</code> and <code>test_mcp_info_transport_from_settings</code> assert the response values equal <code>settings.mcp_entry_command</code> and <code>settings.mcp_transport</code> respectively.</p>
+<h3 id="frontend">Frontend<a class="headerlink" href="#frontend" title="Permanent link">&para;</a></h3>
+<p><code>SectionApiMcp</code> in <code>frontend/src/components/settings/SettingsPanel.tsx</code>:
+- Calls <code>fetchMcpInfo(signal)</code> on mount; renders from <code>info.tools</code> list exclusively — no JSX literal for any tool name or description.
+- <code>buildClaudeDesktopSnippet(info)</code> tokenises <code>info.entry_point_command</code> and keys the snippet by <code>info.server_name</code> — both from the API response.
+- No Zustand store created for this panel (local <code>useState</code> only, mirrors <code>SectionEmbeddings</code>).</p>
+<p>The <code>mcpClient.test.ts</code> suite includes a dedicated describe block ("Claude Desktop config snippet — tokenisation contract") with 6 tests verifying that the snippet is derived from the payload and not from hardcoded strings (including a test with a custom <code>server_name: "custom-server"</code> that asserts the hardcoded key "synapse" does NOT appear).</p>
+<hr />
+<h2 id="4-read-only-confirmation-do-not-list-adr-0027-4">4. Read-Only Confirmation (Do-NOT list, ADR-0027 §4)<a class="headerlink" href="#4-read-only-confirmation-do-not-list-adr-0027-4" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Do-NOT</th>
+<th>Verified clean</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No hardcoded tool list backend or frontend</td>
+<td>Confirmed (§3 above)</td>
+</tr>
+<tr>
+<td>No hardcoded server name / transport / entry command in handler</td>
+<td>Confirmed (§3 above)</td>
+</tr>
+<tr>
+<td>No MCP tool invocation from UI</td>
+<td>Confirmed — frontend makes one <code>fetch()</code> call to <code>GET /mcp/info</code> only; no calls to search_wiki/write_page/get_page/list_pages</td>
+</tr>
+<tr>
+<td>No config-write / CRUD</td>
+<td>Confirmed — panel is display-only; no PUT/POST/DELETE calls</td>
+</tr>
+<tr>
+<td>No second MCP server or server.py duplication</td>
+<td>Confirmed — handler imports <code>_mcp_server</code> from <code>app.mcp.server</code> and introspects it</td>
+</tr>
+<tr>
+<td>No DB table or migration</td>
+<td>Confirmed — no new SQLAlchemy model, no Alembic migration, D2 unchanged</td>
+</tr>
+<tr>
+<td>No Zustand store for the panel</td>
+<td>Confirmed — <code>SectionApiMcp</code> uses <code>useState</code> only</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-d4-zero-drift-check">5. D4 Zero-Drift Check<a class="headerlink" href="#5-d4-zero-drift-check" title="Permanent link">&para;</a></h2>
+<p><code>docs/api/openapi.json</code> contains:
+- Path <code>/mcp/info</code> with <code>operationId: get_mcp_info_mcp_info_get</code>
+- Response schema <code>McpInfoResponse</code> with all 5 fields (server_name, transport, entry_point_command, tool_count, tools)
+- Schema <code>McpToolInfo</code> with 3 fields (name, description, input_schema)</p>
+<p>Zero drift confirmed. D2 is unchanged (no schema migration for this feature).</p>
+<hr />
+<h2 id="6-notes">6. Notes<a class="headerlink" href="#6-notes" title="Permanent link">&para;</a></h2>
+<h3 id="note-1-d5-screenshot-not-yet-captured-ac-f1-mcp-ui-9">NOTE-1 — D5 Screenshot Not Yet Captured (AC-F1-MCP-UI-9)<a class="headerlink" href="#note-1-d5-screenshot-not-yet-captured-ac-f1-mcp-ui-9" title="Permanent link">&para;</a></h3>
+<p>The Playwright spec <code>frontend/e2e/shell-m5-phase5-mcp-ui.spec.ts</code> was created and defines the capture contract for <code>docs/screens/settings-api-mcp.png</code>. The spec cannot execute in this CI-headless session (no running backend/frontend servers). The screenshot must be captured in the next <code>make screenshots</code> run with the live stack.</p>
+<p><strong>Resolution path:</strong> run <code>cd frontend &amp;&amp; npx playwright test e2e/shell-m5-phase5-mcp-ui.spec.ts</code> against the live stack, then commit <code>docs/screens/settings-api-mcp.png</code>. AC-F1-MCP-UI-9 and EC-M5-22 remain open until the PNG is committed.</p>
+<p>This is a documentation gap only. The backend endpoint, frontend panel, and all unit/integration tests are green. The UI panel itself is functional and verified by the vitest suite.</p>
+<h3 id="note-2-i18n-comingsoon-key-retired">NOTE-2 — i18n <code>comingSoon</code> Key Retired<a class="headerlink" href="#note-2-i18n-comingsoon-key-retired" title="Permanent link">&para;</a></h3>
+<p>The key <code>settings.apiMcp.comingSoon</code> has been removed from both <code>en.json</code> and <code>it.json</code>. The test <code>SettingsPanel.test.tsx §11</code> includes an assertion that "comingSoon" text does NOT appear after the real panel loads. The <code>PLACEHOLDER_SECTIONS</code> array in the test was correctly updated to <code>["interface"]</code> only — <code>apiMcp</code> is no longer a placeholder.</p>
+<h3 id="note-3-baseline-tests-unchanged">NOTE-3 — Baseline Tests Unchanged<a class="headerlink" href="#note-3-baseline-tests-unchanged" title="Permanent link">&para;</a></h3>
+<p>The baseline (688 pytest, 557 vitest) matches the pre-phase baseline stated in the gate brief. No test was removed or weakened to achieve a pass.</p>
+<hr />
+<h2 id="7-deliverable-to-phase-5-sign-off-chain">7. Deliverable to Phase 5 Sign-Off Chain<a class="headerlink" href="#7-deliverable-to-phase-5-sign-off-chain" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pytest 688 passed (no regressions)</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>vitest 557 passed (no regressions)</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>ruff + black + mypy clean</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>tsc + ESLint clean</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>AC-F1-MCP-UI-1..8, 10</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>AC-F1-MCP-UI-9 (D5 screenshot)</td>
+<td>OPEN — Playwright spec created; PNG capture pending live stack</td>
+</tr>
+<tr>
+<td>Nothing-hardcoded (I6/I9) both layers</td>
+<td>CONFIRMED</td>
+</tr>
+<tr>
+<td>Read-only (Do-NOT list)</td>
+<td>CONFIRMED</td>
+</tr>
+<tr>
+<td>D4 zero drift</td>
+<td>CONFIRMED</td>
+</tr>
+<tr>
+<td>D2 unchanged (no migration)</td>
+<td>CONFIRMED</td>
+</tr>
+<tr>
+<td>No flaky tests (2 runs)</td>
+<td>CONFIRMED</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Overall verdict: PASS-WITH-NOTES.</strong> The single open item (NOTE-1) is a documentation capture task, not a code defect. The feature is functionally correct and fully tested. Phase 5 may sign off conditional on the screenshot being committed; EC-M5-22 should be marked CONDITIONAL until <code>docs/screens/settings-api-mcp.png</code> is present.</p>
+<p>Files added this gate:
+- <code>/Users/emanuelechiummo/Documents/00_Personal/00_Claude/LLM Wiki Project/frontend/e2e/shell-m5-phase5-mcp-ui.spec.ts</code>
+- <code>/Users/emanuelechiummo/Documents/00_Personal/00_Claude/LLM Wiki Project/docs/sprints/v0.5-qa-phase5.md</code></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

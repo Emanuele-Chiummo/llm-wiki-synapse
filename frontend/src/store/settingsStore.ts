@@ -217,6 +217,12 @@ interface SettingsState {
    * Persisted to localStorage["synapse.theme"]. Default: "system".
    */
   theme: Theme;
+  /**
+   * Web-only gate: true when apiFetch received a 401 response (ADR-0052).
+   * Never persisted — always starts false; set by the register401Handler callback.
+   * NOT used in Tauri (which uses the ConnectScreen gate instead).
+   */
+  authRequired: boolean;
 }
 
 interface SettingsActions {
@@ -241,6 +247,11 @@ interface SettingsActions {
    * and manages the system-change listener.
    */
   setTheme: (theme: Theme) => void;
+  /**
+   * Set or clear the authRequired gate (ADR-0052).
+   * Called by the register401Handler callback in AppShell (web only).
+   */
+  setAuthRequired: (required: boolean) => void;
   reset: () => void;
 }
 
@@ -261,6 +272,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
   return {
     ...initial,
     serverUrl: getServerUrl(),
+    authRequired: false,
 
     setLanguage: (language) => {
       try { localStorage.setItem(LS_LANG, language); } catch { /* ignore */ }
@@ -304,6 +316,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
       applyThemeToDom(resolved);
 
       set({ theme });
+    },
+
+    setAuthRequired: (required) => {
+      set({ authRequired: required });
     },
 
     reset: () => {
@@ -375,4 +391,12 @@ export function selectTheme(s: SettingsStore): Theme {
 
 export function selectSetTheme(s: SettingsStore): SettingsActions["setTheme"] {
   return s.setTheme;
+}
+
+export function selectAuthRequired(s: SettingsStore): boolean {
+  return s.authRequired;
+}
+
+export function selectSetAuthRequired(s: SettingsStore): SettingsActions["setAuthRequired"] {
+  return s.setAuthRequired;
 }

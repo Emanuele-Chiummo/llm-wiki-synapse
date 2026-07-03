@@ -699,6 +699,26 @@ class Settings(BaseSettings):
     Env var: IMPORT_SCAN_RECURSIVE.
     """
 
+    # ── Authentication (ADR-0052) ─────────────────────────────────────────────────
+
+    auth_token: str = ""
+    """
+    Shared Bearer token for the REST API (ADR-0052, R10-1, F16).
+
+    Empty string or absent (the default) ⇒ authentication is DISABLED.
+    All routes behave exactly as v0.9 — no 401s, no behaviour change.
+    This is the backward-compatible default (EC-M10-11).
+
+    Set (non-empty) ⇒ every non-exempt request MUST carry
+    ``Authorization: Bearer <token>``, compared constant-time with
+    ``secrets.compare_digest``. Absent/wrong token → 401.
+
+    NEVER logged, NEVER stored in the DB, NEVER hashed (env-only by design —
+    §2.1 of ADR-0052). Recommend ≥ 32 random characters.
+
+    Env var: SYNAPSE_AUTH_TOKEN.
+    """
+
     # ── MCP server introspection (F1-MCP-UI, ADR-0027 §2.3) ──────────────────────
 
     mcp_transport: str = "stdio"

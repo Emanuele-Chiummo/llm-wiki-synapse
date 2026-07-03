@@ -264,14 +264,15 @@ describe("fetchCommunityDetail — AbortSignal", () => {
     expect(opts?.signal).toBe(ctrl.signal);
   });
 
-  it("omits options when no signal provided", async () => {
+  it("omits signal when no signal provided", async () => {
     const mockFetch = vi.fn().mockResolvedValue(jsonResponse(COMMUNITY_DETAIL));
     vi.stubGlobal("fetch", mockFetch);
 
     await fetchCommunityDetail(2);
 
+    // apiFetch always passes a RequestInit (for auth headers), so check signal is absent
     const opts = mockFetch.mock.calls[0]![1] as { signal?: AbortSignal } | undefined;
-    expect(opts).toBeUndefined();
+    expect(opts?.signal).toBeUndefined();
   });
 });
 

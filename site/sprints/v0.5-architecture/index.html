@@ -1,0 +1,1634 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-architecture/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint 5 — v0.5 — Architecture & Design (M5 "Feature parity core") - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-5-v05-architecture-design-m5-feature-parity-core" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint 5 — v0.5 — Architecture &amp; Design (M5 "Feature parity core")
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-aq-decision-table-the-7-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. AQ decision table (the 7 questions)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. AQ decision table (the 7 questions)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#note-to-functional-analyst-aq-v05-7-wording" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Note to functional-analyst (AQ-v0.5-7 wording)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-m5-module-map-all-five-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. M5 module map (all five features)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. M5 module map (all five features)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-f5-4-phase-retrieval-phase-1-full-detail-35" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 F5 — 4-phase retrieval [Phase 1 · FULL detail §3–5]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-f9-async-hitl-review-queue-phase-3-detailed-in-adr-0025-this-stub-is-the-coherence-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 F9 — Async HITL review queue [Phase 3 · DETAILED in ADR-0025 — this stub is the coherence map]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-f10-deep-research-loop-phase-2-detailed-in-adr-0024-this-stub-is-the-coherence-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 F10 — Deep Research loop [Phase 2 · DETAILED in ADR-0024 — this stub is the coherence map]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-f12-multi-format-ingest-phase-3-detailed-in-adr-0025-this-stub-is-the-coherence-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 F12 — Multi-format ingest [Phase 3 · DETAILED in ADR-0025 — this stub is the coherence map]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-f13-cascade-deletion-phase-4-detailed-in-adr-0026-this-stub-is-the-coherence-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 F13 — Cascade deletion [Phase 4 · DETAILED in ADR-0026 — this stub is the coherence map]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-carry-forwards-bundled-into-phase-1-this-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Carry-forwards bundled into Phase 1 (this phase)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-phase-1-f5-retrieval-pipeline-ragretrievalpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Phase 1 — F5 retrieval pipeline (rag/retrieval.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Phase 1 — F5 retrieval pipeline (rag/retrieval.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-the-data-model-reality-this-design-must-respect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 The data-model reality this design must respect
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-the-four-phases-in-order-single-pass-i7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 The four phases (in order, single pass — I7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-passage-source-granularity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Passage source &amp; granularity
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-phase-1-data-structures-the-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Phase 1 — data structures (the contract)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Phase 1 — data structures (the contract)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-the-citation-contract-load-bearing-f5-f6-frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 The citation contract (load-bearing — F5 ↔ F6 ↔ frontend)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-get-search-contract-d4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 GET /search contract (D4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-slug-is-derived-not-stored" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 slug is derived, not stored
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-phase-1-integration-chat-providers-consume-the-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Phase 1 — integration: chat &amp; providers consume the context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Phase 1 — integration: chat &amp; providers consume the context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-chat-f6-wiring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Chat (F6) wiring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-the-6020515-budget-f14-where-retrieval-sits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 The 60/20/5/15 budget (F14) — where retrieval sits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-get-search-endpoint-mainpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 GET /search endpoint (main.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-phases-24-interface-stubs-coherence-only-each-has-its-own-adr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Phases 2–4 interface stubs (coherence only — each has its own ADR)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Phases 2–4 interface stubs (coherence only — each has its own ADR)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-provider-citation-instruction-shared-lands-in-phase-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Provider citation instruction (shared, lands in Phase 1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-f9-review-phase-3-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 F9 review (Phase 3) — interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-f10-deep-research-phase-2-bounds-live-on-the-run-row" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 F10 deep research (Phase 2) — bounds live on the run row
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-f9-schema-phase-3-review_items-alembic-0010-f10-takes-0009-adr-0024-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 F9 schema (Phase 3) — review_items (Alembic 0010 — F10 takes 0009, ADR-0024 §7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#65-f13-cascade-phase-4-single-pass-obsidian-safe-with-mandatory-dry-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.5 F13 cascade (Phase 4) — single pass, Obsidian-safe, with mandatory dry-run
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-phase-1-cliagentproviderchat-design-f17-carry-forward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Phase 1 — CliAgentProvider.chat() design (F17 carry-forward)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-invariant-compliance-statement-phase-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Invariant compliance statement (Phase 1)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-flagged-tensions-risks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Flagged tensions &amp; risks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-phase-1-sign-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Phase 1 SIGN-OFF
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-5-v05-architecture-design-m5-feature-parity-core">Sprint 5 — v0.5 — Architecture &amp; Design (M5 "Feature parity core")<a class="headerlink" href="#sprint-5-v05-architecture-design-m5-feature-parity-core" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Milestone: M5 — F5 retrieval · F9 review · F10 deep research · F12 multi-format · F13 cascade delete
+Author: solution-architect · Date: 2026-06-29
+Resolves: AQ-v0.5-1..7 · ADRs (this sprint): <strong>0022</strong> (Phase 1) · <strong>0024</strong> (Phase 2, F10) · <strong>0025</strong> (Phase 3, F9+F12) · <strong>0026</strong> (Phase 4, F13) — all locked
+Invariants owned this sprint: <strong>I7</strong> (headline — bounded loops), <strong>I9</strong> (headline — SearXNG/Qdrant reuse),
+plus I1 (incremental), I5 (Obsidian-valid), I6 (pluggable inference), I2/I3 (preserved by F5)
+Detailed-design focus: <strong>Phase 1 (retrieval foundation)</strong>. Phases 2–4 are interface-level here;
+each gets its own ADR + sprint-doc amendment at its phase gate.</p>
+</blockquote>
+<hr />
+<h2 id="1-aq-decision-table-the-7-questions">1. AQ decision table (the 7 questions)<a class="headerlink" href="#1-aq-decision-table-the-7-questions" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>AQ</th>
+<th>P</th>
+<th>Blocks</th>
+<th>Question</th>
+<th>DECISION</th>
+<th>Where locked</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AQ-v0.5-1</strong></td>
+<td>P0</td>
+<td>AC-F5-1</td>
+<td>BM25 hybrid in Qdrant now, or dense-only first?</td>
+<td><strong>Dense-only (bge-m3 cosine) in Phase 1.</strong> No sparse/BM25 index. The existing <code>synapse_pages</code> collection has a single dense vector config (<code>qdrant_client.py</code>); adding a named sparse vector is a collection-shape migration we do NOT take on the dependency-root feature. The 4-phase pipeline's keyword phase = bge-m3 dense top-k. Hybrid is a <strong>post-M5 enhancement</strong> (a named sparse vector + RRF fusion) — reserved, not built.</td>
+<td>ADR-0022 §3</td>
+</tr>
+<tr>
+<td><strong>AQ-v0.5-2</strong></td>
+<td>P0</td>
+<td>AC-F5-4</td>
+<td>Token budget by char/4 or tiktoken?</td>
+<td><strong>char/4 heuristic (the existing <code>_CHARS_PER_TOKEN=4</code> convention), tokenizer-free.</strong> Reused from <code>chat/context.py</code> + <code>chat/stream.py</code> for consistency. tiktoken is <strong>NOT</strong> added: it is an OpenAI-specific tokenizer that mis-estimates Anthropic and Ollama models, it is a new heavy dependency (I9 "do not reinvent / minimize deps"), and the budget is a <strong>safety cap that drops lowest-ranked passages</strong>, not a billing oracle. The cap MUST be conservative (under-fill, never over-fill).</td>
+<td>ADR-0022 §5</td>
+</tr>
+<tr>
+<td><strong>AQ-v0.5-3</strong></td>
+<td>P1</td>
+<td>AC-F10-1</td>
+<td>Synthesis through full analyze→generate→validate, or generate-only?</td>
+<td><strong>Through the full orchestrated <code>ingest_file</code> seam — NOT a direct <code>generate()</code> call.</strong> F10 writes the synthesis to <code>vault/raw/sources/deep-research-&lt;run_id&gt;.md</code> and lets the <strong>existing ingest pipeline</strong> (ADR-0003 seam) analyze+generate+validate it. Rationale: I6 (no provider bypass), I1 (incremental, content-hash gated), I5 (frontmatter-valid via the writer), and zero new ingest logic. The synthesis is <em>source material</em>, not a pre-built page; the analysis step is cheap and keeps one ingest contract. (Phase 2 ADR-0024 finalizes.)</td>
+<td>§6.3 / ADR-0024</td>
+</tr>
+<tr>
+<td><strong>AQ-v0.5-4</strong></td>
+<td>P1</td>
+<td>AC-F10-2</td>
+<td><code>max_iter</code> default 3, or configurable?</td>
+<td><strong>Configurable with default 3</strong>, stored on the <strong><code>deep_research_runs</code> row</strong> (frozen per-run from the <code>POST /research/start</code> body, falling back to env <code>DEEP_RESEARCH_MAX_ITER=3</code>). NOT a <code>provider_config</code> column (deep-research bounds are an <em>operation</em> property, not a <em>provider</em> property). <code>token_budget</code> default <code>DEEP_RESEARCH_TOKEN_BUDGET=100_000</code>; <code>max_queries_per_iter=5</code>; <code>concurrency=3</code> <strong>hardcoded</strong> (architect-approval gate to change). Bounds are frozen at run start and never re-read mid-loop. (Phase 2 ADR-0024 finalizes.)</td>
+<td>§6.3 / ADR-0024</td>
+</tr>
+<tr>
+<td><strong>AQ-v0.5-5</strong></td>
+<td>P1</td>
+<td>AC-F13-1</td>
+<td>Soft vs hard delete; watcher resurrection on restart?</td>
+<td><strong>Soft delete (<code>deleted_at=now()</code>), and the watcher already ignores soft-deleted rows by construction.</strong> ADR-0005 + the <code>uix_pages_vault_file_path_live</code> partial-unique index means a soft-deleted row does not block a live re-create, and <code>_load_page</code> filters <code>deleted_at IS NULL</code>. F13 deletes the <code>raw/sources/</code> source file too (so the watcher sees a DELETE, not a CREATE, on restart) and removes the <code>wiki/</code> artifact — no resurrection. The watcher docstring gains an explicit note. (Phase 4 ADR-0026 finalizes.)</td>
+<td>§6.5 / ADR-0026</td>
+</tr>
+<tr>
+<td><strong>AQ-v0.5-6</strong></td>
+<td>P1</td>
+<td>AC-F9-1</td>
+<td><code>review_items.vault_id</code>: FK to a <code>vaults</code> table, or the existing <code>vault_id</code> string?</td>
+<td><strong>The existing <code>vault_id</code> STRING</strong> (the <code>VAULT_ID</code> env value used by <code>pages</code>/<code>edges</code>/<code>conversations</code>/<code>provider_config</code>). There is <strong>no <code>vaults</code> table</strong> and M5 does not introduce one (single-vault deployment, CLAUDE.md §1). <code>review_items.vault_id</code> is <code>String NOT NULL</code>, matching every other scoped table. <code>page_id</code> is a real FK → <code>pages.id</code> (nullable). (Phase 3 ADR-0025 finalizes.)</td>
+<td>§6.4 / ADR-0025</td>
+</tr>
+<tr>
+<td><strong>AQ-v0.5-7</strong></td>
+<td>P1</td>
+<td>AC-F17-CHAT-1</td>
+<td>CliAgentProvider.chat() <code>max_iter</code>: reuse ingest <code>max_iter</code>, or a separate <code>chat_max_iter</code>?</td>
+<td><strong>Reuse the resolved <code>chat</code>-operation <code>provider_config</code> row's existing bounds (<code>token_budget</code> + the F16 <code>timeout_seconds</code>), plus an env turn-cap <code>CHAT_AGENT_MAX_TURNS</code> (default 8) on the delegated SDK loop.</strong> No new <code>chat_max_iter</code> DB column: chat bounding is already <code>token_budget</code> + <code>timeout_seconds</code> (ADR-0019 §2.2), and those flow through <code>run_chat_stream</code> unchanged. The CLI delegated agent additionally caps <strong>agent turns</strong> (tool-call rounds) by an env <code>CHAT_AGENT_MAX_TURNS</code> (default 8) so the SDK loop is bounded independently of token accounting. A schema change for one provider's turn cap is not warranted (I7 is satisfied by the two existing caps + the turn cap).</td>
+<td>ADR-0022 §7</td>
+</tr>
+</tbody>
+</table>
+<h3 id="note-to-functional-analyst-aq-v05-7-wording">Note to functional-analyst (AQ-v0.5-7 wording)<a class="headerlink" href="#note-to-functional-analyst-aq-v05-7-wording" title="Permanent link">&para;</a></h3>
+<p>S-F17-1 / AC-F17-CHAT-1(c) says "<code>max_iter</code> (configurable, default from provider_config)". Read
+"<code>max_iter</code>" there as <strong>the bounded-loop guarantee</strong>, satisfied by <code>token_budget</code> + <code>timeout_seconds</code>
+(both already on the resolved <code>chat</code> config row) <strong>plus</strong> the <code>CHAT_AGENT_MAX_TURNS</code> env cap on SDK
+agent turns. No new <code>provider_config</code> column is added; the AC is met by three existing/env bounds.
+This is a wording reconciliation, not a design reduction.</p>
+<hr />
+<h2 id="2-m5-module-map-all-five-features">2. M5 module map (all five features)<a class="headerlink" href="#2-m5-module-map-all-five-features" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Phase 1 (F5 + carry-forwards) is fully detailed in §§3–5. Phases 2–4 are interface-level here;
+the named files, public signatures, plug points, and governing invariants are fixed now so the
+phases stay coherent. Each phase ADR refines its own contract before its engineers code.</p>
+</blockquote>
+<h3 id="21-f5-4-phase-retrieval-phase-1-full-detail-35">2.1 F5 — 4-phase retrieval <code>[Phase 1 · FULL detail §3–5]</code><a class="headerlink" href="#21-f5-4-phase-retrieval-phase-1-full-detail-35" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Module</strong></td>
+<td><code>backend/app/rag/retrieval.py</code> (the <code>rag/</code> dir exists, empty)</td>
+</tr>
+<tr>
+<td><strong>Public interface</strong></td>
+<td><code>async def retrieve(query: str, *, vault_id: str, context_window: int, k: int = 8, expansion_depth: int = 2) -&gt; RetrievalContext</code></td>
+</tr>
+<tr>
+<td><strong>Data structures</strong></td>
+<td><code>RetrievalContext</code>, <code>Citation</code>, <code>PageRef</code> (Pydantic v2, in <code>rag/retrieval.py</code> — §4)</td>
+</tr>
+<tr>
+<td><strong>Plug points</strong></td>
+<td>(a) <code>chat/stream.py</code> replaces the bare <code>build_chat_context()</code> string with a retrieval-aware context builder that calls <code>retrieve()</code> and feeds the provider <code>retrieval_context</code> <strong>and</strong> stamps <code>messages.citations</code> on <code>done</code>; (b) new <code>GET /search</code> in <code>main.py</code>; (c) reuses <code>qdrant_client.get_qdrant_client()</code> + <code>embeddings.get_embedding_client()</code> (I9) and reads <code>pages</code>/<code>links</code>/<code>edges</code> (Postgres).</td>
+</tr>
+<tr>
+<td><strong>Invariants</strong></td>
+<td>I1 (reads stores, never walks vault) · I2 (graph phase reads <code>edges</code>, never FA2 — assert <code>data_version</code> unchanged) · I3 (context assembled server-side, no per-token work) · I9 (Qdrant + bge-m3 only)</td>
+</tr>
+<tr>
+<td><strong>Migration</strong></td>
+<td><strong>0009</strong> — <code>messages.citations</code> already exists (reserved, ADR-0019); we <strong>reuse</strong> it (no schema change strictly required for F5). A <code>pages.slug</code> <strong>generated/derived</strong> value is computed in code from <code>title</code>/<code>file_path</code>, NOT a new column (§4.3). <strong>Net: F5 adds NO migration.</strong> Migration <strong>0009</strong> is taken by Phase 2 F10 (<code>deep_research_runs</code>+<code>deep_research_sources</code>, ADR-0024 §7); Phase 3 <code>review_items</code> is <strong>0010</strong>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-f9-async-hitl-review-queue-phase-3-detailed-in-adr-0025-this-stub-is-the-coherence-map">2.2 F9 — Async HITL review queue <code>[Phase 3 · DETAILED in ADR-0025 — this stub is the coherence map]</code><a class="headerlink" href="#22-f9-async-hitl-review-queue-phase-3-detailed-in-adr-0025-this-stub-is-the-coherence-map" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>ADR-0025 is the detailed design and SUPERSEDES this interface stub</strong> (table DDL, generator bound,
+REST, Do-NOT list). The producer of items is LOCKED to a single source: the orchestrator's post-write
+hook (orchestrated branch) enqueues one <code>new_page</code> item per page + exactly one bounded provider call.
+The CLI-delegated branch enqueue is a reserved follow-up (ADR-0025 §7.1). The consistency/contradiction
+graph scan (CLAUDE.md §7) is reserved + bounded (reads <code>edges</code>, never FA2 — ADR-0025 §3.4).</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Module</strong></td>
+<td><code>backend/app/ops/review.py</code></td>
+</tr>
+<tr>
+<td><strong>Public interface</strong></td>
+<td><code>async def enqueue_review(*, vault_id, page_id, item_type, pre_generated_query: str | None) -&gt; ReviewItem</code> · <code>async def generate_review_queries(*, vault_id, page_title, page_excerpt) -&gt; str | None</code> (exactly 1 bounded <code>InferenceProvider.chat()</code> call, op <code>"ingest"</code>, timeout+token_budget → None, I6/I7) · REST handlers <code>list_queue / approve / skip / deep_research</code></td>
+</tr>
+<tr>
+<td><strong>Plug points</strong></td>
+<td>Called from the orchestrator's post-write step (<code>run_ingest_pipeline</code>, after <code>write_wiki_page</code>, orchestrated branch) — <strong>fire-and-forget</strong> (try/except, never fails the ingest, AC-F9-2). <code>deep_research</code> action calls F10 <code>POST /research/start</code> (Phase 2 dependency) and stores <code>run_id</code> on the row.</td>
+</tr>
+<tr>
+<td><strong>New table</strong></td>
+<td><code>review_items</code> (<strong>Alembic 0010</strong>) — id/vault_id(<strong>String</strong>, AQ-v0.5-6)/page_id(FK→pages nullable)/item_type(new_page|update_page|deep_research_candidate)/status(pending|approved|skipped|deep_researched)/pre_generated_query(Text nullable)/deep_research_run_id(FK→deep_research_runs nullable)/created_at/reviewed_at/reviewed_by. Index <code>(vault_id, status, created_at)</code>.</td>
+</tr>
+<tr>
+<td><strong>REST</strong></td>
+<td><code>GET /review/queue</code> (paginated, <code>limit</code> capped 50/max 200) · <code>POST /review/queue/{id}/approve</code> · <code>/skip</code> · <code>/deep-research</code> (202 {review_item_id, run_id}). D4.</td>
+</tr>
+<tr>
+<td><strong>Invariants</strong></td>
+<td>I7 (query gen = exactly 1 bounded call, timeout → null query, no loop; queue page capped) · I6 (query gen via resolved <code>InferenceProvider</code>) · I5 (queue is advisory; page already on disk) · I4 (UI list virtualized &gt; 50) · I2 (reserved consistency scan reads <code>edges</code>, never FA2)</td>
+</tr>
+<tr>
+<td><strong>ADR</strong></td>
+<td><strong>0025 (Phase 3) — detailed design</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-f10-deep-research-loop-phase-2-detailed-in-adr-0024-this-stub-is-the-coherence-map">2.3 F10 — Deep Research loop <code>[Phase 2 · DETAILED in ADR-0024 — this stub is the coherence map]</code><a class="headerlink" href="#23-f10-deep-research-loop-phase-2-detailed-in-adr-0024-this-stub-is-the-coherence-map" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>ADR-0024 is the detailed design and SUPERSEDES this interface stub</strong> (loop guard shape, SearXNG
+client contract, migration DDL, REST, Do-NOT list). Two corrections vs. the original stub:
+(1) the run tables are <strong>Alembic 0009</strong> (F10 lands before F9, so <code>review_items</code> is 0010 — see §2.2
+note below); (2) <code>max_iter</code>/<code>token_budget</code> are configurable with <code>POST</code> body → env defaults, frozen
+on the run row. The provider plug point is the existing backend-neutral <strong><code>chat()</code></strong> seam — no new
+InferenceProvider ABC method (I6 untouched).</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Module</strong></td>
+<td><code>backend/app/ops/deep_research.py</code> + a thin <code>backend/app/ops/searxng.py</code> SearXNG client (I9)</td>
+</tr>
+<tr>
+<td><strong>Public interface</strong></td>
+<td><code>async def run_deep_research(*, vault_id: str, topic: str, max_iter: int \| None = None, token_budget: int \| None = None) -&gt; DeepResearchResult</code> (the whole bounded loop) · REST <code>start / list_runs / get_run</code></td>
+</tr>
+<tr>
+<td><strong>Plug points</strong></td>
+<td>All 3 inference steps (query-gen, sufficiency assess, synthesize) go through the resolved <code>InferenceProvider.chat()</code> (operation <code>"ingest"</code>, I6 — no new ABC method). Synthesis → <code>ingest_file</code> seam (AQ-v0.5-3, ADR-0003). SearXNG via <code>SEARXNG_URL</code> env only (I9).</td>
+</tr>
+<tr>
+<td><strong>New tables</strong></td>
+<td><code>deep_research_runs</code> + <code>deep_research_sources</code> (<strong>Alembic 0009</strong> — F10 before F9).</td>
+</tr>
+<tr>
+<td><strong>Bounds (I7 — HEADLINE)</strong></td>
+<td>Loop is <code>for iteration in range(1, max_iter+1)</code> (structural cap; no <code>while True</code>). <code>max_iter</code> (default 3, per-run) · <code>token_budget</code> (default 100K, per-run, gated at top of each round) · <code>max_queries_per_iter=5</code> · <code>concurrency=3</code> <strong>hardcoded</strong> (single asyncio.Semaphore for search+fetch). Frozen at run start, never re-read. <code>status</code> defaults to <code>max_iter_reached</code>; <code>finally</code> sets <code>error</code> — never stuck <code>running</code>. <code>total_cost_usd</code> logged; cost-anomaly WARNING &gt; $1.00 (ADR-0009 §3).</td>
+</tr>
+<tr>
+<td><strong>Invariants</strong></td>
+<td><strong>I7</strong> (every path bounded — P0 block if not) · <strong>I9</strong> (SearXNG only; static import guard: no tavily/ddg/google/serpapi) · I6 · I1/I5 (synthesis through ingest, not direct write)</td>
+</tr>
+<tr>
+<td><strong>ADR</strong></td>
+<td><strong>0024 (Phase 2) — detailed design</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="24-f12-multi-format-ingest-phase-3-detailed-in-adr-0025-this-stub-is-the-coherence-map">2.4 F12 — Multi-format ingest <code>[Phase 3 · DETAILED in ADR-0025 — this stub is the coherence map]</code><a class="headerlink" href="#24-f12-multi-format-ingest-phase-3-detailed-in-adr-0025-this-stub-is-the-coherence-map" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>ADR-0025 is the detailed design and SUPERSEDES this interface stub</strong> (dispatch contract, deps, plug
+point, Do-NOT list). Two corrections vs. the original stub: (1) extraction runs <strong>synchronously on the
+upload request</strong> (before 202) and the <strong>watcher ingests only the companion <code>.extracted.md</code></strong> — the
+upload handler does NOT call <code>ingest_file</code> directly (M4-EXT flow); the binary extension stays OUT of
+<code>_ALLOWED_EXTENSIONS</code> so the watcher ignores it (no double-ingest, ADR-0025 §4.3). (2) <strong><code>unstructured</code>
+is deferred to M6</strong> — images/AV are placeholder-only in M5 (lean deps, I9 — ADR-0025 §4.5/§4.6).</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Module</strong></td>
+<td><code>backend/app/ingest/extract.py</code> (the <strong>sole</strong> home of format libs — static guard, AC-F12-7)</td>
+</tr>
+<tr>
+<td><strong>Public interface</strong></td>
+<td><code>def extract_text(file_path: str | Path) -&gt; str</code> (dispatch on extension; <strong>no LLM, no loop</strong>; output capped at <code>EXTRACT_MAX_CHARS</code>; <code>UnsupportedFormatError</code> → 415)</td>
+</tr>
+<tr>
+<td><strong>Plug points</strong></td>
+<td><code>upload.py</code> / <code>POST /ingest/upload</code> widens its extension gate (binary set added; <code>_ALLOWED_EXTENSIONS</code> <strong>unchanged</strong>). On a binary: write original → <code>raw/sources/&lt;name&gt;.&lt;ext&gt;</code> (preserved, K1), <strong>synchronously</strong> <code>extract_text()</code> → companion <code>&lt;stem&gt;.extracted.md</code> (valid frontmatter, I5), return 202. The <strong>watcher</strong> then ingests the companion via the unchanged <code>ingest_file</code> (one hash gate, I1).</td>
+</tr>
+<tr>
+<td><strong>New deps</strong></td>
+<td><code>pypdf&gt;=4.2,&lt;6</code>, <code>python-docx&gt;=1.1,&lt;2</code>, <code>python-pptx&gt;=0.6.23,&lt;1.1</code>, <code>openpyxl&gt;=3.1,&lt;4</code> (pinned, <code>pyproject.toml</code>). <strong><code>unstructured</code> NOT added in M5</strong> (deferred to M6, ADR-0025 §4.6).</td>
+</tr>
+<tr>
+<td><strong>Invariants</strong></td>
+<td>I1 (hash-gate dedup; re-upload = skipped) · I5 (binary + companion in <code>raw/sources/</code>; <code>wiki/</code> written only by ingest) · I6 (extractors never call an LLM) · I7 (single-pass + output cap) · I9 (well-known pure-Python libs; no heavy OCR dep)</td>
+</tr>
+<tr>
+<td><strong>ADR</strong></td>
+<td><strong>0025 (Phase 3, shared with F9) — detailed design</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="25-f13-cascade-deletion-phase-4-detailed-in-adr-0026-this-stub-is-the-coherence-map">2.5 F13 — Cascade deletion <code>[Phase 4 · DETAILED in ADR-0026 — this stub is the coherence map]</code><a class="headerlink" href="#25-f13-cascade-deletion-phase-4-detailed-in-adr-0026-this-stub-is-the-coherence-map" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>ADR-0026 is the detailed design and SUPERSEDES this stub</strong> (signatures, the 3-method matcher,
+the exact preserve-shared rule, the no-rescan dead-link cleanup, the REST preview+delete surface,
+the Do-NOT list). Corrections vs. the original interface line: (1) a <strong>mandatory dry-run/preview</strong>
+path is added — <code>plan_cascade_delete()</code> (read-only) and <code>POST /pages/{id}/cascade-delete/preview</code>
+alongside the destructive <code>DELETE /pages/{id}</code>; (2) F13 is <strong>migration-free</strong> (reuses
+<code>pages.deleted_at</code>, <code>links</code>, the two <code>edges</code> endpoint indexes, <code>pages.sources</code> — <strong>no D2 change</strong>).</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Module</strong></td>
+<td><code>backend/app/ops/cascade_delete.py</code></td>
+</tr>
+<tr>
+<td><strong>Public interface</strong></td>
+<td><code>async def plan_cascade_delete(page_id) -&gt; CascadePlan</code> (DRY-RUN, read-only) · <code>async def cascade_delete(page_id) -&gt; CascadeResult</code> (single pass, not a loop; <strong>zero inference, zero FA2</strong>) · REST <code>POST /pages/{id}/cascade-delete/preview</code> (200) + <code>DELETE /pages/{id}</code> (200, 404 on double-delete)</td>
+</tr>
+<tr>
+<td><strong>3-method match</strong> (AC-F13-2)</td>
+<td>(a) exact <code>links.target_page_id</code>/<code>target_title</code>; (b) slug-normalised <code>links.target_title</code>; (c) <strong>bounded fulltext fallback</strong> over live <code>wiki/</code> only — primary methods read the <code>links</code> back-reference index, NEVER a rescan (I1; (c) skipped on the links-hit happy path, <code>CASCADE_FULLTEXT_MAX_FILES=5000</code>). Method logged per reference.</td>
+</tr>
+<tr>
+<td><strong>Preserve-shared rule</strong> (AC-F13-2/3)</td>
+<td>Delete a page <strong>iff</strong> its <code>sources[]</code> becomes <strong>empty</strong> after removing the source; else <strong>preserve + prune</strong> the one <code>sources[]</code> entry (frontmatter-safe). Source-overlap (<code>edges</code> kind=<code>source</code>) pages → <code>shared_entity_warnings</code>, <strong>WARN not block</strong>.</td>
+</tr>
+<tr>
+<td><strong>Plug points</strong></td>
+<td>Reuses <code>delete_point()</code> (Qdrant), the <code>links</code> table (back-reference index + <code>persist_links</code> re-derive after rewrite), <code>edges</code> (shared-entity read + endpoint-indexed delete), <code>update_index()</code> once (K3 entry auto-removed from live read), targeted <code>wiki/*.md</code> edits via <code>frontmatter.loads/dumps</code>, <code>bump_version()</code> + <code>notify_bump()</code> (debounced FA2 — no inline run). Soft-delete via <code>pages.deleted_at</code> (ADR-0005). Deletes the originating <code>raw/sources/</code> file (AQ-v0.5-5) so the watcher does not resurrect on restart.</td>
+</tr>
+<tr>
+<td><strong>Migration</strong></td>
+<td><strong>NONE.</strong> Reuses <code>pages.deleted_at</code>/<code>links</code>/<code>edges</code> indexes/<code>pages.sources</code>/<code>vault_state</code>. No new column or table. D2 unchanged. (F10 took 0009; F9 took 0010; F13 takes none.)</td>
+</tr>
+<tr>
+<td><strong>Invariants</strong></td>
+<td><strong>I1</strong> (touches ONLY referencing files; targeted writes; no rescan; <code>data_version</code> +1 <strong>once</strong>, no forced FA2) · <strong>I5</strong> (dead-wikilink cleanup is frontmatter-safe; <code>wiki/</code> stays a valid Obsidian vault; <code>test_obsidian_check.py</code> 15/15) · I2 (one bump → debounced recompute, never inline FA2) · I7 (single pass, no loop, no inference)</td>
+</tr>
+<tr>
+<td><strong>ADR</strong></td>
+<td><strong>0026 (Phase 4) — detailed design</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="26-carry-forwards-bundled-into-phase-1-this-phase">2.6 Carry-forwards bundled into Phase 1 (this phase)<a class="headerlink" href="#26-carry-forwards-bundled-into-phase-1-this-phase" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Carry-forward</th>
+<th>Lands via</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F6 AC-F6-3 (<code>[n]</code> citations stored + rendered)</td>
+<td>F5 stamps <code>messages.citations</code>; frontend <code>ChatMessage.tsx</code> renders <code>&lt;sup&gt;</code> from the now-populated column (§5).</td>
+</tr>
+<tr>
+<td>F6 AC-F6-5 (save-to-wiki)</td>
+<td>Wire the existing disabled button → <code>POST /ingest/from-text</code> (the seam already exists, ADR-0019 §2.7). No new endpoint.</td>
+</tr>
+<tr>
+<td>F17 <code>CliAgentProvider.chat()</code></td>
+<td>Implemented in <code>provider/cli.py</code> (§7) — delegated streaming chat with <code>retrieval_context</code> injected; bounded (AQ-v0.5-7).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-phase-1-f5-retrieval-pipeline-ragretrievalpy">3. Phase 1 — F5 retrieval pipeline (<code>rag/retrieval.py</code>)<a class="headerlink" href="#3-phase-1-f5-retrieval-pipeline-ragretrievalpy" title="Permanent link">&para;</a></h2>
+<h3 id="31-the-data-model-reality-this-design-must-respect">3.1 The data-model reality this design must respect<a class="headerlink" href="#31-the-data-model-reality-this-design-must-respect" title="Permanent link">&para;</a></h3>
+<p><strong>Critical ground truth (drives the whole citation contract):</strong></p>
+<ul>
+<li>A <code>pages</code> row tracks a <strong><code>raw/sources/</code> source document</strong>, not a <code>wiki/</code> page. <code>pages.file_path</code>
+  is a <code>raw/sources/...</code> path; the Qdrant point (id == <code>pages.id</code>) embeds the <strong>raw source text</strong>
+  (<code>orchestrator.py</code> <code>text_for_embedding = raw_bytes</code>).</li>
+<li>The <code>wiki/*.md</code> files produced by <code>write_wiki_page()</code> are <strong>NOT</strong> separately rowed in <code>pages</code>.
+  They carry <code>sources: [...]</code> frontmatter (F3 traceability) pointing back at the <code>raw/sources/</code> paths.</li>
+<li>Therefore the <strong>searchable/embeddable unit is the source page</strong>, and a <code>[n]</code> citation must resolve
+  to something the user can act on. For Phase 1 the citation target is the <strong><code>pages</code> row</strong> itself
+  (the source-document page): <code>id</code>, a display <code>title</code> (frontmatter title or filename stem), and a
+  url-friendly <code>slug</code> derived from it. This is honest — the answer is grounded in that indexed
+  document — and it requires <strong>no new join table</strong>.</li>
+</ul>
+<blockquote>
+<p>Future enhancement (post-M5, reserved): index <code>wiki/</code> pages as first-class searchable units so
+citations point at synthesized wiki pages rather than raw sources. That needs a <code>page_kind</code>
+discriminator on <code>pages</code> (or a parallel <code>wiki_pages</code> index) and is explicitly out of M5 scope.
+ADR-0022 §8 records this as the one accepted limitation.</p>
+</blockquote>
+<h3 id="32-the-four-phases-in-order-single-pass-i7">3.2 The four phases (in order, single pass — I7)<a class="headerlink" href="#32-the-four-phases-in-order-single-pass-i7" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>retrieve(query, vault_id, context_window, k=8, expansion_depth=2) -&gt; RetrievalContext
+
+Phase 1 — TOKENIZED / VECTOR SEARCH  (I9: Qdrant + bge-m3 only)
+  embedding = await get_embedding_client().embed(query)            # existing wrapper (I9)
+  hits = qdrant.search(collection=synapse_pages, vector=embedding, # dense cosine top-k
+                       limit=k, with_payload=True)
+  seed_page_ids = [UUID(h.id) for h in hits]                       # point id == pages.id
+  # AQ-v0.5-1: dense-only. No BM25/sparse. score = cosine similarity.
+
+Phase 2 — GRAPH EXPANSION  (I2: read edges table; NEVER FA2; data_version unchanged)
+  for depth in 1..expansion_depth:                                  # BFS, depth ≤ 2 (bounded, I7)
+      neighbours = SELECT target/source FROM edges
+                   WHERE (source_page_id IN frontier OR target_page_id IN frontier)
+                   ORDER BY weight DESC                             # reuse 4-signal weight (F4)
+      expanded += neighbours (dedup, keep highest edge weight as the expansion score)
+  # also pull resolved links (links.target_page_id) for direct-link expansion.
+  candidates = seed hits (vector score) ∪ expanded (edge-weight score)
+
+Phase 3 — TOKEN-BUDGET ALLOCATION  (F14: 20% of context_window; AQ-v0.5-2 char/4)
+  budget_tokens = int(context_window * 0.20)                       # the &quot;retrieved&quot; slice
+  budget_chars  = budget_tokens * 4                                # char/4 safety cap
+  rank candidates by combined score (vector seeds first, then edge-weight expansions)
+
+Phase 4 — CONTEXT ASSEMBLY  (I3: server-side; build string + citation map ONCE)
+  for each candidate in rank order, while budget remains:
+      passage = load_passage(page)                                 # raw/sources file body, capped
+      assign next 1-based citation index n
+      append &quot;[n] &lt;title&gt;\n&lt;passage&gt;\n&quot; to context_text (whole-passage granularity)
+      record Citation(n, PageRef(id, title, slug))
+  drop lowest-ranked candidates that don&#39;t fit (AC-F5-4: never mid-sentence truncate-without-drop)
+  return RetrievalContext(text, citations, query, ...)
+</code></pre></div>
+<p><strong>Bounding (I7).</strong> <code>k</code> (default 8), <code>expansion_depth</code> (default 2, hard max 2), and the char budget
+are all explicit caps. The expansion BFS is depth-bounded, not open-ended. No phase loops on a
+provider. There is <strong>no inference call</strong> in <code>retrieve()</code> at all — it is pure store reads + assembly.</p>
+<h3 id="33-passage-source-granularity">3.3 Passage source &amp; granularity<a class="headerlink" href="#33-passage-source-granularity" title="Permanent link">&para;</a></h3>
+<p>A "passage" in Phase 1 is the <strong>body of the source document</strong> for a candidate <code>pages</code> row, read from
+<code>vault/raw/sources/&lt;file_path&gt;</code> and <strong>capped per-passage</strong> (e.g. first <code>budget_chars // k</code> chars) so a
+single large source cannot consume the whole budget. Chunk-level passages (sub-document windows) are a
+post-M5 refinement; Phase 1 uses whole-document-capped passages to avoid a re-chunking/re-embedding
+project (I9 — minimize new machinery). Reading the file is an I1-safe targeted read (one file per
+candidate), never a vault walk.</p>
+<hr />
+<h2 id="4-phase-1-data-structures-the-contract">4. Phase 1 — data structures (the contract)<a class="headerlink" href="#4-phase-1-data-structures-the-contract" title="Permanent link">&para;</a></h2>
+<p>All in <code>backend/app/rag/retrieval.py</code>, Pydantic v2 (parsed/serialized at the <code>GET /search</code> boundary
+and stored as JSONB in <code>messages.citations</code>):</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">PageRef</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A citable wiki/source page target. Resolves [n] → navigable page.&quot;&quot;&quot;</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span>            <span class="c1"># str(uuid) of the pages row (== Qdrant point id, ADR-0002)</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span>         <span class="c1"># frontmatter title, else filename stem (never empty — falls back)</span>
+    <span class="n">slug</span><span class="p">:</span> <span class="nb">str</span>          <span class="c1"># url-friendly: slugify(title) (lower, hyphenated, ascii) — NOT NULL</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Citation</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;One [n] marker → its source page + the matched passage&#39;s score.&quot;&quot;&quot;</span>
+    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span>             <span class="c1"># 1-based citation index, contiguous from 1</span>
+    <span class="n">ref</span><span class="p">:</span> <span class="n">PageRef</span>
+    <span class="n">score</span><span class="p">:</span> <span class="nb">float</span>       <span class="c1"># vector cosine OR edge weight (provenance of the candidate)</span>
+    <span class="n">phase</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;vector&quot;</span><span class="p">,</span> <span class="s2">&quot;expansion&quot;</span><span class="p">]</span>   <span class="c1"># which phase surfaced it (audit/debug)</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">RetrievalContext</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The assembled, budget-capped retrieval result. The ONE object F5 returns.&quot;&quot;&quot;</span>
+    <span class="n">query</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span>                      <span class="c1"># assembled context string WITH inline [n] markers (≤ budget)</span>
+    <span class="n">citations</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Citation</span><span class="p">]</span>      <span class="c1"># n → PageRef map; len == number of [n] markers</span>
+    <span class="n">token_budget</span><span class="p">:</span> <span class="nb">int</span>              <span class="c1"># the 20% slice used (for audit)</span>
+    <span class="n">approx_tokens</span><span class="p">:</span> <span class="nb">int</span>             <span class="c1"># char/4 estimate of `text` (≤ token_budget)</span>
+    <span class="n">data_version</span><span class="p">:</span> <span class="nb">int</span>              <span class="c1"># snapshot read before assembly (AC-F5-5 unchanged-after proof)</span>
+</code></pre></div>
+<h3 id="41-the-citation-contract-load-bearing-f5-f6-frontend">4.1 The citation contract (load-bearing — F5 ↔ F6 ↔ frontend)<a class="headerlink" href="#41-the-citation-contract-load-bearing-f5-f6-frontend" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>What gets stored.</strong> On a successful chat turn whose <code>RetrievalContext.citations</code> is non-empty,
+   <code>chat/stream.py</code> writes that list (serialized) into the assistant <code>messages.citations</code> JSONB column
+   (already exists, reserved by ADR-0019). Each stored element is <code>{n, ref:{id,title,slug}, score, phase}</code>.</p>
+</li>
+<li>
+<p><strong>What the chat stream emits.</strong> The <code>done</code> NDJSON event (ADR-0019 §2.2) gains an <strong>additive</strong>
+   <code>citations</code> field: <code>"citations": [{"n":1,"id":"...","title":"...","slug":"..."}, ...]</code> (the
+   compact projection — <code>score</code>/<code>phase</code> are stored but not streamed). Existing clients ignoring the
+   field are unaffected (additive, non-breaking). The streamed assistant <strong>text</strong> contains the literal
+   <code>[n]</code> markers the provider produced (the provider is instructed, via the retrieval_context preamble,
+   to cite using the <code>[n]</code> markers present in the context — see §6.1).</p>
+</li>
+<li>
+<p><strong>How the frontend resolves <code>[n]</code> → page.</strong> <code>ChatMessage.tsx</code> reads the message's <code>citations</code>
+   array, builds an <code>n → {title, slug}</code> map, and post-processes the <strong>already-parsed-once</strong> settled
+   markdown (I3 — parse stays single, ADR-0019 §2.6): a small regex replaces each <code>[n]</code> text token with
+   a <code>&lt;sup role="link" title="{title}"&gt;[n]&lt;/sup&gt;</code> whose hover shows the page title and whose click
+   navigates to the page (slug). This runs <strong>once</strong> on the settled message (memoized on raw+citations),
+   never per streaming token (I3 preserved; G3 untouched).</p>
+</li>
+<li>
+<p><strong>Consistency rule.</strong> <code>len(citations) == count of distinct [n] in text</code>. The assembler is the single
+   authority: it emits <code>[n]</code> into <code>text</code> and the matching <code>Citation</code> together, so they cannot drift.</p>
+</li>
+</ol>
+<h3 id="42-get-search-contract-d4">4.2 <code>GET /search</code> contract (D4)<a class="headerlink" href="#42-get-search-contract-d4" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>GET /search?q=&lt;query&gt;&amp;vault_id=&lt;id&gt;&amp;k=&lt;int&gt;            → 200
+{
+  &quot;query&quot;: &quot;...&quot;,
+  &quot;context&quot;: &quot;&lt;assembled string with [n] markers&gt;&quot;,     // RetrievalContext.text
+  &quot;results&quot;: [ {&quot;n&quot;:1,&quot;id&quot;:&quot;...&quot;,&quot;title&quot;:&quot;...&quot;,&quot;slug&quot;:&quot;...&quot;,&quot;score&quot;:0.83,&quot;phase&quot;:&quot;vector&quot;}, ... ],
+  &quot;data_version&quot;: 7,
+  &quot;approx_tokens&quot;: 1180,
+  &quot;token_budget&quot;: 1310
+}
+→ 200 with empty results + empty context for a 0-hit query (AC-F5-7a)
+</code></pre></div>
+<p>Documented in <code>docs/api/openapi.json</code> (<code>make openapi</code>, I8 zero-drift gate).</p>
+<h3 id="43-slug-is-derived-not-stored">4.3 <code>slug</code> is derived, not stored<a class="headerlink" href="#43-slug-is-derived-not-stored" title="Permanent link">&para;</a></h3>
+<p><code>slug = slugify(title or file_stem)</code> computed in <code>rag/retrieval.py</code> (a small pure helper). <strong>No new
+<code>pages.slug</code> column</strong> — adding one would require backfilling every row and a migration for a value we
+can derive deterministically. This keeps F5 migration-free (§2.1).</p>
+<hr />
+<h2 id="5-phase-1-integration-chat-providers-consume-the-context">5. Phase 1 — integration: chat &amp; providers consume the context<a class="headerlink" href="#5-phase-1-integration-chat-providers-consume-the-context" title="Permanent link">&para;</a></h2>
+<h3 id="51-chat-f6-wiring">5.1 Chat (F6) wiring<a class="headerlink" href="#51-chat-f6-wiring" title="Permanent link">&para;</a></h3>
+<p><code>chat/stream.py</code> today calls <code>build_chat_context(...)</code> → a plain string passed as <code>retrieval_context</code>.
+Phase 1 introduces a <strong>retrieval-aware context builder</strong> that:</p>
+<ol>
+<li>extracts the latest user message as the query,</li>
+<li>calls <code>await retrieve(query, vault_id=..., context_window=window)</code>,</li>
+<li><strong>prepends</strong> the light file context (purpose.md + overview.md, the existing <code>build_chat_context</code>
+   output — kept as grounding header) to <code>RetrievalContext.text</code>, producing the final
+   <code>retrieval_context</code> string handed to <code>provider.chat(messages, retrieval_context)</code>,</li>
+<li><strong>carries the <code>RetrievalContext.citations</code></strong> out of band so the <code>done</code> writer can stamp
+   <code>messages.citations</code> and the <code>done</code> event (§4.1.1–2).</li>
+</ol>
+<p>The provider <code>chat()</code> signature is <strong>unchanged</strong> (<code>(messages, retrieval_context: str)</code>) — I6 contract
+held. Citations travel beside the stream in the orchestration layer, not through the provider.</p>
+<p><strong>I3 / G3 unchanged:</strong> retrieval runs <strong>once, before streaming starts</strong> (it is not per-token). The
+stream loop, the <code>&lt;think&gt;</code> scanner, and the parse-once-on-<code>done</code> rule are all untouched.</p>
+<h3 id="52-the-6020515-budget-f14-where-retrieval-sits">5.2 The 60/20/5/15 budget (F14) — where retrieval sits<a class="headerlink" href="#52-the-6020515-budget-f14-where-retrieval-sits" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Slice</th>
+<th>%</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Conversation history</td>
+<td>60</td>
+<td>prior turns (existing truncate-oldest, ADR-0019)</td>
+</tr>
+<tr>
+<td><strong>Retrieved context</strong></td>
+<td><strong>20</strong></td>
+<td><strong>F5 <code>RetrievalContext.text</code> (this sprint fills it for real)</strong></td>
+</tr>
+<tr>
+<td>System/grounding</td>
+<td>5</td>
+<td>preamble + purpose.md + overview.md header</td>
+</tr>
+<tr>
+<td>Answer headroom</td>
+<td>15</td>
+<td>reserved for the model's output</td>
+</tr>
+</tbody>
+</table>
+<p>F5 owns the <strong>20%</strong> slice. <code>retrieve()</code> is handed <code>context_window</code> and computes its own <code>0.20 *
+window</code> char/4 cap internally (AQ-v0.5-2). The 5% grounding header is the existing <code>build_chat_context</code>.</p>
+<h3 id="53-get-search-endpoint-mainpy">5.3 <code>GET /search</code> endpoint (<code>main.py</code>)<a class="headerlink" href="#53-get-search-endpoint-mainpy" title="Permanent link">&para;</a></h3>
+<p>A thin handler: validate <code>q</code>, call <code>retrieve()</code>, return the §4.2 shape. Read-only; no <code>data_version</code>
+bump (AC-F5-5). Reuses the existing DB session + Qdrant + embedding singletons.</p>
+<hr />
+<h2 id="6-phases-24-interface-stubs-coherence-only-each-has-its-own-adr">6. Phases 2–4 interface stubs (coherence only — each has its own ADR)<a class="headerlink" href="#6-phases-24-interface-stubs-coherence-only-each-has-its-own-adr" title="Permanent link">&para;</a></h2>
+<h3 id="61-provider-citation-instruction-shared-lands-in-phase-1">6.1 Provider citation instruction (shared, lands in Phase 1)<a class="headerlink" href="#61-provider-citation-instruction-shared-lands-in-phase-1" title="Permanent link">&para;</a></h3>
+<p>The retrieval_context string is built with a one-line preamble instructing the model:
+<em>"Cite sources using the <code>[n]</code> markers shown beside each passage; do not invent citation numbers."</em>
+This is backend-neutral text (I6) — it works identically for Ollama/API/CLI. The model echoes <code>[n]</code>
+into its answer; the assembler's <code>citations</code> list is the authority for resolution.</p>
+<h3 id="62-f9-review-phase-3-interface">6.2 F9 review (Phase 3) — interface<a class="headerlink" href="#62-f9-review-phase-3-interface" title="Permanent link">&para;</a></h3>
+<p><code>enqueue_review()</code> is called fire-and-forget from <code>run_ingest_pipeline</code> after each <code>write_wiki_page</code>.
+<code>generate_review_queries()</code> makes <strong>one</strong> bounded <code>InferenceProvider</code> call (I6/I7); on timeout/error it
+returns <code>None</code> and the item is still enqueued (AC-F9-4). The <code>deep-research</code> action calls F10's
+<code>POST /research/start</code> and stores <code>run_id</code> on the row (AC-F10-5).</p>
+<h3 id="63-f10-deep-research-phase-2-bounds-live-on-the-run-row">6.3 F10 deep research (Phase 2) — bounds live on the run row<a class="headerlink" href="#63-f10-deep-research-phase-2-bounds-live-on-the-run-row" title="Permanent link">&para;</a></h3>
+<p><code>run_deep_research()</code> freezes <code>{max_iter, token_budget, max_queries_per_iter=5, concurrency=3}</code> at start
+(AQ-v0.5-4) into <code>deep_research_runs</code>. The loop: gen queries → SearXNG (semaphore=3) → fetch→md →
+assess (provider) → [sufficient → synthesize → <strong><code>ingest_file</code></strong> (AQ-v0.5-3) | else refine, while
+<code>iter &lt; max_iter</code>]. On exhaustion: status <code>max_iter_reached</code>, no further provider calls. <code>total_cost_usd</code>
+logged (I7). <strong>SearXNG only</strong> via <code>SEARXNG_URL</code> (I9); static import guard bans tavily/ddg/google.</p>
+<h3 id="64-f9-schema-phase-3-review_items-alembic-0010-f10-takes-0009-adr-0024-7">6.4 F9 schema (Phase 3) — <code>review_items</code> (Alembic 0010 — F10 takes 0009, ADR-0024 §7)<a class="headerlink" href="#64-f9-schema-phase-3-review_items-alembic-0010-f10-takes-0009-adr-0024-7" title="Permanent link">&para;</a></h3>
+<p><code>id</code> UUID PK · <code>vault_id</code> String NOT NULL (AQ-v0.5-6) · <code>page_id</code> UUID FK→pages nullable ·
+<code>item_type</code> enum(new_page|update_page|deep_research_candidate) · <code>status</code>
+enum(pending|approved|skipped|deep_researched) · <code>pre_generated_query</code> Text nullable ·
+<code>deep_research_run_id</code> UUID nullable · <code>created_at</code>/<code>reviewed_at</code>/<code>reviewed_by</code>.</p>
+<h3 id="65-f13-cascade-phase-4-single-pass-obsidian-safe-with-mandatory-dry-run">6.5 F13 cascade (Phase 4) — single pass, Obsidian-safe, with mandatory dry-run<a class="headerlink" href="#65-f13-cascade-phase-4-single-pass-obsidian-safe-with-mandatory-dry-run" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>ADR-0026 is the detailed design.</strong> Plan/apply are split at the function and REST boundary so the
+dry-run is mandatory (this deletes user data).</p>
+</blockquote>
+<p><code>plan_cascade_delete(page_id)</code> (READ-ONLY, backs <code>POST /pages/{id}/cascade-delete/preview</code>): locate page
+→ 3-method ref find (exact <code>links</code> title/<code>target_page_id</code> / slug-normalised / bounded full-text fallback,
+each logged) → partition <code>sources[]</code> into <code>will_delete</code> (empties) vs <code>will_preserve_with_pruned_source</code>
+(non-empties) → compute <code>wikilinks_to_rewrite</code> from the <code>links</code> back-reference index → collect
+<code>shared_entity_warnings</code> (source-overlap via <code>edges</code>, <strong>warn not block</strong>, AC-F13-3) → return <code>CascadePlan</code>
+<strong>without mutating anything</strong>.</p>
+<p><code>cascade_delete(page_id)</code> (APPLY, single pass, backs <code>DELETE /pages/{id}</code>): compute the plan → soft-delete
+(<code>deleted_at</code>) the <code>will_delete</code> pages → <code>delete_point()</code> each → rewrite <code>[[Target]]</code>→<code>Target</code>
+(<code>[[T|alias]]</code>→<code>alias</code>) <strong>body-only</strong> via <code>frontmatter.loads/dumps</code> in <strong>only</strong> the referencing <code>wiki/*.md</code>
+files (targeted writes, I1) → re-<code>persist_links</code> those files + set residual <code>links.dangling=True</code> → prune
+<code>X</code> from the preserved pages' <code>sources[]</code> (frontmatter-safe) + <code>pages.sources</code> JSONB → delete touching
+<code>edges</code> rows → <code>update_index()</code> once (K3 entry auto-removed from the live read) → delete the originating
+<code>raw/sources/</code> file (AQ-v0.5-5) → <code>bump_version()</code> <strong>EXACTLY ONCE</strong> + <code>notify_bump()</code> (debounced FA2, no
+forced run, I2). Wikilink replacement is body-only and never touches YAML frontmatter (I5);
+<code>test_obsidian_check.py</code> 15/15 is the gate. <strong>Migration-free</strong> (no D2 change). <code>DELETE /pages/{id}</code> 404s on
+a non-existent or already-soft-deleted id (idempotent double-delete, AC-F13-5c).</p>
+<hr />
+<h2 id="7-phase-1-cliagentproviderchat-design-f17-carry-forward">7. Phase 1 — <code>CliAgentProvider.chat()</code> design (F17 carry-forward)<a class="headerlink" href="#7-phase-1-cliagentproviderchat-design-f17-carry-forward" title="Permanent link">&para;</a></h2>
+<p>Today <code>cli.py</code> <code>chat()</code> raises <code>NotImplementedError</code> (honest M4 stub). Phase 1 implements it as a
+<strong>delegated streaming chat turn</strong> via <code>claude-agent-sdk</code>, mirroring <code>delegate_ingest()</code>:</p>
+<ul>
+<li><strong>Signature unchanged</strong> (I6): <code>async def chat(self, messages, retrieval_context) -&gt; AsyncIterator[str]</code>.
+  Returns an async generator of text deltas — the <strong>same shape</strong> <code>run_chat_stream._consume()</code> already
+  consumes for Ollama/API (<code>stream.py</code> supports both coroutine-returning and async-gen providers).</li>
+<li><strong>Context injection:</strong> <code>retrieval_context</code> (the assembled F5 string incl. <code>[n]</code> markers + grounding
+  header) is injected as the <strong>system prompt / leading context</strong> to the SDK session (read-only chat —
+  the agent is NOT granted <code>write_page</code>; chat does not mutate the vault). Conversation <code>messages</code> map to
+  SDK turns.</li>
+<li><strong>Bounding (I7, AQ-v0.5-7):</strong> three caps, no new DB column —
+  (a) <code>token_budget</code> from the resolved <code>chat</code> config row (already flows through <code>run_chat_stream</code>),
+  (b) <code>timeout_seconds</code> (F16 60s, enforced by <code>run_chat_stream</code>'s <code>asyncio.wait_for</code> — unchanged),
+  (c) <strong><code>CHAT_AGENT_MAX_TURNS</code></strong> env (default 8) caps SDK agent turns so a tool-looping agent halts.
+  The loop terminates on first complete response or any cap (AC-F17-CHAT-1d).</li>
+<li><strong>Streaming:</strong> iterate <code>client.receive_response()</code>; yield assistant text blocks as <code>{type:"token"}</code>
+  deltas (the existing <code>&lt;think&gt;</code> scanner in <code>stream.py</code> handles any <code>&lt;think&gt;</code> spans — no change there).</li>
+<li><strong>Cost (AC-F17-CHAT-3, NB-4):</strong> reuse <code>_extract_sdk_cost</code>/<code>_merge_sdk_usage</code> — SDK <code>total_cost_usd</code>
+  when billed via API key, else <code>Decimal("0.00")</code> with a WARNING. Pushed via <code>_record_usage</code> so
+  <code>run_chat_stream</code> logs/returns it like any other backend.</li>
+<li><strong>Lazy import + no-key path:</strong> the SDK is imported lazily (as in <code>delegate_ingest</code>); with no
+  <code>ANTHROPIC_API_KEY</code> the method raises a clean configuration error <strong>before</strong> streaming (maps to the
+  pre-stream <code>error</code> path) — never a fake stream. Dev default remains Ollama (ADR-0019); CLI chat is
+  exercised via a mocked SDK in <code>test_cli_chat.py</code> (AC-F17-CHAT-1..3).</li>
+</ul>
+<hr />
+<h2 id="8-invariant-compliance-statement-phase-1">8. Invariant compliance statement (Phase 1)<a class="headerlink" href="#8-invariant-compliance-statement-phase-1" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Inv</th>
+<th>How Phase 1 guarantees it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I1</strong></td>
+<td><code>retrieve()</code> reads Qdrant + Postgres (<code>pages</code>/<code>links</code>/<code>edges</code>) and targeted source-file bodies only — never walks <code>vault/</code>. <code>GET /search</code> does not bump <code>data_version</code>. (ADR-0022)</td>
+</tr>
+<tr>
+<td><strong>I2</strong></td>
+<td>Graph-expansion reads the <code>edges</code> table (the F4 output); it does <strong>not</strong> call the GraphEngine / FA2. <code>RetrievalContext.data_version</code> snapshot proves <code>data_version</code> is unchanged across a retrieval (AC-F5-5).</td>
+</tr>
+<tr>
+<td><strong>I3</strong></td>
+<td>Retrieval is a single pre-stream call; nothing per-token. Citation <code>[n]→sup</code> runs once on the settled message (memoized), not per delta. The chatStore streaming discipline (ADR-0019 §2.6) is untouched — G3 holds.</td>
+</tr>
+<tr>
+<td><strong>I5</strong></td>
+<td>F5 reads only; writes nothing to <code>vault/</code>. Save-to-wiki reuses <code>POST /ingest/from-text</code> (ADR-0019 §2.7) → frontmatter-valid via the writer. <code>test_obsidian_check.py</code> unaffected.</td>
+</tr>
+<tr>
+<td><strong>I6</strong></td>
+<td>No backend hardcoded. Provider resolved via <code>resolve_provider_config("chat", ...)</code>. <code>CliAgentProvider.chat()</code> is reached only via capabilities/config. <code>retrieval_context</code> is a backend-neutral string. (ADR-0022 §7)</td>
+</tr>
+<tr>
+<td><strong>I7</strong></td>
+<td><code>retrieve()</code> is bounded by <code>k</code>, <code>expansion_depth≤2</code>, and the char budget; it makes <strong>no</strong> inference call. <code>CliAgentProvider.chat()</code> is bounded by <code>token_budget</code> + <code>timeout_seconds</code> + <code>CHAT_AGENT_MAX_TURNS</code>. Every chat turn logs <code>total_cost_usd</code> (unchanged).</td>
+</tr>
+<tr>
+<td><strong>I8</strong></td>
+<td>D4 (<code>GET /search</code> in openapi.json via <code>make openapi</code>). No D2 change in Phase 1 (no migration — §2.1). D5 carry-forward screenshots per phase plan.</td>
+</tr>
+<tr>
+<td><strong>I9</strong></td>
+<td>Vector search = existing Qdrant wrapper + bge-m3 (<code>get_embedding_client</code>). No new embedding service, no new vector DB, no tiktoken (AQ-v0.5-2), no BM25/sparse index in Phase 1 (AQ-v0.5-1).</td>
+</tr>
+</tbody>
+</table>
+<p>No invariant is traded for convenience in Phase 1.</p>
+<hr />
+<h2 id="9-flagged-tensions-risks">9. Flagged tensions &amp; risks<a class="headerlink" href="#9-flagged-tensions-risks" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Citation target = source page, not wiki page (accepted limitation).</strong> Because <code>pages</code> index
+   <code>raw/sources/</code> documents (§3.1), a <code>[n]</code> resolves to the <strong>source document</strong>, not the synthesized
+   <code>wiki/</code> page. This is correct grounding (the answer came from that indexed text) and honest, but a
+   user clicking <code>[n]</code> lands on the source, not necessarily a polished wiki page. Indexing <code>wiki/</code>
+   pages as first-class searchable units is the clean fix — <strong>explicitly deferred post-M5</strong> (needs a
+   <code>page_kind</code> discriminator). Recorded in ADR-0022 §8. <strong>Not</strong> an invariant violation; a scope boundary.</p>
+</li>
+<li>
+<p><strong>Dense-only retrieval quality (AQ-v0.5-1).</strong> Without BM25, exact-keyword/rare-token queries may
+   under-retrieve vs. a hybrid. Mitigation: graph-expansion (Phase 2) widens recall via the <code>edges</code>
+   table; bge-m3 is strong dense. Hybrid is reserved as a measured post-M5 enhancement, not a guess.</p>
+</li>
+<li>
+<p><strong>char/4 budget under-fill (AQ-v0.5-2).</strong> A conservative char/4 cap may leave the 20% slice slightly
+   under-filled for token-dense scripts (CJK). Accepted: under-fill is the safe direction (never blow
+   the window); exactness is not required for a <em>drop-lowest-ranked</em> cap.</p>
+</li>
+<li>
+<p><strong>I7 across F10 (Phase 2) is the headline risk.</strong> Deep research is the most loop-intensive feature in
+   the roadmap. The bounds are frozen-at-start, per-run, with a hardcoded concurrency ceiling and a
+   mandatory <code>max_iter_reached</code> test (AC-F10-2, EC-M5-5). Any PR weakening a bound is a <strong>P0 block</strong> —
+   architect review (EC-M5-19) is mandatory before Phase 2 exit. Locked in ADR-0024.</p>
+</li>
+<li>
+<p><strong>F13 vault integrity (Phase 4) is the headline I1/I5 risk.</strong> Targeted-edits-only (references found
+   from the <code>links</code> back-reference index, not a vault walk) and frontmatter-safe wikilink cleanup (via
+   the <code>frontmatter.loads/dumps</code> round-trip) are the gates; the <code>data_version</code> bump must be exactly +1
+   with no forced FA2 (AC-F13-4); the preserve-shared rule deletes a page <strong>iff</strong> its <code>sources[]</code> empties;
+   a mandatory read-only dry-run (<code>POST /pages/{id}/cascade-delete/preview</code>) precedes the destructive
+   <code>DELETE /pages/{id}</code>. <strong>Migration-free.</strong> Locked in <strong>ADR-0026</strong>. Placed last (vault stable) per the
+   PM phase plan.</p>
+</li>
+</ol>
+<hr />
+<h2 id="10-phase-1-sign-off">10. Phase 1 SIGN-OFF<a class="headerlink" href="#10-phase-1-sign-off" title="Permanent link">&para;</a></h2>
+<p><strong>APPROVED to implement (Phase 1).</strong> The 4-phase <code>retrieve()</code> pipeline (dense bge-m3 seed → bounded
+<code>edges</code> graph-expansion → 20% char/4 budget → server-side assembly), the <code>RetrievalContext</code>/<code>Citation</code>/
+<code>PageRef</code> contract, the additive <code>messages.citations</code> + <code>done.citations</code> citation wiring, the
+migration-free F5 (reuse the reserved <code>citations</code> column, derive <code>slug</code>), and the bounded
+<code>CliAgentProvider.chat()</code> together satisfy I1, I2, I3, I5, I6, I7, I8, I9. The seven ambiguities are
+resolved (§1). Phases 2–4 are coherently mapped (§2, §6) and each will be locked by its own ADR at its
+phase gate.</p>
+<p>Conditions on the Phase 1 gate (architect review, EC-M5-19):
+1. <code>retrieve()</code> makes <strong>zero</strong> inference calls and <strong>zero</strong> <code>vault/</code> walks; <code>GET /search</code> leaves
+   <code>data_version</code> unchanged (AC-F5-5 assertion present).
+2. <code>len(RetrievalContext.citations) == count of [n] in text</code>; the assembler is the single authority.
+3. <code>CliAgentProvider.chat()</code> raises a clean pre-stream config error with no key — never a fake stream;
+   <code>total_cost_usd</code> follows NB-4.
+4. Static guard: no tiktoken / sentence_transformers / new Qdrant collection introduced (AC-F5-3).
+5. D4 regenerated with <code>GET /search</code>; zero drift (I8). No D2 change expected in Phase 1.</p>
+<blockquote>
+<p>Handoff: ADR-0022 → tech-writer (formatting + README row). Interface contracts (§3–7) →
+backend-engineer (retrieval, <code>GET /search</code>, chat wiring, CliAgentProvider.chat) + frontend-engineer
+(citation <code>&lt;sup&gt;</code> render, save-to-wiki enable). Phase verdicts → orchestrator.</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

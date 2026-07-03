@@ -138,7 +138,8 @@
       "maintenance": "Maintenance",
       "about": "About",
       "scenarios": "Scenarios",
-      "costs": "Costs"
+      "costs": "Costs",
+      "security": "Security"
     },
     "llmModels": {
       "title": "LLM Models",
@@ -404,6 +405,21 @@
       "runNowError": "Could not trigger import: {{detail}}",
       "never": "Never run",
       "saveError": "Failed to save: {{detail}}"
+    },
+    "security": {
+      "title": "Security",
+      "desc": "Manage the bearer token used to authenticate this client against the Synapse backend.",
+      "serverUrl": "Server URL",
+      "tokenPresent": "Token configured — requests carry the Authorization header.",
+      "tokenAbsent": "No token stored. Leave blank if authentication is disabled on the server.",
+      "rotateLabel": "Update token",
+      "rotatePlaceholder": "Paste new token…",
+      "update": "Update",
+      "clear": "Clear",
+      "saved": "Saved.",
+      "cleared": "Cleared.",
+      "asymmetryTitle": "Server-side rotation requires a restart",
+      "asymmetryNote": "To rotate the server token: set SYNAPSE_AUTH_TOKEN to a new value in your docker-compose.yml and restart the container. Then paste the new token here. This UI only updates the client copy — no server call is made."
     },
     "costs": {
       "navLabel": "Costs",
@@ -819,6 +835,12 @@
     "subtitle": "Enter the address of your Synapse backend to get started.",
     "urlLabel": "Backend URL",
     "placeholder": "http://truenas:8000",
+    "tokenLabel": "Access token (optional)",
+    "tokenPlaceholder": "Leave blank if authentication is disabled",
+    "tokenGateSubtitle": "Authentication is required. Enter your access token to continue.",
+    "tokenSubmit": "Authenticate",
+    "showToken": "Show token",
+    "hideToken": "Hide token",
     "connect": "Connect",
     "connecting": "Connecting…",
     "changeServer": "Change server",
@@ -826,7 +848,8 @@
       "invalidUrl": "Please enter a valid URL.",
       "scheme": "Only http:// and https:// URLs are accepted.",
       "unreachable": "Could not reach the server. Check the address and try again.",
-      "status": "Server returned an error ({{status}}). Check the address and try again."
+      "status": "Server returned an error ({{status}}). Check the address and try again.",
+      "authRequired": "Invalid or missing access token. Enter the SYNAPSE_AUTH_TOKEN configured on the server."
     },
     "detected": "Synapse server detected on this machine"
   },

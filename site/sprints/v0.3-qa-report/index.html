@@ -1,0 +1,1818 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.3-qa-report/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>QA Report — Sprint 3 / v0.3 / M3 "Graph live, no main-thread freeze" - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#qa-report-sprint-3-v03-m3-graph-live-no-main-thread-freeze" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              QA Report — Sprint 3 / v0.3 / M3 "Graph live, no main-thread freeze"
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-test-suite-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Test suite results
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Test suite results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1a-backend-pytest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1a. Backend (pytest)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1b-frontend-vitest-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1b. Frontend (vitest + build)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-test-inventory-sprint-3-acs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Test inventory — Sprint 3 ACs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Test inventory — Sprint 3 ACs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nb-fixes-hardening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NB fixes (hardening)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f4-graphengine-4-signal-weights-ec-m3-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F4 — GraphEngine 4-signal weights (EC-M3-1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f4f16-graphcache-debounce-ec-m3-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F4/F16 — GraphCache debounce (EC-M3-3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f4-get-graph-api-ec-m3-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F4 — GET /graph API (EC-M3-4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f4-incremental-graph-update-g1-proof-ec-m3-8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F4 — Incremental graph update / G1 proof (EC-M3-8)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend-no-client-layout-g2-static-proof-ec-m3-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend — no client layout / G2 static proof (EC-M3-5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend-zustand-store-i3-pre-compliance-ec-m3-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend — Zustand store I3 pre-compliance (EC-M3-5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend-graph-transform-ec-m3-5-i4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend — graph transform (EC-M3-5, I4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i5-obsidian-compatibility-ec-m3-9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I5 — Obsidian compatibility (EC-M3-9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d3-graph-recomputemmd-ec-m3-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D3 — graph-recompute.mmd (EC-M3-10)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d5-screenshots-ec-m3-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D5 — Screenshots (EC-M3-11)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d1d2d4-v03-doc-updates-ec-m3-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D1/D2/D4 — v0.3 doc updates (EC-M3-12)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g2-g4-playwright-deferred-to-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G2 / G4 Playwright (DEFERRED-TO-LIVE)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-g1g4-verdicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. G1–G4 verdicts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. G1–G4 verdicts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#g1-no-full-rescan-i1-proven-now" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G1 — No full-rescan (I1) — PROVEN-NOW
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g2-graph-layout-cached-no-main-thread-freeze-i2-proven-now-static-deferred-to-live-runtime-perf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G2 — Graph layout cached, no main-thread freeze (I2) — PROVEN-NOW (static) + DEFERRED-TO-LIVE (runtime perf)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g3-streaming-no-per-token-heavy-work-i3-na-until-v04" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G3 — Streaming / no per-token heavy work (I3) — N/A UNTIL v0.4
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g4-webgl-60fps-bounded-dom-i4-deferred-to-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G4 — WebGL ≥60fps, bounded DOM (I4) — DEFERRED-TO-LIVE
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-er-and-openapi-drift-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. ER and OpenAPI drift check
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-d5-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. D5 status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-obsidian-compatibility-i5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Obsidian compatibility (I5)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-sign-off-verdict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Sign-off verdict
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Sign-off verdict">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#all-proven-now-items-green-no-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        All proven-now items (GREEN — no conditions):
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conditions-for-full-green-sign-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditions for full GREEN sign-off:
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#known-gaps-that-are-not-blocking-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known gaps that are NOT blocking CI:
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#total-cost-usd-this-sprint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Total cost USD this sprint:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-files-produced-modified-by-qa-this-sprint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Files produced / modified by QA this sprint
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="qa-report-sprint-3-v03-m3-graph-live-no-main-thread-freeze">QA Report — Sprint 3 / v0.3 / M3 "Graph live, no main-thread freeze"<a class="headerlink" href="#qa-report-sprint-3-v03-m3-graph-live-no-main-thread-freeze" title="Permanent link">&para;</a></h1>
+<p><strong>Date:</strong> 2026-06-28
+<strong>QA Engineer:</strong> qa-test-engineer (claude-sonnet-4-6)
+<strong>Sprint scope:</strong> docs/sprints/v0.3-scope.md
+<strong>Verdict:</strong> MET-PENDING-LIVE-PERF (see §7 for exact gap list)</p>
+<hr />
+<h2 id="1-test-suite-results">1. Test suite results<a class="headerlink" href="#1-test-suite-results" title="Permanent link">&para;</a></h2>
+<h3 id="1a-backend-pytest">1a. Backend (pytest)<a class="headerlink" href="#1a-backend-pytest" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tests passed</td>
+<td><strong>366</strong></td>
+</tr>
+<tr>
+<td>Tests skipped</td>
+<td><strong>3</strong> (live-infra: test_smoke_providers, T-INC-016 watcher timing)</td>
+</tr>
+<tr>
+<td>Tests failed</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>ruff check</td>
+<td><strong>CLEAN</strong> (app/ + tests/ + scripts/)</td>
+</tr>
+<tr>
+<td>black --check</td>
+<td><strong>CLEAN</strong></td>
+</tr>
+<tr>
+<td>mypy app</td>
+<td><strong>CLEAN</strong> (29 files, 0 errors)</td>
+</tr>
+<tr>
+<td>ER drift (git diff docs/er docs/api)</td>
+<td><strong>EXIT_CODE=0 — zero drift</strong></td>
+</tr>
+<tr>
+<td>OpenAPI drift</td>
+<td><strong>EXIT_CODE=0 — zero drift</strong></td>
+</tr>
+</tbody>
+</table>
+<p>New tests added this sprint (366 - 341 = 25 new tests):</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Tests added</th>
+<th>Coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/test_graph_engine.py</code></td>
+<td>12</td>
+<td>AC-F4-1, AC-F4-2, EC-M3-1/2</td>
+</tr>
+<tr>
+<td><code>tests/test_graph_cache.py</code></td>
+<td>13</td>
+<td>AC-F16db-1..3, EC-M3-3</td>
+</tr>
+<tr>
+<td><code>tests/test_graph_api.py</code></td>
+<td>13</td>
+<td>AC-F4-3/4, AC-D4v3-1, EC-M3-4</td>
+</tr>
+<tr>
+<td><code>tests/test_incremental_graph_update.py</code></td>
+<td>4 (NEW)</td>
+<td>AC-F4-9, EC-M3-8, G1/I1/I2</td>
+</tr>
+<tr>
+<td><code>tests/test_docs.py</code> (v0.3 additions)</td>
+<td>21 (NEW)</td>
+<td>AC-D3v3-1, AC-D1v3-1, AC-D2v3-1, AC-D4v3-1, AC-D5-1/2, v0.3 ADR files</td>
+</tr>
+<tr>
+<td><code>tests/test_cli_cost.py</code></td>
+<td>3</td>
+<td>AC-NB4-1..3, I7</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1b-frontend-vitest-build">1b. Frontend (vitest + build)<a class="headerlink" href="#1b-frontend-vitest-build" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tests passed</td>
+<td><strong>71</strong></td>
+</tr>
+<tr>
+<td>Tests failed</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>Test files</td>
+<td>4 (graphStore, no-client-layout, graph-transform, graphClient)</td>
+</tr>
+<tr>
+<td>ESLint + Prettier</td>
+<td><strong>CLEAN</strong></td>
+</tr>
+<tr>
+<td>Vite build</td>
+<td><strong>CLEAN</strong> (362.86 kB bundle)</td>
+</tr>
+<tr>
+<td>Playwright E2E</td>
+<td><strong>DEFERRED-TO-LIVE</strong> (harness written; requires live browser)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-test-inventory-sprint-3-acs">2. Test inventory — Sprint 3 ACs<a class="headerlink" href="#2-test-inventory-sprint-3-acs" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Format: Test ID | Feature ID | AC | EC-M3-x | Status</p>
+</blockquote>
+<h3 id="nb-fixes-hardening">NB fixes (hardening)<a class="headerlink" href="#nb-fixes-hardening" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>Feature</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-CQ-*</td>
+<td>NB-5</td>
+<td>AC-NB5-1..2</td>
+<td>(pre-start)</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>T-SMOKE-*</td>
+<td>NB-5</td>
+<td>AC-NB5-3</td>
+<td>(pre-start)</td>
+<td>LIVE (skipped in CI)</td>
+</tr>
+<tr>
+<td>T-BL-*</td>
+<td>NB-1</td>
+<td>AC-NB1-1..2</td>
+<td>(hardening)</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>T-CQ-009</td>
+<td>NB-2</td>
+<td>AC-NB2-1..2</td>
+<td>(hardening)</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>T-CLICOST-001..003</td>
+<td>NB-4</td>
+<td>AC-NB4-1..3</td>
+<td>(hardening)</td>
+<td>GREEN</td>
+</tr>
+</tbody>
+</table>
+<h3 id="f4-graphengine-4-signal-weights-ec-m3-1">F4 — GraphEngine 4-signal weights (EC-M3-1)<a class="headerlink" href="#f4-graphengine-4-signal-weights-ec-m3-1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-GENG-001</td>
+<td>AC-F4-2c</td>
+<td>EC-M3-2</td>
+<td>GREEN — engine.py uses igraph + FA2, no client layout import</td>
+</tr>
+<tr>
+<td>T-GENG-002</td>
+<td>AC-F4-2</td>
+<td>EC-M3-2</td>
+<td>GREEN — coords non-NULL after recompute</td>
+</tr>
+<tr>
+<td>T-GENG-003</td>
+<td>AC-F4-1</td>
+<td>EC-M3-1</td>
+<td>GREEN — P1-P2 weight ≥ 11.0 (direct×2 + shared_source + type)</td>
+</tr>
+<tr>
+<td>T-GENG-004</td>
+<td>AC-F4-1</td>
+<td>EC-M3-1</td>
+<td>GREEN — P1-P4 weight ≥ 8.0</td>
+</tr>
+<tr>
+<td>T-GENG-005</td>
+<td>AC-F4-1</td>
+<td>EC-M3-1</td>
+<td>GREEN — P2-P4 weight ≥ 5.0</td>
+</tr>
+<tr>
+<td>T-GENG-006</td>
+<td>AC-F4-1</td>
+<td>EC-M3-1</td>
+<td>GREEN — P3-P4 weight == 7.0 (shared_source + direct; exact)</td>
+</tr>
+<tr>
+<td>T-GENG-007</td>
+<td>AC-F4-1</td>
+<td>EC-M3-1</td>
+<td>GREEN — P3-P5 ABSENT (no shared source, no link, no type match)</td>
+</tr>
+<tr>
+<td>T-GENG-008</td>
+<td>AC-F4-1</td>
+<td>EC-M3-1</td>
+<td>GREEN — type signal = +1.0 for two entity-typed pages</td>
+</tr>
+<tr>
+<td>T-GENG-009</td>
+<td>AC-F4-1</td>
+<td>EC-M3-1</td>
+<td>GREEN — NULL type pages get type signal = 0.0 (NULL != NULL)</td>
+</tr>
+<tr>
+<td>T-GENG-010</td>
+<td>AC-F4-1</td>
+<td>EC-M3-1</td>
+<td>GREEN — P3-P4 signals JSONB: direct=3.0, source=4.0, aa=0.0, type=0.0</td>
+</tr>
+<tr>
+<td>T-GENG-011</td>
+<td>AC-F4-2</td>
+<td>EC-M3-2</td>
+<td>GREEN — FA2 determinism: same seed → same coords across two runs</td>
+</tr>
+<tr>
+<td>T-GENG-012</td>
+<td>AC-F4-2</td>
+<td>EC-M3-2</td>
+<td>GREEN — edge count in Postgres matches igraph edge count after recompute</td>
+</tr>
+</tbody>
+</table>
+<h3 id="f4f16-graphcache-debounce-ec-m3-3">F4/F16 — GraphCache debounce (EC-M3-3)<a class="headerlink" href="#f4f16-graphcache-debounce-ec-m3-3" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-GCACHE-001</td>
+<td>AC-F16db-1</td>
+<td>EC-M3-3</td>
+<td>GREEN — single bump → fires once after debounce window</td>
+</tr>
+<tr>
+<td>T-GCACHE-002</td>
+<td>AC-F16db-1</td>
+<td>EC-M3-3</td>
+<td>GREEN — recompute NOT called before debounce window expires</td>
+</tr>
+<tr>
+<td>T-GCACHE-003</td>
+<td>AC-F16db-1</td>
+<td>EC-M3-3</td>
+<td>GREEN — no recompute before bump</td>
+</tr>
+<tr>
+<td>T-GCACHE-004</td>
+<td>AC-F16db-1</td>
+<td>EC-M3-3</td>
+<td>GREEN — marker set to new data_version after recompute</td>
+</tr>
+<tr>
+<td>T-GCACHE-005</td>
+<td>AC-F16db-2</td>
+<td>EC-M3-3</td>
+<td>GREEN — 5 rapid bumps collapsed into 1 recompute</td>
+</tr>
+<tr>
+<td>T-GCACHE-006</td>
+<td>AC-F16db-2</td>
+<td>EC-M3-3</td>
+<td>GREEN — burst: recompute called exactly once</td>
+</tr>
+<tr>
+<td>T-GCACHE-007</td>
+<td>AC-F16db-2</td>
+<td>EC-M3-3</td>
+<td>GREEN — timer reset on each bump during debounce window</td>
+</tr>
+<tr>
+<td>T-GCACHE-008</td>
+<td>AC-F16db-2</td>
+<td>EC-M3-3</td>
+<td>GREEN — burst then wait → exactly 1 fire</td>
+</tr>
+<tr>
+<td>T-GCACHE-009</td>
+<td>AC-F16db-3</td>
+<td>EC-M3-3</td>
+<td>GREEN — bump during in-flight → one follow-up after completion</td>
+</tr>
+<tr>
+<td>T-GCACHE-010</td>
+<td>AC-F16db-3</td>
+<td>EC-M3-3</td>
+<td>GREEN — no double-fire when in-flight completes</td>
+</tr>
+<tr>
+<td>T-GCACHE-011</td>
+<td>AC-F4-4</td>
+<td>EC-M3-3</td>
+<td>GREEN — HIT on same data_version: cached=True, no FA2 recompute</td>
+</tr>
+<tr>
+<td>T-GCACHE-012</td>
+<td>AC-F4-4</td>
+<td>EC-M3-3</td>
+<td>GREEN — MISS on stale data_version: cached=False, FA2 triggered</td>
+</tr>
+<tr>
+<td>T-GCACHE-013</td>
+<td>AC-F16db-1..3</td>
+<td>EC-M3-3</td>
+<td>GREEN — injectable clock (FakeClock): no real wall-clock in tests</td>
+</tr>
+</tbody>
+</table>
+<h3 id="f4-get-graph-api-ec-m3-4">F4 — GET /graph API (EC-M3-4)<a class="headerlink" href="#f4-get-graph-api-ec-m3-4" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-GRAPI-001..008</td>
+<td>AC-F4-3</td>
+<td>EC-M3-4</td>
+<td>GREEN — 200, required fields, type validation, node/edge schemas</td>
+</tr>
+<tr>
+<td>T-GRAPI-009..010</td>
+<td>AC-F4-3</td>
+<td>EC-M3-4</td>
+<td>GREEN — X-Graph-Cache: miss on MISS; X-Graph-Cache: hit on HIT</td>
+</tr>
+<tr>
+<td>T-GRAPI-011</td>
+<td>AC-F4-4</td>
+<td>EC-M3-3</td>
+<td>GREEN — HIT/MISS integration: recompute_calls stays 1 on second call</td>
+</tr>
+<tr>
+<td>T-GRAPI-012..013</td>
+<td>AC-D4v3-1</td>
+<td>EC-M3-12</td>
+<td>GREEN — GET /graph in /openapi.json paths</td>
+</tr>
+</tbody>
+</table>
+<h3 id="f4-incremental-graph-update-g1-proof-ec-m3-8">F4 — Incremental graph update / G1 proof (EC-M3-8)<a class="headerlink" href="#f4-incremental-graph-update-g1-proof-ec-m3-8" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-INC-GRAPH-001</td>
+<td>AC-F4-9</td>
+<td>EC-M3-8</td>
+<td>GREEN — 1 new file → row count goes from 2 to 3 (not 3 to 3+N)</td>
+</tr>
+<tr>
+<td>T-INC-GRAPH-002</td>
+<td>AC-F4-9</td>
+<td>EC-M3-8</td>
+<td>GREEN — pre-existing rows survive (not deleted/replaced)</td>
+</tr>
+<tr>
+<td>T-INC-GRAPH-003</td>
+<td>AC-F4-9</td>
+<td>EC-M3-8</td>
+<td>GREEN — data_version bumps by exactly 1 per new file</td>
+</tr>
+<tr>
+<td>T-INC-GRAPH-004</td>
+<td>AC-F4-9</td>
+<td>EC-M3-8</td>
+<td>GREEN — 3 rapid bumps → engine.recompute() called exactly once</td>
+</tr>
+</tbody>
+</table>
+<h3 id="frontend-no-client-layout-g2-static-proof-ec-m3-5">Frontend — no client layout / G2 static proof (EC-M3-5)<a class="headerlink" href="#frontend-no-client-layout-g2-static-proof-ec-m3-5" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-NCL-001</td>
+<td>AC-FE-2, AC-F4-2b</td>
+<td>EC-M3-5</td>
+<td>GREEN — dist/ has ≥1 JS bundle file</td>
+</tr>
+<tr>
+<td>T-NCL-002..011</td>
+<td>AC-FE-2, AC-F4-2b</td>
+<td>EC-M3-5</td>
+<td>GREEN — 10 forbidden patterns absent from built bundle</td>
+</tr>
+<tr>
+<td>T-NCL-012</td>
+<td>AC-FE-2</td>
+<td>EC-M3-5</td>
+<td>GREEN — src/ has non-test TS source files</td>
+</tr>
+<tr>
+<td>T-NCL-013..022</td>
+<td>AC-FE-2, AC-F4-2b</td>
+<td>EC-M3-5</td>
+<td>GREEN — 10 forbidden patterns not imported in source</td>
+</tr>
+</tbody>
+</table>
+<h3 id="frontend-zustand-store-i3-pre-compliance-ec-m3-5">Frontend — Zustand store I3 pre-compliance (EC-M3-5)<a class="headerlink" href="#frontend-zustand-store-i3-pre-compliance-ec-m3-5" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-GSTORE-001..016</td>
+<td>AC-FE-3</td>
+<td>(I3 pre-compliance)</td>
+<td>GREEN — typed selectors, shallow equality hooks, no whole-store subscriptions</td>
+</tr>
+</tbody>
+</table>
+<h3 id="frontend-graph-transform-ec-m3-5-i4">Frontend — graph transform (EC-M3-5, I4)<a class="headerlink" href="#frontend-graph-transform-ec-m3-5-i4" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-GTRANS-001..019</td>
+<td>AC-FE-5</td>
+<td>EC-M3-5</td>
+<td>GREEN — graphology graph built from server coords; no layout called</td>
+</tr>
+</tbody>
+</table>
+<h3 id="i5-obsidian-compatibility-ec-m3-9">I5 — Obsidian compatibility (EC-M3-9)<a class="headerlink" href="#i5-obsidian-compatibility-ec-m3-9" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-OBS-001..015</td>
+<td>AC-OBS-V0.3</td>
+<td>EC-M3-9</td>
+<td>GREEN — 15/15 pass; engine writes no .md files</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d3-graph-recomputemmd-ec-m3-10">D3 — graph-recompute.mmd (EC-M3-10)<a class="headerlink" href="#d3-graph-recomputemmd-ec-m3-10" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-DOCS-030</td>
+<td>AC-D3v3-1</td>
+<td>EC-M3-10</td>
+<td>GREEN — graph-recompute.mmd exists</td>
+</tr>
+<tr>
+<td>T-DOCS-031</td>
+<td>AC-D3v3-1</td>
+<td>EC-M3-10</td>
+<td>GREEN — contains sequenceDiagram keyword</td>
+</tr>
+<tr>
+<td>T-DOCS-032</td>
+<td>AC-D3v3-1</td>
+<td>EC-M3-10</td>
+<td>GREEN — references FA2/igraph (server-side)</td>
+</tr>
+<tr>
+<td>T-DOCS-033</td>
+<td>AC-D3v3-1</td>
+<td>EC-M3-10</td>
+<td>GREEN — references cache hit and miss paths</td>
+</tr>
+<tr>
+<td>T-DOCS-034</td>
+<td>AC-D3v3-1</td>
+<td>EC-M3-10</td>
+<td>GREEN — references debounce/data_version</td>
+</tr>
+<tr>
+<td>T-DOCS-MANUAL-003</td>
+<td>AC-D3v3-2</td>
+<td>EC-M3-10</td>
+<td>DEFERRED-TO-LIVE — mmdc not in this sandbox</td>
+</tr>
+<tr>
+<td>(MANUAL)</td>
+<td>AC-D3v3-3</td>
+<td>EC-M3-14/15</td>
+<td>MANUAL — architect + tech-writer gate</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d5-screenshots-ec-m3-11">D5 — Screenshots (EC-M3-11)<a class="headerlink" href="#d5-screenshots-ec-m3-11" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-DOCS-046</td>
+<td>AC-D5-4</td>
+<td>EC-M3-11</td>
+<td>GREEN — docs/screens/ directory exists</td>
+</tr>
+<tr>
+<td>T-DOCS-047</td>
+<td>AC-D5-1/2</td>
+<td>EC-M3-11</td>
+<td>DEFERRED-TO-LIVE (sentinel passes; 0 PNGs in dir)</td>
+</tr>
+<tr>
+<td>T-E2E-D5-001..003</td>
+<td>AC-D5-1..3</td>
+<td>EC-M3-11</td>
+<td>DEFERRED-TO-LIVE — harness written; needs browser</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d1d2d4-v03-doc-updates-ec-m3-12">D1/D2/D4 — v0.3 doc updates (EC-M3-12)<a class="headerlink" href="#d1d2d4-v03-doc-updates-ec-m3-12" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-DOCS-035..037</td>
+<td>AC-D1v3-1</td>
+<td>EC-M3-12</td>
+<td>GREEN — component.mmd has GraphEngine, GraphCache, I2 annotation</td>
+</tr>
+<tr>
+<td>T-DOCS-038..041</td>
+<td>AC-D2v3-1</td>
+<td>EC-M3-12</td>
+<td>GREEN — ER has EDGES table, pages.x/y, 6 tables total</td>
+</tr>
+<tr>
+<td>T-DOCS-042..045</td>
+<td>AC-D4v3-1</td>
+<td>EC-M3-4/12</td>
+<td>GREEN — GET /graph in openapi.json with full schema + X-Graph-Cache</td>
+</tr>
+<tr>
+<td>T-DOCS-048..050</td>
+<td>(ADR v0.3)</td>
+<td>EC-M3-12</td>
+<td>GREEN — ADR-0012..0015 exist, non-empty, reference I2/FA2</td>
+</tr>
+</tbody>
+</table>
+<h3 id="g2-g4-playwright-deferred-to-live">G2 / G4 Playwright (DEFERRED-TO-LIVE)<a class="headerlink" href="#g2-g4-playwright-deferred-to-live" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test ID</th>
+<th>AC</th>
+<th>EC</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T-E2E-G2-001</td>
+<td>AC-F4-6</td>
+<td>EC-M3-5</td>
+<td>DEFERRED-TO-LIVE — graph renders without long task &gt;50ms</td>
+</tr>
+<tr>
+<td>T-E2E-G2-002</td>
+<td>AC-F4-6</td>
+<td>EC-M3-5</td>
+<td>DEFERRED-TO-LIVE — second GET /graph returns X-Graph-Cache: hit</td>
+</tr>
+<tr>
+<td>T-E2E-G4-001</td>
+<td>AC-F4-7</td>
+<td>EC-M3-6</td>
+<td>DEFERRED-TO-LIVE — graph container ≤3 child DOM elements</td>
+</tr>
+<tr>
+<td>T-E2E-G4-002</td>
+<td>AC-F4-7</td>
+<td>EC-M3-6</td>
+<td>DEFERRED-TO-LIVE — 200-node graph ≥55fps mean rAF</td>
+</tr>
+<tr>
+<td>T-E2E-VIEWER-001</td>
+<td>AC-FE-1</td>
+<td>EC-M3-7</td>
+<td>DEFERRED-TO-LIVE — sigma canvas visible after page load</td>
+</tr>
+<tr>
+<td>T-E2E-CLICK-001</td>
+<td>AC-F4-8</td>
+<td>EC-M3-7</td>
+<td>DEFERRED-TO-LIVE — node click dispatches selection</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-g1g4-verdicts">3. G1–G4 verdicts<a class="headerlink" href="#3-g1g4-verdicts" title="Permanent link">&para;</a></h2>
+<h3 id="g1-no-full-rescan-i1-proven-now">G1 — No full-rescan (I1) — PROVEN-NOW<a class="headerlink" href="#g1-no-full-rescan-i1-proven-now" title="Permanent link">&para;</a></h3>
+<p><strong>Evidence:</strong>
+- <code>engine.py:_load_data()</code> — SQL queries only on <code>pages</code> + <code>links</code> tables; zero <code>os.walk</code>, <code>pathlib.glob</code>, or vault filesystem access (code inspection confirmed).
+- <code>engine.py:_persist_results()</code> — targeted <code>UPDATE pages SET x=..., y=...</code> per node; <code>DELETE FROM edges WHERE vault_id=... + bulk INSERT edges</code>. No full table truncate.
+- T-INC-GRAPH-001: 1 new file → row count 2→3 (not full delete+recreate).
+- T-INC-GRAPH-002: pre-existing page rows survive new ingest.
+- T-INC-017 (test_ingest_incremental.py): watcher.py has no <code>os.walk</code>/<code>.rglob()</code> calls.</p>
+<p><strong>Verdict: PROVEN-NOW (no live infra needed)</strong></p>
+<h3 id="g2-graph-layout-cached-no-main-thread-freeze-i2-proven-now-static-deferred-to-live-runtime-perf">G2 — Graph layout cached, no main-thread freeze (I2) — PROVEN-NOW (static) + DEFERRED-TO-LIVE (runtime perf)<a class="headerlink" href="#g2-graph-layout-cached-no-main-thread-freeze-i2-proven-now-static-deferred-to-live-runtime-perf" title="Permanent link">&para;</a></h3>
+<p><strong>Proven-now (static/unit evidence):</strong>
+- 13 GraphCache tests (T-GCACHE-001..013): debounce collapses bursts to 1 recompute; HIT on same data_version skips FA2; injectable clock proves no real sleep in tests.
+- 13 GET /graph API tests (T-GRAPI-001..013): X-Graph-Cache: hit on second call; X-Graph-Cache: miss on stale version; full schema on HTTP 200.
+- 22 no-client-layout tests (T-NCL-001..022): bundle scan + source import scan confirm graphology-layout-forceatlas2, d3-force, ForceAtlas2, fa2Worker, and 6 other forbidden patterns are ABSENT from both the built bundle and all non-test source files.
+- GraphViewer.tsx: sigma instantiated with <code>new Sigma(graph, container, {...})</code> using pre-computed server x/y; no layout algorithm called client-side (code inspection).
+- graphStore.ts: all subscriptions use typed selectors + <code>useShallow</code>; no whole-store subscription (I3 pre-compliance also confirmed).</p>
+<p><strong>Deferred-to-live (runtime):</strong>
+- T-E2E-G2-001: Playwright PerformanceObserver asserting no longtask &gt;50ms. Run: <code>cd frontend &amp;&amp; npx playwright test e2e/graph-perf.spec.ts --config playwright.config.ts</code>
+- T-E2E-G2-002: X-Graph-Cache: hit assertion via Playwright page.request.get(). Same run command.</p>
+<p><strong>Verdict: PROVEN-NOW for static/architectural proof; DEFERRED-TO-LIVE for browser runtime measurement</strong></p>
+<h3 id="g3-streaming-no-per-token-heavy-work-i3-na-until-v04">G3 — Streaming / no per-token heavy work (I3) — N/A UNTIL v0.4<a class="headerlink" href="#g3-streaming-no-per-token-heavy-work-i3-na-until-v04" title="Permanent link">&para;</a></h3>
+<p>G3 applies to the chat streaming path, which is not implemented in v0.3 (v0.4 deliverable). Pre-compliance confirmed:
+- graphStore.ts uses typed selectors everywhere; <code>useGraphStatus()</code> and <code>useGraphMeta()</code> use <code>useShallow()</code>.
+- No component calls <code>useGraphStore()</code> without a selector parameter.
+- Pre-compliance noted in TRACEABILITY.md as T-GSTORE-001..016.</p>
+<p><strong>Verdict: N/A (v0.4) — pre-compliance CONFIRMED by code inspection</strong></p>
+<h3 id="g4-webgl-60fps-bounded-dom-i4-deferred-to-live">G4 — WebGL ≥60fps, bounded DOM (I4) — DEFERRED-TO-LIVE<a class="headerlink" href="#g4-webgl-60fps-bounded-dom-i4-deferred-to-live" title="Permanent link">&para;</a></h3>
+<p><strong>Static evidence (pre-conditions confirmed):</strong>
+- GraphViewer.tsx: single sigma.js canvas element; no per-node DOM elements created.
+- DOM structure comment in GraphViewer.tsx: <code>&lt;div#graph-root&gt; + &lt;div#sigma-container&gt; + &lt;canvas&gt; + overlay divs ≈ 6 total DOM elements</code> (not 200+).
+- sigma.js uses WebGL (Canvas API with WebGL context), not SVG or Canvas2D+JS layout.</p>
+<p><strong>Deferred-to-live:</strong>
+- T-E2E-G4-001: graph container ≤3 child DOM elements (Playwright locator assertion).
+- T-E2E-G4-002: 60-frame rAF timing with 200-node fixture → mean ≤18.18ms (≥55fps).
+- Fixture seeder: <code>python backend/scripts/seed_graph_fixture.py --nodes 200 --edges 500 --db-url $DATABASE_URL</code> (seed=42, spiral layout, no FA2 needed).</p>
+<p><strong>Run command:</strong> <code>cd frontend &amp;&amp; npx playwright test e2e/graph-perf.spec.ts --config playwright.config.ts</code></p>
+<p><strong>Verdict: DEFERRED-TO-LIVE</strong></p>
+<hr />
+<h2 id="4-er-and-openapi-drift-check">4. ER and OpenAPI drift check<a class="headerlink" href="#4-er-and-openapi-drift-check" title="Permanent link">&para;</a></h2>
+<p><div class="highlight"><pre><span></span><code>git diff --exit-code docs/er docs/api
+</code></pre></div>
+<strong>Exit code: 0 — zero drift</strong></p>
+<ul>
+<li><code>docs/er/schema.mmd</code>: EDGES table present; pages.x and pages.y columns present; all 6 tables (PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES).</li>
+<li><code>docs/api/openapi.json</code>: GET /graph in paths; GraphResponse schema includes nodes, edges, data_version, cached; X-Graph-Cache header documented.</li>
+</ul>
+<hr />
+<h2 id="5-d5-status">5. D5 status<a class="headerlink" href="#5-d5-status" title="Permanent link">&para;</a></h2>
+<p><strong>docs/screens/: 0 PNG files</strong></p>
+<p>Gap: DEFERRED-TO-LIVE. The Playwright harness at <code>frontend/e2e/graph-perf.spec.ts</code> writes two screenshots:
+- <code>docs/screens/graph-viewer-initial.png</code> (graph rendered, no selection)
+- <code>docs/screens/graph-viewer-node-selected.png</code> (after node click, tooltip visible)</p>
+<p>To populate D5, run against a live backend + frontend:
+<div class="highlight"><pre><span></span><code># Step 1: seed 200-node fixture
+cd backend &amp;&amp; python scripts/seed_graph_fixture.py --nodes 200 --edges 500
+
+# Step 2: start backend
+uvicorn app.main:app --port 8000
+
+# Step 3: start frontend
+cd frontend &amp;&amp; npm run dev
+
+# Step 4: run Playwright (captures PNGs + asserts G2/G4)
+cd frontend &amp;&amp; npx playwright test e2e/graph-perf.spec.ts --config playwright.config.ts
+</code></pre></div></p>
+<hr />
+<h2 id="6-obsidian-compatibility-i5">6. Obsidian compatibility (I5)<a class="headerlink" href="#6-obsidian-compatibility-i5" title="Permanent link">&para;</a></h2>
+<p><strong>Verdict: PASS</strong></p>
+<ul>
+<li>15 tests in <code>backend/tests/test_obsidian_check.py</code>: all pass (T-OBS-001..015).</li>
+<li><code>graph/engine.py:_persist_results()</code>: writes ONLY to Postgres (pages.x, pages.y, edges table). NO filesystem writes, NO <code>.md</code> file modification.</li>
+<li><code>graph/cache.py</code>: no filesystem writes.</li>
+<li>Confirmed: no new frontmatter fields, no new wikilinks, no coord data in <code>.md</code> files. I5 intact.</li>
+</ul>
+<hr />
+<h2 id="7-sign-off-verdict">7. Sign-off verdict<a class="headerlink" href="#7-sign-off-verdict" title="Permanent link">&para;</a></h2>
+<p><strong>MILESTONE VERDICT: MET-PENDING-LIVE-PERF</strong></p>
+<h3 id="all-proven-now-items-green-no-conditions">All proven-now items (GREEN — no conditions):<a class="headerlink" href="#all-proven-now-items-green-no-conditions" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Backend suite: 366 passed, 3 skipped (live), 0 failed.</li>
+<li>Frontend suite: 71 passed, 0 failed.</li>
+<li>ruff, black, mypy: all CLEAN.</li>
+<li>ER drift: zero.</li>
+<li>OpenAPI drift: zero.</li>
+<li>G1 (no full-rescan, I1): PROVEN by code inspection + T-INC-GRAPH-001..004.</li>
+<li>G2 static (no client layout, I2): PROVEN by T-NCL-001..022 (bundle + source scan) + T-GCACHE-001..013 + T-GRAPI-001..013 + code inspection of GraphViewer.tsx.</li>
+<li>G3: N/A (v0.4). Pre-compliance confirmed.</li>
+<li>Edge-weight correctness (EC-M3-1, ADR-0012): PROVEN by T-GENG-001..012 (exact weights, type signal = +1.0, NULL != NULL).</li>
+<li>FA2 determinism (ADR-0013): PROVEN by T-GENG-011 (same seed → same coords).</li>
+<li>Cache hit/miss (ADR-0014): PROVEN by T-GCACHE-001..013 + T-GRAPI-001..013.</li>
+<li>Obsidian check (I5): PROVEN by T-OBS-001..015.</li>
+<li>D3 graph-recompute.mmd: content-checked by T-DOCS-030..034.</li>
+<li>D1 component.mmd v0.3 updates: content-checked by T-DOCS-035..037.</li>
+<li>D2 ER v0.3 updates: content-checked by T-DOCS-038..041.</li>
+<li>D4 OpenAPI v0.3 updates: content-checked by T-DOCS-042..045.</li>
+<li>ADR-0012..0015: existence + content checked by T-DOCS-048..050.</li>
+</ol>
+<h3 id="conditions-for-full-green-sign-off">Conditions for full GREEN sign-off:<a class="headerlink" href="#conditions-for-full-green-sign-off" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Owner</th>
+<th>How to satisfy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D5: ≥2 PNGs in docs/screens/</td>
+<td>qa-test-engineer (Playwright run)</td>
+<td><code>cd frontend &amp;&amp; npx playwright test e2e/graph-perf.spec.ts</code> against live stack; commit PNGs</td>
+</tr>
+<tr>
+<td>G2 runtime: no longtask &gt;50ms (T-E2E-G2-001)</td>
+<td>qa-test-engineer</td>
+<td>Same Playwright run</td>
+</tr>
+<tr>
+<td>G4 fps: ≥55fps mean rAF (T-E2E-G4-002)</td>
+<td>qa-test-engineer</td>
+<td>Seed 200-node fixture then same Playwright run</td>
+</tr>
+<tr>
+<td>G4 DOM: ≤3 child elements (T-E2E-G4-001)</td>
+<td>qa-test-engineer</td>
+<td>Same Playwright run</td>
+</tr>
+<tr>
+<td>EC-M3-14: Architect gate</td>
+<td>solution-architect</td>
+<td>Review engine.py, cache.py, GraphViewer.tsx, ADR-0012..0015</td>
+</tr>
+<tr>
+<td>EC-M3-15: Tech-writer gate</td>
+<td>tech-writer</td>
+<td>Review graph-recompute.mmd + docs/screens/ + D1/D2/D4 consistency</td>
+</tr>
+<tr>
+<td>EC-M3-17: Human checkpoint</td>
+<td>Emanuele</td>
+<td>View sigma viewer in browser with live vault</td>
+</tr>
+</tbody>
+</table>
+<h3 id="known-gaps-that-are-not-blocking-ci">Known gaps that are NOT blocking CI:<a class="headerlink" href="#known-gaps-that-are-not-blocking-ci" title="Permanent link">&para;</a></h3>
+<ul>
+<li>docs/screens/ empty: T-DOCS-047 passes as a sentinel (warns, does not fail).</li>
+<li>mmdc render check (AC-D3v3-2): T-DOCS-MANUAL-003 passes as a sentinel; mmdc not in sandbox.</li>
+</ul>
+<h3 id="total-cost-usd-this-sprint">Total cost USD this sprint:<a class="headerlink" href="#total-cost-usd-this-sprint" title="Permanent link">&para;</a></h3>
+<p>0.00 USD — all tests infra-free (SQLite, FakeClock, FakeEngine, FakeQdrant); no Ollama/Anthropic calls made during QA execution.</p>
+<hr />
+<h2 id="8-files-produced-modified-by-qa-this-sprint">8. Files produced / modified by QA this sprint<a class="headerlink" href="#8-files-produced-modified-by-qa-this-sprint" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Action</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend/tests/test_incremental_graph_update.py</code></td>
+<td>NEW</td>
+<td>AC-F4-9, EC-M3-8, G1 row-count proof</td>
+</tr>
+<tr>
+<td><code>backend/tests/test_docs.py</code></td>
+<td>EXTENDED</td>
+<td>+21 tests: T-DOCS-030..050, v0.3 D-artifact checks</td>
+</tr>
+<tr>
+<td><code>frontend/e2e/graph-perf.spec.ts</code></td>
+<td>NEW</td>
+<td>G2/G4/D5 Playwright harness (DEFERRED-TO-LIVE)</td>
+</tr>
+<tr>
+<td><code>frontend/playwright.config.ts</code></td>
+<td>NEW</td>
+<td>Playwright config (e2e/; excludes vitest)</td>
+</tr>
+<tr>
+<td><code>frontend/vitest.config.ts</code></td>
+<td>MODIFIED</td>
+<td>Excludes e2e/*.spec.ts from vitest runs</td>
+</tr>
+<tr>
+<td><code>backend/scripts/seed_graph_fixture.py</code></td>
+<td>NEW</td>
+<td>200-node/500-edge G4 fixture seeder</td>
+</tr>
+<tr>
+<td><code>TRACEABILITY.md</code></td>
+<td>UPDATED</td>
+<td>Sprint 3 test IDs + statuses filled; gap register updated</td>
+</tr>
+<tr>
+<td><code>docs/sprints/v0.3-qa-report.md</code></td>
+<td>NEW</td>
+<td>This report</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

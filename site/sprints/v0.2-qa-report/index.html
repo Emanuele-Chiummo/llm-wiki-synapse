@@ -1,0 +1,795 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.2-qa-report/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>QA Report — Sprint 2 (v0.2 / M2) "Agentic loop closed, 3 providers" - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#qa-report-sprint-2-v02-m2-agentic-loop-closed-3-providers" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              QA Report — Sprint 2 (v0.2 / M2) "Agentic loop closed, 3 providers"
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#verdict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verdict
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test suite
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invariant-verdicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariant verdicts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mcp-ec-m2-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP (EC-M2-7)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bug-found-fixed-during-qa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bug found &amp; fixed during QA
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-provider-smoke-matrix-ec-m2-5-harness-ready-live-run-deferred" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3-provider smoke matrix (EC-M2-5) — harness ready, live run deferred
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-issues-non-blocking-tracked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known issues (non-blocking, tracked)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deferred-to-live-human-gates-before-m2-fully-closed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deferred to live / human gates (before M2 fully closed)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="qa-report-sprint-2-v02-m2-agentic-loop-closed-3-providers">QA Report — Sprint 2 (v0.2 / M2) "Agentic loop closed, 3 providers"<a class="headerlink" href="#qa-report-sprint-2-v02-m2-agentic-loop-closed-3-providers" title="Permanent link">&para;</a></h1>
+<p><strong>Date:</strong> 2026-06-28 · <strong>QA:</strong> qa-test-engineer · <strong>Branch:</strong> <code>sprint/v0.2</code></p>
+<h2 id="verdict">Verdict<a class="headerlink" href="#verdict" title="Permanent link">&para;</a></h2>
+<p><strong>M2 SIGN-OFF — MET-PENDING-LIVE-SMOKE.</strong> All automated gates green. Remaining items are
+the live 3-provider smoke matrix + human gates (need Ollama/Anthropic/claude-agent-sdk on
+the M2/TrueNAS), listed under Deferred.</p>
+<h2 id="test-suite">Test suite<a class="headerlink" href="#test-suite" title="Permanent link">&para;</a></h2>
+<p><strong>299 passed · 3 skipped (live tests, correctly absent from CI) · 0 failed.</strong> (v0.1 was 156;
++143 net new.) <code>ruff</code> clean · <code>black</code> clean · <code>mypy</code> 0 app-level errors (see Known issues).</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>New</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>test_smoke_providers.py</code></td>
+<td>+6 (3 mock + 3 live-skip)</td>
+<td>3-provider matrix wiring (AC-K2-1..3, AC-MCP-8)</td>
+</tr>
+<tr>
+<td><code>test_bounded_loop.py</code></td>
+<td>(v0.2)</td>
+<td>I7: max_iter, token_budget, cost log, fallback, anomaly</td>
+</tr>
+<tr>
+<td><code>test_provider_routing.py</code></td>
+<td>(v0.2)</td>
+<td>I6: capability-only routing, no class check</td>
+</tr>
+<tr>
+<td><code>test_schemas.py</code></td>
+<td>(v0.2)</td>
+<td>DTOs; empty sources[] rejected; chat() NotImplementedError</td>
+</tr>
+<tr>
+<td><code>test_provider_config_resolution.py</code> / <code>_api.py</code></td>
+<td>(v0.2)</td>
+<td>resolution order; CRUD; no api-key field</td>
+</tr>
+<tr>
+<td><code>test_wikilink_parser.py</code> / <code>test_index_md.py</code></td>
+<td>(v0.2)</td>
+<td>K5 parse+dangling; K3 idempotent catalogue</td>
+</tr>
+<tr>
+<td><code>test_mcp_tools.py</code></td>
+<td>(v0.2)</td>
+<td>4 MCP tools in-process; write_page reuses write_wiki_page</td>
+</tr>
+<tr>
+<td><code>test_obsidian_check.py</code></td>
+<td>+15</td>
+<td>I5: .obsidian, frontmatter, wikilinks, write-readback</td>
+</tr>
+<tr>
+<td><code>test_docs.py</code></td>
+<td>+20</td>
+<td>D3 sequences, D7 ADRs, component.mmd, mcp-tools.json, 5-table ER</td>
+</tr>
+<tr>
+<td><code>test_models_schema.py</code></td>
+<td>+18</td>
+<td>provider_config / ingest_runs / links columns; no-api-key security</td>
+</tr>
+</tbody>
+</table>
+<h2 id="invariant-verdicts">Invariant verdicts<a class="headerlink" href="#invariant-verdicts" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>I6 (EC-M2-1/3):</strong> routing reads only <code>caps.supports_agentic_loop</code> — no isinstance/type/
+  <code>provider_type ==</code> (grep + <code>test_provider_routing</code>). A non-CLI fake with
+  supports_agentic_loop=True still delegates. <code>resolve_provider()</code> raises on unknown type (no
+  silent default). No hardcoded API keys / model ids in <code>app/</code> (model ids from provider_config;
+  keys from env). DB has no api_key column (verified). <strong>PASS.</strong></li>
+<li><strong>I7 (EC-M2-4):</strong> non-converging provider stops at max_iter=3, no overrun; token_budget halts
+  before an unaffordable call; <code>total_cost_usd</code> logged to <code>ingest_runs</code>; fallback bounded to one;
+  $1/run anomaly WARNING fires + sets <code>cost_anomaly</code>. <strong>PASS.</strong></li>
+<li><strong>I1:</strong> incremental indexer tests remain green (G1). <strong>PASS.</strong></li>
+<li><strong>I5 (EC-M2-13):</strong> Obsidian automated checks pass; open-in-Obsidian is MANUAL (deferred).</li>
+<li><strong>I8 (EC-M2-10/11/12):</strong> ER (5 tables), D3 sequences, D7 ADRs (0007–0011), component.mmd,
+  mcp-tools.json, openapi all present + verified; <code>make er</code>/<code>make openapi</code> zero drift. <strong>PASS.</strong></li>
+<li><strong>I9:</strong> search_wiki uses existing bge-m3 + Qdrant; no new service. <strong>PASS.</strong></li>
+</ul>
+<h2 id="mcp-ec-m2-7">MCP (EC-M2-7)<a class="headerlink" href="#mcp-ec-m2-7" title="Permanent link">&para;</a></h2>
+<p>4 tools registered (search_wiki, write_page, get_page, list_pages); write_page routes through the
+shared <code>write_wiki_page()</code> (ADR-0010); validation errors returned as structured dicts. <strong>PASS.</strong></p>
+<h2 id="bug-found-fixed-during-qa">Bug found &amp; fixed during QA<a class="headerlink" href="#bug-found-fixed-during-qa" title="Permanent link">&para;</a></h2>
+<p><strong>BUG-v0.2-1 (GAP-v0.2-7):</strong> <code>_delegate_ingest()</code> returned only <code>bool</code>, so <code>pages_written</code> was
+always 0 on the CLI delegated path. Fixed: returns <code>tuple[bool, int]</code>; <code>pages_written</code> uses the
+delegated count when <code>supports_agentic_loop</code>. Re-tested green.</p>
+<h2 id="3-provider-smoke-matrix-ec-m2-5-harness-ready-live-run-deferred">3-provider smoke matrix (EC-M2-5) — harness ready, live run deferred<a class="headerlink" href="#3-provider-smoke-matrix-ec-m2-5-harness-ready-live-run-deferred" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th>CI mock</th>
+<th>Live</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Local (Ollama)</td>
+<td>PASS (<code>SYNAPSE_SMOKE_MOCK=1</code>)</td>
+<td>DEFERRED-TO-LIVE</td>
+</tr>
+<tr>
+<td>API (Anthropic / OpenAI-compat)</td>
+<td>PASS</td>
+<td>DEFERRED-TO-LIVE</td>
+</tr>
+<tr>
+<td>CLI (claude-agent-sdk)</td>
+<td>PASS</td>
+<td>DEFERRED-TO-LIVE</td>
+</tr>
+</tbody>
+</table>
+<p>Harness: <code>backend/scripts/smoke_providers.py</code> + <code>backend/tests/test_smoke_providers.py</code> (marked
+<code>live</code>). Fixture: <code>backend/tests/fixtures/sample-source.md</code>. Live run on the M2/TrueNAS:
+<div class="highlight"><pre><span></span><code># env: OLLAMA_URL + model, ANTHROPIC_API_KEY (+ claude-agent-sdk installed), provider_config rows
+pytest tests/test_smoke_providers.py -m live -v
+# or
+SYNAPSE_SMOKE_MOCK=0 python scripts/smoke_providers.py
+</code></pre></div>
+Asserts per backend: schema-valid WikiPage(s), frontmatter.sources[] populated (F3), overview.md
++ index.md updated, total_cost_usd logged (&gt;0 API/CLI, ==0 Local), correct route taken.</p>
+<h2 id="cost">Cost<a class="headerlink" href="#cost" title="Permanent link">&para;</a></h2>
+<p><code>total_cost_usd = $0.00</code> in sandbox (no live inference). Real cost is logged to <code>ingest_runs</code>
+per run on the M2; $1/run anomaly flag active.</p>
+<h2 id="known-issues-non-blocking-tracked">Known issues (non-blocking, tracked)<a class="headerlink" href="#known-issues-non-blocking-tracked" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>mypy-1:</strong> 4 mypy strict errors in <code>provider_config_service.py</code>, <code>mcp/server.py</code>, <code>main.py</code>.
+  Filed to backend-engineer; does not affect runtime or tests. (Being cleaned up before gate.)</li>
+</ul>
+<h2 id="deferred-to-live-human-gates-before-m2-fully-closed">Deferred to live / human gates (before M2 fully closed)<a class="headerlink" href="#deferred-to-live-human-gates-before-m2-fully-closed" title="Permanent link">&para;</a></h2>
+<ol>
+<li>EC-M2-5 / EC-M2-17 — live 3-provider smoke matrix on TrueNAS (Emanuele).</li>
+<li>EC-M2-13 — open <code>vault/wiki/</code> in Obsidian after real pages generated.</li>
+<li>EC-M2-15 — architect sign-off on D3/D7/D1u.</li>
+<li>EC-M2-16 — tech-writer sign-off on D3/D7/D1u.</li>
+</ol>
+<p><strong>Automated milestone gate: SIGNED OFF with the documented deferrals above.</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

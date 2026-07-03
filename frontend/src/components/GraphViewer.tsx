@@ -1425,7 +1425,13 @@ export const GraphViewer: React.FC = () => {
       {/* sigma mounts ONE WebGL <canvas> here — I4.
           Background is set from the resolved --syn-bg token (ADR-0048 §T1).
           sigma inherits the container background for its WebGL clear color.
-          Both inline style and CSS var are set so sigma and the DOM agree. */}
+          Both inline style and CSS var are set so sigma and the DOM agree.
+          Mobile/PWA (R10-5, AC-R10-5-3): touch-action: none is applied to
+          #sigma-container via theme.css @media (max-width: 767px). This hands
+          all pointer events exclusively to sigma's touch handler, enabling
+          pinch-zoom without triggering the browser's native page-scroll/zoom.
+          I2 is preserved: sigma's camera.animatedZoom/animatedUnzoom scale the
+          precomputed coordinates — no FA2 re-invocation, no main-thread layout. */}
       <div
         id="sigma-container"
         ref={containerRef}

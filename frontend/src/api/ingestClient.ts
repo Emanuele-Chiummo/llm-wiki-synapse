@@ -18,7 +18,7 @@ import type {
   ResumeQueueResponse,
 } from "./types";
 import { ApiError } from "./graphClient";
-import { apiBase } from "./base";
+import { apiBase, apiFetch } from "./base";
 
 /** Sentinel error thrown when retry is refused because retry_count >= 3 */
 export class MaxRetriesExceededError extends Error {
@@ -53,7 +53,7 @@ export async function fetchIngestRuns(
   const { limit = 20, offset = 0, vaultId } = options;
   let url = `${apiBase()}/ingest/runs?limit=${limit}&offset=${offset}`;
   if (vaultId) url += `&vault_id=${encodeURIComponent(vaultId)}`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as IngestRunListResponse;
 }
@@ -68,7 +68,7 @@ export async function triggerIngest(
   signal?: AbortSignal,
 ): Promise<void> {
   const url = `${apiBase()}/ingest/trigger`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ file_path: filePath }),
@@ -85,7 +85,7 @@ export async function triggerIngest(
  */
 export async function getIngestQueue(signal?: AbortSignal): Promise<IngestQueueSnapshot> {
   const url = `${apiBase()}/ingest/queue`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as IngestQueueSnapshot;
 }
@@ -100,7 +100,7 @@ export async function cancelIngestRun(
   signal?: AbortSignal,
 ): Promise<CancelRunResponse> {
   const url = `${apiBase()}/ingest/runs/${encodeURIComponent(id)}/cancel`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
   });
@@ -119,7 +119,7 @@ export async function retryIngestRun(
   signal?: AbortSignal,
 ): Promise<RetryRunResponse> {
   const url = `${apiBase()}/ingest/runs/${encodeURIComponent(id)}/retry`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
   });
@@ -136,7 +136,7 @@ export async function retryIngestRun(
  */
 export async function pauseIngestQueue(signal?: AbortSignal): Promise<PauseQueueResponse> {
   const url = `${apiBase()}/ingest/queue/pause`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
   });
@@ -150,7 +150,7 @@ export async function pauseIngestQueue(signal?: AbortSignal): Promise<PauseQueue
  */
 export async function resumeIngestQueue(signal?: AbortSignal): Promise<ResumeQueueResponse> {
   const url = `${apiBase()}/ingest/queue/resume`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
   });
@@ -176,7 +176,7 @@ export async function uploadDocument(
   const url = `${apiBase()}/ingest/upload`;
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     body: form,
     ...(signal !== undefined ? { signal } : {}),

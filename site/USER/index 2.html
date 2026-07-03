@@ -1,0 +1,3656 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/USER/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../DEPLOY/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>User Guide - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#synapse-user-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              User Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-synapse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is Synapse?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-core-journey" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The core journey
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The interface
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#navigation-rail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Navigation rail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wiki-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wiki section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reading-and-editing-wiki-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading and editing wiki notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graph-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph section
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Graph section">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#graph-drill-down-communities-and-edge-signals-v09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph drill-down — communities and edge signals (v0.9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sources-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sources section
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sources section">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#uploading-a-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uploading a document
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run history
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bulk-select-in-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bulk select in Sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chat-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chat section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings section
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Settings section">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#general" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        General
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#llm-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenarios
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#source-watch-automatic-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source Watch (automatic import)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-costi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Costi (cost dashboard)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#command-palette" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command palette
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provider-selector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider selector
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ingesting-your-first-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ingesting your first document
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Ingesting your first document">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#review-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review section
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Review section">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-proposals-are-generated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How proposals are generated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#five-proposal-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Five proposal types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#purposemd-suggestions-v09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        purpose.md suggestions (v0.9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schemamd-suggestions-v09-default-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        schema.md suggestions (v0.9, default off)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-three-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auto-resolution-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-resolution sweep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#screenshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Screenshots
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lint-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lint section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#web-clipper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web Clipper
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opening-the-wiki-in-obsidian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opening the wiki in Obsidian
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status-bar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status bar
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Search filters and sort
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#citation-click-through" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Citations in chat
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-backup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vault export and backup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#image-captions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image captions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#av-transcription" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audio and video transcription
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#marker-pdf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Higher-quality PDF extraction with Marker
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication (v1.0)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Authentication (v1.0)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-the-server-has-a-token-configured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the server has a token configured
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-security-updating-the-client-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings &gt; Security — updating the client token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#exempt-endpoints-never-require-the-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exempt endpoints (never require the token)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mobile-pwa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mobile and PWA (v1.0)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mobile and PWA (v1.0)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#compact-navigation-rail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compact navigation rail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stacked-panels-single-column-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stacked panels (single-column layout)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#touch-interactions-on-the-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Touch interactions on the graph
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pwa-install-on-mobile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PWA install on mobile
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-boundaries-section-level-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error boundaries — section-level recovery
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-shipped-in-m5-and-m6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What shipped in M5 and M6
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install-as-an-app-pwa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install as an app (PWA)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#desktop-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desktop app (Tauri v2)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Desktop app (Tauri v2)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#connect-screen-first-launch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connect screen (first launch)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desktop-server-chip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server chip in the header
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desktop-zoom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Zoom
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desktop-notifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ingest-completion notifications
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desktop-auto-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desktop auto-update
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-synapse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is Synapse?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-core-journey" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The core journey
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The interface
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#navigation-rail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Navigation rail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wiki-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wiki section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reading-and-editing-wiki-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading and editing wiki notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graph-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph section
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Graph section">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#graph-drill-down-communities-and-edge-signals-v09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph drill-down — communities and edge signals (v0.9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sources-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sources section
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sources section">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#uploading-a-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uploading a document
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run history
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bulk-select-in-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bulk select in Sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chat-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chat section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings section
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Settings section">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#general" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        General
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#llm-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenarios
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#source-watch-automatic-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source Watch (automatic import)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-costi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Costi (cost dashboard)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#command-palette" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command palette
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provider-selector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider selector
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ingesting-your-first-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ingesting your first document
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Ingesting your first document">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#review-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review section
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Review section">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-proposals-are-generated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How proposals are generated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#five-proposal-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Five proposal types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#purposemd-suggestions-v09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        purpose.md suggestions (v0.9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schemamd-suggestions-v09-default-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        schema.md suggestions (v0.9, default off)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-three-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auto-resolution-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-resolution sweep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#screenshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Screenshots
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lint-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lint section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#web-clipper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web Clipper
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opening-the-wiki-in-obsidian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opening the wiki in Obsidian
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status-bar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status bar
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Search filters and sort
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#citation-click-through" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Citations in chat
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-backup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vault export and backup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#image-captions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image captions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#av-transcription" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audio and video transcription
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#marker-pdf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Higher-quality PDF extraction with Marker
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication (v1.0)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Authentication (v1.0)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-the-server-has-a-token-configured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the server has a token configured
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-security-updating-the-client-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings &gt; Security — updating the client token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#exempt-endpoints-never-require-the-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exempt endpoints (never require the token)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mobile-pwa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mobile and PWA (v1.0)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mobile and PWA (v1.0)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#compact-navigation-rail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compact navigation rail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stacked-panels-single-column-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stacked panels (single-column layout)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#touch-interactions-on-the-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Touch interactions on the graph
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pwa-install-on-mobile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PWA install on mobile
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-boundaries-section-level-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error boundaries — section-level recovery
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-shipped-in-m5-and-m6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What shipped in M5 and M6
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install-as-an-app-pwa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install as an app (PWA)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#desktop-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desktop app (Tauri v2)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Desktop app (Tauri v2)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#connect-screen-first-launch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connect screen (first launch)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desktop-server-chip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server chip in the header
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desktop-zoom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Zoom
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desktop-notifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ingest-completion notifications
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desktop-auto-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desktop auto-update
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="synapse-user-guide">Synapse User Guide<a class="headerlink" href="#synapse-user-guide" title="Permanent link">&para;</a></h1>
+<!-- Generated: v1.0 sprint 9 | 2026-07-03 -->
+
+<blockquote>
+<p>Version: v1.0 (M10 — "Distribution": shared-token auth, mobile/PWA polish, MkDocs site)
+Language toggle: English / Italian available in Settings.</p>
+</blockquote>
+<hr />
+<h2 id="what-is-synapse">What is Synapse?<a class="headerlink" href="#what-is-synapse" title="Permanent link">&para;</a></h2>
+<p>Synapse is a self-hosted web service that turns a folder of raw documents into a
+self-organizing knowledge wiki. Drop a file into <code>vault/raw/sources/</code>, and Synapse
+will analyze it with a configurable AI provider, create structured wiki pages in
+<code>vault/wiki/</code>, link them to related concepts, and lay out the whole knowledge graph
+for you to explore.</p>
+<p>The design follows the Karpathy LLM Wiki pattern: the AI maintains the wiki, and you
+curate it. The <code>wiki/</code> folder is a valid Obsidian vault you can open directly in the
+Obsidian app.</p>
+<hr />
+<h2 id="the-core-journey">The core journey<a class="headerlink" href="#the-core-journey" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Open the app</strong> — you land on the Chat section by default. Ask a question or
+   navigate to another section using the labeled rail on the left.</li>
+<li><strong>Drop a document</strong> into <code>vault/raw/sources/</code> (or use the upload zone in the
+   Sources section).</li>
+<li><strong>Watch the graph grow</strong> — the knowledge graph updates automatically as pages are
+   created.</li>
+<li><strong>Inspect a page</strong> — click any node on the graph or row in the Wiki tree to read
+   its metadata and relationships.</li>
+<li><strong>Chat with your wiki</strong> — ask questions in the Chat section; answers stream in
+   token by token.</li>
+<li><strong>Configure your provider</strong> — add, edit, or delete inference providers from
+   Settings &gt; LLM Models; select the active one from the header dropdown.</li>
+</ol>
+<hr />
+<h2 id="the-interface">The interface<a class="headerlink" href="#the-interface" title="Permanent link">&para;</a></h2>
+<p>Synapse uses a dark-themed shell. A labeled navigation rail on the left lets you switch
+between sections without a page reload.</p>
+<p><img alt="3-panel shell" src="../screens/shell-3panel.png" /></p>
+<h3 id="navigation-rail">Navigation rail<a class="headerlink" href="#navigation-rail" title="Permanent link">&para;</a></h3>
+<p>The leftmost strip is approximately 72 px wide. Each item shows an icon and a
+persistent text label below it. The active section is highlighted with a rounded
+rectangle that encloses both icon and label.</p>
+<p>The rail contains items from top to bottom:</p>
+<table>
+<thead>
+<tr>
+<th>Label</th>
+<th>Section</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Chat</strong></td>
+<td>Multi-conversation streaming chat (default on first load)</td>
+</tr>
+<tr>
+<td><strong>Wiki</strong></td>
+<td>File tree + knowledge graph + page inspector</td>
+</tr>
+<tr>
+<td><strong>Sources</strong></td>
+<td>Ingest activity history, upload zone, Run Ingest button</td>
+</tr>
+<tr>
+<td><strong>Graph</strong></td>
+<td>Full-bleed sigma knowledge graph</td>
+</tr>
+<tr>
+<td><strong>Review</strong></td>
+<td>HITL proposal queue — act on AI-proposed follow-up work</td>
+</tr>
+<tr>
+<td><strong>Deep Research</strong></td>
+<td>Web-search loop via SearXNG — synthesize and auto-ingest</td>
+</tr>
+<tr>
+<td><strong>Lint</strong></td>
+<td>Bounded wiki health check — flag and fix structural issues</td>
+</tr>
+<tr>
+<td><strong>Settings</strong> (pinned at bottom)</td>
+<td>LLM providers, context window, language, maintenance</td>
+</tr>
+</tbody>
+</table>
+<p>The nav rail also carries <strong>Review</strong>, <strong>Deep Research</strong>, and <strong>Lint</strong> sections (Review and Deep Research shipped in v0.5; Lint shipped in v0.6).</p>
+<p>The vault name, data version, and active provider appear in the status bar at the
+bottom of every section.</p>
+<hr />
+<h3 id="wiki-section">Wiki section<a class="headerlink" href="#wiki-section" title="Permanent link">&para;</a></h3>
+<p>The Wiki section (nav label: <strong>Wiki</strong>) has the classic three-panel layout: a page tree
+on the left, a note reader/editor in the center, and a metadata inspector on the right.
+Left and right panels can be collapsed by clicking the chevron button on their inner
+edge; click the chevron again to expand.</p>
+<p><img alt="3-panel with selected node" src="../screens/shell-3panel-selected.png" /></p>
+<p><strong>Left panel — page tree.</strong> Wiki pages grouped by type (concept, entity, source,
+synthesis, comparison). Click any row to select that page: its content loads in the
+center panel and its metadata loads in the right panel. Click the <code>‹</code> chevron on the
+right edge of the left panel to collapse it and reclaim screen space.</p>
+<p><strong>New page button.</strong> A <code>+</code> icon appears in the header of the left panel (top-right
+corner of the tree). Clicking it opens a small inline form where you enter a title and
+choose a page type. Confirming creates a stub wiki page directly in <code>vault/wiki/</code> with
+valid YAML frontmatter, adds it to the tree, and opens it immediately in the center
+panel. The page is incremental (one <code>data_version</code> bump, one graph node added — no
+rescan, I1).</p>
+<p><strong>Center panel — note reader/editor (NoteView).</strong> Shows the raw markdown of the
+selected wiki page (including YAML frontmatter) in a read-only view by default.
+Click <strong>Edit</strong> (top-right of the panel) to switch to the CodeMirror 6 editor.
+When you are done editing, click <strong>Save</strong> to write the changes back. The backend
+applies an optimistic-lock check: if another process (or you in a second tab) changed
+the file since you opened it, you will see a "content changed on disk — please reload"
+message and the save will be rejected to prevent data loss. Reload the page to get the
+latest content and try again.</p>
+<p>Saving re-indexes the page inline (links, embeddings, graph) without rescanning the
+vault (I1). One graph version bump fires the debounced graph recompute so the Graph
+section updates automatically within a few seconds.</p>
+<blockquote>
+<p>Note: the full-bleed knowledge graph used to appear in the center panel of the Wiki
+section. As of v0.5, the graph lives exclusively in the dedicated <strong>Graph</strong> section
+(nav label: <strong>Graph</strong>). The Wiki section center panel is now the note editor.</p>
+</blockquote>
+<p><strong>Right panel — inspector.</strong> Shows the selected page's frontmatter (title, type,
+sources) and its relationships (pages it links to and pages that link back to it).
+Click the <code>›</code> chevron on the left edge of the right panel to collapse it.</p>
+<hr />
+<h3 id="reading-and-editing-wiki-notes">Reading and editing wiki notes<a class="headerlink" href="#reading-and-editing-wiki-notes" title="Permanent link">&para;</a></h3>
+<p>Synapse lets you read and edit any <code>wiki/</code> page directly in the browser using the
+CodeMirror 6 editor, without leaving the app.</p>
+<p><strong>To read a note:</strong></p>
+<ol>
+<li>Navigate to the <strong>Wiki</strong> section using the nav rail.</li>
+<li>Click any page in the left-panel tree. The page's raw markdown (including YAML
+   frontmatter and <code>[[wikilinks]]</code>) appears in the center panel.</li>
+</ol>
+<p><strong>To edit a note:</strong></p>
+<ol>
+<li>Select a page in the tree (center panel shows its content).</li>
+<li>Click <strong>Edit</strong> (top-right corner of the center panel). The panel switches to
+   CodeMirror 6 editor mode.</li>
+<li>Make your changes. The editor supports syntax highlighting for Markdown and YAML.</li>
+<li>Click <strong>Save</strong> when you are done.</li>
+</ol>
+<p><strong>What happens on Save:</strong></p>
+<ul>
+<li>The backend writes the file atomically (temp file + rename — no partial writes).</li>
+<li>YAML frontmatter is validated before writing: if the frontmatter is malformed, the
+  save is rejected with a 422 error and the file on disk is NOT changed.</li>
+<li>The backend re-indexes the page inline: wikilinks are re-parsed, embeddings updated,
+  and the graph version is bumped — all for this single page, with no full rescan (I1).</li>
+<li>The Graph section updates automatically (debounced, within about 5 seconds).</li>
+</ul>
+<p><strong>Unsaved-changes guard.</strong> If you navigate away from a page while the CodeMirror editor
+has unsaved changes, Synapse intercepts the navigation and shows an "Unsaved changes —
+continue?" dialog with <strong>Stay</strong> and <strong>Discard changes</strong> buttons. Clicking <strong>Stay</strong>
+returns you to the editor so you can save; clicking <strong>Discard changes</strong> navigates away
+and discards your edits. No edits are silently lost by clicking a row in the tree,
+switching sections, or closing the panel.</p>
+<p><strong>If the note changed on disk while you were editing:</strong></p>
+<p>You will see a "reload required" message (HTTP 409). This means someone else (or a
+background ingest run) updated the same file since you opened it. Click <strong>Reload</strong> in
+the center panel to fetch the latest content. Your unsaved edits will be lost — copy
+them to a clipboard before reloading if needed.</p>
+<p><strong>Important constraints:</strong></p>
+<ul>
+<li>You can only edit pages inside <code>vault/wiki/</code>. Raw source files in <code>vault/raw/sources/</code>
+  are read-only in the editor (the backend returns 403 for those paths — K1 vault layer
+  separation).</li>
+<li>The maximum editable page size is 4 MB (<code>MAX_PAGE_CONTENT_BYTES</code>). Files larger than
+  this are displayed read-only with a size warning.</li>
+<li>The graph is not in the Wiki section center panel. Use the <strong>Graph</strong> section (nav rail)
+  to view the full-bleed sigma knowledge graph.</li>
+</ul>
+<hr />
+<h3 id="graph-section">Graph section<a class="headerlink" href="#graph-section" title="Permanent link">&para;</a></h3>
+<p>The full-bleed knowledge graph. This section shows only the graph canvas — no tree or
+inspector. Use the Wiki section if you want the graph alongside the page tree.</p>
+<p><img alt="Graph section — sigma viewer with labeled nav rail" src="../screens/navrail-graph-active.png" /></p>
+<ul>
+<li><strong>Node size</strong> scales with the number of structural connections (direct wikilinks and
+  shared-source provenance). Larger nodes are more connected.</li>
+<li><strong>Node color</strong> encodes page type. The legend is always visible in the bottom-left
+  corner.</li>
+<li><strong>Hover</strong> lights up the hovered node and its immediate neighbors. Everything else
+  fades to a low opacity so the local neighborhood is easy to read.</li>
+<li><strong>Drag</strong> a node to reposition it. The new position persists across graph recomputes;
+  a dragged node keeps its location even when new pages are ingested.</li>
+<li><strong>Click</strong> a node to select it. The selected node title is announced for screen
+  readers.</li>
+</ul>
+<p>The layout is computed server-side (ForceAtlas2 offline). The browser never runs a
+force-directed layout, so the UI stays responsive regardless of graph size.</p>
+<h4 id="graph-drill-down-communities-and-edge-signals-v09">Graph drill-down — communities and edge signals (v0.9)<a class="headerlink" href="#graph-drill-down-communities-and-edge-signals-v09" title="Permanent link">&para;</a></h4>
+<p><strong>Community panel.</strong> Nodes are grouped into communities by the Louvain algorithm.
+Click on a colored community area (or on a node belonging to a community) to open the
+community detail panel on the right side of the Graph section. The panel shows:</p>
+<ul>
+<li><strong>Member list</strong> — every page in the community, clickable to open that page in the
+  Wiki section.</li>
+<li><strong>Cohesion score</strong> — a number between 0 and 1 representing how tightly connected the
+  community is internally. The score is <code>intra-community edges / possible intra-community
+  edges</code>. A score below 0.15 is flagged with a warning indicator, meaning the community
+  is sparse and its members may not be strongly related. If <code>GRAPH_COHESION_WARN</code> is set
+  by the operator, the threshold can be adjusted.</li>
+<li>The community panel is powered by <code>GET /graph/communities/{id}</code> and loads on demand
+  (only when you click a community — no data is prefetched).</li>
+</ul>
+<p><strong>Edge signal breakdown.</strong> Click any edge between two nodes to open an edge detail
+panel showing the decomposition of that edge's relevance weight into its four
+contributing signals:</p>
+<table>
+<thead>
+<tr>
+<th>Signal</th>
+<th>Weight coefficient</th>
+<th>What it measures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Direct wikilinks</td>
+<td>3.0</td>
+<td>Number of <code>[[wikilinks]]</code> between the two pages</td>
+</tr>
+<tr>
+<td>Shared sources</td>
+<td>4.0</td>
+<td>Number of raw source files that both pages derive from</td>
+</tr>
+<tr>
+<td>Adamic-Adar index</td>
+<td>1.5</td>
+<td>Common-neighbor structural similarity</td>
+</tr>
+<tr>
+<td>Type affinity</td>
+<td>1.0</td>
+<td>Cross-type bonus or same-type penalty from the type matrix</td>
+</tr>
+</tbody>
+</table>
+<p>The breakdown helps you understand why two pages are connected and how strongly. A high
+shared-sources score means both pages were generated from the same source document. A
+high direct-wikilinks score means the pages explicitly reference each other. The edge
+detail panel is powered by <code>GET /graph/edges/{source_id}/{target_id}</code> and loads on
+demand.</p>
+<hr />
+<h3 id="sources-section">Sources section<a class="headerlink" href="#sources-section" title="Permanent link">&para;</a></h3>
+<p>The Sources section (nav label: <strong>Sources</strong>) shows the history of all ingest runs for
+the current vault and provides two ways to add documents directly from the browser.</p>
+<p><img alt="Ingest activity view" src="../screens/ingest-section.png" /></p>
+<h4 id="uploading-a-document">Uploading a document<a class="headerlink" href="#uploading-a-document" title="Permanent link">&para;</a></h4>
+<p>The top of the Sources section contains a drag-and-drop upload zone.</p>
+<ul>
+<li><strong>Drag</strong> a Markdown or plain-text file (<code>.md</code>, <code>.txt</code>, <code>.markdown</code>) onto the zone, or
+  click <strong>Browse</strong> to open a file picker.</li>
+<li>Synapse saves the file to <code>vault/raw/sources/</code> and the watcher ingests it
+  asynchronously. A new run row appears in the list within about 15–30 seconds.</li>
+<li><strong>Accepted formats in v0.8:</strong> Markdown, plain text (<code>.md</code>, <code>.txt</code>, <code>.markdown</code>), PDF,
+  DOCX, PPTX, XLSX, images (<code>.png</code>, <code>.jpg</code>, <code>.jpeg</code>, <code>.webp</code>), and audio/video
+  (<code>.mp3</code>, <code>.m4a</code>, <code>.wav</code>, <code>.mp4</code>, <code>.mov</code>, <code>.webm</code>). Binary office files are
+  automatically converted to a companion <code>.extracted.md</code> file for ingest (F12,
+  ADR-0025). Image files produce an AI-generated caption (see Image captions below);
+  audio/video files are transcribed to text (see Audio/video transcription below).
+  The original binary is stored in <code>vault/raw/sources/</code>.</li>
+<li><strong>Size limit:</strong> 25 MB per file (configurable by the operator via <code>MAX_UPLOAD_BYTES</code>).
+  Larger files are rejected with a message before any data is saved.</li>
+<li>If you upload a file whose name already exists in <code>vault/raw/sources/</code>, the existing
+  file is replaced and re-ingested (correct incremental behaviour — only the changed
+  content is re-processed).</li>
+</ul>
+<h4 id="run-history">Run history<a class="headerlink" href="#run-history" title="Permanent link">&para;</a></h4>
+<p>Each row in the list below the upload zone displays:</p>
+<ul>
+<li><strong>Status badge</strong> — Running (pulsing), Completed, Failed, or Did not converge.</li>
+<li><strong>Provider</strong> — which inference backend handled the run (Local Ollama, API, or CLI).</li>
+<li><strong>Pages created</strong> — how many wiki pages this run produced.</li>
+<li><strong>Cost</strong> — total provider cost in USD to four decimal places (e.g. <code>$0.0512</code>). Local
+  Ollama runs always show <code>$0.0000</code>.</li>
+<li><strong>Relative time</strong> — "3 hours ago", "yesterday", etc.</li>
+</ul>
+<p>Click a row to expand its details in the right panel (error message if failed, full
+cost breakdown).</p>
+<p><strong>Run Ingest button</strong> — triggers a new ingest run against the current vault using the
+active provider. On success a toast confirms the run started and the list refreshes.
+The list polls automatically while any run has status Running.</p>
+<p>After each ingest run the backend runs a proposal stage and emits review items for
+genuinely useful follow-up work (missing pages, research gaps, contradictions). Visit
+the <strong>Review</strong> section in the nav rail to act on them.</p>
+<h4 id="bulk-select-in-sources">Bulk select in Sources<a class="headerlink" href="#bulk-select-in-sources" title="Permanent link">&para;</a></h4>
+<p>A <strong>Select</strong> button in the Sources section header activates bulk-select mode. In this
+mode:</p>
+<ul>
+<li>Each row in the file tree gains a checkbox. Click a checkbox (or the row itself) to
+  toggle selection.</li>
+<li>A <strong>Select all</strong> checkbox in the header selects or deselects every visible file at once.</li>
+<li>The header shows a count of selected items (e.g. "3 selected").</li>
+<li>A <strong>Delete selected</strong> button cascade-deletes all selected source files and their
+  derived wiki pages in one backend call (same cascade-delete logic as the single-file
+  delete — mandatory dry-run results are shown in a confirmation dialog before the
+  destructive apply).</li>
+<li>Press <strong>Esc</strong> or click <strong>Cancel</strong> to exit bulk-select mode without deleting anything.</li>
+</ul>
+<p>Bulk select is useful when you want to remove a batch of draft sources that produced
+overlapping pages, or when cleaning up failed ingest runs.</p>
+<hr />
+<h3 id="chat-section">Chat section<a class="headerlink" href="#chat-section" title="Permanent link">&para;</a></h3>
+<p>The Chat section is a multi-conversation interface backed by the configured inference
+provider.</p>
+<p><img alt="Chat streaming" src="../screens/chat-streaming.png" /></p>
+<p><strong>Left panel — conversation list.</strong> All your past conversations for the current vault.
+Create a new one with the <code>+</code> button (or press <strong>Cmd/Ctrl+N</strong>). Delete one with the <code>x</code>
+on hover. Conversations persist across page reloads.</p>
+<p><strong>Automatic conversation titles and list previews (v0.9).</strong> When you send the first
+message in a new conversation, Synapse automatically sets the conversation title to the
+first 50 characters of your message (trimmed to the last word boundary so it never cuts
+mid-word). You do not need to name conversations manually. Each conversation row in the
+left panel also shows a one-line preview of the most recent message, so you can identify
+conversations at a glance without opening them. If you rename a conversation, the manual
+title takes permanent precedence over the auto-title.</p>
+<p><strong>Rename a conversation.</strong> Double-click the conversation title in the list (or click the
+pencil icon on hover) to edit it inline. Press <strong>Enter</strong> or click away to save; press
+<strong>Esc</strong> to cancel. The title is persisted immediately via <code>PATCH /conversations/{id}</code>.
+Synapse auto-titles a new conversation from the first 50 characters of the first user
+message; renaming overrides that auto-title permanently.</p>
+<p><strong>Filter conversations.</strong> A search box at the top of the conversation list filters rows
+in real time by title (case-insensitive substring match). Clear the field to see all
+conversations. The filter is local to the panel and does not send any request to the
+backend.</p>
+<p><strong>Starting a conversation — example prompts.</strong> When a conversation has no messages yet,
+the center panel shows the Synapse logo and three clickable example-question chips. Click
+any chip to send that question immediately, exactly as if you had typed it and pressed
+Enter. The chips are a quick way to explore your vault without having to think of a first
+question; you can still type your own message at any time.</p>
+<p><strong>Center panel — message thread.</strong> Each user message appears in teal; assistant
+replies in green. Responses stream token by token as they arrive — you see the reply
+build in real time. A <strong>Stop</strong> button interrupts a stream in progress.</p>
+<p>When the response is complete, two buttons appear under the assistant message:
+- <strong>Regenerate</strong> — re-sends your last message and replaces the previous reply.
+- <strong>Save to wiki</strong> — active in v0.5; creates a new wiki page from the conversation
+  turn via <code>POST /ingest/from-text</code> (F6, ADR-0019 §2.7).</p>
+<p><strong>Reasoning (<code>&lt;think&gt;</code>) blocks.</strong> If the model produces a <code>&lt;think&gt;…&lt;/think&gt;</code> section
+(for example when using a reasoning-capable model), it is shown in a collapsible
+"Reasoning" section, collapsed by default. Click it to expand.</p>
+<p><strong>GFM and LaTeX.</strong> Assistant responses are rendered as GitHub-flavored Markdown
+(tables, task lists, strikethrough). LaTeX expressions (<code>\alpha</code>, <code>\sum</code>, etc.) are
+converted to Unicode at the end of the stream, not per token. Complex display math
+that cannot be converted is left as a fenced code block.</p>
+<p><img alt="Chat with completed response" src="../screens/chat-conversation.png" /></p>
+<hr />
+<h3 id="settings-section">Settings section<a class="headerlink" href="#settings-section" title="Permanent link">&para;</a></h3>
+<p>The Settings section uses a two-column layout: a left sub-navigation list of nine
+sections and a right content pane that shows the selected section. Click any sub-nav
+item to switch the pane without a page reload.</p>
+<p><img alt="Settings — General section" src="../screens/settings-section.png" /></p>
+<p>The ten sections are:</p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>General</strong></td>
+<td>Context window size and token-budget bar chart</td>
+</tr>
+<tr>
+<td><strong>LLM Models</strong></td>
+<td>Add, view, and delete inference provider configurations</td>
+</tr>
+<tr>
+<td><strong>Embeddings</strong></td>
+<td>Vector embeddings on/off toggle; enabled/disabled state; lexical-only notice when off</td>
+</tr>
+<tr>
+<td><strong>Source Watch</strong></td>
+<td>Automatic folder import (scheduled scan)</td>
+</tr>
+<tr>
+<td><strong>Scenarios</strong></td>
+<td>Five vault presets that overwrite <code>purpose.md</code> and <code>schema.md</code></td>
+</tr>
+<tr>
+<td><strong>API + MCP</strong></td>
+<td>MCP server connection details; tool list; Claude Desktop snippet</td>
+</tr>
+<tr>
+<td><strong>Output</strong></td>
+<td>Conversation history length; language toggle</td>
+</tr>
+<tr>
+<td><strong>Interface</strong></td>
+<td>Theme (Light / Dark / System), and other UI preferences</td>
+</tr>
+<tr>
+<td><strong>Maintenance</strong></td>
+<td>Reset settings</td>
+</tr>
+<tr>
+<td><strong>About</strong></td>
+<td>Version, build information, and dynamic version display</td>
+</tr>
+<tr>
+<td><strong>Costi</strong></td>
+<td>Provider cost dashboard with monthly rollup and alert threshold (v0.9)</td>
+</tr>
+<tr>
+<td><strong>Security</strong></td>
+<td>Update the client-side access token when the server <code>SYNAPSE_AUTH_TOKEN</code> changes (v1.0)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="general">General<a class="headerlink" href="#general" title="Permanent link">&para;</a></h4>
+<p>Choose how many tokens Synapse sends to the model per request: 4K, 8K, 16K, 32K
+(default), 64K, 128K, 256K, 512K, or 1M. The token budget is split 60 % conversation
+history / 20 % retrieved context / 5 % system prompt / 15 % generation headroom. The
+bar chart visualizes absolute token counts for the chosen window size.</p>
+<h4 id="llm-models">LLM Models<a class="headerlink" href="#llm-models" title="Permanent link">&para;</a></h4>
+<p>The LLM Models section lists all configured inference providers. Each row shows the
+provider type (Local Ollama, API, or CLI), the model ID, and the scope (Global or
+Per-operation). Use this section to manage providers without editing the database.</p>
+<p><img alt="Settings — LLM Models with provider list" src="../screens/settings-llm-models.png" /></p>
+<p><strong>Viewing providers.</strong> The list is loaded from the backend on every visit. The
+currently active provider is shown in the header.</p>
+<p><strong>Adding a provider.</strong> Click <strong>+ Add provider</strong> to expand the add form. Choose the
+provider type, enter a model ID (required), optionally enter a base URL (for
+OpenAI-compatible endpoints), and select a scope. The <strong>Add</strong> button is disabled until
+you enter a model ID. On success, the new row appears in the list immediately.</p>
+<p><strong>Deleting a provider.</strong> Click <strong>Delete</strong> on any row. A confirmation prompt appears
+before the deletion is sent. If you are about to delete the last remaining provider, a
+warning is shown explaining that ingest and chat will fail without a provider — the
+deletion is still allowed, because a misconfigured sole provider should always be
+replaceable.</p>
+<h4 id="settings-scenarios">Scenarios<a class="headerlink" href="#settings-scenarios" title="Permanent link">&para;</a></h4>
+<p>The Scenarios section gives you five ready-made vault presets, each tuned for a
+different knowledge-building style. Applying a scenario rewrites <code>vault/purpose.md</code> and
+<code>vault/schema.md</code> with pre-written goal, key questions, and frontmatter rules for that
+use case, then bumps the vault data version so the graph refreshes automatically.</p>
+<table>
+<thead>
+<tr>
+<th>Preset</th>
+<th>Vault focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Research</strong></td>
+<td>Academic or professional research; citations, hypotheses, methodology, evidence, conclusions</td>
+</tr>
+<tr>
+<td><strong>Reading</strong></td>
+<td>Book and article notes; summaries, themes, vocabulary, author context</td>
+</tr>
+<tr>
+<td><strong>Personal Growth</strong></td>
+<td>Habits, goals, reflections, journaling, skills, and self-improvement tracking</td>
+</tr>
+<tr>
+<td><strong>Business</strong></td>
+<td>Strategy, market analysis, product, operations, stakeholders</td>
+</tr>
+<tr>
+<td><strong>General</strong></td>
+<td>Balanced default; minimal schema constraints; suitable for any mixed-topic vault</td>
+</tr>
+</tbody>
+</table>
+<p><strong>How to apply a scenario:</strong></p>
+<ol>
+<li>Open <strong>Settings &gt; Scenarios</strong>.</li>
+<li>Read the short description under each preset card.</li>
+<li>Click <strong>Apply</strong> on the preset you want. A confirmation dialog explains that
+   <code>purpose.md</code> and <code>schema.md</code> will be overwritten.</li>
+<li>Confirm. The backend writes both files and bumps the data version. The graph
+   refreshes in the background (debounced, within about 5 seconds).</li>
+</ol>
+<p><strong>Important:</strong> applying a scenario overwrites the current <code>purpose.md</code> and <code>schema.md</code>
+completely. If you have hand-crafted either file, copy its contents to a safe place
+before applying a preset. Scenarios are intended for first-time vault setup or for
+switching a vault to a new purpose — not for incremental tweaks. You can edit the
+resulting files manually in the Wiki editor after applying.</p>
+<p>The scenario definitions are read-only (built into the backend); you cannot create
+custom scenarios from the UI in v0.7.</p>
+<h4 id="output">Output<a class="headerlink" href="#output" title="Permanent link">&para;</a></h4>
+<p><strong>Conversation history length.</strong> Choose how many past messages are sent to the model
+with each new chat message: 2, 4, 6, 8, 10, or 20. A smaller history reduces token
+cost; a larger history gives the model more context. The setting is persisted in
+browser local storage.</p>
+<p><strong>Language.</strong> Toggle between English and Italian. The UI switches immediately; no
+reload needed.</p>
+<h4 id="source-watch-automatic-import">Source Watch (automatic import)<a class="headerlink" href="#source-watch-automatic-import" title="Permanent link">&para;</a></h4>
+<p>The Source Watch section (previously called "Automatic import") lets Synapse
+periodically scan a mounted folder inside the backend container and import any new or
+changed documents automatically — no manual drag-and-drop required.</p>
+<p><strong>How to set it up:</strong></p>
+<ol>
+<li>The backend can only see folders that have been mounted into its container. Add a
+   bind-mount to <code>docker-compose.yml</code> (see <a href="../DEPLOY/">DEPLOY.md §8</a>) and restart the
+   stack. Example: <code>./import:/import:ro</code> makes the host folder <code>./import</code> visible inside
+   the container as <code>/import</code>.</li>
+<li>In Settings &gt; <strong>Source Watch</strong>, enable the toggle.</li>
+<li>Enter the <strong>container path</strong> (e.g. <code>/import</code>). This is the path inside the container,
+   not your host machine's path. If the path is not accessible inside the container, a
+   warning appears — add the mount and it resolves on the next scan.</li>
+<li>Choose a <strong>frequency</strong>: every 15 minutes, every hour, every 6 hours, or daily.</li>
+<li>Click <strong>Save</strong> (or the card auto-saves on change). The scheduler picks up the new
+   settings on its next tick without a restart.</li>
+</ol>
+<p>The <strong>Run now</strong> button triggers an immediate scan outside the normal schedule. Use it
+to test your setup or import a batch without waiting for the next scheduled tick.</p>
+<p>After each scan the card shows "Last scan: N minutes ago — M imported". The number is
+how many files were copied into <code>vault/raw/sources/</code> (new or changed content only —
+identical files are skipped). Actual ingest runs for those files appear in the Sources
+section with their normal status and cost.</p>
+<p><strong>Important constraints:</strong>
+- As of v0.8, Markdown, plain text, PDF, DOCX, PPTX, XLSX, images, and audio/video
+  files are imported (F12). Binary office files are converted to a companion
+  <code>.extracted.md</code> before ingest. Images require <code>VISION_CAPTIONS_ENABLED=true</code>; audio
+  and video require <code>AV_TRANSCRIPTION_ENABLED=true</code> (both opt-in — see the operator
+  env var reference in DEPLOY.md §2.1). Files of unrecognized types are silently
+  skipped.
+- The scan is non-recursive: only files directly inside the configured folder are
+  imported, not files in sub-folders.
+- Each scan copies at most 200 files and runs for at most 60 seconds (both limits are
+  configurable by the operator). Remaining files are picked up on the next tick.
+- A scan that is already in progress will not overlap with a new tick or a "Run now"
+  request.</p>
+<h4 id="settings-interface">Interface<a class="headerlink" href="#settings-interface" title="Permanent link">&para;</a></h4>
+<p>The Interface section controls the visual theme of the app.</p>
+<p><strong>Theme.</strong> Three options are available from a selector in Settings &gt; Interface:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Light</strong></td>
+<td>Always uses the light palette, regardless of OS setting.</td>
+</tr>
+<tr>
+<td><strong>Dark</strong></td>
+<td>Always uses the dark palette, regardless of OS setting.</td>
+</tr>
+<tr>
+<td><strong>System</strong></td>
+<td>Follows the OS appearance setting. If you switch your OS between light and dark mode, the app updates live — no page reload needed.</td>
+</tr>
+</tbody>
+</table>
+<p>The selected theme is persisted in your browser's local storage. CodeMirror (the note editor) automatically switches between its default light theme and the One Dark theme to match. The knowledge graph's canvas background and label colors also follow the resolved theme.</p>
+<h4 id="settings-costi">Costi (cost dashboard)<a class="headerlink" href="#settings-costi" title="Permanent link">&para;</a></h4>
+<p>The Costi section (Settings &gt; Costi, shipped in v0.9) shows a live breakdown of what
+you have spent running Synapse's AI providers.</p>
+<p><strong>What it displays:</strong></p>
+<ul>
+<li>A monthly cost rollup by provider type and operation (ingest, chat, lint, deep research,
+  review sweep). Each row shows the provider name, operation, and total USD to four decimal
+  places.</li>
+<li>A <strong>monthly total</strong> line that sums across all providers and operations for the current
+  calendar month.</li>
+<li>An <strong>alert indicator</strong> that turns red when the month-to-date total exceeds the
+  <code>COST_ALERT_THRESHOLD_USD</code> value configured by the operator (see DEPLOY.md §2.1).
+  The indicator is informational only — Synapse does not pause or block AI calls when the
+  threshold is reached. It is a visibility signal, not a hard cap.</li>
+</ul>
+<p>The data comes from <code>GET /costs/summary</code>, which aggregates <code>total_cost_usd</code> columns
+recorded on <code>ingest_runs</code>, <code>deep_research_runs</code>, <code>lint_runs</code>, and <code>messages</code> tables.
+Local Ollama runs always contribute <code>$0.0000</code> to the total.</p>
+<p><strong>What it does not show:</strong></p>
+<ul>
+<li>Per-conversation or per-page granularity. That detail lives in the Sources run history
+  (click any run row to expand the full cost breakdown for that specific ingest).</li>
+<li>Costs before the current month. Historical data is retained in the database but the
+  dashboard only displays the running month total and the current month's per-row
+  breakdown. If you need historical detail, query the database directly or export
+  <code>GET /export/data.json</code>.</li>
+</ul>
+<p><strong>Operator note:</strong> the <code>COST_ALERT_THRESHOLD_USD</code> env var (default: no threshold, alert
+always off) must be set at deploy time. See DEPLOY.md §2.1 for the exact variable name
+and example values.</p>
+<hr />
+<h3 id="command-palette">Command palette<a class="headerlink" href="#command-palette" title="Permanent link">&para;</a></h3>
+<p>The command palette gives keyboard-first access to every section and every wiki page in one step.</p>
+<p><strong>Opening and closing:</strong></p>
+<ul>
+<li>Press <strong>Cmd+K</strong> (macOS) or <strong>Ctrl+K</strong> (Windows / Linux) to toggle the palette open or closed.</li>
+<li>Press <strong>Esc</strong> to close without navigating.</li>
+<li>The shortcut works even when the note editor has focus.</li>
+</ul>
+<p><strong>Navigating results:</strong></p>
+<ol>
+<li>Start typing to filter by title. The palette searches app sections and all wiki page titles simultaneously, returning up to 20 results.</li>
+<li>Press <strong>↑</strong> / <strong>↓</strong> to move between results.</li>
+<li>Press <strong>Enter</strong> to open the selected item. Sections switch the active nav-rail item; wiki pages open in the Wiki section note reader.</li>
+</ol>
+<p><strong>Keyboard shortcuts (no palette needed):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cmd/Ctrl+K</strong></td>
+<td>Open / close command palette</td>
+</tr>
+<tr>
+<td><strong>Cmd/Ctrl+N</strong></td>
+<td>New conversation (Chat section)</td>
+</tr>
+<tr>
+<td><strong>Cmd/Ctrl+1</strong></td>
+<td>Switch to section 1 (Chat)</td>
+</tr>
+<tr>
+<td><strong>Cmd/Ctrl+2</strong></td>
+<td>Switch to section 2 (Wiki)</td>
+</tr>
+<tr>
+<td><strong>Cmd/Ctrl+3</strong></td>
+<td>Switch to section 3 (Sources)</td>
+</tr>
+<tr>
+<td><strong>Cmd/Ctrl+4</strong></td>
+<td>Switch to section 4 (Graph)</td>
+</tr>
+<tr>
+<td><strong>Cmd/Ctrl+5</strong></td>
+<td>Switch to section 5 (Review)</td>
+</tr>
+</tbody>
+</table>
+<p>The section-switch and new-conversation shortcuts are ignored while you are typing in a text input or the note editor (to avoid conflicts), except for Cmd/Ctrl+K which remains reachable from any context.</p>
+<hr />
+<h3 id="provider-selector">Provider selector<a class="headerlink" href="#provider-selector" title="Permanent link">&para;</a></h3>
+<p>The header shows the currently active provider. Click the provider name to open the
+dropdown.</p>
+<p><img alt="Provider selector open" src="../screens/provider-selector-open.png" /></p>
+<p>Three provider types are available:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Backend</th>
+<th>Cost</th>
+<th>Best for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Local</strong></td>
+<td>Ollama on the RTX 3060</td>
+<td>Free</td>
+<td>Privacy-sensitive vaults; offline use</td>
+</tr>
+<tr>
+<td><strong>API</strong></td>
+<td>Anthropic API or OpenAI-compatible endpoint</td>
+<td>Pay-per-token</td>
+<td>Quality; default recommendation</td>
+</tr>
+<tr>
+<td><strong>CLI</strong></td>
+<td>claude-agent-sdk</td>
+<td>Pay-per-token</td>
+<td>Maximum quality; full agentic ingest loop</td>
+</tr>
+</tbody>
+</table>
+<p>Select a provider and choose the scope: <strong>Global</strong> (applies to all operations) or
+<strong>Vault</strong> (overrides for the current vault only). The change takes effect immediately
+for the next chat message or ingest run; no page reload needed.</p>
+<hr />
+<h2 id="ingesting-your-first-document">Ingesting your first document<a class="headerlink" href="#ingesting-your-first-document" title="Permanent link">&para;</a></h2>
+<p>There are three ways to get a document into Synapse:</p>
+<p><strong>Option 1 — Drag and drop in the browser.</strong> Open the Sources section and drop a
+<code>.md</code> or <code>.txt</code> file onto the upload zone (or click Browse). The watcher ingests it
+asynchronously; a new run row appears within about 15–30 seconds.</p>
+<p><strong>Option 2 — Place the file directly.</strong> Copy or move a file into <code>vault/raw/sources/</code>
+on the host. The file watcher detects it and ingests it automatically. You can also
+trigger a run manually with the <strong>Run Ingest</strong> button in the Sources section.</p>
+<p><strong>Option 3 — Scheduled folder import.</strong> Configure Settings &gt; Source Watch to scan a
+mounted folder on a regular schedule. Any new or changed documents are imported
+automatically without manual action (see the Source Watch sub-section above).</p>
+<p>Supported formats in v0.8: Markdown, plain text, PDF, DOCX, PPTX, XLSX, images
+(PNG/JPEG/WebP), and audio/video (MP3/M4A/WAV/MP4/MOV/WebM) (F12). Image
+captions and AV transcription are opt-in via operator env vars (see below).</p>
+<p>After ingest, the Sources section shows a Running row that changes to Completed once
+the AI has finished generating wiki pages. Switch to the Graph or Wiki section to see
+the new nodes appear.</p>
+<hr />
+<h3 id="review-section">Review section<a class="headerlink" href="#review-section" title="Permanent link">&para;</a></h3>
+<p>The Review section (nav label: <strong>Review</strong>) shows the HITL (human-in-the-loop)
+proposal queue that Synapse builds after each ingest run. This is where the AI
+proposes follow-up work and you decide what to act on (K8: the LLM proposes,
+you curate).</p>
+<p><img alt="Review queue with proposal cards" src="../screens/review-queue-proposal-cards.png" /></p>
+<h4 id="how-proposals-are-generated">How proposals are generated<a class="headerlink" href="#how-proposals-are-generated" title="Permanent link">&para;</a></h4>
+<p>After each orchestrated ingest run, Synapse runs a single bounded proposal call
+(fire-and-forget — the pages are already written and this step never blocks or fails
+ingest). An anti-spam gate suppresses the call on trivial runs: the call only fires
+when the run wrote substantial content (at least 10 000 characters or at least 4 pages)
+or when concrete signals exist (dangling wikilinks, analysis-proposed pages that were
+not written). Rule-based proposals (missing pages, duplicates) are emitted without any
+LLM call; the single LLM call is reserved for the harder suggestion / contradiction /
+confirm judgments.</p>
+<p>Each proposal becomes one card in the Review section. The list is paginated and
+virtualized for large queues.</p>
+<h4 id="five-proposal-types">Five proposal types<a class="headerlink" href="#five-proposal-types" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>What it means</th>
+<th>Typical action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>missing-page</code></td>
+<td>A referenced entity or concept has no wiki page yet. Synapse suggests creating one.</td>
+<td><strong>Create</strong> to generate the page on demand, or <strong>Skip</strong> if the entity is not worth a page.</td>
+</tr>
+<tr>
+<td><code>suggestion</code></td>
+<td>A research gap or follow-up the AI thinks would strengthen the vault.</td>
+<td><strong>Deep Research</strong> to run a web-search loop, <strong>Skip</strong>, or act manually in Obsidian.</td>
+</tr>
+<tr>
+<td><code>contradiction</code></td>
+<td>The AI detected a conflict between the new content and an existing wiki page.</td>
+<td><strong>Create</strong> a resolution page, <strong>Deep Research</strong> for more context, or <strong>Skip</strong> to ignore.</td>
+</tr>
+<tr>
+<td><code>duplicate</code></td>
+<td>The proposed title may collide with an existing page (possible merge candidate).</td>
+<td>Review the existing page; <strong>Skip</strong> if they cover distinct topics.</td>
+</tr>
+<tr>
+<td><code>confirm</code></td>
+<td>The AI wants explicit human confirmation before acting on a finding.</td>
+<td><strong>Create</strong> if confirmed, otherwise <strong>Skip</strong>. The sweep never auto-resolves <code>confirm</code> items.</td>
+</tr>
+<tr>
+<td><code>purpose-suggestion</code></td>
+<td>The AI detected that recent content may have drifted outside the current scope of <code>purpose.md</code> (v0.9).</td>
+<td>Read the rationale; if you agree, open <code>purpose.md</code> in the Wiki editor and incorporate the suggestion. <strong>Skip</strong> if scope has not drifted.</td>
+</tr>
+<tr>
+<td><code>schema-suggestion</code></td>
+<td>The AI detected a structural pattern in recent pages that does not fit the current <code>schema.md</code> rules (v0.9, opt-in).</td>
+<td>Read the suggested schema change; apply it manually in the Wiki editor if you agree. <strong>Skip</strong> to leave schema unchanged. Schema suggestions are disabled by default; see the operator opt-in note below.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="purposemd-suggestions-v09">purpose.md suggestions (v0.9)<a class="headerlink" href="#purposemd-suggestions-v09" title="Permanent link">&para;</a></h4>
+<p>After each orchestrated ingest run, Synapse can emit a <code>purpose-suggestion</code> review item
+when the AI analysis detects that the ingested content consistently falls outside the
+vault's stated scope, key questions, or thesis as declared in <code>purpose.md</code>. This gives
+the vault's guiding document a chance to evolve alongside the content you accumulate
+rather than remaining a static template.</p>
+<p>A <code>purpose-suggestion</code> card in the Review section shows:
+- The <strong>rationale</strong> — a brief explanation of what the AI observed (e.g. "Five recent
+  sources discuss time-series databases, but purpose.md does not mention operational
+  data systems as a scope area").
+- No automatic edit is made to <code>purpose.md</code>. Clicking Create on this card type does
+  not modify any file; it only marks the item resolved. If you agree with the suggestion,
+  open <code>purpose.md</code> via the Wiki section and edit it yourself.</p>
+<p>Purpose suggestions are emitted only when there is a concrete signal of scope drift; the
+anti-spam gate (<code>PURPOSE_SUGGESTION_MIN_SOURCES</code>, <code>PURPOSE_SUGGESTION_MIN_TOKENS</code>) ensures
+they do not fire on small or trivial ingest runs. See DEPLOY.md §2.1 for operator
+env vars (<code>PURPOSE_SUGGESTION_ENABLED</code>, <code>PURPOSE_SUGGESTION_MAX_TOKENS</code>,
+<code>PURPOSE_SUGGESTION_TIMEOUT_SECONDS</code>).</p>
+<h4 id="schemamd-suggestions-v09-default-off">schema.md suggestions (v0.9, default off)<a class="headerlink" href="#schemamd-suggestions-v09-default-off" title="Permanent link">&para;</a></h4>
+<p>Similar to purpose suggestions, <code>schema-suggestion</code> review items propose changes to the
+structural rules in <code>schema.md</code> when the AI detects an emerging frontmatter pattern or
+page-type convention that the current rules do not accommodate.</p>
+<p><strong>This feature is disabled by default</strong> (<code>SCHEMA_SUGGESTION_ENABLED=false</code>). The operator
+must explicitly enable it. The reason for the conservative default: schema changes affect
+every future ingest run and every validation pass. An unreviewed schema change can produce
+incorrectly structured pages until it is corrected. Always read a schema suggestion
+carefully before applying it.</p>
+<p>When enabled, schema suggestion cards appear in the Review section with the same three
+actions (Create / Deep Research / Skip). Create marks the item reviewed but does not
+write to <code>schema.md</code>; manual editing is required.</p>
+<h4 id="the-three-actions">The three actions<a class="headerlink" href="#the-three-actions" title="Permanent link">&para;</a></h4>
+<p>Each proposal card offers exactly three buttons (no other actions are available):</p>
+<ul>
+<li><strong>Create</strong> — generates the proposed wiki page on demand. Clicking Create runs the
+  bounded orchestrated loop targeting that single page (same AI logic as a normal
+  ingest run). The page is written through the same incremental write seam as all other
+  pages: one <code>data_version</code> bump, one entry in <code>log.md</code>, one node in the graph. A
+  spinner is shown while generation runs (this takes a few seconds and uses the active
+  provider, with cost logged in the Sources run history). On completion the proposal
+  card moves to "created" status and the graph refreshes automatically. If generation
+  fails, the item remains <code>pending</code> so you can retry or skip.</li>
+</ul>
+<p><strong>Note:</strong> Create replaces the old "Approve" verb from the previous review model. In
+  the earlier design, "Approve" was a no-op (the page had already been created). Now
+  the page is generated only when you click Create — the AI proposes, you curate (K8).</p>
+<ul>
+<li>
+<p><strong>Deep Research</strong> — delegates to the Deep Research loop (F10): Synapse runs a
+  multi-query SearXNG web-search cycle, synthesizes the findings, and auto-ingests
+  the synthesis as a new wiki page. The proposal topic is derived from the card's
+  <code>proposed_title</code> or <code>rationale</code>. The item moves to <code>deep_researched</code> status and a
+  link to the research run appears in the Sources section.</p>
+</li>
+<li>
+<p><strong>Skip</strong> — closes the proposal without any action. The item moves to <code>skipped</code>
+  status and disappears from the pending queue. Skipping is reversible only by
+  re-ingesting the source.</p>
+</li>
+</ul>
+<h4 id="auto-resolution-sweep">Auto-resolution sweep<a class="headerlink" href="#auto-resolution-sweep" title="Permanent link">&para;</a></h4>
+<p>After each ingest run (and after each Create action) Synapse runs an auto-resolution
+sweep to close proposals that are no longer relevant:</p>
+<ul>
+<li>
+<p><strong>Rule-based pass (no AI cost):</strong> if a <code>missing-page</code> or <code>duplicate</code> proposal's
+  <code>proposed_title</code> now matches an existing wiki page title, the item is automatically
+  closed (<code>auto_resolved</code>). As your wiki grows, these proposals resolve themselves.</p>
+</li>
+<li>
+<p><strong>Conservative LLM pass (optional, bounded):</strong> a single batched call (capped at 8
+  items, off-by-default for zero-cost operation — see <code>REVIEW_SWEEP_LLM_ENABLED</code>) may
+  resolve <code>suggestion</code> or <code>contradiction</code> items where the LLM judges the concern no
+  longer applies. The prompt biases toward keeping items pending on any uncertainty.
+  <code>confirm</code> items are <strong>never</strong> auto-resolved — they always require human action.</p>
+</li>
+</ul>
+<p>You can also trigger the sweep manually with <strong>POST /review/queue/sweep</strong> (useful after
+bulk edits in Obsidian).</p>
+<blockquote>
+<p><strong>Note — CLI provider and the review queue (ADR-0025 §7):</strong> when the active provider is
+<strong>CLI</strong> (<code>CliAgentProvider</code>), the entire ingest is delegated to the claude-agent-sdk agent
+loop, which writes pages autonomously using in-process MCP tools. In this delegated path,
+the post-ingest proposal stage does <strong>not</strong> run, so no review items are enqueued after a
+CLI-provider ingest. This is a conscious design gap: the review queue is populated only by
+the orchestrated ingest loop (API and Local providers). If you rely on the review queue for
+follow-up curation, use the API or Local provider for ingest and reserve the CLI provider
+for tasks where you want fully autonomous page creation.</p>
+</blockquote>
+<h4 id="screenshots">Screenshots<a class="headerlink" href="#screenshots" title="Permanent link">&para;</a></h4>
+<p><img alt="Review queue ADR-0034 proposal cards" src="../screens/review-queue-adr0034.png" /></p>
+<hr />
+<h3 id="lint-section">Lint section<a class="headerlink" href="#lint-section" title="Permanent link">&para;</a></h3>
+<p>The Lint section (nav label: <strong>Lint</strong>) runs a bounded health check of the wiki (K2, ADR-0037). Unlike ingest, lint never modifies pages autonomously: every finding requires an explicit human action before any change is applied.</p>
+<p><strong>Running a lint scan:</strong></p>
+<ol>
+<li>Navigate to <strong>Lint</strong> in the nav rail.</li>
+<li>Click <strong>Run Lint</strong>. The backend starts a new scan (bounded by <code>LINT_MAX_ITER</code> iterations and <code>LINT_TOKEN_BUDGET</code> tokens). A spinner appears while the scan runs.</li>
+<li>When the scan completes, findings are grouped by category in the panel below. The cost line shows the provider cost for any semantic calls made (Local Ollama runs show <code>$0.0000</code>).</li>
+</ol>
+<p><strong>Finding categories:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>What it flags</th>
+<th>Action available</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>orphan-page</code></td>
+<td>A wiki page with no incoming wikilinks (structurally isolated)</td>
+<td>Acknowledge only — flag-only per ADR-0037; no automatic edit</td>
+</tr>
+<tr>
+<td><code>contradiction</code></td>
+<td>The AI detected conflicting claims between two wiki pages</td>
+<td>Acknowledge only — flag-only; resolve manually in the editor or via Deep Research</td>
+</tr>
+<tr>
+<td><code>stale-claim</code></td>
+<td>A claim in a wiki page may be outdated based on newer ingested content</td>
+<td>Acknowledge only — flag-only; review and update manually</td>
+</tr>
+<tr>
+<td><code>missing-xref</code></td>
+<td>A wiki page mentions a concept that has a dedicated page but no <code>[[wikilink]]</code></td>
+<td><strong>Apply</strong> to insert the missing wikilink, or Dismiss</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Apply vs Acknowledge:</strong></p>
+<ul>
+<li><strong>Apply</strong> — available only for <code>missing-xref</code> findings. Clicking Apply writes the suggested <code>[[wikilink]]</code> into the body of the referencing page (targeted edit, no vault rescan — I1). The edit is written through the same incremental seam as all other page writes: one <code>data_version</code> bump, one entry in <code>log.md</code>, graph refresh within about 5 seconds.</li>
+<li><strong>Acknowledge</strong> — used for the three flag-only categories (<code>orphan-page</code>, <code>contradiction</code>, <code>stale-claim</code>). These categories surface observations for human judgment but the Lint section will never edit human-curated content on their behalf (K8). Acknowledging moves the finding to <code>acknowledged</code> status and removes it from the active list.</li>
+<li><strong>Dismiss</strong> — discards a finding without action (works on any category).</li>
+</ul>
+<p>The human gate is intentional: scan findings are never auto-applied across a run. You must call <strong>Apply</strong> (or <strong>Acknowledge</strong>) per finding to close it. This keeps the AI in a propose-only role and the human in control of actual content changes (K8).</p>
+<p><strong>Empty state:</strong> when the wiki has no findings, the panel shows "Wiki is healthy — no findings." The Run Lint button remains available to trigger a fresh scan at any time.</p>
+<hr />
+<h3 id="web-clipper">Web Clipper<a class="headerlink" href="#web-clipper" title="Permanent link">&para;</a></h3>
+<p>The Synapse web clipper is a Chrome MV3 browser extension (F11, ADR-0038). It lets you clip any web page directly into your vault from the browser, without leaving the page you are reading.</p>
+<p><strong>Installing the extension:</strong></p>
+<p>There are two ways to install the unpacked extension:</p>
+<ol>
+<li><strong>From the repository (for developers):</strong></li>
+<li>Clone or download the Synapse repository.</li>
+<li>Open Chrome and navigate to <code>chrome://extensions/</code>.</li>
+<li>Enable <strong>Developer mode</strong> (toggle in the top-right corner).</li>
+<li>Click <strong>Load unpacked</strong> and select the <code>extension/</code> directory from the repository root.</li>
+<li>
+<p>The Synapse icon appears in the browser toolbar.</p>
+</li>
+<li>
+<p><strong>From a packaged zip (easier for non-developers):</strong></p>
+</li>
+<li>Download <code>synapse-clipper-0.8.0.zip</code> (or later) from the <a href="https://github.com/emanuelechiummo/synapse/releases">Synapse GitHub releases page</a>.</li>
+<li>Extract the zip to a folder on your computer (e.g., <code>~/synapse-clipper</code>).</li>
+<li>Open Chrome and navigate to <code>chrome://extensions/</code>.</li>
+<li>Enable <strong>Developer mode</strong>.</li>
+<li>Click <strong>Load unpacked</strong> and select the extracted folder.</li>
+<li>The Synapse icon appears in the browser toolbar.</li>
+</ol>
+<p><strong>Configuring the extension (required before first use):</strong></p>
+<ol>
+<li>Click the Synapse icon in the toolbar and select <strong>Options</strong> (or right-click the icon and choose <strong>Extension options</strong>).</li>
+<li>Set the <strong>Synapse Base URL</strong> to your backend: <code>http://localhost:8000</code> for local development, or your Cloudflare Tunnel / Tailscale hostname for remote access (e.g., <code>https://synapse.yourdomain.com</code>).</li>
+<li>Set the <strong>Clip Token</strong> to the bearer token displayed in Synapse's <strong>Settings &gt; Web Clipper</strong> panel (or retrieve it from your <code>CLIP_TOKEN</code> environment variable).</li>
+<li>Click <strong>Save</strong>.</li>
+<li>Optionally, click <strong>Test Connection</strong> to verify the backend is reachable.</li>
+</ol>
+<p>The backend must be configured with <code>CLIP_ENABLED=true</code> and <code>CLIP_TOKEN</code> set to the same value. Additionally, <code>CLIP_ALLOWED_ORIGINS</code> must include your extension's origin ID (shown in the options page under "Your Extension ID"). Add <code>chrome-extension://&lt;extension-id&gt;</code> to the environment variable.</p>
+<p><strong>Clipping a page:</strong></p>
+<ol>
+<li>Navigate to any web page you want to add to your vault.</li>
+<li>Click the Synapse extension icon in the toolbar.</li>
+<li>The popup shows the page title, URL, and a Markdown preview (converted from the page's main content via Mozilla Readability + Turndown).</li>
+<li>Optionally edit the title.</li>
+<li>Click <strong>Clip</strong>. The extension sends the page to <code>POST /clip</code>, which writes it to <code>vault/raw/sources/</code> and triggers the normal watcher-based ingest pipeline (I1/K1). No second ingest path is introduced.</li>
+<li>A confirmation message appears in the popup. The page appears in the Sources section of the Synapse UI within 15–30 seconds (same timing as any other ingest).</li>
+</ol>
+<p><strong>Security notes:</strong></p>
+<ul>
+<li>Every clip request requires the bearer token. Requests without a valid token receive 401.</li>
+<li>The body is capped at 2 MB (configurable via <code>CLIP_MAX_BODY_BYTES</code>). Oversized payloads receive 413.</li>
+<li>The backend validates the <code>Origin</code> header against <code>CLIP_ALLOWED_ORIGINS</code> and writes only inside <code>vault/raw/sources/</code> (path-safe join). This design is the intentional inverse of the reference app's unauthenticated, unvalidated clip server (see ADR-0038 for the security rationale).</li>
+</ul>
+<p><strong>Future: Chrome Web Store publication</strong></p>
+<p>Publishing to the Chrome Web Store is planned for a future release (requires a Google developer account and a one-time $5 developer fee). For now, use the unpacked installation method above.</p>
+<p>For more details on the extension's permissions and configuration, see <code>extension/README.md</code>.</p>
+<h2 id="opening-the-wiki-in-obsidian">Opening the wiki in Obsidian<a class="headerlink" href="#opening-the-wiki-in-obsidian" title="Permanent link">&para;</a></h2>
+<p>The <code>vault/wiki/</code> folder is a valid Obsidian vault. Open it directly in Obsidian:</p>
+<ol>
+<li>In Obsidian, choose <strong>Open folder as vault</strong> and point it at <code>vault/wiki/</code>.</li>
+<li>Obsidian reads the <code>[[wikilinks]]</code> and YAML frontmatter that Synapse generates.</li>
+<li>Synapse auto-generates <code>vault/wiki/.obsidian/app.json</code> on startup so the vault
+   opens in reading (non-legacy-editor) mode by default.</li>
+</ol>
+<p>You can browse, annotate, and link pages in Obsidian. Synapse will not overwrite your
+manual edits, though it will regenerate a page if you ingest the same source again.</p>
+<hr />
+<h2 id="status-bar">Status bar<a class="headerlink" href="#status-bar" title="Permanent link">&para;</a></h2>
+<p>The status bar at the bottom of every section shows:</p>
+<ul>
+<li><strong>Vault name</strong> (e.g. <code>default</code>)</li>
+<li><strong>Data version</strong> (e.g. <code>v16</code>) — increments each time a page is created or updated</li>
+<li><strong>Uptime</strong> — how long the backend has been running</li>
+<li><strong>Active provider</strong> (also shown in the header)</li>
+</ul>
+<hr />
+<h2 id="search-filters">Search filters and sort<a class="headerlink" href="#search-filters" title="Permanent link">&para;</a></h2>
+<p>The Search section (also reachable via <strong>Cmd/Ctrl+K</strong> or the <strong>Cerca</strong> icon) supports
+filtering and sorting results to narrow a large vault.</p>
+<p><strong>Type facet.</strong> A row of filter chips appears above the result list, one per wiki page
+type: All, Concept, Entity, Source, Synthesis, Comparison. Click a chip to restrict
+results to that type. The active chip is highlighted. Click <strong>All</strong> to clear the
+filter.</p>
+<p><strong>Date sort.</strong> A sort selector in the search toolbar switches between:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Relevance</strong> (default)</td>
+<td>Results ranked by vector similarity (or lexical score when embeddings are off).</td>
+</tr>
+<tr>
+<td><strong>Newest first</strong></td>
+<td>Results sorted by <code>created_at</code> descending — most recently ingested pages first.</td>
+</tr>
+<tr>
+<td><strong>Oldest first</strong></td>
+<td>Results sorted by <code>created_at</code> ascending — useful for tracing a topic chronologically.</td>
+</tr>
+</tbody>
+</table>
+<p>Both the type facet and date sort are applied server-side; the <code>/search</code> endpoint
+accepts <code>page_type</code> and <code>sort</code> query parameters. Changing either re-fetches results
+immediately with no page reload.</p>
+<hr />
+<h2 id="citation-click-through">Citations in chat<a class="headerlink" href="#citation-click-through" title="Permanent link">&para;</a></h2>
+<p>When the assistant answer contains an inline citation such as <code>[1]</code>, you can click it
+to jump directly to the referenced wiki page.</p>
+<p><strong>How it works:</strong></p>
+<ol>
+<li>After the assistant reply finishes streaming, each <code>[n]</code> marker is rendered as a
+   superscript link.</li>
+<li>Click the superscript. The Wiki section opens (or the current Wiki section
+   refreshes) and the referenced page loads in the center panel with its metadata
+   visible in the right panel.</li>
+<li>Press your browser <strong>Back</strong> button (or click <strong>Chat</strong> in the nav rail) to return
+   to the conversation.</li>
+</ol>
+<p>Citations are available on all messages rendered in the Chat section, including saved
+conversations loaded from the left panel. The superscript links are not active during
+streaming — they become clickable once the <code>done</code> event arrives and the response is
+fully rendered.</p>
+<hr />
+<h2 id="export-backup">Vault export and backup<a class="headerlink" href="#export-backup" title="Permanent link">&para;</a></h2>
+<p>Synapse provides two lightweight export endpoints that together form a full backup
+snapshot. No special tooling is required — a plain <code>curl</code> command is enough.</p>
+<p><strong>Downloading the two artifacts:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="c1"># 1 — Vault filesystem snapshot (ZIP of raw/ + wiki/ + purpose.md + schema.md + .obsidian/)</span>
+curl<span class="w"> </span>-f<span class="w"> </span>http://localhost:8000/export<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-o<span class="w"> </span>synapse-vault-<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.zip
+
+<span class="c1"># 2 — Database metadata snapshot (pages, links, edges, ingest runs, review items)</span>
+curl<span class="w"> </span>-f<span class="w"> </span>http://localhost:8000/export/data.json<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-o<span class="w"> </span>synapse-data-<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.json
+</code></pre></div>
+<p>The ZIP is named <code>synapse-vault-{vault_id}-{date}.zip</code> and caps at 500 MB uncompressed.
+The JSON object contains the keys: <code>pages</code>, <code>links</code>, <code>edges</code>, <code>runs</code>, <code>review_items</code>,
+<code>exported_at</code>, <code>data_version</code>.</p>
+<p><strong>Restore:</strong> there is no import endpoint in v0.8. See <a href="../DEPLOY/#backup-restore">DEPLOY.md §17</a>
+for the two restore paths: vault-directory-only re-ingest and full Postgres volume restore.</p>
+<hr />
+<h2 id="image-captions">Image captions<a class="headerlink" href="#image-captions" title="Permanent link">&para;</a></h2>
+<p>When <code>VISION_CAPTIONS_ENABLED=true</code> is set by the operator, Synapse generates an
+AI-written caption for each image file (<code>.png</code>, <code>.jpg</code>, <code>.jpeg</code>, <code>.webp</code>) that is
+ingested. The caption is used as the extracted text for that file — it is stored in
+the <code>image_captions</code> table, keyed by the file's SHA-256 hash, so the same image file
+is never captioned twice regardless of where it appears.</p>
+<p><strong>What changes for you as a user:</strong></p>
+<ul>
+<li>Image files now produce real wiki pages instead of a "no text content" placeholder.</li>
+<li>The wiki page for an image file contains the caption in its body, with the image
+  path in <code>sources[]</code>.</li>
+<li>The caption is generated using the <strong>currently active provider</strong> via the standard
+  <code>provider.chat()</code> call. Only providers that report <code>supports_vision=true</code> in their
+  capabilities will attempt captioning; others fall back to a placeholder.</li>
+<li>Captioning costs tokens and adds a few seconds per image to ingest time. The cost is
+  logged in the ingest run's <code>total_cost_usd</code> field.</li>
+</ul>
+<p>When <code>VISION_CAPTIONS_ENABLED</code> is unset or <code>false</code> (the default), image files produce
+a stub placeholder page — behavior identical to v0.7.</p>
+<hr />
+<h2 id="av-transcription">Audio and video transcription<a class="headerlink" href="#av-transcription" title="Permanent link">&para;</a></h2>
+<p>When <code>AV_TRANSCRIPTION_ENABLED=true</code> is set by the operator, Synapse transcribes
+audio and video files before ingest using a host-side Whisper service.</p>
+<p><strong>Supported file types:</strong> <code>.mp3</code>, <code>.m4a</code>, <code>.wav</code>, <code>.mp4</code>, <code>.mov</code>, <code>.webm</code>.</p>
+<p><strong>What changes for you as a user:</strong></p>
+<ul>
+<li>Audio and video files now produce real wiki pages instead of a "no text content"
+  placeholder.</li>
+<li>The wiki page body contains the transcript text, with the original file path in
+  <code>sources[]</code>.</li>
+<li>Transcription is performed by a separate Whisper microservice running on the host
+  (see <a href="../DEPLOY/">DEPLOY.md §2.1</a> for <code>WHISPER_SERVICE_URL</code> and setup). The backend
+  sends the file over HTTP and receives the transcript; the Whisper model never runs
+  inside the Synapse container.</li>
+<li>Transcription is bounded per run by <code>AV_MAX_FILES_PER_RUN</code> (default: 10 files per
+  ingest trigger). Files beyond the cap are queued for the next run.</li>
+<li>Cost is zero for transcription (Whisper runs locally on your GPU); the ingest
+  provider call that writes the wiki page is logged normally.</li>
+</ul>
+<p>When <code>AV_TRANSCRIPTION_ENABLED</code> is unset or <code>false</code> (the default), audio/video files
+produce a stub placeholder page.</p>
+<hr />
+<h2 id="marker-pdf">Higher-quality PDF extraction with Marker<a class="headerlink" href="#marker-pdf" title="Permanent link">&para;</a></h2>
+<p>By default Synapse uses <strong>pypdf</strong> to extract text from PDF files. This works well for
+most digitally-created PDFs. For scanned PDFs, multi-column layouts, PDFs with
+embedded tables, or files where pypdf produces garbled output, you can switch to the
+<strong>Marker</strong> extractor.</p>
+<p><strong>How to enable:</strong></p>
+<p>The operator sets <code>PDF_EXTRACTOR=marker</code> in <code>.env</code> and starts the Marker microservice
+(<code>tools/marker-converter/service.py</code>). See <a href="../DEPLOY/">DEPLOY.md §2.1</a> for
+<code>PDF_EXTRACTOR</code>, <code>MARKER_SERVICE_URL</code>, and setup steps.</p>
+<p><strong>What changes for you as a user:</strong></p>
+<ul>
+<li>PDF files that previously produced incomplete or garbled wiki pages will produce
+  richer, better-structured content.</li>
+<li>Extraction takes longer per file (Marker runs a vision model pipeline on your GPU).</li>
+<li>If the Marker service is unavailable or returns an error, Synapse automatically
+  falls back to pypdf — ingest never fails because of Marker. You will see a
+  <code>WARNING</code> in the backend logs when this happens.</li>
+<li>The switch is transparent: you do not need to re-ingest existing PDFs unless you
+  want to improve their extracted text. Only new or changed files are affected
+  (incremental index, I1).</li>
+</ul>
+<p>When <code>PDF_EXTRACTOR</code> is unset or set to <code>pypdf</code> (the default), behavior is identical
+to v0.7.</p>
+<hr />
+<h2 id="authentication">Authentication (v1.0)<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h2>
+<p>Synapse v1.0 adds an optional shared Bearer token that the operator can configure via
+the <code>SYNAPSE_AUTH_TOKEN</code> environment variable. When the token is set, every API request
+must carry it. When it is unset (the default), Synapse behaves exactly as v0.9 — no
+prompts, no headers required.</p>
+<h3 id="when-the-server-has-a-token-configured">When the server has a token configured<a class="headerlink" href="#when-the-server-has-a-token-configured" title="Permanent link">&para;</a></h3>
+<p><strong>Desktop app (Tauri).</strong> The Connect screen (shown on first launch and after "Change
+server") displays a password field labelled "Access token" below the server URL field.
+Enter the token before clicking <strong>Connect</strong>. The field has a show/hide toggle (<code>&lt;Eye&gt;</code>
+icon). If the token is wrong or missing, the Connect screen stays open and shows an
+inline error — the app does not proceed until the probe succeeds with a valid token.</p>
+<p><strong>Web browser / PWA.</strong> If the server has a token and the browser does not have one
+stored, the next API call returns 401. The app immediately shows a token-entry overlay
+over the current view. Enter the token and submit; the request is retried automatically
+and the app continues normally. No page reload is required.</p>
+<h3 id="settings-security-updating-the-client-token">Settings &gt; Security — updating the client token<a class="headerlink" href="#settings-security-updating-the-client-token" title="Permanent link">&para;</a></h3>
+<p>If the operator rotates <code>SYNAPSE_AUTH_TOKEN</code> (env change + container restart), the
+stored client token becomes stale. To update it:</p>
+<ol>
+<li>Open <strong>Settings &gt; Security</strong> in the nav rail.</li>
+<li>In the "Rotate token" field, paste the new token.</li>
+<li>Click <strong>Update</strong>. The new token is saved to <code>localStorage</code> immediately — no server call.</li>
+</ol>
+<blockquote>
+<p>The server's token is configured exclusively via the <code>SYNAPSE_AUTH_TOKEN</code> environment
+variable. "Update" in the Settings UI updates the <em>client's stored copy</em> only. To change
+the server-side token, edit <code>.env</code> and restart the container (see DEPLOY.md §13).</p>
+</blockquote>
+<p>To clear the stored token (disconnect from an auth-enabled server intentionally):
+open <strong>Settings &gt; Security</strong> and click <strong>Clear token</strong>.</p>
+<h3 id="exempt-endpoints-never-require-the-token">Exempt endpoints (never require the token)<a class="headerlink" href="#exempt-endpoints-never-require-the-token" title="Permanent link">&para;</a></h3>
+<p>The following endpoints are always reachable without a Bearer token, even when
+<code>SYNAPSE_AUTH_TOKEN</code> is set:</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /status</code></td>
+<td>Used by the desktop Connect screen auto-detect</td>
+</tr>
+<tr>
+<td><code>GET /health/detailed</code></td>
+<td>Used by monitoring probes</td>
+</tr>
+<tr>
+<td><code>GET /docs</code>, <code>GET /openapi.json</code></td>
+<td>API schema; not sensitive data</td>
+</tr>
+<tr>
+<td><code>OPTIONS</code> (any path)</td>
+<td>CORS preflight — cannot carry a Bearer header</td>
+</tr>
+<tr>
+<td><code>/mcp/server/*</code></td>
+<td>MCP HTTP surface has its own token (ADR-0033)</td>
+</tr>
+<tr>
+<td><code>POST /clip</code></td>
+<td>Web-clipper ingress has its own <code>CLIP_TOKEN</code> (ADR-0038)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="mobile-pwa">Mobile and PWA (v1.0)<a class="headerlink" href="#mobile-pwa" title="Permanent link">&para;</a></h2>
+<p>Synapse v1.0 includes a round of mobile and PWA polish so the UI remains usable on
+phones and small-screen tablets (breakpoints at 768 px and below).</p>
+<h3 id="compact-navigation-rail">Compact navigation rail<a class="headerlink" href="#compact-navigation-rail" title="Permanent link">&para;</a></h3>
+<p>On screens narrower than 768 px, the navigation rail collapses to an icon-only strip
+(approximately 52 px wide). Labels are hidden to preserve horizontal space. The active
+section is still indicated by the same rounded-rectangle highlight. Tap any icon to
+switch sections — the label appears as a tooltip on long-press.</p>
+<p>On screens wider than 768 px, the labeled rail is shown in full (72 px, icon + label).
+The breakpoint is applied via a CSS media query and does not require any setting or
+toggle.</p>
+<h3 id="stacked-panels-single-column-layout">Stacked panels (single-column layout)<a class="headerlink" href="#stacked-panels-single-column-layout" title="Permanent link">&para;</a></h3>
+<p>On mobile (&lt; 768 px), the three-panel Wiki section switches from a horizontal layout to
+a vertical stack: the page tree appears at the top (collapsible), the note reader/editor
+in the middle, and the inspector at the bottom (collapsible). Panel resize handles are
+hidden on mobile — panels snap to their natural content height.</p>
+<p>The Chat section, Sources section, and Graph section are single-panel by design and
+require no layout change on mobile.</p>
+<h3 id="touch-interactions-on-the-graph">Touch interactions on the graph<a class="headerlink" href="#touch-interactions-on-the-graph" title="Permanent link">&para;</a></h3>
+<p>The Graph section's sigma.js canvas supports pinch-to-zoom and two-finger pan on touch
+screens. Single-finger pan scrolls the canvas. Tap a node to select it (equivalent to a
+mouse click). The node-hover highlight is triggered by tap-and-hold.</p>
+<h3 id="pwa-install-on-mobile">PWA install on mobile<a class="headerlink" href="#pwa-install-on-mobile" title="Permanent link">&para;</a></h3>
+<p>On iOS (Safari 16.4+) and Android (Chrome), the app can be installed as a PWA:</p>
+<ul>
+<li><strong>iOS:</strong> tap the Share icon in Safari's toolbar, then choose <strong>Add to Home Screen</strong>.</li>
+<li><strong>Android:</strong> tap the browser menu (three dots), then choose <strong>Install app</strong> or
+  <strong>Add to Home Screen</strong>.</li>
+</ul>
+<p>Once installed, Synapse opens in standalone mode with no browser chrome. The service
+worker caches the app shell for instant load. All backend calls remain network-first —
+they are never served from cache (data is always fresh).</p>
+<hr />
+<h2 id="error-boundaries-section-level-recovery">Error boundaries — section-level recovery<a class="headerlink" href="#error-boundaries-section-level-recovery" title="Permanent link">&para;</a></h2>
+<p>Starting with v0.9, each main section of the app is wrapped in a <code>SectionErrorBoundary</code>.
+If a section encounters an unexpected JavaScript error (for example, a malformed API
+response causes a render failure), only that section shows an error message — the rest
+of the app continues to work normally. You will see a short message such as "An error
+occurred in this section" with a <strong>Retry</strong> button. Clicking Retry remounts the failed
+section and re-fetches its data. If the backend is temporarily unreachable, retrying
+after a few seconds is usually sufficient to recover.</p>
+<p>This replaces the previous behavior where an error in any section could produce a blank
+white screen for the entire app.</p>
+<hr />
+<h2 id="what-shipped-in-m5-and-m6">What shipped in M5 and M6<a class="headerlink" href="#what-shipped-in-m5-and-m6" title="Permanent link">&para;</a></h2>
+<p>The following features shipped in v0.5 (M5):</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4-phase RAG retrieval with <code>[n]</code> inline citations in chat</td>
+<td>Phases 1–4: dense seed → graph-expand → budget → assembly</td>
+</tr>
+<tr>
+<td>Save-to-wiki from chat</td>
+<td>Button active; routes through <code>POST /ingest/from-text</code></td>
+</tr>
+<tr>
+<td>Async HITL review queue — proposal model with lazy on-demand Create (ADR-0034)</td>
+<td>Review section; <code>/review/queue</code> REST endpoints; five proposal types (missing-page, suggestion, contradiction, duplicate, confirm); Create / Deep Research / Skip actions; auto-resolution sweep</td>
+</tr>
+<tr>
+<td>Deep Research loop (web search via SearXNG, auto-ingest)</td>
+<td><code>/research/start</code> REST; bounded <code>max_iter</code> + <code>max_queries_per_iter</code></td>
+</tr>
+<tr>
+<td>Multi-format ingest: PDF, DOCX, PPTX, XLSX</td>
+<td>F12; images/AV are placeholder (M6)</td>
+</tr>
+<tr>
+<td>Cascade deletion (delete a source and clean up all derived pages)</td>
+<td>Mandatory dry-run preview before destructive apply</td>
+</tr>
+<tr>
+<td>Embeddings on/off toggle + lexical fallback</td>
+<td><code>EMBEDDINGS_ENABLED=false</code> starts without Qdrant/bge-m3</td>
+</tr>
+<tr>
+<td>Remote MCP over HTTP at <code>/mcp/server</code></td>
+<td>Requires <code>MCP_AUTH_TOKEN</code>; read-only by default</td>
+</tr>
+<tr>
+<td>OpenAI-compatible embeddings adapter</td>
+<td><code>EMBEDDING_FORMAT=openai</code> for hosted endpoints</td>
+</tr>
+<tr>
+<td>MCP server configuration panel (Settings &gt; API + MCP)</td>
+<td>Displays connection details, tools, and Claude Desktop snippet</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="install-as-an-app-pwa">Install as an app (PWA)<a class="headerlink" href="#install-as-an-app-pwa" title="Permanent link">&para;</a></h2>
+<p>Synapse ships as a Progressive Web App (F15 / AC-F15-1). Once the built frontend is
+served over HTTPS (or localhost), any modern browser will offer a "Install" / "Add to
+Home Screen" prompt.</p>
+<p><strong>How to install:</strong></p>
+<ol>
+<li>Open Synapse in Chrome, Edge, or Safari (iOS 16.4+).</li>
+<li>Look for the install icon in the browser's address bar (Chrome/Edge) or tap
+   "Share &gt; Add to Home Screen" (Safari / iOS).</li>
+<li>Accept the prompt. Synapse opens in standalone window mode with no browser chrome.</li>
+</ol>
+<p><strong>Offline behaviour:</strong></p>
+<ul>
+<li>The app shell (HTML, JavaScript, CSS, icons) is cached by a Workbox service worker
+  and loads instantly even when the backend is unreachable.</li>
+<li>All backend API calls (<code>/pages</code>, <code>/graph</code>, <code>/chat</code>, <code>/search</code>, etc.) are
+  <strong>always network-first</strong> — they are never served from the service worker cache.
+  If the backend is offline, those calls fail fast with a network error (no stale
+  data is ever returned). This preserves the <code>dataVersion</code> freshness model (I1).</li>
+</ul>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>The service worker is registered in production builds only. <code>npm run dev</code> (Vite HMR)
+  does <strong>not</strong> activate it, so development is unaffected.</li>
+<li>To uninstall: use the browser's "Manage apps" / site settings to remove the app.</li>
+<li>The Tauri v2 desktop wrapper (F15) ships in v0.6 and provides the same offline shell
+  as a native window without an external browser — see the Desktop app section below.</li>
+</ul>
+<hr />
+<h2 id="desktop-app">Desktop app (Tauri v2)<a class="headerlink" href="#desktop-app" title="Permanent link">&para;</a></h2>
+<p>The Synapse desktop app is a native Tauri v2 window for macOS and Windows that wraps
+the same frontend as the PWA (F15, ADR-0047). It is the right choice when you want a
+native OS window pinned to a specific Synapse backend, without keeping a browser tab
+open. All wiki, graph, and chat features available in the web UI are available in the
+desktop app without any feature differences.</p>
+<p>Download the latest installer from the GitHub releases page (look for tags beginning
+with <code>desktop-v</code>). See <a href="../DEPLOY/#desktop-app">DEPLOY.md §7</a> for install instructions,
+unsigned-binary warnings, and build-from-source steps.</p>
+<h3 id="connect-screen-first-launch">Connect screen (first launch)<a class="headerlink" href="#connect-screen-first-launch" title="Permanent link">&para;</a></h3>
+<p>The desktop app does not know the address of your backend at install time. The first
+time you open it — and any time you click <strong>Change server</strong> in the header — you see a
+full-screen branded <strong>Connect</strong> screen.</p>
+<p>On a true first launch the app also probes <code>http://localhost:8000</code> in the background:
+if a Synapse backend is running on the same machine, the field is prefilled and a
+"server detected" hint appears — you only have to click <strong>Connect</strong>. After a
+<strong>Change server</strong>, the field is prefilled with the last address you connected to.</p>
+<p><strong>What to enter:</strong> the base URL of your Synapse backend, with a scheme and no trailing
+slash. Examples:</p>
+<table>
+<thead>
+<tr>
+<th>Backend location</th>
+<th>URL to enter</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Same machine</td>
+<td><code>http://localhost:8000</code></td>
+</tr>
+<tr>
+<td>TrueNAS via Tailscale</td>
+<td><code>http://truenas:8000</code></td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel</td>
+<td><code>https://synapse.yourdomain.com</code></td>
+</tr>
+</tbody>
+</table>
+<p>Click <strong>Connect</strong>. The app sends a <code>GET /status</code> probe to the URL. The <code>/status</code> probe
+checks that the backend is reachable and returns its vault ID and data version — it is
+a read-only, side-effect-free check. On a 2xx response, the URL is saved to local
+storage (<code>synapse.serverUrl</code>) and the full interface loads. If the probe fails or times
+out, an error message appears and the Connect screen stays open: the URL is <strong>not</strong> saved
+and you can correct it and try again.</p>
+<p>The Connect screen is only shown in the desktop app. Opening Synapse in a browser
+(PWA or tab) is unaffected — browsers use a relative URL to the same origin and never
+see this screen.</p>
+<h3 id="desktop-server-chip">Server chip in the header<a class="headerlink" href="#desktop-server-chip" title="Permanent link">&para;</a></h3>
+<p>Once connected, the header shows a small chip with the backend hostname. Click it to
+open a dropdown. The dropdown lists up to the last five servers you have successfully
+connected to, plus a <strong>Change server</strong> entry at the bottom.</p>
+<ul>
+<li><strong>Select a recent server</strong> — the app switches to that backend immediately by saving the
+  URL and reloading the page. A full reload is intentional: switching backends resets all
+  cached queries, conversations, and graph data so no stale cross-server state leaks into
+  the new session.</li>
+<li><strong>Change server</strong> — clears the stored URL and returns to the Connect screen. Use this
+  to enter a new address that is not yet in the recent-servers list.</li>
+</ul>
+<p>Only servers that passed a successful <code>GET /status</code> probe are added to the list, so the
+dropdown never contains an address that has never connected.</p>
+<p>The server chip is only visible in the desktop app.</p>
+<h3 id="desktop-zoom">Zoom<a class="headerlink" href="#desktop-zoom" title="Permanent link">&para;</a></h3>
+<p>The desktop app supports adjustable UI zoom (Tauri only — not available in browser / PWA):</p>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cmd/Ctrl +</strong></td>
+<td>Zoom in (up to 140 %)</td>
+</tr>
+<tr>
+<td><strong>Cmd/Ctrl −</strong></td>
+<td>Zoom out (down to 80 %)</td>
+</tr>
+<tr>
+<td><strong>Cmd/Ctrl 0</strong></td>
+<td>Reset to 100 %</td>
+</tr>
+</tbody>
+</table>
+<p>Zoom adjusts in 10 % steps and is persisted across restarts. If text or controls appear
+too small or too large on your display (HiDPI or 4K screens especially), use
+<strong>Cmd/Ctrl +</strong> / <strong>Cmd/Ctrl −</strong> to tune it.</p>
+<h3 id="desktop-notifications">Ingest-completion notifications<a class="headerlink" href="#desktop-notifications" title="Permanent link">&para;</a></h3>
+<p>When an ingest run finishes, the desktop app sends a native OS notification — so you can
+start an ingest, switch to another app, and be notified when Synapse is done without
+polling the Sources section.</p>
+<p>The first time an ingest completes after installing the desktop app, the OS asks whether
+to allow notifications from Synapse. Grant permission to enable this feature; if you
+dismiss the prompt, no notification fires for that run. You can grant or revoke
+notification permission at any time via your OS system settings.</p>
+<p>Notifications are desktop-only (<code>isTauri()</code> guard) and do not appear in the browser /
+PWA build.</p>
+<h3 id="desktop-auto-update">Desktop auto-update<a class="headerlink" href="#desktop-auto-update" title="Permanent link">&para;</a></h3>
+<p>Starting with v0.7.0, the desktop app checks for a new release every time it starts up
+and shows a dismissible banner if one is available (ADR-0049, F15).</p>
+<p><strong>How the update check works:</strong></p>
+<ul>
+<li>On launch, after the shell has rendered, the app performs a single non-blocking check
+  against the <code>latest.json</code> asset on the GitHub Releases page. The check is
+  fire-and-forget: a failed or timed-out check is silently ignored and the app starts
+  normally.</li>
+<li>If a newer version is available, a banner appears at the top of the shell with the new
+  version number and the release notes from the GitHub release.</li>
+</ul>
+<p><strong>Two actions on the banner:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Button</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Update now</strong> (IT: "Aggiorna ora")</td>
+<td>Downloads the platform-specific installer bundle, verifies its minisign signature, installs it, and relaunches the app into the new version. A progress indicator shows the download percentage.</td>
+</tr>
+<tr>
+<td><strong>Later</strong> (IT: "Più tardi")</td>
+<td>Dismisses the banner for the current session. The banner does not reappear until the next app start. There is no "skip this version" option — the check runs on every launch.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>The app must be online at startup to receive the update notification. If the machine
+  is offline or the GitHub release endpoint is unreachable, the check silently fails and
+  the banner is not shown.</li>
+<li>Update integrity is verified by a minisign cryptographic signature embedded in the
+  binary at build time (independent of macOS Gatekeeper / Windows SmartScreen). You do
+  not need to accept any OS security warning for updates — only for the first install
+  (see §7.1 in DEPLOY.md for the first-install warning workaround).</li>
+<li>The update check runs exactly once per process start — there is no background polling.</li>
+</ul>
+<p>The following features also shipped in v0.6 (M6):</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lint-fix loop (K2)</td>
+<td>Bounded human-gated wiki health check; six <code>/lint/*</code> endpoints; <code>LINT_*</code> env vars</td>
+</tr>
+<tr>
+<td>Chrome MV3 web clipper (F11)</td>
+<td>Clips web pages → <code>vault/raw/sources/</code> via secure <code>POST /clip</code>; <code>CLIP_*</code> env vars</td>
+</tr>
+<tr>
+<td>PWA — manifest + offline service worker (F15)</td>
+<td>Install Synapse as an app from any modern browser</td>
+</tr>
+<tr>
+<td>Tauri v2 desktop shell (F15)</td>
+<td>Native desktop app for macOS, Windows, and Linux (binaries on GitHub Releases)</td>
+</tr>
+<tr>
+<td>CI gate (F15)</td>
+<td>Tests, pinned linters, and mmdc Mermaid render check on every <code>sprint/**</code> push</td>
+</tr>
+<tr>
+<td>purpose.md injection verified (F2)</td>
+<td><code>vault/purpose.md</code> confirmed injected into ingest and chat provider contexts</td>
+</tr>
+<tr>
+<td>Dark / Light / System theme (F16, ADR-0048)</td>
+<td>Settings &gt; Interface; follows OS live when "System"; CodeMirror + sigma follow the resolved theme</td>
+</tr>
+<tr>
+<td>Command palette + keyboard shortcuts (F16, ADR-0048)</td>
+<td>Cmd/Ctrl+K palette (sections + wiki pages, ↑↓/Enter/Esc); Cmd/Ctrl+N new conversation; Cmd/Ctrl+1..5 section switch</td>
+</tr>
+<tr>
+<td>Chat empty-state example prompts (F1, ADR-0048)</td>
+<td>Three clickable chips on a new conversation; click to send immediately</td>
+</tr>
+<tr>
+<td>Desktop multi-server dropdown (F15, ADR-0048)</td>
+<td>Server chip lists last 5 connected servers; switching reloads the app</td>
+</tr>
+<tr>
+<td>Desktop zoom (F15, ADR-0048)</td>
+<td>Cmd/Ctrl +/−/0 adjusts UI scale 80–140 %; persisted across restarts</td>
+</tr>
+<tr>
+<td>Desktop ingest notifications (F15, ADR-0048)</td>
+<td>Native OS notification on ingest completion; permission requested on first fire</td>
+</tr>
+</tbody>
+</table>
+<p>The following features shipped in v0.8 (M7 — "Content power"):</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Marker PDF extractor (R8-1, ADR-0051)</td>
+<td>Opt-in high-quality PDF extraction via Marker microservice; pypdf fallback always active. <code>PDF_EXTRACTOR=marker</code>, <code>MARKER_SERVICE_URL</code>, <code>MARKER_TIMEOUT_SECONDS</code>.</td>
+</tr>
+<tr>
+<td>Vision captions for images (R8-2, G-P2-1)</td>
+<td>Opt-in AI caption for <code>.png</code>/<code>.jpg</code>/<code>.jpeg</code>/<code>.webp</code> files; cached by SHA-256 in <code>image_captions</code> table. <code>VISION_CAPTIONS_ENABLED</code>, <code>VISION_MAX_IMAGES_PER_RUN</code>.</td>
+</tr>
+<tr>
+<td>Audio/video transcription (R8-3)</td>
+<td>Opt-in transcription via host Whisper service; supports <code>.mp3</code>/<code>.m4a</code>/<code>.wav</code>/<code>.mp4</code>/<code>.mov</code>/<code>.webm</code>. <code>AV_TRANSCRIPTION_ENABLED</code>, <code>WHISPER_SERVICE_URL</code>, <code>AV_MAX_FILES_PER_RUN</code>.</td>
+</tr>
+<tr>
+<td>Vault export/backup (R8-4)</td>
+<td><code>GET /export</code> (ZIP of vault/ filesystem) + <code>GET /export/data.json</code> (metadata snapshot). No import endpoint yet; see DEPLOY.md §14 for restore paths.</td>
+</tr>
+<tr>
+<td>Search filters and sort (R8-5)</td>
+<td>Type facet chips + relevance/newest/oldest sort selector in the Search (Cerca) section.</td>
+</tr>
+<tr>
+<td>Citation click-through in chat (R8-6)</td>
+<td><code>[n]</code> superscripts in assistant replies are now clickable; opens the referenced wiki page in the Wiki section.</td>
+</tr>
+<tr>
+<td>Chrome clipper in releases (R8-7, F11)</td>
+<td>Extension zip included in GitHub release assets; see Web Clipper section above for install instructions.</td>
+</tr>
+</tbody>
+</table>
+<p>The following features shipped in v0.9 (M8 — "Trust &amp; observability"):</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cost dashboard (R9-1)</td>
+<td>Settings &gt; Costi: monthly rollup by provider/operation + <code>COST_ALERT_THRESHOLD_USD</code> alert indicator. Powered by <code>GET /costs/summary</code>.</td>
+</tr>
+<tr>
+<td>Health endpoint (R9-2)</td>
+<td><code>GET /health/detailed</code> — per-component liveness (watcher, scheduler, ingest queue, Postgres, Qdrant, Ollama). Use for monitoring probes.</td>
+</tr>
+<tr>
+<td>Conversation auto-titles + list previews (R9-3)</td>
+<td>New conversations are titled from the first user message (50-char trim). Conversation list rows show a one-line message preview.</td>
+</tr>
+<tr>
+<td>purpose.md suggestions in Review (R9-3, F2)</td>
+<td><code>purpose-suggestion</code> ReviewItem type. After ingest, if scope drift is detected, a card appears in Review. No automatic edits — human edits <code>purpose.md</code> manually after reviewing the rationale. <code>PURPOSE_SUGGESTION_*</code> env vars.</td>
+</tr>
+<tr>
+<td>schema.md co-evolution in Review (R9-4, K6)</td>
+<td><code>schema-suggestion</code> ReviewItem type (default off — <code>SCHEMA_SUGGESTION_ENABLED=false</code>). Proposes schema rule updates when emerging patterns in ingested pages deviate from <code>schema.md</code>. Human applies manually after review. <code>SCHEMA_SUGGESTION_*</code> env vars.</td>
+</tr>
+<tr>
+<td>Graph community drill-down (R9-5)</td>
+<td>Click a community to open a member list + cohesion score panel. <code>GRAPH_COHESION_WARN</code> threshold. Powered by <code>GET /graph/communities/{id}</code>.</td>
+</tr>
+<tr>
+<td>Graph edge 4-signal breakdown (R9-5)</td>
+<td>Click any edge to see the decomposition: direct wikilinks (×3), shared sources (×4), Adamic-Adar (×1.5), type affinity (×1). Powered by <code>GET /graph/edges/{s}/{t}</code>.</td>
+</tr>
+<tr>
+<td>11 UX audit fixes + button design-system (v0.9)</td>
+<td>All W0 findings from UX-AUDIT-2026-07.md resolved. <code>components.css</code> design-system layer. UXB-1 (conversation density) and UXB-2 (nav rail labels) fixed.</td>
+</tr>
+<tr>
+<td>SectionErrorBoundary (v0.9)</td>
+<td>Each section now isolates errors; shows "Retry" instead of a blank white screen.</td>
+</tr>
+<tr>
+<td>Playwright E2E suite (v0.9, I8)</td>
+<td><code>npm run e2e:v09</code> covers all major views and refreshes D5 screenshots automatically.</td>
+</tr>
+<tr>
+<td>Dynamic version in UI</td>
+<td>Settings &gt; About shows the version read from the backend at runtime rather than from a build-time constant.</td>
+</tr>
+</tbody>
+</table>
+<p>The following features shipped in v1.0 (M10 — "Distribution"):</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shared-token auth (R10-1, ADR-0052)</td>
+<td>Optional <code>SYNAPSE_AUTH_TOKEN</code> gates all REST routes. Empty/absent = disabled (backward-compatible). Desktop ConnectScreen prompts for the token; web/PWA shows a token-entry overlay on 401; Settings &gt; Security to update the client copy.</td>
+</tr>
+<tr>
+<td>Mobile/PWA polish (R10-5)</td>
+<td>Compact icon-only nav rail on &lt; 768 px; stacked single-column panels in Wiki section on mobile; pinch-to-zoom + tap-to-select on the graph canvas; PWA install instructions for iOS and Android.</td>
+</tr>
+<tr>
+<td>MkDocs Material documentation site (R10-6)</td>
+<td>Published to GitHub Pages at <code>https://emanuele-chiummo.github.io/llm-wiki-synapse/</code>. Local preview via <code>make docs-serve</code>. All Mermaid diagrams render natively.</td>
+</tr>
+<tr>
+<td>Code-signing guide (R10-3)</td>
+<td>DEPLOY.md §14: step-by-step Apple Developer ID + notarization (macOS) and OV/EV certificate (Windows) guide; GitHub Actions secrets matrix.</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

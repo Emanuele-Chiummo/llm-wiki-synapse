@@ -10,7 +10,7 @@
  * No secrets in this file (CLAUDE.md §12).
  */
 
-import { apiBase } from "./base";
+import { apiBase, apiFetch } from "./base";
 import { ApiError } from "./graphClient";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ async function checkResponse(res: Response): Promise<void> {
  */
 export async function fetchScenarios(signal?: AbortSignal): Promise<ScenarioItem[]> {
   const url = `${apiBase()}/scenarios`;
-  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   const body = (await res.json()) as { items?: ScenarioItem[] };
   return Array.isArray(body.items) ? body.items : [];
@@ -63,7 +63,7 @@ export async function applyScenario(
   signal?: AbortSignal,
 ): Promise<ScenarioApplyResponse> {
   const url = `${apiBase()}/scenarios/${encodeURIComponent(id)}/apply`;
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
   });

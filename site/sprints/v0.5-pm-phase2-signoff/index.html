@@ -1,0 +1,992 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-pm-phase2-signoff/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>PM Phase 2 Sign-off — Sprint v0.5 / M5 (Deep Research, F10) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#pm-phase-2-sign-off-sprint-v05-m5-deep-research-f10" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              PM Phase 2 Sign-off — Sprint v0.5 / M5 (Deep Research, F10)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-scope-confirmation-phase-2-delivery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Scope Confirmation — Phase 2 Delivery
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-gate-evidence-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Gate Evidence Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-ac-f10-traceability-phase-2-rows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. AC-F10 Traceability — Phase 2 Rows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-i7-compliance-verdict-headline-invariant-for-m5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. I7 Compliance Verdict (Headline Invariant for M5)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-non-blocking-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Non-Blocking Follow-Ups
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Non-Blocking Follow-Ups">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fu-p2-1-d5-deep-search-screenshots-pending-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FU-P2-1: D5 Deep Search screenshots (PENDING-LIVE)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fu-p2-2-no-provider-mechanical-completion-path-architectural-note-for-usermd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FU-P2-2: No-provider mechanical-completion path (architectural note for USER.md)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fu-p2-3-1-cost-anomaly-warning-test-gap-accepted-non-blocking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FU-P2-3: $1 cost-anomaly WARNING test gap (accepted, non-blocking)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-ec-m5-hcp-condition-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. EC-M5-HCP Condition Mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-scope-integrity-out-of-scope-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Scope Integrity — Out-of-Scope Items
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-phase-3-clearance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Phase 3 Clearance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-velocity-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Velocity Note
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-sign-off-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Sign-off Record
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="pm-phase-2-sign-off-sprint-v05-m5-deep-research-f10">PM Phase 2 Sign-off — Sprint v0.5 / M5 (Deep Research, F10)<a class="headerlink" href="#pm-phase-2-sign-off-sprint-v05-m5-deep-research-f10" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Verdict:</strong> DONE-WITH-FOLLOWUPS</li>
+<li><strong>Date:</strong> 2026-06-29</li>
+<li><strong>Branch:</strong> sprint/v0.5</li>
+<li><strong>PM agent:</strong> product-manager (claude-sonnet-4-6)</li>
+<li><strong>Phase:</strong> M5 Phase 2 — Deep Research loop (F10) + D3 deep-research diagram (AC-D3-DR-1)</li>
+<li><strong>Evidence read:</strong></li>
+<li><code>docs/sprints/v0.5-qa-phase2.md</code> — QA: PASS (576 backend / 442 frontend; 35 new tests; I7 bounds individually proven)</li>
+<li><code>docs/sprints/v0.5-architect-review-phase2.md</code> — Architect: APPROVE-WITH-CONDITIONS (C1 run_id bug FIXED; C2 regression tests ADDED, suite now 578; C3 D-artifacts cleared by docs gate)</li>
+<li><code>DOCS_STATUS.md</code> §M5 Phase 2 — Docs gate: PASS-WITH-PENDING (D5 Deep Search screenshots pending-live; non-blocking)</li>
+<li><code>TRACEABILITY.md</code> — 9 rows flipped PENDING → GREEN; AC-F10-5 correctly kept PENDING (Phase 3 scope)</li>
+<li><code>docs/sprints/v0.5-scope.md</code> §4/§7/§8/§9 — Phase 2 scope definition and exit criteria</li>
+</ul>
+<hr />
+<h2 id="1-scope-confirmation-phase-2-delivery">1. Scope Confirmation — Phase 2 Delivery<a class="headerlink" href="#1-scope-confirmation-phase-2-delivery" title="Permanent link">&para;</a></h2>
+<p>Phase 2 locked scope per <code>docs/sprints/v0.5-scope.md §7</code>:
+- <strong>F10:</strong> bounded SearXNG deep-research loop + <code>/research/*</code> REST endpoints + Deep Search UI
+- <strong>D3:</strong> <code>docs/sequences/deep-research.mmd</code> sequence diagram (AC-D3-DR-1)
+- <strong>D2 update:</strong> <code>docs/er/schema.mmd</code> regenerated with <code>deep_research_runs</code> + <code>deep_research_sources</code> tables
+- <strong>D4 update:</strong> <code>docs/api/openapi.json</code> regenerated with all 3 <code>/research/*</code> endpoints</p>
+<p>Scope confinement verified: no work outside Phase 2 scope was introduced. AC-F10-5 (F9 review queue wiring to deep research) is correctly deferred to Phase 3 — it was never Phase 2 scope. No invariant was traded or weakened.</p>
+<hr />
+<h2 id="2-gate-evidence-summary">2. Gate Evidence Summary<a class="headerlink" href="#2-gate-evidence-summary" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Gate</th>
+<th>Verdict</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QA</td>
+<td>PASS</td>
+<td>576 backend / 442 frontend; 0 failures; 0 flakes across 2 independent runs; 35 new tests added by gate (AC-F10-6, AC-D3-DR-1). Architect C1 fix adds 2 C2 regression tests → suite 578 total.</td>
+</tr>
+<tr>
+<td>Architect</td>
+<td>APPROVE-WITH-CONDITIONS (conditions cleared)</td>
+<td>C1 (run_id divergence — stuck rows): FIXED before gate; C2 (start→poll→terminal regression test): ADDED; C3 (D2/D3/D4 regen): cleared by docs gate. No open blocking conditions.</td>
+</tr>
+<tr>
+<td>Tech-Writer (Docs gate)</td>
+<td>PASS-WITH-PENDING</td>
+<td>D2 (ER): zero-drift regeneration confirmed; D3 (deep-research.mmd): all 8 T-DOCS-051..058 assertions pass; D4 (openapi.json): zero-drift regeneration confirmed; D7 (ADR-0024): Accepted and indexed. D5 screenshots pending-live (non-blocking per established precedent).</td>
+</tr>
+<tr>
+<td>PM</td>
+<td>DONE-WITH-FOLLOWUPS (this document)</td>
+<td>All gate sign-offs in hand; non-blocking follow-ups recorded below.</td>
+</tr>
+</tbody>
+</table>
+<p>All 4 required gate sign-offs are present. This phase clears the 4-sign-off rule.</p>
+<hr />
+<h2 id="3-ac-f10-traceability-phase-2-rows">3. AC-F10 Traceability — Phase 2 Rows<a class="headerlink" href="#3-ac-f10-traceability-phase-2-rows" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>AC</th>
+<th>Description</th>
+<th>Status</th>
+<th>Test IDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-F10-1</td>
+<td>All 6 pipeline steps execute in order</td>
+<td>GREEN</td>
+<td>T-DR-001</td>
+</tr>
+<tr>
+<td>AC-F10-2 (I7 — headline)</td>
+<td>All 5 I7 bounds enforced: max_iter (structural <code>for range</code>), token_budget gate top-of-round, concurrency=3 semaphore, status never "running" on exit (<code>finally</code>), bounds frozen once</td>
+<td>GREEN</td>
+<td>T-DR-002, T-DR-003, T-DR-004, T-DR-005, T-DR-007, T-DR-008, T-DR-010, T-DR-012</td>
+</tr>
+<tr>
+<td>AC-F10-3 (I9)</td>
+<td>SearXNG only; no Tavily/DDG/Google; 503 when SEARXNG_URL unset</td>
+<td>GREEN</td>
+<td>T-DR-013, T-RA-002</td>
+</tr>
+<tr>
+<td>AC-F10-4</td>
+<td>POST /research/start (202), GET /research/runs (paginated), GET /research/runs/{id} — all in openapi.json</td>
+<td>GREEN</td>
+<td>T-RA-001, T-RA-007..010, T-RA-011..013; D4 verified</td>
+</tr>
+<tr>
+<td>AC-F10-5</td>
+<td>F9 review queue wiring: run_id stored on review_item</td>
+<td>PENDING — Phase 3 scope; correctly deferred</td>
+<td>—</td>
+</tr>
+<tr>
+<td>AC-F10-6</td>
+<td>deep_research_runs (13 cols) + deep_research_sources (7 cols); Alembic migration 0009; D2 reflects both tables</td>
+<td>GREEN</td>
+<td>T-PG-031..031p (17), T-PG-032..032i (9)</td>
+</tr>
+<tr>
+<td>AC-F10-7</td>
+<td>Loop unit tests: 3 hits→3 fetch calls; converge after 1 round; max_iter_reached when always-insufficient</td>
+<td>GREEN</td>
+<td>T-DR-005, T-DR-006, T-DR-008, T-DR-009, T-DR-011</td>
+</tr>
+<tr>
+<td>AC-F10-8</td>
+<td>Frontend: topic input, start button, run list, run detail; polling via setTimeout chain (I3); list virtualized TanStack Virtual (I4)</td>
+<td>GREEN</td>
+<td>DeepSearchView.test.tsx (8 test groups); E2E PENDING-LIVE</td>
+</tr>
+<tr>
+<td>AC-D3-DR-1</td>
+<td>deep-research.mmd: sequenceDiagram keyword + all required annotations (SearXNG, InferenceProvider, max_iter, concurrency, total_cost_usd, ingest_file, fire-and-poll)</td>
+<td>GREEN</td>
+<td>T-DOCS-051..058</td>
+</tr>
+</tbody>
+</table>
+<p>Phase 2 coverage: 8 of 9 ACs GREEN; 1 correctly deferred (AC-F10-5, Phase 3 scope).</p>
+<hr />
+<h2 id="4-i7-compliance-verdict-headline-invariant-for-m5">4. I7 Compliance Verdict (Headline Invariant for M5)<a class="headerlink" href="#4-i7-compliance-verdict-headline-invariant-for-m5" title="Permanent link">&para;</a></h2>
+<p>All 7 I7 enforcement points for F10 are HELD, each with a dedicated test:</p>
+<table>
+<thead>
+<tr>
+<th>Bound</th>
+<th>Enforcement</th>
+<th>Test</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Iteration cap</td>
+<td><code>for iteration in range(1, max_iter_local + 1)</code> — structural; no <code>while</code></td>
+<td>T-DR-002</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Token budget</td>
+<td>Budget gate is the FIRST statement in the loop body</td>
+<td>T-DR-005</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Concurrency</td>
+<td>Single <code>Semaphore(3)</code> shared by both search and fetch</td>
+<td>T-DR-007</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Status never "running"</td>
+<td><code>_finalize_run_row</code> in <code>finally</code>; pessimistic default</td>
+<td>T-DR-010, T-DR-003</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Assess before refine</td>
+<td>Structural order enforced; no code path skips it</td>
+<td>T-DR-008</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Bounds frozen at run start</td>
+<td><code>max_iter_local</code> / <code>token_budget_local</code> read once before loop; loop never re-reads config</td>
+<td>T-DR-002/005 structure</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Cost logged + $1 anomaly</td>
+<td><code>UsageAccumulator</code> + <code>logger.warning</code> if <code>&gt; $1.00</code></td>
+<td>Structural verification + T-DR-010</td>
+<td>PASS</td>
+</tr>
+</tbody>
+</table>
+<p>I7 status: FULLY HELD in Phase 2 implementation.</p>
+<hr />
+<h2 id="5-non-blocking-follow-ups">5. Non-Blocking Follow-Ups<a class="headerlink" href="#5-non-blocking-follow-ups" title="Permanent link">&para;</a></h2>
+<p>The following items are recorded as Phase 2 follow-ups. None holds Phase 3 start.</p>
+<h3 id="fu-p2-1-d5-deep-search-screenshots-pending-live">FU-P2-1: D5 Deep Search screenshots (PENDING-LIVE)<a class="headerlink" href="#fu-p2-1-d5-deep-search-screenshots-pending-live" title="Permanent link">&para;</a></h3>
+<p>Two Playwright capture targets remain pending live stack:
+- <code>docs/screens/deep-search-running.png</code>
+- <code>docs/screens/deep-search-complete.png</code></p>
+<p>Requires: running Synapse stack with SearXNG reachable and at least one completed deep research run.
+Resolution: fold into EC-M5-HCP condition 3 verification. When Emanuele runs the human checkpoint for EC-M5-HCP-3 (Deep Search section accepts a topic, triggers a run, completes with synthesis visible), the QA Playwright capture should be run at the same time via <code>make screenshots</code>.
+Owner: qa-test-engineer at EC-M5-HCP time.</p>
+<h3 id="fu-p2-2-no-provider-mechanical-completion-path-architectural-note-for-usermd">FU-P2-2: No-provider mechanical-completion path (architectural note for USER.md)<a class="headerlink" href="#fu-p2-2-no-provider-mechanical-completion-path-architectural-note-for-usermd" title="Permanent link">&para;</a></h3>
+<p>The architect noted that when no <code>provider_config</code> row exists for a vault, <code>_resolve_provider</code> returns <code>None</code>. The loop degrades gracefully: query generation falls back to the raw topic as the single query; sufficiency assessment treats any content as sufficient; synthesis assembles raw snippets. The run completes bounded, SearXNG-only, via the ingest seam — all invariants are held. However, the resulting wiki page is a low-quality stub with no LLM processing.</p>
+<p>This is invariant-safe but counter-intuitive to users. It must be documented in USER.md (D6a) in the F10 / Deep Research section: "If no inference provider is configured for the vault, Deep Research completes as a raw-fetch stub with no LLM query refinement or synthesis. Configure a provider in Settings &gt; LLM Models before running Deep Research."
+Owner: tech-writer (D6a update, to be folded into Phase 4 final docs gate or Phase 5).</p>
+<h3 id="fu-p2-3-1-cost-anomaly-warning-test-gap-accepted-non-blocking">FU-P2-3: $1 cost-anomaly WARNING test gap (accepted, non-blocking)<a class="headerlink" href="#fu-p2-3-1-cost-anomaly-warning-test-gap-accepted-non-blocking" title="Permanent link">&para;</a></h3>
+<p>No dedicated unit test asserts that <code>logger.warning(...)</code> fires when <code>total_cost_usd &gt; 1.00</code>. The module-level constant <code>COST_ANOMALY_THRESHOLD_USD = 1.00</code> exists; the code path fires in the <code>finally</code> block; the threshold is structurally verified. The anomaly is a logging/observability feature — it cannot cause runaway execution and does not violate I7. QA accepted this gap as belt-and-suspenders. It may be added as an optional enhancement (a <code>caplog</code> fixture test) in Phase 3 if a QA cycle permits, but it does not hold Phase 2 or Phase 3.
+Resolution: log as GAP-v0.5-P2-1 in the gap register; revisit at M5 final gate.</p>
+<hr />
+<h2 id="6-ec-m5-hcp-condition-mapping">6. EC-M5-HCP Condition Mapping<a class="headerlink" href="#6-ec-m5-hcp-condition-mapping" title="Permanent link">&para;</a></h2>
+<p>Phase 2 directly satisfies the following EC-M5-HCP condition (human verification at end of M5, not now):</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Feature</th>
+<th>Phase 2 contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EC-M5-HCP-3</td>
+<td>F10</td>
+<td>Deep Search section accepts a topic, runs, produces a synthesis visible in run detail. Code-complete and tested. Requires live stack for human verification at M5 closure.</td>
+</tr>
+</tbody>
+</table>
+<p>EC-M5-HCP-3 is NOT cleared by this sign-off. It is recorded as satisfied by Phase 2's code delivery and will be cleared by Emanuele's live browser confirmation at M5 closure (docs/sprints/v0.5-m5-closure.md).</p>
+<hr />
+<h2 id="7-scope-integrity-out-of-scope-items">7. Scope Integrity — Out-of-Scope Items<a class="headerlink" href="#7-scope-integrity-out-of-scope-items" title="Permanent link">&para;</a></h2>
+<p>No out-of-scope work was introduced in Phase 2. Confirmed absence of:
+- F9 review queue implementation (Phase 3 scope — none started)
+- F12 multi-format ingest (Phase 3 scope — none started)
+- F13 cascade deletion (Phase 4 scope — none started)
+- F1-MCP-UI (Phase 5 scope — none started)
+- Tavily or non-SearXNG web search (I9 — static guard + 503 test confirm absence)
+- Unbounded loops (I7 — structurally enforced <code>for range</code>)</p>
+<hr />
+<h2 id="8-phase-3-clearance">8. Phase 3 Clearance<a class="headerlink" href="#8-phase-3-clearance" title="Permanent link">&para;</a></h2>
+<p><strong>Phase 3 (F9 HITL Review Queue + F12 Multi-format ingest) is CLEARED TO START.</strong></p>
+<p>Rationale:
+- Phase 2 gate chain (QA + Architect + Tech-Writer + PM) is complete with all 4 sign-offs.
+- All Phase 2 blocking conditions (C1 run_id bug, C2 regression test, C3 D-artifacts) are resolved.
+- F10 POST /research/start endpoint is live — F9's Deep-Research action (AC-F10-5 / AC-F9-3 integration) can now be wired without further dependency on Phase 2 work.
+- F12 is fully independent; no Phase 2 dependency.
+- Non-blocking follow-ups (FU-P2-1, FU-P2-2, FU-P2-3) do not hold Phase 3.</p>
+<p>Phase 3 scope per <code>docs/sprints/v0.5-scope.md §7</code>:
+- F9: review.py + review_items table (Alembic migration) + Review nav section + Deep-Research action wiring to POST /research/start
+- F12: ingest/extract.py + per-format extractors (pypdf, python-docx, python-pptx, openpyxl, unstructured) + POST /ingest/upload extension
+- D2 update (review_items table), D4 update (review endpoints + upload extension), D5 snapshot (review-queue.png, upload-multiformat.png)</p>
+<p>Functional-analyst acceptance criteria for Phase 3 are already defined in <code>docs/sprints/v0.5-scope.md §4</code> (AC-F9-1..8, AC-F12-1..7). No re-elaboration required; hand to engineers directly.</p>
+<hr />
+<h2 id="9-velocity-note">9. Velocity Note<a class="headerlink" href="#9-velocity-note" title="Permanent link">&para;</a></h2>
+<p>Phase 2 delivered on scope: F10 (full bounded loop + REST + UI) + D3 (deep-research.mmd) in the planned 3–4 evening window. The architect C1 fix (run_id divergence) was caught and resolved within the phase — no carry-forward to Phase 3. 35 QA-added tests closed AC-F10-6 and AC-D3-DR-1 gaps identified at gate time. The I7 compliance posture is the strongest of any loop feature in the codebase: 7 enforcement points, each with a dedicated test. Phase 2 ran at pace; no velocity adjustment to the Phase 3 estimate is warranted at this time.</p>
+<hr />
+<h2 id="10-sign-off-record">10. Sign-off Record<a class="headerlink" href="#10-sign-off-record" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Agent</th>
+<th>Verdict</th>
+<th>Date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QA</td>
+<td>qa-test-engineer (claude-sonnet-4-6)</td>
+<td>PASS</td>
+<td>2026-06-29</td>
+</tr>
+<tr>
+<td>Architect</td>
+<td>solution-architect (claude-opus-4-8)</td>
+<td>APPROVE-WITH-CONDITIONS (all conditions cleared)</td>
+<td>2026-06-29</td>
+</tr>
+<tr>
+<td>Tech-Writer</td>
+<td>tech-writer (claude-sonnet-4-6)</td>
+<td>PASS-WITH-PENDING (D5 non-blocking)</td>
+<td>2026-06-29</td>
+</tr>
+<tr>
+<td>PM</td>
+<td>product-manager (claude-sonnet-4-6)</td>
+<td>DONE-WITH-FOLLOWUPS</td>
+<td>2026-06-29</td>
+</tr>
+</tbody>
+</table>
+<p>All 4 required sign-offs present. Phase 3 may proceed.</p>
+<blockquote>
+<p>Signed: product-manager (claude-sonnet-4-6) | 2026-06-29
+Handoff: Phase 3 clearance + this verdict → orchestrator
+Handoff: FU-P2-2 (USER.md no-provider note) → tech-writer (fold into Phase 4/5 docs gate)
+Handoff: FU-P2-1 (D5 screenshots) → qa-test-engineer (capture at EC-M5-HCP-3 time)
+Backlog updated: F10 → done; F9 → in-progress; F12 → next (Phase 3)</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

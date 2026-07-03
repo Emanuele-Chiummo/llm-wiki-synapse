@@ -1,0 +1,232 @@
+C4Component
+    %% <!-- Generated: v0.4 sprint 4 M4-EXT | 2026-06-28 -->
+    %% v0.3: F4 graph engine + I2 cache + GET /graph + thin sigma viewer (ADR-0013/14/15/16).
+    %% v0.4 Phase 1: F1 three-panel shell (ADR-0017). AppShell wraps all panels; GraphPanel
+    %% wraps the UNCHANGED GraphViewer (T-NCL-001..022 intact, I2); NavTree + PreviewPanel
+    %% share the single selectedNodeId key via graphStore UI slice (I3); all long lists
+    %% virtualized (TanStack Virtual, I4); no client-side layout code added (I2).
+    %% v0.4 Phase 2 (ADR-0018): NavRail top-level mode switcher + SectionRouter; IngestView
+    %% + IngestRunList + IngestRunDetail (GET /ingest/runs + POST /ingest/trigger);
+    %% ProviderSelector (F17-UI); SettingsPanel (F14+F16); Toast; i18n module;
+    %% providerStore + settingsStore + ingestStore (separate from graphStore — I3).
+    %% Backend: migration 0006 adds status/pages_created/error_message to ingest_runs.
+    %% v0.4 Phase 3 (ADR-0019): Chat section enabled. Backend: chat/ module (context.py +
+    %% think.py + stream.py); POST /chat/stream (NDJSON StreamingResponse); GET|POST
+    %% /conversations + GET /conversations/{id}/messages + DELETE /conversations/{id};
+    %% Alembic 0007 adds conversations+messages tables (I7 per-message cost cols). OllamaProvider
+    %% and ApiProvider chat() bodies implemented (OllamaProvider is the live dev path).
+    %% CliAgentProvider.chat() remains NotImplementedError (documented, not faked — ADR-0019 §5).
+    %% Frontend: ChatSection (SectionRouter activeSection=chat), ConversationList, MessageList
+    %% (TanStack Virtual ≤30 DOM I4), StreamingMessage (raw pre-wrap NO parser I3),
+    %% MarkdownView (parse-once on done — I3/G3), ThinkBlock (collapsed F7), MessageInput
+    %% (plain textarea I4), latexToUnicode (F8), chatStore (SEPARATE from graphStore — I3),
+    %% useChatStream hook (fetch POST /chat/stream NDJSON ReadableStream). NavRail chat item
+    %% ENABLED; Section type gains "chat"; graphStore.activeSection can now = "chat".
+    %% v0.4 M4-EXT (ADR-0020): Feature U + Feature S. Backend: POST /ingest/upload (multipart,
+    %% 202, basename-only sanitizer, text/markdown only v0.4, 413/415/422 gates — upload.py);
+    %% import_schedules table (Alembic 0008: enabled/source_dir/frequency/last_run_at/
+    %% last_status/last_imported_count/last_error); ImportScheduler (asyncio lifespan task,
+    %% NOT APScheduler — I9; single in-flight, MAX_FILES+MAX_SECONDS — I7; copy→watcher ingest
+    %% — I1/I9); GET/PUT /import-schedule + POST /import-schedule/run-now.
+    %% Frontend: UploadZone in IngestView (drag-drop + browse; 415/413/422 toasts; run-list
+    %% refresh); ImportScheduleCard in SettingsPanel (enabled toggle, source_dir container-path
+    %% input + dir_ok warning, frequency select, last-run status, Run-now button). i18n en/it
+    %% parity (ingest.upload* + settings.import.* namespaces).
+    title Component Diagram — Synapse v0.4 M4-EXT (Feature U: upload + Feature S: scheduled import — ADR-0020)
+
+    Container_Boundary(api, "FastAPI service") {
+        Component(rest, "REST + provider + graph + ingest/runs + chat + upload + schedule endpoints", "FastAPI routers", "GET/POST /provider/config, POST /ingest/trigger (202), GET /ingest/runs (ADR-0018 §7), GET /graph (200, X-Graph-Cache: hit|miss, ADR-0014), POST /chat/stream (NDJSON 200, ADR-0019 §2.2), GET|POST /conversations, GET /conversations/{id}/messages, DELETE /conversations/{id}, POST /ingest/upload (202 — Feature U ADR-0020 §2), GET/PUT /import-schedule (Feature S ADR-0020 §4.6), POST /import-schedule/run-now (202 ADR-0020 §4.6). Auto OpenAPI → D4.")
+        Component(watcher, "Watcher", "watchdog", "raw/sources/ events; mtime-then-hash gate (I1). Calls the seam only.")
+        Component(orch, "IngestOrchestrator", "ingest/orchestrator.py", "Resolves provider from provider_config; reads capabilities(); ROUTES on supports_agentic_loop (I6 — never isinstance/class). Runs the orchestrated loop (analyze→generate→validate→retry, max_iter+token_budget, I7) OR delegates to CLI. Owns the Usage accumulator + cost-anomaly check. Sets status/pages_created/error_message on ingest_runs rows (migration 0006).")
+        Component(resolver, "ConfigResolver", "provider_config_service.py", "operation+vault > vault > global precedence over provider_config.")
+        Component(validator, "WikiPage validator", "in orchestrator", "type∈enum, title, non-empty sources[], lang, content (ADR-0007 §5).")
+        Component(k5, "Wikilink parser", "wiki/links.py", "K5: [[Target|alias]] → links rows; dangling=True warn-not-error.")
+        Component(k3, "Index/Overview writer", "wiki/index.py", "K3 index.md + F3 overview.md, per-write (I1).")
+        Component(chatmod, "chat/ service module", "chat/context.py + chat/think.py + chat/stream.py", "context.py: builds light system context (purpose.md + overview.md, budget-capped, ADR-0019 §2.3). think.py: 2-state streaming scanner (OUTSIDE/INSIDE_THINK, 7-char partial-tag buffer, ADR-0019 §2.4). stream.py: bounded StreamingResponse generator (token_budget + 60s timeout, cost per-turn I7); writes conversations+messages rows (Alembic 0007); regenerate=delete-last-assistant + re-stream (AC-F6-4). Provider resolved via resolve_provider_config('chat') — never hardcoded (I6).")
+        Component(prov, "InferenceProvider (ABC)", "ingest/provider/base.py", "analyze/generate/chat()/capabilities. The ONLY inference surface (I6). chat() stubbed in v0.2; bodies filled in v0.4 Phase 3 (ADR-0019 §5).")
+        Component(ollama, "OllamaProvider", "provider/ollama.py", "Local. supports_agentic_loop=False. cost=$0.00. (I9 reuses running Ollama.) chat(): streams /api/chat stream=true; dev default path (qwen2.5:3b).")
+        Component(apip, "ApiProvider", "provider/api.py", "Anthropic / OpenAI-compatible (base_url). Key from env only (§12). supports_agentic_loop=False. chat(): Anthropic SSE or OpenAI-compat SSE; usage via _record_usage (ADR-0009).")
+        Component(clip, "CliAgentProvider", "provider/cli.py", "claude-agent-sdk, acceptEdits. supports_agentic_loop=True → delegated ingest.")
+        Component(mcp, "MCP server (FastMCP)", "mcp/server.py", "stdio. Tools: search_wiki, write_page, get_page, list_pages. write_page reuses persist/embed/index primitives (I1,I5).")
+        Component(uploadsanitizer, "Upload sanitizer", "upload.py", "Feature U (ADR-0020 §2.2). Pure functions: safe_source_name() — basename-only, no '..' or absolute, NUL/control strip, extension allow-list (.md/.txt/.markdown → else 415), ≤200-char clamp; resolve_under_sources() — containment-check (422 on escape). Unit-testable in isolation; no I/O. Called by POST /ingest/upload.")
+        Component(importscheduler, "ImportScheduler", "import_scheduler.py", "Feature S (ADR-0020 §4.5). Single asyncio lifespan background task (NOT APScheduler — I9). Re-reads import_schedules on each tick; copy-then-watcher path (never calls ingest_file directly — I9/ADR-0003). Double-bounded: MAX_FILES + MAX_SECONDS per scan (I7). Single in-flight guard (no overlapping scans — I7). Non-recursive os.scandir. Hash-compare before copy (I1). Writes last_run_at/last_status/last_imported_count to import_schedules. run_now() method used by POST /import-schedule/run-now. Started in lifespan AFTER watcher; stopped on shutdown.")
+        Component(gengine, "GraphEngine", "graph/engine.py", "F4. Reads pages+links from Postgres (never walks vault, I1). Builds 4-signal weighted edge list (direct x3, source-overlap x4, Adamic-Adar x1.5, type-affinity x1; ADR-0012). Runs SEEDED FA2 via python-igraph OFFLINE (seed=42, ADR-0013, I9). Single bounded pass (I7); logs node/edge count + duration.")
+        Component(gcache, "GraphCache", "graph/cache.py", "I2. Debounces recompute on vault_state.data_version bump (default 5s, injectable clock; ADR-0014). Max one in-flight + one pending (I7). Tracks marker data_version → cache hit/miss. NEVER recomputes on a plain GET hit.")
+        Component(gpersist, "Coord/edge persistence", "in engine.py", "One txn: UPDATE pages.x/y per node (column upsert, I1) + replace edges rows with weights. No vault/.md writes (I5).")
+        ComponentDb(pg, "Postgres 16", "SQLAlchemy 2 + Alembic", "pages (+x,y v0.3), vault_state (data_version → graph trigger), provider_config, ingest_runs (+status/pages_created/error_message migration 0006, I7), links (K5), edges (v0.3: weighted graph, ADR-0012), conversations (v0.4 Phase 3, migration 0007, soft-delete, ADR-0019 §2.5), messages (v0.4 Phase 3, migration 0007, input_tokens/output_tokens/total_cost_usd I7, ADR-0019), import_schedules (M4-EXT Feature S, migration 0008: enabled/source_dir/frequency enum/last_run_at/last_status/last_imported_count/last_error — ADR-0020 §4.1, I7). D2 source of truth.")
+    }
+
+    Container_Boundary(fe, "Frontend — 3-panel shell + NavRail + Ingest + Provider + Settings (v0.4 Phase 2, ADR-0017/0018)") {
+        Component(appshell, "AppShell", "AppShell.tsx", "Top-level layout (Phase 2 rewire): <Header> + row(<NavRail> + <SectionRouter>) + <ActivityBar> + <ToastHost>. No layout code, no force-graph import (I2).")
+        Component(header, "Header", "Header.tsx", "Branding + <ProviderSelector/> wired in Phase 2 (F17). No hardcoded provider (I6).")
+        Component(navrail, "NavRail", "nav/NavRail.tsx", "~48px persistent left icon rail (ADR-0018 §1). Sections: Pages/Graph/Ingest/Settings/Chat (Chat ENABLED Phase 3 — disabled: true removed, ADR-0019 §3). Reads activeSection+setActiveSection from graphStore; badge reads useIngestRunningCount() from ingestStore. Keyboard arrow nav; role=navigation; i18n labels. Never imports layout code (I2/I3).")
+        Component(sectionrouter, "SectionRouter", "SectionRouter.tsx", "Reads activeSection (scalar) from graphStore; keyed switch: pages→PanelGroup, graph→GraphPanel full-bleed, ingest→IngestView+IngestRunDetail, settings→SettingsPanel, chat→ChatSection (Phase 3, ADR-0019 §3). I3: subscribes to activeSection only.")
+        Component(panelgroup, "PanelGroup", "panels/PanelGroup.tsx", "Horizontal 3-panel group via react-resizable-panels. PanelResizeHandle: role=separator, aria-orientation=vertical, arrow-key resize. No rAF/JS layout loop (AC-F1-7). min sizes ~[15%,40%,20%]; onLayout hook for Phase-2 persistence. Rendered only when activeSection=pages.")
+        Component(navtree, "NavTree", "nav/NavTree.tsx + nav/useNavTreeData.ts", "Left panel (role=navigation). Fetches GET /pages; groups by type (concept/entity/source/synthesis/comparison/other); flattens to TreeRow[]; virtualizes via useVirtualizer (TanStack Virtual, I4, AC-F1-2, ≤50 DOM rows). Row click → selectPage(id,'tree') on shared selectedNodeId. role=tree/treeitem/group.")
+        Component(maintabs, "MainTabs", "center/MainTabs.tsx", "Center (role=main). Tab strip: [Graph] active, [Chat] now enabled via SectionRouter (Phase 3). ScenarioTemplates pre-fills MessageInput. Reads/sets activeTab from graphStore UI slice. role=tablist/tab/tabpanel; roving tabindex.")
+        Component(graphpanel, "GraphPanel", "center/GraphPanel.tsx", "Thin wrapper: mounts the EXISTING <GraphViewer/> unchanged (height:100%; min-height:0 for sigma ResizeObserver). No layout code added. T-NCL-001..022 intact. Also used as full-bleed view when activeSection=graph.")
+        Component(viewer, "GraphViewer", "React 19 + Vite + sigma.js", "I2/I4. UNCHANGED from v0.3. Renders precomputed coords in ONE WebGL canvas. NEVER imports/runs forceatlas2/d3-force/any client layout (ADR-0015, P0 block). Node click → setSelectedNodeId (shared key). No T-NCL assertions changed.")
+        Component(previewpanel, "PreviewPanel", "preview/PreviewPanel.tsx", "Right panel (role=complementary). Subscribes to selectedNodeId via selectSelectedNodeId. Phase 1: read-only metadata+relationship inspector (title/type/sources/neighbors/degree) from GET /pages/{id} + in-memory nodes/edges. 'No document body — demo node' empty state. NOT an editor (I4, AC-F1-3). GET /pages/{id}/content reserved for Phase 3.")
+        Component(activitybar, "ActivityBar", "activity/ActivityBar.tsx", "Bottom bar (role=status). vault name, active provider (reads selectActiveProvider from providerStore — Phase 2 filled), last-ingest timestamp, data_version from GET /status + graph store. AC-F1-5.")
+        Component(scenariotemplates, "ScenarioTemplates", "common/ScenarioTemplates.tsx", "≥2 scenario template buttons (AC-F1-6). Phase 1: rendered in the Chat-stub tab region; pre-fill a disabled chat-input placeholder. Wired to chat store in Phase 3.")
+        Component(toast, "Toast + ToastHost", "common/Toast.tsx", "Singleton toast system (ADR-0018 §3). showToast(msg, severity) called from IngestView + ProviderSelector. ToastHost mounts once in AppShell outside all panels. severity: success|error|info.")
+        Component(ingestview, "IngestView", "ingest/IngestView.tsx", "Center pane of Ingest section (ADR-0018 §3). Header with title+badge+Run-Ingest button; inline form (file_path → POST /ingest/trigger); polling starts on mount, stops when no running runs; delegates list to IngestRunList. Reads ingestStore via typed selectors (I3).")
+        Component(ingestrunlist, "IngestRunList", "ingest/IngestRunList.tsx", "TanStack-Virtual list of run cards (I4, ≤40 DOM rows). Per card: StatusBadge, provider_type, pages_created, cost at 4dp (I7), relative time, truncated error. Click → setSelectedRunId. Load-more paging (fetchMore offset). Reads ingestStore.")
+        Component(ingestrundetail, "IngestRunDetail", "ingest/IngestRunDetail.tsx", "Right pane of Ingest section. Selected run manifest: route, iterations_used, total_tokens, converged, cost_anomaly, model_id, started_at/completed_at, full error_message. Reads ingestStore.")
+        Component(uploadzone, "UploadZone", "ingest/UploadZone.tsx", "Feature U (ADR-0020 §3). Drag-and-drop target + Browse <input type=file accept='.md,.txt,.markdown'> fallback in the Ingest section. On drop/select → uploadDocument(file) → POST /ingest/upload → success toast (ingest.uploadToastStarted) → ingestStore.fetchFresh(). On 415/413/422 → error toast with backend detail. Shows accepted types + M5 note for PDF/DOCX ('coming in M5'). Reduced-motion-safe drag highlight. No CodeMirror/WYSIWYG (I4). Client-side extension guard is UX only — backend is authoritative (ADR-0020 §2.2–§2.4).")
+        Component(importschedulecard, "ImportScheduleCard", "settings/ImportScheduleCard.tsx", "Feature S (ADR-0020 §5). Card in SettingsPanel: enabled toggle; source_dir text input + container-path hint ('Must be a path visible inside the container, e.g. /import — see DEPLOY.md'); frequency select (15m/1h/6h/daily); last-run status line (relative time + imported count + ok/error badge); Run-now button. On change → PUT /import-schedule; on Run-now → POST /import-schedule/run-now + toast. If PUT returns dir_ok:false shows inline warning under input (save-then-warn). State lives in settingsStore or a small importScheduleStore — NOT in graphStore (I3). Optional poll while last_status='running' (bounded setTimeout chain, AbortController — I7).")
+        Component(providerselector, "ProviderSelector", "provider/ProviderSelector.tsx", "Header slot dropdown (F17-UI / ADR-0018 §4). Collapsed: active provider label + mode chip. Expanded: scope toggle (Vault/Global) + sorted provider list with capability labels. One-click select → POST /provider/config. INVARIANT I6: zero hardcoded provider_type/model_id literals; all values from GET /provider/config. Reads providerStore.")
+        Component(settingspanel, "SettingsPanel", "settings/SettingsPanel.tsx", "Settings section (ADR-0018 §5). Context window select (4K–1M, F14) + 60/20/5/15 budget split display; IT/EN language toggle (F16); read-only provider list; reset button (clears localStorage). Reads settingsStore + providerStore.")
+        Component(i18nmod, "i18n module", "i18n/index.ts + locales/{en,it}.json", "react-i18next init (ADR-0018 §6). Detection: localStorage(synapse.lang) → navigator.language → 'en'. Imports en.json + it.json. Every new UI string is a key (AC-F16-i18n-2). Key parity enforced by i18n-key-parity.test.ts.")
+        Component(gstore, "graphStore + UI slice", "store/graphStore.ts", "I3. Selectors + shallow equality. UI slice: selectedSource, activeTab, treeCollapsed, activeSection (Section = pages|graph|ingest|settings|chat — 'chat' added Phase 3, ADR-0019 §3). Actions: selectPage, setActiveTab, toggleGroup, setActiveSection. selectedNodeId UNCHANGED — single shared selection key for NavTree↔GraphViewer↔PreviewPanel sync. chatStore is SEPARATE (I3).")
+        Component(providerstore, "providerStore", "store/providerStore.ts", "SEPARATE from graphStore (I3). Holds provider list + activeItem + writeScope. fetchList()/setActiveProvider()/setWriteScope(). Persistence: no localStorage (server is source of truth). Active row derived client-side: vault-scoped rows > global rows sorted by created_at DESC (ADR-0018 §4).")
+        Component(settingsstore, "settingsStore", "store/settingsStore.ts", "SEPARATE from graphStore (I3). contextWindowTokens (default 32K, F14) + language ('en'|'it', F16). Persists to localStorage. Reset action clears both keys.")
+        Component(ingeststore, "ingestStore", "store/ingestStore.ts", "SEPARATE from graphStore (I3). runs[], total, offset, selectedRunId, loading, error. fetchFresh()/fetchMore()/startPolling(). Polling: 5s setTimeout chain, stops when no running rows (ADR-0018 §3). useIngestRunningCount() hook for NavRail badge.")
+        Component(pagesclient, "pagesClient", "api/pagesClient.ts", "fetchPages(vaultId, {limit, offset}) → PageListResponse. fetchStatus() → GET /status. Typed. Separate from graph client; focused on tree data (metadata only, no body).")
+        Component(ingestclient, "ingestClient", "api/ingestClient.ts", "fetchIngestRuns(vaultId, {limit, offset}) → IngestRunListResponse. triggerIngest(filePath) → POST /ingest/trigger. Typed. Used by ingestStore + IngestView.")
+        Component(providerclient, "providerClient", "api/providerClient.ts", "fetchProviderConfigs() → ProviderConfigListResponse. createProviderConfig(body) → POST /provider/config. Typed. Used by providerStore.")
+
+        %% v0.4 Phase 3 — F6/F7/F8 chat components (ADR-0019)
+        Component(chatsection, "ChatSection", "chat/ChatSection.tsx", "Section root: ConversationList (left) + active conversation (center: MessageList + MessageInput). Rendered by SectionRouter when activeSection=chat (ADR-0019 §3).")
+        Component(convlist, "ConversationList", "chat/ConversationList.tsx", "GET /conversations; create/switch/delete; virtualized when >50 items (I4). Reads chatStore.")
+        Component(msglist, "MessageList", "chat/MessageList.tsx", "VIRTUALIZED (TanStack Virtual, I4 ≤30 DOM rows). Settled messages → MarkdownView; in-flight message → StreamingMessage. Does NOT subscribe to streamingContent (I3/AC-G3-4).")
+        Component(streamingmsg, "StreamingMessage", "chat/StreamingMessage.tsx", "Renders raw streaming buffer in pre-wrap — NO parser (I3/AC-G3-1). Hosts live ThinkBlock. ONLY component subscribed to streamingContent/streamingThink (AC-G3-4).")
+        Component(markdownview, "MarkdownView", "chat/MarkdownView.tsx", "Settled-message render: marked(latexToUnicode(raw)) → DOMPurify → dangerouslySetInnerHTML. Memoized on raw string (parse-once on done, I3/G3/AC-G3-2). Never called during streaming.")
+        Component(thinkblock, "ThinkBlock", "chat/ThinkBlock.tsx", "Collapsible Reasoning section, collapsed by default (F7/AC-F7-1). Closed when first token event arrives (</think> seen server-side).")
+        Component(msginput, "MessageInput", "chat/MessageInput.tsx", "Plain textarea (I4: CodeMirror reserved for editor, NOT chat input). Enter=send, Shift+Enter=newline. Pre-fillable by ScenarioTemplates (F1).")
+        Component(latex, "latexToUnicode", "chat/latexToUnicode.ts", "Pure lookup-table converter (F8/AC-F8-2): Greek + operators + arrows + sub/super. Unconvertible/display math left as fenced code — never silently dropped (AC-F8-3). No KaTeX/MathJax dep.")
+        Component(chatstore, "chatStore", "store/chatStore.ts", "SEPARATE from graphStore/providerStore/ingestStore (I3 — streaming never re-renders graph/tree/ingest). Holds conversations[], activeConversationId, messages[], streamingContent (raw append-only), streamingThink, isStreaming, streamError, lastUsage. appendToken/appendThink do leaf set; on done: buffer committed to messages[], buffers cleared, parse-once fires.")
+        Component(chatclient, "useChatStream", "chat/useChatStream.ts", "Hook: fetch POST /chat/stream {method:'POST', body} → res.body.getReader() → TextDecoder + line-buffer splits on \\n → JSON.parse each line → dispatches token/think/done/error to chatStore. AbortController cancels on unmount/new-send. Reads GET /conversations + DELETE /conversations/{id} for list ops.")
+    }
+
+    System_Ext(ollamasvc, "Ollama", "RTX 3060, running (I9)")
+    System_Ext(anthropic, "Anthropic API / OpenAI-compat endpoint", "external; key via env")
+    System_Ext(qdrant, "Qdrant + bge-m3", "synapse_pages collection (I9)")
+    System_Ext(vaultfs, "Vault filesystem", "raw/ ro · wiki/ rw")
+
+    Rel(watcher, orch, "ingest_file(path)")
+    Rel(rest, orch, "ingest_file(path) on POST /ingest/trigger")
+    Rel(rest, resolver, "GET/POST /provider/config")
+    Rel(orch, resolver, "resolve(vault_id, operation)")
+    Rel(resolver, pg, "read provider_config")
+    Rel(orch, prov, "analyze/generate via ABC (I6)")
+    Rel(orch, validator, "validate(pages)")
+    Rel(orch, k5, "parse + persist links after write")
+    Rel(orch, k3, "update index.md / overview.md")
+    Rel(orch, pg, "write ingest_runs row — status/pages_created/error_message set (migration 0006)")
+    Rel(prov, ollama, "")
+    Rel(prov, apip, "")
+    Rel(prov, clip, "")
+    Rel(ollama, ollamasvc, "HTTP /api/chat (format=json)")
+    Rel(apip, anthropic, "Messages API / OpenAI-compat")
+    Rel(clip, mcp, "MCP stdio: write_page/search_wiki/...")
+    Rel(mcp, pg, "persist_metadata / upsert (shared primitives)")
+    Rel(mcp, qdrant, "search_wiki embed+query (I9)")
+    Rel(orch, vaultfs, "write wiki/ pages")
+    Rel(mcp, vaultfs, "write wiki/ pages")
+
+    %% v0.3 F4 graph relations
+    Rel(orch, gcache, "notify_bump() after data_version +1 (in-process trigger, ADR-0014)")
+    Rel(gcache, gengine, "recompute() once per debounce window (max 1 in-flight + 1 pending, I7)")
+    Rel(gengine, pg, "read pages+links; write pages.x/y + edges in one txn (I1, never walks vault)")
+    Rel(rest, gcache, "GET /graph: hit→read coords; miss→inline recompute (sync 200, ADR-0014)")
+    Rel(rest, pg, "GET /graph reads pages.x/y + edges (precomputed) · GET /ingest/runs reads ingest_runs")
+    Rel(viewer, rest, "GET /graph (precomputed coords) + GET /pages/{id} on node click")
+    Rel(viewer, gstore, "setSelectedNodeId on node click; reads precomputed nodes/edges (I3)")
+
+    %% v0.4 Phase 1 — F1 shell relations (ADR-0017)
+    Rel(appshell, header, "renders Header row")
+    Rel(appshell, navrail, "renders NavRail (left of SectionRouter row)")
+    Rel(appshell, sectionrouter, "renders SectionRouter (right of NavRail row)")
+    Rel(appshell, activitybar, "renders bottom bar")
+    Rel(appshell, toast, "renders ToastHost (singleton, outside all panels)")
+    Rel(sectionrouter, panelgroup, "activeSection=pages → renders PanelGroup (ADR-0017 verbatim, zero regression)")
+    Rel(sectionrouter, graphpanel, "activeSection=graph → full-bleed GraphPanel")
+    Rel(sectionrouter, ingestview, "activeSection=ingest → IngestView (center) + IngestRunDetail (right)")
+    Rel(sectionrouter, ingestrundetail, "activeSection=ingest → IngestRunDetail (right 320px)")
+    Rel(sectionrouter, settingspanel, "activeSection=settings → SettingsPanel")
+    Rel(sectionrouter, gstore, "reads activeSection (scalar) via selectActiveSection (I3)")
+    Rel(panelgroup, navtree, "left panel")
+    Rel(panelgroup, maintabs, "center panel")
+    Rel(panelgroup, previewpanel, "right panel")
+    Rel(maintabs, graphpanel, "Graph tab (active)")
+    Rel(maintabs, scenariotemplates, "Chat stub tab (aria-disabled, Phase-3 seam)")
+    Rel(graphpanel, viewer, "wraps unchanged GraphViewer (I2, no layout code)")
+    Rel(navtree, pagesclient, "fetchPages → TreeRow[] grouped by type")
+    Rel(pagesclient, rest, "GET /pages (metadata only, no body) · GET /status")
+    Rel(navtree, gstore, "selectPage(id,'tree') → sets selectedNodeId (I3)")
+    Rel(previewpanel, gstore, "selectSelectedNodeId + selectNodes/selectEdges for neighbor derive (I3)")
+    Rel(previewpanel, rest, "GET /pages/{id} for title/type/sources/file_path")
+    Rel(activitybar, rest, "GET /status for vault + data_version (via pagesClient.fetchStatus)")
+    Rel(activitybar, gstore, "reads data_version from store (I3)")
+    Rel(activitybar, providerstore, "reads selectActiveProvider for provider label (I3)")
+    Rel(maintabs, gstore, "selectActiveTab / setActiveTab (I3)")
+
+    %% v0.4 Phase 2 — ADR-0018 relations
+    Rel(navrail, gstore, "reads activeSection + setActiveSection (I3); badge from ingestStore")
+    Rel(navrail, ingeststore, "useIngestRunningCount() for badge (separate store — I3)")
+    Rel(header, providerselector, "renders ProviderSelector in header slot (F17)")
+    Rel(providerselector, providerstore, "reads list/activeItem/writeScope; calls setActiveProvider (I3)")
+    Rel(providerselector, providerclient, "fetchProviderConfigs() + createProviderConfig(body)")
+    Rel(providerclient, rest, "GET /provider/config · POST /provider/config")
+    Rel(providerselector, toast, "showToast() on success/error")
+    Rel(ingestview, ingeststore, "fetchFresh/startPolling/selectRunningCount (I3)")
+    Rel(ingestview, ingestclient, "triggerIngest(filePath) → POST /ingest/trigger")
+    Rel(ingestview, toast, "showToast() on trigger success/error")
+    Rel(ingestrunlist, ingeststore, "reads runs/selectedRunId/total; setSelectedRunId; fetchMore (I3)")
+    Rel(ingestrundetail, ingeststore, "reads runs + selectedRunId (I3)")
+    Rel(ingeststore, ingestclient, "fetchIngestRuns(vaultId) → GET /ingest/runs")
+    Rel(ingestclient, rest, "GET /ingest/runs (status/pages_created/error_message — migration 0006)")
+    Rel(settingspanel, settingsstore, "contextWindow/language/reset (I3)")
+    Rel(settingspanel, providerstore, "read-only provider list (I3)")
+    Rel(settingspanel, gstore, "selectVaultId for provider fetch scoping (I3)")
+    Rel(i18nmod, navrail, "t() for all nav labels (I6/I3)")
+    Rel(i18nmod, ingestview, "t() for all ingest strings")
+    Rel(i18nmod, providerselector, "t() for capability labels (no hardcoded provider names — I6)")
+    Rel(i18nmod, settingspanel, "t() for all settings strings")
+
+    %% v0.4 Phase 3 — backend chat relations (ADR-0019)
+    Rel(rest, chatmod, "POST /chat/stream delegates to stream.py; GET|POST /conversations + GET /conversations/{id}/messages + DELETE /conversations/{id} manage persistence")
+    Rel(chatmod, prov, "chat(messages, retrieval_context) via ABC — resolved by resolve_provider_config('chat') (I6, never hardcoded)")
+    Rel(chatmod, pg, "read/write conversations + messages rows (Alembic 0007); bump conversations.updated_at per turn (AC-F6-1)")
+    Rel(chatmod, vaultfs, "context.py reads vault/purpose.md + vault/wiki/overview.md (ADR-0019 §2.3)")
+
+    %% v0.4 Phase 3 — frontend chat relations (ADR-0019)
+    Rel(navrail, gstore, "chat section enabled — reads activeSection includes 'chat'; setActiveSection('chat') (ADR-0019 §3)")
+    Rel(sectionrouter, chatsection, "activeSection=chat → renders ChatSection (ADR-0019 §3)")
+    Rel(chatsection, convlist, "left panel: conversation list")
+    Rel(chatsection, msglist, "center: message list + input")
+    Rel(chatsection, msginput, "center: message input")
+    Rel(convlist, chatclient, "GET /conversations, POST /conversations, DELETE /conversations/{id}")
+    Rel(convlist, chatstore, "reads/sets activeConversationId + conversations[] (I3)")
+    Rel(msglist, chatstore, "reads messages[] + isStreaming; renders StreamingMessage for in-flight, MarkdownView for settled (I3)")
+    Rel(msglist, streamingmsg, "in-flight message slot (isStreaming=true)")
+    Rel(msglist, markdownview, "settled message slots (isStreaming=false, parse-once)")
+    Rel(streamingmsg, chatstore, "selectStreamingContent + selectStreamingThink — ONLY subscriber to streaming buffers (AC-G3-4)")
+    Rel(streamingmsg, thinkblock, "passes streamingThink deltas; ThinkBlock closes on first token event")
+    Rel(markdownview, latex, "latexToUnicode(raw) before marked() — parse-once on done (I3/G3)")
+    Rel(msginput, chatclient, "send → useChatStream hook; Shift+Enter newline; pre-filled by ScenarioTemplates")
+    Rel(msginput, chatstore, "setIsStreaming + clearBuffers on new send (I3)")
+    Rel(chatclient, rest, "POST /chat/stream (NDJSON ReadableStream); GET|DELETE /conversations*")
+    Rel(chatclient, chatstore, "dispatches appendToken/appendThink/done/error events; AbortController on unmount")
+    Rel(scenariotemplates, msginput, "pre-fill chat input with scenario prompt (F1 — now active, Phase 3)")
+    Rel(maintabs, chatsection, "Chat tab routes to ChatSection via SectionRouter (Phase 3 — chat enabled)")
+
+    %% v0.4 M4-EXT — Feature U + Feature S relations (ADR-0020)
+    Rel(rest, uploadsanitizer, "POST /ingest/upload: validate filename + extension + size, then write to raw/sources/")
+    Rel(uploadsanitizer, vaultfs, "write sanitized file to vault/raw/sources/ (I5); watcher observes + ingests (I1 double-trigger safe)")
+    Rel(rest, importscheduler, "POST /import-schedule/run-now → run_now(); GET/PUT /import-schedule reads/writes import_schedules via importscheduler helpers")
+    Rel(importscheduler, pg, "read/write import_schedules (enabled/source_dir/frequency/last_run_at/last_status/last_imported_count/last_error — migration 0008)")
+    Rel(importscheduler, vaultfs, "os.scandir(source_dir) → copy new/changed files to raw/sources/ (non-recursive, bounded I7). Hash-compare before copy (I1). Never calls ingest_file directly (I9).")
+    %% ImportScheduler copies to raw/sources/; watcher observes the write event and calls ingest_file() via the normal path (I1/I9 — the scheduler never calls ingest_file directly)
+
+    Rel(ingestview, uploadzone, "mounts UploadZone above Run-Ingest form (Feature U)")
+    Rel(uploadzone, ingestclient, "uploadDocument(file) → POST /ingest/upload (FormData; no manual Content-Type — browser sets multipart boundary)")
+    Rel(uploadzone, ingeststore, "fetchFresh(vaultId) on upload success to refresh run list (reuse ADR-0018 store)")
+    Rel(uploadzone, toast, "showToast() on success (ingest.uploadToastStarted) and on 415/413/422 error")
+
+    Rel(settingspanel, importschedulecard, "mounts ImportScheduleCard (Feature S)")
+    Rel(importschedulecard, rest, "PUT /import-schedule (upsert config) + POST /import-schedule/run-now + GET /import-schedule (poll while running)")
+    Rel(importschedulecard, toast, "showToast() on run-now success/error")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

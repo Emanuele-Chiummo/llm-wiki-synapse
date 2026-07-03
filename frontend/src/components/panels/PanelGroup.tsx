@@ -11,6 +11,11 @@
  *
  * Light design: var(--syn-bg-soft) side panels, var(--syn-bg) center,
  * var(--syn-border) separators and collapse button borders.
+ *
+ * Mobile/PWA (R10-5, AC-R10-5-1): At <768px, theme.css targets the Panel classNames
+ * below to hide the left/right panels and let the center fill full width. The
+ * horizontal orientation is kept (no orientation switch needed); CSS hides side panels.
+ * This is the simplest robust approach — no new props, no layout library changes.
  */
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
@@ -204,6 +209,7 @@ export function PanelGroup() {
         maxSize="40%"
         collapsible
         collapsedSize="3%"
+        className="panel-group__panel--left"
         style={{
           position: "relative",
           display: "flex",
@@ -227,6 +233,7 @@ export function PanelGroup() {
       <Separator
         id="separator-left"
         aria-label="Resize left panel"
+        className="panel-group__separator--left"
         style={SEPARATOR_STYLE}
       />
 
@@ -235,6 +242,7 @@ export function PanelGroup() {
         id={PANEL_CENTER}
         defaultSize="56%"
         minSize="40%"
+        className="panel-group__panel--center"
         style={{
           display: "flex",
           flexDirection: "column",
@@ -249,6 +257,7 @@ export function PanelGroup() {
       <Separator
         id="separator-right"
         aria-label="Resize right panel"
+        className="panel-group__separator--right"
         style={SEPARATOR_STYLE}
       />
 
@@ -261,6 +270,7 @@ export function PanelGroup() {
         maxSize="40%"
         collapsible
         collapsedSize="3%"
+        className="panel-group__panel--right"
         style={{
           position: "relative",
           display: "flex",
