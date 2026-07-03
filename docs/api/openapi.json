@@ -6568,7 +6568,7 @@
           "regenerated"
         ],
         "title": "RegenerateOverviewResponse",
-        "description": "Response for POST /overview/regenerate (F3 \u2014 force an overview refresh without re-ingesting).\n\nregenerated: True if the overview.md note was rewritten this call (False = degrade-safe\n             keep-previous, e.g. no provider configured or the provider call failed/timed out).\ndetected_language: the language the overview was requested in (ISO-639-1) \u2014 from the vault's\n                   existing pages; None when undetectable (the model then matches purpose+pages).",
+        "description": "Response for POST /overview/regenerate (F3 \u2014 force an overview refresh without re-ingesting).\n\nregenerated: True if the overview.md note was rewritten this call (False = degrade-safe\n             keep-previous, e.g. no provider configured or the provider call failed/timed out).\ndetected_language: the language the overview was requested in (ISO-639-1) \u2014 from\n                   the vault's existing pages; None when undetectable.",
         "example": {
           "detected_language": "it",
           "regenerated": true
