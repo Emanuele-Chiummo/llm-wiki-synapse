@@ -6,12 +6,13 @@
  * v0.6 (K2/F15): Lint is now an ACTIVE nav item.
  * v0.6 (F5/llm_wiki parity): Search added to TOP_ITEMS between Sources and Graph.
  * sprint/v1.1 (R11-3): Logo removed from NavRail; branding lives in Header only.
+ * sprint/v1.1 (R11-1/A1): Convert section added to M5_ITEMS (F12 Marker PDF conversion).
  *
  * Covers:
  *   AC-HARD-LBL-7: each rendered item has both an SVG icon and a visible label span.
- *   AC-HARD-M5P-6 (updated for v0.6): search PRESENT; lint + deep-search + review present.
- *   AC-HARD-ORD-1 (updated for v0.6+Search): exactly 9 interactive items
- *                  (Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Settings).
+ *   AC-HARD-M5P-6 (updated for v1.1): search PRESENT; lint + deep-search + review + convert present.
+ *   AC-HARD-ORD-1 (updated for v1.1): exactly 11 interactive items
+ *                  (Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Ingest/Convert/Settings).
  *   AC-F10-8a: "Deep Search" nav item renders in the rail.
  *   AC-F9-5: "Review" nav item renders in the rail.
  *   AC-R11-3-1: NavRail contains no Synapse brand SVG / logo image.
@@ -62,20 +63,21 @@ function renderNavRail() {
   return render(<NavRail />);
 }
 
-// ─── AC-HARD-ORD-1 (v0.6+Sources update): exactly 10 interactive nav items ───
+// ─── AC-HARD-ORD-1 (v1.1+Convert update): exactly 11 interactive nav items ───
 //
-// v0.6 [F11]: "sources" added to TOP_ITEMS (file browser); "ingest" moved to M5_ITEMS
-// (cost-ledger / run-history). Total interactive items = 10.
+// v0.6 [F11]: "sources" added to TOP_ITEMS (file browser); "ingest" moved to M5_ITEMS.
+// v1.1 [R11-1/A1]: "convert" added to M5_ITEMS (Marker PDF conversion surface).
+// Total interactive items = 11.
 
-describe("NavRail — item count and order (AC-HARD-ORD-1 v0.6+Sources, AC-F10-8a, AC-F9-5)", () => {
+describe("NavRail — item count and order (AC-HARD-ORD-1 v1.1+Convert, AC-F10-8a, AC-F9-5)", () => {
   beforeEach(() => {
     renderNavRail();
   });
 
-  it("renders exactly 10 interactive buttons (Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Ingest/Settings)", () => {
+  it("renders exactly 11 interactive buttons (Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Ingest/Convert/Settings)", () => {
     const buttons = screen.getAllByRole("button");
-    // 10 nav buttons: chat, pages, sources, search, graph, lint, review, deep-search, ingest, settings
-    expect(buttons).toHaveLength(10);
+    // 11 nav buttons: chat, pages, sources, search, graph, lint, review, deep-search, ingest, convert, settings
+    expect(buttons).toHaveLength(11);
   });
 
   it("renders a Chat button", () => {
@@ -108,11 +110,16 @@ describe("NavRail — item count and order (AC-HARD-ORD-1 v0.6+Sources, AC-F10-8
     const settingsBtn = document.querySelector("[data-section='settings']");
     expect(settingsBtn).not.toBeNull();
   });
+
+  it("renders a Convert button (data-section='convert') [R11-1/A1]", () => {
+    const convertBtn = document.querySelector("[data-section='convert']");
+    expect(convertBtn).not.toBeNull();
+  });
 });
 
-// ─── AC-HARD-M5P-6 (v0.6+Search update) + AC-F10-8a + AC-F9-5 ──────────────
+// ─── AC-HARD-M5P-6 (v1.1+Convert update) + AC-F10-8a + AC-F9-5 ─────────────
 
-describe("NavRail — v0.6+Search items (AC-HARD-M5P-6 updated, AC-F10-8a, AC-F9-5)", () => {
+describe("NavRail — v1.1+Convert items (AC-HARD-M5P-6 updated, AC-F10-8a, AC-F9-5)", () => {
   beforeEach(() => {
     renderNavRail();
   });
@@ -131,6 +138,10 @@ describe("NavRail — v0.6+Search items (AC-HARD-M5P-6 updated, AC-F10-8a, AC-F9
 
   it("DOES render data-section='deep-search' (AC-F10-8a — Deep Search active in M5 Phase 2)", () => {
     expect(document.querySelector("[data-section='deep-search']")).not.toBeNull();
+  });
+
+  it("DOES render data-section='convert' (AC-R11-1-5/A1 — Convert active in v1.1)", () => {
+    expect(document.querySelector("[data-section='convert']")).not.toBeNull();
   });
 
   it("does NOT render any aria-disabled button", () => {

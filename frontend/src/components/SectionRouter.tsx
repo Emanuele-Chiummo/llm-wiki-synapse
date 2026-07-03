@@ -12,6 +12,7 @@
  *   review      → <ReviewQueueView/>
  *   deep-search → <DeepSearchView/>
  *   settings    → <SettingsPanel/> (single column)
+ *   convert     → <ConvertPanel/> (v1.1 [F12/R11-1 A1] — dedicated Marker PDF conversion)
  *
  * Light design: var(--syn-bg) content areas, var(--syn-bg-soft) side detail panels,
  * var(--syn-border) dividers, var(--syn-text-dim) placeholder text.
@@ -33,6 +34,7 @@ import { ReviewQueueView } from "./review/ReviewQueueView";
 import { LintView } from "./lint/LintView";
 import { SearchView } from "./search/SearchView";
 import { SourcesView } from "./sources/SourcesView";
+import { ConvertPanel } from "./convert/ConvertPanel";
 
 // ─── SectionRouter ────────────────────────────────────────────────────────────
 
@@ -142,6 +144,17 @@ function SectionContent({ activeSection }: { activeSection: ReturnType<typeof se
     return (
       <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--syn-bg)" }} data-testid="section-deep-search">
         <DeepSearchView />
+      </div>
+    );
+  }
+
+  if (activeSection === "convert") {
+    return (
+      <div
+        style={{ flex: 1, overflow: "auto", width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        data-testid="section-convert"
+      >
+        <ConvertPanel />
       </div>
     );
   }

@@ -43,6 +43,7 @@ import {
   Globe,
   Settings,
   Activity,
+  FileDown,
 } from "lucide-react";
 import { useGraphStore, selectActiveSection, selectSetActiveSection } from "../../store/graphStore";
 import type { Section } from "../../store/graphStore";
@@ -73,7 +74,8 @@ const TOP_ITEMS: RailItem[] = [
 ];
 
 /**
- * M5_ITEMS — Lint (K2), Review (F9), Deep Search (F10), and Ingest run-history (cost ledger).
+ * M5_ITEMS — Lint (K2), Review (F9), Deep Search (F10), Ingest run-history (cost ledger),
+ * and Convert (F12/R11-1) — dedicated Marker PDF conversion surface [R11-1 A1].
  * "ingest" kept here so the cost ledger is always reachable — [F11 / v0.6].
  */
 const M5_ITEMS: RailItem[] = [
@@ -81,6 +83,7 @@ const M5_ITEMS: RailItem[] = [
   { id: "review",      icon: <ListChecks     size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.review" },
   { id: "deep-search", icon: <Globe          size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.deepSearch" },
   { id: "ingest",      icon: <Activity       size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.ingest" },
+  { id: "convert",     icon: <FileDown       size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.convert" },
 ];
 
 const BOTTOM_ITEMS: RailItem[] = [

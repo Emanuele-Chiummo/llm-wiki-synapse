@@ -39,7 +39,8 @@ export type Section =
   | "lint"
   | "review"
   | "deep-search"
-  | "settings";
+  | "settings"
+  | "convert";
 
 /** UI state added in v0.4 Phase 1 shell (F1). */
 export interface UiState {
