@@ -23,6 +23,7 @@
 import {
   useRef,
   useEffect,
+  useLayoutEffect,
   useState,
   useCallback,
   memo,
@@ -86,9 +87,38 @@ export function MessageList({ onRegenerate, onSend }: MessageListProps): ReactNo
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => parentRef.current,
+    // AC-R11-4-BUG3: estimateSize returns a non-zero default (120px) so that
+    // getTotalSize() > 0 on initial render with a non-empty message list.
     estimateSize: () => 120,
     overscan: 5,
   });
+
+  // AC-R11-4-BUG3: remeasure on mount so the virtualizer reflects the
+  // container's actual height as soon as it is first painted. The built-in
+  // ResizeObserver inside @tanstack/react-virtual fires asynchronously; this
+  // synchronous layout effect ensures the first render is correct even when
+  // the browser/JSDOM hasn't dispatched a resize event yet.
+  useLayoutEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+
+    virtualizer.measure();
+
+    if (typeof ResizeObserver === "undefined") return;
+
+    let measured = false;
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const h = entry?.contentRect.height ?? el.clientHeight;
+      if (h > 0 && !measured) {
+        measured = true;
+        virtualizer.measure();
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-scroll to bottom when messages change or streaming starts
   useEffect(() => {

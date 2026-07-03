@@ -5,6 +5,7 @@
  * M5 Phase 3 (F9): Review is now an ACTIVE nav item (AC-F9-5).
  * v0.6 (K2/F15): Lint is now an ACTIVE nav item.
  * v0.6 (F5/llm_wiki parity): Search added to TOP_ITEMS between Sources and Graph.
+ * sprint/v1.1 (R11-3): Logo removed from NavRail; branding lives in Header only.
  *
  * Covers:
  *   AC-HARD-LBL-7: each rendered item has both an SVG icon and a visible label span.
@@ -13,6 +14,8 @@
  *                  (Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Settings).
  *   AC-F10-8a: "Deep Search" nav item renders in the rail.
  *   AC-F9-5: "Review" nav item renders in the rail.
+ *   AC-R11-3-1: NavRail contains no Synapse brand SVG / logo image.
+ *   AC-R11-3-2: NavRail contains no element with aria-label="Synapse".
  *
  * Does NOT test the Playwright E2E resize path (AC-HARD-LBL-6 / AC-F1-7) — that is
  * a Playwright concern.
@@ -252,6 +255,45 @@ describe("NavRail — ingest badge position (AC-HARD-LBL-8)", () => {
       // Label text should be the nav label, not the badge count
       const labelText = labelSpan?.textContent?.trim() ?? "";
       expect(labelText).not.toMatch(/^\d+$/);
+    }
+  });
+});
+
+// ─── AC-R11-3-1, AC-R11-3-2: no Synapse brand mark in NavRail (R11-3) ────────
+
+describe("NavRail — no logo/brand mark present (AC-R11-3-1, AC-R11-3-2)", () => {
+  beforeEach(() => {
+    renderNavRail();
+  });
+
+  it("AC-R11-3-2: contains no element with aria-label='Synapse' (brand mark removed)", () => {
+    // The old Logo() component had aria-label="Synapse" on its wrapper div.
+    // After R11-3 removal there must be no such element in the NavRail.
+    const rail = document.querySelector("[data-testid='nav-rail']");
+    expect(rail).not.toBeNull();
+    const brandEl = rail!.querySelector("[aria-label='Synapse']");
+    expect(brandEl, "NavRail must not contain an aria-label='Synapse' element").toBeNull();
+  });
+
+  it("AC-R11-3-1: contains no <img> element (no logo image rendered in nav rail)", () => {
+    const rail = document.querySelector("[data-testid='nav-rail']");
+    expect(rail).not.toBeNull();
+    const imgs = rail!.querySelectorAll("img");
+    expect(imgs.length, "NavRail must not contain any <img> elements").toBe(0);
+  });
+
+  it("AC-R11-3-1: any SVG inside NavRail is a nav-item icon, not a standalone brand SVG", () => {
+    // Every SVG inside the rail must live inside a nav button (data-section attribute).
+    // The old brand mark was a free-standing SVG in the Logo() wrapper div.
+    const rail = document.querySelector("[data-testid='nav-rail']");
+    expect(rail).not.toBeNull();
+    const allSvgs = Array.from(rail!.querySelectorAll("svg"));
+    for (const svg of allSvgs) {
+      const closestButton = svg.closest("button");
+      expect(
+        closestButton,
+        "Every SVG in NavRail must be inside a <button> (nav item icon, not a free-standing brand mark)",
+      ).not.toBeNull();
     }
   });
 });

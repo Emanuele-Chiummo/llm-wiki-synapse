@@ -96,6 +96,8 @@ vi.mock("../store/chatStore", () => ({
 }));
 
 // ─── Mock TanStack Virtual ────────────────────────────────────────────────────
+// AC-R11-4-BUG3: include measure() so the useLayoutEffect remeasure in
+// MessageList does not throw when the mock virtualizer is used.
 
 vi.mock("@tanstack/react-virtual", () => ({
   useVirtualizer: () => ({
@@ -108,6 +110,7 @@ vi.mock("@tanstack/react-virtual", () => ({
       })),
     getTotalSize: () => mockMessages.length * 120,
     measureElement: vi.fn(),
+    measure: vi.fn(),
   }),
 }));
 

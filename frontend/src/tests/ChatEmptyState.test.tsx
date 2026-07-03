@@ -83,11 +83,14 @@ vi.mock("../store/graphStore", () => ({
 }));
 
 // TanStack Virtual mock — return empty virtualItems for zero messages.
+// AC-R11-4-BUG3: include measure() so the useLayoutEffect remeasure in
+// MessageList does not throw when the mock virtualizer is used.
 vi.mock("@tanstack/react-virtual", () => ({
   useVirtualizer: () => ({
     getTotalSize: () => 0,
     getVirtualItems: () => [],
     measureElement: vi.fn(),
+    measure: vi.fn(),
   }),
 }));
 

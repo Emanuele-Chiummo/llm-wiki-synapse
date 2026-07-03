@@ -140,6 +140,22 @@ describe("Header — non-Tauri mode", () => {
     render(<Header />);
     expect(screen.getByTestId("provider-selector")).toBeTruthy();
   });
+
+  // R11-3: verify Header still owns the primary branding after NavRail logo removal
+  it("R11-3: renders the Synapse logo <img> in the brand slot", () => {
+    render(<Header />);
+    const brand = document.querySelector(".app-header__brand");
+    expect(brand, "app-header__brand div must be present").not.toBeNull();
+    const img = brand!.querySelector("img");
+    expect(img, "Header brand slot must contain a logo <img>").not.toBeNull();
+    expect(img!.getAttribute("src")).toBeTruthy();
+  });
+
+  it("R11-3: renders the 'Synapse' wordmark text in the Header", () => {
+    render(<Header />);
+    const brand = document.querySelector(".app-header__brand");
+    expect(brand?.textContent).toContain("Synapse");
+  });
 });
 
 describe("Header — Tauri mode with server chip", () => {
