@@ -12,6 +12,7 @@
     "deepSearch": "Ricerca",
     "deepSearchShort": "Ricerca Profonda",
     "toolsGroup": "Strumenti",
+    "convert": "Converti",
     "settings": "Opzioni",
     "settingsShort": "Impost.",
     "chatComingSoon": "Fase 3",
@@ -852,6 +853,27 @@
       "authRequired": "Token di accesso non valido o mancante. Inserisci il SYNAPSE_AUTH_TOKEN configurato sul server."
     },
     "detected": "Rilevato un server Synapse su questa macchina"
+  },
+  "convert": {
+    "navLabel": "Converti",
+    "title": "Converti PDF con Marker",
+    "desc": "Trascina o seleziona fino a 10 file PDF. Synapse li convertirà con il microservizio Marker e ingestirà automaticamente i risultati nel wiki.",
+    "primaryAction": "Converti e ingerisci",
+    "markerOfflineBadge": "Marker offline",
+    "markerOnlineBadge": "Marker pronto",
+    "markerOfflineTooltip": "Marker offline — avvia il microservizio Marker per abilitare la conversione",
+    "markerHealthRefresh": "Aggiorna stato Marker",
+    "dropLabel": "Trascina i PDF qui, o clicca per scegliere",
+    "dropHint": "Solo PDF · max 10 file",
+    "tooManyFiles": "Troppi file — seleziona al massimo 10 PDF alla volta",
+    "badFileType": "Tipo file non supportato — sono accettati solo file .pdf",
+    "successHint": "I file convertiti appariranno nel wiki quando il watcher li rileverà. Controlla il pannello Sorgenti per confermare.",
+    "status": {
+      "pending": "In attesa",
+      "converting": "Conversione…",
+      "done": "Completato",
+      "failed": "Errore"
+    }
   },
   "common": {
     "loading": "Caricamento…",
