@@ -223,7 +223,7 @@ jobs:
           for f in docs/architecture/*.mmd docs/er/*.mmd docs/sequences/*.mmd; do
             [ -f "$f" ] || continue
             echo "Validating $f..."
-            mmdc -i "$f" -o /dev/null || { echo "Mermaid syntax error in $f"; exit 1; }
+            mmdc -i "$f" -o /tmp/mmdc-check.svg || { echo "Mermaid syntax error in $f"; exit 1; }
           done
           echo "All Mermaid diagrams are valid."
 
