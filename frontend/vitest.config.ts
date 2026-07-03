@@ -4,7 +4,10 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   define: {
     __DEV__: true,
-    __APP_VERSION__: JSON.stringify("0.0.0-test"),
+    // High sentinel so tests can mock a backend BEHIND the app (the mismatch
+    // banner fires only in that direction — R12-3). "0.0.0-test" made every
+    // backend look ahead, which can never trigger the banner.
+    __APP_VERSION__: JSON.stringify("9.9.9-test"),
   },
   plugins: [react()],
   test: {

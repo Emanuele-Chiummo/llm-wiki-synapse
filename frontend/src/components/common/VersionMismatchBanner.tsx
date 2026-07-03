@@ -25,10 +25,31 @@ const DISMISS_KEY = "synapse:versionBannerDismissed";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Parse "1.2.0" → [1,2,0]; null when not a plain semver (e.g. "dev"). */
+function parseSemver(v: string): [number, number, number] | null {
+  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v.trim());
+  if (!m) return null;
+  return [Number(m[1]), Number(m[2]), Number(m[3])];
+}
+
+/**
+ * True ONLY when the backend is semver-BEHIND the app build (R12-3 AC-R12-3-5).
+ * A backend AHEAD of the app must NOT trigger this banner — the message tells the
+ * user to update the SERVER, which would be wrong advice (the app has its own
+ * updater banner for the other direction). Non-semver values ("dev") → no banner.
+ */
 function isMismatch(backendVersion: string | undefined, appVersion: string): boolean {
   if (!backendVersion) return false;
-  if (backendVersion === "dev") return false;
-  return backendVersion !== appVersion;
+  const backend = parseSemver(backendVersion);
+  const app = parseSemver(appVersion);
+  if (!backend || !app) return false;
+  for (let i = 0; i < 3; i++) {
+    const b = backend[i] as number;
+    const a = app[i] as number;
+    if (b < a) return true;
+    if (b > a) return false;
+  }
+  return false;
 }
 
 function getSessionDismissed(): boolean {
