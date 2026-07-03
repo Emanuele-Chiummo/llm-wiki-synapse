@@ -428,6 +428,42 @@
       "asymmetryTitle": "La rotazione server-side richiede un riavvio",
       "asymmetryNote": "Per ruotare il token del server: imposta SYNAPSE_AUTH_TOKEN a un nuovo valore in docker-compose.yml e riavvia il container. Poi incolla il nuovo token qui. Questa interfaccia aggiorna solo la copia client — nessuna chiamata al server viene effettuata."
     },
+    "opsSchedule": {
+      "title": "Pianificazione lavori",
+      "sectionDesc": "Controlla quando i lavori di lint e classificazione domini si eseguono automaticamente.",
+      "desc": "Configura la frequenza automatica e avvia manualmente i lavori in background.",
+      "refresh": "Aggiorna stato pianificazione",
+      "fetchError": "Impossibile caricare lo stato dei lavori. Il backend è in esecuzione?",
+      "saveError": "Salvataggio frequenza fallito.",
+      "runNow": "Esegui ora",
+      "runNowTriggered": "{{op}} avviato.",
+      "runNowError": "Impossibile avviare il lavoro: {{detail}}",
+      "alreadyRunning": "Questo lavoro è già in esecuzione.",
+      "dormantHint": "Questo lavoro è dormiente — configura prima il vocabolario dei domini (Impostazioni › Avanzate › Override runtime › Vocabolario domini).",
+      "frequencyLabel": "Frequenza",
+      "saving": "Salvataggio…",
+      "lastRun": "Ultima esecuzione",
+      "never": "Mai eseguito",
+      "noOps": "Nessun lavoro pianificato disponibile.",
+      "statusOk": "OK",
+      "statusError": "Errore",
+      "statusRunning": "In esecuzione",
+      "statusSkipped": "Saltato",
+      "freq": {
+        "off": "Disattivata",
+        "hourly": "Ogni ora",
+        "daily": "Giornaliera",
+        "weekly": "Settimanale"
+      },
+      "opLabel": {
+        "lint": "Scansione lint",
+        "backfill": "Classificazione domini"
+      },
+      "opDesc": {
+        "lint": "Scansione lint — trova problemi strutturali e semantici; le correzioni restano manuali.",
+        "backfill": "Classificazione domini — tagga le pagine nuove/non classificate col vocabolario."
+      }
+    },
     "costs": {
       "navLabel": "Costi",
       "title": "Costi e utilizzo",

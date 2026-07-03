@@ -159,6 +159,12 @@ vi.mock("../components/settings/ImportScheduleCard", () => ({
   ImportScheduleCard: () => <div data-testid="import-schedule-card">ImportScheduleCard</div>,
 }));
 
+// ─── Mock OpsScheduleCard (A5 / R12-7) ───────────────────────────────────────
+
+vi.mock("../components/settings/OpsScheduleCard", () => ({
+  OpsScheduleCard: () => <div data-testid="ops-schedule-card">OpsScheduleCard</div>,
+}));
+
 // ─── Mock providerClient (fetchEmbeddingConfig + fetchMcpInfo + setRemoteMcpEnabled
 //     + setMcpAuth + fetchClipConfig + setClipConfig + fetchWebSearchConfig
 //     + setWebSearchConfig + getCliAuthConfig + setCliAuthConfig) ─────────────────────

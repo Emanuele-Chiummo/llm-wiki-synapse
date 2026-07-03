@@ -428,6 +428,42 @@
       "asymmetryTitle": "Server-side rotation requires a restart",
       "asymmetryNote": "To rotate the server token: set SYNAPSE_AUTH_TOKEN to a new value in your docker-compose.yml and restart the container. Then paste the new token here. This UI only updates the client copy — no server call is made."
     },
+    "opsSchedule": {
+      "title": "Job scheduling",
+      "sectionDesc": "Control when lint and domain-classification jobs run automatically.",
+      "desc": "Configure automatic schedule and trigger manual runs for background jobs.",
+      "refresh": "Refresh schedule status",
+      "fetchError": "Could not load schedule status. Is the backend running?",
+      "saveError": "Failed to save schedule frequency.",
+      "runNow": "Run now",
+      "runNowTriggered": "{{op}} triggered.",
+      "runNowError": "Could not trigger run: {{detail}}",
+      "alreadyRunning": "This job is already running.",
+      "dormantHint": "This job is dormant — configure the domain vocabulary first (Settings › Advanced › Runtime overrides › Domain vocabulary).",
+      "frequencyLabel": "Schedule",
+      "saving": "Saving…",
+      "lastRun": "Last run",
+      "never": "Never run",
+      "noOps": "No scheduled ops available.",
+      "statusOk": "OK",
+      "statusError": "Error",
+      "statusRunning": "Running",
+      "statusSkipped": "Skipped",
+      "freq": {
+        "off": "Disabled",
+        "hourly": "Every hour",
+        "daily": "Daily",
+        "weekly": "Weekly"
+      },
+      "opLabel": {
+        "lint": "Lint scan",
+        "backfill": "Domain classification"
+      },
+      "opDesc": {
+        "lint": "Lint scan — finds structural and semantic problems; fixes remain manual.",
+        "backfill": "Domain classification — tags new or unclassified pages against the vocabulary."
+      }
+    },
     "costs": {
       "navLabel": "Costs",
       "title": "Cost & Usage",
