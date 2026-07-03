@@ -1158,7 +1158,8 @@
       "ingestProcessing": "processing",
       "ingestPending": "in queue",
       "research": "Deep Research",
-      "backfill": "Domain classification in progress"
+      "backfill": "Domain classification in progress",
+      "backfillTagged": "{{count}} pages tagged in the last run"
     },
     "placeholder": {
       "title": "Server v1.1 — update to enable the Home dashboard",

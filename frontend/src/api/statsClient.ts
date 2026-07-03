@@ -120,9 +120,24 @@ export interface StatsGroups {
  * 404 → null (endpoint not implemented or feature dormant).
  * [F18][R12-2][A4]
  */
+/** Summary of one completed backfill run — mirrors ops/backfill_domains.BackfillSummary. */
+export interface BackfillSummary {
+  processed: number;
+  tagged: number;
+  skipped: number;
+  failed: number;
+  total_cost_usd: number;
+  stopped_reason: string;
+  max_pages: number;
+  token_budget: number;
+  force: boolean;
+}
+
 export interface BackfillDomainStatus {
   running: boolean;
-  last_summary: string | null;
+  // OBJECT, not string — the mistyped `string | null` let the summary object flow
+  // into a React child untyped (owner-reported crash, v1.2.1).
+  last_summary: BackfillSummary | null;
 }
 
 // ─── Client functions ─────────────────────────────────────────────────────────
