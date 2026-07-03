@@ -1,19 +1,27 @@
 /**
- * HomeDashboard.test.tsx — Vitest unit tests for the Home landing section [F18][R12-1].
+ * HomeDashboard.test.tsx — Vitest unit tests for the Home landing section [F18][R12-1][A2+A3].
  *
  * Covers:
  *   AC-R12-1-4: HomeDashboard mounted when "home" section is active; Home icon in NavRail.
- *   AC-R12-1-5: KPI cards render from mocked overview; empty sections → placeholder;
- *               non-empty sections → section cards render with correct page counts.
- *   AC-R12-1-6: No charting library imported; SVG type-bar present in section cards.
+ *   AC-R12-1-5a: KPI cards render from mocked overview.
+ *   AC-R12-1-5b: empty sections → small hint (not prominent placeholder); groups still render.
+ *   AC-R12-1-5c: non-empty sections → section cards render with correct page counts.
+ *   AC-R12-1-6: No charting library imported; SVG type-bar present in section/group cards.
  *   AC-R12-1-7: Clicking a section card dispatches setActiveSection("pages") + writes
  *               localStorage domain filter key.
- *   R12-3 AC-R12-3-5: Version mismatch banner shows only when backendVersion ≠ __APP_VERSION__
+ *   A2: System status block renders from mocked /health/detailed (component dots, provider,
+ *       version, data version); health 404 → block still renders (graceful hide of dots only);
+ *       manual refresh button present.
+ *   A3: Groups grid renders ordered by pages_total desc, capped at 12; click → pages section
+ *       + localStorage slug; 404 on /stats/groups → groups block hidden; curated sections
+ *       hidden when vocabulary empty but groups still render.
+ *   R12-3 AC-R12-3-5: VersionMismatchBanner shows only when backendVersion ≠ __APP_VERSION__
  *               and backendVersion ≠ "dev"; banner is dismissible (sessionStorage flag);
  *               matching versions → no banner.
  *   AC-R12-2-6: Settings domain_vocabulary field: renders current vocab from GET /config/app;
  *               saving triggers PUT /config/app/domain_vocabulary with JSON-array string.
- *   i18n EN/IT parity (spot-checks on new home.* and config.domainVocabulary.* keys).
+ *   i18n EN/IT parity (spot-checks on new home.* and config.domainVocabulary.* keys including
+ *               A2+A3 additions: home.systemStatus.*, home.groups.*).
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -76,6 +84,13 @@ vi.mock("../store/graphStore", () => ({
 vi.mock("../api/statsClient", () => ({
   getStatsOverview: vi.fn(),
   getStatsSections: vi.fn(),
+  getStatsGroups: vi.fn(),
+}));
+
+// ─── healthClient mock ────────────────────────────────────────────────────────
+
+vi.mock("../api/healthClient", () => ({
+  getHealthDetailed: vi.fn(),
 }));
 
 // ─── statusStore mock ─────────────────────────────────────────────────────────
@@ -89,15 +104,32 @@ vi.mock("../store/statusStore", () => ({
   selectSetBackendVersion: (s: { setBackendVersion: () => void }) => s.setBackendVersion,
 }));
 
+// ─── providerStore mock ───────────────────────────────────────────────────────
+
+const mockActiveProvider = vi.fn<() => { provider_type: string; model_id: string | null } | null>(
+  () => null,
+);
+
+vi.mock("../store/providerStore", () => ({
+  useProviderStore: (selector: (s: unknown) => unknown) =>
+    selector({ activeItem: mockActiveProvider() }),
+  selectActiveProvider: (s: { activeItem: { provider_type: string; model_id: string | null } | null }) =>
+    s.activeItem,
+}));
+
 // ─── Imports after mocks ──────────────────────────────────────────────────────
 
-import { getStatsOverview, getStatsSections } from "../api/statsClient";
-import type { StatsOverview, StatsSections } from "../api/statsClient";
+import { getStatsOverview, getStatsSections, getStatsGroups } from "../api/statsClient";
+import { getHealthDetailed } from "../api/healthClient";
+import type { StatsOverview, StatsSections, StatsGroups } from "../api/statsClient";
+import type { DetailedHealth } from "../api/healthClient";
 import { HomeDashboard } from "../components/home/HomeDashboard";
 import { VersionMismatchBanner } from "../components/common/VersionMismatchBanner";
 
 const mockGetStatsOverview = vi.mocked(getStatsOverview);
 const mockGetStatsSections = vi.mocked(getStatsSections);
+const mockGetStatsGroups = vi.mocked(getStatsGroups);
+const mockGetHealthDetailed = vi.mocked(getHealthDetailed);
 
 // ─── Test data ────────────────────────────────────────────────────────────────
 
@@ -155,6 +187,54 @@ const MOCK_SECTIONS: StatsSections = {
   ],
 };
 
+const MOCK_GROUPS: StatsGroups = {
+  groups: [
+    {
+      community: 2,
+      label: "Service Management",
+      pages_total: 60,
+      pages_by_type: { concept: 35, entity: 20, source: 5 },
+      top_pages: [
+        { id: "c1", title: "Incident Management", slug: "incident-management", degree: 15 },
+      ],
+      last_activity: "2026-07-03T09:00:00+00:00",
+    },
+    {
+      community: 5,
+      label: "Asset Lifecycle",
+      pages_total: 30,
+      pages_by_type: { concept: 18, entity: 12 },
+      top_pages: [
+        { id: "c2", title: "Software Asset Manager", slug: "software-asset-manager", degree: 8 },
+      ],
+      last_activity: "2026-07-01T12:00:00+00:00",
+    },
+    {
+      community: 1,
+      label: "Procurement",
+      pages_total: 20,
+      pages_by_type: { concept: 12, entity: 8 },
+      top_pages: [],
+      last_activity: null,
+    },
+  ],
+};
+
+const MOCK_HEALTH: DetailedHealth = {
+  status: "ok",
+  components: {
+    watcher: { alive: true, last_event_at: "2026-07-03T09:00:00+00:00" },
+    import_scheduler: { enabled: false, last_run_at: null, last_error: null },
+    ingest_queue: { running: 0, pending: 0, paused: false },
+    graph_cache: { warm: true, last_recompute_at: null, node_count: 128 },
+    database: { ok: true, latency_ms: 5 },
+    qdrant: { ok: true, latency_ms: 12 },
+    embeddings: { enabled: true, ok: true },
+  },
+  last_errors: [],
+  checked_at: "2026-07-03T09:15:00+00:00",
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function renderDashboard() {
@@ -172,7 +252,8 @@ describe("HomeDashboard — KPI cards (AC-R12-1-5a)", () => {
     vi.clearAllMocks();
     mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
     mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
-    // Clear sessionStorage dismiss flag between tests
+    mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     try { sessionStorage.clear(); } catch { /* ignore */ }
   });
 
@@ -231,13 +312,202 @@ describe("HomeDashboard — KPI cards (AC-R12-1-5a)", () => {
   });
 });
 
-// ─── AC-R12-1-5b: empty sections → placeholder ───────────────────────────────
+// ─── A2: System status block ──────────────────────────────────────────────────
 
-describe("HomeDashboard — empty vocabulary (AC-R12-1-5b)", () => {
+describe("HomeDashboard — system status block (A2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
-    // Only "untagged" bucket → no domain sections → "No domains configured" placeholder
+    mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
+    mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockBackendVersion.mockReturnValue("1.2.0");
+    mockActiveProvider.mockReturnValue({ provider_type: "api", model_id: "claude-sonnet-4-6" });
+  });
+
+  it("renders the system status block", async () => {
+    await renderDashboard();
+    expect(screen.getByTestId("home-system-status")).not.toBeNull();
+  });
+
+  it("renders component dots for database and watcher", async () => {
+    await renderDashboard();
+    await waitFor(() => {
+      expect(screen.queryByTestId("home-status-components")).not.toBeNull();
+    });
+    const comps = screen.getByTestId("home-status-components");
+    expect(comps.querySelector("[data-testid='home-status-component-database']")).not.toBeNull();
+    expect(comps.querySelector("[data-testid='home-status-component-watcher']")).not.toBeNull();
+  });
+
+  it("renders active provider label", async () => {
+    await renderDashboard();
+    const providerEl = screen.getByTestId("home-status-provider");
+    expect(providerEl.textContent).toContain("api");
+    expect(providerEl.textContent).toContain("claude-sonnet-4-6");
+  });
+
+  it("renders backend version when available and not 'dev'", async () => {
+    await renderDashboard();
+    const versionEl = screen.getByTestId("home-status-version");
+    expect(versionEl.textContent).toContain("1.2.0");
+  });
+
+  it("renders data version from overview", async () => {
+    await renderDashboard();
+    const dvEl = screen.getByTestId("home-status-data-version");
+    expect(dvEl.textContent).toContain("57");
+  });
+
+  it("has a manual refresh button", async () => {
+    await renderDashboard();
+    const refreshBtn = screen.getByTestId("home-system-status-refresh");
+    expect(refreshBtn).not.toBeNull();
+  });
+
+  it("does NOT show version element when backendVersion is 'dev'", async () => {
+    mockBackendVersion.mockReturnValue("dev");
+    await renderDashboard();
+    expect(screen.queryByTestId("home-status-version")).toBeNull();
+  });
+
+  it("does NOT show version element when backendVersion is undefined", async () => {
+    mockBackendVersion.mockReturnValue(undefined);
+    await renderDashboard();
+    expect(screen.queryByTestId("home-status-version")).toBeNull();
+  });
+
+  it("shows 'None configured' when no active provider", async () => {
+    mockActiveProvider.mockReturnValue(null);
+    await renderDashboard();
+    await waitFor(() => {
+      const el = screen.queryByTestId("home-status-provider");
+      expect(el).not.toBeNull();
+      // The mock t() returns the last key segment: "providerNone"
+      expect(el?.textContent).toContain("providerNone");
+    });
+  });
+
+  it("health 404 (null) → system status block still renders, component dots hidden", async () => {
+    mockGetHealthDetailed.mockResolvedValue(null);
+    await renderDashboard();
+    // Block still renders (it shows meta strip even when health is unavailable)
+    expect(screen.getByTestId("home-system-status")).not.toBeNull();
+    // Component dots are not shown when health is null
+    expect(screen.queryByTestId("home-status-components")).toBeNull();
+  });
+
+  it("clicking refresh button re-invokes getHealthDetailed", async () => {
+    await renderDashboard();
+    const refreshBtn = screen.getByTestId("home-system-status-refresh");
+    fireEvent.click(refreshBtn);
+    // Should have been called at least twice (initial + refresh)
+    await waitFor(() => {
+      expect(mockGetHealthDetailed.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+});
+
+// ─── A3: Groups grid ──────────────────────────────────────────────────────────
+
+describe("HomeDashboard — groups grid (A3)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSetActiveSection.mockReset();
+    mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
+    mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
+    mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    try { localStorage.clear(); } catch { /* ignore */ }
+  });
+
+  it("renders the groups section when groups are available", async () => {
+    await renderDashboard();
+    expect(screen.getByTestId("home-groups-section")).not.toBeNull();
+  });
+
+  it("renders the groups grid", async () => {
+    await renderDashboard();
+    expect(screen.getByTestId("home-groups-grid")).not.toBeNull();
+  });
+
+  it("renders a card for community 2 (Service Management)", async () => {
+    await renderDashboard();
+    const card = screen.getByTestId("group-card-2");
+    expect(card).not.toBeNull();
+    expect(card.textContent).toContain("Service Management");
+    expect(card.textContent).toContain("60");
+  });
+
+  it("renders a card for community 5 (Asset Lifecycle)", async () => {
+    await renderDashboard();
+    const card = screen.getByTestId("group-card-5");
+    expect(card.textContent).toContain("Asset Lifecycle");
+    expect(card.textContent).toContain("30");
+  });
+
+  it("renders groups ordered by pages_total desc (backend-ordered, frontend preserves order)", async () => {
+    await renderDashboard();
+    const grid = screen.getByTestId("home-groups-grid");
+    const cards = Array.from(grid.querySelectorAll("[data-testid^='group-card-']"));
+    // MOCK_GROUPS is ordered: community 2 (60), 5 (30), 1 (20)
+    expect(cards[0]?.getAttribute("data-testid")).toBe("group-card-2");
+    expect(cards[1]?.getAttribute("data-testid")).toBe("group-card-5");
+    expect(cards[2]?.getAttribute("data-testid")).toBe("group-card-1");
+  });
+
+  it("caps groups at 12 (renders exactly as many as returned, up to 12)", async () => {
+    // The mock has 3 groups — verify 3 are rendered (cap is server-side at 12)
+    await renderDashboard();
+    const grid = screen.getByTestId("home-groups-grid");
+    const cards = grid.querySelectorAll("[data-testid^='group-card-']");
+    expect(cards.length).toBe(3);
+  });
+
+  it("clicking a group card calls setActiveSection('pages')", async () => {
+    await renderDashboard();
+    const card = screen.getByTestId("group-card-2");
+    fireEvent.click(card);
+    expect(mockSetActiveSection).toHaveBeenCalledWith("pages");
+  });
+
+  it("clicking a group card writes the top page slug to localStorage", async () => {
+    await renderDashboard();
+    const card = screen.getByTestId("group-card-2");
+    fireEvent.click(card);
+    const stored = localStorage.getItem("synapse:groupTopPageSlug");
+    expect(stored).toBe("incident-management");
+  });
+
+  it("clicking a group with no top pages calls setActiveSection('pages') without writing slug", async () => {
+    await renderDashboard();
+    const card = screen.getByTestId("group-card-1");
+    fireEvent.click(card);
+    expect(mockSetActiveSection).toHaveBeenCalledWith("pages");
+    // No slug written for a group with no top pages
+    expect(localStorage.getItem("synapse:groupTopPageSlug")).toBeNull();
+  });
+
+  it("groups 404 (null) → groups block is hidden", async () => {
+    mockGetStatsGroups.mockResolvedValue(null);
+    await renderDashboard();
+    expect(screen.queryByTestId("home-groups-section")).toBeNull();
+  });
+
+  it("groups empty array → groups block is hidden", async () => {
+    mockGetStatsGroups.mockResolvedValue({ groups: [] });
+    await renderDashboard();
+    expect(screen.queryByTestId("home-groups-section")).toBeNull();
+  });
+});
+
+// ─── A3: empty vocab + groups still render ────────────────────────────────────
+
+describe("HomeDashboard — empty vocabulary but groups present (A3)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
+    // Only "untagged" bucket → no vocab sections
     mockGetStatsSections.mockResolvedValue({
       sections: [
         {
@@ -249,14 +519,63 @@ describe("HomeDashboard — empty vocabulary (AC-R12-1-5b)", () => {
         },
       ],
     });
+    mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
   });
 
-  it("shows the empty-vocabulary placeholder when no vocabulary domains are configured", async () => {
+  it("shows the small empty-vocab hint (not the prominent placeholder)", async () => {
     await renderDashboard();
     expect(screen.getByTestId("home-sections-empty")).not.toBeNull();
   });
 
-  it("shows a link to settings from the empty-vocab placeholder", async () => {
+  it("shows a settings link in the empty-vocab hint", async () => {
+    await renderDashboard();
+    expect(screen.getByTestId("home-sections-go-settings")).not.toBeNull();
+  });
+
+  it("sections grid is NOT rendered when vocabulary is empty", async () => {
+    await renderDashboard();
+    expect(screen.queryByTestId("home-sections-grid")).toBeNull();
+  });
+
+  it("groups section IS rendered even when vocabulary is empty", async () => {
+    await renderDashboard();
+    expect(screen.getByTestId("home-groups-section")).not.toBeNull();
+  });
+
+  it("groups have correct cards even without vocab sections", async () => {
+    await renderDashboard();
+    expect(screen.getByTestId("group-card-2")).not.toBeNull();
+  });
+});
+
+// ─── AC-R12-1-5b: empty sections → small hint ────────────────────────────────
+
+describe("HomeDashboard — empty vocabulary (AC-R12-1-5b)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
+    mockGetStatsSections.mockResolvedValue({
+      sections: [
+        {
+          domain: "untagged",
+          pages_total: 8,
+          pages_by_type: { concept: 5, entity: 3 },
+          last_activity: null,
+          top_pages: [],
+        },
+      ],
+    });
+    mockGetStatsGroups.mockResolvedValue(null);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+  });
+
+  it("shows the empty-vocabulary hint element when no vocabulary domains are configured", async () => {
+    await renderDashboard();
+    expect(screen.getByTestId("home-sections-empty")).not.toBeNull();
+  });
+
+  it("shows a link to settings from the empty-vocab hint", async () => {
     await renderDashboard();
     const btn = screen.getByTestId("home-sections-go-settings");
     expect(btn).not.toBeNull();
@@ -277,6 +596,8 @@ describe("HomeDashboard — section cards render (AC-R12-1-5c)", () => {
     vi.clearAllMocks();
     mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
     mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
+    mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
   });
 
   it("renders the sections grid", async () => {
@@ -321,19 +642,26 @@ describe("HomeDashboard — I3: no chart library, SVG sparklines only (AC-R12-1-
     vi.clearAllMocks();
     mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
     mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
+    mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
   });
 
   it("renders SVG elements inside section cards for the type bar", async () => {
     await renderDashboard();
-    // ServiceNow has 42 pages, so it should render an SVG type-bar
     const serviceNowCard = screen.getByTestId("section-card-ServiceNow");
     const svgs = serviceNowCard.querySelectorAll("svg");
     expect(svgs.length).toBeGreaterThan(0);
   });
 
+  it("renders SVG elements inside group cards for the type bar", async () => {
+    await renderDashboard();
+    const groupCard = screen.getByTestId("group-card-2");
+    const svgs = groupCard.querySelectorAll("svg");
+    expect(svgs.length).toBeGreaterThan(0);
+  });
+
   it("no recharts/d3/chart.js canvas elements are rendered (plain SVG only)", async () => {
     await renderDashboard();
-    // If a charting library is used it renders <canvas> elements
     const canvases = document.querySelectorAll("canvas");
     expect(canvases.length).toBe(0);
   });
@@ -347,6 +675,8 @@ describe("HomeDashboard — section card click navigation (AC-R12-1-7)", () => {
     mockSetActiveSection.mockReset();
     mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
     mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
+    mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     try { localStorage.clear(); } catch { /* ignore */ }
   });
 
@@ -386,9 +716,10 @@ describe("HomeDashboard — section card click navigation (AC-R12-1-7)", () => {
 describe("HomeDashboard — 404 backend placeholder", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Simulate v1.1 backend returning null (404) for both stats endpoints
     mockGetStatsOverview.mockResolvedValue(null);
     mockGetStatsSections.mockResolvedValue(null);
+    mockGetStatsGroups.mockResolvedValue(null);
+    mockGetHealthDetailed.mockResolvedValue(null);
   });
 
   it("shows the server-v1.1 placeholder when overview returns null (404)", async () => {
@@ -408,14 +739,7 @@ describe("VersionMismatchBanner — version mismatch (R12-3 AC-R12-3-5)", () => 
   it("shows banner when backendVersion differs from __APP_VERSION__", () => {
     mockBackendVersion.mockReturnValue("1.1.0");
     render(<VersionMismatchBanner />);
-    // The banner should appear because 1.1.0 ≠ __APP_VERSION__ (which is "0.0.0" in test)
-    // We check for the testid presence only — the exact version comparison depends on
-    // the __APP_VERSION__ define value in the test environment.
-    // In vitest the define is set to pkg.version via vite.config.ts.
-    // We rely on the mocked backendVersion being non-null and non-"dev".
     const banner = document.querySelector("[data-testid='version-mismatch-banner']");
-    // Banner renders when backendVersion is defined, not "dev", and ≠ appVersion.
-    // Since we control backendVersion via mock, we just check it's in the DOM if mismatched.
     expect(banner).not.toBeNull();
   });
 
@@ -434,10 +758,6 @@ describe("VersionMismatchBanner — version mismatch (R12-3 AC-R12-3-5)", () => 
   });
 
   it("banner renders the version-mismatch-text element when versions differ", () => {
-    // The mock t() returns the last key segment ("message") — interpolation fidelity
-    // is verified separately by the i18n parity test that checks {{backendVersion}}
-    // and {{appVersion}} appear in the raw en.json string. Here we just verify the
-    // banner itself renders its text span.
     mockBackendVersion.mockReturnValue("1.1.0");
     render(<VersionMismatchBanner />);
     const textEl = document.querySelector("[data-testid='version-mismatch-text']");
@@ -470,7 +790,7 @@ describe("VersionMismatchBanner — version mismatch (R12-3 AC-R12-3-5)", () => 
   });
 });
 
-// ─── i18n parity spot-checks for new keys ────────────────────────────────────
+// ─── i18n parity spot-checks for new keys (EN/IT) ────────────────────────────
 
 describe("i18n — home.* and config.domainVocabulary.* keys present in both locales", () => {
   it("en.json has home.title key", async () => {
@@ -511,5 +831,92 @@ describe("i18n — home.* and config.domainVocabulary.* keys present in both loc
     const home = (it as { home: { versionBanner: { message: string } } }).home;
     expect(home.versionBanner.message).toContain("{{backendVersion}}");
     expect(home.versionBanner.message).toContain("{{appVersion}}");
+  });
+
+  // A2: system status keys
+  it("en.json has home.systemStatus.title key (A2)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { systemStatus: { title: string } } }).home;
+    expect(home.systemStatus.title).toBeTruthy();
+  });
+
+  it("it.json has home.systemStatus.title key (A2)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { systemStatus: { title: string } } }).home;
+    expect(home.systemStatus.title).toBeTruthy();
+  });
+
+  it("en.json has home.systemStatus.refresh key (A2)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { systemStatus: { refresh: string } } }).home;
+    expect(home.systemStatus.refresh).toBeTruthy();
+  });
+
+  it("it.json has home.systemStatus.refresh key (A2)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { systemStatus: { refresh: string } } }).home;
+    expect(home.systemStatus.refresh).toBeTruthy();
+  });
+
+  it("en.json has home.systemStatus.components.database key (A2)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { systemStatus: { components: { database: string } } } }).home;
+    expect(home.systemStatus.components.database).toBeTruthy();
+  });
+
+  it("it.json has home.systemStatus.components.database key (A2)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { systemStatus: { components: { database: string } } } }).home;
+    expect(home.systemStatus.components.database).toBeTruthy();
+  });
+
+  // A3: groups keys
+  it("en.json has home.groups.title key (A3)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { groups: { title: string } } }).home;
+    expect(home.groups.title).toBeTruthy();
+  });
+
+  it("it.json has home.groups.title key (A3)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { groups: { title: string } } }).home;
+    expect(home.groups.title).toBeTruthy();
+  });
+
+  it("en.json has home.groups.openTopPage key (A3)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { groups: { openTopPage: string } } }).home;
+    expect(home.groups.openTopPage).toBeTruthy();
+  });
+
+  it("it.json has home.groups.openTopPage key (A3)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { groups: { openTopPage: string } } }).home;
+    expect(home.groups.openTopPage).toBeTruthy();
+  });
+
+  // A2: sections now uses "SEZIONI" title
+  it("en.json has home.sections.title key", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { sections: { title: string } } }).home;
+    expect(home.sections.title).toBeTruthy();
+  });
+
+  it("it.json has home.sections.title key", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { sections: { title: string } } }).home;
+    expect(home.sections.title).toBeTruthy();
+  });
+
+  it("en.json has home.sections.emptyVocabHint key (small hint, A2)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { sections: { emptyVocabHint: string } } }).home;
+    expect(home.sections.emptyVocabHint).toBeTruthy();
+  });
+
+  it("it.json has home.sections.emptyVocabHint key (small hint, A2)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { sections: { emptyVocabHint: string } } }).home;
+    expect(home.sections.emptyVocabHint).toBeTruthy();
   });
 });

@@ -1,7 +1,9 @@
 /**
- * ConvertPanel.tsx — dedicated "Convert PDFs with Marker" surface [F12][R11-1][A1].
+ * ConvertPanel.tsx — dedicated "Convert PDFs with Marker" surface [F12][R11-1][R12-6][A1].
  *
  * Sprint v1.1 Wave 2a — AC-R11-1-5, AC-R11-1-6 (dedicated component per §10 A1).
+ * Sprint v1.2  R12-6   — "Avvia Marker" button: Tauri-only; spawns the local Marker
+ *                         microservice when health is offline. Web build never shows it.
  *
  * Features:
  *   - File pick + drag-drop for 1..10 PDFs only.
@@ -10,6 +12,10 @@
  *   - "Convert & ingest" primary action: disabled when Marker offline, with tooltip (AC-R11-1-5).
  *   - Per-file status rows: pending → converting → done (check) / failed (X + detail) (AC-R11-1-6).
  *   - Success hint pointing user to the Sources/tree panel once done.
+ *   - [R12-6] "Avvia Marker" button: visible only in Tauri + offline. Reads the start command
+ *     from localStorage key `synapse.markerStartCommand` (per-machine; NOT app_config).
+ *     When unset, reveals an inline config field before spawning. Spawns via tauri-plugin-shell
+ *     as `sh -c "<cmd> >/dev/null 2>&1 &"` (detached). Polls health every 3 s up to 120 s.
  *   - Component-local state ONLY — no Zustand dispatch for ephemeral progress (I3).
  *
  * Design tokens used: var(--syn-accent), var(--syn-border), var(--syn-bg-soft),
@@ -39,6 +45,8 @@ import {
   Upload,
   WifiOff,
   Wifi,
+  Play,
+  Settings,
 } from "lucide-react";
 import {
   convertFiles,
@@ -46,11 +54,26 @@ import {
   MarkerError,
   type MarkerHealthResponse,
 } from "../../api/convertClient";
+import { isTauri } from "../../api/base";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 const MAX_FILES = 10;
 const ICON_SIZE = 16;
+
+/**
+ * localStorage key for the per-machine Marker start command.
+ * Stored locally in the desktop app only — NOT synced to app_config / Postgres.
+ * The value is a full shell command string that varies per host filesystem.
+ * [R12-6]
+ */
+const LS_MARKER_CMD = "synapse.markerStartCommand";
+
+/** Poll interval (ms) while waiting for Marker to come online after spawn. [R12-6] */
+const MARKER_POLL_INTERVAL_MS = 3_000;
+
+/** Maximum poll duration (ms) — Marker model load can take ~60 s on MPS. [R12-6] */
+const MARKER_POLL_TIMEOUT_MS = 120_000;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -73,6 +96,26 @@ function isPdf(file: File): boolean {
 
 function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getMarkerCmd(): string {
+  try {
+    return localStorage.getItem(LS_MARKER_CMD) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveMarkerCmd(cmd: string): void {
+  try {
+    if (cmd.trim().length > 0) {
+      localStorage.setItem(LS_MARKER_CMD, cmd.trim());
+    } else {
+      localStorage.removeItem(LS_MARKER_CMD);
+    }
+  } catch {
+    // ignore — storage unavailable
+  }
 }
 
 // ─── StatusIcon ────────────────────────────────────────────────────────────────
@@ -140,7 +183,23 @@ export function ConvertPanel() {
   const [healthLoading, setHealthLoading] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
+  // ── "Avvia Marker" state [R12-6] ───────────────────────────────────────────
+  // Whether the spawn sequence is running (button shows "starting…")
+  const [markerStarting, setMarkerStarting] = useState(false);
+  // Error returned after the 120 s poll timeout
+  const [markerStartError, setMarkerStartError] = useState<string | null>(null);
+  // Whether the inline config field is visible (command not yet configured)
+  const [showCmdField, setShowCmdField] = useState(false);
+  // Editable value of the config field
+  const [cmdFieldValue, setCmdFieldValue] = useState("");
+  // Poll timer ref
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollDeadlineRef = useRef<number>(0);
+
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Detect desktop context once (stable across renders)
+  const isDesktop = isTauri();
 
   // ── Marker health poll on mount ─────────────────────────────────────────────
 
@@ -149,12 +208,107 @@ export function ConvertPanel() {
     const h = await getMarkerHealth();
     setHealth(h);
     setHealthLoading(false);
+    return h;
   }, []);
 
   useEffect(() => {
     void fetchHealth();
     // no interval — manual refresh only (avoids unbounded polling on a slow Marker service)
   }, [fetchHealth]);
+
+  // ── Stop poll helper ────────────────────────────────────────────────────────
+
+  const stopPoll = useCallback(() => {
+    if (pollTimerRef.current !== null) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopPoll();
+    };
+  }, [stopPoll]);
+
+  // ── Spawn + poll logic [R12-6] ──────────────────────────────────────────────
+
+  const spawnAndPoll = useCallback(
+    async (cmd: string) => {
+      setMarkerStarting(true);
+      setMarkerStartError(null);
+
+      try {
+        // Static string literal import — required so Vite bundles the plugin
+        // (dynamic import with variable string is silently dropped by the bundler).
+        // This call path is only reached when isTauri() is true at runtime.
+        const { Command } = await import("@tauri-apps/plugin-shell");
+
+        // Spawn detached: the shell exits immediately; the background job lives on.
+        // `>/dev/null 2>&1 &` redirects output and detaches from the parent shell.
+        // This is user-initiated, user-configured local execution — same trust level
+        // as their own terminal (the user types/pastes the command themselves). [R12-6]
+        const child = Command.create("sh", ["-c", `${cmd} >/dev/null 2>&1 &`]);
+        await child.execute();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setMarkerStarting(false);
+        setMarkerStartError(msg);
+        return;
+      }
+
+      // Poll getMarkerHealth every 3 s up to 120 s [R12-6]
+      pollDeadlineRef.current = Date.now() + MARKER_POLL_TIMEOUT_MS;
+
+      pollTimerRef.current = setInterval(() => {
+        if (Date.now() > pollDeadlineRef.current) {
+          stopPoll();
+          setMarkerStarting(false);
+          setMarkerStartError(t("convert.startMarkerError"));
+          return;
+        }
+
+        void getMarkerHealth().then((h) => {
+          if (h.status === "ok") {
+            stopPoll();
+            setHealth(h);
+            setHealthLoading(false);
+            setMarkerStarting(false);
+            setMarkerStartError(null);
+          }
+        });
+      }, MARKER_POLL_INTERVAL_MS);
+    },
+    [stopPoll, t],
+  );
+
+  // ── "Avvia Marker" button handler [R12-6] ──────────────────────────────────
+
+  const handleStartMarker = useCallback(async () => {
+    if (markerStarting) return;
+
+    const cmd = getMarkerCmd();
+    if (!cmd) {
+      // No command saved yet — reveal the config field
+      setCmdFieldValue("");
+      setShowCmdField(true);
+      return;
+    }
+
+    await spawnAndPoll(cmd);
+  }, [markerStarting, spawnAndPoll]);
+
+  // ── Save command and start [R12-6] ─────────────────────────────────────────
+
+  const handleCmdSaveAndStart = useCallback(async () => {
+    const trimmed = cmdFieldValue.trim();
+    if (!trimmed) return;
+
+    saveMarkerCmd(trimmed);
+    setShowCmdField(false);
+    await spawnAndPoll(trimmed);
+  }, [cmdFieldValue, spawnAndPoll]);
 
   // ── File validation helpers ─────────────────────────────────────────────────
 
@@ -292,6 +446,9 @@ export function ConvertPanel() {
   const canConvert = !converting && rows.length > 0 && !isOffline;
   const hasPending = rows.some((r) => r.status === "pending");
 
+  // Show the "Avvia Marker" button only in Tauri + offline + not already starting
+  const showStartBtn = isDesktop && isOffline && !healthLoading;
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -334,7 +491,7 @@ export function ConvertPanel() {
 
       {/* ── Marker health badge ── */}
       <div
-        style={{ display: "flex", alignItems: "center", gap: 8 }}
+        style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
         data-testid="marker-health-row"
       >
         {healthLoading ? (
@@ -390,7 +547,152 @@ export function ConvertPanel() {
         >
           <RefreshCw size={12} aria-hidden="true" />
         </button>
+
+        {/* ── "Avvia Marker" button — desktop-only, shown when offline [R12-6] ── */}
+        {showStartBtn && (
+          <button
+            data-testid="start-marker-btn"
+            className="syn-btn"
+            aria-label={t("convert.startMarkerAriaLabel")}
+            disabled={markerStarting}
+            onClick={() => void handleStartMarker()}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "4px 10px",
+              borderRadius: "var(--syn-radius-md)",
+              border: "1px solid var(--syn-border)",
+              background: "var(--syn-bg-soft)",
+              color: "var(--syn-text-muted)",
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: markerStarting ? "default" : "pointer",
+              transition: "background 0.1s ease",
+            }}
+          >
+            {markerStarting ? (
+              <Loader2
+                size={12}
+                aria-hidden="true"
+                style={{ animation: "syn-spin 0.8s linear infinite" }}
+              />
+            ) : (
+              <Play size={12} aria-hidden="true" />
+            )}
+            {markerStarting ? t("convert.startMarkerStarting") : t("convert.startMarker")}
+          </button>
+        )}
       </div>
+
+      {/* ── Inline command config field [R12-6] ── */}
+      {showCmdField && (
+        <div
+          data-testid="start-marker-cmd-field"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            padding: "12px 14px",
+            borderRadius: 8,
+            border: "1px solid var(--syn-border)",
+            background: "var(--syn-bg-soft)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--syn-text-muted)",
+            }}
+          >
+            <Settings size={12} aria-hidden="true" />
+            {t("convert.startMarkerConfigTitle")}
+          </div>
+          <p style={{ margin: 0, fontSize: 11, color: "var(--syn-text-dim)", lineHeight: 1.5 }}>
+            {t("convert.startMarkerConfigHint")}
+          </p>
+          <input
+            data-testid="start-marker-cmd-input"
+            type="text"
+            value={cmdFieldValue}
+            onChange={(e) => setCmdFieldValue(e.target.value)}
+            placeholder={t("convert.startMarkerConfigPlaceholder")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleCmdSaveAndStart();
+              if (e.key === "Escape") setShowCmdField(false);
+            }}
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "1px solid var(--syn-border)",
+              background: "var(--syn-surface-sunken)",
+              color: "var(--syn-text)",
+              fontSize: 12,
+              fontFamily: "monospace",
+            }}
+          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              data-testid="start-marker-cmd-save"
+              className="syn-btn syn-btn--primary"
+              disabled={!cmdFieldValue.trim()}
+              onClick={() => void handleCmdSaveAndStart()}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "5px 12px",
+                borderRadius: "var(--syn-radius-md)",
+                border: "none",
+                background: cmdFieldValue.trim() ? "var(--syn-accent)" : "var(--syn-border)",
+                color: cmdFieldValue.trim() ? "#ffffff" : "var(--syn-text-dim)",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: cmdFieldValue.trim() ? "pointer" : "not-allowed",
+              }}
+            >
+              <Play size={11} aria-hidden="true" />
+              {t("convert.startMarkerConfigSave")}
+            </button>
+            <button
+              data-testid="start-marker-cmd-cancel"
+              onClick={() => setShowCmdField(false)}
+              style={{
+                padding: "5px 10px",
+                borderRadius: "var(--syn-radius-md)",
+                border: "1px solid var(--syn-border)",
+                background: "transparent",
+                color: "var(--syn-text-muted)",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              {t("convert.startMarkerConfigCancel")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Start error message [R12-6] ── */}
+      {markerStartError && (
+        <p
+          role="alert"
+          data-testid="start-marker-error"
+          style={{
+            margin: 0,
+            fontSize: 12,
+            color: "var(--syn-error, #ef4444)",
+          }}
+        >
+          {markerStartError}
+        </p>
+      )}
 
       {/* ── Drop zone ── */}
       <div

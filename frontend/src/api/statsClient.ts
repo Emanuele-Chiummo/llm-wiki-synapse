@@ -1,11 +1,15 @@
 /**
- * statsClient.ts — typed API client for /stats/overview and /stats/sections [F18][R12-1].
+ * statsClient.ts — typed API client for /stats/overview, /stats/sections, and
+ * /stats/groups [F18][R12-1][A2+A3].
  *
  * GET /stats/overview → StatsOverview (global KPIs, capped 10 recent-activity items)
  * GET /stats/sections → StatsSections (one entry per vocab domain + untagged bucket last)
+ * GET /stats/groups   → StatsGroups (community auto-groups, ordered by pages_total desc,
+ *                        capped at 12) — 404 → null (backend still building)
  *
- * Contract frozen in ADR-0054 §5. Both endpoints return null on 404 so the dashboard
- * degrades gracefully when the backend is still at v1.1 (no stats endpoints yet).
+ * Contract: /stats/overview and /stats/sections frozen in ADR-0054 §5.
+ * /stats/groups contract: FROZEN by parallel backend agent (A2+A3 amendment).
+ * Shape: { groups: [{ community, label, pages_total, pages_by_type, top_pages, last_activity }] }
  *
  * All calls go through apiFetch (ADR-0052 §4.2 — single auth injection point).
  * No secrets in this file (CLAUDE.md §12).
@@ -65,6 +69,42 @@ export interface SectionEntry {
 /** GET /stats/sections response envelope. */
 export interface StatsSections {
   sections: SectionEntry[];
+}
+
+// ─── /stats/groups types (A2+A3 amendment) ───────────────────────────────────
+
+/**
+ * One page in a group's top_pages list (degree-ordered, capped at backend side).
+ * Shape mirrors SectionTopPage — same field set, different endpoint.
+ */
+export interface GroupTopPage {
+  id: string;
+  title: string;
+  slug: string;
+  degree: number;
+}
+
+/**
+ * One community auto-group from GET /stats/groups.
+ * community: numeric community id from the graph layout.
+ * label: human-readable label derived by the backend (most-connected node title).
+ * pages_total: total pages in this community.
+ * pages_by_type: histogram of page_type → count.
+ * top_pages: ordered by degree DESC (backend-capped).
+ * last_activity: ISO-8601 timestamp of most-recently-updated page, or null.
+ */
+export interface StatsGroup {
+  community: number;
+  label: string;
+  pages_total: number;
+  pages_by_type: Record<string, number>;
+  top_pages: GroupTopPage[];
+  last_activity: string | null;
+}
+
+/** GET /stats/groups response envelope. Ordered by pages_total desc, capped at 12. */
+export interface StatsGroups {
+  groups: StatsGroup[];
 }
 
 // ─── Client functions ─────────────────────────────────────────────────────────
@@ -129,5 +169,30 @@ export async function getStatsSections(signal?: AbortSignal): Promise<StatsSecti
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") throw err;
     throw err;
+  }
+}
+
+/**
+ * getStatsGroups — GET /stats/groups.
+ *
+ * Returns community auto-groups ordered by pages_total DESC, capped at 12, or
+ * null on 404 (backend not yet implemented — A2+A3 parallel agent is building it).
+ * 404 is the graceful-hide signal: the "GRUPPI AUTOMATICI" block does not render.
+ *
+ * Never throws (non-404 non-2xx → null; AbortError re-thrown for cleanup).
+ *
+ * [F18][R12-1][A2+A3]
+ */
+export async function getStatsGroups(signal?: AbortSignal): Promise<StatsGroups | null> {
+  try {
+    const url = `${apiBase()}/stats/groups`;
+    const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
+    if (res.status === 404) return null;
+    if (!res.ok) return null; // tolerate unexpected errors gracefully
+    return (await res.json()) as StatsGroups;
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") throw err;
+    // Network / parse errors — hide block silently
+    return null;
   }
 }

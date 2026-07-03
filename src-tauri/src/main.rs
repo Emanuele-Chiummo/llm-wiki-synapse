@@ -14,6 +14,10 @@ fn main() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        // tauri-plugin-shell: used by ConvertPanel "Avvia Marker" button to spawn the
+        // Marker microservice as a detached background process (user-initiated, user-configured
+        // local path — same trust level as the user's own terminal). [F12][R12-6]
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![])
         .setup(|_app| {
             #[cfg(debug_assertions)]

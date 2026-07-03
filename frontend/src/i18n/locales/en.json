@@ -879,7 +879,16 @@
       "converting": "Converting…",
       "done": "Done",
       "failed": "Failed"
-    }
+    },
+    "startMarker": "Start Marker",
+    "startMarkerAriaLabel": "Start the Marker microservice",
+    "startMarkerStarting": "Starting…",
+    "startMarkerError": "Marker did not respond after 120 s — check the command and try again",
+    "startMarkerConfigTitle": "Marker start command",
+    "startMarkerConfigPlaceholder": "cd /path/to/tools/marker-converter && TORCH_DEVICE=mps ./.venv/bin/python service.py --port 8555",
+    "startMarkerConfigSave": "Save and start",
+    "startMarkerConfigHint": "Enter the shell command to launch the Marker microservice. Saved locally on this machine only.",
+    "startMarkerConfigCancel": "Cancel"
   },
   "common": {
     "loading": "Loading…",
@@ -1046,8 +1055,31 @@
     }
   },
   "home": {
-    "title": "Home",
+    "title": "System Overview",
     "subtitle": "At-a-glance view of your knowledge base",
+    "systemStatus": {
+      "ariaLabel": "System status",
+      "title": "STATO DEL SISTEMA",
+      "refresh": "Refresh status",
+      "loading": "Checking system…",
+      "overallOk": "All systems operational",
+      "overallDegraded": "System degraded",
+      "overallError": "System error",
+      "provider": "Provider",
+      "providerNone": "None configured",
+      "version": "Version",
+      "uptime": "Uptime",
+      "dataVersion": "Data version",
+      "components": {
+        "database": "Database",
+        "qdrant": "Qdrant",
+        "watcher": "Watcher",
+        "ingest_queue": "Ingest queue",
+        "graph_cache": "Graph cache",
+        "embeddings": "Embeddings",
+        "import_scheduler": "Scheduler"
+      }
+    },
     "kpi": {
       "ariaLabel": "Key performance indicators",
       "pagesTotal": "Pages",
@@ -1065,11 +1097,20 @@
     },
     "sections": {
       "ariaLabel": "Domain sections",
-      "title": "Domains",
+      "title": "SEZIONI",
       "untaggedLabel": "Untagged",
       "filterHint": "Browse",
+      "emptyVocabHint": "No domain vocabulary configured.",
       "emptyVocab": "No domain vocabulary configured. Add domains in Settings › Advanced to see per-domain breakdowns.",
       "goSettings": "Configure domains"
+    },
+    "groups": {
+      "ariaLabel": "Automatic community groups",
+      "title": "GRUPPI AUTOMATICI",
+      "pages": "pages",
+      "openTopPage": "Open top page",
+      "lastActivity": "Last activity",
+      "noTopPages": "No pages yet"
     },
     "placeholder": {
       "title": "Server v1.1 — update to enable the Home dashboard",

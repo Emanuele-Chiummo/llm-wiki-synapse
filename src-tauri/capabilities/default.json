@@ -18,6 +18,8 @@
     "core:app:allow-version",
     "notification:default",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "shell:allow-execute",
+    "shell:allow-open"
   ]
 }
