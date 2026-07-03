@@ -76,14 +76,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate extension manifest
+        working-directory: extension
         run: |
           python3 << 'VALIDATE_EOF'
           import json
           import sys
           
-          # Load and validate manifest
+          # Load and validate manifest (CWD = extension/, so manifest-relative
+          # paths like icons/icon-16.png resolve correctly with os.path.exists)
           try:
-            with open('extension/manifest.json', 'r') as f:
+            with open('manifest.json', 'r') as f:
               manifest = json.load(f)
             
             # Check required fields
