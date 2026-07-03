@@ -17,7 +17,7 @@
  * INVARIANT I2: never runs any layout; no graph-store coupling here.
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Loader2,
@@ -39,6 +39,7 @@ const reducedMotion: boolean =
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
 import { useGraphMeta } from "../../store/graphStore";
 import { fetchStatus } from "../../api/pagesClient";
@@ -384,7 +385,7 @@ const iconButtonStyle: import("react").CSSProperties = {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ActivityBar() {
+export function ActivityBar(): ReactNode {
   const { t } = useTranslation();
   const vaultId = useGraphStore(selectVaultId);
   const { dataVersion: storeVersion } = useGraphMeta();
@@ -480,14 +481,24 @@ export function ActivityBar() {
   const pct = progressPercent(counts.completed_since_idle, counts.pending, counts.processing);
   const hasActiveTasks = counts.pending + counts.processing >= 2;
 
-  // ── Cancel-all handler ───────────────────────────────────────────────────────
+  // ── Cancel-all handler (R7-12: routed through ConfirmDialog) ─────────────────
+  const [showCancelAllDialog, setShowCancelAllDialog] = useState(false);
+
   const handleCancelAll = useCallback(() => {
-    if (!window.confirm(t("activity.cancelAllConfirm"))) return;
+    setShowCancelAllDialog(true);
+  }, []);
+
+  const handleCancelAllConfirm = useCallback(() => {
+    setShowCancelAllDialog(false);
     const activeIds = [...processingTasks, ...pendingTasks]
       .filter((tk) => tk.run_id !== undefined)
       .map((tk) => tk.run_id as string);
     for (const id of activeIds) void cancelRun(id);
-  }, [processingTasks, pendingTasks, cancelRun, t]);
+  }, [processingTasks, pendingTasks, cancelRun]);
+
+  const handleCancelAllCancel = useCallback(() => {
+    setShowCancelAllDialog(false);
+  }, []);
 
   // ── Retry-failed handler ─────────────────────────────────────────────────────
   const handleRetryFailed = useCallback(() => {
@@ -505,6 +516,19 @@ export function ActivityBar() {
   }, []);
 
   return (
+    <>
+    {/* R7-12: Cancel All confirmation dialog */}
+    {showCancelAllDialog && (
+      <ConfirmDialog
+        title={t("activity.cancelAllDialogTitle")}
+        body={t("activity.cancelAllDialogBody")}
+        confirmLabel={t("activity.cancelAllDialogConfirm")}
+        cancelLabel={t("activity.cancelAllDialogCancel")}
+        danger={true}
+        onConfirm={handleCancelAllConfirm}
+        onCancel={handleCancelAllCancel}
+      />
+    )}
     <div style={{ position: "relative" }}>
       {/* ── Expanded panel (upward) ──────────────────────────────────────────── */}
       {expanded && (
@@ -864,5 +888,6 @@ export function ActivityBar() {
         }
       `}</style>
     </div>
+    </>
   );
 }

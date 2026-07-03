@@ -23,13 +23,21 @@
  *   - Polling stops when running=false; tree is refreshed.
  *   - Polling also starts on mount so button reflects any in-progress scan.
  *
+ * R7-11 — Bulk multi-select:
+ *   - Checkbox per file row + select-all in header (AC-R7-11-1).
+ *   - Bulk actions bar when >0 selected: "Ingest selected" + "Delete selected".
+ *   - Delete selected uses ConfirmDialog (danger).
+ *   - Execute sequentially with per-item progress indicator n/total (AC-R7-11-2/3/4).
+ *   - Errors collected and shown as summary toast (AC-R7-11-2).
+ *
  * INVARIANT I4: virtualised with @tanstack/react-virtual (mirrors NavTree).
  * INVARIANT I3: single setTimeout poll chain; no heavy per-render work.
  *
  * All strings: sources.* i18n keys.
  * All testids: sources-view, sources-tree, source-row, source-ingest,
  *              source-delete, source-refresh, sources-ingest-all,
- *              sources-ingest-all-progress.
+ *              sources-ingest-all-progress, sources-bulk-bar, sources-bulk-ingest,
+ *              sources-bulk-delete.
  */
 
 import {
@@ -69,6 +77,7 @@ import {
 import type { SourceEntry } from "../../api/sourcesClient";
 import { SourcePreview } from "./SourcePreview";
 import { UploadZone } from "../ingest/UploadZone";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import { showToast } from "../common/Toast";
 
 // ─── Category icon helper ─────────────────────────────────────────────────────
@@ -206,6 +215,14 @@ interface IngestAllProgress {
   total: number;
 }
 
+// ─── BulkProgress — per-item progress for sequential bulk ops ────────────────
+
+interface BulkProgress {
+  current: number;
+  total: number;
+  currentPath: string;
+}
+
 // ─── SourcesView ──────────────────────────────────────────────────────────────
 
 export function SourcesView() {
@@ -228,6 +245,11 @@ export function SourcesView() {
   const [ingestAllProgress, setIngestAllProgress] = useState<IngestAllProgress | null>(null);
   // Single setTimeout poll chain ref (I3)
   const ingestAllPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // R7-11: multi-select state
+  const [selectedPaths, setSelectedPaths]   = useState<Set<string>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [bulkProgress, setBulkProgress]     = useState<BulkProgress | null>(null);
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
 
@@ -349,6 +371,12 @@ export function SourcesView() {
           "success",
         );
         if (selectedPath === path) setSelectedPath(null);
+        // Also remove from selection if selected
+        setSelectedPaths((prev) => {
+          const next = new Set(prev);
+          next.delete(path);
+          return next;
+        });
         await fetchSources();
       } catch (err: unknown) {
         showToast(err instanceof Error ? err.message : String(err), "error");
@@ -376,9 +404,94 @@ export function SourcesView() {
     [t],
   );
 
-  // ── Tree rows ────────────────────────────────────────────────────────────────
+  // ── R7-11: Bulk selection helpers ────────────────────────────────────────────
 
+  // All file paths in current rows (for select-all)
   const rows = buildRows(entries, collapsedFolders);
+  const allFilePaths = rows
+    .filter((r): r is FileRow => r.kind === "file")
+    .map((r) => r.path);
+
+  const allSelected = allFilePaths.length > 0 && allFilePaths.every((p) => selectedPaths.has(p));
+  const someSelected = selectedPaths.size > 0;
+
+  const handleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedPaths(new Set());
+    } else {
+      setSelectedPaths(new Set(allFilePaths));
+    }
+  }, [allSelected, allFilePaths]);
+
+  const handleToggleSelect = useCallback((path: string) => {
+    setSelectedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
+
+  // R7-11 AC-R7-11-2: "Ingest selected" — sequential, per-item progress
+  const handleBulkIngest = useCallback(async () => {
+    const paths = [...selectedPaths];
+    const total = paths.length;
+    const errors: string[] = [];
+    for (let i = 0; i < paths.length; i++) {
+      const path = paths[i];
+      if (!path) continue;
+      setBulkProgress({ current: i + 1, total, currentPath: path });
+      try {
+        await triggerIngest(`raw/sources/${path}`);
+      } catch (err: unknown) {
+        errors.push(path);
+        console.error("[sources] bulk ingest error for", path, err);
+      }
+    }
+    setBulkProgress(null);
+    setSelectedPaths(new Set());
+    if (errors.length === 0) {
+      showToast(t("sources.bulk.ingestDone", { count: total }), "success");
+    } else {
+      showToast(
+        t("sources.bulk.ingestPartial", { done: total - errors.length, total, failed: errors.length }),
+        "error",
+      );
+    }
+  }, [selectedPaths, t]);
+
+  // R7-11 AC-R7-11-3: "Delete selected" — sequential after confirmation
+  const handleBulkDeleteConfirm = useCallback(async () => {
+    setShowBulkDeleteDialog(false);
+    const paths = [...selectedPaths];
+    const total = paths.length;
+    const errors: string[] = [];
+    for (let i = 0; i < paths.length; i++) {
+      const path = paths[i];
+      if (!path) continue;
+      setBulkProgress({ current: i + 1, total, currentPath: path });
+      try {
+        await deleteSource(path);
+        if (selectedPath === path) setSelectedPath(null);
+      } catch (err: unknown) {
+        errors.push(path);
+        console.error("[sources] bulk delete error for", path, err);
+      }
+    }
+    setBulkProgress(null);
+    setSelectedPaths(new Set());
+    await fetchSources();
+    if (errors.length === 0) {
+      showToast(t("sources.bulk.deleteDone", { count: total }), "success");
+    } else {
+      showToast(
+        t("sources.bulk.deletePartial", { done: total - errors.length, total, failed: errors.length }),
+        "error",
+      );
+    }
+  }, [selectedPaths, selectedPath, fetchSources, t]);
+
+  // ── Tree rows ────────────────────────────────────────────────────────────────
 
   const toggleFolder = useCallback((path: string) => {
     setCollapsedFolders((prev) => {
@@ -481,6 +594,71 @@ export function SourcesView() {
         </div>
       )}
 
+      {/* ── R7-11: Bulk actions bar (appears when >0 selected) ── */}
+      {someSelected && !bulkProgress && (
+        <div
+          data-testid="sources-bulk-bar"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 16px",
+            background: "var(--syn-accent-soft)",
+            borderBottom: "1px solid var(--syn-border)",
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ fontSize: 12, color: "var(--syn-accent)", fontWeight: 600 }}>
+            {t("sources.bulk.selected", { count: selectedPaths.size })}
+          </span>
+          <button
+            data-testid="sources-bulk-ingest"
+            style={BULK_ACTION_BTN}
+            onClick={() => { void handleBulkIngest(); }}
+          >
+            {t("sources.bulk.ingest")}
+          </button>
+          <button
+            data-testid="sources-bulk-delete"
+            style={{ ...BULK_ACTION_BTN, color: "var(--syn-red)", borderColor: "color-mix(in srgb, var(--syn-red) 30%, transparent 70%)" }}
+            onClick={() => setShowBulkDeleteDialog(true)}
+          >
+            {t("sources.bulk.delete")}
+          </button>
+          <button
+            style={{ ...BULK_ACTION_BTN, marginLeft: "auto" }}
+            onClick={() => setSelectedPaths(new Set())}
+          >
+            {t("sources.bulk.clearSelection")}
+          </button>
+        </div>
+      )}
+
+      {/* ── Bulk progress indicator ── */}
+      {bulkProgress && (
+        <div
+          data-testid="sources-bulk-progress"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 16px",
+            background: "var(--syn-surface)",
+            borderBottom: "1px solid var(--syn-border)",
+            flexShrink: 0,
+          }}
+        >
+          <Loader2 size={13} style={{ animation: "synapse-spin 1s linear infinite" }} aria-hidden="true" />
+          <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
+            {t("sources.bulk.progress", {
+              current: bulkProgress.current,
+              total: bulkProgress.total,
+              path: bulkProgress.currentPath,
+            })}
+          </span>
+        </div>
+      )}
+
       {/* ── Body: tree + preview ── */}
       <div style={BODY_STYLE}>
         {/* ─ Tree ─ */}
@@ -516,6 +694,33 @@ export function SourcesView() {
               aria-label={t("sources.title")}
               style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}
             >
+              {/* R7-11: select-all header checkbox */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 8px",
+                  borderBottom: "1px solid var(--syn-border-subtle, var(--syn-border))",
+                  flexShrink: 0,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  data-testid="sources-select-all"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected && !allSelected;
+                  }}
+                  onChange={handleSelectAll}
+                  aria-label={t("sources.bulk.selectAll")}
+                  style={{ cursor: "pointer" }}
+                />
+                <span style={{ fontSize: 10, color: "var(--syn-text-dim)", userSelect: "none" }}>
+                  {t("sources.bulk.selectAll")}
+                </span>
+              </div>
+
               <div
                 ref={scrollRef}
                 style={{ overflow: "auto", flex: 1, minHeight: 0 }}
@@ -543,11 +748,13 @@ export function SourcesView() {
                         key={row.path}
                         row={row}
                         selected={row.path === selectedPath}
+                        checked={selectedPaths.has(row.path)}
                         armed={armedPath === row.path}
                         deleting={deletingPath === row.path}
                         ingesting={ingestingPath === row.path}
                         style={style}
                         onClick={() => setSelectedPath(row.path)}
+                        onToggleCheck={() => handleToggleSelect(row.path)}
                         onIngest={handleIngest}
                         onDelete={handleDeleteClick}
                       />
@@ -567,6 +774,19 @@ export function SourcesView() {
           <SourcePreview path={selectedPath} />
         </div>
       </div>
+
+      {/* ── R7-11: Bulk delete confirmation dialog ── */}
+      {showBulkDeleteDialog && (
+        <ConfirmDialog
+          title={t("sources.bulk.deleteDialogTitle")}
+          body={t("sources.bulk.deleteDialogBody", { count: selectedPaths.size })}
+          confirmLabel={t("sources.bulk.deleteConfirm")}
+          cancelLabel={t("sources.bulk.deleteCancel")}
+          danger
+          onConfirm={() => { void handleBulkDeleteConfirm(); }}
+          onCancel={() => setShowBulkDeleteDialog(false)}
+        />
+      )}
     </div>
   );
 }
@@ -635,11 +855,15 @@ function FolderRowItem({ row, style, onToggle }: FolderRowItemProps) {
 interface FileRowItemProps {
   row: FileRow;
   selected: boolean;
+  /** R7-11: whether this row is in the bulk selection set */
+  checked: boolean;
   armed: boolean;
   deleting: boolean;
   ingesting: boolean;
   style: CSSProperties;
   onClick: () => void;
+  /** R7-11: toggle checkbox */
+  onToggleCheck: () => void;
   onIngest: (path: string) => void;
   onDelete: (path: string) => Promise<void>;
 }
@@ -647,11 +871,13 @@ interface FileRowItemProps {
 function FileRowItem({
   row,
   selected,
+  checked,
   armed,
   deleting,
   ingesting,
   style,
   onClick,
+  onToggleCheck,
   onIngest,
   onDelete,
 }: FileRowItemProps) {
@@ -677,6 +903,17 @@ function FileRowItem({
       aria-selected={selected}
       data-path={row.path}
     >
+      {/* R7-11: per-row checkbox */}
+      <input
+        type="checkbox"
+        data-testid="source-row-checkbox"
+        checked={checked}
+        onChange={(e) => { e.stopPropagation(); onToggleCheck(); }}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={t("sources.bulk.selectFile", { name: row.name })}
+        style={{ flexShrink: 0, cursor: "pointer" }}
+      />
+
       {/* Icon */}
       <span style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}>
         {fileIcon(row.ext)}
@@ -864,4 +1101,17 @@ const ACTION_BTN_BASE: CSSProperties = {
   background: "transparent",
   cursor: "pointer",
   padding: "3px 5px",
+};
+
+const BULK_ACTION_BTN: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  fontSize: 11,
+  padding: "4px 10px",
+  border: "1px solid var(--syn-border)",
+  borderRadius: 4,
+  background: "transparent",
+  color: "var(--syn-text-muted)",
+  cursor: "pointer",
 };

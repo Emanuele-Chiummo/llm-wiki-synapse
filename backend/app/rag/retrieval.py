@@ -41,6 +41,16 @@ call. It runs a Postgres title ``ILIKE``-based prefilter capped to ``k`` rows �
 every page body (I7). Phase ``"vector"`` labels are preserved on lexical candidates so the
 caller receives a structurally identical ``RetrievalContext`` (shared contract). Neither
 the embedding client nor Qdrant is contacted when embeddings are disabled (ADR-0030 §2.3).
+
+R7-8 — wiki-only retrieval scope (AC-R7-8-1, ADR-0049):
+The citation/candidate assembly phase (``_load_page_meta``) and the lexical Phase-1 fallback
+(``_phase1_lexical_search``) both apply the filter ``file_path NOT LIKE 'raw/%'`` to exclude
+raw source documents from the assembled chat context. Raw documents are source material for
+the ingest pipeline; they are not citable wiki knowledge pages. Only ``wiki/`` pages are
+surfaced in citations returned to the caller. The vector Phase-1 path (Qdrant) may return
+raw/ point ids — these are silently dropped by the ``_load_page_meta`` filter in Phase 4.
+This filter is portable SQL: ``LIKE 'raw/%'`` works identically on Postgres (production) and
+SQLite (tests). See ``docs/adr/ADR-0049-retrieval-wiki-only-scope.md`` for the full rationale.
 """
 
 from __future__ import annotations
@@ -324,8 +334,13 @@ async def _phase1_lexical_search(
 
     # S608 suppressed: only app-generated bind placeholders are interpolated; user input
     # travels as bound params via :tok0/:tok1/… — no SQL-injection vector.
+    # R7-8: wiki-only scope — same filter as _load_page_meta (AC-R7-8-1).
     select_clause = f"SELECT id, ({score_parts}) AS match_score FROM pages"  # noqa: S608
-    where_clause = f"WHERE vault_id = :vid AND deleted_at IS NULL AND ({ilike_parts})"
+    where_clause = (
+        f"WHERE vault_id = :vid AND deleted_at IS NULL "
+        f"AND file_path NOT LIKE 'raw/%' "
+        f"AND ({ilike_parts})"
+    )
     sql = f"{select_clause} {where_clause} ORDER BY match_score DESC, title ASC LIMIT :lim"
 
     async def _run(sess: AsyncSession) -> list[_Candidate]:
@@ -656,9 +671,18 @@ async def _load_page_meta(
         # CAST(id AS TEXT) — page_ids arrive as strings; without the cast Postgres rejects
         # `uuid = varchar` (UndefinedFunctionError). CAST is portable (Postgres + SQLite),
         # unlike Postgres-only ::text. Same fix as _expand_frontier.
+        #
+        # R7-8 (AC-R7-8-1): citation assembly is restricted to wiki/ pages only.
+        # raw/ documents are source material, not citable wiki knowledge — they exist to
+        # feed the ingest pipeline and should not be surfaced in chat context or search
+        # results alongside synthesized wiki pages. The filter `file_path NOT LIKE 'raw/%'`
+        # is portable SQL (works on both Postgres production and SQLite test engine).
+        # See docs/adr/ADR-0049-retrieval-wiki-only-scope.md for the full rationale.
         page_sql = (
             f"SELECT id, title, file_path FROM pages "  # noqa: S608
-            f"WHERE deleted_at IS NULL AND CAST(id AS TEXT) IN ({placeholders})"
+            f"WHERE deleted_at IS NULL "
+            f"AND CAST(id AS TEXT) IN ({placeholders}) "
+            f"AND file_path NOT LIKE 'raw/%'"
         )
         result = await sess.execute(sa_text(page_sql).bindparams(**binds))
         out: dict[str, dict[str, Any]] = {}

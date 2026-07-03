@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Synapse ServiceNow connector — launchd plist template (R7-7).
+
+  Usage:
+    1. Copy to ~/Library/LaunchAgents/com.synapse.sn-connector.plist
+    2. Replace every /absolute/path/to/… and /Users/you/… placeholder.
+    3. launchctl load ~/Library/LaunchAgents/com.synapse.sn-connector.plist
+
+  Flow:
+    PDFs dropped into --watch-dir → connector tick converts new ones →
+    markdown files land in --out/servicenow/ → Synapse watcher auto-ingests.
+
+  Capping: max 20 PDFs per tick (I7 invariant).
+  State:   out/.sn_connector_state.json (SHA-256 hash gate — idempotent, I1 spirit).
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.synapse.sn-connector</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Absolute path to the Marker venv python (has marker-pdf + pypdfium2 + torch) -->
+        <string>/absolute/path/to/tools/marker-converter/.venv/bin/python</string>
+        <string>/absolute/path/to/tools/marker-converter/servicenow_connector.py</string>
+
+        <!-- Watch directory: drop ServiceNow PDFs here -->
+        <string>--watch-dir</string>
+        <string>/Users/you/Downloads/sn-pdfs</string>
+
+        <!-- Output directory: connector writes markdown tree here -->
+        <!-- Synapse watcher should point at this path (or its parent raw/sources/) -->
+        <string>--out</string>
+        <string>/path/to/vault/raw/sources</string>
+
+        <!-- Polling interval in minutes -->
+        <string>--interval-minutes</string>
+        <string>60</string>
+
+        <!-- Module metadata (used in frontmatter hints for the ingest LLM) -->
+        <string>--module-code</string>
+        <string>ITAM</string>
+        <string>--module-title</string>
+        <string>IT Asset Management</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- Use MPS on Apple Silicon; set to "cuda" on Linux with NVIDIA GPU -->
+        <key>TORCH_DEVICE</key>
+        <string>mps</string>
+    </dict>
+
+    <!-- Run at agent load and restart if the daemon exits unexpectedly -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/sn-connector.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/sn-connector.err</string>
+</dict>
+</plist>

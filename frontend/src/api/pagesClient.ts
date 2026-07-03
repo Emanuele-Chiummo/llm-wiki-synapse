@@ -148,6 +148,57 @@ export async function fetchRelatedPages(
   return (await res.json()) as RelatedPagesResponse;
 }
 
+// ─── Types for new page creation (R7-2) ──────────────────────────────────────
+
+export type NewPageType =
+  | "concept"
+  | "entity"
+  | "source"
+  | "synthesis"
+  | "comparison"
+  | "query";
+
+export interface CreatePageRequest {
+  title: string;
+  page_type: NewPageType;
+  /** Optional subdirectory within wiki/ (e.g. "entities"). Defaults to type-derived dir. */
+  dir?: string;
+  /** Optional initial markdown content. */
+  content?: string;
+}
+
+export interface CreatePageResponse {
+  id: string;
+  file_path: string;
+  title: string;
+  page_type: string;
+}
+
+/**
+ * Create a new wiki page.
+ * POST /pages { title, page_type, dir?, content? } → 201 CreatePageResponse
+ * Throws ApiError(409) if a page with that title/path already exists.
+ *
+ * AC-R7-2-2: on 201 the caller navigates to the new page in edit mode.
+ */
+export async function createPage(
+  body: CreatePageRequest,
+  signal?: AbortSignal,
+): Promise<CreatePageResponse> {
+  const url = `${apiBase()}/pages`;
+  const res = await fetchWithTimeout(
+    url,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      ...(signal !== undefined ? { signal } : {}),
+    },
+  );
+  await checkResponse(res);
+  return (await res.json()) as CreatePageResponse;
+}
+
 /**
  * Fetch vault status (data_version, uptime, started_at).
  * GET /status

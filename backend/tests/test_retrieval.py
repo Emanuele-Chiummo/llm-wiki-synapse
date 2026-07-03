@@ -274,15 +274,15 @@ async def test_ac_f5_1_four_phases_in_order(env: _Env) -> None:
     async with env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=3)
         await _insert_page(
-            sess, page_id=p1, vault_id=VAULT, file_path="raw/sources/a.md", title="Alpha"
+            sess, page_id=p1, vault_id=VAULT, file_path="wiki/concepts/a.md", title="Alpha"
         )
         await _insert_page(
-            sess, page_id=p2, vault_id=VAULT, file_path="raw/sources/b.md", title="Beta"
+            sess, page_id=p2, vault_id=VAULT, file_path="wiki/entities/b.md", title="Beta"
         )
         await _insert_edge(sess, vault_id=VAULT, src=p1, tgt=p2, weight=9.0)
         await sess.commit()
-    _write_source(env.vault_root, "raw/sources/a.md", "Alpha source body about widgets.")
-    _write_source(env.vault_root, "raw/sources/b.md", "Beta source body about gadgets.")
+    _write_source(env.vault_root, "wiki/concepts/a.md", "Alpha source body about widgets.")
+    _write_source(env.vault_root, "wiki/entities/b.md", "Beta source body about gadgets.")
 
     qdrant = _FakeQdrant([(p1, 0.91)])
     retrieval_mod.get_qdrant_client = lambda: qdrant  # type: ignore[assignment]
@@ -308,15 +308,15 @@ async def test_ac_f5_1_vector_seed_ranks_before_expansion(env: _Env) -> None:
     async with env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         await _insert_page(
-            sess, page_id=p1, vault_id=VAULT, file_path="raw/sources/a.md", title="Seed"
+            sess, page_id=p1, vault_id=VAULT, file_path="wiki/concepts/a.md", title="Seed"
         )
         await _insert_page(
-            sess, page_id=p2, vault_id=VAULT, file_path="raw/sources/b.md", title="Neighbour"
+            sess, page_id=p2, vault_id=VAULT, file_path="wiki/entities/b.md", title="Neighbour"
         )
         await _insert_edge(sess, vault_id=VAULT, src=p1, tgt=p2, weight=5.0)
         await sess.commit()
-    _write_source(env.vault_root, "raw/sources/a.md", "Seed body.")
-    _write_source(env.vault_root, "raw/sources/b.md", "Neighbour body.")
+    _write_source(env.vault_root, "wiki/concepts/a.md", "Seed body.")
+    _write_source(env.vault_root, "wiki/entities/b.md", "Neighbour body.")
 
     retrieval_mod.get_qdrant_client = lambda: _FakeQdrant([(p1, 0.8)])  # type: ignore[assignment]
     async with env.factory() as sess:
@@ -337,10 +337,10 @@ async def test_ac_f5_2_pageref_fields_and_markers(env: _Env) -> None:
     async with env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=1)
         await _insert_page(
-            sess, page_id=p1, vault_id=VAULT, file_path="raw/sources/a.md", title="My Title"
+            sess, page_id=p1, vault_id=VAULT, file_path="wiki/concepts/a.md", title="My Title"
         )
         await sess.commit()
-    _write_source(env.vault_root, "raw/sources/a.md", "Body text.")
+    _write_source(env.vault_root, "wiki/concepts/a.md", "Body text.")
 
     retrieval_mod.get_qdrant_client = lambda: _FakeQdrant([(p1, 0.5)])  # type: ignore[assignment]
     async with env.factory() as sess:
@@ -360,10 +360,10 @@ async def test_ac_f5_2_title_falls_back_to_file_stem(env: _Env) -> None:
     async with env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         await _insert_page(
-            sess, page_id=p1, vault_id=VAULT, file_path="raw/sources/report-q3.md", title=None
+            sess, page_id=p1, vault_id=VAULT, file_path="wiki/sources/report-q3.md", title=None
         )
         await sess.commit()
-    _write_source(env.vault_root, "raw/sources/report-q3.md", "Quarterly body.")
+    _write_source(env.vault_root, "wiki/sources/report-q3.md", "Quarterly body.")
 
     retrieval_mod.get_qdrant_client = lambda: _FakeQdrant([(p1, 0.5)])  # type: ignore[assignment]
     async with env.factory() as sess:
@@ -383,7 +383,7 @@ async def test_ac_f5_4_budget_drops_lowest_ranked(env: _Env) -> None:
     async with env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         for i, pid in enumerate(ids):
-            fp = f"raw/sources/s{i}.md"
+            fp = f"wiki/concepts/s{i}.md"
             await _insert_page(sess, page_id=pid, vault_id=VAULT, file_path=fp, title=f"Page {i}")
             _write_source(env.vault_root, fp, body)
         await sess.commit()
@@ -413,10 +413,10 @@ async def test_ac_f5_5_data_version_unchanged(env: _Env) -> None:
     async with env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=7)
         await _insert_page(
-            sess, page_id=p1, vault_id=VAULT, file_path="raw/sources/a.md", title="A"
+            sess, page_id=p1, vault_id=VAULT, file_path="wiki/concepts/a.md", title="A"
         )
         await sess.commit()
-    _write_source(env.vault_root, "raw/sources/a.md", "Body.")
+    _write_source(env.vault_root, "wiki/concepts/a.md", "Body.")
 
     async def _read_dv() -> int:
         async with env.factory() as sess:
@@ -462,10 +462,10 @@ async def test_ac_f5_7b_single_hit(env: _Env) -> None:
     async with env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         await _insert_page(
-            sess, page_id=p1, vault_id=VAULT, file_path="raw/sources/a.md", title="Solo"
+            sess, page_id=p1, vault_id=VAULT, file_path="wiki/concepts/a.md", title="Solo"
         )
         await sess.commit()
-    _write_source(env.vault_root, "raw/sources/a.md", "Solo body.")
+    _write_source(env.vault_root, "wiki/concepts/a.md", "Solo body.")
 
     retrieval_mod.get_qdrant_client = lambda: _FakeQdrant([(p1, 0.77)])  # type: ignore[assignment]
     async with env.factory() as sess:
@@ -483,10 +483,10 @@ async def test_ac_f5_7c_multi_page_expansion(env: _Env) -> None:
     async with env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         for pid, name, fp in [
-            (seed, "Seed", "raw/sources/seed.md"),
-            (e1, "Edge1", "raw/sources/e1.md"),
-            (e2, "Edge2", "raw/sources/e2.md"),
-            (far, "Far", "raw/sources/far.md"),
+            (seed, "Seed", "wiki/entities/seed.md"),
+            (e1, "Edge1", "wiki/entities/e1.md"),
+            (e2, "Edge2", "wiki/entities/e2.md"),
+            (far, "Far", "wiki/entities/far.md"),
         ]:
             await _insert_page(sess, page_id=pid, vault_id=VAULT, file_path=fp, title=name)
             _write_source(env.vault_root, fp, f"{name} body content here.")
@@ -519,10 +519,10 @@ async def test_ac_f5_7c_expansion_depth_hard_capped_at_2(env: _Env) -> None:
     async with env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         for pid, fp in [
-            (seed, "raw/sources/s.md"),
-            (d1, "raw/sources/d1.md"),
-            (d2, "raw/sources/d2.md"),
-            (d3, "raw/sources/d3.md"),
+            (seed, "wiki/entities/s.md"),
+            (d1, "wiki/entities/d1.md"),
+            (d2, "wiki/entities/d2.md"),
+            (d3, "wiki/entities/d3.md"),
         ]:
             await _insert_page(sess, page_id=pid, vault_id=VAULT, file_path=fp, title=fp)
             _write_source(env.vault_root, fp, "body")
@@ -548,13 +548,13 @@ async def test_ac_f5_7c_resolved_links_expansion(env: _Env) -> None:
     async with env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         await _insert_page(
-            sess, page_id=seed, vault_id=VAULT, file_path="raw/sources/s.md", title="Seed"
+            sess, page_id=seed, vault_id=VAULT, file_path="wiki/entities/s.md", title="Seed"
         )
         await _insert_page(
-            sess, page_id=tgt, vault_id=VAULT, file_path="raw/sources/t.md", title="Linked"
+            sess, page_id=tgt, vault_id=VAULT, file_path="wiki/entities/t.md", title="Linked"
         )
-        _write_source(env.vault_root, "raw/sources/s.md", "seed body")
-        _write_source(env.vault_root, "raw/sources/t.md", "linked body")
+        _write_source(env.vault_root, "wiki/entities/s.md", "seed body")
+        _write_source(env.vault_root, "wiki/entities/t.md", "linked body")
         await sess.execute(
             sa_text(
                 "INSERT INTO links (id, source_page_id, target_title, target_page_id, dangling) "
@@ -578,7 +578,7 @@ async def test_ac_f5_7d_overflow_drops_until_satisfied(env: _Env) -> None:
     async with env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         for i, pid in enumerate(ids):
-            fp = f"raw/sources/big{i}.md"
+            fp = f"wiki/synthesis/big{i}.md"
             await _insert_page(sess, page_id=pid, vault_id=VAULT, file_path=fp, title=f"Big {i}")
             _write_source(env.vault_root, fp, big)
         await sess.commit()
@@ -602,17 +602,17 @@ async def test_soft_deleted_page_not_cited(env: _Env) -> None:
     async with env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         await _insert_page(
-            sess, page_id=p1, vault_id=VAULT, file_path="raw/sources/a.md", title="Live"
+            sess, page_id=p1, vault_id=VAULT, file_path="wiki/concepts/a.md", title="Live"
         )
         await _insert_page(
-            sess, page_id=p2, vault_id=VAULT, file_path="raw/sources/b.md", title="Dead"
+            sess, page_id=p2, vault_id=VAULT, file_path="wiki/entities/b.md", title="Dead"
         )
         await sess.execute(
             sa_text("UPDATE pages SET deleted_at = '2026-01-01' WHERE id = :id").bindparams(id=p2)
         )
         await sess.commit()
-    _write_source(env.vault_root, "raw/sources/a.md", "live body")
-    _write_source(env.vault_root, "raw/sources/b.md", "dead body")
+    _write_source(env.vault_root, "wiki/concepts/a.md", "live body")
+    _write_source(env.vault_root, "wiki/entities/b.md", "dead body")
 
     retrieval_mod.get_qdrant_client = lambda: _FakeQdrant([(p1, 0.9), (p2, 0.8)])  # type: ignore[assignment]
     async with env.factory() as sess:

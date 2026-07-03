@@ -258,10 +258,10 @@ async def test_lex1_no_qdrant_call_when_embeddings_disabled(lex_env: _Env) -> No
     async with lex_env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=1)
         await _insert_page(
-            sess, page_id=p1, vault_id=VAULT, file_path="raw/sources/a.md", title="Alpha Query"
+            sess, page_id=p1, vault_id=VAULT, file_path="wiki/concepts/a.md", title="Alpha Query"
         )
         await sess.commit()
-    _write_source(lex_env.vault_root, "raw/sources/a.md", "Alpha body content.")
+    _write_source(lex_env.vault_root, "wiki/concepts/a.md", "Alpha body content.")
 
     # Install a counting Qdrant; if it's called the test fails.
     counting_qdrant = _CountingQdrant([(p1, 0.99)])
@@ -308,11 +308,11 @@ async def test_lex2_title_match_returns_citation(lex_env: _Env) -> None:
             sess,
             page_id=p1,
             vault_id=VAULT,
-            file_path="raw/sources/widget.md",
+            file_path="wiki/entities/widget.md",
             title="Widget Overview",
         )
         await sess.commit()
-    _write_source(lex_env.vault_root, "raw/sources/widget.md", "Widget body text here.")
+    _write_source(lex_env.vault_root, "wiki/entities/widget.md", "Widget body text here.")
 
     async with lex_env.factory() as sess:
         ctx = await retrieve("widget", vault_id=VAULT, context_window=10_000, session=sess)
@@ -336,10 +336,10 @@ async def test_lex3_no_match_for_unrelated_query(lex_env: _Env) -> None:
     async with lex_env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         await _insert_page(
-            sess, page_id=p1, vault_id=VAULT, file_path="raw/sources/dog.md", title="Dog Care"
+            sess, page_id=p1, vault_id=VAULT, file_path="wiki/concepts/dog.md", title="Dog Care"
         )
         await sess.commit()
-    _write_source(lex_env.vault_root, "raw/sources/dog.md", "Dog care body.")
+    _write_source(lex_env.vault_root, "wiki/concepts/dog.md", "Dog care body.")
 
     async with lex_env.factory() as sess:
         ctx = await retrieve(
@@ -365,7 +365,7 @@ async def test_adr0030_ac7_lexical_k_bounded(lex_env: _Env) -> None:
     async with lex_env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         for i, pid in enumerate(ids):
-            fp = f"raw/sources/pg{i}.md"
+            fp = f"wiki/concepts/pg{i}.md"
             await _insert_page(
                 sess,
                 page_id=pid,
@@ -399,20 +399,20 @@ async def test_adr0030_ac4_graph_expansion_on_lexical_seeds(lex_env: _Env) -> No
             sess,
             page_id=seed,
             vault_id=VAULT,
-            file_path="raw/sources/seed.md",
+            file_path="wiki/entities/seed.md",
             title="Kernel Config",
         )
         await _insert_page(
             sess,
             page_id=neighbour,
             vault_id=VAULT,
-            file_path="raw/sources/neigh.md",
+            file_path="wiki/entities/neigh.md",
             title="Neighbour Page",
         )
         await _insert_edge(sess, vault_id=VAULT, src=seed, tgt=neighbour, weight=7.0)
         await sess.commit()
-    _write_source(lex_env.vault_root, "raw/sources/seed.md", "Kernel config body.")
-    _write_source(lex_env.vault_root, "raw/sources/neigh.md", "Neighbour body.")
+    _write_source(lex_env.vault_root, "wiki/entities/seed.md", "Kernel config body.")
+    _write_source(lex_env.vault_root, "wiki/entities/neigh.md", "Neighbour body.")
 
     async with lex_env.factory() as sess:
         ctx = await retrieve(
@@ -491,7 +491,7 @@ async def test_lex5_qdrant_called_when_embeddings_enabled(
     async with factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=0)
         await _insert_page(
-            sess, page_id=p1, vault_id=VAULT, file_path="raw/sources/z.md", title="Zeta"
+            sess, page_id=p1, vault_id=VAULT, file_path="wiki/entities/z.md", title="Zeta"
         )
         await sess.commit()
 
@@ -550,10 +550,10 @@ async def test_lex_data_version_unchanged_in_lexical_mode(lex_env: _Env) -> None
     async with lex_env.factory() as sess:
         await _set_data_version(sess, vault_id=VAULT, version=42)
         await _insert_page(
-            sess, page_id=p1, vault_id=VAULT, file_path="raw/sources/v.md", title="Version Test"
+            sess, page_id=p1, vault_id=VAULT, file_path="wiki/entities/v.md", title="Version Test"
         )
         await sess.commit()
-    _write_source(lex_env.vault_root, "raw/sources/v.md", "Version test body.")
+    _write_source(lex_env.vault_root, "wiki/entities/v.md", "Version test body.")
 
     async with lex_env.factory() as sess:
         ctx = await retrieve("version", vault_id=VAULT, context_window=10_000, session=sess)
@@ -583,19 +583,19 @@ async def test_lex_multi_token_higher_score_ranks_first(lex_env: _Env) -> None:
             sess,
             page_id=p_both,
             vault_id=VAULT,
-            file_path="raw/sources/both.md",
+            file_path="wiki/concepts/both.md",
             title="Alpha Beta Overview",
         )
         await _insert_page(
             sess,
             page_id=p_one,
             vault_id=VAULT,
-            file_path="raw/sources/one.md",
+            file_path="wiki/concepts/one.md",
             title="Alpha Reference",
         )
         await sess.commit()
-    _write_source(lex_env.vault_root, "raw/sources/both.md", "Both tokens body.")
-    _write_source(lex_env.vault_root, "raw/sources/one.md", "One token body.")
+    _write_source(lex_env.vault_root, "wiki/concepts/both.md", "Both tokens body.")
+    _write_source(lex_env.vault_root, "wiki/concepts/one.md", "One token body.")
 
     async with lex_env.factory() as sess:
         ctx = await retrieve("alpha beta", vault_id=VAULT, context_window=50_000, k=8, session=sess)

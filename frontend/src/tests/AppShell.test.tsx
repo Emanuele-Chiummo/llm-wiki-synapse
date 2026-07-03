@@ -277,6 +277,24 @@ vi.mock("../hooks/useGlobalShortcuts", () => ({
   useGlobalShortcuts: () => undefined,
 }));
 
+// ─── Mock useDesktopUpdater (ADR-0049 §U4 — no-op in web tests) ──────────────
+
+vi.mock("../hooks/useDesktopUpdater", () => ({
+  useDesktopUpdater: () => ({
+    update: null,
+    installing: false,
+    installError: null,
+    dismiss: () => undefined,
+    startInstall: async () => undefined,
+  }),
+}));
+
+// ─── Mock UpdateBanner (ADR-0049 §U4 — renders nothing when update=null) ─────
+
+vi.mock("../components/common/UpdateBanner", () => ({
+  UpdateBanner: () => null,
+}));
+
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

@@ -45,10 +45,10 @@ import hashlib
 import logging
 import re
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from collections.abc import Callable
 from typing import Any, Literal
 
 import frontmatter  # python-frontmatter
@@ -403,6 +403,14 @@ async def run_ingest_pipeline(
     # every backend → one connected graph instead of isolated islands (I6 — guidance is in the
     # context STRING, never in provider code).
     ingest_context = await _load_ingest_context()
+    # R7-6: prepend the folderContext hint (subfolder topical context) so it reaches BOTH the
+    # orchestrated analyze() vault_context and the delegated/CLI system_prompt (I6 — the hint is
+    # in the STRING, not provider code). "" when the source has no subfolder path.
+    _folder_block = _folder_context_block(origin_source)
+    if _folder_block:
+        ingest_context = (
+            f"{_folder_block}\n\n{ingest_context}" if ingest_context else _folder_block
+        )
 
     try:
         if caps.supports_agentic_loop:
@@ -1996,6 +2004,64 @@ async def _load_ingest_context() -> str:
     if not catalogue:
         return base
     return f"{base}\n\n{catalogue}" if base else catalogue
+
+
+# ── R7-6: folderContext hint (F3 topical context from subfolder layout) ──────────
+#
+# When a source lives in subfolders under the import root (e.g. raw/sources/servicenow/itam/
+# sam/foo.md), the relative folder path is a strong topical hint the LLM should use when
+# classifying + writing pages. We derive a compact "servicenow / itam / sam" string from the
+# origin_source relative path and inject it INTO THE CONTEXT STRING (never provider code — I6),
+# so it reaches BOTH the orchestrated analyze() and the delegated/CLI system prompt.
+#
+# Bounded (I7): capped at _FOLDER_CONTEXT_MAX_SEGMENTS segments and _FOLDER_CONTEXT_MAX_CHARS.
+_FOLDER_CONTEXT_MAX_SEGMENTS = 8
+_FOLDER_CONTEXT_MAX_CHARS = 500
+# Leading path prefixes stripped before computing the topical segments (the "import root").
+_FOLDER_CONTEXT_ROOTS = ("raw/sources/", "raw/", "wiki/")
+
+
+def _folder_context(origin_source: str) -> str:
+    """
+    Derive a compact folderContext hint from *origin_source* (R7-6), or "" when the file sits
+    directly under a known root (no subfolders → no hint).
+
+    "raw/sources/servicenow/itam/sam/foo.md" → "servicenow / itam / sam".
+    Bounded to _FOLDER_CONTEXT_MAX_SEGMENTS segments and _FOLDER_CONTEXT_MAX_CHARS chars (I7).
+    """
+    if not origin_source:
+        return ""
+    # Normalize separators (F15 path normalization) and drop the filename.
+    rel = origin_source.replace("\\", "/").lstrip("/")
+    for root in _FOLDER_CONTEXT_ROOTS:
+        if rel.startswith(root):
+            rel = rel[len(root) :]
+            break
+    parts = [p for p in rel.split("/") if p]
+    # Drop the trailing filename segment; only the directory path is topical context.
+    segments = parts[:-1]
+    if not segments:
+        return ""
+    segments = segments[:_FOLDER_CONTEXT_MAX_SEGMENTS]
+    joined = " / ".join(segments)
+    if len(joined) > _FOLDER_CONTEXT_MAX_CHARS:
+        joined = joined[:_FOLDER_CONTEXT_MAX_CHARS].rstrip()
+    return joined
+
+
+def _folder_context_block(origin_source: str) -> str:
+    """
+    Build the folderContext section appended to the ingest context (R7-6), or "" when there is
+    no subfolder hint. Phrased as an explicit topical hint for the analysis/classification step.
+    """
+    fc = _folder_context(origin_source)
+    if not fc:
+        return ""
+    return (
+        "# folderContext\n"
+        f"This document comes from the folder path: {fc} — use it as topical context when "
+        "classifying the document and naming/linking pages."
+    )
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")

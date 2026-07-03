@@ -146,6 +146,11 @@ class OllamaProvider(InferenceProvider):
 
         in_tok = 0
         out_tok = 0
+        # R7-10(a): reasoning models served by Ollama (e.g. DeepSeek/Qwen) stream their
+        # chain-of-thought in message.thinking BEFORE message.content. Wrap it in <think>…</think>
+        # so the shared server-side ThinkScanner routes it to the ThinkBlock (no per-token parse —
+        # I3; the scanner runs downstream). Open on first thinking delta, close when content begins.
+        think_open = False
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 async with client.stream("POST", f"{self._base_url}/api/chat", json=body) as resp:
@@ -158,12 +163,25 @@ class OllamaProvider(InferenceProvider):
                         except json.JSONDecodeError:
                             logger.warning("Ollama chat: skipping non-JSON stream line")
                             continue
-                        delta = obj.get("message", {}).get("content", "")
+                        message = obj.get("message", {})
+                        thinking = message.get("thinking", "")
+                        if thinking:
+                            if not think_open:
+                                think_open = True
+                                yield "<think>"
+                            yield thinking
+                        delta = message.get("content", "")
                         if delta:
+                            if think_open:
+                                think_open = False
+                                yield "</think>"
                             yield delta
                         if obj.get("done"):
                             in_tok = int(obj.get("prompt_eval_count", 0) or 0)
                             out_tok = int(obj.get("eval_count", 0) or 0)
+            # Close a still-open think span if the stream ended with only thinking (defensive).
+            if think_open:
+                yield "</think>"
         finally:
             # Record whatever usage we observed, even on early aclose() (token_budget cap) or
             # mid-stream error — keeps the I7 cost ledger truthful (cost 0.0, local).

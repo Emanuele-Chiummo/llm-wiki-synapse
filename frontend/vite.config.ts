@@ -30,6 +30,7 @@ const API_PREFIXES = [
   `/sources`,
   `/overview`,
   `/links`,
+  `/scenarios`,
   `/api`,
 ];
 
@@ -173,6 +174,10 @@ export default defineConfig({
         changeOrigin: true,
       },
       "/links": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/scenarios": {
         target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
         changeOrigin: true,
       },

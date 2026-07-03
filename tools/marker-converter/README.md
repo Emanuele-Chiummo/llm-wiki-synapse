@@ -47,9 +47,113 @@ Then index with the **normal ingest**: the watcher picks up files under `raw/sou
 Performance: ~6 s/page on MPS (table recognition falls back to CPU). Convert per-feature/group,
 not the whole 2500-page book at once (full SAM ≈ 1181 pages).
 
+## Scheduler daemon mode (R7-7)
+
+The `--watch-dir` flag turns the connector into a bounded scheduler daemon: each tick it
+converts **new** PDFs found in `<watch-dir>` into `<out>/servicenow/…` and then sleeps
+`--interval-minutes` minutes before the next tick.
+
+```
+PDF in watch-dir
+     │
+     ▼ tick (bounded: max 20 files/tick, I7)
+  hash gate ─── already seen? ──► skip
+     │
+     ▼ new
+  Marker convert (section by section)
+     │
+     ▼
+  out/servicenow/<module>/<feature>/<slug>.md
+     │
+     ▼ Synapse watcher picks up (raw/sources → wiki pages)
+  POST /ingest/file  OR  watchdog
+```
+
+### Start the daemon
+
+```bash
+TORCH_DEVICE=mps ./.venv/bin/python servicenow_connector.py \
+    --watch-dir ~/Downloads/sn-pdfs \
+    --out /path/to/vault/raw/sources \
+    --interval-minutes 60 \
+    --module-code ITAM --module-title "IT Asset Management"
+```
+
+- Drop new PDFs into `~/Downloads/sn-pdfs/` at any time; they are picked up on the next tick.
+- State is persisted in `out/.sn_connector_state.json` (SHA-256 → output path). Survives
+  restarts; a PDF is never re-converted unless the state file is deleted.
+- At most **20 PDFs per tick** (I7 cap). Increase with `--max-files` if needed.
+- `--auto-download` is a no-op stub gated behind `SERVICENOW_AUTODOWNLOAD_EXPERIMENTAL=1`.
+  It logs a clear "not implemented" warning. Provide PDFs manually in the watch dir.
+
+### launchd plist (macOS / TrueNAS Jails)
+
+Save as `~/Library/LaunchAgents/com.synapse.sn-connector.plist` and load with `launchctl`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.synapse.sn-connector</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Absolute path to the Marker venv python -->
+        <string>/absolute/path/to/tools/marker-converter/.venv/bin/python</string>
+        <string>/absolute/path/to/tools/marker-converter/servicenow_connector.py</string>
+        <string>--watch-dir</string>
+        <string>/Users/you/Downloads/sn-pdfs</string>
+        <string>--out</string>
+        <string>/path/to/vault/raw/sources</string>
+        <string>--interval-minutes</string>
+        <string>60</string>
+        <string>--module-code</string>
+        <string>ITAM</string>
+        <string>--module-title</string>
+        <string>IT Asset Management</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>TORCH_DEVICE</key>
+        <string>mps</string>
+    </dict>
+
+    <!-- Run at load and keep alive (launchd restarts it after each sleep-loop tick exits) -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/sn-connector.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/sn-connector.err</string>
+</dict>
+</plist>
+```
+
+```bash
+# Load
+launchctl load ~/Library/LaunchAgents/com.synapse.sn-connector.plist
+
+# Check status
+launchctl list com.synapse.sn-connector
+
+# Unload
+launchctl unload ~/Library/LaunchAgents/com.synapse.sn-connector.plist
+```
+
+> Note: The daemon itself is an infinite sleep loop; `KeepAlive` ensures launchd restarts it
+> if the process exits unexpectedly. On TrueNAS SCALE, use a cron job or a Docker Compose
+> service with `restart: unless-stopped` instead of launchd.
+
 ## Roadmap
 - **Acquisition + split (this)** — PDF → structured cited source tree. ✅
+- **Scheduler daemon** — `--watch-dir` bounded daemon mode. ✅ (R7-7)
 - **Ingest** — via the STANDARD Synapse pipeline (LLM). The deterministic verbatim-register
   path was tried and REMOVED (it produced invalid page types and broke the wiki).
-- **Schedule** — run the connector periodically (download → convert → drop into raw/sources) so
-  the normal ingest auto-picks-up; + auto-discovery/download from docs.servicenow.com.
+- **Auto-download** — future increment (stub behind `SERVICENOW_AUTODOWNLOAD_EXPERIMENTAL=1`).

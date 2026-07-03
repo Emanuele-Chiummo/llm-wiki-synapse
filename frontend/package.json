@@ -1,6 +1,6 @@
 {
   "name": "synapse-frontend",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "private": true,
   "description": "Synapse v0.5 — feature parity core (Deep Research, Review, Multi-format, Cascade Delete)",
   "type": "module",
@@ -19,6 +19,8 @@
   },
   "dependencies": {
     "@tauri-apps/plugin-notification": "^2.0.0",
+    "@tauri-apps/plugin-updater": "^2.0.0",
+    "@tauri-apps/plugin-process": "^2.0.0",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/lang-markdown": "^6.5.0",
     "@codemirror/language": "^6.12.4",

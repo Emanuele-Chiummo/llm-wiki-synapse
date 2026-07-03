@@ -1,10 +1,10 @@
 # Synapse Deployment Guide
 
-<!-- Generated: v0.6 sprint 6 | 2026-07-02 -->
+<!-- Generated: v0.7 sprint 6 | 2026-07-03 -->
 
 > Target: TrueNAS SCALE 25.10 "Goldeye" + Docker Compose (backend) + PWA or Tauri v2 desktop (client)
-> Version: v0.6 — covers M6 feature set (M5 + Lint, Web Clipper, PWA, Tauri v2 desktop, Lint)
-> Status: v0.6 DRAFT — test locally before TrueNAS deploy
+> Version: v0.7 — covers v0.7.0 release (M6 + auto-update, scenario templates, retrieval hardening, language directive, recursive import, ServiceNow connector)
+> Status: CURRENT — updated for v0.7.0 release
 
 ---
 
@@ -107,6 +107,7 @@ cp .env.example .env
 | `MAX_UPLOAD_BYTES` | `26214400` | No | Maximum file size (bytes) for `POST /ingest/upload`. Default 25 MB. Files over this limit receive 413. (ADR-0020 §2.4, I7) |
 | `IMPORT_SCAN_MAX_FILES` | `200` | No | Maximum number of files copied per scheduled scan tick. Remaining files are picked up on the next tick. (ADR-0020 §4.4, I7) |
 | `IMPORT_SCAN_MAX_SECONDS` | `60` | No | Wall-clock cap (seconds) per scheduled scan tick. Scan stops early if exceeded; continues next tick. (ADR-0020 §4.4, I7) |
+| `IMPORT_SCAN_RECURSIVE` | `false` | No | When `true`, the scheduled folder import traverses subdirectories recursively, preserving the path structure inside `vault/raw/sources/`. A `folderContext` hint (joined subdirectory segments, e.g. `reports/2026/q2`) is injected into the ingest analysis prompt for each file. Default `false` (non-recursive, v0.6 behavior). (G-P1-9) |
 | `EMBEDDINGS_ENABLED` | `true` | No | Set to `false` to disable bge-m3 vectorization and Qdrant entirely. Ingest still runs (Postgres metadata + links only); retrieval and `/search` degrade to lexical Postgres keyword search. Startup skips the embedding probe — Synapse starts even when Qdrant and Ollama embeddings are unreachable. (ADR-0030) |
 | `EMBEDDING_FORMAT` | `ollama` | No | Request/response adapter for the embedding service: `ollama` (default — `{"prompt": ...}` → `{"embedding": [...]}`) or `openai` (`{"input": ...}` → `{"data":[{"embedding":[...]}]}`). Set to `openai` when `EMBEDDING_URL` points at an OpenAI-compatible endpoint (e.g. a hosted embeddings API). (ADR-0031) |
 | `EMBEDDING_API_KEY` | *(none)* | No | Bearer token for the embedding service. When set, every embedding request includes `Authorization: Bearer <key>`. Leave unset for the local bge-m3/Ollama service (no auth). Never logged or returned by any endpoint. (ADR-0031) |
@@ -561,8 +562,11 @@ Each scheduled scan is bounded by two independent caps (both env-configurable, I
 | File cap | 200 files/tick | `IMPORT_SCAN_MAX_FILES` | Remaining files wait for next tick |
 | Wall-clock cap | 60 seconds/tick | `IMPORT_SCAN_MAX_SECONDS` | Scan stops early; partial count reported |
 
-The scan is **non-recursive**: only files directly inside `source_dir` are imported;
-subdirectories are not traversed. Recursive scanning is a planned future opt-in.
+By default the scan is **non-recursive**: only files directly inside `source_dir` are
+imported; subdirectories are skipped. Set `IMPORT_SCAN_RECURSIVE=true` to enable
+recursive traversal. When enabled, the subdirectory path segments are passed to the
+analysis prompt as a `folderContext` hint (e.g. `reports/2026/q2`), which helps the AI
+classify content correctly when folder names carry semantic meaning.
 
 As of v0.5 (M5), `.md`, `.txt`, `.markdown`, `.pdf`, `.docx`, `.pptx`, and `.xlsx`
 files are imported (F12, ADR-0025). Binary files are converted to companion `.extracted.md`
@@ -745,19 +749,80 @@ Build artifacts land in `src-tauri/target/release/bundle/`:
 > `docs/adr/0047-desktop-runtime-server-url-and-connect-gate.md` §4 (risk 2) for
 > what is deferred and why.
 
-### 7.7 CI desktop release
+### 7.7 Release procedure (v* unified tag, ADR-0049)
 
-Pushing a tag that matches `desktop-v*` (e.g. `desktop-v0.6.0`) or triggering a manual
-run of `.github/workflows/desktop-release.yml` starts the release matrix:
+Starting with v0.7.0 the `desktop-v*` tag channel is **replaced** by a unified `v*`
+tag channel (e.g. `v0.7.0`). One tag produces both the backend release notes and the
+signed desktop installer artifacts with auto-update support (ADR-0049). The old
+`desktop-v*` trigger no longer exists.
+
+#### Step 1 — Three-way version bump
+
+Before tagging, bump the version in **all three files together** (a mismatch breaks the
+updater's version compare and will silently prevent installed clients from updating):
+
+| File | Field | Example |
+|------|-------|---------|
+| `src-tauri/tauri.conf.json` | `"version"` | `"0.7.0"` |
+| `src-tauri/Cargo.toml` | `version = "..."` under `[package]` | `"0.7.0"` |
+| `frontend/package.json` | `"version"` | `"0.7.0"` |
+
+Commit the three-file bump with the message:
+```
+chore: bump version to v0.7.0 [F15]
+```
+
+#### Step 2 — Tag and push
+
+```bash
+git tag v0.7.0
+git push origin v0.7.0
+```
+
+The `.github/workflows/desktop-release.yml` CI workflow triggers on `refs/tags/v*`.
+
+#### Step 3 — CI matrix
 
 | Runner | Target | Artifacts |
 |--------|--------|-----------|
-| `macos-latest` | `dmg` + `macos` app bundle | Attached to the GitHub release |
-| `windows-latest` | `nsis` installer | Attached to the GitHub release |
+| `macos-latest` | `.app.tar.gz` + `.sig`, `.dmg` | Attached to the GitHub release |
+| `windows-latest` | NSIS `.exe` + `.sig` | Attached to the GitHub release |
+| Both runners | `latest.json` (merged, both platforms) | Attached to the GitHub release |
 
-The workflow uses `tauri-apps/tauri-action`. Artifacts are unsigned and attached
-automatically to a draft GitHub release. Promote the draft to a published release when
-you are ready to share binaries.
+The workflow passes `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+(GitHub Actions secrets) to `tauri-action` with `includeUpdaterJson: true`. Each
+artifact is minisign-signed. `tauri-action` merges both platform entries into a single
+`latest.json` on the release.
+
+#### Step 4 — Acceptance gate
+
+Before announcing the release, verify:
+
+1. The GitHub release assets contain both `darwin-aarch64` and `windows-x86_64` entries
+   in `latest.json`.
+2. The `version` field in `latest.json` matches the tag and all three bumped files.
+3. The `.sig` files are present for each platform bundle (unsigned OS binary, signed by
+   our minisign key).
+
+If any check fails, re-run the workflow (`workflow_dispatch`) or fix and re-tag.
+
+#### Key-loss caveat (CRITICAL)
+
+The minisign private key (`TAURI_SIGNING_PRIVATE_KEY` + password; local copy at
+`~/.tauri/`) is the **sole trust root** for the auto-update chain. Every installed
+desktop client verifies incoming updates against the public key embedded in the binary.
+
+**If the private key is lost, all installed clients can no longer receive auto-updates.**
+A new keypair would produce signatures that all existing clients reject; the only
+recovery for end-users is a manual re-install of a new binary carrying the new public
+key. Keep a secure off-machine backup of the private key and its password, and do not
+rotate the GitHub secret without a coordinated re-release.
+
+#### `workflow_dispatch` (build-only)
+
+Triggering the workflow manually (`workflow_dispatch`, no tag) produces the installers
+but does **not** create or update a GitHub release and does **not** produce `latest.json`.
+Use this for build verification only.
 
 ---
 
@@ -962,12 +1027,75 @@ the extension and the acceptance list explicitly.
 
 ---
 
-## 13. References
+## 13. ServiceNow doc connector (optional external tool)
+
+The ServiceNow connector is an external Python tool (`tools/marker-converter/`) that
+converts ServiceNow documentation PDFs (docs.servicenow.com exports) into structured
+Markdown source files suitable for Synapse ingest. It is not part of the Synapse Docker
+Compose stack; it runs as a standalone script or optional scheduler daemon on the
+developer's machine (or in a sidecar container).
+
+For full setup instructions, see the tool's own README:
+`tools/marker-converter/README.md`
+
+### 13.1 One-shot conversion
+
+```bash
+cd tools/marker-converter
+python3.13 -m venv .venv
+./.venv/bin/pip install -r requirements.txt
+
+TORCH_DEVICE=mps ./.venv/bin/python servicenow_connector.py \
+    --pdf ~/Downloads/servicenow-itam-enus.pdf \
+    --module-code ITAM --module-title "IT Asset Management" \
+    --out /path/to/vault/raw/sources
+```
+
+The converter splits the PDF by bookmark structure (module → feature → group → section),
+converts each section with [Marker](https://github.com/VikParuchuri/marker), and writes
+one Markdown source file per section into `raw/sources/servicenow/<module>/<feature>/`.
+The Synapse watcher (or `POST /sources/ingest-all`) then ingests these source files via
+the standard analyze→generate→validate loop, producing typed, linked wiki pages.
+
+### 13.2 Watch-daemon mode
+
+The `--watch-dir` flag runs the connector as a bounded scheduler daemon: once per tick it
+scans the watch directory for new PDFs, converts them, and sleeps until the next tick.
+New PDFs dropped into the watch directory are picked up automatically.
+
+```bash
+TORCH_DEVICE=mps ./.venv/bin/python servicenow_connector.py \
+    --watch-dir ~/Downloads/sn-pdfs \
+    --out /path/to/vault/raw/sources \
+    --interval-minutes 60 \
+    --module-code ITAM --module-title "IT Asset Management"
+```
+
+Key behavior:
+- State is persisted in `out/.sn_connector_state.json` (SHA-256 keyed). A PDF is never
+  re-converted unless the state file is deleted.
+- At most 20 PDFs per tick (I7 cap; override with `--max-files`).
+- A `launchd` plist template for macOS is provided in `tools/marker-converter/com.synapse.sn-connector.plist.template`. On TrueNAS SCALE, use a cron job or a Docker Compose sidecar with `restart: unless-stopped` instead of launchd.
+
+### 13.3 Integration with Synapse
+
+The converter writes raw source files into `vault/raw/sources/servicenow/`. Synapse
+treats these exactly like any other source: the watchdog detects new files and triggers
+the normal ingest loop. The source files intentionally carry no `type:` frontmatter — the
+LLM assigns valid wiki types (entity, concept, synthesis, etc.) during the analyze step.
+Forcing a type from the converter was tried and removed; it produced invalid page types
+that broke the wiki type system.
+
+---
+
+## 14. References
 
 - `CLAUDE.md` — project context, invariants (I1–I9), and feature inventory
 - `docs/er/schema.mmd` — ER diagram (auto-generated by `make er`)
 - `docs/api/openapi.json` — API reference (auto-generated by `make openapi`)
-- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0047; index in `docs/adr/README.md`; ADR-0037 Lint, ADR-0038 Web Clipper, ADR-0039 Tauri v2 shell, ADR-0047 Desktop Connect gate)
+- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0049; index in `docs/adr/README.md`; ADR-0037 Lint, ADR-0038 Web Clipper, ADR-0039 Tauri v2 shell, ADR-0047 Desktop Connect gate, ADR-0049 Desktop auto-update)
 - `docs/adr/0039-tauri-v2-desktop-shell.md` — Tauri v2 desktop shell scaffold and CI
 - `docs/adr/0047-desktop-runtime-server-url-and-connect-gate.md` — runtime server URL binding, Connect screen, CORS extension (§7 of this guide)
+- `docs/adr/0049-desktop-auto-update-github-releases.md` — unified v* release channel, minisign auto-update, key-loss caveat (§7.7 of this guide)
+- `tools/marker-converter/README.md` — ServiceNow doc connector full setup and scheduler daemon
 - `docs/USER.md` — end-user guide

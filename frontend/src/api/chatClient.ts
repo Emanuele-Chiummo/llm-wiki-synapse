@@ -87,6 +87,26 @@ export async function deleteConversation(
   if (!res.ok && res.status !== 204) throw new Error(`DELETE /conversations: ${res.status}`);
 }
 
+/**
+ * Rename a conversation.
+ * PATCH /conversations/{id} { title } → 200 { id, title }
+ * AC-R7-3-1: persists the new name; optimistic update with rollback on error.
+ */
+export async function renameConversation(
+  conversationId: string,
+  title: string,
+  signal?: AbortSignal,
+): Promise<ConversationSummary> {
+  const res = await fetch(`${apiBase()}/conversations/${conversationId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+    signal: signal ?? null,
+  });
+  if (!res.ok) throw new Error(`PATCH /conversations/${conversationId}: ${res.status}`);
+  return res.json() as Promise<ConversationSummary>;
+}
+
 // ─── POST /chat/stream request shape (ADR-0019 §2.2) ─────────────────────────
 
 export interface ChatMessageIn {

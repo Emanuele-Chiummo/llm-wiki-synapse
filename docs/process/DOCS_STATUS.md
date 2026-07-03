@@ -4,6 +4,73 @@
 
 ---
 
+## v0.7.0 Pre-Release Docs Gate — VERDICT: PASS-PENDING-D5
+
+> Gate run: 2026-07-03
+> Branch: `sprint/v0.6`
+> Scope: v0.7.0 release — parity closure (G-P0-1/2/3, G-P1-4/6/8/9/10/11/12/13),
+>   desktop auto-update (ADR-0049), scenario templates, recursive import, ServiceNow connector.
+> Key commits: `aab417c` (provider gate + Search view), `0afa34e` (Save-to-Wiki + Louvain),
+>   `edb35c6` (Save-to-Wiki backend + Louvain engine), `9751461` (Lucide icons),
+>   `99eeb3d` (Overview note mirror).
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/` (context/container/component) | UP-TO-DATE (no change) | ADR-0049 adds no new container, port, or external service. Auto-update is a desktop-client transport only; Synapse topology unchanged. C4 diagrams current from v0.6/M6. |
+| D2 | `docs/er/schema.mmd` | PENDING-REGEN | `ReviewItem.search_queries` column added (G-P1-6). Requires `make er` after the migration lands. All other v0.7 changes (G-P1-4 scenarios, G-P1-8 language patch, G-P1-9 recursive import, G-P1-10 retrieval scope, G-P1-11/12/13) are migration-free or provider-side. Blocked on backend-engineer running `make er` post migration. |
+| D3 | `docs/sequences/` | UP-TO-DATE (carry-forward) | No new sequence flows introduced by v0.7 items in this gate. G-P1-9 recursive import adds a folderContext hint inside the existing ingest-loop.mmd ingest sequence (no new swimlane needed). G-P1-10 retrieval change is a filter in the existing query-4phase.mmd Phase 1 step. No new diagrams required this gate. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (verified) | All three new v0.7 endpoints confirmed present: `POST /pages` (PRESENT), `PATCH /conversations/{conversation_id}` (PRESENT), `GET /scenarios` (PRESENT). `/chat/save-to-wiki` (G-P0-1) confirmed present. Total: 64 paths. API version field shows `0.6.0` — version string bump to `0.7.0` should be done by devops-engineer via `make openapi` after the release tag. Non-blocking for code gate. |
+| D5 | `docs/screens/` | PENDING-LIVE (HCP carry-forward) | v0.7 UI changes (new-page button, bulk select, scenarios panel, conversation rename/filter, unsaved-changes guard, auto-update banner) require Playwright screenshot refresh. These fold into the next live-stack verification session (`make screenshots`). Non-blocking for code gate; blocks v1.0.0 tag. |
+| D6a | `docs/USER.md` | UPDATED (this gate) | Header updated to v0.7. Added sections: (1) New-page button in wiki tree (left panel under Wiki section); (2) Unsaved-changes guard in editor (Stay / Discard dialog); (3) Conversation rename (double-click inline) + filter (search box in conversation list); (4) Bulk select in Sources (Select button, checkboxes, Delete selected + cascade-delete confirm dialog); (5) Scenarios in Settings — full sub-section with 5-preset table, Apply flow, and caveats; updated settings table from 9 to 10 sections; (6) Desktop auto-update — startup check, Update now / Later (Aggiorna ora / Più tardi), progress, key-loss caveat link to DEPLOY.md. |
+| D6b | `docs/DEPLOY.md` | UPDATED (this gate) | Header updated to v0.7. (1) `IMPORT_SCAN_RECURSIVE` env var row added to §2.1 table (default false, G-P1-9). §6.4 scan limits text updated: non-recursive default + `IMPORT_SCAN_RECURSIVE=true` opt-in + folderContext explanation. (2) §7.7 "CI desktop release" replaced by "Release procedure (v* unified tag, ADR-0049)": three-way version bump table (tauri.conf.json / Cargo.toml / package.json), tag + push steps, CI matrix with `latest.json` + `.sig` artifacts, acceptance gate checklist, key-loss caveat, `workflow_dispatch` note. Old `desktop-v*` trigger language removed. (3) New §13 "ServiceNow doc connector": one-shot conversion, watch-daemon mode, integration notes, link to `tools/marker-converter/README.md`. Old §13 renumbered to §14 References. ADR reference updated through ADR-0049. |
+| D7 | `docs/adr/README.md` | DRIFT — needs ADR-0049 row | ADR-0049 (`0049-desktop-auto-update-github-releases.md`) exists at `docs/adr/` but the README index table has not been updated to include it. Backend/devops-engineer should add the row; tech-writer to verify at next gate. |
+| D7 | `docs/adr/0049-desktop-auto-update-github-releases.md` | UP-TO-DATE | File present and complete (authored by solution-architect, 2026-07-03). Accepted status. ADR content is the source of truth for DEPLOY.md §7.7 and USER.md desktop auto-update section. |
+| R (parity) | `docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md` | UPDATED (this gate) | v0.7 closure note added to header. 13 items closed: G-P0-1/2/3 + G-P1-4/6/8/9/10/11/12/13. Per-row verdicts updated from ❌/🟡 to ✅ for all 13. P2 backlog unchanged. All P0+P1 items now closed. |
+
+### Endpoint verification (D4)
+
+| Endpoint | Method | Present in openapi.json | Notes |
+|----------|--------|------------------------|-------|
+| `/pages` | POST | YES | New wiki page creation |
+| `/conversations/{conversation_id}` | PATCH | YES | Conversation rename |
+| `/scenarios` | GET | YES | List scenario presets |
+| `/chat/save-to-wiki` | POST | YES | G-P0-1 Save-to-Wiki |
+
+Total paths in openapi.json: 64. All four checked endpoints present.
+
+### Invariant compliance check (v0.7 gate)
+
+| Invariant | Status |
+|-----------|--------|
+| **I1** (incremental index only) | HOLDS — new-page button writes through `write_wiki_page` (one page, one bump); recursive import copies files without re-ingesting unchanged ones (hash gate). |
+| **I6** (pluggable inference) | HOLDS — language directive patch touches provider prompt templates only; no provider is hardcoded. G-P1-10 retrieval scope is a filter in `retrieval.py`, not provider-bound. |
+| **I7** (bounded loops) | HOLDS — recursive import bounded by `IMPORT_SCAN_MAX_FILES` + `IMPORT_SCAN_MAX_SECONDS` per tick; scenario Apply is a single file write, no loop. |
+| **I8** (docs-as-DoD) | HOLDS pending D2 regen (make er after search_queries migration) and D7 ADR-0049 README row. D4 endpoints verified; D6a/D6b updated; parity matrix closed. |
+| **I9** (do not reinvent) | HOLDS — ADR-0049 uses Tauri first-party `tauri-plugin-updater` over GitHub Releases; no bespoke update server. ServiceNow connector uses Marker (existing external) + standard Synapse ingest pipeline. |
+
+### Outstanding items (carry-forward, non-blocking for code gate)
+
+1. **D2 — ER regen**: `make er` after the `search_queries JSONB` migration is applied (backend-engineer).
+2. **D4 — API version**: `openapi.json` version field shows `0.6.0`; should be bumped to `0.7.0` via `make openapi` post-tag (devops-engineer).
+3. **D5 — Screenshots**: v0.7 UI views PENDING-LIVE (Playwright capture session).
+4. **D7 — ADR README**: ADR-0049 row missing from `docs/adr/README.md` index (backend/devops-engineer to add; tech-writer to verify).
+
+### DOCS GATE VERDICT — v0.7.0 Pre-Release
+
+**PASS-PENDING-D5**
+
+D6a, D6b, and parity matrix (R) are fully updated. D4 endpoints verified (64 paths,
+all 4 checked present). D1 and most D3 are unchanged and current. D2 and D7/ADR-0049
+row have known carry-forward gaps documented above; neither blocks the code gate.
+
+Parity rows closed this gate: G-P0-1, G-P0-2, G-P0-3, G-P1-4, G-P1-6, G-P1-8,
+G-P1-9, G-P1-10, G-P1-11, G-P1-12, G-P1-13 — 13 items total. All P0+P1 backlog
+items are now closed.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-07-03 | v0.7.0 pre-release docs gate**
+
+---
+
 ## M6 / v0.6 Docs Gate — VERDICT: PASS-PENDING-D5/HCP
 
 > Gate run: 2026-06-30

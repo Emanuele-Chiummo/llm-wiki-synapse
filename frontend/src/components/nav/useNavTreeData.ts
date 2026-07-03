@@ -13,7 +13,7 @@
  *     surfaces overview.md with type "overview" in GET /pages — see flag below).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchAllPages } from "../../api/pagesClient";
 import type { PageListItem, PageType } from "../../api/types";
 
@@ -135,6 +135,8 @@ export interface NavTreeData {
   error: string | null;
   /** Raw grouped data (for testing / derived displays) */
   grouped: Map<KnownType, PageListItem[]>;
+  /** Imperatively re-fetch the page list (used after creating a new page). */
+  refresh: () => Promise<void>;
 }
 
 /**
@@ -151,32 +153,39 @@ export function useNavTreeData(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const doFetch = useCallback(
+    (signal?: AbortSignal) => {
+      setLoading(true);
+      setError(null);
+      // fetchAllPages paginates (GET /pages caps at 500) so EVERY page shows in the tree.
+      return fetchAllPages(vaultId, signal)
+        .then((res) => {
+          setGrouped(groupPagesByType(res.items));
+          setLoading(false);
+        })
+        .catch((err: unknown) => {
+          if (err instanceof Error && err.name !== "AbortError") {
+            setError(err.message);
+            setLoading(false);
+          }
+        });
+    },
+    [vaultId],
+  );
+
   useEffect(() => {
     const ctrl = new AbortController();
-    setLoading(true);
-    setError(null);
-
-    // fetchAllPages paginates (GET /pages caps at 500) so EVERY page shows in the tree —
-    // past 500 pages the oldest ones (incl. the singleton overview) would otherwise vanish.
-    fetchAllPages(vaultId, ctrl.signal)
-      .then((res) => {
-        setGrouped(groupPagesByType(res.items));
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof Error && err.name !== "AbortError") {
-          setError(err.message);
-          setLoading(false);
-        }
-      });
-
+    void doFetch(ctrl.signal);
     return () => ctrl.abort();
-  }, [vaultId]);
+  }, [doFetch]);
+
+  /** Imperative refresh — called after creating/deleting a page so the tree updates. */
+  const refresh = useCallback(() => doFetch(), [doFetch]);
 
   // Memoize: only rebuild the flat array when grouped data or collapse state changes.
   // Without this, every parent re-render (e.g. store update) rebuilds a fresh array
   // and causes the virtualizer to re-measure unnecessarily.
   const rows = useMemo(() => flattenTree(grouped, collapsed), [grouped, collapsed]);
 
-  return { rows, loading, error, grouped };
+  return { rows, loading, error, grouped, refresh };
 }

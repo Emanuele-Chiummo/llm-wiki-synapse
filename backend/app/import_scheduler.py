@@ -112,6 +112,25 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _iter_scan_entries(source_path: Path, *, recursive: bool) -> list[os.DirEntry[str]]:
+    """
+    Return the DirEntry files to consider for one scan (R7-6).
+
+    recursive=False → a single top-level os.scandir pass (original behaviour, no rglob).
+    recursive=True  → a bounded os.walk descent into subdirectories (opt-in via
+                      IMPORT_SCAN_RECURSIVE). The per-tick MAX_FILES/MAX_SECONDS caps in
+                      run_one_scan still gate how many are actually copied, so the walk never
+                      becomes unbounded work (I7 — the copy loop is the real bound).
+    """
+    if not recursive:
+        return list(os.scandir(str(source_path)))
+    entries: list[os.DirEntry[str]] = []
+    for _root, _dirs, _files in os.walk(str(source_path)):
+        with os.scandir(_root) as it:
+            entries.extend(e for e in it if e.is_file(follow_symlinks=False))
+    return entries
+
+
 async def run_one_scan(cfg: object) -> tuple[int, str, str | None]:
     """
     Run one bounded scan of cfg.source_dir → vault/raw/sources/.
@@ -119,8 +138,8 @@ async def run_one_scan(cfg: object) -> tuple[int, str, str | None]:
     Returns (imported_count, last_status, last_error).
 
     Bounds (I7):
-    - Non-recursive: single os.scandir pass (no rglob).
-    - IMPORT_SCAN_MAX_FILES copies per tick.
+    - Recursion is OPT-IN via IMPORT_SCAN_RECURSIVE (default off → single scandir pass, no rglob).
+    - IMPORT_SCAN_MAX_FILES copies per tick (the hard bound, recursive or not).
     - IMPORT_SCAN_MAX_SECONDS wall-clock deadline.
 
     Only NEW or CHANGED files are copied (I1 hash-compare before copy).
@@ -146,6 +165,7 @@ async def run_one_scan(cfg: object) -> tuple[int, str, str | None]:
 
     max_files: int = settings.import_scan_max_files
     max_seconds: int = settings.import_scan_max_seconds
+    recursive: bool = bool(getattr(settings, "import_scan_recursive", False))
 
     imported_count = 0
     scanned = 0
@@ -153,7 +173,7 @@ async def run_one_scan(cfg: object) -> tuple[int, str, str | None]:
     t_start = time.monotonic()
 
     try:
-        entries = list(os.scandir(str(source_path)))
+        entries = _iter_scan_entries(source_path, recursive=recursive)
     except PermissionError as exc:
         return 0, "error", f"Permission denied reading {source_dir}: {exc}"
     except OSError as exc:
@@ -224,9 +244,11 @@ async def run_one_scan(cfg: object) -> tuple[int, str, str | None]:
 
     elapsed = time.monotonic() - t_start
     logger.info(
-        "scheduled_import vault=%s dir=%s scanned=%d copied=%d skipped=%d elapsed=%.2fs status=ok",
+        "scheduled_import vault=%s dir=%s recursive=%s scanned=%d copied=%d skipped=%d "
+        "elapsed=%.2fs status=ok",
         settings.vault_id,
         source_dir,
+        recursive,
         scanned,
         imported_count,
         skipped,

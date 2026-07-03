@@ -1,6 +1,6 @@
 {
   "productName": "Synapse",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "identifier": "ai.synapse.app",
   "build": {
     "beforeBuildCommand": "npm --prefix ../frontend run build",
@@ -39,10 +39,19 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "createUpdaterArtifacts": true,
     "macOS": {
       "frameworks": [],
       "minimumSystemVersion": ""
     },
     "resources": []
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2NTI4RkIwMTRFOUUyNzEKUldSeDR1a1VzSTlTWnJSRGtqa0JyWml5ZEltdlVGM1F4NmErSkUxZHdiQjdGdlRCM1NoTHRlQUQK",
+      "endpoints": [
+        "https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

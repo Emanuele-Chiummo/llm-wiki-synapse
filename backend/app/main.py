@@ -120,6 +120,8 @@ from app.models import (
     VaultState,
 )
 from app.qdrant_client import ensure_collection
+from app.scenarios_data import SCENARIO_INDEX as _SCENARIO_INDEX
+from app.scenarios_data import SCENARIOS as _SCENARIOS
 from app.sources import router as sources_router
 from app.upload import resolve_under_sources, safe_source_name
 from app.vault import bootstrap_vault
@@ -1797,6 +1799,155 @@ async def list_pages(
         total=total,
         limit=limit,
         offset=offset,
+    )
+
+
+# ── POST /pages ────────────────────────────────────────────────────────────────
+# R7-2 backend: create a new wiki page from the UI (AC-R7-2-2, [F1]).
+# Reuses write_wiki_page() — the shared ingest seam (I1).
+
+_ALLOWED_PAGE_DIRS: frozenset[str] = frozenset(
+    {"entities", "concepts", "sources", "queries", "synthesis", "comparisons"}
+)
+
+
+class PageCreateRequest(BaseModel):
+    """
+    Request body for POST /pages (R7-2, AC-R7-2-2, [F1]).
+
+    Creates a new wiki page with minimal frontmatter via the shared write_wiki_page seam (I1).
+    A 409 is returned when a live page with the same (vault_id, file_path) already exists.
+    """
+
+    title: str = Field(..., min_length=1, max_length=500, description="Page title (required)")
+    page_type: str = Field(
+        ...,
+        description="Wiki page type; one of entity|concept|source|synthesis|comparison|query",
+    )
+    dir: str | None = Field(
+        default=None,
+        description=(
+            "Target subdirectory under wiki/ (optional; derived from page_type when omitted). "
+            f"Allowed values: {sorted(_ALLOWED_PAGE_DIRS)}"
+        ),
+    )
+    content: str = Field(default="", description="Initial markdown body (empty is valid)")
+
+
+class PageCreateResponse(BaseModel):
+    """Response for POST /pages (201)."""
+
+    id: uuid.UUID
+    file_path: str
+    title: str
+    page_type: str
+
+
+@app.post(
+    "/pages",
+    response_model=PageCreateResponse,
+    status_code=201,
+    summary="Create a new wiki page from the UI",
+    description=(
+        "Create a new wiki page via the shared write_wiki_page seam (I1, R7-2). "
+        "Derives slug and subdirectory from title + page_type. "
+        "409 if a live page with the same path already exists. "
+        "Bumps data_version on success. [F1, AC-R7-2-2]"
+    ),
+    responses={
+        201: {"description": "Page created"},
+        409: {"description": "A live page with the same path already exists"},
+        422: {"description": "Validation error (invalid type or dir)"},
+    },
+)
+async def create_page(body: PageCreateRequest) -> PageCreateResponse:
+    """
+    POST /pages — R7-2 new-page-from-UI backend [F1].
+
+    Validates page_type against the PageType enum, optionally validates dir against
+    the allowed wiki/ subdirectories, then delegates to write_wiki_page() (I1 — the
+    single write seam shared by orchestrator, MCP, and save-to-wiki).
+
+    A minimal WikiPage is constructed with:
+      - frontmatter.sources = ["manual"] (no raw source; manually authored page)
+      - frontmatter.lang = "en" (default; UI can be extended with a lang field later)
+      - content = body.content (empty string is valid — stub page)
+
+    409 when a live (non-deleted) page with the same (vault_id, file_path) already exists.
+    """
+    from app.ingest.orchestrator import write_wiki_page
+    from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+
+    # Validate page_type
+    try:
+        pt = PageType(body.page_type)
+    except ValueError as exc:
+        valid = sorted(pv.value for pv in PageType)
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid page_type {body.page_type!r}; must be one of {valid}",
+        ) from exc
+
+    # Validate dir if provided
+    if body.dir is not None and body.dir not in _ALLOWED_PAGE_DIRS:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Invalid dir {body.dir!r}; must be one of {sorted(_ALLOWED_PAGE_DIRS)} "
+                f"(or omit to derive from page_type)"
+            ),
+        )
+
+    # Derive expected file_path to check for 409 before writing
+    import re as _re_page
+
+    from app.ingest.schemas import type_subdir
+
+    _SLUG_RE_PAGE = _re_page.compile(r"[^a-z0-9]+")
+    slug = _SLUG_RE_PAGE.sub("-", body.title.strip().lower()).strip("-") or "untitled"
+    subdir = body.dir if body.dir is not None else type_subdir(pt)
+    rel_path = f"wiki/{subdir}/{slug}.md"
+
+    # 409 pre-check: live page with the same path already exists
+    async with get_session() as session:
+        existing = await session.execute(
+            select(Page).where(
+                Page.vault_id == settings.vault_id,
+                Page.file_path == rel_path,
+                Page.deleted_at.is_(None),
+            )
+        )
+        if existing.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"A live page already exists at {rel_path}",
+            )
+
+    # Build minimal WikiPage — manually authored, so source is "manual"
+    fm = WikiFrontmatter(
+        type=pt,
+        title=body.title,
+        sources=["manual"],
+        lang="en",
+    )
+    wiki_page = WikiPage(
+        title=body.title,
+        type=pt,
+        content=body.content if body.content.strip() else "<!-- New page -->",
+        frontmatter=fm,
+    )
+
+    try:
+        page_row = await write_wiki_page(None, wiki_page, "")
+    except Exception as exc:  # noqa: BLE001
+        logger.error("POST /pages: write_wiki_page failed: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Page write failed: {exc}") from exc
+
+    return PageCreateResponse(
+        id=page_row.id,
+        file_path=page_row.file_path,
+        title=page_row.title or body.title,
+        page_type=page_row.page_type or body.page_type,
     )
 
 
@@ -4022,6 +4173,74 @@ async def delete_conversation(conversation_id: uuid.UUID) -> None:
         affected = cast("CursorResult[Any]", result).rowcount
     if affected == 0:
         raise HTTPException(status_code=404, detail="conversation not found")
+
+
+# ── PATCH /conversations/{id} ─────────────────────────────────────────────────
+# R7-3 backend: rename a conversation (AC-R7-3-1, [F6]).
+
+
+class ConversationRenameRequest(BaseModel):
+    """Request body for PATCH /conversations/{id} (R7-3, AC-R7-3-1)."""
+
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="New conversation title (1–200 characters)",
+    )
+
+
+class ConversationRenameResponse(BaseModel):
+    """Response for PATCH /conversations/{id}."""
+
+    id: uuid.UUID
+    title: str
+
+
+@app.patch(
+    "/conversations/{conversation_id}",
+    response_model=ConversationRenameResponse,
+    summary="Rename a conversation",
+    description=(
+        "Update the title of a live (non-deleted) conversation (R7-3, AC-R7-3-1, [F6]). "
+        "404 if the conversation is unknown or soft-deleted. "
+        "body: {title: str 1..200}."
+    ),
+    responses={
+        200: {"description": "Conversation renamed"},
+        404: {"description": "Conversation not found or deleted"},
+        422: {"description": "Validation error (title empty or too long)"},
+    },
+)
+async def rename_conversation(
+    conversation_id: uuid.UUID,
+    body: ConversationRenameRequest,
+) -> ConversationRenameResponse:
+    """
+    PATCH /conversations/{conversation_id} — R7-3 rename [F6].
+
+    Sets conversations.title to body.title for the given live conversation.
+    Returns 404 if the conversation is unknown or has been soft-deleted.
+    """
+    from sqlalchemy import update as sa_update
+
+    async with get_session() as session:
+        result = await session.execute(
+            sa_update(Conversation)
+            .where(
+                Conversation.id == conversation_id,
+                Conversation.deleted_at.is_(None),
+            )
+            .values(title=body.title)
+            .returning(Conversation.id, Conversation.title)
+        )
+        row = result.first()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="conversation not found")
+
+    m = row._mapping
+    return ConversationRenameResponse(id=m["id"], title=m["title"])
 
 
 @app.post(
@@ -7240,6 +7459,95 @@ async def clip_ingest(
     )
 
     return ClipResponse(file_path=rel_path, status="queued", overwritten=overwritten)
+
+
+# ── GET /scenarios + POST /scenarios/{id}/apply  (R7-1, [F1, K1]) ─────────────
+# 5 vault-bootstrap presets: Research, Reading, PersonalGrowth, Business, General.
+# Each preset overwrites vault/purpose.md + vault/schema.md on explicit user action.
+
+class ScenarioItem(BaseModel):
+    """One scenario preset descriptor (R7-1 list response)."""
+
+    id: str
+    name: str
+    description: str
+
+
+class ScenarioListResponse(BaseModel):
+    """Response for GET /scenarios (R7-1)."""
+
+    items: list[ScenarioItem]
+
+
+class ScenarioApplyResponse(BaseModel):
+    """Response for POST /scenarios/{scenario_id}/apply (R7-1)."""
+
+    applied: bool
+
+
+@app.get(
+    "/scenarios",
+    response_model=ScenarioListResponse,
+    summary="List available vault scenario templates",
+    description=(
+        "Return the 5 built-in vault preset templates (R7-1, AC-R7-1-1, [F1, K1]). "
+        "Each preset provides a purpose.md body and schema.md stub appropriate to the domain. "
+        "Apply a preset via POST /scenarios/{id}/apply."
+    ),
+)
+async def list_scenarios() -> ScenarioListResponse:
+    """GET /scenarios — R7-1 preset list [F1, K1]."""
+    return ScenarioListResponse(
+        items=[
+            ScenarioItem(id=s["id"], name=s["name"], description=s["description"])
+            for s in _SCENARIOS
+        ]
+    )
+
+
+@app.post(
+    "/scenarios/{scenario_id}/apply",
+    response_model=ScenarioApplyResponse,
+    summary="Apply a vault scenario template",
+    description=(
+        "Write vault/purpose.md and vault/schema.md for the chosen preset "
+        "(R7-1, AC-R7-1-2, [F1, K1]). "
+        "This is an explicit user action — both files are OVERWRITTEN with preset content. "
+        "Bumps data_version. 404 for unknown scenario_id."
+    ),
+    responses={
+        200: {"description": "Preset applied; purpose.md and schema.md written"},
+        404: {"description": "Unknown scenario_id"},
+    },
+)
+async def apply_scenario(scenario_id: str) -> ScenarioApplyResponse:
+    """
+    POST /scenarios/{scenario_id}/apply — R7-1 [F1, K1].
+
+    Overwrites vault/purpose.md and vault/schema.md with the preset content for the
+    chosen scenario. This is an explicit user action — existing files are replaced.
+    Bumps data_version so the watcher / graph engine pick up the change.
+    """
+    from app.ingest.orchestrator import bump_version
+
+    scenario = _SCENARIO_INDEX.get(scenario_id)
+    if scenario is None:
+        raise HTTPException(status_code=404, detail=f"Unknown scenario_id {scenario_id!r}")
+
+    vault = settings.vault_root
+    purpose_path = vault / "purpose.md"
+    schema_path = vault / "schema.md"
+
+    try:
+        purpose_path.write_text(scenario["purpose_md"], encoding="utf-8")
+        schema_path.write_text(scenario["schema_md"], encoding="utf-8")
+    except OSError as exc:
+        logger.error("apply_scenario: failed to write preset files: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Failed to write preset files: {exc}") from exc
+
+    await bump_version()
+    logger.info("apply_scenario: applied preset %r → purpose.md + schema.md written", scenario_id)
+    return ScenarioApplyResponse(applied=True)
 
 
 # ── Startup helpers ────────────────────────────────────────────────────────────
