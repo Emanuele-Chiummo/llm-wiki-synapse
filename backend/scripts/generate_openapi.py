@@ -84,6 +84,9 @@ def main() -> None:
         # R11-2: app config override layer (ADR-0053)
         "/config/app",
         "/config/app/{key}",
+        # R12-1: dashboard stats API (ADR-0054 §5, F18)
+        "/stats/overview",
+        "/stats/sections",
     ]:
         assert required_path in paths, f"Missing path {required_path!r} in openapi.json"
 
@@ -184,8 +187,26 @@ def main() -> None:
         f"These paths are missing BearerAuth security (ADR-0052 §2.5): {paths_missing_security[:10]}"
     )
 
+    # ADR-0054 §6: StatusResponse must include 'version' field
+    status_schema = schemas.get("StatusResponse", {})
+    status_props = status_schema.get("properties", {})
+    assert (
+        "version" in status_props
+    ), "Missing 'version' field in StatusResponse schema (ADR-0054 §6)"
+
+    # ADR-0054 §5: /stats/overview and /stats/sections must be present with BearerAuth
+    for stats_path in ["/stats/overview", "/stats/sections"]:
+        path_item = paths.get(stats_path, {})
+        assert path_item, f"Missing stats path {stats_path!r} in openapi.json (ADR-0054 §5)"
+        for method_obj in path_item.values():
+            if isinstance(method_obj, dict):
+                sec = method_obj.get("security")
+                assert sec == [{"BearerAuth": []}], (
+                    f"{stats_path} must require BearerAuth (ADR-0054 §5, ADR-0052)"
+                )
+
     print(
-        "Sanity check passed: all 31 required endpoints present (incl. /clip, /clip/config — "
+        "Sanity check passed: all 33 required endpoints present (incl. /clip, /clip/config — "
         "ADR-0038, ADR-0040; /sources/* — Sources view; /sources/ingest-all — ADR-0006); "
         "embeddings_enabled, http_enabled, remote_write_enabled confirmed "
         "(ADR-0029, ADR-0030); token_source, allow_without_token confirmed in McpInfoResponse + "
@@ -194,7 +215,9 @@ def main() -> None:
         "BearerAuth securityScheme declared + all non-exempt routes reference it + "
         "/status and /health/detailed have security=[] (ADR-0052 §2.5, EC-M10-4); "
         "/ingest/convert-marker, /ingest/marker-health (R11-1 / ADR-0051); "
-        "/config/app, /config/app/{key} (R11-2 / ADR-0053)"
+        "/config/app, /config/app/{key} (R11-2 / ADR-0053); "
+        "/stats/overview, /stats/sections (R12-1 / ADR-0054 §5, F18); "
+        "StatusResponse.version confirmed (ADR-0054 §6)"
     )
 
 

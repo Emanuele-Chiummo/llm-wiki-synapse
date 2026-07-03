@@ -614,6 +614,25 @@ async def run_ingest_pipeline(
                 ingest_queue.record_written(run_id, written_page.id)
             await _update_overview(analysis, origin_source)
 
+            # ── F18 post-write hook: domain auto-tag (ADR-0054 §3) ───────────────────
+            # Runs AFTER the write loop + overview (pages exist on disk + DB, I1) and BESIDE the
+            # ADR-0036 enrichment hook, BEFORE propose_reviews. Non-fatal: a classification failure
+            # leaves the page written+untagged and never fails the ingest (§3.4). Dormant vocabulary
+            # ⇒ zero provider calls (§3.2). Reuses the run-scoped accumulator bound above so the
+            # classification cost folds into this run's total_cost_usd (I7). No second data_version
+            # bump — apply_domain_tags writes tags without bumping (§3.2, Do-NOT #3).
+            try:
+                await _auto_tag_written_pages(
+                    provider=provider,
+                    written_pages=written_pages,
+                    origin_source=origin_source,
+                )
+            except Exception as _tag_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: F18 domain auto-tag hook failed (non-fatal): %s",
+                    _tag_exc,
+                )
+
             # ── F4 post-write hook: wikilink enrichment (ADR-0036) ───────────────────
             # Runs BEFORE propose_reviews (so proposals see the enriched link graph) and AFTER
             # all pages are written (so every just-written title is linkable). Fire-and-forget:
@@ -1488,6 +1507,134 @@ async def reindex_wiki_page_body(
 
     if bump:
         await bump_version()
+
+
+# ── F18 / R12-2: domain auto-tag post-write hook (ADR-0054 §3/§4) ──────────────
+
+
+async def apply_domain_tags(page: Page, new_tags: list[str]) -> None:
+    """
+    Rewrite *page*'s frontmatter ``tags`` to *new_tags* and persist incrementally (I1), WITHOUT
+    a second ``data_version`` bump (ADR-0054 §3.2 — one ingest ⇒ at most one bump).
+
+    Reads the on-disk file, replaces ONLY the ``tags`` key in the YAML frontmatter (all other
+    frontmatter — type/title/sources/lang — is preserved), rewrites the file atomically, refreshes
+    ``pages.tags`` + ``content_hash`` via ``persist_metadata``, and re-embeds the body. The K5
+    ``links`` are unaffected by a frontmatter-only tag change, so they are left as-is. Reuses the
+    same single-page primitives ``write_wiki_page`` uses (I1 — only this page is touched, no
+    re-scan). This is the shared write-back seam for BOTH the ingest hook and the backfill.
+    """
+    from app.ops.enrich_wikilinks import _rejoin, _split_frontmatter
+
+    abs_path = (settings.vault_root / page.file_path).resolve()
+    text = abs_path.read_text(encoding="utf-8")
+    fm_block, body = _split_frontmatter(text)
+
+    # Parse the whole file so python-frontmatter round-trips every key; set tags authoritatively.
+    post = frontmatter.loads(text)
+    cleaned = [t for t in new_tags if t]
+    if cleaned:
+        post["tags"] = cleaned
+    else:
+        post.metadata.pop("tags", None)
+    new_file_text = frontmatter.dumps(post) + "\n"
+
+    # Fallback: if the parse-round-trip somehow lost the frontmatter block, keep the original
+    # split-and-rejoin body (defence-in-depth; never corrupt the page).
+    if not new_file_text.strip():
+        new_file_text = _rejoin(fm_block, body)
+
+    new_bytes = new_file_text.encode("utf-8")
+    abs_path.parent.mkdir(parents=True, exist_ok=True)
+    abs_path.write_text(new_file_text, encoding="utf-8")
+
+    await persist_metadata(
+        page_id=page.id,
+        vault_id=page.vault_id,
+        file_path=page.file_path,
+        title=page.title,
+        page_type=page.page_type,
+        sources=page.sources,
+        tags=cleaned or None,
+        content_hash=_sha256(new_bytes),
+        source_mtime_ns=page.source_mtime_ns or 0,
+    )
+    # Re-embed the body (unchanged text, but keeps Qdrant payload consistent — cheap, I1).
+    body_for_embedding = frontmatter.loads(new_file_text).content
+    await upsert_vector(
+        page_id=page.id,
+        text=body_for_embedding,
+        file_path=page.file_path,
+        title=page.title,
+        page_type=page.page_type,
+    )
+    # Reflect the new tags on the in-memory ORM object so callers see the merged set.
+    page.tags = cleaned or None
+    # NO bump_version() here — the ingest already bumped once (ADR-0054 §3.2, Do-NOT #3).
+
+
+async def _auto_tag_written_pages(
+    *,
+    provider: InferenceProvider,
+    written_pages: list[Page],
+    origin_source: str,
+) -> None:
+    """
+    ADR-0054 §3 auto-tag hook: classify each just-written page against the effective domain
+    vocabulary and merge ``domain/*`` tags. Non-fatal per page (a failure leaves that page
+    written+untagged; ingest continues). Dormant vocabulary ⇒ zero provider calls, one debug
+    line max (Do-NOT #2). The provider's usage is already bound to this run's accumulator by the
+    caller, so classification cost folds into the ingest run's ``total_cost_usd`` (I7, §3.3).
+    """
+    from app.config_overrides import effective_domain_vocabulary  # noqa: PLC0415
+    from app.ingest.domain_tagger import (  # noqa: PLC0415
+        classify_page_domains,
+        merge_domain_tags,
+    )
+
+    vocabulary = effective_domain_vocabulary()
+    if not vocabulary:
+        # Dormant: no vocabulary ⇒ zero provider calls, zero log noise (I6, §3.2).
+        logger.debug("_auto_tag_written_pages: vocabulary dormant — skip origin=%s", origin_source)
+        return
+
+    taggable = [p for p in written_pages if p.title and (p.file_path or "").startswith("wiki/")]
+    for page in taggable:
+        try:
+            body = _read_body_for_classification(page)
+            classified = await classify_page_domains(
+                provider,
+                page_title=page.title or "",
+                page_content=body,
+                vocabulary=vocabulary,
+            )
+            merged = merge_domain_tags(page.tags, classified)
+            if merged != (page.tags or []):
+                await apply_domain_tags(page, merged)
+            logger.info(
+                "auto_tag: page=%s domains=%s origin=%s",
+                page.id,
+                classified,
+                origin_source,
+            )
+        except Exception as exc:  # noqa: BLE001 — non-fatal: page stays untagged (§3.4, Do-NOT #6)
+            logger.warning(
+                "auto_tag: classification failed for page=%s (non-fatal, page stays untagged): %s",
+                page.id,
+                exc,
+            )
+
+
+def _read_body_for_classification(page: Page) -> str:
+    """Read the page body (frontmatter stripped) for the classifier; '' if unreadable."""
+    from app.ops.enrich_wikilinks import _split_frontmatter
+
+    abs_path = (settings.vault_root / page.file_path).resolve()
+    try:
+        text = abs_path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    return _split_frontmatter(text)[1]
 
 
 def _ensure_source_summary(

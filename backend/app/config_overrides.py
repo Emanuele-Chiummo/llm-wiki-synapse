@@ -1,12 +1,12 @@
 """
-Runtime config-override layer (R11-2 / ADR-0053).
+Runtime config-override layer (R11-2 / ADR-0053; extended by ADR-0054 for S9).
 
 Merges env baseline (settings.<key>) with DB overrides (app_config table).
 Load once at lifespan startup; O(1) reads from in-memory cache thereafter (I7).
 
 Public API
 ----------
-ALLOWED_CONFIG_KEYS  : frozenset[str]   — the 8 keys the UI may override (§2.2)
+ALLOWED_CONFIG_KEYS  : frozenset[str]   — the 9 keys the UI may override (§2.2)
 load_overrides(session) → None          — called ONCE at lifespan startup
 get_effective(key, env_default) → str   — O(1) cache read (override-else-default)
 source_of(key) → str                    — "override" | "env"
@@ -16,20 +16,23 @@ clear_override(session, key) → None     — allow-list + DELETE + cache refres
 effective_str(key, default) → str | None
 effective_bool(key, default) → bool
 effective_float(key, default) → float
+effective_domain_vocabulary() → list[str]  — S9 typed accessor (ADR-0054 §2.1)
 
 Invariants
 ----------
 I7  : single bounded SELECT at startup; no per-request DB read; refresh only on PUT/DELETE.
 I6  : S5/S6 are routed through the EXISTING embedding gate/adapter (callers do this);
       this module only stores and retrieves the effective string — it never hardcodes shapes.
-I1  : no vault re-scan, no Qdrant re-embed — changing S5/S6 applies to SUBSEQUENT
+      S9: empty vocabulary ⇒ zero provider calls at auto-tag (dormant — I6 satisfied).
+I1  : no vault re-scan, no Qdrant re-embed — changing S5/S6/S9 applies to SUBSEQUENT
       ingests/queries only (documented behaviour, not a bug).
-ADR-0053 §2.5, §2.6, §3, §4.1.
+ADR-0053 §2.5, §2.6, §3, §4.1 · ADR-0054 §2.1 (domain_vocabulary).
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 
 from sqlalchemy import delete, select
@@ -37,8 +40,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
-# ── Allow-list (security boundary — ADR-0053 §2.2) ───────────────────────────
-# ONLY these 8 keys may be written via PUT /config/app/{key}.
+# ── Allow-list (security boundary — ADR-0053 §2.2; extended by ADR-0054 §2.1) ─
+# ONLY these 9 keys may be written via PUT /config/app/{key}.
 # Infra/secret keys are structurally unreachable through this surface (§2.4).
 ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
     {
@@ -50,10 +53,11 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "embedding_format",  # S6  (ADR-0031) — routes through EmbeddingClient adapter seam (I6)
         "overview_language",  # S7  (F3)
         "wikilink_enrich_enabled",  # S8  (ADR-0036)
+        "domain_vocabulary",  # S9  (ADR-0054, F18) — JSON array of domain names
     }
 )
 
-# ── Stable GET /config/app ordering (S1..S8) ─────────────────────────────────
+# ── Stable GET /config/app ordering (S1..S9) ─────────────────────────────────
 # The FE snapshot test needs a stable order; always emit in this sequence.
 ORDERED_KEYS: list[str] = [
     "pdf_extractor",
@@ -64,6 +68,7 @@ ORDERED_KEYS: list[str] = [
     "embedding_format",
     "overview_language",
     "wikilink_enrich_enabled",
+    "domain_vocabulary",  # S9 appended last (ADR-0054 §2.1)
 ]
 
 # ── Per-key value validation rules (ADR-0053 §2.3) ───────────────────────────
@@ -126,6 +131,25 @@ def validate_value(key: str, value: str) -> str | None:
                 "overview_language must be a non-empty ISO language code "
                 "(use DELETE to reset to auto)"
             )
+
+    elif key == "domain_vocabulary":
+        # ADR-0054 §2.1: JSON array of non-empty strings, ≤ 100 elements.
+        # Normalisation (dedupe, strip) is applied in set_override before upsert.
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return 'domain_vocabulary must be a JSON array of strings (e.g. ["ServiceNow","SAM"])'
+        if not isinstance(parsed, list):
+            return "domain_vocabulary must be a JSON array (list), got a non-list JSON value"
+        for i, elem in enumerate(parsed):
+            if not isinstance(elem, str) or not elem.strip():
+                return (
+                    f"domain_vocabulary element at index {i} must be a non-empty string, "
+                    f"got {elem!r}"
+                )
+        if len(parsed) > 100:
+            return f"domain_vocabulary must have at most 100 entries, got {len(parsed)}"
+        # Empty array [] is VALID (explicit dormant state — ADR-0054 §2.1)
 
     return None
 
@@ -260,21 +284,73 @@ def effective_float(key: str, default: float) -> float:
         return default
 
 
+def effective_domain_vocabulary() -> list[str]:
+    """
+    S9 typed accessor — parse the cached domain_vocabulary JSON array → list[str].
+
+    Returns [] if the key is unset, the stored value is "[]", or the stored value
+    is malformed (fail-closed — a malformed stored value can only exist if it bypassed
+    validate_value, which re-serialises canonically at write).
+
+    Pure in-memory O(1) on the ADR-0053 cache; never touches the DB.  Mypy-strict —
+    return type is always list[str] with no Any (ADR-0054 §2.1).
+    """
+    raw = _cache.get("domain_vocabulary")
+    if raw is None:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        logger.warning(
+            "config_overrides.effective_domain_vocabulary: malformed stored value — "
+            "returning [] (fail-closed, ADR-0054 §2.1)"
+        )
+        return []
+    if not isinstance(parsed, list):
+        logger.warning(
+            "config_overrides.effective_domain_vocabulary: stored value is not a list — "
+            "returning [] (fail-closed, ADR-0054 §2.1)"
+        )
+        return []
+    # Filter to non-empty strings only (defensive; canonical write guarantees this)
+    return [s for s in parsed if isinstance(s, str) and s]
+
+
 # ── Cache write helpers ───────────────────────────────────────────────────────
 
 
 async def set_override(session: AsyncSession, key: str, value: str) -> None:
     """
-    Allow-list check + validate + upsert into app_config + refresh in-memory cache.
+    Allow-list check + validate + (normalise for S9) + upsert into app_config + refresh cache.
 
     Raises ValueError if key ∉ ALLOWED_CONFIG_KEYS or value fails validation.
     (Callers convert ValueError → HTTP 400 / 422 as appropriate.)
+
+    For S9 (domain_vocabulary): strips each name, drops empties, dedupes case-insensitively
+    preserving first spelling, caps at 100, then re-serialises as canonical JSON before upsert
+    (ADR-0054 §2.1 normalisation).
     """
     if key not in ALLOWED_CONFIG_KEYS:
         raise ValueError(f"invalid_key: {key!r}")
     err = validate_value(key, value)
     if err is not None:
         raise ValueError(f"invalid_value: {err}")
+
+    # S9: normalise the domain vocabulary before upsert (ADR-0054 §2.1).
+    # validate_value already confirmed it is a valid JSON list — safe to parse here.
+    if key == "domain_vocabulary":
+        raw_list: list[str] = json.loads(value)
+        seen_lower: set[str] = set()
+        normalised: list[str] = []
+        for name in raw_list:
+            stripped = name.strip()
+            if not stripped:
+                continue
+            lower = stripped.lower()
+            if lower not in seen_lower:
+                seen_lower.add(lower)
+                normalised.append(stripped)
+        value = json.dumps(normalised)
 
     from app.models import AppConfig  # noqa: PLC0415 — deferred to avoid circular import
 
