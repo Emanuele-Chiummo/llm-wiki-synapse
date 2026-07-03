@@ -1,19 +1,28 @@
 /**
- * HomeDashboard.tsx — Home landing section [F18][R12-1][A2+A3].
+ * HomeDashboard.tsx — Home landing section [F18][R12-1][A2+A3+A4].
  *
- * Layout (A2+A3 amendment order):
+ * Layout (A2+A3+A4 amendment order):
  *   1. "STATO DEL SISTEMA" block — compact health strip from GET /health/detailed,
  *      fetched ONCE on section mount (component-local, no polling; manual refresh icon).
  *      Shows: component dots (ok/warn/down) + active provider/model + backend version
  *      + uptime + data version. Status from statusStore (already polled by ActivityBar).
- *   2. KPI row (existing — keep).
- *   3. Curated domain sections "SEZIONI" — from GET /stats/sections.
+ *   2. "LAVORI ATTIVI" block — A4 new. Visible ONLY when at least one job is active.
+ *      No empty shell rendered when nothing is running. Sources:
+ *        - Ingest: activityStore snapshot (already polled by ActivityBar; no new poller).
+ *        - Deep Research: fetched ONCE on mount; refreshed on block's refresh icon.
+ *        - Backfill domini: GET /ops/backfill-domains fetched ONCE on mount; refreshed too.
+ *        - Import scan: SKIPPED — importScheduleStore requires its own fetch (not
+ *          pre-hydrated at home mount); wiring a new fetch/poller would violate I3.
+ *   3. KPI row (existing — keep).
+ *   4. Curated domain sections "SEZIONI" — from GET /stats/sections.
  *      Rendered ONLY when vocabulary has entries; empty vocab → small hint + Settings link.
- *   4. NEW "GRUPPI AUTOMATICI" grid — from GET /stats/groups.
- *      Card per group (label, pages_total, type mini-breakdown, top pages, last activity).
+ *   5. "GRUPPI AUTOMATICI" grid — from GET /stats/groups.
+ *      A4: TOP 4 rendered by default (ordered by pages_total DESC as delivered by server).
+ *      If more exist, an "Espandi (N)" / "Comprimi" toggle reveals/hides the rest.
+ *      Toggle state is component-local, default collapsed. aria-expanded on the button.
  *      Click → opens group's top page in Wiki (setActiveSection("pages") + localStorage
  *      slug key). 404 → block hidden silently.
- *   5. Recent activity (existing — keep, last).
+ *   6. Recent activity (existing — keep, last).
  *
  * Group-click behavior: clicking a group card navigates to the Wiki section and writes
  * the top page's slug to localStorage key "synapse:groupTopPageSlug". This matches the
@@ -22,6 +31,8 @@
  * group's content. This choice is documented here per AC instructions.
  *
  * INVARIANT I3: no heavy per-render work; stats + health fetched ONCE on mount, no polling.
+ *               activityStore is already polled by ActivityBar — no new intervals added here.
+ *               Deep-research and backfill status refresh only on mount + manual refresh icon.
  * INVARIANT I4: recent-activity capped at 10, sections/groups capped — no virtualisation.
  * INVARIANT I2: no graph layout runs here; communities_count read from /stats/overview.
  * No charting library imported — type bars are plain inline SVG.
@@ -46,17 +57,24 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   getStatsOverview,
   getStatsSections,
   getStatsGroups,
+  getBackfillDomainStatus,
   type StatsOverview,
   type StatsSections,
   type SectionEntry,
   type StatsGroups,
   type StatsGroup,
+  type BackfillDomainStatus,
 } from "../../api/statsClient";
+import { fetchResearchRuns } from "../../api/researchClient";
+import type { ResearchRunSummary } from "../../api/types";
 import { getHealthDetailed, type DetailedHealth } from "../../api/healthClient";
 import {
   useGraphStore,
@@ -64,6 +82,7 @@ import {
 } from "../../store/graphStore";
 import { useProviderStore, selectActiveProvider } from "../../store/providerStore";
 import { useStatusStore, selectBackendVersion } from "../../store/statusStore";
+import { useActivityCounts } from "../../store/activityStore";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -412,6 +431,242 @@ function SystemStatusBlock({
   );
 }
 
+// ─── Active Jobs Block (A4) ───────────────────────────────────────────────────
+
+interface ActiveJobsBlockProps {
+  /** Ingest counts come from activityStore already polled by ActivityBar — no new poller. */
+  ingestProcessing: number;
+  ingestPending: number;
+  onNavigateIngest: () => void;
+  onNavigateResearch: () => void;
+  onNavigateBackfill: () => void;
+}
+
+/**
+ * JobRow — one row in the active-jobs list.
+ * icon: small indicator (spinner when running, or other icon).
+ * label: truncated text describing the job.
+ * meta: optional secondary info (counts, summary).
+ * onClick: navigates to the relevant section.
+ */
+interface JobRowProps {
+  icon: import("react").ReactNode;
+  label: string;
+  meta?: string | undefined;
+  onClick: () => void;
+  testId?: string | undefined;
+}
+
+function JobRow({ icon, label, meta, onClick, testId }: JobRowProps) {
+  return (
+    <button
+      data-testid={testId}
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        width: "100%",
+        padding: "7px 10px",
+        borderRadius: "var(--syn-radius-md)",
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        textAlign: "left",
+        transition: "background 0.1s ease",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface-hover)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+      }}
+    >
+      <span style={{ flexShrink: 0, color: "var(--syn-accent)", display: "flex", alignItems: "center" }}>
+        {icon}
+      </span>
+      <span
+        style={{
+          flex: 1,
+          fontSize: 13,
+          color: "var(--syn-text)",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {label}
+      </span>
+      {meta && (
+        <span style={{ fontSize: 11, color: "var(--syn-text-dim)", flexShrink: 0 }}>
+          {meta}
+        </span>
+      )}
+      <span style={{ fontSize: 11, color: "var(--syn-accent)", flexShrink: 0 }}>→</span>
+    </button>
+  );
+}
+
+/**
+ * ActiveJobsBlock — renders the "LAVORI ATTIVI" section.
+ *
+ * Fetches deep-research running runs and backfill-domain status ONCE on mount
+ * (plus on manual refresh). Ingest counts are passed as props from activityStore
+ * (already polled by ActivityBar — I3 compliant, no new interval).
+ *
+ * Renders nothing (returns null) when no job is active.
+ * [F18][A4]
+ */
+function ActiveJobsBlock({
+  ingestProcessing,
+  ingestPending,
+  onNavigateIngest,
+  onNavigateResearch,
+  onNavigateBackfill,
+}: ActiveJobsBlockProps) {
+  const { t } = useTranslation();
+
+  const [runningResearch, setRunningResearch] = useState<ResearchRunSummary[]>([]);
+  const [backfillStatus, setBackfillStatus] = useState<BackfillDomainStatus | null>(null);
+  const [jobsLoading, setJobsLoading] = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchJobStatus = useCallback(() => {
+    if (abortRef.current) abortRef.current.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    setJobsLoading(true);
+
+    void (async () => {
+      try {
+        const [runsResult, backfillResult] = await Promise.all([
+          fetchResearchRuns({ limit: 50 }, ac.signal).catch(() => null),
+          getBackfillDomainStatus(ac.signal).catch(() => null),
+        ]);
+        if (ac.signal.aborted) return;
+
+        const running = (runsResult?.items ?? []).filter((r) => r.status === "running");
+        setRunningResearch(running);
+        setBackfillStatus(backfillResult);
+      } catch {
+        if (ac.signal.aborted) return;
+        setRunningResearch([]);
+        setBackfillStatus(null);
+      } finally {
+        if (!ac.signal.aborted) setJobsLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    fetchJobStatus();
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, [fetchJobStatus]);
+
+  // Build the list of active job rows
+  const hasIngest = ingestProcessing > 0 || ingestPending > 0;
+  const hasResearch = runningResearch.length > 0;
+  const hasBackfill = backfillStatus?.running === true;
+
+  // Nothing active yet (still loading) → don't flash an empty block
+  if (jobsLoading && !hasIngest) return null;
+
+  // Nothing active at all → render nothing
+  if (!hasIngest && !hasResearch && !hasBackfill) return null;
+
+  return (
+    <section
+      aria-label={t("home.activeJobs.ariaLabel")}
+      data-testid="home-active-jobs"
+      style={{
+        padding: "12px 14px",
+        borderRadius: "var(--syn-radius-md)",
+        border: "1px solid color-mix(in srgb, var(--syn-accent) 25%, var(--syn-border) 75%)",
+        background: "var(--syn-bg-soft)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+      }}
+    >
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Loader2 size={12} style={{ color: "var(--syn-accent)" }} aria-hidden="true" />
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--syn-text-muted)",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            {t("home.activeJobs.title")}
+          </span>
+        </div>
+        <button
+          data-testid="home-active-jobs-refresh"
+          onClick={fetchJobStatus}
+          title={t("home.activeJobs.refresh")}
+          aria-label={t("home.activeJobs.refresh")}
+          style={{
+            padding: 4,
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            color: "var(--syn-text-dim)",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <RefreshCw size={11} aria-hidden="true" />
+        </button>
+      </div>
+
+      {/* Ingest row */}
+      {hasIngest && (
+        <JobRow
+          testId="home-active-jobs-ingest"
+          icon={<Loader2 size={12} />}
+          label={t("home.activeJobs.ingest")}
+          meta={
+            ingestProcessing > 0 && ingestPending > 0
+              ? `${ingestProcessing} ${t("home.activeJobs.ingestProcessing")} · ${ingestPending} ${t("home.activeJobs.ingestPending")}`
+              : ingestProcessing > 0
+                ? `${ingestProcessing} ${t("home.activeJobs.ingestProcessing")}`
+                : `${ingestPending} ${t("home.activeJobs.ingestPending")}`
+          }
+          onClick={onNavigateIngest}
+        />
+      )}
+
+      {/* Deep Research running rows — one per running run (topic truncated) */}
+      {runningResearch.map((run) => (
+        <JobRow
+          key={run.id}
+          testId={`home-active-jobs-research-${run.id}`}
+          icon={<Loader2 size={12} />}
+          label={`${t("home.activeJobs.research")}: ${run.topic}`}
+          onClick={onNavigateResearch}
+        />
+      ))}
+
+      {/* Backfill domini row */}
+      {hasBackfill && (
+        <JobRow
+          testId="home-active-jobs-backfill"
+          icon={<Loader2 size={12} />}
+          label={t("home.activeJobs.backfill")}
+          meta={backfillStatus?.last_summary ?? undefined}
+          onClick={onNavigateBackfill}
+        />
+      )}
+    </section>
+  );
+}
+
 // ─── KPI card ─────────────────────────────────────────────────────────────────
 
 interface KpiCardProps {
@@ -675,11 +930,20 @@ function GroupCard({ group, onOpen }: GroupCardProps) {
 
 // ─── HomeDashboard ─────────────────────────────────────────────────────────────
 
+/** Number of groups to show by default before "Espandi" toggle (A4). */
+const GROUPS_DEFAULT_CAP = 4;
+
 export function HomeDashboard() {
   const { t } = useTranslation();
   const setActiveSection = useGraphStore(selectSetActiveSection);
   const activeProvider = useProviderStore(selectActiveProvider);
   const backendVersion = useStatusStore(selectBackendVersion);
+
+  // Ingest counts from activityStore — already polled by ActivityBar; no new poller (I3).
+  const { processing: ingestProcessing, pending: ingestPending } = useActivityCounts();
+
+  // A4 — expand/collapse state for GRUPPI AUTOMATICI (component-local, default collapsed).
+  const [groupsExpanded, setGroupsExpanded] = useState(false);
 
   // Derive active provider label (type + model) — informational display
   const activeProviderLabel = activeProvider
@@ -858,7 +1122,16 @@ export function HomeDashboard() {
         dataVersion={overview.data_version}
       />
 
-      {/* ── 2. KPI row ── */}
+      {/* ── 2. Active Jobs block (A4) — only rendered when something is running ── */}
+      <ActiveJobsBlock
+        ingestProcessing={ingestProcessing}
+        ingestPending={ingestPending}
+        onNavigateIngest={() => setActiveSection("ingest")}
+        onNavigateResearch={() => setActiveSection("deep-search")}
+        onNavigateBackfill={() => setActiveSection("settings")}
+      />
+
+      {/* ── 3. KPI row ── */}
       <section aria-label={t("home.kpi.ariaLabel")}>
         <div
           style={{
@@ -914,7 +1187,7 @@ export function HomeDashboard() {
         </div>
       </section>
 
-      {/* ── 3. Curated domain sections "SEZIONI" ── */}
+      {/* ── 4. Curated domain sections "SEZIONI" ── */}
       {sections !== null && (
         <section aria-label={t("home.sections.ariaLabel")}>
           <h2
@@ -992,24 +1265,70 @@ export function HomeDashboard() {
         </section>
       )}
 
-      {/* ── 4. NEW "GRUPPI AUTOMATICI" grid (A3) — hidden when groups is null (404) ── */}
+      {/* ── 5. "GRUPPI AUTOMATICI" grid (A3+A4) — hidden when groups is null (404) ── */}
+      {/* A4: top 4 shown by default; Espandi/Comprimi toggle reveals the full capped list. */}
       {groups !== null && groups !== undefined && groupList.length > 0 && (
         <section
           aria-label={t("home.groups.ariaLabel")}
           data-testid="home-groups-section"
         >
-          <h2
-            style={{
-              margin: "0 0 12px",
-              fontSize: 11,
-              fontWeight: 700,
-              color: "var(--syn-text-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-            }}
-          >
-            {t("home.groups.title")}
-          </h2>
+          {/* Section header row: title + expand/collapse toggle */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, justifyContent: "space-between" }}>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--syn-text-muted)",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+              }}
+            >
+              {t("home.groups.title")}
+            </h2>
+
+            {/* Expand/collapse toggle — only rendered when there are more than GROUPS_DEFAULT_CAP groups */}
+            {groupList.length > GROUPS_DEFAULT_CAP && (
+              <button
+                data-testid="home-groups-toggle"
+                aria-expanded={groupsExpanded}
+                onClick={() => setGroupsExpanded((prev) => !prev)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "3px 10px",
+                  borderRadius: "var(--syn-radius-md)",
+                  border: "1px solid var(--syn-border)",
+                  background: "transparent",
+                  color: "var(--syn-text-muted)",
+                  fontSize: 11,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                  transition: "border-color 0.1s ease",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-accent)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-border)";
+                }}
+              >
+                {groupsExpanded ? (
+                  <>
+                    <ChevronUp size={11} aria-hidden="true" />
+                    {t("home.groups.collapse")}
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={11} aria-hidden="true" />
+                    {t("home.groups.expand", { count: groupList.length - GROUPS_DEFAULT_CAP })}
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
           <div
             data-testid="home-groups-grid"
             style={{
@@ -1018,7 +1337,7 @@ export function HomeDashboard() {
               gap: 12,
             }}
           >
-            {groupList.map((grp) => (
+            {(groupsExpanded ? groupList : groupList.slice(0, GROUPS_DEFAULT_CAP)).map((grp) => (
               <GroupCard
                 key={grp.community}
                 group={grp}
@@ -1029,7 +1348,7 @@ export function HomeDashboard() {
         </section>
       )}
 
-      {/* ── 5. Recent activity (last) ── */}
+      {/* ── 6. Recent activity (last) ── */}
       <section aria-label={t("home.activity.ariaLabel")}>
         <h2
           style={{

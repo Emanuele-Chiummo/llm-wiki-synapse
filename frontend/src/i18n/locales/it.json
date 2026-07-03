@@ -1110,7 +1110,19 @@
       "pages": "pagine",
       "openTopPage": "Apri pagina principale",
       "lastActivity": "Ultima attività",
-      "noTopPages": "Nessuna pagina ancora"
+      "noTopPages": "Nessuna pagina ancora",
+      "expand": "Espandi ({{count}} altri)",
+      "collapse": "Comprimi"
+    },
+    "activeJobs": {
+      "ariaLabel": "Lavori attivi",
+      "title": "LAVORI ATTIVI",
+      "refresh": "Aggiorna lavori attivi",
+      "ingest": "Ingest",
+      "ingestProcessing": "in corso",
+      "ingestPending": "in coda",
+      "research": "Ricerca profonda",
+      "backfill": "Classificazione domini in corso"
     },
     "placeholder": {
       "title": "Server v1.1 — aggiorna per abilitare la dashboard Home",
