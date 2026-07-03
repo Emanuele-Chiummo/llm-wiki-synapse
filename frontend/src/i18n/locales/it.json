@@ -457,11 +457,13 @@
       },
       "opLabel": {
         "lint": "Scansione lint",
-        "backfill": "Classificazione domini"
+        "backfill": "Classificazione domini",
+        "schema_review": "Revisione schema"
       },
       "opDesc": {
         "lint": "Scansione lint — trova problemi strutturali e semantici; le correzioni restano manuali.",
-        "backfill": "Classificazione domini — tagga le pagine nuove/non classificate col vocabolario."
+        "backfill": "Classificazione domini — tagga le pagine nuove/non classificate col vocabolario.",
+        "schema_review": "Revisione schema — propone aggiornamenti a schema.md nella coda Revisione in base a come è evoluto il vault."
       }
     },
     "costs": {

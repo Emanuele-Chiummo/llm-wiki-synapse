@@ -933,11 +933,12 @@ async def test_get_config_app_has_9_settings_with_domain_vocabulary() -> None:
     assert resp.status_code == 200
     body = resp.json()
     settings_list = body["settings"]
-    # Now 11 keys (S1..S11; S10=lint_schedule, S11=backfill_schedule added in R12-7/A5)
-    assert len(settings_list) == 11, f"Expected 11 settings, got {len(settings_list)}"
+    # Now 12 keys (S1..S12; S10=lint_schedule, S11=backfill_schedule R12-7/A5;
+    # S12=schema_review_schedule added in R12-8)
+    assert len(settings_list) == 12, f"Expected 12 settings, got {len(settings_list)}"
     keys = [s["key"] for s in settings_list]
     assert keys == ORDERED_KEYS, f"Keys out of order: {keys}"
-    assert keys[-1] == "backfill_schedule", "backfill_schedule must be the last key (S11)"
+    assert keys[-1] == "schema_review_schedule", "schema_review_schedule must be the last key (S12)"
 
 
 # ── T-STATS-014..018: GET /stats/groups (A1 amendment) ───────────────────────

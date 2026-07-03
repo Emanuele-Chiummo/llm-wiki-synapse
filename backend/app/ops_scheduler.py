@@ -1,20 +1,24 @@
 """
-OpsScheduler — R12-7 / A5 (SPRINT-v1.2-SCOPE §10 A5).
+OpsScheduler — R12-7 / A5 (SPRINT-v1.2-SCOPE §10 A5); R12-8 adds schema_review (S12).
 
 A SINGLE asyncio interval background task that:
-1. Reads the effective ``lint_schedule`` and ``backfill_schedule`` config keys on each
-   tick (S10/S11 — ADR-0053 allow-list; values: off|hourly|daily|weekly).
+1. Reads the effective ``lint_schedule``, ``backfill_schedule``, and
+   ``schema_review_schedule`` config keys on each tick
+   (S10/S11/S12 — ADR-0053 allow-list; values: off|hourly|daily|weekly).
 2. If a schedule is not "off" and the op's interval has elapsed since its last run,
    triggers the op exactly once (no overlap — single-flight guard per op, I7).
 3. Is non-fatal: an op error is logged + recorded, never crashes the scheduler loop (I7).
 4. Tick interval: every 60 s (idle poll; the op intervals are hourly/daily/weekly).
 
 Ops:
-  lint     → app.ops.lint.run_lint_scan(vault_id, ...) — findings-only; fix-apply is
-             ALWAYS human-gated (I7/K8). Scheduled runs use DEFAULT bounds.
-  backfill → app.ops.backfill_domains.run_backfill(vault_id, force=False) — only new/
-             untagged pages, cheap (ADR-0054 §4 default bounds). Skipped when
-             backfill_domains.is_running() (single-flight inherited from that module).
+  lint          → app.ops.lint.run_lint_scan(vault_id, ...) — findings-only; fix-apply is
+                 ALWAYS human-gated (I7/K8). Scheduled runs use DEFAULT bounds.
+  backfill      → app.ops.backfill_domains.run_backfill(vault_id, force=False) — only new/
+                 untagged pages, cheap (ADR-0054 §4 default bounds). Skipped when
+                 backfill_domains.is_running() (single-flight inherited from that module).
+  schema_review → app.ops.schema_review.run_schema_review(vault_id) — bounded vault snapshot
+                 + ONE provider call; files a schema-suggestion ReviewItem (K8, R12-8).
+                 NEVER auto-edits schema.md. Human approves in the Review queue.
 
 Per-op state: last_run_at (datetime|None), last_status ("ok"|"error:<msg>"|None),
 in_flight bool. State is IN-MEMORY — restarts reset the clock. This is the same
@@ -27,9 +31,10 @@ Lifecycle:
 
 Injectable clock + op functions for unit tests (mirrors ImportScheduler pattern).
 
-ADR references: ADR-0053 (config keys S10/S11), ADR-0037 (lint scan), ADR-0054 (backfill).
+ADR references: ADR-0053 (config keys S10/S11/S12), ADR-0037 (lint scan),
+                ADR-0054 (backfill), R12-8 (schema_review).
 Invariants: I7 (bounded, non-fatal loop), I1 (lint scan reads only — no vault re-scan),
-            I6 (backfill routes through InferenceProvider — no hardcoded backend).
+            I6 (backfill/schema_review route through InferenceProvider — no hardcoded backend).
 """
 
 from __future__ import annotations
@@ -54,8 +59,8 @@ SCHEDULE_SECONDS: dict[str, int] = {
 _TICK_SECONDS: int = 60
 
 # Op names (literal type for type safety)
-OpName = Literal["lint", "backfill"]
-_OP_NAMES: tuple[OpName, ...] = ("lint", "backfill")
+OpName = Literal["lint", "backfill", "schema_review"]
+_OP_NAMES: tuple[OpName, ...] = ("lint", "backfill", "schema_review")
 
 
 # ── Per-op state ──────────────────────────────────────────────────────────────
@@ -102,6 +107,7 @@ class _RealClock:
 
 LintFn = Callable[..., Awaitable[object]]
 BackfillFn = Callable[..., Awaitable[object]]
+SchemaReviewFn = Callable[..., Awaitable[object]]
 
 
 # ── OpsScheduler ──────────────────────────────────────────────────────────────
@@ -109,14 +115,16 @@ BackfillFn = Callable[..., Awaitable[object]]
 
 class OpsScheduler:
     """
-    Single asyncio background task for schedulable ops: lint scan + domain backfill (A5/R12-7).
+    Single asyncio background task for schedulable ops:
+    lint scan + domain backfill + schema review (A5/R12-7/R12-8).
 
     Lifecycle:
       - start(loop) called in FastAPI lifespan AFTER load_overrides (config is source of truth).
       - stop()      called in lifespan shutdown.
 
-    Config changes (PUT /config/app/lint_schedule or /backfill_schedule) take effect on the
-    next tick (re-reads effective schedule value every 60 s — mirrors ImportScheduler pattern).
+    Config changes (PUT /config/app/lint_schedule, /backfill_schedule, or
+    /schema_review_schedule) take effect on the next tick (re-reads effective schedule
+    value every 60 s — mirrors ImportScheduler pattern).
 
     Injectable clock and op functions for infra-free unit tests.
     """
@@ -126,15 +134,18 @@ class OpsScheduler:
         clock: _ClockProtocol | None = None,
         lint_fn: LintFn | None = None,
         backfill_fn: BackfillFn | None = None,
+        schema_review_fn: SchemaReviewFn | None = None,
     ) -> None:
         self._clock: _ClockProtocol = clock or _RealClock()
         self._lint_fn: LintFn = lint_fn or _default_lint_fn
         self._backfill_fn: BackfillFn = backfill_fn or _default_backfill_fn
+        self._schema_review_fn: SchemaReviewFn = schema_review_fn or _default_schema_review_fn
         self._stopping: bool = False
         self._task: asyncio.Task[None] | None = None
         self._state: dict[OpName, OpState] = {
             "lint": OpState(),
             "backfill": OpState(),
+            "schema_review": OpState(),
         }
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -191,6 +202,10 @@ class OpsScheduler:
 
         await self._trigger_op(op)
 
+    # NOTE: schema_review has no external single-flight guard (unlike backfill).
+    # The in-flight guard above is sufficient; the op itself is idempotent
+    # (anti-spam: skip if an open schema-suggestion already exists — see ops/schema_review.py).
+
     # ── Main loop ─────────────────────────────────────────────────────────────
 
     async def _run(self) -> None:
@@ -214,7 +229,8 @@ class OpsScheduler:
         """
         from app.config_overrides import get_effective  # noqa: PLC0415
 
-        schedule_key = f"{op}_schedule"  # "lint_schedule" or "backfill_schedule"
+        # "lint_schedule" | "backfill_schedule" | "schema_review_schedule"
+        schedule_key = f"{op}_schedule"
         schedule = get_effective(schedule_key, "off")
 
         if schedule == "off" or schedule not in SCHEDULE_SECONDS:
@@ -255,8 +271,10 @@ class OpsScheduler:
         try:
             if op == "lint":
                 await self._lint_fn()
-            else:
+            elif op == "backfill":
                 await self._backfill_fn()
+            else:
+                await self._schema_review_fn()
             state.last_status = "ok"
             logger.info("ops_scheduler: op=%s completed (status=ok)", op)
         except Exception as exc:  # noqa: BLE001 — never crash the scheduler loop (I7)
@@ -293,6 +311,27 @@ async def _default_backfill_fn() -> None:
     from app.ops.backfill_domains import run_backfill  # noqa: PLC0415
 
     await run_backfill(vault_id=settings.vault_id, force=False)
+
+
+async def _default_schema_review_fn() -> None:
+    """
+    Run one bounded schema review pass (R12-8, K8):
+    vault snapshot → ONE provider call → file a schema-suggestion ReviewItem (if needed).
+
+    The op is idempotent: ops/schema_review.run_schema_review skips (zero cost) when an
+    open schema-suggestion already exists in the queue (anti-spam).
+
+    NOTE: this scheduled path runs REGARDLESS of the SCHEMA_SUGGESTION_ENABLED env flag.
+    That flag gates the automatic post-ingest trigger; an explicit schedule or run-now is
+    explicit user intent and must always be honoured. This decision is documented here to
+    prevent future confusion (R12-8 design decision).
+
+    Deferred import avoids circular import at module load time (I6).
+    """
+    from app.config import settings  # noqa: PLC0415
+    from app.ops.schema_review import run_schema_review  # noqa: PLC0415
+
+    await run_schema_review(vault_id=settings.vault_id)
 
 
 def _check_backfill_not_running() -> None:

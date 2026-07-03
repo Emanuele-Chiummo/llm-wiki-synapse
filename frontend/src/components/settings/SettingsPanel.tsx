@@ -681,6 +681,8 @@ function configKeyToI18nSuffix(key: AppConfigKey): string {
     // A5 / R12-7 — ops schedule frequencies (managed by OpsScheduleCard, not SectionRuntimeConfig)
     lint_schedule:              "lintSchedule",
     backfill_schedule:          "backfillSchedule",
+    // S12 / R12-8 — schema review schedule (managed by OpsScheduleCard)
+    schema_review_schedule:     "schemaReviewSchedule",
   };
   return map[key];
 }

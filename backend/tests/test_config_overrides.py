@@ -234,8 +234,8 @@ async def test_get_config_app_all_env_sources() -> None:
     body = resp.json()
     settings_list = body["settings"]
     assert (
-        len(settings_list) == 11
-    )  # S1..S11 (S9=domain_vocabulary ADR-0054; S10/S11=schedule R12-7/A5)
+        len(settings_list) == 12
+    )  # S1..S12 (S9=domain_vocabulary ADR-0054; S10/S11=schedule R12-7/A5; S12=schema_review R12-8)
     for entry in settings_list:
         assert entry["source"] == "env", f"Expected source=env for {entry['key']}"
 
