@@ -245,6 +245,22 @@ The summary includes `pages_tagged`, `total_cost_usd`, and `stopped_reason` (one
 while one is in flight returns `409 Conflict`. If the vocabulary is empty, the endpoint
 returns `400 Bad Request`.
 
+#### Scheduling lint and domain backfill (v1.2) {#job-scheduling}
+
+Both the lint scan and the domain backfill can run **automatically on a schedule** —
+no cron, no curl. Open **Settings > Advanced > Job scheduling** ("Pianificazione
+lavori"): each job has a frequency selector (**Off / Hourly / Daily / Weekly**,
+default Off), a **Run now** button, and a last-run line with the outcome.
+
+- **Lint scan** finds structural/semantic problems and files them in the Lint section.
+  Applying fixes stays a manual, human-approved action — the schedule only runs the scan.
+- **Domain backfill** runs with `force=false`: it only classifies new/untagged pages, so
+  a recurring schedule is cheap once the initial backfill is done.
+- Only one run per job can be in flight (a second trigger is refused); a scheduled
+  backfill is skipped while the vocabulary is empty.
+- Frequencies are stored as runtime settings (`lint_schedule`, `backfill_schedule`) —
+  changed live, no restart needed. The schedule clock resets on backend restart.
+
 ---
 
 ### Wiki section
