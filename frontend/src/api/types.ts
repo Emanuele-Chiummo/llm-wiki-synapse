@@ -129,6 +129,12 @@ export interface StatusResponse {
   data_version: number;
   started_at: string;
   uptime_seconds: number;
+  /**
+   * Backend package version (additive, ADR-0054 §6, R12-3).
+   * Absent on v1.1 and older backends — undefined means no banner.
+   * "dev" means a local build with no version injected → no banner.
+   */
+  version?: string;
 }
 
 // ─── GET /ingest/runs (ADR-0018 §7) ──────────────────────────────────────────

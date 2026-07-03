@@ -28,8 +28,10 @@ export type CenterTab = "graph" | "chat";
  * ADR-0018 §2 / ADR-0019 §3: "chat" enabled in Phase 3.
  * Scalar, Object.is comparison — no shallow needed.
  * v0.6 [F11]: "sources" added for raw-source file browser; "ingest" retained for run-history.
+ * v1.2 [F18][R12-1]: "home" added as the new default landing section.
  */
 export type Section =
+  | "home"
   | "chat"
   | "pages"
   | "sources"
@@ -142,7 +144,7 @@ const INITIAL_STATE: GraphState = {
   selectedSource: null,
   activeTab: "graph",
   treeCollapsed: {},
-  activeSection: "chat" as Section,
+  activeSection: "home" as Section,
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────

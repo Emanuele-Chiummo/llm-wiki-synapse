@@ -2,7 +2,8 @@
  * activeSection-store.test.ts — vitest tests for ADR-0018 §2 extension of graphStore.
  *
  * Tests:
- *   - default activeSection is "chat" (ADR-0018 §2 Phase 3 + F1-HARD-NAV-ORDER, AC-HARD-ORD-2)
+ *   - default activeSection is "home" (R12-1: Home dashboard is the new default landing [F18])
+ *     NB: was "chat" before v1.2 (AC-HARD-ORD-2 updated per R12-1 AC-R12-1-1)
  *   - setActiveSection transitions all valid sections
  *   - scalar selector returns new value after set
  *   - graph state keys are NOT touched by setActiveSection
@@ -19,9 +20,9 @@ describe("graphStore activeSection slice (ADR-0018 §2)", () => {
     useGraphStore.getState().reset();
   });
 
-  it("defaults to 'chat' (F1-HARD-NAV-ORDER / AC-HARD-ORD-2: default section on first load is Chat)", () => {
+  it("defaults to 'home' (R12-1 AC-R12-1-1: landing section is Home dashboard [F18])", () => {
     const state = useGraphStore.getState();
-    expect(selectActiveSection(state)).toBe("chat");
+    expect(selectActiveSection(state)).toBe("home");
   });
 
   it("transitions to 'graph'", () => {
@@ -65,14 +66,14 @@ describe("graphStore activeSection slice (ADR-0018 §2)", () => {
     expect(selectActiveSection(useGraphStore.getState())).toBe("ingest");
   });
 
-  it("reset() brings activeSection back to 'chat' (F1-HARD-NAV-ORDER / AC-HARD-ORD-2)", () => {
+  it("reset() brings activeSection back to 'home' (R12-1 AC-R12-1-1: default landing is Home [F18])", () => {
     useGraphStore.getState().setActiveSection("settings");
     useGraphStore.getState().reset();
-    expect(selectActiveSection(useGraphStore.getState())).toBe("chat");
+    expect(selectActiveSection(useGraphStore.getState())).toBe("home");
   });
 
-  it("all 4 valid section values are accepted without throwing", () => {
-    const sections: Section[] = ["pages", "graph", "ingest", "settings"];
+  it("all 5 valid section values are accepted without throwing", () => {
+    const sections: Section[] = ["home", "pages", "graph", "ingest", "settings"];
     for (const section of sections) {
       expect(() => useGraphStore.getState().setActiveSection(section)).not.toThrow();
     }

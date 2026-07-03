@@ -33,6 +33,7 @@
 import { useCallback, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  House,
   MessageSquare,
   FileText,
   FolderOpen,
@@ -62,10 +63,12 @@ interface RailItem {
 }
 
 /**
- * Active items. Search between Sources and Graph (llm_wiki parity, F5/v0.6).
+ * Active items. Home at the top slot freed by R11-3 logo removal [F18][R12-1].
+ * Search between Sources and Graph (llm_wiki parity, F5/v0.6).
  * "sources" now maps to SourcesView (file browser) — [F11 / v0.6].
  */
 const TOP_ITEMS: RailItem[] = [
+  { id: "home",    icon: <House         size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.home" },
   { id: "chat",    icon: <MessageSquare size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.chat" },
   { id: "pages",   icon: <FileText      size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.wiki" },
   { id: "sources", icon: <FolderOpen    size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.sources" },

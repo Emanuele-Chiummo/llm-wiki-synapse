@@ -1,5 +1,6 @@
 {
   "nav": {
+    "home": "Home",
     "chat": "Chat",
     "wiki": "Wiki",
     "pages": "Wiki",
@@ -984,6 +985,12 @@
       "on": "Attivo",
       "off": "Disattivo"
     },
+    "domainVocabulary": {
+      "label": "Vocabolario dei domini",
+      "help": "Elenco di nomi di dominio separati da virgola. Le pagine importate dopo la configurazione verranno etichettate automaticamente (convenzione tag domain/Nome). Vuoto = funzione inattiva, nessuna chiamata al provider.",
+      "placeholder": "es. ServiceNow, SAM, Procurement, TPRM",
+      "chipHint": "Inserisci i nomi dei domini separati da virgola. Non includere il prefisso domain/ — viene aggiunto automaticamente."
+    },
     "pdfExtractorSection": {
       "title": "Estrazione PDF",
       "desc": "Configura quale motore estrae il testo dai file PDF e come raggiungere il microservizio Marker."
@@ -1036,6 +1043,42 @@
       "title": "Tutto pronto!",
       "desc": "Synapse è configurato e pronto. Puoi modificare queste impostazioni in qualsiasi momento da Impostazioni › Per iniziare.",
       "cta": "Inizia a usare Synapse"
+    }
+  },
+  "home": {
+    "title": "Home",
+    "subtitle": "Panoramica della tua base di conoscenza",
+    "kpi": {
+      "ariaLabel": "Indicatori chiave di prestazione",
+      "pagesTotal": "Pagine",
+      "linksTotal": "Link",
+      "communities": "Comunità",
+      "reviewPending": "Revisione",
+      "lintOpen": "Lint",
+      "monthlyCost": "Spesa mensile",
+      "dataVersion": "Versione dati"
+    },
+    "activity": {
+      "ariaLabel": "Attività recenti",
+      "title": "Attività recenti",
+      "empty": "Nessuna attività recente."
+    },
+    "sections": {
+      "ariaLabel": "Sezioni dominio",
+      "title": "Domini",
+      "untaggedLabel": "Non classificate",
+      "filterHint": "Sfoglia",
+      "emptyVocab": "Nessun vocabolario di dominio configurato. Aggiungi domini in Impostazioni › Avanzate per visualizzare i dettagli per dominio.",
+      "goSettings": "Configura domini"
+    },
+    "placeholder": {
+      "title": "Server v1.1 — aggiorna per abilitare la dashboard Home",
+      "body": "Il backend non espone ancora /stats/overview o /stats/sections. Aggiorna il backend alla v1.2 per abilitare la dashboard Home."
+    },
+    "versionBanner": {
+      "message": "Il server Synapse è alla v{{backendVersion}} — il frontend si aspetta la v{{appVersion}}. Aggiorna l'immagine del backend per le ultime funzionalità.",
+      "deployLink": "Come aggiornare",
+      "dismiss": "Chiudi avviso versione"
     }
   }
 }

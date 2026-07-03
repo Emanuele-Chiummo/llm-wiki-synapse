@@ -35,7 +35,11 @@ export interface AppConfigResponse {
   settings: AppConfigEntry[];
 }
 
-/** The 8 runtime-tunable config keys (SPRINT-v1.1 §2 R11-2 MIGRATED list). */
+/**
+ * Runtime-tunable config keys.
+ * S1–S8: SPRINT-v1.1 §2 R11-2 MIGRATED list.
+ * S9: domain_vocabulary (ADR-0054 §2.1, F18) — JSON array of domain name strings.
+ */
 export type AppConfigKey =
   | "pdf_extractor"
   | "marker_service_url"
@@ -44,7 +48,8 @@ export type AppConfigKey =
   | "embeddings_enabled"
   | "embedding_format"
   | "overview_language"
-  | "wikilink_enrich_enabled";
+  | "wikilink_enrich_enabled"
+  | "domain_vocabulary";
 
 // ─── Client functions ─────────────────────────────────────────────────────────
 
