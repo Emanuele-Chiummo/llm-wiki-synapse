@@ -87,6 +87,8 @@ def main() -> None:
         # R12-1: dashboard stats API (ADR-0054 §5, F18)
         "/stats/overview",
         "/stats/sections",
+        # R12-1 A1: dynamic Louvain community groups (SPRINT-v1.2-SCOPE §10 A1)
+        "/stats/groups",
     ]:
         assert required_path in paths, f"Missing path {required_path!r} in openapi.json"
 
@@ -206,7 +208,7 @@ def main() -> None:
                 )
 
     print(
-        "Sanity check passed: all 33 required endpoints present (incl. /clip, /clip/config — "
+        "Sanity check passed: all 34 required endpoints present (incl. /clip, /clip/config — "
         "ADR-0038, ADR-0040; /sources/* — Sources view; /sources/ingest-all — ADR-0006); "
         "embeddings_enabled, http_enabled, remote_write_enabled confirmed "
         "(ADR-0029, ADR-0030); token_source, allow_without_token confirmed in McpInfoResponse + "
@@ -217,6 +219,7 @@ def main() -> None:
         "/ingest/convert-marker, /ingest/marker-health (R11-1 / ADR-0051); "
         "/config/app, /config/app/{key} (R11-2 / ADR-0053); "
         "/stats/overview, /stats/sections (R12-1 / ADR-0054 §5, F18); "
+        "/stats/groups (R12-1 A1 / SPRINT-v1.2-SCOPE §10 A1, F18); "
         "StatusResponse.version confirmed (ADR-0054 §6)"
     )
 
