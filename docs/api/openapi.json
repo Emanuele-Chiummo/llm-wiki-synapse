@@ -465,6 +465,78 @@
         ]
       }
     },
+    "/ops/backfill-domains": {
+      "get": {
+        "summary": "Get Backfill Domains Status",
+        "description": "Single-flight state + last summary of the domain backfill (ADR-0054 \u00a76).",
+        "operationId": "get_backfill_domains_status_ops_backfill_domains_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillDomainsStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Start Backfill Domains",
+        "description": "Start ONE bounded domain backfill over the existing vault (R12-2, ADR-0054 \u00a76).",
+        "operationId": "start_backfill_domains_ops_backfill_domains_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackfillDomainsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillDomainsStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Domain vocabulary is empty (feature dormant)"
+          },
+          "409": {
+            "description": "A backfill run is already in flight"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/status": {
       "get": {
         "summary": "Service health + data_version",
@@ -3948,6 +4020,106 @@
         ],
         "title": "AppConfigSetting",
         "description": "One entry in the GET /config/app response (ADR-0053 \u00a73.1)."
+      },
+      "BackfillDomainsRequest": {
+        "properties": {
+          "max_pages": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Pages",
+            "description": "Cap on pages processed this run (clamped server-side)."
+          },
+          "token_budget": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Budget",
+            "description": "Token budget for the run (clamped server-side, I7)."
+          },
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "description": "Re-classify pages that already carry a domain/ tag (default: skip them).",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "BackfillDomainsRequest",
+        "description": "Request body for POST /ops/backfill-domains (ADR-0054 \u00a76)."
+      },
+      "BackfillDomainsStartResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "'started' \u2014 backfill runs in background",
+            "default": "started"
+          },
+          "max_pages": {
+            "type": "integer",
+            "title": "Max Pages",
+            "description": "Effective (clamped) page cap for this run"
+          },
+          "token_budget": {
+            "type": "integer",
+            "title": "Token Budget",
+            "description": "Effective (clamped) token budget for this run"
+          },
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "description": "Whether already-tagged pages are re-classified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "max_pages",
+          "token_budget",
+          "force"
+        ],
+        "title": "BackfillDomainsStartResponse",
+        "description": "202 response for POST /ops/backfill-domains."
+      },
+      "BackfillDomainsStatusResponse": {
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "title": "Running",
+            "description": "True while a backfill run is in flight"
+          },
+          "last_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Summary",
+            "description": "Summary of the most recent completed run (null if never ran)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running"
+        ],
+        "title": "BackfillDomainsStatusResponse",
+        "description": "GET /ops/backfill-domains \u2014 single-flight state + last completed summary."
       },
       "Body_convert_marker_ingest_convert_marker_post": {
         "properties": {
