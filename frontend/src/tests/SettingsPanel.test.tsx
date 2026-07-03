@@ -1870,11 +1870,14 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
 
     fireEvent.click(screen.getByTestId("cli-auth-save-btn"));
 
+    // After save, the field must be cleared — token discarded (ADR-0043 §2.6).
+    // Assert INSIDE waitFor: the clear happens after the save promise resolves,
+    // and on slow CI runners the microtask hasn't flushed when the mock-called
+    // assertion alone passes (flaked on GitHub Actions, green locally).
     await waitFor(() => {
       expect(mockSet).toHaveBeenCalled();
+      expect(input.value).toBe("");
     });
-    // After save, the field must be cleared — token discarded (ADR-0043 §2.6).
-    expect(input.value).toBe("");
   });
 
   it("clicking Clear calls setCliAuthConfig({clear: true})", async () => {
