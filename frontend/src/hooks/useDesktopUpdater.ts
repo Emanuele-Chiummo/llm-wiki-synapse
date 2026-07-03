@@ -52,23 +52,38 @@ export interface DesktopUpdaterState {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
- * useDesktopUpdater — check for a desktop update once on app start.
+ * useDesktopUpdater — check for a desktop update on app start, then periodically.
  *
  * Wire this in AppShell (mounted once, after render).  The hook is a no-op in
  * the web/PWA build — isTauri() is false there.
+ *
+ * Re-check policy (owner request, v1.2 — "the banner never shows until I restart"):
+ *   - once at startup (original ADR-0049 §U4 behaviour)
+ *   - every RECHECK_INTERVAL_MS while the app stays open (long-lived apps see new
+ *     releases without a relaunch)
+ *   - on window focus, throttled to at most one check per FOCUS_THROTTLE_MS
+ *   All checks remain fire-and-forget and error-swallowing (I7 / ADR-0049 §6).
  */
+
+/** Periodic re-check while the app is open: every 4 hours. */
+const RECHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+/** Focus-triggered re-check, at most once per 30 minutes. */
+const FOCUS_THROTTLE_MS = 30 * 60 * 1000;
+
 export function useDesktopUpdater(): DesktopUpdaterState {
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [installing, setInstalling] = useState(false);
   const [installError, setInstallError] = useState<string | null>(null);
 
-  // ── Startup check (fire-and-forget, single iteration, ADR-0049 §U4 / I7) ──
+  // ── Update checks: startup + periodic + focus-throttled (ADR-0049 §U4 amended) ──
   useEffect(() => {
     if (!isTauri()) return;
 
     let cancelled = false;
+    let lastCheckAt = 0;
 
-    void (async () => {
+    const runCheck = async () => {
+      lastCheckAt = Date.now();
       try {
         const { check } = await import("@tauri-apps/plugin-updater");
         const result = await check();
@@ -80,10 +95,21 @@ export function useDesktopUpdater(): DesktopUpdaterState {
         // Swallow all errors: network failures, timeout, missing manifest, etc.
         // A failed check must never block or crash the app (ADR-0049 §6 Do-NOT #3).
       }
-    })();
+    };
+
+    void runCheck();
+
+    const intervalId = setInterval(() => void runCheck(), RECHECK_INTERVAL_MS);
+
+    const onFocus = () => {
+      if (Date.now() - lastCheckAt >= FOCUS_THROTTLE_MS) void runCheck();
+    };
+    window.addEventListener("focus", onFocus);
 
     return () => {
       cancelled = true;
+      clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 

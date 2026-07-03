@@ -1039,7 +1039,11 @@ export const GraphViewer: React.FC = () => {
 
     // Build graphology graph from precomputed coords.
     // I2: buildGraphologyGraph sets x/y directly from server — no layout called.
-    const rawGraph = buildGraphologyGraph(nodes, edges);
+    // Theme drives the resting edge ramps: light-theme grays glare on the dark canvas.
+    // sigmaThemeColors is in this effect's deps, so a theme switch rebuilds with the
+    // right ramps (data-theme is set by the same code path that changes --syn-bg).
+    const isDarkTheme = document.documentElement.getAttribute("data-theme") === "dark";
+    const rawGraph = buildGraphologyGraph(nodes, edges, isDarkTheme ? "dark" : "light");
 
     // Build a plain Attributes graphology graph for sigma.
     // Copy all node/edge attributes (including server x/y) into the sigma graph.
@@ -1190,8 +1194,10 @@ export const GraphViewer: React.FC = () => {
             // Non-incident: hide entirely (Obsidian dim)
             res["hidden"] = true;
           } else {
-            // Incident to hovered node: darker on light background (--syn-text-muted, thicker)
-            res["color"] = "rgba(89,99,110,0.85)"; // --syn-text-muted #59636e
+            // Incident to hovered node: emphasis color follows the theme — darker on a
+            // light canvas, LIGHTER on a dark canvas (a dark emphasis would vanish).
+            const dark = document.documentElement.getAttribute("data-theme") === "dark";
+            res["color"] = dark ? "rgba(196,205,220,0.9)" : "rgba(89,99,110,0.85)";
             res["size"] = ((data["size"] as number | undefined) ?? 1) * 2;
           }
         }
