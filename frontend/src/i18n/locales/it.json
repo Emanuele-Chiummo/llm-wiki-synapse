@@ -140,7 +140,12 @@
       "about": "Informazioni",
       "scenarios": "Scenari",
       "costs": "Costi",
-      "security": "Sicurezza"
+      "security": "Sicurezza",
+      "groupGettingStarted": "Per iniziare",
+      "groupAiModels": "AI e Modelli",
+      "groupSources": "Sorgenti e PDF",
+      "groupOutput": "Output e Aspetto",
+      "groupAdvanced": "Avanzate"
     },
     "llmModels": {
       "title": "Modelli LLM",
@@ -919,6 +924,78 @@
       "later": "Più tardi",
       "installing": "Installazione…",
       "error": "Aggiornamento non riuscito. Riprova al prossimo avvio."
+    }
+  },
+  "config": {
+    "loading": "Caricamento impostazioni…",
+    "error": "Impossibile caricare le impostazioni. Il backend è in esecuzione?",
+    "sourceBadge": {
+      "env": "Predefinito",
+      "override": "Personalizzato"
+    },
+    "resetToDefault": "Ripristina predefinito",
+    "save": "Salva",
+    "saving": "Salvataggio…",
+    "saved": "Salvato",
+    "resetDone": "Ripristinato al predefinito",
+    "keyHint": "Chiave: {{key}}",
+    "pdfExtractor": {
+      "label": "Estrattore PDF",
+      "help": "Scegli quale motore estrae il testo dai file PDF durante l'importazione.",
+      "optionPypdf": "pypdf (integrato, nessun servizio esterno richiesto)",
+      "optionMarker": "Marker (qualità superiore, richiede il microservizio Marker)"
+    },
+    "markerServiceUrl": {
+      "label": "URL servizio Marker",
+      "help": "URL HTTP del microservizio Marker in esecuzione. Usato solo quando l'estrattore PDF è impostato su Marker.",
+      "placeholder": "http://host.docker.internal:8555"
+    },
+    "markerTimeoutSeconds": {
+      "label": "Timeout Marker (s)",
+      "help": "Secondi di attesa per il microservizio Marker prima del timeout. Deve essere compreso tra 1 e 3600.",
+      "placeholder": "120"
+    },
+    "costAlertThresholdUsd": {
+      "label": "Avviso costo mensile (USD)",
+      "help": "Mostra un avviso quando la spesa mensile AI supera questo importo. Imposta 0 per disabilitare l'avviso.",
+      "placeholder": "5.00"
+    },
+    "embeddingsEnabled": {
+      "label": "Embedding vettoriale",
+      "help": "Abilita la ricerca semantica (vettoriale) nel wiki. Se disattivato, il recupero passa alla modalità solo parole chiave.",
+      "on": "Attivo",
+      "off": "Disattivo"
+    },
+    "embeddingFormat": {
+      "label": "Formato embedding",
+      "help": "Formato richiesta/risposta usato per chiamare il modello di embedding. Scegli Ollama per modelli Ollama locali, o OpenAI-compatibile per altri endpoint.",
+      "optionOllama": "Ollama (formato nativo)",
+      "optionOpenai": "OpenAI-compatibile (/v1/embeddings)"
+    },
+    "overviewLanguage": {
+      "label": "Lingua panoramica",
+      "help": "Lingua usata quando Synapse genera le pagine di panoramica. Lascia vuoto per il rilevamento automatico dal contenuto del vault.",
+      "placeholder": "(auto)",
+      "autoOption": "(auto — rileva dal contenuto)"
+    },
+    "wikilinkEnrichEnabled": {
+      "label": "Arricchimento wikilink automatico",
+      "help": "Aggiunge automaticamente [[wikilink]] alle pagine correlate durante l'importazione. Disabilita per velocizzare l'importazione a scapito di meno connessioni.",
+      "on": "Attivo",
+      "off": "Disattivo"
+    },
+    "pdfExtractorSection": {
+      "title": "Estrazione PDF",
+      "desc": "Configura quale motore estrae il testo dai file PDF e come raggiungere il microservizio Marker."
+    },
+    "runtimeOverridesSection": {
+      "title": "Override runtime",
+      "desc": "Queste impostazioni vengono salvate nel database e sovrascrivono i valori predefiniti delle variabili d'ambiente senza riavviare Docker."
+    },
+    "gettingStarted": {
+      "wizardSlot": "Configurazione guidata iniziale",
+      "wizardSlotDesc": "Una configurazione guidata per connettere il backend e scegliere un provider. Prossimamente.",
+      "wizardComingSoon": "Prossimamente"
     }
   }
 }

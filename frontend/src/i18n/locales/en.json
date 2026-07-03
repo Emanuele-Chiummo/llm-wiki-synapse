@@ -140,7 +140,12 @@
       "about": "About",
       "scenarios": "Scenarios",
       "costs": "Costs",
-      "security": "Security"
+      "security": "Security",
+      "groupGettingStarted": "Getting started",
+      "groupAiModels": "AI & Models",
+      "groupSources": "Sources & PDF",
+      "groupOutput": "Output & Appearance",
+      "groupAdvanced": "Advanced"
     },
     "llmModels": {
       "title": "LLM Models",
@@ -919,6 +924,78 @@
       "later": "Later",
       "installing": "Installing…",
       "error": "Update failed. Retry on next launch."
+    }
+  },
+  "config": {
+    "loading": "Loading settings…",
+    "error": "Could not load settings. Is the backend running?",
+    "sourceBadge": {
+      "env": "Default",
+      "override": "Custom"
+    },
+    "resetToDefault": "Reset to default",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "resetDone": "Reset to default",
+    "keyHint": "Key: {{key}}",
+    "pdfExtractor": {
+      "label": "PDF extractor",
+      "help": "Choose which engine extracts text from PDF files on ingest.",
+      "optionPypdf": "pypdf (built-in, no external service required)",
+      "optionMarker": "Marker (higher quality, requires the Marker microservice)"
+    },
+    "markerServiceUrl": {
+      "label": "Marker service URL",
+      "help": "HTTP URL of the running Marker microservice. Only used when the PDF extractor is set to Marker.",
+      "placeholder": "http://host.docker.internal:8555"
+    },
+    "markerTimeoutSeconds": {
+      "label": "Marker timeout (s)",
+      "help": "Seconds to wait for the Marker microservice before timing out. Must be between 1 and 3600.",
+      "placeholder": "120"
+    },
+    "costAlertThresholdUsd": {
+      "label": "Monthly cost alert (USD)",
+      "help": "Show an alert when monthly AI spend exceeds this amount. Set to 0 to disable the alert.",
+      "placeholder": "5.00"
+    },
+    "embeddingsEnabled": {
+      "label": "Vector embeddings",
+      "help": "Enable semantic (vector) search against the wiki. When off, retrieval degrades to keyword-only mode.",
+      "on": "Enabled",
+      "off": "Disabled"
+    },
+    "embeddingFormat": {
+      "label": "Embedding format",
+      "help": "Request/response format used to call the embedding model. Choose Ollama for local Ollama models, or OpenAI-compatible for other endpoints.",
+      "optionOllama": "Ollama (native format)",
+      "optionOpenai": "OpenAI-compatible (/v1/embeddings)"
+    },
+    "overviewLanguage": {
+      "label": "Overview language",
+      "help": "Language used when Synapse generates overview pages. Leave blank for automatic detection from the vault content.",
+      "placeholder": "(auto)",
+      "autoOption": "(auto — detect from content)"
+    },
+    "wikilinkEnrichEnabled": {
+      "label": "Auto wikilink enrichment",
+      "help": "Automatically add [[wikilinks]] to related pages during ingest. Disable to speed up ingest at the cost of fewer connections.",
+      "on": "Enabled",
+      "off": "Disabled"
+    },
+    "pdfExtractorSection": {
+      "title": "PDF extraction",
+      "desc": "Configure which engine extracts text from PDF files and how to reach the Marker microservice."
+    },
+    "runtimeOverridesSection": {
+      "title": "Runtime overrides",
+      "desc": "These settings are persisted in the database and override the environment-variable defaults without restarting Docker."
+    },
+    "gettingStarted": {
+      "wizardSlot": "First-run setup wizard",
+      "wizardSlotDesc": "A guided setup to connect your backend and choose a provider. Coming soon.",
+      "wizardComingSoon": "Coming soon"
     }
   }
 }

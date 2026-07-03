@@ -19,6 +19,7 @@
 import React, { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ImportScheduleCard } from "./ImportScheduleCard";
 import { useTranslation } from "react-i18next";
+import { getAppConfig, putAppConfig, resetAppConfig, type AppConfigEntry, type AppConfigKey } from "../../api/appConfigClient";
 import { useShallow } from "zustand/react/shallow";
 import { getAuthToken, setAuthToken, clearAuthToken, apiBase } from "../../api/base";
 import {
@@ -73,22 +74,14 @@ import { ConfirmDialog } from "../common/ConfirmDialog";
 import { showToast } from "../common/Toast";
 
 // ─── Settings section type ────────────────────────────────────────────────────
+// A2.1: 5 plain-language groups replace the original 14 flat sections.
 
 type SettingsSection =
-  | "general"
-  | "llmModels"
-  | "embeddings"
-  | "sourceWatch"
-  | "webSearch"
-  | "apiMcp"
-  | "webClipper"
+  | "gettingStarted"
+  | "aiModels"
+  | "sources"
   | "output"
-  | "interface"
-  | "maintenance"
-  | "about"
-  | "scenarios"
-  | "costs"
-  | "security";
+  | "advanced";
 
 // ─── Left nav item ────────────────────────────────────────────────────────────
 
@@ -120,30 +113,10 @@ function IconCpu() {
   );
 }
 
-function IconDatabase() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <ellipse cx="12" cy="5" rx="9" ry="3"/>
-      <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
-      <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
-    </svg>
-  );
-}
-
 function IconFolder() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"/>
-    </svg>
-  );
-}
-
-function IconServer() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect width="20" height="8" x="2" y="2" rx="2" ry="2"/>
-      <rect width="20" height="8" x="2" y="14" rx="2" ry="2"/>
-      <line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>
     </svg>
   );
 }
@@ -158,16 +131,6 @@ function IconType() {
   );
 }
 
-function IconMonitor() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect width="20" height="14" x="2" y="3" rx="2"/>
-      <line x1="8" x2="16" y1="21" y2="21"/>
-      <line x1="12" x2="12" y1="17" y2="21"/>
-    </svg>
-  );
-}
-
 function IconWrench() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -176,84 +139,19 @@ function IconWrench() {
   );
 }
 
-function IconInfo() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="10"/>
-      <path d="M12 16v-4"/><path d="M12 8h.01"/>
-    </svg>
-  );
-}
-
-function IconClip() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-    </svg>
-  );
-}
-
-function IconSearch() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="11" cy="11" r="8"/>
-      <path d="m21 21-4.35-4.35"/>
-    </svg>
-  );
-}
-
-function IconScenarios() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-    </svg>
-  );
-}
-
-function IconWallet() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M20 12V22H4V12"/>
-      <path d="M22 7H2v5h20V7z"/>
-      <path d="M12 22V7"/>
-      <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
-      <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
-    </svg>
-  );
-}
-
-function IconLock() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
-      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-    </svg>
-  );
-}
-
+// A2.1: 5 top-level groups. All original section content is preserved inside each group.
 const NAV_ITEMS: NavItem[] = [
-  { id: "general",     labelKey: "settings.nav.general",     icon: <IconSliders /> },
-  { id: "llmModels",   labelKey: "settings.nav.llmModels",   icon: <IconCpu /> },
-  { id: "embeddings",  labelKey: "settings.nav.embeddings",  icon: <IconDatabase /> },
-  { id: "sourceWatch", labelKey: "settings.nav.sourceWatch", icon: <IconFolder /> },
-  { id: "webSearch",   labelKey: "settings.nav.webSearch",   icon: <IconSearch /> },
-  { id: "apiMcp",      labelKey: "settings.nav.apiMcp",      icon: <IconServer /> },
-  { id: "webClipper",  labelKey: "settings.nav.webClipper",  icon: <IconClip /> },
-  { id: "output",      labelKey: "settings.nav.output",      icon: <IconType /> },
-  { id: "interface",   labelKey: "settings.nav.interface",   icon: <IconMonitor /> },
-  { id: "costs",       labelKey: "settings.nav.costs",       icon: <IconWallet /> },
-  { id: "scenarios",   labelKey: "settings.nav.scenarios",   icon: <IconScenarios /> },
-  { id: "security",    labelKey: "settings.nav.security",    icon: <IconLock /> },
-  { id: "maintenance", labelKey: "settings.nav.maintenance", icon: <IconWrench /> },
-  { id: "about",       labelKey: "settings.nav.about",       icon: <IconInfo /> },
+  { id: "gettingStarted", labelKey: "settings.nav.groupGettingStarted", icon: <IconSliders /> },
+  { id: "aiModels",       labelKey: "settings.nav.groupAiModels",       icon: <IconCpu /> },
+  { id: "sources",        labelKey: "settings.nav.groupSources",        icon: <IconFolder /> },
+  { id: "output",         labelKey: "settings.nav.groupOutput",         icon: <IconType /> },
+  { id: "advanced",       labelKey: "settings.nav.groupAdvanced",       icon: <IconWrench /> },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function SettingsPanel() {
-  const [activeSection, setActiveSection] = useState<SettingsSection>("general");
+  const [activeSection, setActiveSection] = useState<SettingsSection>("gettingStarted");
   const { t } = useTranslation();
   const navBtnRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -364,24 +262,530 @@ export function SettingsPanel() {
         ))}
       </aside>
 
-      {/* Content area */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "32px 40px", maxWidth: 680 }}>
-        {activeSection === "general" && <SectionGeneral />}
-        {activeSection === "llmModels" && <SectionLlmModels />}
-        {activeSection === "embeddings" && <SectionEmbeddings />}
-        {activeSection === "sourceWatch" && <SectionSourceWatch />}
-        {activeSection === "webSearch" && <SectionWebSearch />}
-        {activeSection === "apiMcp" && <SectionApiMcp />}
-        {activeSection === "webClipper" && <SectionWebClipper />}
-        {activeSection === "output" && <SectionOutput />}
-        {activeSection === "interface" && <SectionInterface />}
-        {activeSection === "costs" && <SectionCosts />}
-        {activeSection === "security" && <SectionSecurity />}
-        {activeSection === "maintenance" && <SectionMaintenance />}
-        {activeSection === "about" && <SectionAbout />}
-        {activeSection === "scenarios" && <SectionScenarios />}
+      {/* Content area — A2.1: 5-group IA */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "32px 40px", maxWidth: 720 }}>
+        {activeSection === "gettingStarted" && <GroupGettingStarted />}
+        {activeSection === "aiModels"       && <GroupAiModels />}
+        {activeSection === "sources"        && <GroupSources />}
+        {activeSection === "output"         && <GroupOutput />}
+        {activeSection === "advanced"       && <GroupAdvanced />}
       </div>
     </div>
+  );
+}
+
+// ─── A2.1 Group wrappers ──────────────────────────────────────────────────────
+// Each group renders its constituent sections with a shared group heading.
+// All existing section components (SectionGeneral, SectionLlmModels, …) are
+// unchanged — they are composed here, not modified.
+
+function GroupDivider() {
+  return (
+    <div style={{ borderTop: "1px solid var(--syn-border)", margin: "32px 0" }} />
+  );
+}
+
+/** Group 1: Getting started — context window + wizard placeholder (A2.2 seam). */
+function GroupGettingStarted() {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <GroupHeader title={t("settings.nav.groupGettingStarted")} />
+      <SectionGeneral />
+      <GroupDivider />
+      {/* A2.2 seam — first-run wizard placeholder. Do NOT implement the wizard here.
+          The disabled button is the clean seam for the future A2.2 task. */}
+      <div data-testid="wizard-placeholder-slot">
+        <SectionHeader
+          title={t("config.gettingStarted.wizardSlot")}
+          desc={t("config.gettingStarted.wizardSlotDesc")}
+        />
+        <button disabled style={{ ...BTN_SECONDARY, opacity: 0.45, cursor: "not-allowed" }}>
+          {t("config.gettingStarted.wizardComingSoon")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Group 2: AI & Models — providers, embeddings, web search, API+MCP. */
+function GroupAiModels() {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <GroupHeader title={t("settings.nav.groupAiModels")} />
+      <SectionLlmModels />
+      <GroupDivider />
+      <SectionEmbeddings />
+      <GroupDivider />
+      <SectionWebSearch />
+      <GroupDivider />
+      <SectionApiMcp />
+    </div>
+  );
+}
+
+/** Group 3: Sources & PDF — source watch, web clipper, PDF extractor runtime config. */
+function GroupSources() {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <GroupHeader title={t("settings.nav.groupSources")} />
+      <SectionSourceWatch />
+      <GroupDivider />
+      <SectionWebClipper />
+      <GroupDivider />
+      {/* PDF extraction runtime overrides (S1, S2, S3) — R11-2 migrated settings */}
+      <SectionHeader
+        title={t("config.pdfExtractorSection.title")}
+        desc={t("config.pdfExtractorSection.desc")}
+      />
+      <SectionRuntimeConfig keys={["pdf_extractor", "marker_service_url", "marker_timeout_seconds"]} />
+    </div>
+  );
+}
+
+/** Group 4: Output & Appearance — output, interface, scenarios. */
+function GroupOutput() {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <GroupHeader title={t("settings.nav.groupOutput")} />
+      <SectionOutput />
+      <GroupDivider />
+      <SectionInterface />
+      <GroupDivider />
+      <SectionScenarios />
+    </div>
+  );
+}
+
+/** Group 5: Advanced — costs, security, maintenance, about + runtime overrides (S4-S8). */
+function GroupAdvanced() {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <GroupHeader title={t("settings.nav.groupAdvanced")} />
+      <SectionCosts />
+      <GroupDivider />
+      <SectionSecurity />
+      <GroupDivider />
+      <SectionMaintenance />
+      <GroupDivider />
+      {/* Runtime overrides (S4-S8): cost alert, embeddings, format, language, wikilinks */}
+      <SectionHeader
+        title={t("config.runtimeOverridesSection.title")}
+        desc={t("config.runtimeOverridesSection.desc")}
+      />
+      <SectionRuntimeConfig
+        keys={[
+          "cost_alert_threshold_usd",
+          "embeddings_enabled",
+          "embedding_format",
+          "overview_language",
+          "wikilink_enrich_enabled",
+        ]}
+      />
+      <GroupDivider />
+      <SectionAbout />
+    </div>
+  );
+}
+
+function GroupHeader({ title }: { title: string }) {
+  return (
+    <h2 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 24px", color: "var(--syn-text)" }}>
+      {title}
+    </h2>
+  );
+}
+
+// ─── SectionRuntimeConfig — R11-2 migrated settings (ADR-0053) ───────────────
+// Renders a subset of the 8 runtime config keys, determined by the `keys` prop.
+// Each field: effective value + source badge (Default / Custom) + Save + Reset.
+// PUT /config/app/{key} on save; DELETE /config/app/{key} on reset (ADR-0053 §3.3).
+// I3: local state only, no Zustand store. I6: sends strings, no embedding logic.
+// AC-R11-2-12: primary labels are plain language (never equal to env-var names).
+
+type RcEntry = AppConfigEntry & { localValue: string; saving: boolean; saved: boolean };
+
+const EMPTY_ENTRY: Omit<RcEntry, "key"> = {
+  value: "",
+  source: "env",
+  localValue: "",
+  saving: false,
+  saved: false,
+};
+
+function SectionRuntimeConfig({ keys }: { keys: AppConfigKey[] }) {
+  const { t } = useTranslation();
+  const [entries, setEntries] = useState<Map<AppConfigKey, RcEntry>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [fetchErr, setFetchErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    setLoading(true);
+    setFetchErr(null);
+    getAppConfig(ac.signal)
+      .then((resp) => {
+        const map = new Map<AppConfigKey, RcEntry>();
+        for (const key of keys) {
+          const found = resp.settings.find((s) => s.key === key);
+          map.set(key, {
+            key,
+            value: found?.value ?? "",
+            source: found?.source ?? "env",
+            localValue: found?.value ?? "",
+            saving: false,
+            saved: false,
+          });
+        }
+        setEntries(map);
+        setLoading(false);
+      })
+      .catch((e: unknown) => {
+        if (e instanceof Error && e.name === "AbortError") return;
+        setFetchErr(t("config.error"));
+        setLoading(false);
+      });
+    return () => { ac.abort(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keys.join(",")]);
+
+  const setLocal = (key: AppConfigKey, localValue: string) => {
+    setEntries((prev) => {
+      const next = new Map(prev);
+      const entry = next.get(key) ?? { ...EMPTY_ENTRY, key };
+      next.set(key, { ...entry, localValue });
+      return next;
+    });
+  };
+
+  const handleSave = async (key: AppConfigKey) => {
+    const entry = entries.get(key);
+    if (!entry) return;
+    setEntries((prev) => {
+      const next = new Map(prev);
+      next.set(key, { ...entry, saving: true, saved: false });
+      return next;
+    });
+    try {
+      await putAppConfig(key, entry.localValue);
+      setEntries((prev) => {
+        const next = new Map(prev);
+        const e = next.get(key);
+        if (e) next.set(key, { ...e, value: entry.localValue, source: "override", saving: false, saved: true });
+        return next;
+      });
+      setTimeout(() => {
+        setEntries((prev) => {
+          const next = new Map(prev);
+          const e = next.get(key);
+          if (e) next.set(key, { ...e, saved: false });
+          return next;
+        });
+      }, 2500);
+    } catch {
+      setEntries((prev) => {
+        const next = new Map(prev);
+        const e = next.get(key);
+        if (e) next.set(key, { ...e, saving: false });
+        return next;
+      });
+    }
+  };
+
+  const handleReset = async (key: AppConfigKey) => {
+    const entry = entries.get(key);
+    if (!entry) return;
+    setEntries((prev) => {
+      const next = new Map(prev);
+      next.set(key, { ...entry, saving: true, saved: false });
+      return next;
+    });
+    try {
+      await resetAppConfig(key);
+      // Refetch to get the env-default value after reset
+      const resp = await getAppConfig();
+      const found = resp.settings.find((s) => s.key === key);
+      setEntries((prev) => {
+        const next = new Map(prev);
+        next.set(key, {
+          key,
+          value: found?.value ?? "",
+          source: found?.source ?? "env",
+          localValue: found?.value ?? "",
+          saving: false,
+          saved: true,
+        });
+        return next;
+      });
+      setTimeout(() => {
+        setEntries((prev) => {
+          const next = new Map(prev);
+          const e = next.get(key);
+          if (e) next.set(key, { ...e, saved: false });
+          return next;
+        });
+      }, 2500);
+    } catch {
+      setEntries((prev) => {
+        const next = new Map(prev);
+        const e = next.get(key);
+        if (e) next.set(key, { ...e, saving: false });
+        return next;
+      });
+    }
+  };
+
+  if (loading) {
+    return <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>{t("config.loading")}</p>;
+  }
+  if (fetchErr) {
+    return <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>{fetchErr}</p>;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24, marginTop: 8 }}>
+      {keys.map((key) => {
+        const entry = entries.get(key) ?? { ...EMPTY_ENTRY, key };
+        return <RuntimeConfigField key={key} configKey={key} entry={entry} onLocalChange={setLocal} onSave={handleSave} onReset={handleReset} />;
+      })}
+    </div>
+  );
+}
+
+// ─── RuntimeConfigField — one row for each of the 8 keys ─────────────────────
+// Renders label (plain language, AC-R11-2-12) + help text + control + source badge + actions.
+
+function RuntimeConfigField({
+  configKey,
+  entry,
+  onLocalChange,
+  onSave,
+  onReset,
+}: {
+  configKey: AppConfigKey;
+  entry: RcEntry;
+  onLocalChange: (key: AppConfigKey, value: string) => void;
+  onSave: (key: AppConfigKey) => Promise<void>;
+  onReset: (key: AppConfigKey) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+
+  const i18nBase = `config.${configKeyToI18nSuffix(configKey)}`;
+  const label   = t(`${i18nBase}.label`);
+  const help    = t(`${i18nBase}.help`);
+  const isOverride = entry.source === "override";
+
+  return (
+    <div data-testid={`rc-field-${configKey}`}>
+      {/* Label row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)" }}>
+          {label}
+        </label>
+        <span
+          data-testid={`rc-source-badge-${configKey}`}
+          style={{
+            padding: "1px 7px",
+            borderRadius: 4,
+            fontSize: 10,
+            fontWeight: 600,
+            background: isOverride
+              ? "color-mix(in srgb, var(--syn-accent) 12%, var(--syn-mix-base) 88%)"
+              : "var(--syn-surface-hover)",
+            color: isOverride ? "var(--syn-accent)" : "var(--syn-text-dim)",
+            border: isOverride
+              ? "1px solid color-mix(in srgb, var(--syn-accent) 30%, transparent 70%)"
+              : "1px solid var(--syn-border)",
+          }}
+        >
+          {isOverride ? t("config.sourceBadge.override") : t("config.sourceBadge.env")}
+        </span>
+      </div>
+
+      {/* Help text */}
+      <p style={{ fontSize: 11, color: "var(--syn-text-dim)", margin: "0 0 6px", lineHeight: 1.5 }}>{help}</p>
+
+      {/* Control */}
+      <RcControl configKey={configKey} entry={entry} onLocalChange={onLocalChange} />
+
+      {/* Hint: underlying env-var key name (secondary, smaller — AC-R11-2-12 compliant) */}
+      <p style={{ fontSize: 10, color: "var(--syn-text-dim)", margin: "4px 0 0", fontFamily: "monospace" }}>
+        {t("config.keyHint", { key: configKey.toUpperCase() })}
+      </p>
+
+      {/* Action row */}
+      <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+        <button
+          data-testid={`rc-save-${configKey}`}
+          onClick={() => { void onSave(configKey); }}
+          disabled={entry.saving}
+          style={{ ...BTN_PRIMARY, opacity: entry.saving ? 0.4 : 1, cursor: entry.saving ? "not-allowed" : "pointer" }}
+        >
+          {entry.saving ? t("config.saving") : t("config.save")}
+        </button>
+        {isOverride && (
+          <button
+            data-testid={`rc-reset-${configKey}`}
+            onClick={() => { void onReset(configKey); }}
+            disabled={entry.saving}
+            style={{ ...BTN_SECONDARY, opacity: entry.saving ? 0.4 : 1, cursor: entry.saving ? "not-allowed" : "pointer" }}
+          >
+            {t("config.resetToDefault")}
+          </button>
+        )}
+        {entry.saved && (
+          <span style={{ fontSize: 11, color: "var(--syn-green)" }}>
+            {isOverride ? t("config.saved") : t("config.resetDone")}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Map a config key to its i18n sub-key (camelCase). */
+function configKeyToI18nSuffix(key: AppConfigKey): string {
+  const map: Record<AppConfigKey, string> = {
+    pdf_extractor:              "pdfExtractor",
+    marker_service_url:         "markerServiceUrl",
+    marker_timeout_seconds:     "markerTimeoutSeconds",
+    cost_alert_threshold_usd:   "costAlertThresholdUsd",
+    embeddings_enabled:         "embeddingsEnabled",
+    embedding_format:           "embeddingFormat",
+    overview_language:          "overviewLanguage",
+    wikilink_enrich_enabled:    "wikilinkEnrichEnabled",
+  };
+  return map[key];
+}
+
+/** Per-key control: select for enum keys, text input for free-form, toggle for booleans. */
+function RcControl({
+  configKey,
+  entry,
+  onLocalChange,
+}: {
+  configKey: AppConfigKey;
+  entry: RcEntry;
+  onLocalChange: (key: AppConfigKey, value: string) => void;
+}) {
+  const { t } = useTranslation();
+
+  if (configKey === "pdf_extractor") {
+    return (
+      <select
+        data-testid="rc-control-pdf_extractor"
+        value={entry.localValue}
+        onChange={(e) => onLocalChange(configKey, e.target.value)}
+        style={INPUT_STYLE}
+      >
+        <option value="pypdf">{t("config.pdfExtractor.optionPypdf")}</option>
+        <option value="marker">{t("config.pdfExtractor.optionMarker")}</option>
+      </select>
+    );
+  }
+
+  if (configKey === "embedding_format") {
+    return (
+      <select
+        data-testid="rc-control-embedding_format"
+        value={entry.localValue}
+        onChange={(e) => onLocalChange(configKey, e.target.value)}
+        style={INPUT_STYLE}
+      >
+        <option value="ollama">{t("config.embeddingFormat.optionOllama")}</option>
+        <option value="openai">{t("config.embeddingFormat.optionOpenai")}</option>
+      </select>
+    );
+  }
+
+  if (configKey === "embeddings_enabled" || configKey === "wikilink_enrich_enabled") {
+    const i18nBase = `config.${configKeyToI18nSuffix(configKey)}`;
+    const isOn = entry.localValue === "true" || entry.localValue === "1";
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button
+          data-testid={`rc-control-${configKey}`}
+          role="switch"
+          aria-checked={isOn}
+          onClick={() => onLocalChange(configKey, isOn ? "false" : "true")}
+          style={{
+            width: 40,
+            height: 22,
+            borderRadius: 11,
+            border: "none",
+            cursor: "pointer",
+            position: "relative",
+            background: isOn ? "var(--syn-accent)" : "var(--syn-border)",
+            transition: "background 0.15s",
+            flexShrink: 0,
+            padding: 0,
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              top: 3,
+              left: isOn ? 21 : 3,
+              width: 16,
+              height: 16,
+              borderRadius: "50%",
+              background: "white",
+              transition: "left 0.15s",
+            }}
+          />
+        </button>
+        <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
+          {isOn ? t(`${i18nBase}.on`) : t(`${i18nBase}.off`)}
+        </span>
+      </div>
+    );
+  }
+
+  if (configKey === "overview_language") {
+    return (
+      <input
+        type="text"
+        data-testid="rc-control-overview_language"
+        value={entry.localValue}
+        onChange={(e) => onLocalChange(configKey, e.target.value)}
+        placeholder={t("config.overviewLanguage.placeholder")}
+        style={INPUT_STYLE}
+      />
+    );
+  }
+
+  if (configKey === "marker_service_url") {
+    return (
+      <input
+        type="text"
+        data-testid="rc-control-marker_service_url"
+        value={entry.localValue}
+        onChange={(e) => onLocalChange(configKey, e.target.value)}
+        placeholder={t("config.markerServiceUrl.placeholder")}
+        style={INPUT_STYLE}
+      />
+    );
+  }
+
+  // marker_timeout_seconds, cost_alert_threshold_usd — numeric text inputs
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      data-testid={`rc-control-${configKey}`}
+      value={entry.localValue}
+      onChange={(e) => onLocalChange(configKey, e.target.value)}
+      placeholder={
+        configKey === "marker_timeout_seconds"
+          ? t("config.markerTimeoutSeconds.placeholder")
+          : t("config.costAlertThresholdUsd.placeholder")
+      }
+      style={INPUT_STYLE}
+    />
   );
 }
 
