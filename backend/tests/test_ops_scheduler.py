@@ -1,15 +1,21 @@
 """
-Tests for OpsScheduler (R12-7 / A5 — SPRINT-v1.2-SCOPE §10 A5; R12-8 adds schema_review).
+Tests for OpsScheduler (R12-7 / A5 — SPRINT-v1.2-SCOPE §10 A5; R12-8 adds schema_review;
+R12-9 adds reclassify as the fourth op).
 
 Acceptance criteria:
   - S10/S11 config keys validate the off|hourly|daily|weekly enum; default is "off".
   - S12 (schema_review_schedule) uses the same enum; default is "off".
-  - Scheduler tick triggers lint/backfill/schema_review ops when their interval has elapsed.
+  - S13 (reclassify_schedule) uses the same enum; default is "off".
+  - Scheduler tick triggers lint/backfill/schema_review/reclassify ops when their interval
+    has elapsed.
   - No overlap: an in-flight op is not triggered again on the next tick.
-  - POST /ops/schedules/{op}/run-now → 202 when not in-flight (lint, backfill, schema_review).
+  - POST /ops/schedules/{op}/run-now → 202 when not in-flight (lint, backfill,
+    schema_review, reclassify).
   - POST /ops/schedules/{op}/run-now → 409 when already in-flight.
-  - GET /ops/schedules → correct shape for lint, backfill, AND schema_review (3 entries).
+  - GET /ops/schedules → correct shape for lint, backfill, schema_review AND reclassify
+    (4 entries).
   - schema_review anti-spam: if a pending schema-suggestion exists, op is a no-op (zero cost).
+  - reclassify run-now: 409 when reclassify_types.is_running(); no dormant-400.
 
 Infra-free: all tests use mock clocks, mock op functions, and a mock config cache.
 No real asyncio.sleep. No real DB or filesystem access (I7).
@@ -49,6 +55,7 @@ def _make_scheduler(
     lint_fn: Any = None,
     backfill_fn: Any = None,
     schema_review_fn: Any = None,
+    reclassify_fn: Any = None,
     clock: _MockClock | None = None,
 ) -> Any:
     """Create an OpsScheduler with injected dependencies."""
@@ -62,17 +69,21 @@ def _make_scheduler(
         backfill_fn = AsyncMock()
     if schema_review_fn is None:
         schema_review_fn = AsyncMock()
+    if reclassify_fn is None:
+        reclassify_fn = AsyncMock()
     return (
         OpsScheduler(
             clock=clock,
             lint_fn=lint_fn,
             backfill_fn=backfill_fn,
             schema_review_fn=schema_review_fn,
+            reclassify_fn=reclassify_fn,
         ),
         clock,
         lint_fn,
         backfill_fn,
         schema_review_fn,
+        reclassify_fn,
     )
 
 
@@ -164,7 +175,7 @@ async def test_scheduler_tick_triggers_lint_when_due() -> None:
     """When lint_schedule='hourly' and > 3600s have elapsed, lint op is triggered."""
     import app.config_overrides as co
 
-    scheduler, clock, lint_fn, backfill_fn, _ = _make_scheduler()
+    scheduler, clock, lint_fn, backfill_fn, _, _rc = _make_scheduler()
 
     # Seed the cache: lint=hourly, backfill=off
     co._cache["lint_schedule"] = "hourly"
@@ -193,7 +204,7 @@ async def test_scheduler_tick_does_not_trigger_before_interval() -> None:
     """Op is NOT triggered when the interval has not yet elapsed."""
     import app.config_overrides as co
 
-    scheduler, clock, lint_fn, _bf, _sr = _make_scheduler()
+    scheduler, clock, lint_fn, _bf, _sr, _rc = _make_scheduler()
 
     co._cache["lint_schedule"] = "daily"  # 86400s
 
@@ -215,7 +226,7 @@ async def test_scheduler_tick_triggers_when_never_run() -> None:
     """Op IS triggered when last_run_at is None (never run), even if schedule is hourly."""
     import app.config_overrides as co
 
-    scheduler, _, lint_fn, _bf, _sr = _make_scheduler()
+    scheduler, _, lint_fn, _bf, _sr, _rc = _make_scheduler()
 
     co._cache["lint_schedule"] = "hourly"
     scheduler._state["lint"].last_run_at = None  # never run
@@ -233,7 +244,7 @@ async def test_scheduler_skips_op_off() -> None:
     """schedule='off' → op is never triggered regardless of elapsed time."""
     import app.config_overrides as co
 
-    scheduler, _, lint_fn, backfill_fn, _sr = _make_scheduler()
+    scheduler, _, lint_fn, backfill_fn, _sr, _rc = _make_scheduler()
 
     co._cache["lint_schedule"] = "off"
     co._cache["backfill_schedule"] = "off"
@@ -259,7 +270,7 @@ async def test_no_overlap_while_in_flight() -> None:
     """If in_flight is True, the scheduler skips the trigger for that op."""
     import app.config_overrides as co
 
-    scheduler, clock, lint_fn, _bf, _sr = _make_scheduler()
+    scheduler, clock, lint_fn, _bf, _sr, _rc = _make_scheduler()
 
     co._cache["lint_schedule"] = "hourly"
     scheduler._state["lint"].in_flight = True  # already running
@@ -278,7 +289,7 @@ async def test_in_flight_cleared_after_run() -> None:
     """in_flight is always cleared in the finally block after _trigger_op."""
     import app.config_overrides as co
 
-    scheduler, _, lint_fn, _bf, _sr = _make_scheduler()
+    scheduler, _, lint_fn, _bf, _sr, _rc = _make_scheduler()
 
     co._cache["lint_schedule"] = "hourly"
     scheduler._state["lint"].last_run_at = None
@@ -298,7 +309,7 @@ async def test_in_flight_cleared_on_error() -> None:
     async def _failing_lint() -> None:
         raise RuntimeError("lint exploded")
 
-    scheduler, _, _, _bf, _sr = _make_scheduler(lint_fn=_failing_lint)
+    scheduler, _, _, _bf, _sr, _rc = _make_scheduler(lint_fn=_failing_lint)
     scheduler._state["lint"].last_run_at = None
 
     await scheduler._trigger_op("lint")
@@ -316,7 +327,7 @@ async def test_in_flight_cleared_on_error() -> None:
 @pytest.mark.asyncio
 async def test_run_now_triggers_immediately() -> None:
     """run_now triggers the op immediately when not in-flight."""
-    scheduler, _, lint_fn, _bf, _sr = _make_scheduler()
+    scheduler, _, lint_fn, _bf, _sr, _rc = _make_scheduler()
 
     # Patch the backfill is_running guard so it doesn't need the module import.
     with patch("app.ops_scheduler._check_backfill_not_running"):
@@ -329,7 +340,7 @@ async def test_run_now_triggers_immediately() -> None:
 @pytest.mark.asyncio
 async def test_run_now_raises_when_in_flight() -> None:
     """run_now raises RuntimeError (→ 409) when the op is already in-flight."""
-    scheduler, _, lint_fn, _bf, _sr = _make_scheduler()
+    scheduler, _, lint_fn, _bf, _sr, _rc = _make_scheduler()
     scheduler._state["lint"].in_flight = True
 
     try:
@@ -343,7 +354,7 @@ async def test_run_now_raises_when_in_flight() -> None:
 @pytest.mark.asyncio
 async def test_run_now_unknown_op_raises_valueerror() -> None:
     """run_now raises ValueError for an unknown op name."""
-    scheduler, _, _, _bf, _sr = _make_scheduler()
+    scheduler, _, _, _bf, _sr, _rc = _make_scheduler()
 
     with pytest.raises(ValueError, match="Unknown op"):
         await scheduler.run_now("nonexistent")  # type: ignore[arg-type]
@@ -376,12 +387,13 @@ def _make_client() -> Any:
 
 @pytest.mark.asyncio
 async def test_get_ops_schedules_shape() -> None:
-    """GET /ops/schedules returns the expected shape with 'ops' list of 3 entries (R12-8)."""
+    """GET /ops/schedules returns the expected shape with 'ops' list of 4 entries (R12-9)."""
     import app.config_overrides as co
 
     co._cache.pop("lint_schedule", None)
     co._cache.pop("backfill_schedule", None)
     co._cache.pop("schema_review_schedule", None)
+    co._cache.pop("reclassify_schedule", None)
 
     async with _make_client() as client:
         resp = await client.get("/ops/schedules")
@@ -390,10 +402,10 @@ async def test_get_ops_schedules_shape() -> None:
     body = resp.json()
     assert "ops" in body
     ops = body["ops"]
-    # R12-8: now 3 entries — lint, backfill, schema_review
-    assert len(ops) == 3
+    # R12-9: now 4 entries — lint, backfill, schema_review, reclassify
+    assert len(ops) == 4
     op_names = {e["op"] for e in ops}
-    assert op_names == {"lint", "backfill", "schema_review"}
+    assert op_names == {"lint", "backfill", "schema_review", "reclassify"}
     for entry in ops:
         assert "schedule" in entry
         assert "last_run_at" in entry
@@ -542,7 +554,7 @@ async def test_scheduler_tick_triggers_schema_review_when_due() -> None:
     """When schema_review_schedule='weekly' and > 604800s have elapsed, schema_review op triggers."""
     import app.config_overrides as co
 
-    scheduler, clock, _lint, _bf, schema_review_fn = _make_scheduler()
+    scheduler, clock, _lint, _bf, schema_review_fn, _rc = _make_scheduler()
 
     co._cache["schema_review_schedule"] = "weekly"
     co._cache.pop("lint_schedule", None)
@@ -570,7 +582,7 @@ async def test_scheduler_schema_review_skips_when_off() -> None:
     """schema_review_schedule='off' → op never triggered."""
     import app.config_overrides as co
 
-    scheduler, _, _lint, _bf, schema_review_fn = _make_scheduler()
+    scheduler, _, _lint, _bf, schema_review_fn, _rc = _make_scheduler()
 
     co._cache["schema_review_schedule"] = "off"
     scheduler._state["schema_review"].last_run_at = None
@@ -587,7 +599,7 @@ async def test_scheduler_schema_review_no_overlap_in_flight() -> None:
     """schema_review op is skipped when already in-flight (no-overlap guard)."""
     import app.config_overrides as co
 
-    scheduler, _, _lint, _bf, schema_review_fn = _make_scheduler()
+    scheduler, _, _lint, _bf, schema_review_fn, _rc = _make_scheduler()
 
     co._cache["schema_review_schedule"] = "hourly"
     scheduler._state["schema_review"].in_flight = True
@@ -738,7 +750,7 @@ async def test_schema_review_run_now_no_dormant_400() -> None:
 
 @pytest.mark.asyncio
 async def test_get_config_app_returns_12_settings() -> None:
-    """GET /config/app now returns 12 settings (S1..S12) including schema_review_schedule."""
+    """GET /config/app returns 13 settings (S1..S13); schema_review_schedule is at index 11."""
     import app.config_overrides as co
 
     async with co._cache_lock:
@@ -749,12 +761,252 @@ async def test_get_config_app_returns_12_settings() -> None:
 
     assert resp.status_code == 200
     settings_list = resp.json()["settings"]
-    assert len(settings_list) == 12  # S1..S12 (schema_review_schedule = S12, R12-8)
+    assert len(settings_list) == 13  # S1..S13 (reclassify_schedule = S13, R12-9)
     keys = [s["key"] for s in settings_list]
     assert "schema_review_schedule" in keys
-    # Must appear at position 11 (0-indexed)
+    # schema_review_schedule must appear at position 11 (0-indexed) — S12 position unchanged
     assert keys.index("schema_review_schedule") == 11
     # Default source is "env" when no override exists
     sr_entry = next(s for s in settings_list if s["key"] == "schema_review_schedule")
     assert sr_entry["source"] == "env"
     assert sr_entry["value"] == "off"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# S13 (reclassify_schedule) config-key tests (R12-9)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_validate_reclassify_schedule_valid_values() -> None:
+    """S13: reclassify_schedule accepts off|hourly|daily|weekly; rejects anything else."""
+    from app.config_overrides import validate_value
+
+    for v in ("off", "hourly", "daily", "weekly"):
+        assert validate_value("reclassify_schedule", v) is None, f"Expected valid for {v!r}"
+
+    assert validate_value("reclassify_schedule", "15m") is not None
+    assert validate_value("reclassify_schedule", "never") is not None
+    assert validate_value("reclassify_schedule", "") is not None
+    assert validate_value("reclassify_schedule", "DAILY") is not None  # case-sensitive
+
+
+def test_reclassify_schedule_in_allowed_keys() -> None:
+    """S13 key is in ALLOWED_CONFIG_KEYS (allow-list — ADR-0053 §2.2)."""
+    from app.config_overrides import ALLOWED_CONFIG_KEYS
+
+    assert "reclassify_schedule" in ALLOWED_CONFIG_KEYS
+
+
+def test_reclassify_schedule_in_ordered_keys() -> None:
+    """S13 key appears in ORDERED_KEYS (stable GET /config/app order) at index 12."""
+    from app.config_overrides import ORDERED_KEYS
+
+    assert "reclassify_schedule" in ORDERED_KEYS
+    assert ORDERED_KEYS.index("reclassify_schedule") == 12
+
+
+def test_effective_schedule_default_is_off_for_reclassify() -> None:
+    """S13: when no override is cached, effective_schedule returns 'off' for reclassify."""
+    import app.config_overrides as co
+    from app.config_overrides import effective_schedule
+
+    co._cache.pop("reclassify_schedule", None)
+    assert effective_schedule("reclassify_schedule") == "off"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OpsScheduler tick logic — reclassify op (R12-9)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_scheduler_tick_triggers_reclassify_when_due() -> None:
+    """When reclassify_schedule='daily' and > 86400s have elapsed, reclassify op triggers."""
+    import app.config_overrides as co
+
+    scheduler, clock, _lint, _bf, _sr, reclassify_fn = _make_scheduler()
+
+    co._cache["reclassify_schedule"] = "daily"
+    co._cache.pop("lint_schedule", None)
+    co._cache.pop("backfill_schedule", None)
+    co._cache.pop("schema_review_schedule", None)
+
+    # Simulate: last_run_at is 2 days in the past (> daily interval).
+    clock.advance(-(2 * 86400))
+    past = clock.now()
+    clock.advance(2 * 86400)
+    scheduler._state["reclassify"].last_run_at = past
+
+    try:
+        await scheduler._check_and_trigger("reclassify")
+
+        reclassify_fn.assert_awaited_once()
+        _lint.assert_not_awaited()
+        _bf.assert_not_awaited()
+        _sr.assert_not_awaited()
+        assert scheduler._state["reclassify"].last_status == "ok"
+    finally:
+        co._cache.pop("reclassify_schedule", None)
+
+
+@pytest.mark.asyncio
+async def test_scheduler_reclassify_skips_when_off() -> None:
+    """reclassify_schedule='off' → op never triggered."""
+    import app.config_overrides as co
+
+    scheduler, _, _lint, _bf, _sr, reclassify_fn = _make_scheduler()
+
+    co._cache["reclassify_schedule"] = "off"
+    scheduler._state["reclassify"].last_run_at = None
+
+    try:
+        await scheduler._check_and_trigger("reclassify")
+        reclassify_fn.assert_not_awaited()
+    finally:
+        co._cache.pop("reclassify_schedule", None)
+
+
+@pytest.mark.asyncio
+async def test_scheduler_reclassify_no_overlap_in_flight() -> None:
+    """reclassify op is skipped when already in-flight (no-overlap guard)."""
+    import app.config_overrides as co
+
+    scheduler, _, _lint, _bf, _sr, reclassify_fn = _make_scheduler()
+
+    co._cache["reclassify_schedule"] = "hourly"
+    scheduler._state["reclassify"].in_flight = True
+    scheduler._state["reclassify"].last_run_at = None
+
+    try:
+        await scheduler._check_and_trigger("reclassify")
+        reclassify_fn.assert_not_awaited()
+    finally:
+        co._cache.pop("reclassify_schedule", None)
+        scheduler._state["reclassify"].in_flight = False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# run-now for reclassify (202 / 409 / no dormant-400) — R12-9
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_post_run_now_reclassify_202() -> None:
+    """POST /ops/schedules/reclassify/run-now → 202 when not in-flight (R12-9)."""
+    from app.ops_scheduler import OpsScheduler
+
+    mock_rc = AsyncMock()
+    test_scheduler = OpsScheduler(
+        lint_fn=AsyncMock(),
+        backfill_fn=AsyncMock(),
+        schema_review_fn=AsyncMock(),
+        reclassify_fn=mock_rc,
+    )
+
+    with patch("app.main._ops_scheduler", test_scheduler):
+        with patch("app.ops.reclassify_types.is_running", return_value=False):
+            with patch("app.ops_scheduler._check_reclassify_not_running"):
+                async with _make_client() as client:
+                    resp = await client.post("/ops/schedules/reclassify/run-now")
+
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["op"] == "reclassify"
+    assert body["status"] == "triggered"
+    mock_rc.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_post_run_now_reclassify_409_in_flight() -> None:
+    """POST /ops/schedules/reclassify/run-now → 409 when already in-flight (R12-9)."""
+    from app.ops_scheduler import OpsScheduler
+
+    test_scheduler = OpsScheduler(
+        lint_fn=AsyncMock(),
+        backfill_fn=AsyncMock(),
+        schema_review_fn=AsyncMock(),
+        reclassify_fn=AsyncMock(),
+    )
+    test_scheduler._state["reclassify"].in_flight = True
+
+    try:
+        with patch("app.main._ops_scheduler", test_scheduler):
+            with patch("app.ops.reclassify_types.is_running", return_value=False):
+                async with _make_client() as client:
+                    resp = await client.post("/ops/schedules/reclassify/run-now")
+
+        assert resp.status_code == 409
+    finally:
+        test_scheduler._state["reclassify"].in_flight = False
+
+
+@pytest.mark.asyncio
+async def test_post_run_now_reclassify_409_external_in_flight() -> None:
+    """POST /ops/schedules/reclassify/run-now → 409 when reclassify_types.is_running() (R12-9)."""
+    from app.ops_scheduler import OpsScheduler
+
+    test_scheduler = OpsScheduler(
+        lint_fn=AsyncMock(),
+        backfill_fn=AsyncMock(),
+        schema_review_fn=AsyncMock(),
+        reclassify_fn=AsyncMock(),
+    )
+
+    with patch("app.main._ops_scheduler", test_scheduler):
+        with patch("app.ops.reclassify_types.is_running", return_value=True):
+            async with _make_client() as client:
+                resp = await client.post("/ops/schedules/reclassify/run-now")
+
+    assert resp.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_post_run_now_reclassify_no_dormant_400() -> None:
+    """
+    POST /ops/schedules/reclassify/run-now does NOT return 400 (no dormant gate).
+    reclassify has no vocabulary dependency — it works on any page regardless of domain
+    vocabulary config (R12-9 design decision).
+    """
+    from app.ops_scheduler import OpsScheduler
+
+    mock_rc = AsyncMock()
+    test_scheduler = OpsScheduler(
+        lint_fn=AsyncMock(),
+        backfill_fn=AsyncMock(),
+        schema_review_fn=AsyncMock(),
+        reclassify_fn=mock_rc,
+    )
+
+    with patch("app.main._ops_scheduler", test_scheduler):
+        with patch("app.ops.reclassify_types.is_running", return_value=False):
+            with patch("app.ops_scheduler._check_reclassify_not_running"):
+                async with _make_client() as client:
+                    resp = await client.post("/ops/schedules/reclassify/run-now")
+
+    # Should be 202 (not 400 — no dormant check for reclassify)
+    assert resp.status_code == 202
+    mock_rc.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_get_config_app_returns_13_settings() -> None:
+    """GET /config/app now returns 13 settings (S1..S13) including reclassify_schedule."""
+    import app.config_overrides as co
+
+    async with co._cache_lock:
+        co._cache.clear()
+
+    async with _make_client() as client:
+        resp = await client.get("/config/app")
+
+    assert resp.status_code == 200
+    settings_list = resp.json()["settings"]
+    assert len(settings_list) == 13  # S1..S13 (reclassify_schedule = S13, R12-9)
+    keys = [s["key"] for s in settings_list]
+    assert "reclassify_schedule" in keys
+    # Must appear at position 12 (0-indexed)
+    assert keys.index("reclassify_schedule") == 12
+    # Default source is "env" when no override exists
+    rc_entry = next(s for s in settings_list if s["key"] == "reclassify_schedule")
+    assert rc_entry["source"] == "env"
+    assert rc_entry["value"] == "off"

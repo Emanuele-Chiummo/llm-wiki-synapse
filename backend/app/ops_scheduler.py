@@ -1,10 +1,11 @@
 """
-OpsScheduler — R12-7 / A5 (SPRINT-v1.2-SCOPE §10 A5); R12-8 adds schema_review (S12).
+OpsScheduler — R12-7 / A5 (SPRINT-v1.2-SCOPE §10 A5); R12-8 adds schema_review (S12);
+R12-9 adds reclassify (S13).
 
 A SINGLE asyncio interval background task that:
-1. Reads the effective ``lint_schedule``, ``backfill_schedule``, and
-   ``schema_review_schedule`` config keys on each tick
-   (S10/S11/S12 — ADR-0053 allow-list; values: off|hourly|daily|weekly).
+1. Reads the effective ``lint_schedule``, ``backfill_schedule``,
+   ``schema_review_schedule``, and ``reclassify_schedule`` config keys on each tick
+   (S10/S11/S12/S13 — ADR-0053 allow-list; values: off|hourly|daily|weekly).
 2. If a schedule is not "off" and the op's interval has elapsed since its last run,
    triggers the op exactly once (no overlap — single-flight guard per op, I7).
 3. Is non-fatal: an op error is logged + recorded, never crashes the scheduler loop (I7).
@@ -19,6 +20,10 @@ Ops:
   schema_review → app.ops.schema_review.run_schema_review(vault_id) — bounded vault snapshot
                  + ONE provider call; files a schema-suggestion ReviewItem (K8, R12-8).
                  NEVER auto-edits schema.md. Human approves in the Review queue.
+  reclassify    → app.ops.reclassify_types.run_reclassify(vault_id, force=False) — bounded
+                 type re-classification (NULL/untyped/concept pages by default). Skipped when
+                 reclassify_types.is_running() (single-flight inherited from that module).
+                 NEVER touches reserved types (overview/index). R12-9.
 
 Per-op state: last_run_at (datetime|None), last_status ("ok"|"error:<msg>"|None),
 in_flight bool. State is IN-MEMORY — restarts reset the clock. This is the same
@@ -31,10 +36,11 @@ Lifecycle:
 
 Injectable clock + op functions for unit tests (mirrors ImportScheduler pattern).
 
-ADR references: ADR-0053 (config keys S10/S11/S12), ADR-0037 (lint scan),
-                ADR-0054 (backfill), R12-8 (schema_review).
+ADR references: ADR-0053 (config keys S10/S11/S12/S13), ADR-0037 (lint scan),
+                ADR-0054 (backfill), R12-8 (schema_review), R12-9 (reclassify).
 Invariants: I7 (bounded, non-fatal loop), I1 (lint scan reads only — no vault re-scan),
-            I6 (backfill/schema_review route through InferenceProvider — no hardcoded backend).
+            I6 (backfill/schema_review/reclassify route through InferenceProvider — no
+            hardcoded backend).
 """
 
 from __future__ import annotations
@@ -59,8 +65,8 @@ SCHEDULE_SECONDS: dict[str, int] = {
 _TICK_SECONDS: int = 60
 
 # Op names (literal type for type safety)
-OpName = Literal["lint", "backfill", "schema_review"]
-_OP_NAMES: tuple[OpName, ...] = ("lint", "backfill", "schema_review")
+OpName = Literal["lint", "backfill", "schema_review", "reclassify"]
+_OP_NAMES: tuple[OpName, ...] = ("lint", "backfill", "schema_review", "reclassify")
 
 
 # ── Per-op state ──────────────────────────────────────────────────────────────
@@ -108,6 +114,7 @@ class _RealClock:
 LintFn = Callable[..., Awaitable[object]]
 BackfillFn = Callable[..., Awaitable[object]]
 SchemaReviewFn = Callable[..., Awaitable[object]]
+ReclassifyFn = Callable[..., Awaitable[object]]
 
 
 # ── OpsScheduler ──────────────────────────────────────────────────────────────
@@ -116,15 +123,15 @@ SchemaReviewFn = Callable[..., Awaitable[object]]
 class OpsScheduler:
     """
     Single asyncio background task for schedulable ops:
-    lint scan + domain backfill + schema review (A5/R12-7/R12-8).
+    lint scan + domain backfill + schema review + type reclassify (A5/R12-7/R12-8/R12-9).
 
     Lifecycle:
       - start(loop) called in FastAPI lifespan AFTER load_overrides (config is source of truth).
       - stop()      called in lifespan shutdown.
 
-    Config changes (PUT /config/app/lint_schedule, /backfill_schedule, or
-    /schema_review_schedule) take effect on the next tick (re-reads effective schedule
-    value every 60 s — mirrors ImportScheduler pattern).
+    Config changes (PUT /config/app/lint_schedule, /backfill_schedule,
+    /schema_review_schedule, or /reclassify_schedule) take effect on the next tick
+    (re-reads effective schedule value every 60 s — mirrors ImportScheduler pattern).
 
     Injectable clock and op functions for infra-free unit tests.
     """
@@ -135,17 +142,20 @@ class OpsScheduler:
         lint_fn: LintFn | None = None,
         backfill_fn: BackfillFn | None = None,
         schema_review_fn: SchemaReviewFn | None = None,
+        reclassify_fn: ReclassifyFn | None = None,
     ) -> None:
         self._clock: _ClockProtocol = clock or _RealClock()
         self._lint_fn: LintFn = lint_fn or _default_lint_fn
         self._backfill_fn: BackfillFn = backfill_fn or _default_backfill_fn
         self._schema_review_fn: SchemaReviewFn = schema_review_fn or _default_schema_review_fn
+        self._reclassify_fn: ReclassifyFn = reclassify_fn or _default_reclassify_fn
         self._stopping: bool = False
         self._task: asyncio.Task[None] | None = None
         self._state: dict[OpName, OpState] = {
             "lint": OpState(),
             "backfill": OpState(),
             "schema_review": OpState(),
+            "reclassify": OpState(),
         }
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -200,9 +210,13 @@ class OpsScheduler:
         if op == "backfill":
             _check_backfill_not_running()
 
+        # Additional check for reclassify: respect the reclassify_types module single-flight.
+        if op == "reclassify":
+            _check_reclassify_not_running()
+
         await self._trigger_op(op)
 
-    # NOTE: schema_review has no external single-flight guard (unlike backfill).
+    # NOTE: schema_review has no external single-flight guard (unlike backfill/reclassify).
     # The in-flight guard above is sufficient; the op itself is idempotent
     # (anti-spam: skip if an open schema-suggestion already exists — see ops/schema_review.py).
 
@@ -258,6 +272,16 @@ class OpsScheduler:
                 logger.debug("ops_scheduler: backfill already running in-flight (external) — skip")
                 return
 
+        # For reclassify: also respect the reclassify_types module single-flight guard.
+        if op == "reclassify":
+            try:
+                _check_reclassify_not_running()
+            except RuntimeError:
+                logger.debug(
+                    "ops_scheduler: reclassify already running in-flight (external) — skip"
+                )
+                return
+
         await self._trigger_op(op)
 
     async def _trigger_op(self, op: OpName) -> None:
@@ -273,8 +297,10 @@ class OpsScheduler:
                 await self._lint_fn()
             elif op == "backfill":
                 await self._backfill_fn()
-            else:
+            elif op == "schema_review":
                 await self._schema_review_fn()
+            else:
+                await self._reclassify_fn()
             state.last_status = "ok"
             logger.info("ops_scheduler: op=%s completed (status=ok)", op)
         except Exception as exc:  # noqa: BLE001 — never crash the scheduler loop (I7)
@@ -334,6 +360,22 @@ async def _default_schema_review_fn() -> None:
     await run_schema_review(vault_id=settings.vault_id)
 
 
+async def _default_reclassify_fn() -> None:
+    """
+    Run one bounded type re-classification with DEFAULT bounds (force=False — only
+    NULL/untyped/concept pages, I7). Skipped when reclassify_types.is_running().
+
+    Deferred import avoids circular import at module load time (I6).
+    """
+    from app.config import settings  # noqa: PLC0415
+    from app.ops.reclassify_types import is_running, run_reclassify  # noqa: PLC0415
+
+    if is_running():
+        logger.debug("ops_scheduler: reclassify already in-flight (external) — skip")
+        return
+    await run_reclassify(vault_id=settings.vault_id, force=False)
+
+
 def _check_backfill_not_running() -> None:
     """
     Check the backfill_domains module single-flight guard.
@@ -343,6 +385,17 @@ def _check_backfill_not_running() -> None:
 
     if is_running():
         raise RuntimeError("backfill already in-flight (external trigger)")
+
+
+def _check_reclassify_not_running() -> None:
+    """
+    Check the reclassify_types module single-flight guard.
+    Raises RuntimeError if a reclassify run is already in flight (from the external endpoint).
+    """
+    from app.ops.reclassify_types import is_running  # noqa: PLC0415
+
+    if is_running():
+        raise RuntimeError("reclassify already in-flight (external trigger)")
 
 
 # ── Module-level singleton (initialised in main.py lifespan) ─────────────────

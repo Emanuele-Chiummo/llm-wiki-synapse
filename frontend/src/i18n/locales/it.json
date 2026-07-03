@@ -458,12 +458,14 @@
       "opLabel": {
         "lint": "Scansione lint",
         "backfill": "Classificazione domini",
-        "schema_review": "Revisione schema"
+        "schema_review": "Revisione schema",
+        "reclassify": "Riclassificazione tipi"
       },
       "opDesc": {
         "lint": "Scansione lint — trova problemi strutturali e semantici; le correzioni restano manuali.",
         "backfill": "Classificazione domini — tagga le pagine nuove/non classificate col vocabolario.",
-        "schema_review": "Revisione schema — propone aggiornamenti a schema.md nella coda Revisione in base a come è evoluto il vault."
+        "schema_review": "Revisione schema — propone aggiornamenti a schema.md nella coda Revisione in base a come è evoluto il vault.",
+        "reclassify": "Ri-assegna i tipi delle pagine secondo le regole di schema.md — di default pagine nuove/senza tipo/concept."
       }
     },
     "costs": {

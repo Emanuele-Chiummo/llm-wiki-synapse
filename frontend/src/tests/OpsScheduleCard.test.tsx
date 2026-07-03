@@ -1,15 +1,19 @@
 /**
- * OpsScheduleCard.test.tsx — vitest unit tests for the A5 / R12-7 / R12-8 job-scheduling card.
+ * OpsScheduleCard.test.tsx — vitest unit tests for the A5 / R12-7 / R12-8 / R12-9
+ * job-scheduling card.
  *
  * Covers:
- *   1. Renders THREE rows from mocked schedules (lint + backfill + schema_review) [R12-8].
+ *   1. Renders FOUR rows from mocked schedules (lint + backfill + schema_review + reclassify)
+ *      [R12-9].
  *   2. Frequency change PUTs the right appConfigClient key and value.
  *   3. Run-now POSTs the right op and refreshes schedules.
  *   4. in_flight disables the run-now button and shows the running badge.
  *   5. 400-dormant shows vocabulary hint.
  *   6. Card is hidden when getOpsSchedules returns null (older backend).
- *   7. i18n parity: EN and IT key sets are identical (including schema_review keys).
+ *   7. i18n parity: EN and IT key sets are identical (including reclassify keys).
  *   8. Frequency change for schema_review PUTs "schema_review_schedule" [R12-8].
+ *   9. Frequency change for reclassify PUTs "reclassify_schedule" [R12-9].
+ *  10. run-now for reclassify calls runOpNow("reclassify") [R12-9].
  *
  * INVARIANT I3: no polling in the component — manual refresh only.
  * INVARIANT I7: 409 and 400 are surfaced, not silenced.
@@ -61,6 +65,10 @@ function makeOpsResponse(overrides: Partial<{
   schemaReviewLastRunAt: string | null;
   schemaReviewLastStatus: string | null;
   schemaReviewInFlight: boolean;
+  reclassifySchedule: string;
+  reclassifyLastRunAt: string | null;
+  reclassifyLastStatus: string | null;
+  reclassifyInFlight: boolean;
 }> = {}) {
   const {
     lintSchedule = "off",
@@ -75,6 +83,10 @@ function makeOpsResponse(overrides: Partial<{
     schemaReviewLastRunAt = null,
     schemaReviewLastStatus = null,
     schemaReviewInFlight = false,
+    reclassifySchedule = "off",
+    reclassifyLastRunAt = null,
+    reclassifyLastStatus = null,
+    reclassifyInFlight = false,
   } = overrides;
 
   return {
@@ -99,6 +111,13 @@ function makeOpsResponse(overrides: Partial<{
         last_run_at: schemaReviewLastRunAt,
         last_status: schemaReviewLastStatus,
         in_flight: schemaReviewInFlight,
+      },
+      {
+        op: "reclassify" as const,
+        schedule: reclassifySchedule,
+        last_run_at: reclassifyLastRunAt,
+        last_status: reclassifyLastStatus,
+        in_flight: reclassifyInFlight,
       },
     ],
   };
@@ -141,9 +160,9 @@ describe("OpsScheduleCard", () => {
     mockShowToast.mockClear();
   });
 
-  // ── 1. Renders three rows (lint + backfill + schema_review) — R12-8 ──────────
+  // ── 1. Renders four rows (lint + backfill + schema_review + reclassify) — R12-9 ─
 
-  describe("renders three rows from mocked schedules", () => {
+  describe("renders four rows from mocked schedules", () => {
     beforeEach(() => {
       mockGetOpsSchedules.mockResolvedValue(makeOpsResponse());
     });
@@ -176,30 +195,40 @@ describe("OpsScheduleCard", () => {
       });
     });
 
-    it("renders frequency selects for all three ops", async () => {
+    it("renders a row for reclassify [R12-9]", async () => {
+      renderCard();
+      await waitFor(() => {
+        expect(screen.getByTestId("ops-schedule-row-reclassify")).toBeDefined();
+      });
+    });
+
+    it("renders frequency selects for all four ops", async () => {
       renderCard();
       await waitFor(() => {
         expect(screen.getByTestId("ops-freq-select-lint")).toBeDefined();
         expect(screen.getByTestId("ops-freq-select-backfill")).toBeDefined();
         expect(screen.getByTestId("ops-freq-select-schema_review")).toBeDefined();
+        expect(screen.getByTestId("ops-freq-select-reclassify")).toBeDefined();
       });
     });
 
-    it("renders run-now buttons for all three ops", async () => {
+    it("renders run-now buttons for all four ops", async () => {
       renderCard();
       await waitFor(() => {
         expect(screen.getByTestId("ops-run-now-lint")).toBeDefined();
         expect(screen.getByTestId("ops-run-now-backfill")).toBeDefined();
         expect(screen.getByTestId("ops-run-now-schema_review")).toBeDefined();
+        expect(screen.getByTestId("ops-run-now-reclassify")).toBeDefined();
       });
     });
 
-    it("shows 'never' text when no last_run_at (all three ops)", async () => {
+    it("shows 'never' text when no last_run_at (all four ops)", async () => {
       renderCard();
       await waitFor(() => {
         expect(screen.getByTestId("ops-never-run-lint")).toBeDefined();
         expect(screen.getByTestId("ops-never-run-backfill")).toBeDefined();
         expect(screen.getByTestId("ops-never-run-schema_review")).toBeDefined();
+        expect(screen.getByTestId("ops-never-run-reclassify")).toBeDefined();
       });
     });
   });
@@ -511,6 +540,94 @@ describe("OpsScheduleCard", () => {
       expect(itLabel["schema_review"]).toBeDefined();
       expect(enDesc["schema_review"]).toBeDefined();
       expect(itDesc["schema_review"]).toBeDefined();
+
+      // R12-9: reclassify keys must be present in both locales
+      expect(enLabel["reclassify"]).toBeDefined();
+      expect(itLabel["reclassify"]).toBeDefined();
+      expect(enDesc["reclassify"]).toBeDefined();
+      expect(itDesc["reclassify"]).toBeDefined();
+    });
+  });
+
+  // ── 9. reclassify frequency change PUTs reclassify_schedule [R12-9] ──────────
+
+  describe("reclassify frequency change", () => {
+    beforeEach(() => {
+      mockGetOpsSchedules.mockResolvedValue(makeOpsResponse());
+      mockPutAppConfig.mockResolvedValue(undefined);
+    });
+
+    it("PUTs reclassify_schedule when reclassify frequency changes [R12-9]", async () => {
+      renderCard();
+      await waitFor(() => {
+        expect(screen.getByTestId("ops-freq-select-reclassify")).toBeDefined();
+      });
+
+      const rcSelect = screen.getByTestId("ops-freq-select-reclassify");
+      fireEvent.change(rcSelect, { target: { value: "daily" } });
+
+      await waitFor(() => {
+        expect(mockPutAppConfig).toHaveBeenCalledWith("reclassify_schedule", "daily");
+      });
+    });
+  });
+
+  // ── 10. run-now for reclassify calls runOpNow("reclassify") [R12-9] ──────────
+
+  describe("reclassify run-now", () => {
+    beforeEach(() => {
+      mockGetOpsSchedules.mockResolvedValue(makeOpsResponse());
+      mockRunOpNow.mockResolvedValue({ status: "triggered", op: "reclassify" });
+    });
+
+    it("calls runOpNow with 'reclassify' [R12-9]", async () => {
+      renderCard();
+      await waitFor(() => {
+        expect(screen.getByTestId("ops-run-now-reclassify")).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId("ops-run-now-reclassify"));
+
+      await waitFor(() => {
+        expect(mockRunOpNow).toHaveBeenCalledWith("reclassify");
+      });
+    });
+
+    it("shows success toast after reclassify run-now [R12-9]", async () => {
+      renderCard();
+      await waitFor(() => {
+        expect(screen.getByTestId("ops-run-now-reclassify")).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId("ops-run-now-reclassify"));
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith(
+          expect.stringContaining("runNowTriggered"),
+          "success",
+        );
+      });
+    });
+
+    it("shows 409 toast when reclassify is already in-flight [R12-9]", async () => {
+      const { RunOpNowError } = await import("../api/opsScheduleClient");
+      mockRunOpNow.mockRejectedValue(
+        new RunOpNowError(409, "POST /ops/schedules/reclassify/run-now: already in flight"),
+      );
+
+      renderCard();
+      await waitFor(() => {
+        expect(screen.getByTestId("ops-run-now-reclassify")).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId("ops-run-now-reclassify"));
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith(
+          expect.stringContaining("alreadyRunning"),
+          "error",
+        );
+      });
     });
   });
 });

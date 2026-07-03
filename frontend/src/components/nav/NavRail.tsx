@@ -297,14 +297,17 @@ function RailButton({ item, isActive, badge, label, onClick }: RailButtonProps) 
 
       {badge > 0 && (
         <span
-          aria-label={`${badge} running`}
+          aria-label={`${badge}`}
           style={{
             position: "absolute",
-            top: 4,
-            right: 4,
-            width: 14,
+            top: 2,
+            right: 2,
+            // Exact count (owner request, v1.2.3) — pill grows with the digits
+            // instead of capping at "9+"; 999+ only as an extreme guard.
+            minWidth: 14,
             height: 14,
-            borderRadius: "50%",
+            padding: "0 4px",
+            borderRadius: 7,
             background: "var(--syn-accent)",
             color: "#ffffff",
             fontSize: 9,
@@ -313,9 +316,10 @@ function RailButton({ item, isActive, badge, label, onClick }: RailButtonProps) 
             alignItems: "center",
             justifyContent: "center",
             lineHeight: 1,
+            boxSizing: "border-box",
           }}
         >
-          {badge > 9 ? "9+" : badge}
+          {badge > 999 ? "999+" : badge}
         </span>
       )}
     </button>

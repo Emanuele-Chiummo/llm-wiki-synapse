@@ -633,8 +633,8 @@
     },
     "/ops/schedules": {
       "get": {
-        "summary": "List schedulable ops with effective schedule and last-run state (R12-7/A5/R12-8)",
-        "description": "Returns the in-memory state of the OpsScheduler for each schedulable op (lint, backfill, schema_review). Schedule frequencies are set via PUT /config/app/lint_schedule, PUT /config/app/backfill_schedule, and PUT /config/app/schema_review_schedule (S10/S11/S12 \u2014 allowed values: off|hourly|daily|weekly). State is in-memory and resets on container restart. Auth: SynapseAuthMiddleware (ADR-0052).",
+        "summary": "List schedulable ops with schedule and last-run state (R12-7/A5/R12-8/R12-9)",
+        "description": "Returns the in-memory state of the OpsScheduler for each schedulable op (lint, backfill, schema_review, reclassify). Schedule frequencies are set via PUT /config/app/lint_schedule, PUT /config/app/backfill_schedule, PUT /config/app/schema_review_schedule, and PUT /config/app/reclassify_schedule (S10/S11/S12/S13 \u2014 allowed values: off|hourly|daily|weekly). State is in-memory and resets on container restart. Auth: SynapseAuthMiddleware (ADR-0052).",
         "operationId": "get_ops_schedules_ops_schedules_get",
         "responses": {
           "200": {
@@ -657,8 +657,8 @@
     },
     "/ops/schedules/{op}/run-now": {
       "post": {
-        "summary": "Trigger a schedulable op immediately (R12-7/A5/R12-8)",
-        "description": "Manually trigger one scheduled op ('lint', 'backfill', or 'schema_review') regardless of the configured schedule. Returns 202 if triggered, 409 if already in-flight, 400 if the op is 'backfill' and the domain vocabulary is empty (dormant). schema_review has no dormant state \u2014 it runs whenever called (anti-spam dedup is inside the op itself). Auth: SynapseAuthMiddleware (ADR-0052).",
+        "summary": "Trigger a schedulable op immediately (R12-7/A5/R12-8/R12-9)",
+        "description": "Manually trigger one scheduled op ('lint', 'backfill', 'schema_review', or 'reclassify') regardless of the configured schedule. Returns 202 if triggered, 409 if already in-flight, 400 if the op is 'backfill' and the domain vocabulary is empty (dormant). schema_review and reclassify have no dormant state \u2014 they run whenever called (anti-spam / single-flight dedup is inside each op). Auth: SynapseAuthMiddleware (ADR-0052).",
         "operationId": "run_ops_schedule_now_ops_schedules__op__run_now_post",
         "parameters": [
           {
@@ -3894,8 +3894,8 @@
     },
     "/config/app": {
       "get": {
-        "summary": "List all 12 runtime config overrides with effective value + source (ADR-0053)",
-        "description": "Returns the 12 migrated settings (S1..S12) in stable order. Each entry has key, effective value (override wins over env), and source ('override' iff a DB row exists, else 'env'). All values from in-process cache \u2014 no DB round-trip (I7). Never returns infra/secret keys (allow-list boundary \u2014 ADR-0053 \u00a72.2/\u00a72.4). Auth: SynapseAuthMiddleware (ADR-0052 / ADR-0053 \u00a73 \u2014 BearerAuth in OpenAPI).",
+        "summary": "List all 13 runtime config overrides with effective value + source (ADR-0053)",
+        "description": "Returns the 13 migrated settings (S1..S13) in stable order. Each entry has key, effective value (override wins over env), and source ('override' iff a DB row exists, else 'env'). All values from in-process cache \u2014 no DB round-trip (I7). Never returns infra/secret keys (allow-list boundary \u2014 ADR-0053 \u00a72.2/\u00a72.4). Auth: SynapseAuthMiddleware (ADR-0052 / ADR-0053 \u00a73 \u2014 BearerAuth in OpenAPI).",
         "operationId": "get_app_config_config_app_get",
         "responses": {
           "200": {
@@ -3919,7 +3919,7 @@
     "/config/app/{key}": {
       "put": {
         "summary": "Upsert one config override (ADR-0053)",
-        "description": "Sets or updates the DB override for one of the 12 allowed keys. Returns 204 on success. Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. Returns 422 on value validation failure (per-key rules \u2014 ADR-0053 \u00a72.3). Auth: SynapseAuthMiddleware (ADR-0052). After write, the in-process cache is refreshed immediately so a subsequent GET /config/app reflects source='override' (ADR-0053 \u00a73.2).",
+        "description": "Sets or updates the DB override for one of the 13 allowed keys. Returns 204 on success. Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. Returns 422 on value validation failure (per-key rules \u2014 ADR-0053 \u00a72.3). Auth: SynapseAuthMiddleware (ADR-0052). After write, the in-process cache is refreshed immediately so a subsequent GET /config/app reflects source='override' (ADR-0053 \u00a73.2).",
         "operationId": "put_app_config_config_app__key__put",
         "parameters": [
           {
@@ -6675,7 +6675,7 @@
           "op": {
             "type": "string",
             "title": "Op",
-            "description": "Operation name: 'lint', 'backfill', or 'schema_review'"
+            "description": "Operation name: 'lint', 'backfill', 'schema_review', or 'reclassify'"
           },
           "schedule": {
             "type": "string",
