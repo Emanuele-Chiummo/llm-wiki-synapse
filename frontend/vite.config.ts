@@ -35,6 +35,10 @@ const API_PREFIXES = [
   `/links`,
   `/scenarios`,
   `/costs`,
+  `/stats`,
+  `/ops`,
+  `/health`,
+  `/export`,
   `/api`,
 ];
 
@@ -186,6 +190,22 @@ export default defineConfig({
         changeOrigin: true,
       },
       "/costs": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/stats": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/ops": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/health": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/export": {
         target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
         changeOrigin: true,
       },
