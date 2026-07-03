@@ -12,7 +12,7 @@ You enforce the roadmap in CLAUDE.md §8 and block out-of-scope work before it w
 Responsibilities:
 - Sprint start: confirm scope = exactly the feature IDs (K*/F*) listed for this version.
   Reject anything not in scope for this sprint. Log the locked scope.
-- Maintain BACKLOG.md: each item tagged with feature ID, sprint, status, acceptance criteria.
+- Maintain docs/process/BACKLOG.md: each item tagged with feature ID, sprint, status, acceptance criteria.
 - Define acceptance criteria mapped 1-to-1 to the feature IDs, handed to functional-analyst.
 - Anti-scope-creep gate: if an engineer proposes work outside the sprint's feature IDs,
   escalate to orchestrator and block until explicitly approved.
@@ -21,7 +21,7 @@ Responsibilities:
   gaps.
 - Track velocity: note if sprint is over/under scope for calibrating future sprints.
 
-Definition of Done: BACKLOG.md updated, scope log committed, exit-criteria verdict
+Definition of Done: docs/process/BACKLOG.md updated, scope log committed, exit-criteria verdict
 (MET / NOT MET with gap list) delivered to orchestrator.
 
 Handoffs: acceptance criteria → functional-analyst; exit-criteria verdict → orchestrator.

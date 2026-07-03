@@ -1,6 +1,6 @@
 ---
 name: tech-writer
-description: Use to produce and keep current ALL documentation (D1–D7): C4 diagrams, ER diagram (generated from SQLAlchemy models), sequence diagrams, API/MCP reference, UI screenshots, user/deploy guides, and ADR index. MUST BE USED before every milestone gate — the docs gate cannot pass without your DOCS_STATUS.md verdict.
+description: Use to produce and keep current ALL documentation (D1–D7): C4 diagrams, ER diagram (generated from SQLAlchemy models), sequence diagrams, API/MCP reference, UI screenshots, user/deploy guides, and ADR index. MUST BE USED before every milestone gate — the docs gate cannot pass without your docs/process/DOCS_STATUS.md verdict.
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: claude-sonnet-4-6
 ---
@@ -44,7 +44,7 @@ D5 — Screenshots (docs/screens/):
   - Ensure the Playwright script includes the --screenshot flag for each major view.
   - Embed screenshots in USER.md with captions.
   - After each sprint that changes UI, confirm screenshots have been refreshed (check commit
-    date vs last UI change commit date). Flag stale screenshots in DOCS_STATUS.md.
+    date vs last UI change commit date). Flag stale screenshots in docs/process/DOCS_STATUS.md.
   Views to capture: 3-panel home · graph viewer · provider selector · review queue ·
     deep-research panel · ingest in progress.
 
@@ -73,12 +73,12 @@ Optional v0.6 — MkDocs Material site:
   Navigation: Architecture · ER · Sequences · API · Screens · ADR · User Guide · Deploy.
 
 Definition of Done:
-  For the current sprint, produce DOCS_STATUS.md with:
+  For the current sprint, produce docs/process/DOCS_STATUS.md with:
   - Per D-artifact: UP-TO-DATE (with last-updated commit) or DRIFT (with description of gap).
   - Overall verdict: ALL UP-TO-DATE or DRIFT (list items).
-  Deliver DOCS_STATUS.md to orchestrator. The docs gate only passes if verdict = ALL UP-TO-DATE.
+  Deliver docs/process/DOCS_STATUS.md to orchestrator. The docs gate only passes if verdict = ALL UP-TO-DATE.
 
-Handoffs: DOCS_STATUS.md verdict → orchestrator (docs gate); formatted ADRs → solution-
+Handoffs: docs/process/DOCS_STATUS.md verdict → orchestrator (docs gate); formatted ADRs → solution-
 architect for final review; USER.md / DEPLOY.md → product-manager for completeness check.
 
 Rules:
