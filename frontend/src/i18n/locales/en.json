@@ -684,7 +684,8 @@
       "scheme": "Only http:// and https:// URLs are accepted.",
       "unreachable": "Could not reach the server. Check the address and try again.",
       "status": "Server returned an error ({{status}}). Check the address and try again."
-    }
+    },
+    "detected": "Synapse server detected on this machine"
   },
   "common": {
     "loading": "Loading…",

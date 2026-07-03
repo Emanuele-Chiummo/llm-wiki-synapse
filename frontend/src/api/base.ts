@@ -17,6 +17,13 @@
 
 const LS_SERVER_URL = "synapse.serverUrl";
 
+/**
+ * Last successfully-connected server URL. Unlike LS_SERVER_URL it survives
+ * clearServerUrl(), so the Connect gate can prefill the previous address
+ * after a "change server" instead of an empty field.
+ */
+const LS_LAST_SERVER_URL = "synapse.lastServerUrl";
+
 /** ALLOWED_SCHEMES: only http and https are acceptable (ADR-0047 §2.7.1). */
 const ALLOWED_SCHEMES = ["http:", "https:"];
 
@@ -100,8 +107,23 @@ export function setServerUrl(url: string): void {
   validateScheme(trimmed);
   try {
     localStorage.setItem(LS_SERVER_URL, trimmed);
+    localStorage.setItem(LS_LAST_SERVER_URL, trimmed);
   } catch {
     // ignore — storage unavailable
+  }
+}
+
+/**
+ * getLastServerUrl — read the last successfully-connected server URL.
+ * Survives clearServerUrl(); used by ConnectScreen to prefill the input
+ * after a "change server". Returns null when the app never connected.
+ */
+export function getLastServerUrl(): string | null {
+  try {
+    const v = localStorage.getItem(LS_LAST_SERVER_URL);
+    return v && v.trim().length > 0 ? v.trim() : null;
+  } catch {
+    return null;
   }
 }
 

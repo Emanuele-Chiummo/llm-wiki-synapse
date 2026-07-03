@@ -689,6 +689,11 @@ runs on plain `http://` (not HTTPS), WebKit's mixed-content policy **may block t
 connection** — the same restriction that prevents `https://` sites from loading `http://`
 resources.
 
+> **Verified 2026-07-03:** the release build of Synapse.app on macOS 26 successfully
+> reached an `http://localhost:8000` backend (probe logged server-side, 200 OK) — WebKit
+> did NOT block the request. The fallback below remains documented in case a future
+> macOS/WebKit version tightens the policy.
+
 **If requests are blocked on macOS against an `http://` backend:**
 
 - Prefer HTTPS: expose the backend via a Cloudflare Tunnel or Tailscale with TLS. HTTPS

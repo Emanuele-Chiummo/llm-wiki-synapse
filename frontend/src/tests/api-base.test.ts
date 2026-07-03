@@ -44,7 +44,7 @@ vi.stubGlobal("localStorage", fakeStorage);
 
 // ─── Import module under test (after stubbing) ────────────────────────────────
 
-import { apiBase, getServerUrl, setServerUrl, clearServerUrl, isTauri } from "../api/base";
+import { apiBase, getServerUrl, setServerUrl, clearServerUrl, getLastServerUrl, isTauri } from "../api/base";
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
@@ -211,5 +211,23 @@ describe("isTauri()", () => {
     (globalThis as Record<string, unknown>)["__TAURI_INTERNALS__"] = {};
     delete (globalThis as Record<string, unknown>)["__TAURI_INTERNALS__"];
     expect(isTauri()).toBe(false);
+  });
+});
+
+describe("getLastServerUrl() — survives clearServerUrl (Connect gate prefill)", () => {
+  it("is set by setServerUrl alongside the active URL", () => {
+    setServerUrl("http://truenas:8000");
+    expect(getLastServerUrl()).toBe("http://truenas:8000");
+  });
+
+  it("survives clearServerUrl while the active URL is removed", () => {
+    setServerUrl("http://truenas:8000");
+    clearServerUrl();
+    expect(getServerUrl()).toBeNull();
+    expect(getLastServerUrl()).toBe("http://truenas:8000");
+  });
+
+  it("returns null when the app never connected", () => {
+    expect(getLastServerUrl()).toBeNull();
   });
 });

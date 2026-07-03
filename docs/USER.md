@@ -665,6 +665,11 @@ The desktop app does not know the address of your backend at install time. The f
 time you open it — and any time you click **Change server** in the header — you see a
 full-screen branded **Connect** screen.
 
+On a true first launch the app also probes `http://localhost:8000` in the background:
+if a Synapse backend is running on the same machine, the field is prefilled and a
+"server detected" hint appears — you only have to click **Connect**. After a
+**Change server**, the field is prefilled with the last address you connected to.
+
 **What to enter:** the base URL of your Synapse backend, with a scheme and no trailing
 slash. Examples:
 
