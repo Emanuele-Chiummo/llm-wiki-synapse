@@ -481,6 +481,139 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sprint-12-v12-m12-home-insights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint 12 — v1.2 — M12 "Home &amp; Insights"
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sprint 12 — v1.2 — M12 &#34;Home &amp; Insights&#34;">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#r12-1-home-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R12-1 — Home dashboard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r12-2-domain-vocabulary-auto-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R12-2 — Domain vocabulary + auto-tag
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r12-3-server-release-channel-optional-auto-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R12-3 — Server release channel + optional auto-update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r12-4-ingest-polling-dedup-bug-2-carry-over" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R12-4 — Ingest polling dedup (BUG-2 carry-over)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f18-feature-registration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F18 — Feature registration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sprint-11-v11-m11-convert-configure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint 11 — v1.1 — M11 "Convert &amp; Configure"
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sprint 11 — v1.1 — M11 &#34;Convert &amp; Configure&#34;">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#r11-1-marker-conversion-from-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11-1 — Marker conversion from UI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r11-2-settings-redesign-runtime-config-migration-8-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11-2 — Settings redesign (runtime config migration, 8 settings)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r11-3-logo-deduplication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11-3 — Logo deduplication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r11-4-bugfixes-bounded-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11-4 — Bugfixes (bounded sweep)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sprint-1-v01-m1-data-flows-end-to-end" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1599,7 +1732,7 @@
 <h1 id="synapse-product-backlog">Synapse — Product Backlog<a class="headerlink" href="#synapse-product-backlog" title="Permanent link">&para;</a></h1>
 <blockquote>
 <p>Maintained by: product-manager
-Last updated: 2026-07-03 (Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
+Last updated: 2026-07-03 (Sprint 12 / v1.2 scope locked — SPRINT-v1.2-SCOPE.md; Sprint 11 / v1.1 scope locked — SPRINT-v1.1-SCOPE.md; Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
 Source of truth for feature IDs: CLAUDE.md §4
 Sprint roadmap: CLAUDE.md §8</p>
 </blockquote>
@@ -1635,6 +1768,324 @@ Sprint roadmap: CLAUDE.md §8</p>
 </tr>
 </tbody>
 </table>
+<hr />
+<h2 id="sprint-12-v12-m12-home-insights">Sprint 12 — v1.2 — M12 "Home &amp; Insights"<a class="headerlink" href="#sprint-12-v12-m12-home-insights" title="Permanent link">&para;</a></h2>
+<p>Goal: glanceable home dashboard (vault KPIs, AI spend, per-domain breakdowns); domain
+vocabulary machinery (controlled vocabulary stored in app_config, auto-tag on ingest,
+one-time bounded backfill); server release channel (GHCR image publish + StatusResponse
+version field + frontend mismatch notice + optional Watchtower auto-update block);
+ingest polling dedup carry-over fix.</p>
+<p><strong>Sprint status: SCOPE LOCKED 2026-07-03</strong>
+Scope file: docs/sprints/SPRINT-v1.2-SCOPE.md
+Branch: sprint/v1.2 (cut from main after v1.1.0 tag)
+Prerequisite: EC-M11-1..EC-M11-HCP met by Emanuele.</p>
+<h3 id="r12-1-home-dashboard">R12-1 — Home dashboard<a class="headerlink" href="#r12-1-home-dashboard" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F18 (new), F1, F4, F16</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.2</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>backlog</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>L</td>
+</tr>
+<tr>
+<td>Acceptance criteria</td>
+<td>AC-R12-1-1 through AC-R12-1-10 (SPRINT-v1.2-SCOPE.md §3)</td>
+</tr>
+</tbody>
+</table>
+<p>New endpoints: GET /stats/overview (pages_by_type, total_links, communities_count,
+review_queue_depth, lint_findings_open, monthly_ai_spend_usd, recent_activity,
+data_version), GET /stats/sections (per-domain breakdown). Frontend HomeDashboard.tsx
+as default landing section with NavRail Home icon. Plain SVG sparkline (no charting
+library). Domain section card click dispatches filter navigation.</p>
+<h3 id="r12-2-domain-vocabulary-auto-tag">R12-2 — Domain vocabulary + auto-tag<a class="headerlink" href="#r12-2-domain-vocabulary-auto-tag" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F18, F17 (I6 — classification via InferenceProvider), K6 (pages.tags domain/ convention)</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.2</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>blocked — ADR-0054 required before backend code</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>L</td>
+</tr>
+<tr>
+<td>Acceptance criteria</td>
+<td>AC-R12-2-0 through AC-R12-2-8 (SPRINT-v1.2-SCOPE.md §3)</td>
+</tr>
+</tbody>
+</table>
+<p>Vocabulary stored as domain_vocabulary key in app_config (ADR-0053 mechanism; new
+allowed key added to ALLOWED_CONFIG_KEYS). Ingest step classifies each new page into
+0..N domains via InferenceProvider (one bounded call, max_iter=1, I7). Writes
+"domain/<term>" into pages.tags. POST /ops/backfill-domains one-time bounded backfill
+(max_pages cap, token_budget_usd, total_cost_usd logged). Empty vocabulary = feature
+dormant (zero provider calls). Settings &gt; Advanced vocabulary editor in frontend.</p>
+<h3 id="r12-3-server-release-channel-optional-auto-update">R12-3 — Server release channel + optional auto-update<a class="headerlink" href="#r12-3-server-release-channel-optional-auto-update" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F15, F16</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.2</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>backlog</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M</td>
+</tr>
+<tr>
+<td>Acceptance criteria</td>
+<td>AC-R12-3-1 through AC-R12-3-8 (SPRINT-v1.2-SCOPE.md §3)</td>
+</tr>
+</tbody>
+</table>
+<p>CI publishes ghcr.io image on vX.Y.Z tag (both vX.Y.Z and latest tags). Dockerfile
+gains APP_VERSION build arg. StatusResponse.backend_version field added. Frontend
+version mismatch banner (dismissible per session). docker-compose.yml gains image
+variant and optional Watchtower service block (Compose profile "autoupdate", off by
+default; backend-only label scoping). DEPLOY.md "Updating Synapse" section with manual
+and automatic (Watchtower/TrueNAS/Diun) options plus data-service caveat.</p>
+<h3 id="r12-4-ingest-polling-dedup-bug-2-carry-over">R12-4 — Ingest polling dedup (BUG-2 carry-over)<a class="headerlink" href="#r12-4-ingest-polling-dedup-bug-2-carry-over" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F1, F16</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.2</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>backlog (confirm done from v1.1 before starting)</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S</td>
+</tr>
+<tr>
+<td>Acceptance criteria</td>
+<td>AC-R12-4-1, AC-R12-4-2 (SPRINT-v1.2-SCOPE.md §3) — or confirmed green from v1.1</td>
+</tr>
+</tbody>
+</table>
+<p>Polling hook or useEffect in IngestView.tsx returns a cleanup that clears
+interval/timeout on unmount. Vitest asserts at most 1 active interval after
+mount/unmount/remount cycle.</p>
+<h3 id="f18-feature-registration">F18 — Feature registration<a class="headerlink" href="#f18-feature-registration" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F18 (NEW — registered sprint v1.2)</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.2 (first sprint)</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>in-progress</td>
+</tr>
+</tbody>
+</table>
+<p>F18: Home dashboard + per-section domain insights — a landing screen surfacing vault
+KPIs (pages_by_type, total_links, communities_count, AI spend), community topology, and
+domain-vocabulary breakdowns. CLAUDE.md §4 must be updated by tech-writer before the
+first F18 backend commit.</p>
+<hr />
+<h2 id="sprint-11-v11-m11-convert-configure">Sprint 11 — v1.1 — M11 "Convert &amp; Configure"<a class="headerlink" href="#sprint-11-v11-m11-convert-configure" title="Permanent link">&para;</a></h2>
+<p>Goal: UI-driven Marker PDF conversion with auto-ingest; runtime settings surface for
+8 migrated config keys (no .env editing for daily use); logo deduplication; 3 bounded bugfixes.</p>
+<p><strong>Sprint status: IN PROGRESS — scope locked 2026-07-03</strong>
+Scope file: docs/sprints/SPRINT-v1.1-SCOPE.md
+Branch: sprint/v1.1</p>
+<h3 id="r11-1-marker-conversion-from-ui">R11-1 — Marker conversion from UI<a class="headerlink" href="#r11-1-marker-conversion-from-ui" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F12, F16</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.1</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>backlog</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>L</td>
+</tr>
+<tr>
+<td>Acceptance criteria</td>
+<td>AC-R11-1-1 through AC-R11-1-8 (SPRINT-v1.1-SCOPE.md §3)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="r11-2-settings-redesign-runtime-config-migration-8-settings">R11-2 — Settings redesign (runtime config migration, 8 settings)<a class="headerlink" href="#r11-2-settings-redesign-runtime-config-migration-8-settings" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F16, F17 (adjacent)</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.1</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>blocked — ADR-0053 required before backend code</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>L</td>
+</tr>
+<tr>
+<td>Acceptance criteria</td>
+<td>AC-R11-2-0 through AC-R11-2-10 (SPRINT-v1.1-SCOPE.md §3)</td>
+</tr>
+</tbody>
+</table>
+<p>Settings migrated to UI: PDF_EXTRACTOR (S1), MARKER_SERVICE_URL (S2),
+MARKER_TIMEOUT_SECONDS (S3), COST_ALERT_THRESHOLD_USD (S4), EMBEDDINGS_ENABLED (S5),
+EMBEDDING_FORMAT (S6), OVERVIEW_LANGUAGE (S7), WIKILINK_ENRICH_ENABLED (S8).</p>
+<h3 id="r11-3-logo-deduplication">R11-3 — Logo deduplication<a class="headerlink" href="#r11-3-logo-deduplication" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F1</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.1</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>backlog</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S</td>
+</tr>
+<tr>
+<td>Acceptance criteria</td>
+<td>AC-R11-3-1 through AC-R11-3-4 (SPRINT-v1.1-SCOPE.md §3)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="r11-4-bugfixes-bounded-sweep">R11-4 — Bugfixes (bounded sweep)<a class="headerlink" href="#r11-4-bugfixes-bounded-sweep" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F1, F3 (I3), F4/F5 (I4)</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.1</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>backlog</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S × 3</td>
+</tr>
+<tr>
+<td>Acceptance criteria</td>
+<td>AC-R11-4-BUG1, AC-R11-4-BUG2, AC-R11-4-BUG3 (SPRINT-v1.1-SCOPE.md §3)</td>
+</tr>
+</tbody>
+</table>
+<p>Bugs: renderMarkdown null guard (BUG-1), ingest polling dedup (BUG-2),
+virtualizer zero-height recovery (BUG-3).</p>
 <hr />
 <h2 id="sprint-1-v01-m1-data-flows-end-to-end">Sprint 1 — v0.1 — M1 "Data flows end-to-end"<a class="headerlink" href="#sprint-1-v01-m1-data-flows-end-to-end" title="Permanent link">&para;</a></h2>
 <p>Goal: walking skeleton — file dropped into vault/raw/sources/ triggers incremental

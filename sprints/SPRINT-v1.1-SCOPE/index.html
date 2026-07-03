@@ -1,0 +1,1872 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.1-SCOPE/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint v1.1 — PM Scope Lock - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-v11-pm-scope-lock" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint v1.1 — PM Scope Lock
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-engineer-ground-rules-read-before-touching-any-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Engineer ground rules (READ BEFORE TOUCHING ANY FILE)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-sprint-goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Sprint Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-scope-decision-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Scope decision record
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Scope decision record">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#r11-1-marker-conversion-from-ui-in-scope-l" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11-1 — Marker conversion from UI: IN SCOPE (L)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r11-2-settings-redesign-runtime-config-migration-in-scope-l" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11-2 — Settings redesign (runtime config migration): IN SCOPE (L)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r11-3-logo-deduplication-in-scope-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11-3 — Logo deduplication: IN SCOPE (S)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r11-4-bugfixes-performance-bounded-sweep-in-scope-s-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11-4 — Bugfixes + performance (bounded sweep): IN SCOPE (S × 3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-committed-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Committed Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Committed Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#r11-1-marker-conversion-from-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11-1 — Marker conversion from UI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r11-2-settings-redesign-runtime-config-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11-2 — Settings redesign (runtime config migration)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r11-3-logo-deduplication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11-3 — Logo deduplication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r11-4-bugfixes-bounded-sweep-3-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11-4 — Bugfixes (bounded sweep, 3 items)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-explicit-sequencing-and-file-conflict-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Explicit sequencing and file conflict map
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Explicit sequencing and file conflict map">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wave-1-adr-backend-foundation-days-14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave 1 — ADR + backend foundation (days 1–4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wave-2-frontend-ui-integration-days-310" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave 2 — Frontend + UI integration (days 3–10)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wave-3-qa-docs-sign-offs-days-815" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave 3 — QA, docs, sign-offs (days 8–15)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#critical-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Critical path
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#same-file-conflict-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Same-file conflict registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-wave-plan-suggested-23-week-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Wave plan (suggested 2–3 week schedule)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-out-of-scope-for-v11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Out of scope for v1.1
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-exit-criteria-for-v11-release-ec-m11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Exit criteria for v1.1 release (EC-M11)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-de-scope-order-if-sprint-runs-over" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. De-scope order (if sprint runs over)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-velocity-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Velocity note
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-amendment-owner-design-decisions-emanuele-2026-07-03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. AMENDMENT — Owner design decisions (Emanuele, 2026-07-03)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. AMENDMENT — Owner design decisions (Emanuele, 2026-07-03)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a1-r11-1-dedicated-convert-surface-overrides-the-uploadzone-extension-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A1 — R11-1: dedicated "Convert" surface (overrides the UploadZone-extension decision)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a2-r11-2-settings-information-architecture-redesign-first-run-wizard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2 — R11-2: Settings information-architecture redesign + first-run wizard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a3-revised-wave-plan-supersedes-5-for-the-two-amended-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A3 — Revised wave plan (supersedes §5 for the two amended items)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-v11-pm-scope-lock">Sprint v1.1 — PM Scope Lock<a class="headerlink" href="#sprint-v11-pm-scope-lock" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Milestone: M11 — "Convert &amp; Configure"
+Author: product-manager
+Date: 2026-07-03
+Branch: sprint/v1.1 (cut from sprint/v1.0 after v1.0.0 tag)
+Prerequisite: M10 exit criteria met (EC-M10-1..EC-M10-HCP confirmed by Emanuele).
+Sprint duration: 2–3 weeks</p>
+</blockquote>
+<hr />
+<h2 id="0-engineer-ground-rules-read-before-touching-any-file">0. Engineer ground rules (READ BEFORE TOUCHING ANY FILE)<a class="headerlink" href="#0-engineer-ground-rules-read-before-touching-any-file" title="Permanent link">&para;</a></h2>
+<p><strong>Rule 1 — No destructive git operations.</strong>
+No git restore, git checkout, git stash, or any command that discards working-tree
+changes. Other agents on the same branch may have uncommitted edits that are
+legitimate in-progress work. If you find changes in a file you need to edit, read them
+first and integrate. Do NOT discard. Escalate to orchestrator if you cannot determine
+ownership of an uncommitted change.</p>
+<p><strong>Rule 2 — QA gate runs ci.yml's EXACT commands.</strong>
+The QA-test-engineer MUST run the following commands verbatim (matching ci.yml jobs)
+before signing off on any item. No proxy commands, no shortcuts:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Backend lint + type check (ci.yml jobs: lint, typecheck)</span>
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>app<span class="w"> </span>tests
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>black<span class="w"> </span>--check<span class="w"> </span>app<span class="w"> </span>tests
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mypy<span class="w"> </span>app
+
+<span class="c1"># Frontend (ci.yml job: frontend)</span>
+<span class="nb">cd</span><span class="w"> </span>frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npx<span class="w"> </span>tsc<span class="w"> </span>--noEmit
+<span class="nb">cd</span><span class="w"> </span>frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>lint
+<span class="nb">cd</span><span class="w"> </span>frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span><span class="nb">test</span>
+
+<span class="c1"># Docs gate — ER + OpenAPI drift check (ci.yml job: docs)</span>
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>scripts/generate_er.py
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>scripts/generate_openapi.py
+git<span class="w"> </span>diff<span class="w"> </span>--exit-code<span class="w"> </span>docs/er/schema.mmd
+git<span class="w"> </span>diff<span class="w"> </span>--exit-code<span class="w"> </span>docs/api/openapi.json
+
+<span class="c1"># Mermaid validation loop (ci.yml job: docs — validate Mermaid diagrams step)</span>
+<span class="k">for</span><span class="w"> </span>f<span class="w"> </span><span class="k">in</span><span class="w"> </span>docs/architecture/*.mmd<span class="w"> </span>docs/er/*.mmd<span class="w"> </span>docs/sequences/*.mmd<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">  </span><span class="o">[</span><span class="w"> </span>-f<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$f</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="k">continue</span>
+<span class="w">  </span>mmdc<span class="w"> </span>-p<span class="w"> </span>/tmp/puppeteer.json<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$f</span><span class="s2">&quot;</span><span class="w"> </span>-o<span class="w"> </span>/tmp/mmdc-check.svg<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
+<span class="k">done</span>
+</code></pre></div>
+<p>All six command groups must exit 0 before any item's ACs are marked green.</p>
+<hr />
+<h2 id="1-sprint-goal">1. Sprint Goal<a class="headerlink" href="#1-sprint-goal" title="Permanent link">&para;</a></h2>
+<p>Make Synapse genuinely self-configuring for everyday use: let the user drive Marker PDF
+conversion from the UI with automatic ingest, expose all runtime-tunable settings through
+a clean Settings surface (no .env editing for day-to-day operation), fix a visible logo
+duplication, and sweep bounded bugfixes that degrade UX. The result is a product where a
+non-technical user can onboard a PDF vault and tune Synapse behaviour without touching
+docker-compose.yml.</p>
+<hr />
+<h2 id="2-scope-decision-record">2. Scope decision record<a class="headerlink" href="#2-scope-decision-record" title="Permanent link">&para;</a></h2>
+<h3 id="r11-1-marker-conversion-from-ui-in-scope-l">R11-1 — Marker conversion from UI: IN SCOPE (L)<a class="headerlink" href="#r11-1-marker-conversion-from-ui-in-scope-l" title="Permanent link">&para;</a></h3>
+<p>The existing <code>PDF_EXTRACTOR</code> env var selects the extractor at startup. The Marker
+microservice (<code>tools/marker-converter/service.py</code>, default <code>http://host.docker.internal:8555</code>)
+is already called by <code>backend/app/ingest/extract.py</code>. What is missing is:
+(a) a UI entry point to send one or more PDF files directly through Marker, bypassing the
+watcher's normal ingest path, and
+(b) automatic ingest trigger after successful conversion.</p>
+<p><strong>PM decision:</strong> Extend the existing upload flow (<code>backend/app/upload.py</code> +
+<code>frontend/src/components/ingest/UploadZone.tsx</code> or equivalent) to offer a
+"Convert with Marker" action. The backend adds a <code>POST /ingest/convert-marker</code> endpoint
+(or an <code>extractor=marker</code> query param on the existing upload endpoint — backend-engineer
+chooses; document the choice in a PR comment). After successful Marker conversion and
+<code>.extracted.md</code> write, the watcher picks up the file under I1 (incremental, no full
+rescan). The Marker microservice is external and may be down: the UI must degrade
+gracefully (show an error, do NOT silently fall back — the user explicitly chose Marker).
+The silent fallback in <code>extract.py</code> is the CLI/API path; the explicit UI action is a
+hard fail-with-message.</p>
+<p><strong>What this is NOT:</strong> a full file manager or batch queue. Scope is single-file or
+multi-select (≤10 files per submission, bounded by MAX_UPLOAD_BYTES each) with progress
+feedback. No persistent queue table. No background retry.</p>
+<h3 id="r11-2-settings-redesign-runtime-config-migration-in-scope-l">R11-2 — Settings redesign (runtime config migration): IN SCOPE (L)<a class="headerlink" href="#r11-2-settings-redesign-runtime-config-migration-in-scope-l" title="Permanent link">&para;</a></h3>
+<p><strong>PM decision on migration list (8 settings — see §3 R11-2 for rationale per item):</strong></p>
+<p>MIGRATED TO UI (user-facing, runtime-tunable, survives restart):</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Config key</th>
+<th>UI label (EN / IT)</th>
+<th>Default shown</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S1</td>
+<td><code>PDF_EXTRACTOR</code></td>
+<td>"PDF extractor / Estrattore PDF"</td>
+<td>pypdf</td>
+</tr>
+<tr>
+<td>S2</td>
+<td><code>MARKER_SERVICE_URL</code></td>
+<td>"Marker service URL / URL servizio Marker"</td>
+<td>http://host.docker.internal:8555</td>
+</tr>
+<tr>
+<td>S3</td>
+<td><code>MARKER_TIMEOUT_SECONDS</code></td>
+<td>"Marker timeout (s) / Timeout Marker (s)"</td>
+<td>120</td>
+</tr>
+<tr>
+<td>S4</td>
+<td><code>COST_ALERT_THRESHOLD_USD</code></td>
+<td>"Monthly cost alert (USD) / Avviso costo mensile (USD)"</td>
+<td>5.00</td>
+</tr>
+<tr>
+<td>S5</td>
+<td><code>EMBEDDINGS_ENABLED</code></td>
+<td>"Vector embeddings / Embedding vettoriale" toggle</td>
+<td>on</td>
+</tr>
+<tr>
+<td>S6</td>
+<td><code>EMBEDDING_FORMAT</code></td>
+<td>"Embedding format / Formato embedding"</td>
+<td>ollama</td>
+</tr>
+<tr>
+<td>S7</td>
+<td><code>OVERVIEW_LANGUAGE</code></td>
+<td>"Overview language / Lingua panoramica"</td>
+<td>(auto)</td>
+</tr>
+<tr>
+<td>S8</td>
+<td><code>WIKILINK_ENRICH_ENABLED</code></td>
+<td>"Auto wikilink enrichment / Arricchimento wikilink" toggle</td>
+<td>on</td>
+</tr>
+</tbody>
+</table>
+<p>EXCLUDED (infrastructure — env-only, never in UI):</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Reason for exclusion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATABASE_URL</code></td>
+<td>Infra secret; changing it at runtime would orphan all data</td>
+</tr>
+<tr>
+<td><code>QDRANT_URL</code></td>
+<td>Infra; changing while service is live corrupts the collection pointer</td>
+</tr>
+<tr>
+<td><code>EMBEDDING_URL</code></td>
+<td>Infra; tied to the running bge-m3 instance</td>
+</tr>
+<tr>
+<td><code>EMBEDDING_DIM</code></td>
+<td>Infra; changing requires re-embed of entire vault</td>
+</tr>
+<tr>
+<td><code>VAULT_PATH</code></td>
+<td>Infra; changing while watcher is running breaks the incremental index (I1)</td>
+</tr>
+<tr>
+<td><code>SYNAPSE_AUTH_TOKEN</code></td>
+<td>Security; has dedicated Settings &gt; Security section (shipped v1.0)</td>
+</tr>
+<tr>
+<td><code>CORS_ALLOW_ORIGINS</code></td>
+<td>Infra; network topology decision</td>
+</tr>
+<tr>
+<td><code>SEARXNG_URL</code></td>
+<td>Infra; tied to the running SearXNG instance</td>
+</tr>
+<tr>
+<td><code>CLIP_TOKEN</code></td>
+<td>Security secret; env-only (ADR-0038 §2.1)</td>
+</tr>
+<tr>
+<td><code>MCP_AUTH_TOKEN</code></td>
+<td>Security secret; already handled via PUT /mcp/auth (ADR-0033)</td>
+</tr>
+<tr>
+<td><code>MCP_TRUSTED_PROXIES</code></td>
+<td>Infra; network topology</td>
+</tr>
+<tr>
+<td><code>MAX_UPLOAD_BYTES</code></td>
+<td>Infra; storage constraint</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Persistence model:</strong> a new <code>app_config</code> table (single row, key/value store) holds the
+UI-set overrides. On startup, <code>config.py</code> reads from env as today; a thin config-override
+layer in <code>backend/app/config_overrides.py</code> reads the DB row (if present) and merges over
+the env defaults. Env remains the deploy-time default; UI persists a named override row per
+key. This pattern mirrors the existing <code>clip_config</code> / GET-PUT pattern in <code>main.py</code>.</p>
+<p>No migration changes the existing env-var contract. Existing deployments that rely solely
+on env vars are unchanged.</p>
+<p>ADR required: ADR-0053 (<code>docs/adr/ADR-0053-ui-config-overrides.md</code>) to document the
+override model, table design, and the explicit list of MIGRATED vs EXCLUDED settings.
+Must be accepted by solution-architect BEFORE any backend code is written for R11-2.</p>
+<h3 id="r11-3-logo-deduplication-in-scope-s">R11-3 — Logo deduplication: IN SCOPE (S)<a class="headerlink" href="#r11-3-logo-deduplication-in-scope-s" title="Permanent link">&para;</a></h3>
+<p>The Synapse logo currently appears in both <code>Header.tsx</code> (top bar branding) and
+<code>NavRail.tsx</code> (top of the left icon rail). These are two distinct components that both
+render the <code>synapse-logo.svg</code> asset. The user sees the logo twice in the same viewport.</p>
+<p><strong>PM decision:</strong> Remove the logo from the NavRail. The NavRail's job is navigation, not
+branding. The Header retains the logo (it is the primary branding surface). The top slot
+in the NavRail currently used for the logo is either removed or replaced by the first
+navigation item (Chat) without the logo duplication. The exact layout is
+frontend-engineer's call; the invariant is: logo appears exactly once per viewport.</p>
+<p>No new icon library, no nav restructure, no item reordering. Scope is one file edit
+(NavRail.tsx) and its test (NavRail.test.tsx).</p>
+<h3 id="r11-4-bugfixes-performance-bounded-sweep-in-scope-s-3">R11-4 — Bugfixes + performance (bounded sweep): IN SCOPE (S × 3)<a class="headerlink" href="#r11-4-bugfixes-performance-bounded-sweep-in-scope-s-3" title="Permanent link">&para;</a></h3>
+<p>PM-selected three bugs from the known backlog. The cap is three items. No additional
+bugs may be added to this sprint without PM escalation.</p>
+<p><strong>Selected bugs:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Sub-ID</th>
+<th>Component</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BUG-1</td>
+<td><code>MarkdownView.tsx</code> / <code>renderMarkdown</code> guard (G3)</td>
+<td><code>renderMarkdown</code> is called without a null/empty-string guard, producing spurious DOMParser errors visible in the browser console on empty chat messages or empty preview panes. Fix: add a guard (<code>if (!markdown) return ""</code>) before the DOMParser call.</td>
+</tr>
+<tr>
+<td>BUG-2</td>
+<td>Ingest polling deduplication</td>
+<td><code>IngestView.tsx</code> (or the polling hook it uses) starts a <code>setInterval</code> or <code>useEffect</code> poll on mount and does not cancel the previous interval on re-mount (e.g., when the user switches sections and returns). This produces multiple overlapping polls for the same data. Fix: ensure the polling effect returns a cleanup function that clears the interval/timeout.</td>
+</tr>
+<tr>
+<td>BUG-3</td>
+<td>TanStack Virtual initializer zero-height recovery</td>
+<td>The virtualized list (tree or message history) initializes with <code>estimateSize</code> returning 0, causing the virtual container to render at 0px height and show nothing until a resize event fires. Fix: provide a non-zero <code>estimateSize</code> default (e.g., <code>() =&gt; 40</code>) or add a <code>ResizeObserver</code> to the scroll container that forces a remeasure on mount.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-committed-scope">3. Committed Scope<a class="headerlink" href="#3-committed-scope" title="Permanent link">&para;</a></h2>
+<p>Exactly the following items. Anything else is out of scope and requires explicit
+PM re-approval before any token is spent on it.</p>
+<hr />
+<h3 id="r11-1-marker-conversion-from-ui">R11-1 — Marker conversion from UI<a class="headerlink" href="#r11-1-marker-conversion-from-ui" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F12 (multi-format ingest), F16 (UI config)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>backend-engineer (endpoint) + frontend-engineer (UploadZone extension)</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>L</td>
+</tr>
+<tr>
+<td>ADR reference</td>
+<td>ADR-0051 (existing, Marker seam) — no new ADR required; extend existing</td>
+</tr>
+<tr>
+<td>Invariant check</td>
+<td>I1 (incremental — watcher picks up converted file, no rescan), I7 (bounded: ≤10 files per submission, MAX_UPLOAD_BYTES enforced per file), I6 (provider not touched by this flow), I5 (converted .extracted.md has valid YAML frontmatter)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Design decisions (PM-locked):</strong></p>
+<ul>
+<li>The backend adds a <code>POST /ingest/convert-marker</code> endpoint. It accepts multipart
+  <code>files[]</code> (≤10 files, each ≤ MAX_UPLOAD_BYTES). It calls <code>_extract_pdf_via_marker()</code>
+  from <code>extract.py</code> for each file. On success it writes the <code>.extracted.md</code> to
+  <code>vault/raw/sources/</code> (the watcher directory). The watcher then picks it up and runs
+  the normal ingest loop (I1 — no special path needed).</li>
+<li>On Marker microservice error (any HTTP error, timeout, or connection refused): the
+  endpoint returns HTTP 502 with body <code>{"error": "marker_unavailable", "detail": "..."}</code>.
+  The frontend shows the error inline. NO silent fallback to pypdf on this path (user
+  explicitly chose Marker — degrade with message, not silently).</li>
+<li>The Marker health check endpoint (<code>GET {MARKER_SERVICE_URL}/health</code>) is polled by a
+  new <code>GET /ingest/marker-health</code> backend proxy endpoint. The frontend shows a
+  "Marker offline" badge when this returns unhealthy. The UI disables the "Convert with
+  Marker" action when Marker is offline, with a tooltip explaining the state.</li>
+<li>Multi-file progress: the frontend shows a per-file progress indicator (pending /
+  converting / done / failed) using component-local state, not Zustand global state
+  (these are ephemeral UI states, not persisted data).</li>
+</ul>
+<p><strong>Acceptance criteria:</strong></p>
+<ul>
+<li>
+<p>AC-R11-1-1: <code>POST /ingest/convert-marker</code> exists, accepts <code>multipart/form-data</code> with
+  field <code>files[]</code>. Rejects &gt; 10 files (HTTP 400). Rejects any file &gt; <code>MAX_UPLOAD_BYTES</code>
+  (HTTP 413). Accepts only <code>.pdf</code> extension (HTTP 415 for others). A pytest asserts all
+  three rejection paths.</p>
+</li>
+<li>
+<p>AC-R11-1-2: On successful Marker conversion, the endpoint writes
+  <code>{original_stem}.extracted.md</code> to <code>vault/raw/sources/</code> with valid YAML frontmatter
+  (<code>type: source</code>, <code>title</code>, <code>sources: [{path}]</code>). A pytest mocks the Marker HTTP call
+  and asserts the file is written with correct frontmatter (I5).</p>
+</li>
+<li>
+<p>AC-R11-1-3: When the Marker microservice returns any non-2xx response or times out
+  (mocked in pytest), <code>POST /ingest/convert-marker</code> returns HTTP 502 with
+  <code>{"error": "marker_unavailable", "detail": "&lt;message&gt;"}</code>. The endpoint does NOT fall
+  back to pypdf. A pytest asserts the 502 body and that no <code>.extracted.md</code> is written.</p>
+</li>
+<li>
+<p>AC-R11-1-4: <code>GET /ingest/marker-health</code> proxies a <code>GET {MARKER_SERVICE_URL}/health</code>
+  call. Returns <code>{"status": "ok"}</code> (200) when Marker responds 200, and
+  <code>{"status": "offline", "detail": "..."}</code> (503) when unreachable or non-200. A pytest
+  mocks both cases.</p>
+</li>
+<li>
+<p>AC-R11-1-5: The frontend UploadZone (or a new sibling component in
+  <code>frontend/src/components/ingest/</code>) gains a "Convert with Marker" action. The action is
+  disabled (with a <code>title</code> tooltip "Marker offline") when <code>GET /ingest/marker-health</code>
+  returns 503. A Vitest asserts the button is disabled when the health mock returns 503
+  and enabled when it returns 200.</p>
+</li>
+<li>
+<p>AC-R11-1-6: When the user selects files and clicks "Convert with Marker", the UI shows
+  a per-file status row: pending (spinner), converting (progress), done (check), failed
+  (X + error message). Failed files display the <code>detail</code> string from the 502 response.
+  No global Zustand action is dispatched for these ephemeral states (I3 — no heavy
+  re-render on per-file progress).</p>
+</li>
+<li>
+<p>AC-R11-1-7: The file-count limit (10) and the graceful-degradation behaviour (Marker
+  offline → button disabled) are documented in <code>docs/USER.md</code> under the "Ingesting PDFs"
+  section. Tech-writer sign-off.</p>
+</li>
+<li>
+<p>AC-R11-1-8: <code>ruff check</code>, <code>black --check</code>, <code>mypy</code> all pass for the new backend
+  endpoint. <code>npx tsc --noEmit</code> and <code>npm run lint</code> pass for the frontend component.</p>
+</li>
+</ul>
+<hr />
+<h3 id="r11-2-settings-redesign-runtime-config-migration">R11-2 — Settings redesign (runtime config migration)<a class="headerlink" href="#r11-2-settings-redesign-runtime-config-migration" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F16 (settings, i18n), F17 (provider config — S5/S6 touch embedding, adjacent to F17)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>backend-engineer (config-overrides layer + app_config table) + frontend-engineer (SettingsPanel sections)</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>L</td>
+</tr>
+<tr>
+<td>ADR required</td>
+<td>ADR-0053 MUST be accepted by solution-architect BEFORE any backend code is written</td>
+</tr>
+<tr>
+<td>Invariant check</td>
+<td>I6 (embedding format not hardcoded; S6 must route through the existing embedding adapter, not hardcode a path), I7 (no unbounded reads from app_config — single-row read at startup + on PUT), I8 (openapi.json regenerated after new endpoints)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Design decisions (PM-locked):</strong></p>
+<ul>
+<li>New table <code>app_config</code> in Postgres: <code>(key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ)</code>.
+  One row per overridden setting. Migration via Alembic (required: ER drift check).</li>
+<li>New module <code>backend/app/config_overrides.py</code>: on startup (lifespan), loads all rows from
+  <code>app_config</code> and caches them in memory. Exposes <code>get_override(key) -&gt; str | None</code>.
+  <code>settings</code> (pydantic-settings) is read first as baseline; override values are merged on
+  top for the 8 migrated settings only.</li>
+<li>New endpoints: <code>GET /config/app</code> (returns all 8 migrated settings with current effective
+  value + source: "env" or "override"), <code>PUT /config/app/{key}</code> (sets or clears an override
+  for one of the 8 allowed keys — returns 400 for non-allowed keys). Auth-gated (uses the
+  existing <code>verify_token</code> dependency from <code>auth.py</code>).</li>
+<li>SettingsPanel.tsx gains a new nav section "Extraction &amp; Config" (or merged into the
+  existing "General" section — frontend-engineer's call; document in PR). This section
+  renders the 8 settings as described in the migration table in §2 R11-2, with appropriate
+  input types: <code>&lt;select&gt;</code> for S1 (pypdf / marker), URL <code>&lt;input&gt;</code> for S2, number <code>&lt;input&gt;</code>
+  for S3 and S4, <code>&lt;toggle&gt;</code> for S5 and S8, <code>&lt;select&gt;</code> for S6 (ollama / openai), and a
+  free text (or select) for S7 with an "(auto)" sentinel.</li>
+<li>Each setting field shows the current effective value. A "(default)" badge appears when
+  the value matches the env-sourced default. An "Unsaved changes" indicator and a "Save"
+  button (or per-field autosave — frontend-engineer's call) trigger <code>PUT /config/app/{key}</code>.</li>
+<li>Env vars remain the deploy-time default. The UI does NOT expose them for editing — it
+  only writes named overrides. To fully reset a setting to its env default, the user
+  clicks a "Reset to default" action that calls <code>PUT /config/app/{key}</code> with <code>value: null</code>
+  (or a dedicated <code>DELETE /config/app/{key}</code> endpoint — backend-engineer's call;
+  document in PR).</li>
+</ul>
+<p><strong>Acceptance criteria:</strong></p>
+<ul>
+<li>
+<p>AC-R11-2-0: ADR-0053 committed to <code>docs/adr/ADR-0053-ui-config-overrides.md</code> and
+  accepted by solution-architect BEFORE any backend code is written. ADR covers: the
+  override model, the exact 8 migrated keys (matching the table in §2 R11-2), the
+  <code>app_config</code> table design, the startup merge order (env → DB override), the explicit
+  excluded list and rationale, and the API contract for GET/PUT.</p>
+</li>
+<li>
+<p>AC-R11-2-1: Alembic migration creates <code>app_config (key TEXT PRIMARY KEY, value TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now())</code>. <code>make er</code> output updated;
+  <code>docs/er/schema.mmd</code> zero-drift. A pytest confirms the table exists and
+  supports upsert-by-key.</p>
+</li>
+<li>
+<p>AC-R11-2-2: <code>GET /config/app</code> returns JSON <code>{"settings": [{key, value, source}]}</code> for
+  all 8 migrated keys. <code>source</code> is <code>"override"</code> when a row exists in <code>app_config</code>,
+  <code>"env"</code> otherwise. <code>value</code> is always the effective current value (override wins).
+  A pytest asserts: (a) with no overrides, all sources are "env"; (b) after a PUT, the
+  affected key's source becomes "override" and value changes.</p>
+</li>
+<li>
+<p>AC-R11-2-3: <code>PUT /config/app/{key}</code> with a valid key and valid value upserts the row
+  and returns 204. <code>PUT /config/app/nonexistent_key</code> returns 400 with
+  <code>{"error": "invalid_key", "allowed": [...]}</code>. A pytest asserts both paths.
+  The endpoint respects <code>verify_token</code> (401 if auth is enabled and token is wrong).</p>
+</li>
+<li>
+<p>AC-R11-2-4: <code>PUT /config/app/{key}</code> with <code>value: null</code> (or a <code>DELETE /config/app/{key}</code>
+  endpoint — whichever the backend-engineer implements) removes the override row, causing
+  the setting to revert to the env default. A pytest asserts the revert behaviour.</p>
+</li>
+<li>
+<p>AC-R11-2-5: <code>backend/app/config_overrides.py</code> module: <code>load_overrides(db)</code> is called
+  once during lifespan startup; <code>get_effective(key: str, env_default: str) -&gt; str</code> returns
+  the override value if present, else the env default. A pytest asserts the merge logic
+  with mocked DB rows.</p>
+</li>
+<li>
+<p>AC-R11-2-6: The 8 settings are surfaced in SettingsPanel.tsx under a clearly labelled
+  section. Each field displays the current effective value. Each has a "Reset to default"
+  action. A Vitest asserts: (a) the section renders with mocked <code>GET /config/app</code> data;
+  (b) editing S1 (<code>pdf_extractor</code>) from "pypdf" to "marker" and clicking Save triggers
+  <code>PUT /config/app/pdf_extractor</code> with <code>value: "marker"</code>.</p>
+</li>
+<li>
+<p>AC-R11-2-7: All 8 settings have EN and IT i18n keys (label + description +
+  validation hint for number fields). A Vitest asserts all new keys resolve to non-empty
+  strings in both locales. Labels and descriptions use plain language, not env-var names.
+  Examples: "PDF extractor" not "PDF_EXTRACTOR"; "marker" and "pypdf" are the two choices
+  for S1 (the backend enum values, displayed as-is since they are already readable).</p>
+</li>
+<li>
+<p>AC-R11-2-8: <code>docs/api/openapi.json</code> regenerated. <code>GET /config/app</code> and
+  <code>PUT /config/app/{key}</code> (and <code>DELETE /config/app/{key}</code> if chosen) are declared with
+  correct request/response schemas and the <code>BearerAuth</code> security reference.</p>
+</li>
+<li>
+<p>AC-R11-2-9: <code>ruff check</code>, <code>black --check</code>, <code>mypy</code> pass for <code>config_overrides.py</code> and
+  all new backend modules. No <code>Any</code> types. Strict mypy.</p>
+</li>
+<li>
+<p>AC-R11-2-10: <code>docs/USER.md</code> gains a "Runtime Settings" section explaining that these
+  8 settings can be changed without restarting Docker, and what each setting controls.
+  Tech-writer sign-off.</p>
+</li>
+</ul>
+<hr />
+<h3 id="r11-3-logo-deduplication">R11-3 — Logo deduplication<a class="headerlink" href="#r11-3-logo-deduplication" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F1 (UI shell)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>frontend-engineer</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S</td>
+</tr>
+<tr>
+<td>Invariant check</td>
+<td>No invariant risk. Single-file edit.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Design decision (PM-locked):</strong>
+The logo (<code>synapse-logo.svg</code>) is removed from <code>NavRail.tsx</code>. The Header retains
+sole ownership of the branding logo. After the change, exactly one <code>&lt;img src={logoUrl}&gt;</code>
+(or equivalent SVG embed) is present in the rendered DOM at any viewport size. The top
+slot in the NavRail previously occupied by the logo is either collapsed (reducing the
+rail's top padding to the first nav item) or replaced with a small top padding only.</p>
+<p><strong>Acceptance criteria:</strong></p>
+<ul>
+<li>
+<p>AC-R11-3-1: <code>NavRail.tsx</code> no longer imports <code>logoUrl</code> or renders the Synapse logo.
+  A Vitest asserts <code>queryByRole("img", {name: /synapse/i})</code> returns null within the
+  NavRail render.</p>
+</li>
+<li>
+<p>AC-R11-3-2: <code>Header.tsx</code> continues to render the logo. A Vitest (or the existing
+  <code>Header.test.tsx</code>) asserts the logo <code>&lt;img&gt;</code> is present within the Header render.</p>
+</li>
+<li>
+<p>AC-R11-3-3: At 1280×800 viewport width (standard desktop), there is exactly one
+  instance of the Synapse logo visible. Verified by a Playwright screenshot
+  <code>docs/screens/layout-no-logo-dupe.png</code>. D5 artifact.</p>
+</li>
+<li>
+<p>AC-R11-3-4: The NavRail's visual appearance after the logo removal is intentional
+  and documented in a PR comment (e.g., "top padding increased to 8px to replace the
+  removed logo slot"). No visual regressions in other NavRail items.</p>
+</li>
+</ul>
+<hr />
+<h3 id="r11-4-bugfixes-bounded-sweep-3-items">R11-4 — Bugfixes (bounded sweep, 3 items)<a class="headerlink" href="#r11-4-bugfixes-bounded-sweep-3-items" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F1 (UI shell), F3 (I3 — renderMarkdown), F4/F5 (virtualizer)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>frontend-engineer</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S × 3</td>
+</tr>
+<tr>
+<td>Invariant check</td>
+<td>I3 (renderMarkdown guard directly enforces no heavy work per token/empty-string), I4 (virtualizer fix enforces list virtualization works on mount)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Acceptance criteria:</strong></p>
+<ul>
+<li>
+<p>AC-R11-4-BUG1 (renderMarkdown guard): <code>MarkdownView.tsx</code> (or wherever <code>renderMarkdown</code>
+  is defined) has a guard <code>if (!markdown || markdown.trim() === "") return ""</code> before the
+  DOMParser invocation. A Vitest asserts: (a) calling <code>renderMarkdown("")</code> returns <code>""</code>
+  without throwing; (b) calling <code>renderMarkdown(null as unknown as string)</code> returns <code>""</code>
+  without throwing. Zero browser console errors on empty preview pane (verified by
+  Playwright test: open a new conversation with no messages, assert no console errors on
+  the preview pane).</p>
+</li>
+<li>
+<p>AC-R11-4-BUG2 (polling dedup): The polling hook or <code>useEffect</code> in <code>IngestView.tsx</code>
+  (or the hook it delegates to) has a cleanup function that clears the interval/timeout.
+  A Vitest asserts: mount the component, unmount it, remount it — the number of active
+  polling intervals never exceeds 1 at any point. Verified by spying on <code>setInterval</code>
+  and <code>clearInterval</code> call counts.</p>
+</li>
+<li>
+<p>AC-R11-4-BUG3 (virtualizer zero-height): The TanStack Virtual <code>estimateSize</code> function
+  in the affected list component (tree, message history, or both — fix whichever
+  manifests the bug) returns a non-zero value (≥ 32px). Additionally, the scroll
+  container has a <code>ResizeObserver</code> or a <code>useLayoutEffect</code> that calls
+  <code>virtualizer.measure()</code> on mount (or after the container first gains a non-zero height).
+  A Vitest asserts the virtualizer's <code>getTotalSize()</code> is &gt; 0 on initial render with a
+  non-empty item list and a mocked scroll container height of 400px.</p>
+</li>
+</ul>
+<hr />
+<h2 id="4-explicit-sequencing-and-file-conflict-map">4. Explicit sequencing and file conflict map<a class="headerlink" href="#4-explicit-sequencing-and-file-conflict-map" title="Permanent link">&para;</a></h2>
+<h3 id="wave-1-adr-backend-foundation-days-14">Wave 1 — ADR + backend foundation (days 1–4)<a class="headerlink" href="#wave-1-adr-backend-foundation-days-14" title="Permanent link">&para;</a></h3>
+<p><strong>Day 1 (PM-mandated blocker for R11-2):</strong> solution-architect writes and commits ADR-0053
+(<code>docs/adr/ADR-0053-ui-config-overrides.md</code>). No backend code for R11-2 written until
+ADR-0053 is accepted. R11-3 (logo dedup — no ADR needed) and R11-4 (bugfixes) can start
+immediately in parallel.</p>
+<p><strong>Days 1–4:</strong> backend-engineer implements R11-1 (new endpoint + health proxy) and
+begins R11-2 Alembic migration + <code>config_overrides.py</code> after ADR-0053 accepted.</p>
+<h3 id="wave-2-frontend-ui-integration-days-310">Wave 2 — Frontend + UI integration (days 3–10)<a class="headerlink" href="#wave-2-frontend-ui-integration-days-310" title="Permanent link">&para;</a></h3>
+<p><strong>Starts as soon as the backend endpoints for R11-1 and R11-2 are merged.</strong>
+frontend-engineer implements the UploadZone Marker extension (R11-1) and the
+SettingsPanel config section (R11-2). R11-3 and R11-4 can be merged at any point from
+day 1 onward (no shared files with R11-1/R11-2 backend work).</p>
+<h3 id="wave-3-qa-docs-sign-offs-days-815">Wave 3 — QA, docs, sign-offs (days 8–15)<a class="headerlink" href="#wave-3-qa-docs-sign-offs-days-815" title="Permanent link">&para;</a></h3>
+<p>QA full pass: ci.yml exact commands, all E2E specs, all new unit tests.
+Tech-writer: USER.md updates (R11-1-7, R11-2-10). Architect review: ADR-0053,
+new endpoint design, <code>config_overrides.py</code> merge logic. PM exit-criteria check.
+Tag v1.1.0.</p>
+<h3 id="critical-path">Critical path<a class="headerlink" href="#critical-path" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>ADR-0053 accepted
+    └─► R11-2 backend (app_config table + config_overrides + GET/PUT endpoints)
+             └─► R11-2 frontend (SettingsPanel config section)
+                      └─► QA full pass
+                               └─► Docs gate (tech-writer)
+                                        └─► Architect review
+                                                 └─► PM sign-off
+                                                          └─► tag v1.1.0
+
+R11-1 backend (convert-marker endpoint + marker-health proxy)
+    └─► R11-1 frontend (UploadZone Marker action)
+             (parallel to R11-2 — no shared files)
+
+R11-3 + R11-4 (day 1 onwards — no dependencies)
+</code></pre></div>
+<h3 id="same-file-conflict-registry">Same-file conflict registry<a class="headerlink" href="#same-file-conflict-registry" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Items touching it</th>
+<th>Merge order</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend/app/main.py</code></td>
+<td>R11-1 (new route registration), R11-2 (new route registration)</td>
+<td>R11-1 backend first, then R11-2 backend; no other item touches this file until both are merged</td>
+</tr>
+<tr>
+<td><code>backend/app/ingest/extract.py</code></td>
+<td>R11-1 (calls existing <code>_extract_pdf_via_marker</code>)</td>
+<td>Read-only ref; R11-1 adds NO new logic to extract.py — it calls the existing function via the new endpoint</td>
+</tr>
+<tr>
+<td><code>frontend/src/components/ingest/UploadZone.tsx</code></td>
+<td>R11-1 (Marker action)</td>
+<td>R11-1 only</td>
+</tr>
+<tr>
+<td><code>frontend/src/components/settings/SettingsPanel.tsx</code></td>
+<td>R11-2 (new config section)</td>
+<td>R11-2 only</td>
+</tr>
+<tr>
+<td><code>frontend/src/components/nav/NavRail.tsx</code></td>
+<td>R11-3 (logo removal)</td>
+<td>R11-3 only — no conflict with R11-1/R11-2</td>
+</tr>
+<tr>
+<td><code>frontend/src/components/chat/MarkdownView.tsx</code></td>
+<td>R11-4-BUG1</td>
+<td>R11-4 only</td>
+</tr>
+<tr>
+<td><code>frontend/src/components/ingest/IngestView.tsx</code></td>
+<td>R11-4-BUG2</td>
+<td>R11-4 only</td>
+</tr>
+<tr>
+<td><code>docs/er/schema.mmd</code></td>
+<td>R11-2 (new app_config table)</td>
+<td>Regenerated after R11-2 Alembic migration</td>
+</tr>
+<tr>
+<td><code>docs/api/openapi.json</code></td>
+<td>R11-1 (new endpoints), R11-2 (new endpoints)</td>
+<td>Regenerated once both backend PRs are merged</td>
+</tr>
+<tr>
+<td><code>docs/USER.md</code></td>
+<td>R11-1 (Ingesting PDFs section), R11-2 (Runtime Settings section)</td>
+<td>tech-writer coordinates; two separate sections, no conflict</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-wave-plan-suggested-23-week-schedule">5. Wave plan (suggested 2–3 week schedule)<a class="headerlink" href="#5-wave-plan-suggested-23-week-schedule" title="Permanent link">&para;</a></h2>
+<p><strong>Wave 1 (days 1–5):</strong>
+- Day 1: solution-architect writes ADR-0053. frontend-engineer starts R11-3 (logo dedup)
+  and R11-4 (three bugfixes) — no dependencies, no ADR needed.
+- Days 1–3: backend-engineer implements R11-1 (<code>POST /ingest/convert-marker</code>,
+  <code>GET /ingest/marker-health</code>, pytests).
+- Days 2–5: backend-engineer implements R11-2 Alembic migration + <code>config_overrides.py</code>
+  + <code>GET /config/app</code> + <code>PUT /config/app/{key}</code> after ADR-0053 accepted.</p>
+<p><strong>Wave 2 (days 4–10):</strong>
+- Days 4–7: frontend-engineer implements R11-1 UI (UploadZone Marker action, per-file
+  progress, health badge). R11-3 + R11-4 PRs merged (small, no deps).
+- Days 6–10: frontend-engineer implements R11-2 UI (SettingsPanel config section, 8
+  settings, i18n keys).</p>
+<p><strong>Wave 3 (days 10–15):</strong>
+- qa-test-engineer full pass: ci.yml exact commands, all new unit tests, E2E regressions.
+- tech-writer: USER.md updates for R11-1 and R11-2.
+- solution-architect: review ADR-0053 consistency with implementation, openapi.json audit.
+- PM: exit-criteria check (§6).
+- Day 15 target: tag v1.1.0, GitHub release.</p>
+<hr />
+<h2 id="6-out-of-scope-for-v11">6. Out of scope for v1.1<a class="headerlink" href="#6-out-of-scope-for-v11" title="Permanent link">&para;</a></h2>
+<p>Everything not listed in §3 is explicitly out of scope. The following items MUST NOT
+be built during this sprint without explicit PM escalation and approval:</p>
+<table>
+<thead>
+<tr>
+<th>Deferred item</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Full file manager / upload history queue</td>
+<td>No persistent queue table in scope; ephemeral progress only</td>
+</tr>
+<tr>
+<td>Batch Marker conversion &gt; 10 files</td>
+<td>Beyond the bounded cap; add a persistent queue table first (post-1.1)</td>
+</tr>
+<tr>
+<td>Background Marker retry on failure</td>
+<td>Requires a persistent task queue (post-1.1)</td>
+</tr>
+<tr>
+<td>WHISPER_SERVICE_URL or AV_TRANSCRIPTION_ENABLED in UI</td>
+<td>Not in the 8 migrated settings; defer to post-1.1</td>
+</tr>
+<tr>
+<td>SEARXNG_URL in UI</td>
+<td>Infra-class setting; excluded by PM decision</td>
+</tr>
+<tr>
+<td>CLIP_TOKEN / CLIP_ENABLED in Settings UI</td>
+<td>Security secret; env-only</td>
+</tr>
+<tr>
+<td>REVIEW_* bounds in UI</td>
+<td>Operational tuning; too many params for a clean UX; defer</td>
+</tr>
+<tr>
+<td>LINT_* bounds in UI</td>
+<td>Operational tuning; defer</td>
+</tr>
+<tr>
+<td>Multi-vault UI / vault switcher</td>
+<td>Post-1.0 (no routing foundation)</td>
+</tr>
+<tr>
+<td>OIDC / multi-user</td>
+<td>Post-1.0</td>
+</tr>
+<tr>
+<td>New feature IDs not in CLAUDE.md §4</td>
+<td>Never without a new ID — anti-scope-creep invariant</td>
+</tr>
+<tr>
+<td>NavRail reordering or restructure</td>
+<td>R11-3 removes the logo only; no other rail changes</td>
+</tr>
+<tr>
+<td>New MkDocs nav items</td>
+<td>R10-6 completed the MkDocs structure; no expansion in this sprint</td>
+</tr>
+<tr>
+<td>Code signing</td>
+<td>Documented in DEPLOY.md (v1.0 R10-3); no action needed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Permanent invariant blocks (I1–I9 apply unconditionally):</strong> full-rescan, main-thread
+force layout, per-token DOM mutation, WYSIWYG/ProseMirror, hardcoded provider or model
+ID, unbounded loops, skipping D-artifacts, Tavily, reimplementing local embeddings.</p>
+<hr />
+<h2 id="7-exit-criteria-for-v11-release-ec-m11">7. Exit criteria for v1.1 release (EC-M11)<a class="headerlink" href="#7-exit-criteria-for-v11-release-ec-m11" title="Permanent link">&para;</a></h2>
+<p>All 4 sign-offs required before tagging <code>v1.1.0</code>:
+QA-test-engineer + Solution-architect + Tech-writer + Product-manager.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Criterion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EC-M11-1</td>
+<td>All committed items have all ACs green: R11-1 (Marker UI + endpoint, all 8 ACs), R11-2 (Settings migration, all 10 ACs + ADR-0053 accepted), R11-3 (logo dedup, all 4 ACs), R11-4 (3 bugfixes, all 3 ACs).</td>
+</tr>
+<tr>
+<td>EC-M11-2</td>
+<td>ci.yml exact commands all exit 0 tree-wide: backend ruff + black + mypy; frontend tsc + lint + test. QA-test-engineer runs verbatim and signs each off.</td>
+</tr>
+<tr>
+<td>EC-M11-3</td>
+<td>ER diagram zero-drift: <code>make er</code> output matches live schema including the new <code>app_config</code> table. <code>docs/er/schema.mmd</code> committed and current.</td>
+</tr>
+<tr>
+<td>EC-M11-4</td>
+<td><code>docs/api/openapi.json</code> regenerated: <code>POST /ingest/convert-marker</code>, <code>GET /ingest/marker-health</code>, <code>GET /config/app</code>, <code>PUT /config/app/{key}</code> (and DELETE if chosen) all present with correct schemas and BearerAuth reference.</td>
+</tr>
+<tr>
+<td>EC-M11-5</td>
+<td>Mermaid validation loop passes: all <code>.mmd</code> files in <code>docs/architecture/</code>, <code>docs/er/</code>, <code>docs/sequences/</code> render without error via <code>mmdc</code>.</td>
+</tr>
+<tr>
+<td>EC-M11-6</td>
+<td><code>mkdocs build --strict</code> exits 0 (R10-6 CI job continues to pass; no regressions from new doc edits).</td>
+</tr>
+<tr>
+<td>EC-M11-7</td>
+<td>D5 screenshot <code>docs/screens/layout-no-logo-dupe.png</code> captured at 1280×800 (R11-3 AC-R11-3-3). All v1.0 screenshots remain valid (no regressions).</td>
+</tr>
+<tr>
+<td>EC-M11-8</td>
+<td><code>docs/USER.md</code> updated: "Ingesting PDFs" section (R11-1-7) and "Runtime Settings" section (R11-2-10) present and tech-writer approved.</td>
+</tr>
+<tr>
+<td>EC-M11-9</td>
+<td><code>docs/adr/ADR-0053-ui-config-overrides.md</code> committed and in Accepted status. Present in the ADR index.</td>
+</tr>
+<tr>
+<td>EC-M11-10</td>
+<td><code>vault/wiki/</code> remains a valid Obsidian vault (I5/K7). Manual spot-check by owner.</td>
+</tr>
+<tr>
+<td>EC-M11-11</td>
+<td>Marker offline degradation verified: with Marker microservice stopped, the "Convert with Marker" button is disabled in the UI and shows the offline badge. No unhandled errors. Verified by QA-test-engineer (mocked backend or real offline Marker).</td>
+</tr>
+<tr>
+<td>EC-M11-12</td>
+<td>Settings override persistence verified: changing S1 (PDF_EXTRACTOR) via UI to "marker", restarting the backend, confirms the setting is still "marker" (persisted in <code>app_config</code> table) and the effective value returned by <code>GET /config/app</code> has <code>source: "override"</code>.</td>
+</tr>
+<tr>
+<td>EC-M11-13</td>
+<td>Env-var backward compatibility: a deployment with no <code>app_config</code> rows and all env vars set to their defaults behaves identically to v1.0.0 (no behaviour change). QA-test-engineer confirms by running the v1.0 E2E suite against a v1.1 build with an empty <code>app_config</code> table.</td>
+</tr>
+<tr>
+<td>EC-M11-14</td>
+<td>GitHub release <code>v1.1.0</code> created with desktop artifacts (macOS <code>.dmg</code>, Windows <code>.msi</code>, Linux <code>.AppImage</code>). Release notes list all items in §3.</td>
+</tr>
+<tr>
+<td>EC-M11-HCP</td>
+<td>Human checkpoint: Emanuele verifies in a live session: (a) upload one PDF via "Convert with Marker" and confirm it appears in the wiki after ingest; (b) change PDF_EXTRACTOR setting from pypdf to marker via Settings UI, restart backend, confirm the setting is still "marker"; (c) stop the Marker service, confirm the "Convert with Marker" button shows "Marker offline" and is disabled; (d) confirm the logo appears exactly once (Header only); (e) open an empty chat — no console errors in the browser developer tools.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-de-scope-order-if-sprint-runs-over">8. De-scope order (if sprint runs over)<a class="headerlink" href="#8-de-scope-order-if-sprint-runs-over" title="Permanent link">&para;</a></h2>
+<p>Cut in this order:</p>
+<ol>
+<li>R11-4-BUG3 (virtualizer zero-height) — lowest user impact of the three bugs; the
+   resize event workaround is acceptable as a stop-gap. Document as known issue.</li>
+<li>R11-4-BUG2 (polling dedup) — minor performance issue, not a functional regression.
+   Document as known issue.</li>
+<li>R11-2 settings S7 (<code>OVERVIEW_LANGUAGE</code>) and S8 (<code>WIKILINK_ENRICH_ENABLED</code>) — these
+   two settings are the lowest-frequency user actions; cut them from the first UI
+   delivery and defer to a v1.1.1 patch. The backend key-allowlist must be updated
+   to exclude them consistently.</li>
+</ol>
+<p>R11-1 (Marker UI), R11-2 core (S1–S6), R11-3 (logo), and R11-4-BUG1 (renderMarkdown
+guard) are committed and MUST NOT be cut.</p>
+<hr />
+<h2 id="9-velocity-note">9. Velocity note<a class="headerlink" href="#9-velocity-note" title="Permanent link">&para;</a></h2>
+<p>v1.0 carried 9 items (R10-1 through R10-6 + QA-LO + UX) in 3–4 weeks with one XL item.
+v1.1 carries 4 items (R11-1 L, R11-2 L, R11-3 S, R11-4 S×3) in 2–3 weeks. By commit
+density this is a slightly lighter sprint than v1.0, appropriate because:
+- R11-2 has an ADR gate on Day 1 (same pattern as R10-1); the gate is the primary risk.
+- R11-1 and R11-2 both touch <code>backend/app/main.py</code> and require sequential merge; this
+  is the main sequencing constraint.
+- R11-3 and R11-4 are genuinely S-sized and have no dependencies; they should be merged
+  within Wave 1 to clear the branch early.</p>
+<p>The sprint is intentionally scoped slightly under the v1.0 pace. v1.1 is a "polish and
+configure" sprint, not a feature sprint. Correctness and test coverage of the config
+override layer (R11-2) are the primary quality concerns.</p>
+<p><strong>Feature IDs touched this sprint:</strong> F1, F12, F16, F17 (adjacent — S6 embedding format).
+<strong>Invariants with heightened priority:</strong> I1 (watcher incremental pick-up after Marker
+conversion), I7 (bounded upload: ≤10 files, MAX_UPLOAD_BYTES per file), I8 (ER + OpenAPI
+drift check, new app_config table), I3 (renderMarkdown guard closes I3 gap in BUG-1).</p>
+<hr />
+<h2 id="10-amendment-owner-design-decisions-emanuele-2026-07-03">10. AMENDMENT — Owner design decisions (Emanuele, 2026-07-03)<a class="headerlink" href="#10-amendment-owner-design-decisions-emanuele-2026-07-03" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>These two decisions OVERRIDE the corresponding PM defaults above. Everything else in
+§1–§9 stands. Effort re-estimate: R11-1 stays L; R11-2 rises L → <strong>XL</strong> (adds an
+information-architecture redesign + a first-run wizard on top of the config migration).
+Sprint is now "polish, configure AND simplify". Wave plan below is revised accordingly.</p>
+</blockquote>
+<h3 id="a1-r11-1-dedicated-convert-surface-overrides-the-uploadzone-extension-decision">A1 — R11-1: dedicated "Convert" surface (overrides the UploadZone-extension decision)<a class="headerlink" href="#a1-r11-1-dedicated-convert-surface-overrides-the-uploadzone-extension-decision" title="Permanent link">&para;</a></h3>
+<p>The Marker conversion is NOT folded into the existing UploadZone. It gets its <strong>own
+first-class UI surface</strong> ("Convert" / "Converti"), reachable from primary navigation, so
+"convert PDFs from the interface" is an obvious, visible capability.</p>
+<ul>
+<li>New component <code>frontend/src/components/convert/ConvertPanel.tsx</code> (+ a NavRail/section
+  entry). Drag-drop or file-pick for 1–10 PDFs, per-file status rows (pending → converting
+  → done / failed), a visible "Marker offline" badge, and an explicit <strong>"Convert &amp; ingest"</strong>
+  primary action.</li>
+<li>After successful conversion the flow <strong>auto-triggers ingest</strong> (writes <code>.extracted.md</code>
+  under <code>vault/raw/sources/</code>; the watcher picks it up under I1 — no new ingest path). The
+  UI surfaces the resulting ingest so the user sees the new wiki page(s) appear.</li>
+<li>Backend contract from §3 R11-1 is unchanged (<code>POST /ingest/convert-marker</code>,
+  <code>GET /ingest/marker-health</code>). Only the frontend home of the feature changes: a dedicated
+  ConvertPanel instead of an UploadZone button. All R11-1 ACs still apply; AC-R11-1-5/6
+  now target ConvertPanel.tsx (+ ConvertPanel.test.tsx) instead of UploadZone.</li>
+<li>Reuses the existing upload infrastructure (multipart, MAX_UPLOAD_BYTES) — no new
+  persistent queue (still out of scope per §6).</li>
+</ul>
+<h3 id="a2-r11-2-settings-information-architecture-redesign-first-run-wizard">A2 — R11-2: Settings information-architecture redesign + first-run wizard<a class="headerlink" href="#a2-r11-2-settings-information-architecture-redesign-first-run-wizard" title="Permanent link">&para;</a></h3>
+<p>Beyond migrating the 8 env settings into the UI, the Settings panel is <strong>reorganised and
+made plain-language</strong>, and a guided first-run setup is added. Rationale: today's panel is
+14 sections / ~3350 lines and reads like an env-var dump; the owner wants it simple and
+"parlante" (speaks in user terms, not variable names).</p>
+<p><strong>A2.1 — Consolidated IA.</strong> The 14 current sections collapse into a small set of clear
+top-level groups (target ~5). Proposed grouping (final split is architect + frontend call,
+recorded in ADR-0053 / a UI-IA note, but the target count and plain-language rule are
+PM-and-owner locked):</p>
+<table>
+<thead>
+<tr>
+<th>Group (EN / IT)</th>
+<th>Folds in today's sections</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Getting started / Per iniziare</strong></td>
+<td>first-run wizard entry, context window (general)</td>
+</tr>
+<tr>
+<td><strong>AI &amp; Models / AI e Modelli</strong></td>
+<td>llmModels, embeddings, webSearch, apiMcp (provider/F17)</td>
+</tr>
+<tr>
+<td><strong>Sources &amp; PDF / Sorgenti e PDF</strong></td>
+<td>sourceWatch, webClipper, <strong>PDF extractor + Marker (S1–S3, new)</strong></td>
+</tr>
+<tr>
+<td><strong>Output &amp; Appearance / Output e Aspetto</strong></td>
+<td>output, interface, scenarios</td>
+</tr>
+<tr>
+<td><strong>Advanced / Avanzate</strong></td>
+<td>costs, security, maintenance, about + the remaining migrated keys (S4–S8)</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>No section is deleted destructively: every existing control keeps a home; the change is
+  grouping, labels, and inline help — not removal of functionality.</li>
+<li>Every field gets a <strong>plain-language label + one-line help</strong> (EN + IT). Env-var names
+  never appear as the primary label (an "Advanced" affordance may reveal the underlying
+  key for power users, optional).</li>
+</ul>
+<p><strong>A2.2 — First-run wizard.</strong> A short guided setup shown when the app has no saved config
+(new + returning-without-config). Steps (bounded, skippable): (1) connect backend / verify
+health, (2) choose inference provider + model (reuses existing provider config), (3) choose
+PDF extractor (pypdf vs Marker + Marker URL, reuses R11-2 S1–S3), (4) done → land in the
+app. The wizard only writes through the SAME <code>PUT /config/app/{key}</code> + provider-config
+endpoints — no parallel persistence path. It is dismissible and re-openable from
+"Getting started".</p>
+<p><strong>New ACs (additive to §3 R11-2):</strong></p>
+<ul>
+<li>AC-R11-2-11 (IA): Settings renders ~5 top-level groups; a Vitest asserts the group
+  labels are present and that every pre-existing control is still reachable (no control
+  lost in the reorg). Snapshot/interaction test, not pixel.</li>
+<li>AC-R11-2-12 (plain language): a Vitest asserts no primary field label equals an env-var
+  name (e.g. no visible label is exactly <code>PDF_EXTRACTOR</code>); labels/help resolve non-empty
+  in EN and IT.</li>
+<li>AC-R11-2-13 (wizard): a Vitest asserts the wizard appears when <code>GET /config/app</code> +
+  provider config indicate an unconfigured state, is skippable, is re-openable from
+  "Getting started", and writes only via the sanctioned endpoints (spy on fetch).</li>
+<li>AC-R11-2-14 (D5): Playwright screenshots <code>docs/screens/settings-redesign.png</code> and
+  <code>docs/screens/first-run-wizard.png</code> at 1280×800.</li>
+</ul>
+<p><strong>Effort / risk note.</strong> A2 makes R11-2 the sprint's XL item and its main risk. The config
+migration (S1–S8) and the IA/wizard can ship in two frontend sub-waves: 2a = migration
+into the <em>current</em> structure (unblocks Marker settings early), 2b = the IA reorg + wizard
+on top. If the sprint runs over, §8 de-scope is amended: cut A2.2 (wizard) FIRST, then the
+A2.1 reorg, before cutting any functional config migration — the migration (no more
+env-editing) is the owner's hard requirement; the reorg/wizard are the polish layer.</p>
+<h3 id="a3-revised-wave-plan-supersedes-5-for-the-two-amended-items">A3 — Revised wave plan (supersedes §5 for the two amended items)<a class="headerlink" href="#a3-revised-wave-plan-supersedes-5-for-the-two-amended-items" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Wave 1 (now):</strong> architect writes ADR-0053 (config-override model + the Settings IA
+  grouping + wizard-persistence contract). In parallel, R11-3 (logo dedup) and
+  R11-4-BUG3 (virtualizer) start immediately — no deps. R11-4-BUG1 (renderMarkdown) and
+  R11-4-BUG2 (ingest polling) are already in flight in separate owner-launched sessions;
+  the orchestrator integrates their results rather than re-doing them.</li>
+<li><strong>Wave 2a:</strong> backend R11-1 (convert-marker + marker-health) and R11-2 backend
+  (app_config + config_overrides + GET/PUT). Frontend ConvertPanel (R11-1) + config
+  migration into current Settings (R11-2 S1–S8).</li>
+<li><strong>Wave 2b:</strong> Settings IA reorg (A2.1) + first-run wizard (A2.2).</li>
+<li><strong>Wave 3:</strong> QA (ci.yml exact commands), tech-writer (USER.md), architect review, PM
+  sign-off, D5 screenshots, tag v1.1.0 with desktop artifacts + auto-update latest.json.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

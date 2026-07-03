@@ -13,10 +13,6 @@
          <lastmod>2026-07-03</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/index%202/</loc>
-         <lastmod>2026-07-03</lastmod>
-    </url>
-    <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/</loc>
          <lastmod>2026-07-03</lastmod>
     </url>
@@ -225,7 +221,11 @@
          <lastmod>2026-07-03</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/index%202/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0053-ui-config-overrides/</loc>
+         <lastmod>2026-07-03</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0054-domain-taxonomy-and-dashboard-stats/</loc>
          <lastmod>2026-07-03</lastmod>
     </url>
     <url>
@@ -234,10 +234,6 @@
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/architecture/</loc>
-         <lastmod>2026-07-03</lastmod>
-    </url>
-    <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/architecture/index%202/</loc>
          <lastmod>2026-07-03</lastmod>
     </url>
     <url>
@@ -285,10 +281,6 @@
          <lastmod>2026-07-03</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sequences/index%202/</loc>
-         <lastmod>2026-07-03</lastmod>
-    </url>
-    <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v0.7-SCOPE/</loc>
          <lastmod>2026-07-03</lastmod>
     </url>
@@ -301,11 +293,15 @@
          <lastmod>2026-07-03</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.0-SCOPE%202/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.0-SCOPE/</loc>
          <lastmod>2026-07-03</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.0-SCOPE/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.1-SCOPE/</loc>
+         <lastmod>2026-07-03</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.2-SCOPE/</loc>
          <lastmod>2026-07-03</lastmod>
     </url>
     <url>

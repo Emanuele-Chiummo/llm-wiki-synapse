@@ -1,0 +1,1748 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.2-SCOPE/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint v1.2 — PM Scope Lock - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-v12-pm-scope-lock" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint v1.2 — PM Scope Lock
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-engineer-ground-rules-read-before-touching-any-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Engineer ground rules (READ BEFORE TOUCHING ANY FILE)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-sprint-goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Sprint Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-scope-decision-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Scope decision record
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Scope decision record">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#r12-1-home-dashboard-in-scope-l" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R12-1 — Home dashboard: IN SCOPE (L)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r12-2-domain-vocabulary-auto-tag-in-scope-l" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R12-2 — Domain vocabulary + auto-tag: IN SCOPE (L)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r12-3-server-release-channel-optional-auto-update-in-scope-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R12-3 — Server release channel + optional auto-update: IN SCOPE (M)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r12-4-ingest-polling-dedup-carry-over-from-v11-bug-2-in-scope-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R12-4 — Ingest polling dedup (carry-over from v1.1 BUG-2): IN SCOPE (S)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-committed-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Committed Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Committed Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#r12-1-home-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R12-1 — Home dashboard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r12-2-domain-vocabulary-auto-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R12-2 — Domain vocabulary + auto-tag
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r12-3-server-release-channel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R12-3 — Server release channel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r12-4-ingest-polling-dedup-bug-2-carry-over" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R12-4 — Ingest polling dedup (BUG-2 carry-over)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-explicit-sequencing-and-file-conflict-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Explicit sequencing and file conflict map
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Explicit sequencing and file conflict map">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#critical-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Critical path
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wave-1-adr-backend-foundation-days-14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave 1 — ADR + backend foundation (days 1–4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wave-2-frontend-ui-integration-days-310" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave 2 — Frontend + UI integration (days 3–10)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wave-3-qa-docs-sign-offs-days-815" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave 3 — QA, docs, sign-offs (days 8–15)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#same-file-conflict-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Same-file conflict registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-wave-plan-suggested-23-week-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Wave plan (suggested 2–3 week schedule)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-out-of-scope-for-v12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Out of scope for v1.2
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-exit-criteria-for-v12-release-ec-m12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Exit criteria for v1.2 release (EC-M12)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-de-scope-order-if-sprint-runs-over" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. De-scope order (if sprint runs over)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-velocity-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Velocity note
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-v12-pm-scope-lock">Sprint v1.2 — PM Scope Lock<a class="headerlink" href="#sprint-v12-pm-scope-lock" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Milestone: M12 — "Home &amp; Insights"
+Author: product-manager
+Date: 2026-07-03
+Branch: sprint/v1.2 (to be cut from main after v1.1.0 tag)
+Prerequisite: M11 exit criteria met (EC-M11-1..EC-M11-HCP confirmed by Emanuele before this sprint starts).
+Sprint duration: 2–3 weeks</p>
+</blockquote>
+<hr />
+<h2 id="0-engineer-ground-rules-read-before-touching-any-file">0. Engineer ground rules (READ BEFORE TOUCHING ANY FILE)<a class="headerlink" href="#0-engineer-ground-rules-read-before-touching-any-file" title="Permanent link">&para;</a></h2>
+<p><strong>Rule 1 — No destructive git operations.</strong>
+No git restore, git checkout, git stash, or any command that discards working-tree
+changes. Other agents on the same branch may have uncommitted edits that are
+legitimate in-progress work. If you find changes in a file you need to edit, read them
+first and integrate. Do NOT discard. Escalate to orchestrator if you cannot determine
+ownership of an uncommitted change.</p>
+<p><strong>Rule 2 — QA gate runs ci.yml's EXACT commands.</strong>
+The QA-test-engineer MUST run the following commands verbatim (matching ci.yml jobs)
+before signing off on any item. No proxy commands, no shortcuts:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Backend lint + type check (ci.yml jobs: lint, typecheck)</span>
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>app<span class="w"> </span>tests
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>black<span class="w"> </span>--check<span class="w"> </span>app<span class="w"> </span>tests
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mypy<span class="w"> </span>app
+
+<span class="c1"># Frontend (ci.yml job: frontend)</span>
+<span class="nb">cd</span><span class="w"> </span>frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npx<span class="w"> </span>tsc<span class="w"> </span>--noEmit
+<span class="nb">cd</span><span class="w"> </span>frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>lint
+<span class="nb">cd</span><span class="w"> </span>frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span><span class="nb">test</span>
+
+<span class="c1"># Docs gate — ER + OpenAPI drift check (ci.yml job: docs)</span>
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>scripts/generate_er.py
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>scripts/generate_openapi.py
+git<span class="w"> </span>diff<span class="w"> </span>--exit-code<span class="w"> </span>docs/er/schema.mmd
+git<span class="w"> </span>diff<span class="w"> </span>--exit-code<span class="w"> </span>docs/api/openapi.json
+
+<span class="c1"># Mermaid validation loop (ci.yml job: docs — validate Mermaid diagrams step)</span>
+<span class="k">for</span><span class="w"> </span>f<span class="w"> </span><span class="k">in</span><span class="w"> </span>docs/architecture/*.mmd<span class="w"> </span>docs/er/*.mmd<span class="w"> </span>docs/sequences/*.mmd<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">  </span><span class="o">[</span><span class="w"> </span>-f<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$f</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="k">continue</span>
+<span class="w">  </span>mmdc<span class="w"> </span>-p<span class="w"> </span>/tmp/puppeteer.json<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$f</span><span class="s2">&quot;</span><span class="w"> </span>-o<span class="w"> </span>/tmp/mmdc-check.svg<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
+<span class="k">done</span>
+</code></pre></div>
+<p>All six command groups must exit 0 before any item's ACs are marked green.</p>
+<hr />
+<h2 id="1-sprint-goal">1. Sprint Goal<a class="headerlink" href="#1-sprint-goal" title="Permanent link">&para;</a></h2>
+<p>Give the owner a glanceable home screen that answers "what is in my wiki and how is it
+growing?" — page counts by type, community topology, AI spend, review queue depth, and
+per-section (domain) breakdowns — while establishing the controlled vocabulary machinery
+(domain tags) that will make the wiki self-organising across future sprints. Add a
+release-channel mechanism so TrueNAS-hosted deployments learn about and can act on new
+backend image versions without manual version tracking. Fix a residual ingest polling
+regression if it was not resolved in v1.1.</p>
+<p>The sprint has four committed items: R12-1 (Home dashboard), R12-2 (Domain vocabulary +
+auto-tag), R12-3 (Server release channel), R12-4 (Ingest polling dedup bug).</p>
+<hr />
+<h2 id="2-scope-decision-record">2. Scope decision record<a class="headerlink" href="#2-scope-decision-record" title="Permanent link">&para;</a></h2>
+<h3 id="r12-1-home-dashboard-in-scope-l">R12-1 — Home dashboard: IN SCOPE (L)<a class="headerlink" href="#r12-1-home-dashboard-in-scope-l" title="Permanent link">&para;</a></h3>
+<p><strong>Context.</strong> The NavRail's top slot is now free (logo removed in R11-3). The owner
+wants a "home / landing" experience that gives an at-a-glance summary of vault health,
+activity, and per-domain breakdowns. The existing <code>GET /costs/summary</code> aggregation
+(costs.py), the <code>GET /graph</code> community summaries (main.py <code>GraphResponsePayload.communities</code>),
+and <code>pages.updated_at</code> / <code>pages.page_type</code> / <code>pages.tags</code> columns provide everything
+needed server-side.</p>
+<p><strong>PM decisions (locked):</strong></p>
+<ul>
+<li>Two new read-only endpoints: <code>GET /stats/overview</code> and <code>GET /stats/sections</code>.
+  These are aggregate-read-only (I1 — no vault mutation, no graph recompute).</li>
+<li><code>GET /stats/overview</code> returns: pages_by_type (dict of page_type → count),
+  total_links (edge count from the edges table), communities_count (from the cached
+  graph snapshot or vault_state — whichever is cheapest; architect decides), review_queue_depth
+  (open review_items count), lint_findings_open (open lint_findings count),
+  monthly_ai_spend_usd (reusing the same aggregation logic as costs.py for the current
+  month — NOT a copy-paste; extract a shared helper or call the costs module directly),
+  recent_activity (list of last N pages by updated_at, max 10, fields: title, page_type,
+  updated_at), data_version (vault_state.data_version).</li>
+<li><code>GET /stats/sections</code> returns an array, one entry per domain in the active vocabulary
+  (empty array when vocabulary is empty): domain (tag string),
+  page_count, pages_by_type (dict), last_activity (max updated_at among pages tagged
+  with that domain), top_pages_by_degree (top 3 pages by graph degree in that domain:
+  title, page_type, degree).</li>
+<li>The frontend <code>HomeDashboard.tsx</code> is a new React component, mounted at a new section
+  entry (Home icon at the top of the NavRail — the slot freed by R11-3). It is the
+  default landing section.</li>
+<li>Rendering: plain CSS layout + SVG sparklines for the monthly spend trend (plain SVG,
+  no charting library — I3). No heavy computation on the main thread. All data is fetched
+  once on mount via the two endpoints; no WebSocket, no polling.</li>
+<li>Section card click: navigates to the wiki tree or graph view with a filter applied for
+  that domain tag. The filter mechanism is a URL query param or a Zustand slice
+  (architect/frontend decide; the requirement is that tree/graph show only pages tagged
+  with the clicked domain). The tree and graph components themselves are NOT rebuilt or
+  reimplemented in this sprint — only the filter entry-point is added.</li>
+<li>Long lists within HomeDashboard (e.g., recent_activity list &gt;50 items): virtualised
+  via TanStack Virtual if the list can exceed 50 items; the endpoint caps recent_activity
+  at 10, so no virtualisation is required for that specific list. If top_pages_by_degree
+  per section exceeds 50 rows (impossible given the cap of 3), virtualise. No
+  virtualisation needed in practice, but the I4 rule applies if a list is unbounded.</li>
+<li>I3 compliance: no heavy rerender per mount; the spend sparkline is plain SVG computed
+  once from the by_day array already returned by the endpoint.</li>
+</ul>
+<p><strong>What this is NOT:</strong> a reporting suite, a charting library integration, a second graph
+viewer, or a per-page analytics surface. Scope is a single-screen summary card grid.</p>
+<h3 id="r12-2-domain-vocabulary-auto-tag-in-scope-l">R12-2 — Domain vocabulary + auto-tag: IN SCOPE (L)<a class="headerlink" href="#r12-2-domain-vocabulary-auto-tag-in-scope-l" title="Permanent link">&para;</a></h3>
+<p><strong>Context.</strong> The owner's knowledge base covers domains such as ServiceNow, SAM,
+Procurement, Regolamentazioni, TPRM. He wants pages automatically tagged against a
+user-controlled controlled vocabulary so the home dashboard can break down content by
+domain, and future features (multi-domain filter, cross-domain synthesis) have a clean
+tagging foundation.</p>
+<p><strong>PM decisions (locked):</strong></p>
+<ul>
+<li><strong>Vocabulary storage:</strong> the vocabulary is stored via the ADR-0053 <code>app_config</code>
+  mechanism as a new allowed key <code>domain_vocabulary</code>. The exact storage format
+  (comma-separated string or JSON array) is an architectural decision: the
+  solution-architect MUST document it in ADR-0054 before any R12-2 backend code
+  is written. The owner's examples (ServiceNow, SAM, Procurement, Regolamentazioni,
+  TPRM) are the reference. The key <code>domain_vocabulary</code> is added to <code>ALLOWED_CONFIG_KEYS</code>
+  in <code>config_overrides.py</code> (extending the v1.1 allow-list — the only schema-change
+  needed is in the constant, not in the DB table).</li>
+<li><strong>Settings UI:</strong> the vocabulary is editable in Settings &gt; Advanced as a tag input or
+  textarea (frontend-engineer's call; document in PR). Uses <code>PUT /config/app/domain_vocabulary</code>.</li>
+<li><strong>Auto-tag on ingest:</strong> after the existing ingest loop writes a page, a new bounded
+  step classifies the page into 0..N vocabulary domains. Classification uses the active
+  provider (F17 / I6 — routed through InferenceProvider, not hardcoded). It is a single
+  bounded call per page (<code>max_iter=1</code>, capped token budget logged per I7). The result is
+  written into <code>pages.tags</code> using a <code>"domain/"</code> prefix convention
+  (e.g., <code>["domain/ServiceNow", "domain/SAM"]</code>). If the vocabulary is empty, this step
+  is skipped entirely — zero provider calls, zero cost.</li>
+<li><strong>Tag prefix convention:</strong> the <code>"domain/"</code> prefix distinguishes domain vocabulary tags
+  from other uses of <code>pages.tags</code>. This convention is the PM decision; the architect
+  confirms it in ADR-0054 (no separate tags-schema ADR needed if ADR-0054 covers it).</li>
+<li><strong>Backfill:</strong> <code>POST /ops/backfill-domains</code> triggers a one-time bounded backfill of
+  existing pages against the current vocabulary. Parameters: <code>max_pages</code> (int, default
+  500, capped at 2000) and <code>token_budget_usd</code> (float). Bounded by I7: the backfill
+  loop stops at max_pages or token_budget_usd exhaustion, logs <code>total_cost_usd</code> and
+  <code>pages_tagged</code>, and is idempotent (re-running skips pages whose tags already have
+  a <code>"domain/"</code> entry). Progress is surfaced via a response body <code>{job_id, status,
+  pages_tagged, total_cost_usd, stopped_reason}</code> — a simple synchronous bounded run
+  returning 200 when complete (no persistent job queue required; the max_pages cap keeps
+  runtime manageable). If the vocabulary is empty the endpoint returns 200 immediately
+  with <code>pages_tagged: 0</code>.</li>
+<li><strong>Empty vocabulary = feature dormant:</strong> when <code>domain_vocabulary</code> is unset or empty,
+  the auto-tag step is a no-op, <code>GET /stats/sections</code> returns <code>[]</code>, and no provider
+  calls are made. The dashboard shows global KPIs only (R12-1 overview).</li>
+<li><strong>ADR gate:</strong> ADR-0054 must be accepted by solution-architect BEFORE any R12-2
+  backend code that touches <code>config_overrides.py</code> or the ingest orchestrator is written.</li>
+</ul>
+<p><strong>What this is NOT:</strong> per-domain provider routing, auto-discovery of domains from
+content, renaming or removing existing (non-domain) tags, a free-tagging UX, or
+a multi-level taxonomy.</p>
+<h3 id="r12-3-server-release-channel-optional-auto-update-in-scope-m">R12-3 — Server release channel + optional auto-update: IN SCOPE (M)<a class="headerlink" href="#r12-3-server-release-channel-optional-auto-update-in-scope-m" title="Permanent link">&para;</a></h3>
+<p><strong>Context.</strong> The owner asked how TrueNAS Docker deployments learn about and apply
+new Synapse backend versions. The answer is structural: CI publishes images to GHCR,
+docker-compose.yml references a versioned image, the frontend notices a version
+mismatch and shows a non-blocking notice, and an optional Watchtower block enables
+zero-touch auto-updates scoped to the backend service only.</p>
+<p><strong>PM decisions (locked):</strong></p>
+<ul>
+<li>CI (devops-engineer decides between extending <code>desktop-release.yml</code> or a new workflow)
+  builds and pushes the backend image to <code>ghcr.io/&lt;org&gt;/synapse-backend:&lt;tag&gt;</code> on every
+  <code>vX.Y.Z</code> tag. Both <code>vX.Y.Z</code> and <code>latest</code> tags are pushed atomically in the same
+  workflow step. Watchtower requires the <code>latest</code> mobile tag to detect updates; the
+  versioned tag is for pinning and rollback. No other registries.</li>
+<li><code>docker-compose.yml</code> gains an <code>image: ghcr.io/&lt;org&gt;/synapse-backend:latest</code> variant.
+  The <code>build:</code> directive is kept as the dev fallback (or both are documented — devops
+  decides; document in PR comment and in DEPLOY.md).</li>
+<li><code>GET /status</code> gains a <code>backend_version</code> field (string, e.g. <code>"1.2.0"</code>) set from the
+  <code>APP_VERSION</code> env var (injected by the CI Docker build via <code>--build-arg</code> or
+  <code>ARG</code>/<code>ENV</code> in the Dockerfile). If <code>APP_VERSION</code> is unset (local dev build),
+  <code>backend_version</code> is <code>"dev"</code>.</li>
+<li>The frontend defines <code>__APP_VERSION__</code> at Vite build time via <code>define</code> in
+  <code>vite.config.ts</code> (injected from <code>VITE_APP_VERSION</code> env var or the <code>package.json</code>
+  version field). On app load it compares <code>__APP_VERSION__</code> to <code>backend_version</code> from
+  <code>GET /status</code>. If they differ (and <code>backend_version != "dev"</code>), it shows a
+  non-blocking, dismissible banner: "A server update is available (backend vX.Y.Z /
+  frontend vA.B.C). Pull the new image on TrueNAS to update." The banner is
+  dismissible per session (sessionStorage flag). It does NOT block any action.</li>
+<li><strong>Watchtower optional block (owner decision, Emanuele 2026-07-03):</strong> <code>docker-compose.yml</code>
+  gains an optional Watchtower service block, disabled by default using a Compose profile
+  named <code>autoupdate</code> (devops decides between profile-based or comment-disabled — document
+  the choice in the PR comment). The block: <code>image: containrrr/watchtower</code>, mounts
+  <code>/var/run/docker.sock</code>, runs with <code>--interval 3600 --label-enable</code>. The Synapse backend
+  service acquires the label <code>com.centurylinklabs.watchtower.enable=true</code> so Watchtower
+  targets ONLY the backend — postgres and qdrant are never auto-updated by Watchtower.
+  To activate: <code>docker compose --profile autoupdate up -d</code> (or equivalent if devops
+  uses a different mechanism). To leave disabled: <code>docker compose up -d</code> (unchanged
+  behaviour for existing deployments). Data services (postgres, qdrant) must never
+  carry the Watchtower enable label.</li>
+<li>DEPLOY.md gets a new "Updating Synapse" section with two subsections: "Manual updates"
+  (<code>docker compose pull &amp;&amp; docker compose up -d</code>) and "Automatic server updates" with
+  three options documented: (a) Watchtower with backend-only label scoping and hourly
+  interval — zero-touch, recommended for Emanuele's TrueNAS; safe because Alembic
+  migrations run on startup and releases are backward-compatible; (b) TrueNAS SCALE
+  Custom App update button — semi-automatic, UI shows update available; (c) Diun
+  notify-only — most conservative. An explicit caveat: DB containers (postgres, qdrant)
+  MUST NOT be auto-updated blindly; always read the release notes for schema changes
+  before updating data services.</li>
+</ul>
+<p><strong>What this is NOT:</strong> a push-notification system, an in-app one-click updater, or
+a forced Watchtower deployment (the block is optional, off by default).</p>
+<h3 id="r12-4-ingest-polling-dedup-carry-over-from-v11-bug-2-in-scope-s">R12-4 — Ingest polling dedup (carry-over from v1.1 BUG-2): IN SCOPE (S)<a class="headerlink" href="#r12-4-ingest-polling-dedup-carry-over-from-v11-bug-2-in-scope-s" title="Permanent link">&para;</a></h3>
+<p><strong>Context.</strong> BUG-2 from v1.1 (AC-R11-4-BUG2) may or may not have been resolved in
+the v1.1 sprint. This item integrates the fix if it landed, or implements it fresh if
+the v1.1 session stalled on it. The cap is exactly one item in this slot; no additional
+bugs may be added.</p>
+<p><strong>PM decision:</strong> if AC-R11-4-BUG2 was already merged in v1.1 and is confirmed green by
+QA, this item is automatically closed as "done on merge" with no work required.
+If it was not resolved, the frontend-engineer implements the fix now: the polling hook
+or <code>useEffect</code> in <code>IngestView.tsx</code> (or the hook it delegates to) returns a cleanup
+function that clears the interval/timeout on unmount. A Vitest asserts: mount the
+component, unmount it, remount it — the number of active polling intervals never exceeds
+1. Verified by spying on <code>setInterval</code> and <code>clearInterval</code> call counts.</p>
+<hr />
+<h2 id="3-committed-scope">3. Committed Scope<a class="headerlink" href="#3-committed-scope" title="Permanent link">&para;</a></h2>
+<p>Exactly the following items. Anything else is out of scope and requires explicit PM
+re-approval before any token is spent on it.</p>
+<hr />
+<h3 id="r12-1-home-dashboard">R12-1 — Home dashboard<a class="headerlink" href="#r12-1-home-dashboard" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F18 (new — registered this sprint; see §2 F18 note below), F1 (UI shell), F4 (graph community count reused), F16 (dataVersion reused)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>backend-engineer (GET /stats/overview, GET /stats/sections) + frontend-engineer (HomeDashboard.tsx, NavRail Home entry, filter navigation)</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>L</td>
+</tr>
+<tr>
+<td>ADR reference</td>
+<td>No new ADR required for the dashboard endpoints themselves. Filter mechanism (URL param vs Zustand slice) to be documented in a PR comment; if the solution involves a structural routing change an ADR may be needed (architect's call).</td>
+</tr>
+<tr>
+<td>Invariant check</td>
+<td>I1 (read-only endpoints, no vault mutation), I2 (no graph recompute triggered — reads cached snapshot), I3 (no heavy main-thread work; plain SVG sparkline computed once), I4 (TanStack Virtual if any list can exceed 50 items at runtime), I8 (openapi.json regenerated with new endpoints)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>F18 registration note.</strong> The Home dashboard is the first feature that does not map to
+any existing ID in CLAUDE.md §4 (K1–K8, F1–F17). Per the anti-scope-creep invariant
+("Never approve work without a feature ID"), this sprint registers F18 as the first
+extension ID. F18 is defined as: "Home dashboard + per-section domain insights — a
+landing screen surfacing vault KPIs, community topology, AI spend, and domain-vocabulary
+breakdowns." CLAUDE.md §4 must be updated to include F18 before the first backend
+commit for this item. The tech-writer updates CLAUDE.md §4 (and the BACKLOG.md F18
+entry) as a Wave 1 deliverable.</p>
+<p><strong>Acceptance criteria:</strong></p>
+<ul>
+<li>
+<p>AC-R12-1-1: <code>GET /stats/overview</code> returns HTTP 200 with JSON containing all required
+  fields: <code>pages_by_type</code> (object, page_type keys → int counts, only live non-deleted
+  pages), <code>total_links</code> (int, count of rows in the edges table), <code>communities_count</code>
+  (int, count of distinct community ids from the cached graph snapshot or vault_state;
+  returns 0 if graph has not been computed yet), <code>review_queue_depth</code> (int, count of
+  open review_items), <code>lint_findings_open</code> (int, count of lint_findings with
+  status="open"), <code>monthly_ai_spend_usd</code> (float, current month total from the shared
+  costs aggregation helper — not duplicated logic), <code>recent_activity</code> (array of max 10
+  objects: <code>{title, page_type, updated_at}</code> ordered by updated_at DESC), <code>data_version</code>
+  (int). A pytest with a seeded test DB asserts all fields are present and of the
+  correct type; <code>recent_activity</code> has at most 10 items.</p>
+</li>
+<li>
+<p>AC-R12-1-2: <code>GET /stats/sections</code> returns HTTP 200 with a JSON array. When the
+  vocabulary is empty (no <code>domain_vocabulary</code> in app_config), the array is <code>[]</code>. When
+  the vocabulary has entries, each element has: <code>domain</code> (string, the vocabulary term
+  without the "domain/" prefix), <code>page_count</code> (int), <code>pages_by_type</code> (object),
+  <code>last_activity</code> (ISO-8601 string or null), <code>top_pages_by_degree</code> (array of max 3
+  objects: <code>{title, page_type, degree}</code>). A pytest with a seeded vocabulary and tagged
+  pages asserts: (a) empty vocabulary → <code>[]</code>; (b) seeded vocabulary → one entry per
+  vocabulary domain with correct counts.</p>
+</li>
+<li>
+<p>AC-R12-1-3: The monthly_ai_spend_usd field in <code>GET /stats/overview</code> is computed by
+  the same logic as <code>GET /costs/summary</code> (shared helper, not duplicated SQL). A pytest
+  asserts that seeding the same ingest_run rows produces identical totals from both
+  endpoints.</p>
+</li>
+<li>
+<p>AC-R12-1-4: <code>HomeDashboard.tsx</code> renders as the default landing section (displayed on
+  app load before any navigation). The NavRail has a Home icon at the top slot (the
+  slot freed by the R11-3 logo removal). A Vitest asserts the Home icon is present in
+  the NavRail render and the <code>HomeDashboard</code> component is mounted when the Home section
+  is active.</p>
+</li>
+<li>
+<p>AC-R12-1-5: HomeDashboard renders the overview KPI cards and the sections grid using
+  mocked API responses. A Vitest asserts: (a) each KPI field from the mock response
+  is displayed (by aria-label or data-testid); (b) with an empty sections response the
+  sections grid shows a "No domains configured" placeholder; (c) with a non-empty
+  sections response each domain card is rendered with the correct page_count.</p>
+</li>
+<li>
+<p>AC-R12-1-6: The monthly spend sparkline is a plain SVG element (no charting library
+  imported — bundle analysis or grep on the Vitest output confirms no chart dependency).
+  A Vitest asserts the SVG element is present in the HomeDashboard render with mocked
+  by_day data. No layout function runs on the main thread (I3).</p>
+</li>
+<li>
+<p>AC-R12-1-7: Clicking a domain section card triggers navigation to the wiki tree or
+  graph view with a domain filter applied (URL param <code>?domain=&lt;tag&gt;</code> or equivalent
+  Zustand slice update — whichever the frontend-engineer implements). A Vitest asserts
+  that clicking the card dispatches the expected navigation action or URL change. The
+  tree and graph components themselves are not re-implemented; only the filter entry
+  is added (the filter may show all pages if the tree/graph does not yet consume it —
+  that is acceptable; the filter dispatch is the AC).</p>
+</li>
+<li>
+<p>AC-R12-1-8: <code>docs/api/openapi.json</code> regenerated; <code>GET /stats/overview</code> and
+  <code>GET /stats/sections</code> are documented with correct response schemas. <code>ruff check</code>,
+  <code>black --check</code>, <code>mypy</code> pass for all new backend modules. <code>npx tsc --noEmit</code> and
+  <code>npm run lint</code> pass for HomeDashboard.tsx.</p>
+</li>
+<li>
+<p>AC-R12-1-9: A Playwright screenshot <code>docs/screens/home-dashboard.png</code> at 1280×800
+  shows the HomeDashboard with at least one KPI card visible. D5 artifact.</p>
+</li>
+<li>
+<p>AC-R12-1-10: <code>docs/USER.md</code> gains a "Home Dashboard" section explaining the KPI
+  cards, the sections grid, and what the domain filter navigation does (or what it will
+  do when the tree/graph consumes the filter). Tech-writer sign-off.</p>
+</li>
+</ul>
+<hr />
+<h3 id="r12-2-domain-vocabulary-auto-tag">R12-2 — Domain vocabulary + auto-tag<a class="headerlink" href="#r12-2-domain-vocabulary-auto-tag" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F18 (shares the home/insights feature ID), F17 (I6 — classification routed through InferenceProvider), K6 (pages.tags extended with domain/ convention)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>solution-architect (ADR-0054) + backend-engineer (config key, ingest hook, backfill endpoint) + frontend-engineer (Settings &gt; Advanced vocabulary editor)</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>L</td>
+</tr>
+<tr>
+<td>ADR required</td>
+<td>ADR-0054 MUST be accepted by solution-architect BEFORE any R12-2 backend code is written (specifically: before any change to config_overrides.py ALLOWED_CONFIG_KEYS or the ingest orchestrator)</td>
+</tr>
+<tr>
+<td>Invariant check</td>
+<td>I6 (classification routed through InferenceProvider — no hardcoded provider or model; empty vocabulary = zero provider calls), I7 (one bounded call per page, max_iter=1, token_budget logged; backfill bounded by max_pages cap + token_budget_usd + total_cost_usd logged), I1 (backfill writes only to pages.tags via the existing page upsert path — no rescan, no new watcher events), I8 (openapi.json updated with new backfill endpoint; ER not changed — pages.tags already exists)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Acceptance criteria:</strong></p>
+<ul>
+<li>
+<p>AC-R12-2-0: ADR-0054 committed to <code>docs/adr/ADR-0054-domain-vocabulary.md</code> and
+  accepted by solution-architect BEFORE any R12-2 backend code is written. ADR covers:
+  storage format for <code>domain_vocabulary</code> in <code>app_config</code> (comma-separated or JSON array;
+  architect decides and documents the canonical form), the <code>"domain/"</code> prefix
+  convention for <code>pages.tags</code>, the empty-vocabulary skip rule, the single-call bounded
+  classification contract (max_iter=1, provider-routed), and the backfill idempotency
+  rule.</p>
+</li>
+<li>
+<p>AC-R12-2-1: <code>domain_vocabulary</code> is added to <code>ALLOWED_CONFIG_KEYS</code> in
+  <code>config_overrides.py</code>. <code>PUT /config/app/domain_vocabulary</code> accepts the vocabulary
+  in the format decided by ADR-0054 (comma-separated string or JSON array) and
+  validates it (no empty entries, no entry with a slash — slashes are reserved for
+  the "domain/" prefix convention). <code>GET /config/app</code> returns <code>domain_vocabulary</code>
+  among the settings list. A pytest asserts: valid vocabulary → 204; invalid format
+  (e.g., an entry containing "/") → 422; empty string → 204 (empty vocabulary is valid;
+  it disables the feature).</p>
+</li>
+<li>
+<p>AC-R12-2-2: After ingest of a fixture page, if <code>domain_vocabulary</code> is non-empty,
+  the ingest orchestrator makes exactly one bounded provider call to classify the page
+  against the vocabulary (mocked provider in pytest). The result writes
+  <code>"domain/&lt;term&gt;"</code> strings into <code>pages.tags</code> for each matched domain. A pytest
+  asserts: (a) with empty vocabulary no provider call is made; (b) with a seeded
+  vocabulary the mock provider is called once and the returned domain tags appear in
+  <code>pages.tags</code> with the "domain/" prefix; (c) the cost of the classification call is
+  included in the ingest run's <code>total_cost_usd</code>.</p>
+</li>
+<li>
+<p>AC-R12-2-3: <code>POST /ops/backfill-domains</code> accepts optional body <code>{max_pages: int,
+  token_budget_usd: float}</code>. Returns HTTP 200 with
+  <code>{pages_tagged: int, total_cost_usd: float, stopped_reason: string}</code>.
+  stopped_reason is one of: <code>"completed"</code> (all untagged pages processed),
+  <code>"max_pages_reached"</code>, <code>"budget_exhausted"</code>, <code>"vocabulary_empty"</code>.
+  A pytest asserts: (a) with empty vocabulary returns immediately with
+  <code>pages_tagged: 0, stopped_reason: "vocabulary_empty"</code>; (b) with a seeded vocabulary
+  and 3 untagged fixture pages and mock provider, returns <code>pages_tagged: 3,
+  stopped_reason: "completed"</code>; (c) with <code>max_pages: 1</code> and 3 untagged pages, returns
+  <code>pages_tagged: 1, stopped_reason: "max_pages_reached"</code>.</p>
+</li>
+<li>
+<p>AC-R12-2-4: Backfill is idempotent: pages whose <code>pages.tags</code> already contains at
+  least one <code>"domain/"</code> entry are skipped (not re-classified). A pytest asserts that
+  running the backfill twice on the same seeded pages results in the provider being
+  called only once (on the first run), not twice.</p>
+</li>
+<li>
+<p>AC-R12-2-5: <code>GET /stats/sections</code> (R12-1 AC-R12-1-2) correctly reads domain tags
+  from <code>pages.tags</code> using the <code>"domain/"</code> prefix filter. This AC links R12-1 and R12-2:
+  the sections endpoint is only meaningful when R12-2 has tagged at least one page.
+  A combined pytest seeds pages with <code>"domain/ServiceNow"</code> tags and asserts the
+  sections response includes a <code>ServiceNow</code> entry with correct counts.</p>
+</li>
+<li>
+<p>AC-R12-2-6: The Settings &gt; Advanced section in the frontend gains a vocabulary
+  editor. A Vitest asserts: (a) the editor renders the current vocabulary from
+  <code>GET /config/app</code> mock; (b) adding a new domain term and saving triggers
+  <code>PUT /config/app/domain_vocabulary</code> with the updated value; (c) the editor does
+  not show a "domain/" prefix in the UI (the prefix is an implementation detail, hidden
+  from the user — users enter "ServiceNow", not "domain/ServiceNow").</p>
+</li>
+<li>
+<p>AC-R12-2-7: <code>docs/api/openapi.json</code> regenerated; <code>POST /ops/backfill-domains</code> is
+  documented with request body and response schema. <code>ruff check</code>, <code>black --check</code>,
+  <code>mypy</code> pass. <code>npx tsc --noEmit</code> and <code>npm run lint</code> pass.</p>
+</li>
+<li>
+<p>AC-R12-2-8: <code>docs/USER.md</code> gains a "Domain Vocabulary" section explaining: how to
+  set the vocabulary in Settings &gt; Advanced, what auto-tag does on ingest, when to run
+  the backfill, and what the <code>domain/</code> prefix means in pages.tags. Tech-writer
+  sign-off.</p>
+</li>
+</ul>
+<hr />
+<h3 id="r12-3-server-release-channel">R12-3 — Server release channel<a class="headerlink" href="#r12-3-server-release-channel" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F15 (CI/CD, cross-platform), F16 (version surfacing in status endpoint)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>devops-engineer (GHCR workflow, Dockerfile APP_VERSION arg, docker-compose.yml image variant + Watchtower block, DEPLOY.md) + backend-engineer (StatusResponse.backend_version field) + frontend-engineer (version mismatch banner)</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M</td>
+</tr>
+<tr>
+<td>ADR reference</td>
+<td>No new ADR required. Devops-engineer documents all structural decisions (workflow name, tag scheme, image name, profile mechanism) in a PR comment.</td>
+</tr>
+<tr>
+<td>Invariant check</td>
+<td>I8 (openapi.json updated — StatusResponse gains backend_version field), I9 (reuses existing GHCR infrastructure, Watchtower is an existing open-source tool; no new registry introduced)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Acceptance criteria:</strong></p>
+<ul>
+<li>
+<p>AC-R12-3-1: A CI workflow (new or extended) builds and pushes
+  <code>ghcr.io/&lt;org&gt;/synapse-backend:&lt;vX.Y.Z&gt;</code> and <code>ghcr.io/&lt;org&gt;/synapse-backend:latest</code>
+  on every <code>vX.Y.Z</code> git tag. Both tags are pushed in the same workflow run. A devops
+  comment in the PR documents the org/image name and tag scheme.</p>
+</li>
+<li>
+<p>AC-R12-3-2: The Dockerfile accepts <code>APP_VERSION</code> as a build argument
+  (<code>ARG APP_VERSION=dev</code>) and sets it as an env var (<code>ENV APP_VERSION=$APP_VERSION</code>).
+  The CI workflow passes <code>--build-arg APP_VERSION=${{ github.ref_name }}</code> when building
+  the image.</p>
+</li>
+<li>
+<p>AC-R12-3-3: <code>GET /status</code> response includes <code>backend_version: str</code> (e.g. <code>"1.2.0"</code>
+  when <code>APP_VERSION=1.2.0</code> is set; <code>"dev"</code> when unset). The <code>StatusResponse</code> Pydantic
+  model is updated accordingly. A pytest asserts <code>backend_version</code> is present in the
+  response and equals the value of the <code>APP_VERSION</code> env var (or <code>"dev"</code> when unset).
+  <code>docs/api/openapi.json</code> is regenerated to include the new field.</p>
+</li>
+<li>
+<p>AC-R12-3-4: <code>docker-compose.yml</code> gains an <code>image: ghcr.io/&lt;org&gt;/synapse-backend:latest</code>
+  line on the backend service. The existing <code>build:</code> directive is retained as a comment
+  or as a parallel <code>docker-compose.override.yml</code> for local dev (devops-engineer decides;
+  documented in a PR comment and in DEPLOY.md).</p>
+</li>
+<li>
+<p>AC-R12-3-5: The frontend defines <code>__APP_VERSION__</code> at Vite build time. On app load,
+  <code>GET /status</code> is fetched (already done for the status indicator); if
+  <code>backend_version !== __APP_VERSION__</code> AND <code>backend_version !== "dev"</code>, a dismissible
+  banner is shown: text must include both version strings. The banner is dismissed via
+  a sessionStorage flag (survives component re-renders, not browser restarts). A Vitest
+  asserts: (a) matching versions → no banner; (b) <code>backend_version: "dev"</code> → no banner;
+  (c) mismatched non-dev versions → banner rendered with both version strings.</p>
+</li>
+<li>
+<p>AC-R12-3-6: <code>docker-compose.yml</code> contains an optional Watchtower service block
+  (disabled by default via a Compose profile <code>autoupdate</code> or an equivalent mechanism
+  documented in a PR comment). The Synapse backend service carries the label
+  <code>com.centurylinklabs.watchtower.enable=true</code>. No postgres or qdrant service carries
+  this label. Activating the profile starts Watchtower with <code>--interval 3600
+  --label-enable</code>. Existing <code>docker compose up -d</code> (without the profile) leaves
+  Watchtower disabled — no behaviour change for existing deployments. A devops
+  PR comment documents the exact activation command and the chosen mechanism
+  (profile vs commented-out block).</p>
+</li>
+<li>
+<p>AC-R12-3-7: <code>docs/DEPLOY.md</code> gains an "Updating Synapse" section with two
+  subsections: "Manual updates" (exact commands: <code>docker compose pull &amp;&amp; docker compose
+  up -d</code>) and "Automatic server updates" documenting three options: (a) Watchtower
+  with backend-only label scoping, hourly interval, and the safety rationale (Alembic
+  migrations run on startup; backward-compatible releases); (b) TrueNAS SCALE Custom
+  App update button (semi-automatic); (c) Diun notify-only (conservative). An explicit
+  caveat paragraph states that DB containers (postgres, qdrant) MUST NOT be
+  auto-updated blindly and always requires reading release notes for schema changes
+  before updating data services. Tech-writer sign-off.</p>
+</li>
+<li>
+<p>AC-R12-3-8: <code>ruff check</code>, <code>black --check</code>, <code>mypy</code> pass for the StatusResponse change.
+  <code>npx tsc --noEmit</code> and <code>npm run lint</code> pass for the version mismatch banner component.</p>
+</li>
+</ul>
+<hr />
+<h3 id="r12-4-ingest-polling-dedup-bug-2-carry-over">R12-4 — Ingest polling dedup (BUG-2 carry-over)<a class="headerlink" href="#r12-4-ingest-polling-dedup-bug-2-carry-over" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F1 (UI shell), F16 (ingest view)</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>frontend-engineer</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S</td>
+</tr>
+<tr>
+<td>Invariant check</td>
+<td>I3 (fixing a polling leak directly reduces unnecessary background work on the main thread)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Condition:</strong> if AC-R11-4-BUG2 was already merged and QA confirmed green in v1.1,
+this item is automatically DONE and no work is required. The QA-test-engineer verifies
+this before any new work is started.</p>
+<p><strong>Acceptance criteria (if not already resolved in v1.1):</strong></p>
+<ul>
+<li>
+<p>AC-R12-4-1: The polling hook or <code>useEffect</code> in <code>IngestView.tsx</code> (or the hook it
+  delegates to) returns a cleanup function that clears the interval/timeout on unmount.
+  A Vitest asserts: mount the component, unmount it, remount it — the number of active
+  polling intervals never exceeds 1. Verified by spying on <code>setInterval</code> and
+  <code>clearInterval</code> call counts.</p>
+</li>
+<li>
+<p>AC-R12-4-2: <code>npx tsc --noEmit</code> and <code>npm run lint</code> pass for the modified file(s).</p>
+</li>
+</ul>
+<hr />
+<h2 id="4-explicit-sequencing-and-file-conflict-map">4. Explicit sequencing and file conflict map<a class="headerlink" href="#4-explicit-sequencing-and-file-conflict-map" title="Permanent link">&para;</a></h2>
+<h3 id="critical-path">Critical path<a class="headerlink" href="#critical-path" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>ADR-0054 accepted
+    └─► R12-2 backend (domain_vocabulary config key + ingest hook + backfill endpoint)
+             └─► R12-2 frontend (Settings vocabulary editor)
+                      └─► R12-1 GET /stats/sections (depends on R12-2 tagging pages)
+                               └─► HomeDashboard sections grid
+                                        └─► QA full pass
+                                                 └─► Docs gate (tech-writer)
+                                                          └─► Architect review
+                                                                   └─► PM sign-off
+                                                                            └─► tag v1.2.0
+
+R12-1 GET /stats/overview (no dependency on R12-2)
+    └─► HomeDashboard KPI cards (parallel to R12-2)
+
+R12-3 (devops-engineer leads; no shared files with R12-1/R12-2 backend)
+    └─► backend_version in StatusResponse
+    └─► frontend version mismatch banner
+
+R12-4 (frontend-engineer; earliest possible — no deps)
+</code></pre></div>
+<h3 id="wave-1-adr-backend-foundation-days-14">Wave 1 — ADR + backend foundation (days 1–4)<a class="headerlink" href="#wave-1-adr-backend-foundation-days-14" title="Permanent link">&para;</a></h3>
+<p><strong>Day 1 (PM-mandated blocker for R12-2):</strong> solution-architect writes and commits ADR-0054
+(<code>docs/adr/ADR-0054-domain-vocabulary.md</code>). No R12-2 backend code written until accepted.
+Also Day 1: tech-writer adds F18 to CLAUDE.md §4 and BACKLOG.md. R12-4 (if needed) and
+R12-3 backend (StatusResponse.backend_version) can start immediately — no dependencies.</p>
+<p><strong>Days 1–4:</strong> backend-engineer implements R12-1 overview endpoint and R12-3 status
+field in parallel. devops-engineer implements GHCR workflow and Dockerfile APP_VERSION.
+After ADR-0054 accepted: backend-engineer implements R12-2 vocabulary config key,
+ingest hook, and backfill endpoint.</p>
+<h3 id="wave-2-frontend-ui-integration-days-310">Wave 2 — Frontend + UI integration (days 3–10)<a class="headerlink" href="#wave-2-frontend-ui-integration-days-310" title="Permanent link">&para;</a></h3>
+<p>Starts as soon as R12-1 overview endpoint is merged. frontend-engineer implements
+HomeDashboard.tsx, NavRail Home entry, and R12-3 version mismatch banner. R12-2
+frontend (vocabulary editor) follows after R12-2 backend is merged.</p>
+<h3 id="wave-3-qa-docs-sign-offs-days-815">Wave 3 — QA, docs, sign-offs (days 8–15)<a class="headerlink" href="#wave-3-qa-docs-sign-offs-days-815" title="Permanent link">&para;</a></h3>
+<p>QA full pass: ci.yml exact commands, all new unit tests, E2E regressions. Tech-writer:
+USER.md updates (R12-1-10, R12-2-8, R12-3-6) and DEPLOY.md update (R12-3-6). Architect
+review: ADR-0054, backfill endpoint, ingest hook. PM exit-criteria check. Tag v1.2.0.</p>
+<h3 id="same-file-conflict-registry">Same-file conflict registry<a class="headerlink" href="#same-file-conflict-registry" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Items touching it</th>
+<th>Merge order</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend/app/main.py</code></td>
+<td>R12-1 (new route registration), R12-2 (backfill endpoint), R12-3 (StatusResponse update)</td>
+<td>R12-3 StatusResponse first (small, no deps), then R12-1 endpoints, then R12-2 endpoint</td>
+</tr>
+<tr>
+<td><code>backend/app/config_overrides.py</code></td>
+<td>R12-2 (domain_vocabulary key added to ALLOWED_CONFIG_KEYS)</td>
+<td>R12-2 only; after ADR-0054 accepted</td>
+</tr>
+<tr>
+<td><code>backend/app/ingest/orchestrator.py</code></td>
+<td>R12-2 (domain classification step after page write)</td>
+<td>R12-2 only; after ADR-0054 accepted</td>
+</tr>
+<tr>
+<td><code>backend/app/models.py</code></td>
+<td>No new table; pages.tags already exists</td>
+<td>No migration needed for R12-1/R12-2</td>
+</tr>
+<tr>
+<td><code>frontend/src/components/nav/NavRail.tsx</code></td>
+<td>R12-1 (Home icon added at top slot)</td>
+<td>R12-1 only</td>
+</tr>
+<tr>
+<td><code>frontend/src/components/settings/SettingsPanel.tsx</code></td>
+<td>R12-2 (vocabulary editor in Advanced section)</td>
+<td>R12-2 only</td>
+</tr>
+<tr>
+<td><code>frontend/src/components/home/HomeDashboard.tsx</code></td>
+<td>R12-1 (new component)</td>
+<td>R12-1 only; new file, no conflict</td>
+</tr>
+<tr>
+<td><code>docs/api/openapi.json</code></td>
+<td>R12-1 (two new endpoints), R12-2 (backfill endpoint), R12-3 (backend_version field)</td>
+<td>Regenerated once all backend PRs are merged</td>
+</tr>
+<tr>
+<td><code>docs/USER.md</code></td>
+<td>R12-1 (Home Dashboard section), R12-2 (Domain Vocabulary section)</td>
+<td>Tech-writer coordinates; two separate sections, no conflict</td>
+</tr>
+<tr>
+<td><code>docs/DEPLOY.md</code></td>
+<td>R12-3 (Updating Synapse section)</td>
+<td>R12-3 only</td>
+</tr>
+<tr>
+<td><code>CLAUDE.md</code></td>
+<td>F18 registration in §4</td>
+<td>Tech-writer on Day 1, before any F18 commit</td>
+</tr>
+<tr>
+<td><code>docker-compose.yml</code></td>
+<td>R12-3 (image variant + Watchtower service block + backend label)</td>
+<td>R12-3 only; devops-engineer</td>
+</tr>
+<tr>
+<td><code>Dockerfile</code></td>
+<td>R12-3 (APP_VERSION ARG/ENV)</td>
+<td>R12-3 only; devops-engineer</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-wave-plan-suggested-23-week-schedule">5. Wave plan (suggested 2–3 week schedule)<a class="headerlink" href="#5-wave-plan-suggested-23-week-schedule" title="Permanent link">&para;</a></h2>
+<p><strong>Wave 1 (days 1–5):</strong>
+- Day 1: solution-architect writes ADR-0054. Tech-writer adds F18 to CLAUDE.md §4 and
+  BACKLOG.md. frontend-engineer implements R12-4 (if not resolved in v1.1) — no
+  dependencies. devops-engineer starts GHCR workflow + Dockerfile APP_VERSION.
+- Days 1–3: backend-engineer implements R12-3 StatusResponse.backend_version and
+  R12-1 <code>GET /stats/overview</code> (no dependency on ADR-0054).
+- Days 2–5: backend-engineer implements R12-2 vocabulary config key + ingest
+  classification hook + <code>POST /ops/backfill-domains</code> after ADR-0054 accepted.
+  backend-engineer implements <code>GET /stats/sections</code> (depends on R12-2 tagging contract
+  being settled in ADR-0054).</p>
+<p><strong>Wave 2 (days 4–10):</strong>
+- Days 4–7: frontend-engineer implements HomeDashboard.tsx (KPI cards + spend sparkline
+  + sections grid) and NavRail Home entry. R12-3 version mismatch banner (depends on
+  backend R12-3 being merged).
+- Days 6–10: frontend-engineer implements R12-2 vocabulary editor in Settings &gt; Advanced.</p>
+<p><strong>Wave 3 (days 10–15):</strong>
+- qa-test-engineer full pass: ci.yml exact commands, all new unit tests, E2E regressions.
+- tech-writer: USER.md (Home Dashboard, Domain Vocabulary sections), DEPLOY.md
+  (Updating Synapse section), CLAUDE.md F18 entry confirmation.
+- solution-architect: ADR-0054 review vs implementation; openapi.json audit; invariant
+  spot-check on I6 for the classification hook.
+- PM: exit-criteria check (§7).
+- Day 15 target: tag v1.2.0, GitHub release.</p>
+<hr />
+<h2 id="6-out-of-scope-for-v12">6. Out of scope for v1.2<a class="headerlink" href="#6-out-of-scope-for-v12" title="Permanent link">&para;</a></h2>
+<p>Everything not listed in §3 is explicitly out of scope. The following items MUST NOT
+be built during this sprint without explicit PM escalation and approval:</p>
+<table>
+<thead>
+<tr>
+<th>Deferred item</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Multi-vault switcher</td>
+<td>No routing foundation; post-1.x</td>
+</tr>
+<tr>
+<td>Push notifications (new page, ingest complete)</td>
+<td>No WebSocket broadcast in scope; post-1.x</td>
+</tr>
+<tr>
+<td>Collaborative editing</td>
+<td>Post-1.x; out of current roadmap</td>
+</tr>
+<tr>
+<td>Per-domain provider routing</td>
+<td>F17 routing is global; per-domain override is a future enhancement</td>
+</tr>
+<tr>
+<td>Forced Watchtower deployment (always-on)</td>
+<td>Watchtower is optional (Compose profile off by default); forcing it on would change existing deployment behaviour without consent</td>
+</tr>
+<tr>
+<td>Renaming or removing existing non-domain tags</td>
+<td>pages.tags is also used by K6 navigation; changing non-domain tag behaviour is a separate item</td>
+</tr>
+<tr>
+<td>Auto-discovery of domains from content</td>
+<td>Vocabulary is owner-controlled; LLM-proposed vocabulary list is future work</td>
+</tr>
+<tr>
+<td>Dashboard charts via a charting library</td>
+<td>Plain SVG only per I3; no recharts/d3/chart.js</td>
+</tr>
+<tr>
+<td>Per-page analytics surface</td>
+<td>Not a KPI dashboard; out of scope</td>
+</tr>
+<tr>
+<td>Second graph viewer or new graph layout</td>
+<td>I2 and graph work is done; no new layout algorithm this sprint</td>
+</tr>
+<tr>
+<td>Additional bugfixes beyond R12-4</td>
+<td>Bug cap is one item (BUG-2 carry-over); any new bug requires PM escalation</td>
+</tr>
+<tr>
+<td>New Settings sections beyond vocabulary editor</td>
+<td>Settings IA was done in v1.1; no additional reorganisation</td>
+</tr>
+<tr>
+<td>OIDC / multi-user</td>
+<td>Post-1.x</td>
+</tr>
+<tr>
+<td>New feature IDs beyond F18</td>
+<td>Anti-scope-creep invariant: no work without a registered ID</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Permanent invariant blocks (I1–I9 apply unconditionally):</strong> full-rescan, main-thread
+force layout, per-token DOM mutation, WYSIWYG/ProseMirror, hardcoded provider or model
+ID, unbounded loops, skipping D-artifacts, Tavily, reimplementing local embeddings.</p>
+<hr />
+<h2 id="7-exit-criteria-for-v12-release-ec-m12">7. Exit criteria for v1.2 release (EC-M12)<a class="headerlink" href="#7-exit-criteria-for-v12-release-ec-m12" title="Permanent link">&para;</a></h2>
+<p>All 4 sign-offs required before tagging <code>v1.2.0</code>:
+QA-test-engineer + Solution-architect + Tech-writer + Product-manager.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Criterion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EC-M12-1</td>
+<td>All committed items have all ACs green: R12-1 (Home dashboard, all 10 ACs: AC-R12-1-1..10), R12-2 (Domain vocabulary, all 9 ACs: AC-R12-2-0..8, including ADR-0054 accepted), R12-3 (Release channel + auto-update, all 8 ACs: AC-R12-3-1..8), R12-4 (polling dedup, 2 ACs: AC-R12-4-1..2, or confirmed done from v1.1).</td>
+</tr>
+<tr>
+<td>EC-M12-2</td>
+<td>ci.yml exact commands all exit 0 tree-wide: backend ruff + black + mypy; frontend tsc + lint + test. QA-test-engineer runs verbatim and signs each off.</td>
+</tr>
+<tr>
+<td>EC-M12-3</td>
+<td>ER diagram zero-drift: <code>make er</code> output matches live schema. <code>docs/er/schema.mmd</code> committed and current. No new table introduced by this sprint (pages.tags already exists; app_config already exists from v1.1); any other schema change must be justified in an ADR and the ER updated.</td>
+</tr>
+<tr>
+<td>EC-M12-4</td>
+<td><code>docs/api/openapi.json</code> regenerated: <code>GET /stats/overview</code>, <code>GET /stats/sections</code>, <code>POST /ops/backfill-domains</code>, updated <code>GET /status</code> (with backend_version) all present with correct schemas and BearerAuth reference.</td>
+</tr>
+<tr>
+<td>EC-M12-5</td>
+<td>Mermaid validation loop passes: all <code>.mmd</code> files in <code>docs/architecture/</code>, <code>docs/er/</code>, <code>docs/sequences/</code> render without error via <code>mmdc</code>.</td>
+</tr>
+<tr>
+<td>EC-M12-6</td>
+<td><code>mkdocs build --strict</code> exits 0 (no regressions from new doc edits).</td>
+</tr>
+<tr>
+<td>EC-M12-7</td>
+<td>D5 screenshot <code>docs/screens/home-dashboard.png</code> captured at 1280×800 (R12-1 AC-R12-1-9). All prior screenshots remain valid (no regressions).</td>
+</tr>
+<tr>
+<td>EC-M12-8</td>
+<td><code>docs/USER.md</code> updated: "Home Dashboard" section (R12-1-10) and "Domain Vocabulary" section (R12-2-8) present and tech-writer approved.</td>
+</tr>
+<tr>
+<td>EC-M12-9</td>
+<td><code>docs/DEPLOY.md</code> updated: "Updating Synapse on TrueNAS" section (R12-3-6) present and tech-writer approved.</td>
+</tr>
+<tr>
+<td>EC-M12-10</td>
+<td><code>docs/adr/ADR-0054-domain-vocabulary.md</code> committed and in Accepted status. Present in the ADR index.</td>
+</tr>
+<tr>
+<td>EC-M12-11</td>
+<td>CLAUDE.md §4 includes F18 entry ("Home dashboard + per-section domain insights"). BACKLOG.md Sprint 12 section includes all four R12 items with correct feature IDs. Tech-writer confirms both files updated.</td>
+</tr>
+<tr>
+<td>EC-M12-12</td>
+<td>Empty vocabulary = feature dormant verified: with <code>domain_vocabulary</code> unset or empty, ingest of a fixture page makes zero provider calls for domain classification. <code>GET /stats/sections</code> returns <code>[]</code>. QA-test-engineer confirms by running the ingest E2E with a mocked empty vocabulary.</td>
+</tr>
+<tr>
+<td>EC-M12-13</td>
+<td>I7 backfill log verified: <code>POST /ops/backfill-domains</code> with a fixture vault returns a response body with <code>total_cost_usd</code> and <code>pages_tagged</code> populated; the backend log contains a line with <code>total_cost_usd</code>. QA confirms by inspection of the test output.</td>
+</tr>
+<tr>
+<td>EC-M12-14</td>
+<td>R12-3 GHCR workflow verified: a dry-run or CI log shows the image build and push steps for both <code>vX.Y.Z</code> and <code>latest</code> tags (devops-engineer confirms on the PR).</td>
+</tr>
+<tr>
+<td>EC-M12-15</td>
+<td>R12-3 version mismatch banner verified: with <code>backend_version</code> set to a different value than <code>__APP_VERSION__</code> (via env override in test), the banner is visible and includes both version strings. With matching versions, no banner. QA-test-engineer verifies via Vitest and a manual check.</td>
+</tr>
+<tr>
+<td>EC-M12-16</td>
+<td><code>vault/wiki/</code> remains a valid Obsidian vault (I5/K7). Manual spot-check by owner.</td>
+</tr>
+<tr>
+<td>EC-M12-17</td>
+<td>GitHub release <code>v1.2.0</code> created. Release notes list all items in §3.</td>
+</tr>
+<tr>
+<td>EC-M12-HCP</td>
+<td>Human checkpoint: Emanuele verifies in a live session: (a) open the app — the Home dashboard is the landing screen with KPI cards visible; (b) set a vocabulary (e.g., "ServiceNow, SAM") in Settings &gt; Advanced, ingest a fixture document, confirm the page gains <code>domain/ServiceNow</code> or <code>domain/SAM</code> tags; (c) run <code>POST /ops/backfill-domains</code> and confirm the response includes <code>total_cost_usd</code>; (d) confirm <code>GET /stats/sections</code> returns entries for ServiceNow and SAM; (e) click a section card and confirm the navigation dispatches correctly; (f) verify the GHCR image name matches what was pushed in CI; (g) set a mismatched backend_version and confirm the version banner appears and is dismissible; (h) run <code>docker compose --profile autoupdate up -d</code> and confirm Watchtower starts and shows backend-only label in its logs; run <code>docker compose up -d</code> (without profile) and confirm Watchtower is not started.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-de-scope-order-if-sprint-runs-over">8. De-scope order (if sprint runs over)<a class="headerlink" href="#8-de-scope-order-if-sprint-runs-over" title="Permanent link">&para;</a></h2>
+<p>Cut in this order:</p>
+<ol>
+<li>R12-1 sections grid (the <code>GET /stats/sections</code> endpoint and the HomeDashboard
+   sections grid) — the overview KPI cards stand alone without domain breakdowns; cut
+   the sections grid and ship the overview-only dashboard. Document as "sections require
+   domain vocabulary to be set" in USER.md.</li>
+<li>R12-2 backfill endpoint (<code>POST /ops/backfill-domains</code>) — the auto-tag on new ingest
+   is the core value; the backfill is a convenience for the existing vault. Cut it and
+   document manual re-ingest as the fallback for existing pages.</li>
+<li>R12-3 version mismatch banner — the GHCR publish + StatusResponse.backend_version +
+   docker-compose image variant are the load-bearing structural changes; the frontend
+   banner is polish. Cut the banner if the sprint runs over; the operator can compare
+   versions manually via <code>GET /status</code>.</li>
+</ol>
+<p>R12-1 overview KPI cards, R12-2 auto-tag on new ingest (vocabulary + ingest hook),
+R12-3 GHCR workflow + StatusResponse.backend_version + DEPLOY.md update, and R12-4
+polling dedup are committed and MUST NOT be cut.</p>
+<hr />
+<h2 id="9-velocity-note">9. Velocity note<a class="headerlink" href="#9-velocity-note" title="Permanent link">&para;</a></h2>
+<p>v1.1 carried 4 items (R11-1 L, R11-2 XL after amendment, R11-3 S, R11-4 S×3) in
+2–3 weeks. By commit density v1.1 was a heavy sprint due to the XL Settings redesign
+and first-run wizard.</p>
+<p>v1.2 carries 4 items (R12-1 L, R12-2 L, R12-3 M, R12-4 S) in 2–3 weeks. This is
+comparable to v1.1 in total scope, with two L items and one M instead of one XL and
+one L. Risk profile:</p>
+<ul>
+<li>The ADR-0054 gate on Day 1 is the primary sequencing risk (same pattern as ADR-0053
+  in v1.1; expected to resolve within 1 day).</li>
+<li>R12-1 and R12-3 have no ADR dependency and can start immediately, reducing the
+  blocking window.</li>
+<li>R12-2 ingest hook touches <code>orchestrator.py</code>, which is a shared hot path. The
+  empty-vocabulary skip rule ensures the hook is a no-op on most existing test fixtures,
+  reducing regression risk.</li>
+<li>R12-4 is either already done (closed as "done on merge" from v1.1) or a 1-day fix.
+  It should not affect the critical path.</li>
+<li>The main new risk vs v1.1 is the GHCR workflow (R12-3) crossing into devops territory.
+  This is rated M (not L) because the structural CI change is bounded and well-defined.</li>
+</ul>
+<p>The sprint is intentionally at the same velocity as v1.1 but more evenly distributed
+across agents (backend, frontend, devops all active in Wave 1). No single XL item.</p>
+<p><strong>Feature IDs touched this sprint:</strong> F18 (new), F1, F4 (community count reused), F15,
+F16 (status version field), F17 (I6 — classification hook).
+<strong>New feature ID registered:</strong> F18 (Home dashboard + per-section domain insights).
+<strong>Invariants with heightened priority:</strong> I6 (empty-vocabulary skip rule + classification
+routed through InferenceProvider), I7 (backfill bounded by max_pages + token_budget +
+cost logged), I8 (openapi.json + CLAUDE.md §4 updated before first F18 commit).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

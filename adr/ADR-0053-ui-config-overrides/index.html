@@ -1,0 +1,1399 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0053-ui-config-overrides/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0053 — Runtime UI config-override layer (app_config key/value store; env baseline → DB override; GET/PUT /config/app) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0053-runtime-ui-config-override-layer-app_config-keyvalue-store-env-baseline-db-override-getput-configapp" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0053 — Runtime UI config-override layer (app_config key/value store; env baseline → DB override; GET/PUT /config/app)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-a-generic-app_config-keyvalue-table-not-more-vault_state-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 A generic app_config key/value table (NOT more vault_state columns)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-the-allow-list-is-the-security-boundary-exactly-8-keys-a-named-constant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 The allow-list is the security boundary — exactly 8 keys, a named constant
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-value-validation-per-key-fail-closed-never-persist-garbage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Value validation per key (fail-closed, never persist garbage)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-excluded-infrasecret-keys-env-only-never-in-the-ui-from-2-r11-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Excluded infra/secret keys — env-only, never in the UI (from §2 R11-2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-the-override-layer-config_overridespy-load-once-cache-get_effectivekey-env_default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 The override layer — config_overrides.py: load once, cache, get_effective(key, env_default)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-startup-safety-forward-compat-unknown-keys-ignored-and-backward-compat-empty-pure-env" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Startup safety — forward-compat (unknown keys ignored) and backward-compat (empty ⇒ pure env)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-api-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. API contract
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. API contract">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-get-configapp-list-all-8-settings-with-effective-value-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 GET /config/app — list all 8 settings with effective value + source
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-put-configappkey-upsert-one-override" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 PUT /config/app/{key} — upsert one override
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-reset-to-default-decision-delete-configappkey-chosen-over-put-valuenull" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Reset-to-default — DECISION: DELETE /config/app/{key} (chosen over PUT value:null)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-persistence-cache-and-openapi-wiring-mirrors-the-adr-00400041-proven-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Persistence, cache, and OpenAPI wiring (mirrors the ADR-0040/0041 proven pattern)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Persistence, cache, and OpenAPI wiring (mirrors the ADR-0040/0041 proven pattern)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-in-process-cache-loaded-at-lifespan-startup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 In-process cache, loaded at lifespan startup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-endpoint-shape-mirrors-clipweb-search-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Endpoint shape mirrors clip/web-search config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-er-d2-i8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 ER (D2, I8)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-openapi-d4-i8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 OpenAPI (D4, I8)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-settings-ia-a21-and-the-wizard-a22-persistence-is-this-adr-grouping-is-the-frontends" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Settings IA (A2.1) and the wizard (A2.2) — persistence is this ADR; grouping is the frontend's
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-do-not-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Do-NOT list
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-acceptance-checks-dod-maps-to-ac-r11-2-014" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Acceptance checks (DoD — maps to AC-R11-2-0..14)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0053-runtime-ui-config-override-layer-app_config-keyvalue-store-env-baseline-db-override-getput-configapp">ADR-0053 — Runtime UI config-override layer (<code>app_config</code> key/value store; env baseline → DB override; GET/PUT <code>/config/app</code>)<a class="headerlink" href="#adr-0053-runtime-ui-config-override-layer-app_config-keyvalue-store-env-baseline-db-override-getput-configapp" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-03</li>
+<li><strong>Sprint:</strong> v1.1 (M11 — "Convert &amp; Configure"; R11-2 Settings redesign + A2 amendment)</li>
+<li><strong>Features:</strong> F16 (Settings / config surface / i18n) · F17 (adjacent — S6 <code>EMBEDDING_FORMAT</code>, S5
+  <code>EMBEDDINGS_ENABLED</code> touch the embedding data plane and MUST route through the existing adapter,
+  never a hardcoded path)</li>
+<li><strong>Reference:</strong> docs/sprints/SPRINT-v1.1-SCOPE.md §2 R11-2 (migration list + exclusions) · §3 R11-2
+  (AC-R11-2-0..10) · §10 AMENDMENT A2.1 (Settings IA reorg) / A2.2 (first-run wizard) — the amendment
+  OVERRIDES the base where they differ ·
+  ADR-0040 (clip runtime config — GET/PUT, DB-wins-over-env, in-process cache) ·
+  ADR-0041 (web-search runtime config — plain-text, non-secret, same pattern) ·
+  ADR-0031 (<code>EMBEDDING_FORMAT</code> adapter seam — the seam S6 must route through) ·
+  ADR-0030 (<code>EMBEDDINGS_ENABLED</code> toggle + lexical degrade — the seam S5 must route through) ·
+  ADR-0051 (<code>PDF_EXTRACTOR</code> / Marker seam — S1–S3) ·
+  ADR-0052 (<code>SYNAPSE_AUTH_TOKEN</code> — the auth <strong>middleware</strong> that gates the new routes by construction)</li>
+<li><strong>Invariants owned:</strong> <strong>I6</strong> (S5/S6 must route through the existing embedding adapter — no backend/
+  provider/embedding path is ever hardcoded; the override layer feeds config to the SAME seam, never a
+  new one) · <strong>I7</strong> (bounded reads — the whole <code>app_config</code> table is read ONCE at lifespan startup and
+  re-read only on a PUT; no per-request DB scan; the allow-list caps the surface) · <strong>I8</strong> (D2 ER + D4
+  OpenAPI regenerated: new <code>app_config</code> table + <code>GET/PUT /config/app</code> with <code>BearerAuth</code>) · <strong>I1/I5</strong>
+  (no vault re-scan and no vault write in this layer — config is Postgres-only)</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> backend-engineer (<code>app_config</code> model in <code>models.py</code> + Alembic migration +
+  <code>config_overrides.py</code> cache + <code>GET /config/app</code> + <code>PUT /config/app/{key}</code> + <code>DELETE /config/app/{key}</code></li>
+<li>wire the 8 call sites through <code>get_effective</code> + pytests + ER/OpenAPI regen) · frontend-engineer
+  (SettingsPanel section, IA reorg A2.1, first-run wizard A2.2 — writes ONLY through these endpoints) ·
+  tech-writer (D2 ER, D4 OpenAPI, USER.md "Runtime Settings")</li>
+<li><strong>Gate:</strong> This ADR <strong>GATES all R11-2 backend code</strong> (AC-R11-2-0). No <code>app_config</code> model, no migration,
+  no <code>config_overrides.py</code>, and no <code>/config/app</code> route may be written until this ADR is <strong>Accepted</strong>.</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>Today every runtime knob in Synapse is an <strong>env var</strong> loaded once at process start by
+<code>pydantic-settings</code> (<code>backend/app/config.py</code>, module-level <code>settings</code> singleton). Changing any of them
+— even a user-facing one like the PDF extractor or the monthly cost-alert threshold — means editing
+<code>docker-compose.yml</code> / <code>.env</code> and restarting the container. The owner (SPRINT-v1.1 §1, A2) wants a
+<strong>non-technical user to tune Synapse from the UI without touching compose</strong>, while keeping the env
+contract 100 % backward-compatible for existing deployments.</p>
+<p>Three prior ADRs already solved the "UI can override an env value, persisted in Postgres, DB-wins,
+loaded once into an in-process cache" problem for <strong>single</strong> settings each:
+- ADR-0040 (clip config — a secret token → hashed, one-time reveal),
+- ADR-0041 (web-search URL — non-secret, returned verbatim),
+- ADR-0033 (MCP token — secret, hashed).</p>
+<p>Each of those added <strong>named columns on <code>vault_state</code></strong> and a bespoke cache singleton. That does not
+scale to <strong>eight</strong> heterogeneous settings (and a future N), and it would bloat <code>vault_state</code> with one
+nullable column per knob. R11-2 therefore introduces a <strong>generic key/value override table</strong> plus a
+<strong>single</strong> cache module. This ADR is the technical contract the PM decision (§2 R11-2) requires before
+any R11-2 code is written. It fixes the table shape, the allow-list, the merge order, the API contract,
+the reset semantics, and the two hard safety properties (forward-compat for unknown keys;
+backward-compat when the table is empty).</p>
+<p><strong>Two facts the implementer must not re-derive:</strong></p>
+<ol>
+<li>
+<p><strong>Auth is a middleware, not a route dependency.</strong> The task brief says "auth via the existing
+   <code>verify_token</code> dep." The live codebase (ADR-0052 §2.2, deliberately) enforces the REST API with a
+   single <code>SynapseAuthMiddleware</code> installed in <code>main.py</code>; there is <strong>no</strong> per-route <code>Depends(verify_token)</code>
+   pattern (<code>verify_token</code>/<code>_verify_token</code> in <code>main.py</code> is a <em>token-hash comparator</em> for the clip/MCP
+   surfaces, not an auth dependency). Like ADR-0052 §1, <strong>this ADR binds to the real mechanism</strong>: the new
+   <code>GET/PUT/DELETE /config/app*</code> routes are ordinary REST routes on the main router and are therefore
+   <strong>gated by construction</strong> by <code>SynapseAuthMiddleware</code> the moment they are registered — when
+   <code>SYNAPSE_AUTH_TOKEN</code> is set, they require <code>Authorization: Bearer &lt;token&gt;</code>; when it is unset, they are
+   open exactly like every other route (v0.9 behaviour). No extra wiring; do NOT add a per-route
+   dependency (that would be the double-gate ADR-0052 §6 forbids). The OpenAPI <code>BearerAuth</code> reference is
+   the global security requirement FastAPI already emits (§4.4).</p>
+</li>
+<li>
+<p><strong>The 8 settings are consumed at scattered call sites via <code>settings.&lt;key&gt;</code>.</strong> Verified sites:
+   <code>health.py</code> (S5), <code>costs.py</code> (S4), <code>main.py</code> (S5, S7), <code>ingest/orchestrator.py</code> (S5, S7),
+   <code>rag/retrieval.py</code> (S5), <code>embeddings.py</code> (S6 via <code>settings.embedding_format</code> in <code>EmbeddingClient.__init__</code>),
+   <code>ingest/extract.py</code> (S1/S2/S3), the wikilink post-pass (S8). The override is only real if these
+   call sites read the <strong>effective</strong> value, not the raw env value. §2.5 specifies exactly how, and the
+   I6-critical S5/S6 routing.</p>
+</li>
+</ol>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-a-generic-app_config-keyvalue-table-not-more-vault_state-columns">2.1 A generic <code>app_config</code> key/value table (NOT more <code>vault_state</code> columns)<a class="headerlink" href="#21-a-generic-app_config-keyvalue-table-not-more-vault_state-columns" title="Permanent link">&para;</a></h3>
+<p>One table, one row per <strong>overridden</strong> setting. Absent row ⇒ the env baseline governs.</p>
+<div class="highlight"><pre><span></span><code><span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">app_config</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="k">key</span><span class="w">        </span><span class="nb">TEXT</span><span class="w">        </span><span class="k">PRIMARY</span><span class="w"> </span><span class="k">KEY</span><span class="p">,</span>
+<span class="w">    </span><span class="n">value</span><span class="w">      </span><span class="nb">TEXT</span><span class="w">        </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+<span class="w">    </span><span class="n">updated_at</span><span class="w"> </span><span class="n">TIMESTAMPTZ</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="w"> </span><span class="k">DEFAULT</span><span class="w"> </span><span class="n">now</span><span class="p">()</span>
+<span class="p">);</span>
+</code></pre></div>
+<ul>
+<li><strong><code>key</code></strong> — the config key, stored as the <strong>lower-snake attribute name</strong> used on the <code>settings</code>
+  object (e.g. <code>pdf_extractor</code>, <code>embedding_format</code>, <code>cost_alert_threshold_usd</code>). This is the same token
+  the API path uses (<code>PUT /config/app/pdf_extractor</code>) and the same token the frontend sends. The env
+  var name (<code>PDF_EXTRACTOR</code>) is the UPPER form of the same identifier; we standardise on the
+  <strong>attribute form</strong> everywhere in the DB and the API so there is exactly one canonical key spelling.</li>
+<li><strong><code>value</code></strong> — always TEXT, <code>NOT NULL</code>. Typed settings (int/float/bool) are stored as their string
+  form (<code>"120"</code>, <code>"5.0"</code>, <code>"true"</code>) and coerced at read time by the typed accessors (§2.5). A
+  <code>NOT NULL</code> value column is the reason <strong>reset-to-default is a row DELETE, not a <code>value: null</code> write</strong>
+  (§3): there is no in-band "null means default" sentinel to store, which keeps the table honest
+  ("a row exists ⇔ an override is active") and avoids a nullable-value ambiguity.</li>
+<li><strong><code>updated_at</code></strong> — audit / last-write, <code>DEFAULT now()</code>; refreshed on every upsert.</li>
+</ul>
+<p><strong>Why a generic table, not per-key columns on <code>vault_state</code></strong> — eight (and growing) heterogeneous
+knobs would add eight nullable columns and eight bespoke cache fields, each needing a migration. A
+key/value table adds settings with <strong>zero schema change</strong> after this one migration, and the allow-list
+(§2.2) — not the table shape — is the safety boundary. This is the single deliberate departure from the
+ADR-0040/0041 per-column pattern, justified by cardinality.</p>
+<p><strong>Alembic migration is required</strong> (next id in sequence). ER drift check (<code>make er</code>) MUST show the new
+table; <code>docs/er/schema.mmd</code> committed zero-drift (AC-R11-2-1, EC-M11-3, I8).</p>
+<h3 id="22-the-allow-list-is-the-security-boundary-exactly-8-keys-a-named-constant">2.2 The allow-list is the security boundary — exactly 8 keys, a named constant<a class="headerlink" href="#22-the-allow-list-is-the-security-boundary-exactly-8-keys-a-named-constant" title="Permanent link">&para;</a></h3>
+<p>A <strong>module-level frozen constant</strong> in <code>config_overrides.py</code> is the single source of truth for which
+keys may ever be overridden:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># config_overrides.py — the ONLY keys the UI may override (SPRINT-v1.1 §2 R11-2)</span>
+<span class="n">ALLOWED_CONFIG_KEYS</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
+    <span class="s2">&quot;pdf_extractor&quot;</span><span class="p">,</span>            <span class="c1"># S1  (ADR-0051)</span>
+    <span class="s2">&quot;marker_service_url&quot;</span><span class="p">,</span>       <span class="c1"># S2  (ADR-0051)</span>
+    <span class="s2">&quot;marker_timeout_seconds&quot;</span><span class="p">,</span>   <span class="c1"># S3  (ADR-0051)</span>
+    <span class="s2">&quot;cost_alert_threshold_usd&quot;</span><span class="p">,</span> <span class="c1"># S4  (R9-1)</span>
+    <span class="s2">&quot;embeddings_enabled&quot;</span><span class="p">,</span>       <span class="c1"># S5  (ADR-0030) — routes through the embedding data-plane gate</span>
+    <span class="s2">&quot;embedding_format&quot;</span><span class="p">,</span>         <span class="c1"># S6  (ADR-0031) — routes through the embedding adapter seam (I6)</span>
+    <span class="s2">&quot;overview_language&quot;</span><span class="p">,</span>        <span class="c1"># S7  (F3)</span>
+    <span class="s2">&quot;wikilink_enrich_enabled&quot;</span><span class="p">,</span>  <span class="c1"># S8  (ADR-0036)</span>
+<span class="p">})</span>
+</code></pre></div>
+<ul>
+<li>A PUT/DELETE for any key <strong>not</strong> in this set → <strong>400</strong> with <code>{"error": "invalid_key", "allowed": [...]}</code>
+  where <code>allowed</code> is the sorted list (AC-R11-2-3). No infra/secret key can ever be written through this
+  surface, even if a row somehow existed for it (§2.6 — such rows are ignored on load).</li>
+<li>The list is exactly the <strong>MIGRATED</strong> set of §2 R11-2. The <strong>EXCLUDED</strong> set (§2.4 below) is never in
+  this constant.</li>
+</ul>
+<blockquote>
+<p><strong>De-scope note (SPRINT-v1.1 §8):</strong> if S7 (<code>overview_language</code>) and S8 (<code>wikilink_enrich_enabled</code>)
+are cut from the first UI delivery, they MUST also be removed from <code>ALLOWED_CONFIG_KEYS</code> in the same
+change (the allow-list and the UI must not diverge). The table shape and merge logic are unaffected.</p>
+</blockquote>
+<h3 id="23-value-validation-per-key-fail-closed-never-persist-garbage">2.3 Value validation per key (fail-closed, never persist garbage)<a class="headerlink" href="#23-value-validation-per-key-fail-closed-never-persist-garbage" title="Permanent link">&para;</a></h3>
+<p><code>PUT /config/app/{key}</code> validates the value against a per-key rule <strong>before</strong> upsert; on failure →
+<strong>422</strong> (Pydantic-style) and no write. Minimum rules (backend-engineer may tighten):</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Rule</th>
+<th>On violation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pdf_extractor</code></td>
+<td>enum</td>
+<td><code>∈ {"pypdf","marker"}</code></td>
+<td>422</td>
+</tr>
+<tr>
+<td><code>marker_service_url</code></td>
+<td>url</td>
+<td>starts with <code>http://</code> or <code>https://</code> (mirrors ADR-0041 §2.4)</td>
+<td>422</td>
+</tr>
+<tr>
+<td><code>marker_timeout_seconds</code></td>
+<td>float</td>
+<td><code>&gt; 0</code>, <code>≤ 3600</code></td>
+<td>422</td>
+</tr>
+<tr>
+<td><code>cost_alert_threshold_usd</code></td>
+<td>float</td>
+<td><code>≥ 0</code> (0 disables the alert — matches config.py)</td>
+<td>422</td>
+</tr>
+<tr>
+<td><code>embeddings_enabled</code></td>
+<td>bool</td>
+<td><code>∈ {"true","false"}</code> (case-insensitive)</td>
+<td>422</td>
+</tr>
+<tr>
+<td><code>embedding_format</code></td>
+<td>enum</td>
+<td><code>∈ {"ollama","openai"}</code> (matches ADR-0031 allowed values)</td>
+<td>422</td>
+</tr>
+<tr>
+<td><code>overview_language</code></td>
+<td>str | sentinel</td>
+<td>free text ISO code, OR the <code>"(auto)"</code> sentinel → stored as a DELETE (see below)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>wikilink_enrich_enabled</code></td>
+<td>bool</td>
+<td><code>∈ {"true","false"}</code> (case-insensitive)</td>
+<td>422</td>
+</tr>
+</tbody>
+</table>
+<p><strong>S7 <code>(auto)</code> handling:</strong> the env baseline for <code>overview_language</code> is <code>None</code> ("auto-detect"). Because
+<code>app_config.value</code> is <code>NOT NULL</code>, there is no way to store "auto" as a value; the UI's "(auto)" choice
+therefore maps to <strong>reset-to-default = DELETE the row</strong> (§3), which restores the <code>None</code>/auto baseline.
+Any non-empty ISO string is stored verbatim.</p>
+<h3 id="24-excluded-infrasecret-keys-env-only-never-in-the-ui-from-2-r11-2">2.4 Excluded infra/secret keys — env-only, never in the UI (from §2 R11-2)<a class="headerlink" href="#24-excluded-infrasecret-keys-env-only-never-in-the-ui-from-2-r11-2" title="Permanent link">&para;</a></h3>
+<p>These keys are <strong>NOT</strong> in <code>ALLOWED_CONFIG_KEYS</code> and can never be set via <code>/config/app</code>. Reproduced from
+SPRINT-v1.1 §2 R11-2 so the contract is self-contained:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Class</th>
+<th>Reason for exclusion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATABASE_URL</code></td>
+<td>infra secret</td>
+<td>changing it at runtime orphans all data</td>
+</tr>
+<tr>
+<td><code>QDRANT_URL</code></td>
+<td>infra</td>
+<td>live change corrupts the collection pointer</td>
+</tr>
+<tr>
+<td><code>EMBEDDING_URL</code></td>
+<td>infra</td>
+<td>tied to the running bge-m3 instance</td>
+</tr>
+<tr>
+<td><code>EMBEDDING_DIM</code></td>
+<td>infra</td>
+<td>changing requires a full re-embed of the vault</td>
+</tr>
+<tr>
+<td><code>VAULT_PATH</code></td>
+<td>infra</td>
+<td>changing while the watcher runs breaks the incremental index (I1)</td>
+</tr>
+<tr>
+<td><code>SYNAPSE_AUTH_TOKEN</code></td>
+<td>security</td>
+<td>env-only by design (ADR-0052 §2.1); has its own Settings › Security surface</td>
+</tr>
+<tr>
+<td><code>CORS_ALLOW_ORIGINS</code></td>
+<td>infra</td>
+<td>network-topology decision</td>
+</tr>
+<tr>
+<td><code>SEARXNG_URL</code></td>
+<td>infra</td>
+<td>tied to the running SearXNG instance (its own runtime config exists — ADR-0041)</td>
+</tr>
+<tr>
+<td><code>CLIP_TOKEN</code></td>
+<td>security secret</td>
+<td>env-only (ADR-0038 §2.1); clip has its own PUT /clip/config for the DB token</td>
+</tr>
+<tr>
+<td><code>MCP_AUTH_TOKEN</code></td>
+<td>security secret</td>
+<td>handled via PUT /mcp/auth (ADR-0033)</td>
+</tr>
+<tr>
+<td><code>MCP_TRUSTED_PROXIES</code></td>
+<td>infra</td>
+<td>network topology</td>
+</tr>
+<tr>
+<td><code>MAX_UPLOAD_BYTES</code></td>
+<td>infra</td>
+<td>storage constraint</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Rationale, one line:</strong> every excluded key is either (a) a <strong>secret</strong> whose blast radius or replay
+semantics require env-only or a dedicated hashed/one-time surface (auth token, clip token, MCP token),
+or (b) an <strong>infrastructure pointer</strong> whose runtime mutation would corrupt data, the vector store, the
+incremental index (I1), or the network posture. None is a per-day-use "behaviour tuning" knob — the
+migration criterion is "user-facing, runtime-tunable, safe to change live," which none of these meet.</p>
+<h3 id="25-the-override-layer-config_overridespy-load-once-cache-get_effectivekey-env_default">2.5 The override layer — <code>config_overrides.py</code>: load once, cache, <code>get_effective(key, env_default)</code><a class="headerlink" href="#25-the-override-layer-config_overridespy-load-once-cache-get_effectivekey-env_default" title="Permanent link">&para;</a></h3>
+<p>New module <code>backend/app/config_overrides.py</code>. Contract:</p>
+<div class="highlight"><pre><span></span><code><span class="n">ALLOWED_CONFIG_KEYS</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="o">...</span><span class="p">})</span>   <span class="c1"># §2.2</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">load_overrides</span><span class="p">(</span><span class="n">session</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Lifespan startup: read ALL app_config rows ONCE, cache in memory.</span>
+<span class="sd">    Rows whose key ∉ ALLOWED_CONFIG_KEYS are IGNORED (forward/back compat — §2.6).</span>
+<span class="sd">    Single bounded SELECT; no vault scan, no per-request DB read (I7).&quot;&quot;&quot;</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_effective</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">env_default</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the cached override string for `key` if present, else `env_default`.</span>
+<span class="sd">    Pure in-memory O(1); never touches the DB.&quot;&quot;&quot;</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">source_of</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>           <span class="c1"># &quot;override&quot; if a cached row exists for key, else &quot;env&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_override</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="c1"># cached raw value or None (per §2 R11-2 AC-R11-2-5 shape)</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">set_override</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># allow-list + validate + upsert + refresh cache</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">clear_override</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>       <span class="c1"># allow-list + DELETE row + refresh cache</span>
+</code></pre></div>
+<p><strong>Merge order (single, unambiguous): env baseline FIRST, DB override ON TOP, for the 8 allowed keys
+only.</strong> <code>settings.&lt;key&gt;</code> is the deploy-time default; <code>get_effective(key, str(settings.&lt;key&gt;))</code> is the
+effective value. There is no third layer. Nothing else changes.</p>
+<p><strong>Typed reads.</strong> Because <code>settings.&lt;key&gt;</code> is variously <code>str | bool | float | None</code>, the call sites use
+thin typed helpers colocated in <code>config_overrides.py</code> (so coercion lives in one place, mypy-strict,
+no <code>Any</code>):
+- <code>effective_str(key, default: str | None) -&gt; str | None</code>
+- <code>effective_bool(key, default: bool) -&gt; bool</code>   (<code>"true"/"1"/"yes"</code> → True; else False)
+- <code>effective_float(key, default: float) -&gt; float</code></p>
+<p><strong>The 8 call sites migrate to the effective accessor</strong> (this is the load-bearing wiring — an override
+that no call site reads is a no-op):</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Current read</th>
+<th>New read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S1 <code>pdf_extractor</code></td>
+<td><code>settings.pdf_extractor</code> in <code>ingest/extract.py</code></td>
+<td><code>effective_str("pdf_extractor", settings.pdf_extractor)</code></td>
+</tr>
+<tr>
+<td>S2 <code>marker_service_url</code></td>
+<td><code>settings.marker_service_url</code></td>
+<td><code>effective_str("marker_service_url", settings.marker_service_url)</code></td>
+</tr>
+<tr>
+<td>S3 <code>marker_timeout_seconds</code></td>
+<td><code>settings.marker_timeout_seconds</code></td>
+<td><code>effective_float("marker_timeout_seconds", settings.marker_timeout_seconds)</code></td>
+</tr>
+<tr>
+<td>S4 <code>cost_alert_threshold_usd</code></td>
+<td><code>settings.cost_alert_threshold_usd</code> in <code>costs.py</code></td>
+<td><code>effective_float("cost_alert_threshold_usd", settings.cost_alert_threshold_usd)</code></td>
+</tr>
+<tr>
+<td>S5 <code>embeddings_enabled</code></td>
+<td><code>settings.embeddings_enabled</code> in <code>health.py</code>, <code>main.py</code>, <code>orchestrator.py</code>, <code>retrieval.py</code></td>
+<td><code>effective_bool("embeddings_enabled", settings.embeddings_enabled)</code></td>
+</tr>
+<tr>
+<td>S6 <code>embedding_format</code></td>
+<td><code>settings.embedding_format</code> in <code>embeddings.py</code> <code>EmbeddingClient.__init__</code></td>
+<td><code>effective_str("embedding_format", settings.embedding_format)</code> fed into the SAME adapter constructor</td>
+</tr>
+<tr>
+<td>S7 <code>overview_language</code></td>
+<td><code>settings.overview_language</code> in <code>main.py</code>, <code>orchestrator.py</code></td>
+<td><code>effective_str("overview_language", settings.overview_language)</code> (None ⇒ auto)</td>
+</tr>
+<tr>
+<td>S8 <code>wikilink_enrich_enabled</code></td>
+<td><code>settings.wikilink_enrich_enabled</code></td>
+<td><code>effective_bool("wikilink_enrich_enabled", settings.wikilink_enrich_enabled)</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>I6 — the S5/S6 routing rule (non-negotiable).</strong> S6 (<code>embedding_format</code>) MUST be applied by passing the
+effective value <strong>into the existing <code>EmbeddingClient</code> adapter seam</strong> (ADR-0031: <code>EmbeddingClient(embedding_format=...)</code>
+or by having the client read <code>get_effective</code> at construction) — NOT by adding a new branch that hardcodes
+an embedding request/response shape anywhere. The adapter (ollama vs openai body/parse) stays the ONE
+place that knows the shapes. Likewise S5 (<code>embeddings_enabled</code>) MUST feed the <strong>existing</strong> ADR-0030
+data-plane gate (ingest-skip / retrieval lexical-degrade / startup validation) — no new bypass path.
+The override layer only changes <em>where the value comes from</em>, never <em>how it is applied</em>. Reviewer will
+reject any S5/S6 wiring that introduces a second code path (I6).</p>
+<p><strong>No live re-embed / no re-scan on change (I1).</strong> Toggling S5 or changing S6 at runtime does exactly
+what ADR-0030/0031 already specify for the env value: it changes behaviour for <strong>subsequent</strong> ingests/
+retrievals. It MUST NOT trigger a bulk re-embed or a vault re-scan. Startup embedding validation
+(<code>_validate_embedding_and_collection</code>) reads the <strong>effective</strong> S5 at lifespan start (after
+<code>load_overrides</code>), so an override that turns embeddings off is honoured on the next boot without env
+changes; an in-session toggle takes effect on the next ingest/query (documented behaviour, not a bug).</p>
+<h3 id="26-startup-safety-forward-compat-unknown-keys-ignored-and-backward-compat-empty-pure-env">2.6 Startup safety — forward-compat (unknown keys ignored) and backward-compat (empty ⇒ pure env)<a class="headerlink" href="#26-startup-safety-forward-compat-unknown-keys-ignored-and-backward-compat-empty-pure-env" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Forward/backward-compat on load:</strong> <code>load_overrides</code> filters rows by <code>ALLOWED_CONFIG_KEYS</code>. A row
+  whose key is unknown/removed (an old key, a typo, a de-scoped S7/S8) is <strong>silently ignored</strong> — never
+  applied, never crashes startup. This lets a key be removed from the allow-list in a later version
+  without a data migration, and lets a newer DB be read by an older binary.</li>
+<li><strong>Backward-compat (EC-M11-13):</strong> an <strong>empty <code>app_config</code> table</strong> (no rows) means <code>get_effective</code>
+  returns the env default for every key ⇒ behaviour is <strong>byte-for-byte identical to v1.0.0</strong>. A
+  deployment that never touches the UI is unaffected; the v1.0 E2E suite passes unchanged against a
+  v1.1 build with an empty table. This is the load-bearing compatibility property and MUST have an
+  explicit test.</li>
+<li><strong>Deployment without the migration applied:</strong> <code>load_overrides</code> tolerates a missing <code>app_config</code>
+  table (catch the "relation does not exist" path, log once, treat as empty) exactly as ADR-0041 §6
+  tolerates missing columns — env governs, zero behaviour change. (Belt-and-braces; the migration is
+  required in the normal path.)</li>
+</ul>
+<hr />
+<h2 id="3-api-contract">3. API contract<a class="headerlink" href="#3-api-contract" title="Permanent link">&para;</a></h2>
+<p>All three routes are ordinary REST routes on the main router, <strong>gated by <code>SynapseAuthMiddleware</code></strong>
+(ADR-0052) when <code>SYNAPSE_AUTH_TOKEN</code> is set, open otherwise. They MUST carry the global <code>BearerAuth</code>
+security requirement in OpenAPI (§4.4). No per-route auth dependency (would double-gate — ADR-0052 §6).</p>
+<h3 id="31-get-configapp-list-all-8-settings-with-effective-value-source">3.1 <code>GET /config/app</code> — list all 8 settings with effective value + source<a class="headerlink" href="#31-get-configapp-list-all-8-settings-with-effective-value-source" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>GET /config/app
+→ 200 {
+    &quot;settings&quot;: [
+      { &quot;key&quot;: &quot;pdf_extractor&quot;,            &quot;value&quot;: &quot;pypdf&quot;,  &quot;source&quot;: &quot;env&quot; },
+      { &quot;key&quot;: &quot;marker_service_url&quot;,       &quot;value&quot;: &quot;http://host.docker.internal:8555&quot;, &quot;source&quot;: &quot;env&quot; },
+      { &quot;key&quot;: &quot;marker_timeout_seconds&quot;,   &quot;value&quot;: &quot;120&quot;,    &quot;source&quot;: &quot;env&quot; },
+      { &quot;key&quot;: &quot;cost_alert_threshold_usd&quot;, &quot;value&quot;: &quot;5.0&quot;,    &quot;source&quot;: &quot;env&quot; },
+      { &quot;key&quot;: &quot;embeddings_enabled&quot;,       &quot;value&quot;: &quot;true&quot;,   &quot;source&quot;: &quot;env&quot; },
+      { &quot;key&quot;: &quot;embedding_format&quot;,         &quot;value&quot;: &quot;ollama&quot;, &quot;source&quot;: &quot;env&quot; },
+      { &quot;key&quot;: &quot;overview_language&quot;,        &quot;value&quot;: &quot;&quot;,       &quot;source&quot;: &quot;env&quot; },
+      { &quot;key&quot;: &quot;wikilink_enrich_enabled&quot;,  &quot;value&quot;: &quot;true&quot;,   &quot;source&quot;: &quot;env&quot; },
+      ...
+    ]
+  }
+</code></pre></div>
+<ul>
+<li>Returns <strong>exactly</strong> the keys in <code>ALLOWED_CONFIG_KEYS</code> (order = sorted or the S1..S8 order; stable).</li>
+<li><code>value</code> is always the <strong>effective</strong> value as a string (override wins; env baseline otherwise). For
+  S7 with no override the effective value is <code>None</code> → serialised as <code>""</code> (empty string sentinel the UI
+  renders as "(auto)").</li>
+<li><code>source</code> is <code>"override"</code> iff a cached <code>app_config</code> row exists for the key, else <code>"env"</code>.</li>
+<li>All values derived from the in-process cache — <strong>no DB round-trip per GET</strong> (I7).</li>
+<li>Never returns any excluded/secret key (they are not in the allow-list, hence not iterated).</li>
+</ul>
+<h3 id="32-put-configappkey-upsert-one-override">3.2 <code>PUT /config/app/{key}</code> — upsert one override<a class="headerlink" href="#32-put-configappkey-upsert-one-override" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>PUT /config/app/{key}
+body: { &quot;value&quot;: &quot;&lt;string&gt;&quot; }        # typed values sent as their string form
+→ 204 No Content                     # on success (upsert + cache refresh)
+→ 400 { &quot;error&quot;: &quot;invalid_key&quot;, &quot;allowed&quot;: [&quot;cost_alert_threshold_usd&quot;, ...] }   # key ∉ allow-list
+→ 422 { ...validation detail... }    # value fails the per-key rule (§2.3)
+→ 401                                 # if SYNAPSE_AUTH_TOKEN set and bearer missing/wrong (middleware)
+</code></pre></div>
+<ul>
+<li>Upserts <code>app_config(key, value, updated_at=now())</code> by primary key, then refreshes the in-process
+  cache so a subsequent <code>GET</code> immediately reflects <code>source: "override"</code> and the new value (AC-R11-2-2b).</li>
+<li>A pytest asserts: valid key+value → 204 and <code>source</code> flips to <code>"override"</code>; unknown key → 400 with
+  the sorted <code>allowed</code> list; a value violating §2.3 → 422 with no row written.</li>
+</ul>
+<h3 id="33-reset-to-default-decision-delete-configappkey-chosen-over-put-valuenull">3.3 Reset-to-default — <strong>DECISION: <code>DELETE /config/app/{key}</code></strong> (chosen over <code>PUT value:null</code>)<a class="headerlink" href="#33-reset-to-default-decision-delete-configappkey-chosen-over-put-valuenull" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>DELETE /config/app/{key}
+→ 204 No Content                     # override row removed; setting reverts to env default
+→ 400 { &quot;error&quot;: &quot;invalid_key&quot;, &quot;allowed&quot;: [...] }   # key ∉ allow-list
+→ 401                                 # middleware, as above
+</code></pre></div>
+<p><strong>Why DELETE, not <code>PUT {value: null}</code> (justified):</strong></p>
+<ol>
+<li><strong><code>app_config.value</code> is <code>NOT NULL</code> by design</strong> (§2.1). A <code>PUT {value: null}</code> would either require a
+   nullable value column (re-introducing the "row exists but means default" ambiguity we deliberately
+   removed) or a magic in-band null that the layer must special-case on every read. DELETE keeps the
+   table invariant crisp: <strong>a row exists ⇔ an override is active.</strong> <code>source</code> derivation, cache logic,
+   and the "empty table ⇒ pure env" property (§2.6) all fall out of that invariant for free.</li>
+<li><strong>It is the correct REST verb</strong> — "remove the override resource" is a deletion, not an update to a
+   null state. It reads unambiguously in the OpenAPI schema and in client code.</li>
+<li><strong>It matches the layer's mental model</strong> — env is the immutable baseline the app cannot edit; the
+   override is a <em>separate resource</em> laid on top. Creating it is PUT; removing it is DELETE. There is
+   no third "null" state to represent.</li>
+</ol>
+<p>The frontend "Reset to default" action calls <code>DELETE /config/app/{key}</code>; the S7 "(auto)" choice maps to
+the same DELETE (§2.3). SPRINT-v1.1 AC-R11-2-4 explicitly permits DELETE as the implementation — this
+ADR <strong>binds</strong> it as the single reset mechanism. (<code>PUT {value:null}</code> is NOT implemented; if a client
+sends <code>value:null</code> the request is rejected 422 by body validation — <code>value</code> is a required non-null
+string — steering all resets to DELETE.)</p>
+<hr />
+<h2 id="4-persistence-cache-and-openapi-wiring-mirrors-the-adr-00400041-proven-pattern">4. Persistence, cache, and OpenAPI wiring (mirrors the ADR-0040/0041 proven pattern)<a class="headerlink" href="#4-persistence-cache-and-openapi-wiring-mirrors-the-adr-00400041-proven-pattern" title="Permanent link">&para;</a></h2>
+<h3 id="41-in-process-cache-loaded-at-lifespan-startup">4.1 In-process cache, loaded at lifespan startup<a class="headerlink" href="#41-in-process-cache-loaded-at-lifespan-startup" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A single module-level cache in <code>config_overrides.py</code> (a dict <code>key → value</code>, guarded by an
+  <code>asyncio.Lock</code> for the PUT/DELETE refresh, mirroring <code>_ClipConfigCache</code> / <code>_WebSearchConfigCache</code>).</li>
+<li><code>load_overrides(session)</code> is called <strong>once</strong> during lifespan startup, in <code>main.py</code>, in the same
+  block that calls <code>_load_clip_config_cache()</code> / <code>_load_web_search_config_cache()</code> and <strong>before</strong>
+  <code>_validate_embedding_and_collection</code> (so the effective S5 governs startup validation — §2.5).</li>
+<li>Every <code>GET /config/app</code> and every call site read is O(1) in-memory. The DB is touched only at
+  startup and on a PUT/DELETE (I7 — no unbounded / per-request reads).</li>
+</ul>
+<h3 id="42-endpoint-shape-mirrors-clipweb-search-config">4.2 Endpoint shape mirrors clip/web-search config<a class="headerlink" href="#42-endpoint-shape-mirrors-clipweb-search-config" title="Permanent link">&para;</a></h3>
+<p><code>GET</code>/<code>PUT</code>/<code>DELETE /config/app*</code> follow the exact request→validate→persist→refresh-cache→respond shape
+of <code>PUT /clip/config</code> (<code>main.py</code>) — Pydantic request/response models, session scope for the write,
+cache refresh outside the session, structured log line on write (<code>key</code> + <code>source</code>; <strong>never</strong> log a
+value — some are innocuous but the pattern must be uniform and a future secret-adjacent key must not
+leak). No new dependency; reuses SQLAlchemy 2 + the existing session helper.</p>
+<h3 id="43-er-d2-i8">4.3 ER (D2, I8)<a class="headerlink" href="#43-er-d2-i8" title="Permanent link">&para;</a></h3>
+<p><code>app_config</code> is added to <code>models.py</code> as an ORM model (<code>__tablename__ = "app_config"</code>, <code>key</code> TEXT PK,
+<code>value</code> TEXT NOT NULL, <code>updated_at</code> TIMESTAMPTZ NOT NULL server_default <code>now()</code>), so <code>make er</code> emits it
+into <code>docs/er/schema.mmd</code> with zero drift (EC-M11-3). The Alembic migration is the next id in sequence.</p>
+<h3 id="44-openapi-d4-i8">4.4 OpenAPI (D4, I8)<a class="headerlink" href="#44-openapi-d4-i8" title="Permanent link">&para;</a></h3>
+<p><code>docs/api/openapi.json</code> regenerated so <code>GET /config/app</code>, <code>PUT /config/app/{key}</code>, and
+<code>DELETE /config/app/{key}</code> are declared with correct request/response schemas AND the global
+<code>BearerAuth</code> security reference (they are NOT in the ADR-0052 exempt set, so they inherit the global
+<code>security: [{"BearerAuth": []}]</code> — the reviewer verifies each of the three appears with <code>BearerAuth</code>,
+AC-R11-2-8 / EC-M11-4).</p>
+<hr />
+<h2 id="5-settings-ia-a21-and-the-wizard-a22-persistence-is-this-adr-grouping-is-the-frontends">5. Settings IA (A2.1) and the wizard (A2.2) — persistence is this ADR; grouping is the frontend's<a class="headerlink" href="#5-settings-ia-a21-and-the-wizard-a22-persistence-is-this-adr-grouping-is-the-frontends" title="Permanent link">&para;</a></h2>
+<p>The Settings information-architecture reorg (A2.1) and the first-run wizard (A2.2) are <strong>frontend
+concerns</strong>; their <em>persistence contract</em> is this ADR and nothing else.</p>
+<ul>
+<li><strong>Endorsed (PM-and-owner-locked):</strong> the ~14 current sections collapse to a <strong>~5-group</strong> target
+  (Getting started / AI &amp; Models / Sources &amp; PDF / Output &amp; Appearance / Advanced — A2.1). The
+  grouping, labels, and inline help are the frontend-engineer's to finalise; this ADR does not fix the
+  exact split. <strong>This ADR endorses the target group count (~5) and the plain-language rule.</strong></li>
+<li><strong>"No env-var-name as primary label" rule (endorsed):</strong> no visible primary field label may equal an
+  env-var name (e.g. the S1 label is "PDF extractor / Estrattore PDF", never <code>PDF_EXTRACTOR</code>).
+  Enum <em>values</em> that are already readable (<code>pypdf</code>, <code>marker</code>, <code>ollama</code>, <code>openai</code>) may be shown as-is.
+  An optional "Advanced" affordance MAY reveal the underlying key for power users. (AC-R11-2-11/12.)</li>
+<li><strong>Single source of truth for persistence:</strong> grouping is presentation only. The <strong>only</strong> way the
+  UI (SettingsPanel AND the first-run wizard) mutates any of the 8 settings is
+  <code>PUT /config/app/{key}</code> / <code>DELETE /config/app/{key}</code>; provider/model choices in the wizard go through
+  the <strong>existing provider-config endpoints</strong> (ADR-0008/0021). <strong>No parallel persistence path</strong> — the
+  wizard writes nothing directly to the DB, nothing to env, nothing to a new endpoint. A Vitest spies
+  on <code>fetch</code> and asserts the wizard writes only through these sanctioned endpoints (AC-R11-2-13).</li>
+<li><strong>Wizard "unconfigured" detection</strong> reads <code>GET /config/app</code> + the provider-config GET; it is bounded,
+  skippable, and re-openable from "Getting started" (A2.2). No backend change beyond this ADR's
+  endpoints is required for the wizard.</li>
+</ul>
+<hr />
+<h2 id="6-do-not-list">6. Do-NOT list<a class="headerlink" href="#6-do-not-list" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>DO NOT</strong> add per-key columns to <code>vault_state</code> for these 8 settings — use the generic <code>app_config</code>
+   table (§2.1). (The ADR-0040/0041 per-column pattern does not scale to N keys.)</li>
+<li><strong>DO NOT</strong> allow any key outside <code>ALLOWED_CONFIG_KEYS</code> — PUT/DELETE for a non-allowed key → 400 with
+   the sorted <code>allowed</code> list (§2.2). No infra/secret key is ever writable here (§2.4).</li>
+<li><strong>DO NOT</strong> hardcode an embedding request/response shape or a provider path when applying S5/S6 —
+   route the effective value through the <strong>existing</strong> ADR-0030 data-plane gate (S5) and the ADR-0031
+   <code>EmbeddingClient</code> adapter seam (S6). A second code path is an I6 violation and will be rejected (§2.5).</li>
+<li><strong>DO NOT</strong> trigger a re-embed or a vault re-scan when S5/S6 change — behaviour applies to subsequent
+   ingests/queries only (I1, §2.5).</li>
+<li><strong>DO NOT</strong> read <code>app_config</code> per request — load once at lifespan, cache in memory, refresh only on
+   PUT/DELETE (I7). No <code>while</code> loop, no unbounded scan (single bounded SELECT).</li>
+<li><strong>DO NOT</strong> implement reset as <code>PUT {value: null}</code> — reset is <code>DELETE /config/app/{key}</code> (§3.3);
+   <code>app_config.value</code> stays <code>NOT NULL</code>; <code>value</code> is a required field in the PUT body.</li>
+<li><strong>DO NOT</strong> add a per-route auth dependency to the new routes — they are gated by <code>SynapseAuthMiddleware</code>
+   by construction (ADR-0052); a per-route <code>Depends</code> double-gates (ADR-0052 §6).</li>
+<li><strong>DO NOT</strong> log an override <em>value</em> — log <code>key</code> + <code>source</code> only (uniform with the clip/web-search
+   pattern; forward-safe if a future key is secret-adjacent).</li>
+<li><strong>DO NOT</strong> let an unknown/removed key in <code>app_config</code> crash startup or be applied — filter by the
+   allow-list on load; ignore the rest (forward/back compat, §2.6).</li>
+<li><strong>DO NOT</strong> change the env contract — an empty <code>app_config</code> table is byte-for-byte v1.0.0 behaviour
+    (EC-M11-13); existing env-only deployments are unaffected (§2.6).</li>
+<li><strong>DO NOT</strong> let the frontend wizard or SettingsPanel write config through any path other than
+    <code>PUT/DELETE /config/app/{key}</code> and the existing provider-config endpoints (§5) — no parallel
+    persistence.</li>
+<li><strong>DO NOT</strong> skip the ER/OpenAPI regen — <code>docs/er/schema.mmd</code> (new <code>app_config</code> table) and
+    <code>docs/api/openapi.json</code> (3 new routes + <code>BearerAuth</code>) MUST be drift-clean (I8, EC-M11-3/4).</li>
+</ol>
+<hr />
+<h2 id="7-acceptance-checks-dod-maps-to-ac-r11-2-014">7. Acceptance checks (DoD — maps to AC-R11-2-0..14)<a class="headerlink" href="#7-acceptance-checks-dod-maps-to-ac-r11-2-014" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>ADR accepted before code</strong> — this file is Accepted and in the ADR index before any R11-2 backend
+   code (AC-R11-2-0, EC-M11-9).</li>
+<li><strong>Table + migration</strong> — Alembic migration creates <code>app_config (key TEXT PK, value TEXT NOT NULL,
+   updated_at TIMESTAMPTZ NOT NULL DEFAULT now())</code>; ER zero-drift; a pytest confirms the table exists
+   and supports upsert-by-key (AC-R11-2-1, EC-M11-3).</li>
+<li><strong>GET contract</strong> — <code>GET /config/app</code> returns <code>{"settings":[{key,value,source}]}</code> for the 8 keys;
+   with no overrides all <code>source == "env"</code>; after a PUT the affected key flips to <code>"override"</code> and
+   <code>value</code> changes; effective value wins (AC-R11-2-2).</li>
+<li><strong>PUT contract</strong> — valid key+value → 204 + upsert; unknown key → 400 <code>{"error":"invalid_key","allowed":[...]}</code>;
+   a §2.3 rule violation → 422 no write; 401 under auth-on with a bad/absent bearer (AC-R11-2-3).</li>
+<li><strong>Reset = DELETE</strong> — <code>DELETE /config/app/{key}</code> removes the row and reverts to the env default; a
+   pytest asserts the revert (AC-R11-2-4, §3.3).</li>
+<li><strong>Layer logic</strong> — <code>load_overrides</code> called once at lifespan; <code>get_effective(key, env_default)</code>
+   returns override-else-default; typed accessors coerce int/float/bool; a pytest asserts the merge
+   with mocked rows (AC-R11-2-5, §2.5).</li>
+<li><strong>I6 routing</strong> — a test/review confirms S6 flows through <code>EmbeddingClient</code> (no new shape branch) and
+   S5 through the ADR-0030 gate (no new bypass) (§2.5, §6.3).</li>
+<li><strong>Backward compat (EC-M11-13)</strong> — empty <code>app_config</code> ⇒ v1.0 behaviour; the v1.0 E2E suite passes
+   against a v1.1 build with an empty table (§2.6).</li>
+<li><strong>Forward compat</strong> — a row with a key ∉ allow-list is ignored on load; startup does not crash (§2.6).</li>
+<li><strong>OpenAPI (I8)</strong> — the 3 routes present with correct schemas + <code>BearerAuth</code>; <code>make openapi</code>
+    drift-clean (AC-R11-2-8, EC-M11-4).</li>
+<li><strong>Frontend persistence boundary</strong> — SettingsPanel + wizard write only via <code>/config/app</code> +
+    provider-config endpoints (fetch-spy test) (AC-R11-2-13, §5).</li>
+<li><strong>mypy strict / lint</strong> — <code>config_overrides.py</code> and the new routes pass <code>ruff</code> + <code>black --check</code> +
+    <code>mypy</code> (strict), no <code>Any</code> (AC-R11-2-9).</li>
+</ol>
+<hr />
+<h2 id="8-consequences">8. Consequences<a class="headerlink" href="#8-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong> — the owner tunes 8 real user-facing knobs from the UI, persisted across restarts, with
+<strong>zero</strong> change to the env contract (empty table = v1.0.0). A single generic table + one cache module
+scales to future settings with no schema churn, and the <strong>allow-list is the security boundary</strong> — infra
+and secret keys are structurally unreachable. The pattern is a direct, proven extension of
+ADR-0040/0041 (load-once cache, DB-wins-over-env, GET/PUT), so review surface is small. The I6 rule is
+preserved by feeding effective values into the <strong>existing</strong> embedding/provider seams, never a new path.
+The wizard/IA reorg get a single, unambiguous persistence contract, preventing a parallel write path.</p>
+<p><strong>Trade-offs (explicit)</strong> —
+- <strong>The 8 call sites must be migrated to <code>get_effective</code></strong> — an override that no call site reads is a
+  silent no-op. This is the main implementation risk; §2.5 enumerates every site and the test in §7.6
+  guards the merge logic. Reviewer verifies each call site individually.
+- <strong>S5/S6 in-session changes apply on the next ingest/query, not retroactively</strong> — no live re-embed
+  (I1). Documented as intended behaviour (USER.md "Runtime Settings"), not a bug. Startup validation
+  reads the effective S5, so a persisted toggle is fully honoured on the next boot.
+- <strong><code>value TEXT NOT NULL</code> + typed coercion at read</strong> — all values stored as strings; the typed
+  accessors are the single coercion point. A malformed stored value can only exist if it bypassed §2.3
+  validation (it cannot via the API); the accessors fail closed to the default on a coercion error.
+- <strong>Reset is DELETE, not a null write</strong> — one extra verb, bought for a crisp "row exists ⇔ override
+  active" invariant (§3.3). Clients that expected <code>PUT {value:null}</code> get a 422; the UI uses DELETE.
+- <strong>Auth is the ADR-0052 middleware, not a route dep</strong> — the brief's "verify_token dep" does not exist
+  as an auth mechanism; binding to the real middleware keeps gating default-secure and avoids the
+  double-gate (ADR-0052 §6).</p>
+<p><strong>Invariant check</strong> — <strong>I6:</strong> S5/S6 route through the existing embedding gate/adapter; no provider,
+model, or embedding shape is hardcoded; the allow-list is a named constant. <strong>I7:</strong> whole-table read
+once at startup + on write; O(1) per-request reads from cache; no unbounded loop. <strong>I8:</strong> ER +
+OpenAPI (with <code>BearerAuth</code>) regenerated. <strong>I1/I5:</strong> no vault re-scan, no vault write — config lives in
+Postgres only; S5/S6 changes never re-embed or re-scan. <strong>I2/I3/I4/I9:</strong> untouched.
+```</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
