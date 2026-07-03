@@ -2026,3 +2026,81 @@ class LintFinding(Base):
             f"<LintFinding id={self.id} category={self.category!r} "
             f"status={self.status!r} vault={self.vault_id!r}>"
         )
+
+
+class ImageCaption(Base):
+    """
+    R8-2 / F12 vision-caption cache — one row per (vault_id, sha256) image content.
+
+    The orchestrator sha256s an image file's raw bytes and looks up this table before making
+    any provider vision call: a HIT returns the cached caption (zero cost, no provider call); a
+    MISS triggers one bounded `provider.caption_image()` call (I7 — capped at
+    VISION_MAX_IMAGES_PER_RUN per run, cost logged into the run ledger) whose result is stored
+    here so re-ingesting the same image is idempotent and free.
+
+    The (vault_id, sha256) uniqueness makes the cache content-addressed and per-vault: the same
+    image bytes in two vaults may be captioned differently (different purpose.md context), but
+    within one vault identical bytes reuse the caption. `provider_type` is audit metadata (which
+    backend produced the caption); it is NEVER read back into a routing decision (I6).
+
+    Alembic migration 0022 (additive; run `make er` after applying — I8/D2).
+    """
+
+    __tablename__ = "image_captions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Row identity",
+    )
+
+    vault_id: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment="Vault this cached caption belongs to (per-vault cache scoping)",
+    )
+
+    sha256: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        comment="Lowercase hex sha256 of the image file's raw bytes (content-addressed key)",
+    )
+
+    file_path: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Relative raw source path last seen for this content (audit; may drift)",
+    )
+
+    caption: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Provider-generated caption used as the image's extracted text (R8-2)",
+    )
+
+    provider_type: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Backend that produced the caption: local|api|cli (audit only, never routing)",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time",
+    )
+
+    __table_args__ = (
+        # Content-addressed lookup key: unique per (vault, content hash).
+        UniqueConstraint("vault_id", "sha256", name="uq_image_captions_vault_sha256"),
+        Index("ix_image_captions_vault_sha256", "vault_id", "sha256"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ImageCaption id={self.id} vault={self.vault_id!r} "
+            f"sha256={self.sha256[:12]!r}… provider={self.provider_type!r}>"
+        )

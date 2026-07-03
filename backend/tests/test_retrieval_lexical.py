@@ -433,22 +433,26 @@ async def test_adr0030_ac4_graph_expansion_on_lexical_seeds(lex_env: _Env) -> No
 
 def test_lex4_retrieve_signature_unchanged() -> None:
     """
-    retrieve() must have the exact call signature from ADR-0022 §2.1 (FROZEN).
-    Adding an internal branch must NOT change the public interface.
+    retrieve() must preserve the ADR-0022 §2.1 core parameters (FROZEN contract).
+    R8-5 adds optional keyword-only params (type_filter, sort) that are backward-compatible:
+    all new params have defaults and existing callers need no changes.
     """
     import inspect
 
     sig = inspect.signature(retrieve)
     params = list(sig.parameters)
-    assert params == [
-        "query",
-        "vault_id",
-        "context_window",
-        "k",
-        "expansion_depth",
-        "session",
-    ], f"retrieve() signature changed: {params}"
-    # k=8, expansion_depth=2, session=None are the canonical defaults.
+    # Core ADR-0022 §2.1 parameters must remain in position (FROZEN).
+    core_params = ["query", "vault_id", "context_window", "k", "expansion_depth", "session"]
+    for cp in core_params:
+        assert cp in params, f"Core parameter {cp!r} missing from retrieve() signature"
+    # Core params must appear in their original order (positional contract preserved).
+    core_indices = [params.index(cp) for cp in core_params]
+    assert core_indices == sorted(core_indices), "Core param order changed"
+    # R8-5 extension: new optional keyword-only params are allowed.
+    r8_params = ["type_filter", "sort"]
+    for rp in r8_params:
+        assert rp in params, f"R8-5 param {rp!r} missing from retrieve() signature"
+    # k=8, expansion_depth=2, session=None are the canonical defaults (FROZEN).
     defaults = {
         name: p.default
         for name, p in sig.parameters.items()
@@ -457,6 +461,9 @@ def test_lex4_retrieve_signature_unchanged() -> None:
     assert defaults["k"] == 8
     assert defaults["expansion_depth"] == 2
     assert defaults["session"] is None
+    # R8-5 defaults: type_filter=None, sort="relevance".
+    assert defaults["type_filter"] is None
+    assert defaults["sort"] == "relevance"
 
 
 # ── LEX-5 — embeddings_enabled=True still calls Qdrant (regression guard) ──────

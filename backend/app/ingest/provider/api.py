@@ -20,16 +20,20 @@ import json
 import logging
 import os
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import httpx
 
 from app.ingest.provider._common import (
     ANALYZE_SYSTEM,
+    CAPTION_INSTRUCTION,
     GENERATE_SYSTEM,
     build_analyze_prompt,
     build_generate_prompt,
+    encode_image_base64,
     parse_analysis,
     parse_pages,
+    resolve_image_bytes_and_media_type,
 )
 from app.ingest.provider.base import InferenceProvider
 from app.ingest.provider.config import ProviderSettings
@@ -98,7 +102,18 @@ class ApiProvider(InferenceProvider):
             supports_agentic_loop=False,
             max_context=_DEFAULT_MAX_CONTEXT,
             name="ApiProvider",
+            supports_vision=self._supports_vision(),
         )
+
+    def _supports_vision(self) -> bool:
+        """
+        R8-2: the Anthropic Messages API always supports image content blocks (True). For an
+        OpenAI-compatible endpoint (base_url set) vision is model-dependent, so it is opt-in via
+        the provider_config `supports_vision` flag (default False when unset).
+        """
+        if not self._openai_compatible:
+            return True
+        return bool(self._config.supports_vision)
 
     # ── LLM calls ────────────────────────────────────────────────────────────────
 
@@ -273,6 +288,121 @@ class ApiProvider(InferenceProvider):
                     total_cost_usd=self._cost(in_tok, out_tok),
                 )
             )
+
+    # ── Vision (R8-2 / F12) ────────────────────────────────────────────────────
+
+    async def caption_image(self, path_or_bytes: str | Path | bytes, context: str) -> str:
+        """
+        Caption an image via the Anthropic Messages API image block (base64) or an OpenAI-compatible
+        vision endpoint (image_url data URI), chosen by base_url (I6). One bounded non-streaming
+        call; Usage recorded out of band (I7). Raises NotImplementedError when this instance is not
+        vision-capable so the orchestrator falls back to the placeholder (R8-2).
+        """
+        if not self._supports_vision():
+            raise NotImplementedError(
+                "ApiProvider (OpenAI-compatible) has supports_vision=False; set the "
+                "provider_config supports_vision flag to enable captioning (R8-2)"
+            )
+        data, media_type = resolve_image_bytes_and_media_type(path_or_bytes)
+        b64 = encode_image_base64(data)
+        prompt = f"{context}\n\n{CAPTION_INSTRUCTION}" if context.strip() else CAPTION_INSTRUCTION
+        if self._openai_compatible:
+            return await self._caption_openai(b64, media_type, prompt)
+        return await self._caption_anthropic(b64, media_type, prompt)
+
+    async def _caption_anthropic(self, b64: str, media_type: str, prompt: str) -> str:
+        api_key = os.environ.get(_ANTHROPIC_KEY_ENV)
+        if not api_key:
+            raise ValueError(f"{_ANTHROPIC_KEY_ENV} not set in environment (§12, ADR-0008)")
+        body = {
+            "model": self._model,  # from provider_config (I6)
+            "max_tokens": _DEFAULT_MAX_TOKENS,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": b64,
+                            },
+                        },
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ],
+        }
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": _ANTHROPIC_VERSION,
+            "content-type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(f"{self._base_url}/v1/messages", json=body, headers=headers)
+            resp.raise_for_status()
+            payload = resp.json()
+        usage = payload.get("usage", {})
+        in_tok = int(usage.get("input_tokens", 0) or 0)
+        out_tok = int(usage.get("output_tokens", 0) or 0)
+        self._record_usage(
+            Usage(
+                input_tokens=in_tok,
+                output_tokens=out_tok,
+                total_cost_usd=self._cost(in_tok, out_tok),
+            )
+        )
+        blocks = payload.get("content", [])
+        text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+        if not text.strip():
+            raise ValueError("Anthropic vision returned empty caption")
+        return text.strip()
+
+    async def _caption_openai(self, b64: str, media_type: str, prompt: str) -> str:
+        api_key = os.environ.get(_OPENAI_KEY_ENV)
+        if not api_key:
+            raise ValueError(f"{_OPENAI_KEY_ENV} not set in environment (§12, ADR-0008)")
+        data_uri = f"data:{media_type};base64,{b64}"
+        body = {
+            "model": self._model,  # from provider_config (I6)
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": data_uri}},
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ],
+        }
+        headers = {
+            "authorization": f"Bearer {api_key}",
+            "content-type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(
+                f"{self._base_url}/chat/completions", json=body, headers=headers
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+        usage = payload.get("usage", {})
+        in_tok = int(usage.get("prompt_tokens", 0) or 0)
+        out_tok = int(usage.get("completion_tokens", 0) or 0)
+        self._record_usage(
+            Usage(
+                input_tokens=in_tok,
+                output_tokens=out_tok,
+                total_cost_usd=self._cost(in_tok, out_tok),
+            )
+        )
+        choices = payload.get("choices", [])
+        if not choices:
+            raise ValueError("OpenAI-compatible vision endpoint returned no choices")
+        content = choices[0].get("message", {}).get("content", "")
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError("OpenAI-compatible vision endpoint returned empty caption")
+        return content.strip()
 
     # ── Cost ─────────────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-<!-- Generated: v0.5-ADR-0033 | 2026-07-01 — ADR-0033: vault_state +mcp_access_token_hash +mcp_allow_without_token (migration 0012); ADR-0032: +remote_mcp_enabled (migration 0011); ADR-0025: review_items; ADR-0024: deep_research_runs/sources -->
+<!-- Generated: v0.5-ADR-0033 | 2026-07-03 — ADR-0033: vault_state +mcp_access_token_hash +mcp_allow_without_token (migration 0012); ADR-0032: +remote_mcp_enabled (migration 0011); ADR-0025: review_items; ADR-0024: deep_research_runs/sources -->
 erDiagram
 
     CONVERSATIONS {
@@ -8,6 +8,16 @@ erDiagram
         timestamptz created_at "Row creation time"
         timestamptz updated_at "Bumped on each chat turn; drives last-active-conversation restore (AC-F6-1)"
         timestamptz deleted_at "NULL = live; set = soft-deleted (ADR-0005 / ADR-0019 §2.5)"
+    }
+
+    IMAGE_CAPTIONS {
+        uuid id PK "Row identity"
+        string vault_id "Vault this cached caption belongs to (per-vault cache scoping)"
+        string sha256 "Lowercase hex sha256 of the image file's raw bytes (content-addressed key)"
+        string file_path "Relative raw source path last seen for this content (audit; may drift)"
+        string caption "Provider-generated caption used as the image's extracted text (R8-2)"
+        string provider_type "Backend that produced the caption: local|api|cli (audit only, never routing)"
+        timestamptz created_at "Row creation time"
     }
 
     IMPORT_SCHEDULES {

@@ -36,3 +36,9 @@ class ProviderSettings:
     # token (env governs). Set ONLY for provider_type == "cli"; ignored by local/api.
     # NEVER logged.
     subscription_token: str | None = None
+    # R8-2 / F12: opt-in vision flag for the OpenAI-compatible ApiProvider path (Gemini and
+    # other OpenAI-compatible endpoints where vision is model-dependent and cannot be inferred
+    # from the model id). None = default (False → no vision on the OpenAI-compatible path).
+    # Ignored by the Anthropic ApiProvider path (always vision-capable) and by Ollama (which
+    # derives vision from the model name / OLLAMA_VISION_MODELS). NEVER a routing input (I6).
+    supports_vision: bool | None = None

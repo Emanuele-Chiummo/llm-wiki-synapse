@@ -76,6 +76,14 @@ logger = logging.getLogger(__name__)
 # Cost-anomaly threshold (AQ-v0.2-8 / ADR-0009 §3) — inline WARNING site, not a hook.
 COST_ANOMALY_THRESHOLD_USD = 1.00
 
+# R8-2 / F12: image extensions routed through the vision caption seam (app.ingest.vision).
+# Mirrors extract.PLACEHOLDER image set; AV extensions are handled by R8-3, not here.
+_VISION_IMAGE_EXTENSIONS: frozenset[str] = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp"})
+
+# R8-3 / F12: AV extensions routed through the Whisper transcription seam
+# (app.ingest.transcription). Kept separate from _VISION_IMAGE_EXTENSIONS (I6).
+_AV_EXTENSIONS: frozenset[str] = frozenset({".mp3", ".wav", ".m4a", ".mp4"})
+
 
 # ── Result type ────────────────────────────────────────────────────────────────
 
@@ -162,6 +170,59 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
     provider_cfg = await _resolve_ingest_provider_config()
     if provider_cfg is not None:
         source_text = raw_bytes.decode("utf-8", errors="replace")
+        # ── R8-2 / F12: vision captioning for image files ────────────────────────
+        # For an image extension, replace the (garbage) decoded-bytes source_text with a
+        # provider-generated caption when VISION_CAPTIONS_ENABLED and the provider supports
+        # vision (cache-first, bounded, cost folded into this run's ledger — I7). On any
+        # miss/failure the caption is None and we keep the extract.py placeholder text so the
+        # pre-R8-2 behaviour is unchanged.
+        seed_usage: object | None = None
+        if path.suffix.lower() in _VISION_IMAGE_EXTENSIONS:
+            from app.ingest.provider.base import UsageAccumulator as _VisAcc
+            from app.ingest.vision import maybe_caption_image
+
+            _vis_acc = _VisAcc()
+            caption = await maybe_caption_image(
+                provider_config_row=provider_cfg,
+                raw_bytes=raw_bytes,
+                origin_source=rel,
+                accumulator=_vis_acc,
+            )
+            if caption is not None:
+                source_text = caption
+                seed_usage = _vis_acc.snapshot()
+            else:
+                # No vision → keep the pure extract.py placeholder (ADR-0051: no inference there).
+                from app.ingest.extract import extract_text as _extract_text
+
+                try:
+                    source_text = _extract_text(path)
+                except Exception as _ex_exc:  # noqa: BLE001 — placeholder is best-effort context
+                    logger.debug("vision fallback extract_text failed for %s: %s", rel, _ex_exc)
+        elif path.suffix.lower() in _AV_EXTENSIONS:
+            # ── R8-3 / F12: Whisper transcription for AV files ──────────────────────
+            # When AV_TRANSCRIPTION_ENABLED is True and the per-run cap allows it, replace
+            # the (garbage) decoded-bytes source_text with the Whisper transcript so the
+            # normal analyze→generate flow receives real text content. On any miss/failure
+            # the transcript is None and we keep the extract.py placeholder (pre-R8-3
+            # behaviour unchanged). No inference cost: Whisper is a local service
+            # (total_cost_usd=0.00, I7 accounting — transcription.py logs this).
+            from app.ingest.transcription import maybe_transcribe_av as _maybe_transcribe_av
+
+            transcript = await _maybe_transcribe_av(
+                raw_bytes=raw_bytes,
+                origin_source=rel,
+            )
+            if transcript is not None:
+                source_text = transcript
+            else:
+                # No transcript → keep the pure extract.py placeholder (AV path, no decode).
+                from app.ingest.extract import extract_text as _extract_text_av
+
+                try:
+                    source_text = _extract_text_av(path)
+                except Exception as _av_exc:  # noqa: BLE001 — placeholder is best-effort context
+                    logger.debug("AV fallback extract_text failed for %s: %s", rel, _av_exc)
         # abs_source is the canonical queue key (ADR-0046 path-normalization fix).
         # path.resolve() is the absolute path; rel stays relative for DB storage (I1/I5).
         abs_source = str(path.resolve())
@@ -170,6 +231,7 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
             source_text=source_text,
             origin_source=rel,
             abs_source=abs_source,
+            seed_usage=seed_usage,
         )
 
     # ── Persist metadata to Postgres (step 3) ─────────────────────────────────
@@ -324,12 +386,26 @@ async def _resolve_ingest_provider_config() -> object | None:
         return None
 
 
+def _seed_accumulator(accumulator: UsageAccumulator, seed_usage: object | None) -> None:
+    """
+    Fold a pre-loop Usage (R8-2 image caption cost) into the run-scoped accumulator (I7).
+
+    Kept out of run_ingest_pipeline so the routing region stays free of isinstance/type checks
+    (the I6 static guard). A non-Usage / None value is ignored.
+    """
+    from app.ingest.schemas import Usage as _Usage
+
+    if isinstance(seed_usage, _Usage):
+        accumulator.add(seed_usage)
+
+
 async def run_ingest_pipeline(
     *,
     provider_config_row: object,
     source_text: str,
     origin_source: str,
     abs_source: str | None = None,
+    seed_usage: object | None = None,
 ) -> IngestRunResult:
     """
     Capability-aware ingest (F17 / I6). Resolves the provider from config, reads
@@ -354,9 +430,15 @@ async def run_ingest_pipeline(
     the process CWD — callers that hold the absolute path should always supply it.
     The ingest_runs DB column (source_path) is set from ``origin_source`` (relative)
     and is never changed by this parameter.
+
+    ``seed_usage`` (R8-2 / I7): an optional Usage to pre-load onto the run-scoped accumulator so a
+    cost incurred BEFORE the loop (e.g. a vision caption call in ingest_file) is folded into this
+    run's ingest_runs ledger — the caption is part of the same logical ingest run.
     """
     provider = resolve_provider(provider_config_row)
     accumulator = UsageAccumulator()
+    # R8-2: fold any pre-loop cost (image captioning) into this run's ledger (I7).
+    _seed_accumulator(accumulator, seed_usage)
     provider.bind_accumulator(accumulator)
     caps = provider.capabilities()
 

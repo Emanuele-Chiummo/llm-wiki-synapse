@@ -1,0 +1,38 @@
+# Whisper AV transcription microservice — host-side venv (R8-3, F12).
+# Install in a DEDICATED venv (decoupled from the FastAPI backend — heavy deps):
+#   python3.11 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
+# Then run:
+#   ./.venv/bin/python service.py --port 8666
+
+# ── Whisper engine (install exactly ONE; see README.md for guidance) ──────────
+
+# Apple Silicon (MPS) — fastest on macOS with an M-series chip.
+# Requires macOS 13+ and the Metal framework.
+mlx-whisper; sys_platform == "darwin"
+
+# CPU / CUDA cross-platform path (Windows, Linux, macOS Intel).
+# faster-whisper uses CTranslate2 and is ~4× faster than openai-whisper on CPU.
+faster-whisper
+
+# Original CPU-only fallback — only needed if neither of the above works.
+# Uncomment if required:
+# openai-whisper
+
+# ── Service dependencies ──────────────────────────────────────────────────────
+fastapi>=0.111
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+
+# ── Model notes ──────────────────────────────────────────────────────────────
+# mlx-whisper: models are downloaded from Hugging Face on first use.
+#   Default model: mlx-community/whisper-large-v3
+#   ~3 GB download; stored in ~/.cache/huggingface/.
+#
+# faster-whisper: models are downloaded from Hugging Face on first use.
+#   Default model: large-v3
+#   ~3 GB download; stored in ~/.cache/huggingface/hub/.
+#   Run once to pre-download: python -c "from faster_whisper import WhisperModel; WhisperModel('large-v3')"
+#
+# openai-whisper: models are downloaded on first use.
+#   Default model: large-v3
+#   ~3 GB download; stored in ~/.cache/whisper/.

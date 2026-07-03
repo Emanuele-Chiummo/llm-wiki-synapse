@@ -1,10 +1,10 @@
 # Synapse Deployment Guide
 
-<!-- Generated: v0.7 sprint 6 | 2026-07-03 -->
+<!-- Generated: v0.8 sprint 7 | 2026-07-03 -->
 
 > Target: TrueNAS SCALE 25.10 "Goldeye" + Docker Compose (backend) + PWA or Tauri v2 desktop (client)
-> Version: v0.7 — covers v0.7.0 release (M6 + auto-update, scenario templates, retrieval hardening, language directive, recursive import, ServiceNow connector)
-> Status: CURRENT — updated for v0.7.0 release
+> Version: v0.8 — covers v0.8.0 release (M7 — Content power: Marker PDF, vision captions, AV transcription, vault export/backup, search filters, citation click-through, Chrome clipper release)
+> Status: CURRENT — updated for v0.8.0 release
 
 ---
 
@@ -133,6 +133,14 @@ cp .env.example .env
 | `CLIP_TOKEN` | *(none)* | No | SECRET. Bearer token required on every `POST /clip` request (F11, ADR-0038 §2.1). Compared constant-time (`hmac.compare_digest`). Missing or invalid token → 401. Generate with `openssl rand -base64 32`. Never logged or returned by any endpoint. Set to a high-entropy random string. |
 | `CLIP_ALLOWED_ORIGINS` | *(empty)* | No | Comma-separated allowlist of permitted request Origins for `POST /clip` (F11, ADR-0038 §2.2). Each entry is an exact origin string (scheme+host, no path or query). Example: `chrome-extension://abcdefghijklmnopqrstuvwxyz,http://127.0.0.1:5173`. An empty string allows only loopback/localhost requests (implicit). Add your Chrome extension's origin ID when deploying the web clipper. |
 | `CLIP_MAX_BODY_BYTES` | `2097152` | No | Maximum allowed body size for `POST /clip` (F11, ADR-0038 §2.3, I7). Default 2 MB — generous for any realistic Markdown clip. Requests with a body exceeding this limit receive 413. |
+| `PDF_EXTRACTOR` | `pypdf` | No | PDF text extraction backend: `pypdf` (default, pure Python, no extra services) or `marker` (high-quality vision-model pipeline via the Marker microservice, ADR-0051, R8-1). When `marker` is set, `extract_text()` POSTs the raw PDF bytes to `MARKER_SERVICE_URL` with a bounded timeout. On any failure the backend logs a WARNING and falls back to pypdf — pypdf is never removed. |
+| `MARKER_SERVICE_URL` | `http://host.docker.internal:8555` | No | Base URL for the Marker extraction microservice (`tools/marker-converter/service.py`). Only read when `PDF_EXTRACTOR=marker`. The service exposes `POST /convert` (multipart PDF → `{"markdown", "pages"}`) and `GET /health`. See `tools/marker-converter/README.md` for setup. |
+| `MARKER_TIMEOUT_SECONDS` | `120` | No | Timeout (seconds) for a single Marker `/convert` HTTP call (ADR-0051, I7). On timeout the backend falls back to pypdf. Default 120 s — generous for large scanned PDFs on GPU. |
+| `VISION_CAPTIONS_ENABLED` | `false` | No | When `true`, Synapse generates an AI caption for each ingested image file (`.png`/`.jpg`/`.jpeg`/`.webp`) via the active provider's `chat()` method (requires `supports_vision=true` in provider capabilities). Captions are cached in the `image_captions` table keyed by SHA-256 of the file bytes — the same image is never captioned twice (R8-2, G-P2-1, I7). Default `false` — images produce a stub placeholder without this flag. |
+| `VISION_MAX_IMAGES_PER_RUN` | `10` | No | Maximum number of image files captioned per ingest trigger when `VISION_CAPTIONS_ENABLED=true` (I7 cap). Files beyond the cap are deferred to the next run. |
+| `AV_TRANSCRIPTION_ENABLED` | `false` | No | When `true`, Synapse transcribes audio and video files (`.mp3`/`.m4a`/`.wav`/`.mp4`/`.mov`/`.webm`) using the host Whisper microservice at `WHISPER_SERVICE_URL` before ingest (R8-3). Default `false` — AV files produce a stub placeholder without this flag. |
+| `WHISPER_SERVICE_URL` | `http://host.docker.internal:8556` | No | Base URL for the Whisper transcription microservice (`tools/whisper-service/`). Only read when `AV_TRANSCRIPTION_ENABLED=true`. The service exposes `POST /transcribe` (multipart audio/video → `{"text"}`) and `GET /health`. See `tools/whisper-service/README.md` for setup. |
+| `AV_MAX_FILES_PER_RUN` | `10` | No | Maximum number of audio/video files transcribed per ingest trigger when `AV_TRANSCRIPTION_ENABLED=true` (I7 cap). Files beyond the cap are deferred to the next run. |
 
 ### 2.2 Example .env for TrueNAS Docker deployment
 
@@ -568,10 +576,12 @@ recursive traversal. When enabled, the subdirectory path segments are passed to 
 analysis prompt as a `folderContext` hint (e.g. `reports/2026/q2`), which helps the AI
 classify content correctly when folder names carry semantic meaning.
 
-As of v0.5 (M5), `.md`, `.txt`, `.markdown`, `.pdf`, `.docx`, `.pptx`, and `.xlsx`
-files are imported (F12, ADR-0025). Binary files are converted to companion `.extracted.md`
-files automatically before ingest. Images and audio/video are placeholder-only (deferred to
-M6). Other file types are silently skipped.
+As of v0.8 (M7), `.md`, `.txt`, `.markdown`, `.pdf`, `.docx`, `.pptx`, `.xlsx`,
+`.png`, `.jpg`, `.jpeg`, `.webp`, `.mp3`, `.m4a`, `.wav`, `.mp4`, `.mov`, and `.webm`
+files are imported (F12, ADR-0025). Binary office files are converted to companion
+`.extracted.md` files automatically before ingest. Image captioning requires
+`VISION_CAPTIONS_ENABLED=true` and audio/video transcription requires
+`AV_TRANSCRIPTION_ENABLED=true` (see §2.1). Other file types are silently skipped.
 
 ---
 
@@ -1020,10 +1030,10 @@ docker compose exec synapse-backend ls /import
 
 Cause: the file extension is not in the accepted list.
 
-As of v0.5 (M5), accepted formats are: `.md`, `.txt`, `.markdown`, `.pdf`, `.docx`,
-`.pptx`, `.xlsx` (F12, ADR-0025). Images and audio/video are not yet supported; they
-return 415 with a message naming the planned M6 support. The 415 response body names
-the extension and the acceptance list explicitly.
+As of v0.8 (M7), accepted formats are: `.md`, `.txt`, `.markdown`, `.pdf`, `.docx`,
+`.pptx`, `.xlsx`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.mp3`, `.m4a`, `.wav`, `.mp4`,
+`.mov`, `.webm` (F12, ADR-0025). The 415 response body names the extension and the
+full acceptance list explicitly. Files with unrecognized extensions are rejected.
 
 ---
 
@@ -1088,14 +1098,108 @@ that broke the wiki type system.
 
 ---
 
-## 14. References
+## 14. Backup & restore (R8-4)
+
+Synapse provides two export artifacts that together constitute a full vault backup.
+There is no import/restore endpoint in v0.8 — restore is a manual procedure documented
+below. A `/import` endpoint is planned for a future sprint.
+
+### 14.1 Downloading the two artifacts
+
+While Synapse is running:
+
+```bash
+# 1 — Vault filesystem snapshot (raw/ + wiki/ + purpose.md + schema.md + .obsidian/ JSON)
+curl -f http://localhost:8000/export \
+     -o synapse-vault-backup-$(date +%Y%m%d).zip
+
+# 2 — Database metadata snapshot (pages, links, edges, ingest_runs, review_items)
+curl -f http://localhost:8000/export/data.json \
+     -o synapse-data-$(date +%Y%m%d).json
+```
+
+`GET /export` returns a streaming ZIP named `synapse-vault-{vault_id}-{date}.zip`.
+`GET /export/data.json` returns a JSON object with top-level keys:
+`pages`, `links`, `edges`, `runs`, `review_items`, `exported_at`, `data_version`.
+
+Bounds:
+- ZIP export is capped at 500 MB uncompressed (returns HTTP 413 if exceeded).
+- Only one export may run at a time per vault; a concurrent request returns HTTP 429.
+
+### 14.2 Restore path A — vault directory only (watcher re-ingest)
+
+Use this path when: the Postgres database was lost but the vault filesystem was preserved,
+OR when you want to restore to a new host without migrating the database.
+
+1. Stop the Synapse stack:
+   ```bash
+   docker compose down
+   ```
+2. Unzip the vault backup over the existing vault directory (or a fresh one):
+   ```bash
+   unzip -o synapse-vault-backup-YYYYMMDD.zip -d /path/to/vault
+   ```
+   The archive layout mirrors the vault directory: `raw/`, `wiki/`, `purpose.md`,
+   `schema.md`, `wiki/.obsidian/`.
+3. Point `VAULT_PATH` in your `.env` at the restored directory (if changed).
+4. Start the stack:
+   ```bash
+   docker compose up -d
+   ```
+5. The watchdog detects all files in `raw/sources/` on startup and triggers incremental
+   ingest for each one (I1 — the mtime-then-hash gate ensures only genuinely new content
+   is re-ingested). Existing `wiki/` pages are indexed as-is.
+
+**What is NOT restored** by this path: Qdrant vector embeddings, Postgres metadata
+(pages, links, edges, provider_config rows, conversation history). The re-ingest
+recreates metadata and re-embeds content, but conversation history is lost.
+
+### 14.3 Restore path B — full restore with Postgres volume
+
+Use this path when: you have a Postgres volume snapshot (e.g. `docker volume create` +
+`docker cp`) in addition to the vault ZIP. This is the fastest restore and preserves
+all metadata including conversation history.
+
+1. Stop the Synapse stack:
+   ```bash
+   docker compose down
+   ```
+2. Restore the Postgres data volume from your snapshot. The exact command depends on
+   your backup mechanism (e.g. `pg_restore`, volume copy, TrueNAS dataset snapshot).
+   Example for a logical dump:
+   ```bash
+   docker compose run --rm postgres \
+       psql -U synapse -d postgres -c "DROP DATABASE IF EXISTS synapse; CREATE DATABASE synapse;"
+   docker compose run --rm postgres \
+       pg_restore -U synapse -d synapse /backup/synapse-YYYYMMDD.dump
+   ```
+3. Restore the vault filesystem (step 2 of Path A above).
+4. Start the stack:
+   ```bash
+   docker compose up -d
+   ```
+5. The watcher starts but the mtime-then-hash gate (I1) will find all files already
+   indexed (content_hash matches) and skip re-ingest. The graph coords and embeddings
+   are already in Postgres and Qdrant respectively.
+
+**Note:** The `data.json` artifact (`GET /export/data.json`) is a read-only audit
+snapshot — it is NOT used as input to either restore path. It is useful for verifying
+the vault state (page count, data_version) before and after a restore, or for external
+tooling (scripts, dashboards) that need a structured view of the vault metadata without
+a live Postgres connection.
+
+---
+
+## 15. References
 
 - `CLAUDE.md` — project context, invariants (I1–I9), and feature inventory
 - `docs/er/schema.mmd` — ER diagram (auto-generated by `make er`)
 - `docs/api/openapi.json` — API reference (auto-generated by `make openapi`)
-- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0049; index in `docs/adr/README.md`; ADR-0037 Lint, ADR-0038 Web Clipper, ADR-0039 Tauri v2 shell, ADR-0047 Desktop Connect gate, ADR-0049 Desktop auto-update)
+- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0051; index in `docs/adr/README.md`; ADR-0037 Lint, ADR-0038 Web Clipper, ADR-0039 Tauri v2 shell, ADR-0047 Desktop Connect gate, ADR-0049 Desktop auto-update, ADR-0051 Pluggable PDF extractor seam)
 - `docs/adr/0039-tauri-v2-desktop-shell.md` — Tauri v2 desktop shell scaffold and CI
 - `docs/adr/0047-desktop-runtime-server-url-and-connect-gate.md` — runtime server URL binding, Connect screen, CORS extension (§7 of this guide)
 - `docs/adr/0049-desktop-auto-update-github-releases.md` — unified v* release channel, minisign auto-update, key-loss caveat (§7.7 of this guide)
-- `tools/marker-converter/README.md` — ServiceNow doc connector full setup and scheduler daemon
+- `tools/marker-converter/README.md` — Marker PDF microservice + ServiceNow doc connector full setup and scheduler daemon
+- `tools/whisper-service/README.md` — Whisper AV transcription microservice setup (required when `AV_TRANSCRIPTION_ENABLED=true`)
+- §14 (this guide) — Backup & restore: `GET /export` ZIP + `GET /export/data.json` metadata
 - `docs/USER.md` — end-user guide

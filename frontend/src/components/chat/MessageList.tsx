@@ -39,7 +39,12 @@ import {
   selectActiveConversationId,
 } from "../../store/chatStore";
 import type { ChatMessage } from "../../store/chatStore";
-import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import {
+  useGraphStore,
+  selectVaultId,
+  selectSelectPage,
+  selectSetActiveSection,
+} from "../../store/graphStore";
 import { saveToWikiV2 } from "../../api/chatClient";
 import { showToast } from "../common/Toast";
 import { MarkdownView } from "./MarkdownView";
@@ -59,6 +64,22 @@ export function MessageList({ onRegenerate, onSend }: MessageListProps): ReactNo
   const lastUsage = useChatStore(selectLastUsage);
   const activeConversationId = useChatStore(selectActiveConversationId);
   const vaultId = useGraphStore(selectVaultId);
+  // R8-6: navigation actions for citation click-through (AC-R8-6-2)
+  const selectPage = useGraphStore(selectSelectPage);
+  const setActiveSection = useGraphStore(selectSetActiveSection);
+
+  // R8-6: stable citation navigation handler — opens the cited page in the preview panel.
+  // Slug from the citation → match against page nodes, then navigate (AC-R8-6-2).
+  // Called at most once per click (not per token — I3 compliant).
+  const handleCitationClick = useCallback(
+    (slug: string) => {
+      // Navigate to pages section and select the page by slug.
+      // selectPage uses "tree" source so NavTree highlights the row.
+      selectPage(slug, "tree");
+      setActiveSection("pages");
+    },
+    [selectPage, setActiveSection],
+  );
 
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -129,6 +150,7 @@ export function MessageList({ onRegenerate, onSend }: MessageListProps): ReactNo
                   costUsd={isLast ? (lastUsage?.totalCostUsd ?? msg.total_cost_usd) : msg.total_cost_usd}
                   vaultId={vaultId}
                   conversationId={activeConversationId}
+                  onCitationClick={handleCitationClick}
                   t={t}
                 />
               </div>
@@ -203,6 +225,12 @@ interface MessageRowProps {
   costUsd: number;
   vaultId: string | null | undefined;
   conversationId: string | null | undefined;
+  /**
+   * R8-6: citation click-through handler (AC-R8-6-2).
+   * Receives the page slug from the citation; navigates to pages section + selects page.
+   * Always provided from MessageList — never undefined in this context.
+   */
+  onCitationClick: (slug: string) => void;
   t: ReturnType<typeof useTranslation>["t"];
 }
 
@@ -216,6 +244,7 @@ const MessageRow = memo(function MessageRow({
   costUsd,
   vaultId,
   conversationId,
+  onCitationClick,
   t,
 }: MessageRowProps): ReactNode {
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
@@ -252,12 +281,12 @@ const MessageRow = memo(function MessageRow({
     <div>
       <MessageRoleLabel role={msg.role} t={t} />
       {/* Pass citations to MarkdownView for [n] decoration (ADR-0022 §2.4).
-          onCitationClick is omitted — page navigation stub; TODO(F5-nav): wire when
-          wiki tree selection is wired to the chat panel. */}
+          R8-6: onCitationClick is wired — clicking [n] opens the cited page via
+          setActiveSection("pages") + selectPage(slug, "tree") (AC-R8-6-2). */}
       <MarkdownView
         content={msg.content}
         citations={msg.citations}
-        /* onCitationClick intentionally omitted — navigation not yet wired (F5-nav stub) */
+        onCitationClick={onCitationClick}
       />
 
       {/* Metadata footer — cost + actions */}

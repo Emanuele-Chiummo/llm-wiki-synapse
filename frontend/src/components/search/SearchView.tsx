@@ -3,6 +3,7 @@
  *
  * Layout:
  *   [ Search input with Lucide Search icon ]
+ *   [ Filter bar: type facet chips (R8-5) + sort dropdown (R8-5) ]
  *   [ Result list — title chip + snippet + score ]
  *
  * Behaviour:
@@ -11,6 +12,16 @@
  *   - Each result row shows: title, type badge (--syn-type-* chip), snippet excerpt,
  *     optional score. Clicking a result sets activeSection="pages" and selectPage(id).
  *   - Empty / loading / no-results / error states rendered inline.
+ *
+ * R8-5 filter bar (AC-R8-5-3):
+ *   - Type facet: multi-toggle chips for concept/entity/source/synthesis/comparison/query.
+ *   - Sort dropdown: Relevance / Newest / Oldest.
+ *   - Filter state lives in local component state (no global Zustand needed — filter is
+ *     only meaningful within this view). Selector usage from graphStore still uses
+ *     proper selectors + no wholesale subscriptions (I3 compliant).
+ *   - Results re-fetch on filter/sort change via the same debounced effect.
+ *   - Until the backend honours `type` and `sort` params, the UI does not crash —
+ *     the server simply returns unfiltered results (AC-R8-5-3 guard).
  *
  * INVARIANT I3: single fetch per debounced query; AbortController on each call;
  *   no per-token work; Zustand selectors + shallow equality where store is used.
@@ -25,13 +36,154 @@ import { useState, useEffect, useRef, useCallback, type ChangeEvent, type Keyboa
 import { useTranslation } from "react-i18next";
 import { Search, X } from "lucide-react";
 import { searchWiki } from "../../api/searchClient";
-import type { SearchResultItem } from "../../api/searchClient";
+import type { SearchResultItem, PageTypeFilter, SearchSortOption } from "../../api/searchClient";
 import { useGraphStore, selectVaultId, selectSelectPage, selectSetActiveSection } from "../../store/graphStore";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
+
+/** R8-5: ordered list of type facets shown in the filter bar (AC-R8-5-3). */
+const PAGE_TYPE_FILTERS: PageTypeFilter[] = [
+  "concept",
+  "entity",
+  "source",
+  "synthesis",
+  "comparison",
+  "query",
+];
+
+/** R8-5: ordered sort options. */
+const SORT_OPTIONS: SearchSortOption[] = ["relevance", "date_desc", "date_asc"];
+
+// ─── Filter bar (R8-5) ────────────────────────────────────────────────────────
+
+interface FilterBarProps {
+  activeTypes: PageTypeFilter[];
+  sort: SearchSortOption;
+  onTypeToggle: (type: PageTypeFilter) => void;
+  onSortChange: (sort: SearchSortOption) => void;
+}
+
+/**
+ * R8-5: type facet row (chips) + sort dropdown.
+ * Multi-toggle: clicking an active chip deactivates it; clicking an inactive one adds it.
+ * No types selected = "all types" (no filter param sent to backend).
+ * AC-R8-5-3: compact filter bar above results.
+ */
+function FilterBar({ activeTypes, sort, onTypeToggle, onSortChange }: FilterBarProps) {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      data-testid="search-filter-bar"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 16px",
+        borderBottom: "1px solid var(--syn-border)",
+        flexShrink: 0,
+        background: "var(--syn-bg-soft)",
+        flexWrap: "wrap",
+      }}
+    >
+      {/* Type label */}
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.04em",
+          color: "var(--syn-text-muted)",
+          flexShrink: 0,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {t("search.filters.typeLabel")}:
+      </span>
+
+      {/* Type facet chips */}
+      <div
+        data-testid="search-type-chips"
+        style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", flex: 1 }}
+      >
+        {PAGE_TYPE_FILTERS.map((type) => {
+          const isActive = activeTypes.includes(type);
+          return (
+            <button
+              key={type}
+              type="button"
+              data-testid={`search-type-chip-${type}`}
+              aria-pressed={isActive}
+              onClick={() => onTypeToggle(type)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "2px 8px",
+                borderRadius: 12,
+                fontSize: 10,
+                fontWeight: isActive ? 700 : 500,
+                cursor: "pointer",
+                border: `1px solid ${isActive ? `var(--syn-type-${type}, var(--syn-accent))` : "var(--syn-border)"}`,
+                background: isActive
+                  ? `color-mix(in srgb, var(--syn-type-${type}, var(--syn-accent)) 14%, transparent 86%)`
+                  : "transparent",
+                color: isActive
+                  ? `var(--syn-type-${type}, var(--syn-accent))`
+                  : "var(--syn-text-muted)",
+                transition: "background 0.1s, border-color 0.1s",
+              }}
+            >
+              {t(`search.pageType.${type}`)}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Sort dropdown */}
+      <div
+        style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}
+      >
+        <label
+          htmlFor="search-sort-select"
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+            color: "var(--syn-text-muted)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {t("search.sort.label")}:
+        </label>
+        <select
+          id="search-sort-select"
+          data-testid="search-sort-select"
+          value={sort}
+          onChange={(e) => onSortChange(e.target.value as SearchSortOption)}
+          style={{
+            fontSize: 11,
+            padding: "2px 6px",
+            border: "1px solid var(--syn-border)",
+            borderRadius: 4,
+            background: "var(--syn-bg)",
+            color: "var(--syn-text)",
+            cursor: "pointer",
+          }}
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>
+              {t(`search.sort.${opt}`)}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
 
 // ─── Type badge ───────────────────────────────────────────────────────────────
 
@@ -182,11 +334,16 @@ export function SearchView() {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // R8-5: filter state — local component state (filter only applies within SearchView).
+  // Empty array = no type filter. "relevance" = no sort param sent (backend default).
+  const [activeTypes, setActiveTypes] = useState<PageTypeFilter[]>([]);
+  const [sort, setSort] = useState<SearchSortOption>("relevance");
+
   const debounceRef = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Debounced search effect
+  // Debounced search effect — re-runs on query, vaultId, activeTypes, or sort change (R8-5).
   useEffect(() => {
     // Clear pending debounce
     if (debounceRef.current !== null) {
@@ -222,10 +379,16 @@ export function SearchView() {
 
       void (async () => {
         try {
-          const data = await searchWiki(q, {
+          // R8-5: build options object; only include optional filter keys when set
+          // so exactOptionalPropertyTypes is satisfied (no undefined values for
+          // defined keys in the interface — AC-R8-5-3).
+          const searchOpts: Parameters<typeof searchWiki>[1] = {
             vault_id: vaultId,
             signal: ctrl.signal,
-          });
+          };
+          if (activeTypes.length > 0) searchOpts.types = activeTypes;
+          if (sort !== "relevance") searchOpts.sort = sort;
+          const data = await searchWiki(q, searchOpts);
 
           if (!ctrl.signal.aborted) {
             setResults(data.results);
@@ -251,7 +414,7 @@ export function SearchView() {
         debounceRef.current = null;
       }
     };
-  }, [query, vaultId, t]);
+  }, [query, vaultId, activeTypes, sort, t]);
 
   // Cleanup abort controller on unmount
   useEffect(() => {
@@ -273,6 +436,18 @@ export function SearchView() {
     abortRef.current?.abort();
     abortRef.current = null;
     inputRef.current?.focus();
+  }, []);
+
+  // R8-5: type facet toggle — adds or removes a type from the activeTypes set.
+  const handleTypeToggle = useCallback((type: PageTypeFilter) => {
+    setActiveTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+    );
+  }, []);
+
+  // R8-5: sort change handler.
+  const handleSortChange = useCallback((newSort: SearchSortOption) => {
+    setSort(newSort);
   }, []);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
@@ -398,6 +573,14 @@ export function SearchView() {
           </p>
         )}
       </div>
+
+      {/* ── R8-5: Filter bar (type chips + sort) ───────────────────────────── */}
+      <FilterBar
+        activeTypes={activeTypes}
+        sort={sort}
+        onTypeToggle={handleTypeToggle}
+        onSortChange={handleSortChange}
+      />
 
       {/* ── Results area ───────────────────────────────────────────────────── */}
       <div

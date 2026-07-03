@@ -49,11 +49,14 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
+from app.ingest.provider._common import CAPTION_INSTRUCTION, resolve_image_bytes_and_media_type
 from app.ingest.provider.base import InferenceProvider, UsageAccumulator
 from app.ingest.provider.config import ProviderSettings
 from app.ingest.schemas import (
@@ -230,6 +233,7 @@ class CliAgentProvider(InferenceProvider):
             supports_agentic_loop=True,  # → delegated route (ADR-0007 §3)
             max_context=_DEFAULT_MAX_CONTEXT,
             name="CliAgentProvider",
+            supports_vision=True,  # R8-2: Claude via the CLI reads image files (F12)
         )
 
     # ── Orchestrated-loop methods: not used on the delegated path ───────────────
@@ -453,6 +457,76 @@ class CliAgentProvider(InferenceProvider):
         )
         self._record_usage(usage)
         return DelegatedIngestResult(pages_written=pages_written, usage=usage, converged=converged)
+
+    # ── Vision (R8-2 / F12) ──────────────────────────────────────────────────────
+
+    async def caption_image(self, path_or_bytes: str | Path | bytes, context: str) -> str:
+        """
+        Caption an image via a bounded, read-only claude-agent-sdk session (R8-2). The agent is
+        granted ONLY the built-in Read tool scoped to the image's directory (no write_page /
+        fs-write), reads the image file, and returns a plain-text caption. Bytes inputs are written
+        to a scoped temp file so the agent's Read tool can access them; the temp file is removed in
+        a finally. Usage recorded out of band (real SDK cost under api-key auth, else $0 by the
+        subscription convention, ADR-0009 / I7). Raises a clean pre-session ValueError on missing
+        auth (Do-NOT #9).
+        """
+        auth_mode = _resolve_cli_auth_mode(self._config.subscription_token)
+
+        try:
+            from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+        except ImportError as exc:  # pragma: no cover - exercised only without the SDK installed
+            raise RuntimeError(
+                "claude-agent-sdk is not installed; the CLI provider requires it (R3)."
+            ) from exc
+
+        # Resolve to a concrete filesystem path the agent's Read tool can open.
+        tmp_path: Path | None = None
+        if isinstance(path_or_bytes, (str, Path)):
+            image_path = Path(path_or_bytes)
+        else:
+            data, media_type = resolve_image_bytes_and_media_type(path_or_bytes)
+            suffix = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif",
+                      "image/webp": ".webp"}.get(media_type, ".png")
+            fd, name = tempfile.mkstemp(suffix=suffix, prefix="synapse_caption_")
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(data)
+            tmp_path = Path(name)
+            image_path = tmp_path
+
+        prompt = (
+            f"{context}\n\n{CAPTION_INSTRUCTION}\n\nRead the image file at: {image_path}"
+            if context.strip()
+            else f"{CAPTION_INSTRUCTION}\n\nRead the image file at: {image_path}"
+        )
+        options = ClaudeAgentOptions(
+            model=self._model,  # from provider_config (I6)
+            permission_mode="acceptEdits",  # non-interactive (CLAUDE.md §5)
+            cwd=str(image_path.parent),  # scope filesystem access to the image's directory
+            allowed_tools=["Read"],  # read-only: no write_page / fs-write (R8-2)
+            max_turns=_chat_agent_max_turns(),  # bounded agent turns (I7)
+        )
+
+        parts: list[str] = []
+        usage = Usage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
+        sdk_cost_usd: float | None = None
+        try:
+            with _cli_subscription_env_scope(self._config.subscription_token):
+                async with ClaudeSDKClient(options=options) as client:
+                    await client.query(prompt)
+                    async for message in client.receive_response():
+                        parts.extend(_extract_text_deltas(message))
+                        usage = _merge_sdk_usage(usage, message)
+                        msg_cost = _extract_sdk_cost(message)
+                        if msg_cost is not None:
+                            sdk_cost_usd = msg_cost
+        finally:
+            if tmp_path is not None:
+                tmp_path.unlink(missing_ok=True)
+        self._record_usage(_finalize_chat_usage(usage, sdk_cost_usd, auth_mode))
+        caption = "".join(parts).strip()
+        if not caption:
+            raise ValueError("CliAgentProvider vision returned an empty caption")
+        return caption
 
 
 # ── Chat helpers ────────────────────────────────────────────────────────────────

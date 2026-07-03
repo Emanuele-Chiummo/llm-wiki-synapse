@@ -249,6 +249,50 @@
         }
       }
     },
+    "/export": {
+      "get": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Download vault as ZIP",
+        "description": "Stream a ZIP archive of the vault directory (raw/ + wiki/ + purpose.md + schema.md + .obsidian/*.json). Returns 413 if the uncompressed total exceeds EXPORT_MAX_BYTES (500 MB). Returns 429 if another export is already running for this vault.",
+        "operationId": "export_vault_zip_export_get",
+        "responses": {
+          "200": {
+            "description": "ZIP archive stream",
+            "content": {
+              "application/zip": {}
+            }
+          },
+          "413": {
+            "description": "Vault exceeds EXPORT_MAX_BYTES size cap"
+          },
+          "429": {
+            "description": "Another export is already running for this vault"
+          }
+        }
+      }
+    },
+    "/export/data.json": {
+      "get": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Export vault metadata as JSON",
+        "description": "Return a JSON dump of live pages (no content bodies), links, edges, ingest_runs summary, review_items summary, data_version, and generated_at. All records for the current vault_id.",
+        "operationId": "export_data_json_export_data_json_get",
+        "responses": {
+          "200": {
+            "description": "JSON metadata export",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/status": {
       "get": {
         "summary": "Service health + data_version",
@@ -762,7 +806,7 @@
     "/search": {
       "get": {
         "summary": "4-phase RAG retrieval (F5, ADR-0022)",
-        "description": "Run the F5 4-phase retrieval pipeline (ADR-0022 \u00a72.2, AC-F5-6) and return a grounded context string + citation list. Phase 1: dense vector search via bge-m3 (Qdrant, top-k). Phase 2: BFS graph-expansion over the `edges` table (depth \u2264 2). Phase 3: token-budget allocation (20% of context_window, F14). Phase 4: context assembly with inline [n] markers. 0-hit query \u2192 200 with empty results + empty context (AC-F5-7a). READ-ONLY \u2014 never bumps data_version (AC-F5-5). Documented in openapi.json (I8, AC-F5-6).",
+        "description": "Run the F5 4-phase retrieval pipeline (ADR-0022 \u00a72.2, AC-F5-6) and return a grounded context string + citation list. Phase 1: dense vector search via bge-m3 (Qdrant, top-k). Phase 2: BFS graph-expansion over the `edges` table (depth \u2264 2). Phase 3: token-budget allocation (20% of context_window, F14). Phase 4: context assembly with inline [n] markers. 0-hit query \u2192 200 with empty results + empty context (AC-F5-7a). READ-ONLY \u2014 never bumps data_version (AC-F5-5). R8-5: optional `type` (comma-separated page types) and `sort` (relevance|date_desc|date_asc) params \u2014 422 on unknown type or sort value (AC-R8-5-1). Documented in openapi.json (I8, AC-F5-6).",
         "operationId": "search_search_get",
         "parameters": [
           {
@@ -828,6 +872,42 @@
               "title": "Context Window"
             },
             "description": "Context window override (4096..1_000_000); null \u2192 32 768 default (F14)"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "R8-5: Comma-separated page types to filter results. Valid values: entity, concept, source, synthesis, comparison, query. Multiple values: type=entity,concept. Omit to return all types (AC-R8-5-1). Unknown value \u2192 422.",
+              "title": "Type"
+            },
+            "description": "R8-5: Comma-separated page types to filter results. Valid values: entity, concept, source, synthesis, comparison, query. Multiple values: type=entity,concept. Omit to return all types (AC-R8-5-1). Unknown value \u2192 422."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "R8-5: Sort order for results. relevance (default) = cosine/edge-weight ranking unchanged. date_desc = newest first (updated_at DESC). date_asc = oldest first (updated_at ASC). Phase internals (budgets, BFS) are never changed (I7). Unknown value \u2192 422 (AC-R8-5-1).",
+              "title": "Sort"
+            },
+            "description": "R8-5: Sort order for results. relevance (default) = cosine/edge-weight ranking unchanged. date_desc = newest first (updated_at DESC). date_asc = oldest first (updated_at ASC). Phase internals (budgets, BFS) are never changed (I7). Unknown value \u2192 422 (AC-R8-5-1)."
           }
         ],
         "responses": {
@@ -842,7 +922,7 @@
             }
           },
           "422": {
-            "description": "Validation error (k out of range or missing q)"
+            "description": "Validation error (k out of range, missing q, or unknown type/sort)"
           }
         }
       }
@@ -2956,7 +3036,7 @@
     "/scenarios/{scenario_id}/apply": {
       "post": {
         "summary": "Apply a vault scenario template",
-        "description": "Write vault/purpose.md and vault/schema.md for the chosen preset (R7-1, AC-R7-1-2, [F1, K1]). This is an explicit user action \u2014 both files are OVERWRITTEN with preset-specific content. Bumps data_version. 404 for unknown scenario_id.",
+        "description": "Write vault/purpose.md and vault/schema.md for the chosen preset (R7-1, AC-R7-1-2, [F1, K1]). This is an explicit user action \u2014 both files are OVERWRITTEN with preset content. Bumps data_version. 404 for unknown scenario_id.",
         "operationId": "apply_scenario_scenarios__scenario_id__apply_post",
         "parameters": [
           {
@@ -5291,7 +5371,7 @@
           "page_type": {
             "type": "string",
             "title": "Page Type",
-            "description": "Wiki page type; must be one of: ['comparison', 'concept', 'entity', 'query', 'source', 'synthesis']"
+            "description": "Wiki page type; one of entity|concept|source|synthesis|comparison|query"
           },
           "dir": {
             "anyOf": [
@@ -5303,7 +5383,7 @@
               }
             ],
             "title": "Dir",
-            "description": "Target subdirectory under wiki/ (optional \u2014 derived from page_type when omitted). Allowed values: ['comparisons', 'concepts', 'entities', 'queries', 'sources', 'synthesis']"
+            "description": "Target subdirectory under wiki/ (optional; derived from page_type when omitted). Allowed values: ['comparisons', 'concepts', 'entities', 'queries', 'sources', 'synthesis']"
           },
           "content": {
             "type": "string",

@@ -669,7 +669,26 @@
     "resultsLabel": "Risultati ricerca",
     "score": "Punteggio",
     "phaseVector": "vettore",
-    "phaseExpansion": "espansione"
+    "phaseExpansion": "espansione",
+    "filters": {
+      "label": "Filtri",
+      "typeLabel": "Tipo",
+      "allTypes": "Tutti i tipi"
+    },
+    "sort": {
+      "label": "Ordina",
+      "relevance": "Rilevanza",
+      "date_desc": "Più recenti",
+      "date_asc": "Più vecchi"
+    },
+    "pageType": {
+      "concept": "Concetto",
+      "entity": "Entità",
+      "source": "Sorgente",
+      "synthesis": "Sintesi",
+      "comparison": "Confronto",
+      "query": "Query"
+    }
   },
   "sources": {
     "title": "Sorgenti",

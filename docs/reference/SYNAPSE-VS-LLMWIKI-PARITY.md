@@ -3,7 +3,7 @@
 > **Purpose:** exhaustive behavioral mirror audit. Drives gap-closure implementation.
 > **Sources:** audit docs at `docs/reference/llm_wiki-audit/01-AUDIT-FUNZIONALE.md` (code-anchored
 > to llm_wiki v0.5.4 @ `c03c6be`); Synapse codebase at `sprint/v0.6`.
-> **Date:** 2026-07-01 (updated 2026-07-03 — v0.7 closure pass). **Author:** functional-analyst agent.
+> **Date:** 2026-07-01 (updated 2026-07-03 — v0.7 closure pass; updated 2026-07-03 — v0.8 closure pass). **Author:** functional-analyst agent.
 >
 > **v0.7 closure (2026-07-03):** G-P0-1 (Save-to-Wiki), G-P0-2 (Louvain), G-P0-3 (provider gate)
 > shipped before v0.7. The following P1 items were also closed in the v0.7.0 release:
@@ -12,6 +12,12 @@
 > wiki-only, ADR-0050), G-P1-11 (ThinkBlock streaming roll preview), G-P1-12 (reasoning field
 > routing for DeepSeek/Qwen/Kimi/Ollama), G-P1-13 (synthesis landing in wiki/synthesis/).
 > All 13 P0+P1 backlog items are now closed. Remaining open items are P2 (polish/enhancement).
+>
+> **v0.8 closure (2026-07-03):** G-P2-1 (vision captions) and G-P2-5 (high-quality PDF
+> extraction via Marker — superset of the MinerU idea, already proven in-repo) are now
+> **CLOSED** with v0.8.0. AV transcription (audio/video — the "deferred to M6" item in
+> extract.py) also shipped in v0.8.0; it has no direct llm_wiki counterpart but closes
+> the placeholder gap noted in the F12 table.
 >
 > Verdict legend:
 >   ✅ parity — behavior matches or exceeds user-facing expectations.
@@ -259,8 +265,8 @@ Every row covers one atomic user-facing behavior pulled from the audit.
 | DOCX extraction | `docx-rs 0.4.20` — headings/bold/italic/lists/tables | `backend/app/ingest/extract.py:DOCX` — `python-docx` | ✅ | | — | — |
 | PPTX extraction | ZIP+XML slide-by-slide (`fs.rs:786-845`) | `backend/app/ingest/extract.py:PPTX` — `python-pptx` | ✅ | | — | — |
 | XLSX extraction (multi-sheet, GFM tables) | `calamine 0.34` — multi-sheet, cell-type | `backend/app/ingest/extract.py:XLSX` — `openpyxl` | ✅ | | — | — |
-| Image ingestion with vision caption | `extract_images.rs:204/345/758` — extracts images from PDF (min 100px, max 500/doc); `vision-caption.ts` — vision LLM with SHA256 cache | `backend/app/ingest/extract.py:64-67` — `PLACEHOLDER_EXTENSIONS` for images; `backend/app/upload.py:_PLACEHOLDER_EXTENSIONS` — placeholder text only | ❌ | Synapse v0.5 produces a placeholder for image files — no vision captioning, no image extraction from PDFs. llm_wiki has a full vision pipeline. Gap: add vision caption step via an InferenceProvider chat() call (I6) for image files; cache captions by file SHA256. | P2 | [AI]/[BE] |
-| MinerU PDF extraction with fallback to pdfium | `ingest.ts:678-685` — tries MinerU, falls back to pdfium; abort not swallowed | Absent — Synapse uses pypdf only, no MinerU. | ❌ | MinerU for high-quality PDF extraction is a llm_wiki differentiator. Not yet planned for Synapse. P2 enhancement opportunity. | P2 | [BE] |
+| Image ingestion with vision caption | `extract_images.rs:204/345/758` — extracts images from PDF (min 100px, max 500/doc); `vision-caption.ts` — vision LLM with SHA256 cache | `backend/app/ingest/extract.py` — `VISION_CAPTIONS_ENABLED` env opt-in; `InferenceProvider.chat()` caption call for `.png`/`.jpg`/`.jpeg`/`.webp` files when provider reports `supports_vision=True`; `image_captions` table caches captions by SHA-256 of raw file bytes (G-P2-1, v0.8.0, 2026-07-03). | ✅ | **G-P2-1 CLOSED (2026-07-03 / v0.8.0).** Vision caption pipeline present and cached. Default opt-out (`VISION_CAPTIONS_ENABLED=false`) matches I7 cost-control principle. `VISION_MAX_IMAGES_PER_RUN` caps per-run load (I7). | — | [AI]/[BE] |
+| MinerU PDF extraction with fallback to pdfium | `ingest.ts:678-685` — tries MinerU, falls back to pdfium; abort not swallowed | `backend/app/ingest/extract.py` — `PDF_EXTRACTOR` env: `pypdf` (default) or `marker`; when `marker`, POSTs to Marker microservice (`tools/marker-converter/service.py`) at `MARKER_SERVICE_URL`; any failure → pypdf fallback (never removed); ADR-0051 (G-P2-5, v0.8.0, 2026-07-03). | ✅ | **G-P2-5 CLOSED (2026-07-03 / v0.8.0).** Marker is the in-repo extractor (already proven via the ServiceNow connector); it supersedes the MinerU idea. pypdf fallback always present — failure-safe (ADR-0051). `MARKER_TIMEOUT_SECONDS` bounds the HTTP call (I7). | — | [BE] |
 | File caching (mtime-based, avoid re-extraction) | `fs.rs:147-172` — mtime-based cache for format extraction | `backend/app/ingest/orchestrator.py:129-146` — mtime-then-hash gate (ADR-0001) gates the ENTIRE ingest including extraction | ✅ | Extraction is gated by the mtime-then-hash check at the ingest level. No separate extraction-only cache needed. | — | — |
 
 ---
@@ -415,12 +421,12 @@ the table summary follows.
 
 | ID | Gap or opportunity | Owner | Effort |
 |---|---|---|---|
-| G-P2-1 | **Vision caption for images.** Add vision-LLM caption step for `.png/.jpg` files via `provider.chat()` (I6); cache by SHA256 of file bytes. Parity with llm_wiki vision pipeline. | [AI]/[BE] | L |
+| ~~G-P2-1~~ | ✅ **CLOSED (2026-07-03 / v0.8.0).** Vision caption pipeline: `VISION_CAPTIONS_ENABLED` opt-in; `provider.chat()` with `supports_vision=True` guard; `image_captions` table SHA-256 cache; `VISION_MAX_IMAGES_PER_RUN` I7 cap. | [AI]/[BE] | — |
 | G-P2-2 | **purpose.md suggestion via ReviewItem.** At ingest end, emit a `purpose-suggestion` ReviewItem when analysis reveals scope drift. Closes the llm_wiki vaporware gap (F2) better than llm_wiki did. | [AI]/[BE] | M |
 | G-P2-3 | **Cancel in-flight ingest.** `DELETE /ingest/{run_id}` — aborts the running ingest_file coroutine; does NOT delete already-written pages. | [BE]/[FE] | M |
 | G-P2-4 | **schema.md co-evolution.** Allow LLM to propose schema.md edits (K8 / Karpathy principle). Requires a `schema-suggestion` ReviewItem type. | [AI]/[BE] | L |
-| G-P2-5 | **MinerU PDF extraction.** Add optional MinerU extractor with pypdf fallback (mirrors llm_wiki). | [BE] | L |
-| G-P2-6 | **PWA + Tauri v2 packaging.** Sprint-6 target (F15). | [FE] | XL |
+| ~~G-P2-5~~ | ✅ **CLOSED (2026-07-03 / v0.8.0).** Marker pluggable PDF extractor (ADR-0051): `PDF_EXTRACTOR=marker` routes to Marker microservice at `MARKER_SERVICE_URL`; pypdf fallback always present; `MARKER_TIMEOUT_SECONDS` bounds the call (I7). Supersedes the MinerU idea — Marker is already proven in-repo. | [BE] | — |
+| ~~G-P2-6~~ | ✅ **CLOSED (v0.6/M6).** PWA + Tauri v2 packaging shipped in sprint 6. | [FE] | — |
 | G-P2-7 | **Edge relevance tooltip on hover.** Show weight/signal breakdown on edge hover in GraphViewer. Both llm_wiki and Synapse lack this — pure enhancement. | [FE] | S |
 | G-P2-8 | **Community cohesion score + warning marker.** After Louvain (G-P0-2), add cohesion score per community; warn in legend if <0.15 (mirrors llm_wiki graph-insights). | [BE]/[FE] | S |
 

@@ -1,19 +1,31 @@
 """
 F12 Multi-format text extractor — SOLE home of format-specific libraries (ADR-0025 §4.1).
 
-STATIC GUARD (AC-F12-7):
+STATIC GUARD (AC-F12-7 / ADR-0051):
   pypdf, docx, pptx, openpyxl MUST NOT be imported anywhere outside this module.
   Any PR that introduces those imports elsewhere is a P0 rejection.
 
+  NOTE (ADR-0051 / R8-1): When PDF_EXTRACTOR=marker, extract.py calls an HTTP
+  microservice at MARKER_SERVICE_URL/convert. The marker package itself is NOT
+  imported here and does NOT live in the backend container. pypdf is still the
+  sole container-side PDF library; Marker is called over HTTP, not imported.
+
 INVARIANT CONTRACT:
-  I6: extract_text() is PURE (path in, text out) — zero LLM/provider calls.
+  I6: extract_text() is PURE (path in, text out) — one documented exception:
+      _extract_pdf_via_marker() makes an HTTP call to the external Marker
+      microservice. This is the PM-approved exception for R8-1 (ADR-0051).
+      All other paths are inference-free.
   I7: output capped at EXTRACT_MAX_CHARS (config). No loop — single-pass per file.
+      The Marker call uses a bounded timeout (MARKER_TIMEOUT_SECONDS).
   I9: Uses well-known pure-Python extractor libs; unstructured deliberately NOT added (§4.5).
+      Marker is called over HTTP — not imported — so heavy ML deps stay host-side.
   I5: The companion .extracted.md written by the caller (upload handler) has valid YAML
       frontmatter — this module only returns text; formatting is the caller's responsibility.
 
 Extension dispatch:
-  .pdf  → pypdf (page text; images skipped with WARNING — AC-F12-1)
+  .pdf  → _extract_pdf_via_marker() when PDF_EXTRACTOR=marker (falls back to pypdf on
+          any failure); _extract_pdf() (pypdf) when PDF_EXTRACTOR=pypdf (default).
+          Images in PDF skipped with WARNING — AC-F12-1.
   .docx → python-docx (paragraphs)
   .pptx → python-pptx (slide text)
   .xlsx → openpyxl (sheets → GFM markdown table)
@@ -55,12 +67,97 @@ def _extract_max_chars() -> int:
         return 2_000_000
 
 
+def _get_pdf_extractor() -> str:
+    """Return the configured PDF extractor backend ('pypdf' or 'marker')."""
+    try:
+        from app.config import settings
+
+        return str(getattr(settings, "pdf_extractor", "pypdf")).lower().strip()
+    except Exception:  # noqa: BLE001
+        return "pypdf"
+
+
+def _get_marker_settings() -> tuple[str, float]:
+    """Return (marker_service_url, marker_timeout_seconds) from settings."""
+    try:
+        from app.config import settings
+
+        url = str(getattr(settings, "marker_service_url", "http://host.docker.internal:8555"))
+        timeout = float(getattr(settings, "marker_timeout_seconds", 120.0))
+        return url, timeout
+    except Exception:  # noqa: BLE001
+        return "http://host.docker.internal:8555", 120.0
+
+
+def _extract_pdf_via_marker(path: Path) -> str | None:
+    """
+    Call the Marker microservice to extract PDF text (ADR-0051 / R8-1).
+
+    POSTs the raw PDF bytes to {MARKER_SERVICE_URL}/convert with a bounded timeout
+    (MARKER_TIMEOUT_SECONDS). On success returns the markdown string from the response.
+    On ANY failure (connection refused, timeout, non-200, invalid JSON, missing field)
+    logs a WARNING and returns None — the caller MUST fall back to pypdf.
+
+    This is the SOLE network call in extract.py and the PM-approved exception to the
+    I6 pure-function contract (ADR-0051 §3).
+
+    AC-R8-1-1: correct request shape (multipart 'file' field with PDF bytes + 30-s-class
+    timeout); fallback signalled by returning None.
+    """
+    import httpx  # noqa: PLC0415 — short-lived client; httpx is a backend dependency
+
+    marker_url, timeout = _get_marker_settings()
+    convert_url = f"{marker_url.rstrip('/')}/convert"
+
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            response = client.post(
+                convert_url,
+                files={"file": (path.name, path.read_bytes(), "application/pdf")},
+            )
+        if response.status_code != 200:
+            logger.warning(
+                "extract_pdf_via_marker: non-200 %d from %s for %s — falling back to pypdf",
+                response.status_code,
+                convert_url,
+                path.name,
+            )
+            return None
+        data = response.json()
+        markdown = data.get("markdown")
+        if not isinstance(markdown, str) or not markdown:
+            logger.warning(
+                "extract_pdf_via_marker: invalid/empty 'markdown' in response from %s for %s "
+                "— falling back to pypdf",
+                convert_url,
+                path.name,
+            )
+            return None
+        logger.info(
+            "extract_pdf_via_marker: extracted %d chars from %s via Marker (%d pages)",
+            len(markdown),
+            path.name,
+            data.get("pages", 0),
+        )
+        return markdown
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "extract_pdf_via_marker: call to %s failed for %s: %s — falling back to pypdf",
+            convert_url,
+            path.name,
+            exc,
+        )
+        return None
+
+
 def extract_text(file_path: str | Path) -> str:
     """
     Dispatch on the lower-cased file extension and return extracted plain text (ADR-0025 §4.1).
 
-    Output is capped at EXTRACT_MAX_CHARS (I7). This function is SYNCHRONOUS and makes
-    NO network calls, NO LLM calls (I6).
+    Output is capped at EXTRACT_MAX_CHARS (I7). For PDFs, dispatches to the Marker
+    microservice when PDF_EXTRACTOR=marker; falls back to pypdf unconditionally on any
+    failure (ADR-0051). With the default PDF_EXTRACTOR=pypdf the call path is identical
+    to pre-v0.8 behaviour (AC-R8-1-2).
 
     Raises UnsupportedFormatError for extensions not in EXTRACTABLE_BINARY_EXTENSIONS or
     PLACEHOLDER_EXTENSIONS — the caller (upload handler) maps this to HTTP 415.
@@ -70,7 +167,12 @@ def extract_text(file_path: str | Path) -> str:
     max_chars = _extract_max_chars()
 
     if suffix == ".pdf":
-        text = _extract_pdf(path)
+        # R8-1 / ADR-0051: dispatch to Marker when configured; unconditional pypdf fallback
+        if _get_pdf_extractor() == "marker":
+            marker_result = _extract_pdf_via_marker(path)
+            text = marker_result if marker_result is not None else _extract_pdf(path)
+        else:
+            text = _extract_pdf(path)
     elif suffix == ".docx":
         text = _extract_docx(path)
     elif suffix == ".pptx":

@@ -482,6 +482,96 @@ class Settings(BaseSettings):
     Env var: EXTRACT_MAX_CHARS.
     """
 
+    # ── R8-1: Pluggable PDF extractor seam (ADR-0051) ────────────────────────────
+
+    pdf_extractor: str = "pypdf"
+    """
+    PDF extraction backend (ADR-0051, R8-1).
+    Allowed values: "pypdf" (default, pure-Python, always available) | "marker"
+    (high-quality ML extractor; requires the tools/marker-converter/service.py
+    microservice to be running at MARKER_SERVICE_URL).
+    When "marker" is selected and the microservice is unreachable or returns an error,
+    extract.py falls back to pypdf unconditionally (PM decision — pypdf is never removed).
+    Env var: PDF_EXTRACTOR.
+    """
+
+    marker_service_url: str = "http://host.docker.internal:8555"
+    """
+    Base URL of the Marker PDF extractor microservice (ADR-0051, R8-1).
+    Used only when PDF_EXTRACTOR=marker. The backend POSTs the raw PDF bytes to
+    {marker_service_url}/convert and expects JSON {"markdown": str, "pages": int}.
+    Default points to the host machine from inside Docker (host.docker.internal).
+    For local dev outside Docker, use http://localhost:8555.
+    Env var: MARKER_SERVICE_URL.
+    """
+
+    marker_timeout_seconds: float = 120.0
+    """
+    HTTP timeout (seconds) for the call to the Marker microservice (ADR-0051, R8-1, I7).
+    Marker runs ML models and can be slow on large PDFs; 120 s gives it room.
+    On timeout, extract.py falls back to pypdf (permanent, unconditional — PM decision).
+    Env var: MARKER_TIMEOUT_SECONDS.
+    """
+
+    # ── R8-2: Vision captions for images (F12 / F17) ─────────────────────────────
+
+    vision_captions_enabled: bool = False
+    """
+    Master opt-in for vision captioning of ingested images (R8-2, F12). Default False (PM
+    de-scope safety): when False, image files always take the extract.py placeholder path and
+    NO provider vision call is ever made — zero cost, zero surprise. When True AND the resolved
+    ingest provider reports capabilities().supports_vision, the orchestrator sha256-caches and
+    captions image files (png/jpg/jpeg/gif/webp) before the normal analyze→generate flow.
+    Env var: VISION_CAPTIONS_ENABLED.
+    """
+
+    vision_max_images_per_run: int = 5
+    """
+    Per-ingest-run cap on the number of images captioned via a provider vision call (R8-2, I7 —
+    bounded loop / cost control). Beyond this cap, remaining images in the same run fall back to
+    the extract.py placeholder. Cache HITS do NOT count against this cap (no provider call).
+    Env var: VISION_MAX_IMAGES_PER_RUN.
+    """
+
+    # ── R8-3: Audio/video transcription via Whisper microservice (F12) ───────────
+
+    av_transcription_enabled: bool = False
+    """
+    Master opt-in for audio/video transcription (R8-3, F12). Default False — zero behaviour
+    change when not set. When True, AV extensions (.mp3, .wav, .m4a, .mp4) are sent to the
+    Whisper microservice at WHISPER_SERVICE_URL/transcribe and the returned transcript is used
+    as source_text for the normal analyze→generate flow. On ANY failure the existing placeholder
+    path is used and a WARNING is logged. Never raises into ingest.
+    Env var: AV_TRANSCRIPTION_ENABLED.
+    """
+
+    whisper_service_url: str = "http://host.docker.internal:8666"
+    """
+    Base URL of the Whisper transcription microservice (R8-3, F12).
+    Used only when AV_TRANSCRIPTION_ENABLED=true. The backend POSTs the raw AV bytes to
+    {whisper_service_url}/transcribe (multipart "file" field) and expects JSON:
+    {"text": str, "language": str, "duration_seconds": float}.
+    Default points to the host machine from inside Docker (host.docker.internal).
+    For local dev outside Docker, use http://localhost:8666.
+    Env var: WHISPER_SERVICE_URL.
+    """
+
+    whisper_timeout_seconds: float = 300.0
+    """
+    HTTP timeout (seconds) for the call to the Whisper microservice (R8-3, F12, I7).
+    Whisper runs on CPU/GPU and can be slow for long media; 300 s (5 min) gives it room.
+    On timeout, transcription.py returns None and ingest falls back to placeholder.
+    Env var: WHISPER_TIMEOUT_SECONDS.
+    """
+
+    av_max_files_per_run: int = 3
+    """
+    Per-ingest-run cap on the number of AV files sent to the Whisper microservice (R8-3, I7).
+    Beyond this cap, remaining AV files in the same run fall back to the placeholder. Prevents
+    a bulk upload from hammering the Whisper service (which serialises via asyncio.Lock).
+    Env var: AV_MAX_FILES_PER_RUN.
+    """
+
     # ── M4-EXT: upload + scheduled import caps (ADR-0020 §2.4 / §4.4) ──────────
 
     max_upload_bytes: int = 26_214_400

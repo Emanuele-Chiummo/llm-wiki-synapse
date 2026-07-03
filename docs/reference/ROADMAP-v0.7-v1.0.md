@@ -25,39 +25,39 @@ desktop builds unsigned (no auto-update possible until signing).
 
 ---
 
-## v0.7 — «Core completeness & daily UX» (2 settimane)
+## v0.7 — «Core completeness & daily UX» (2 settimane) ✅ SHIPPED 2026-07-03
 
 Theme: close every seam a daily user hits; make the wiki feel finished.
 
-| ID | Item | Area | Effort | Source |
-|----|------|------|--------|--------|
-| R7-1 | **Scenario templates** — 5 vault presets (Research/Reading/PersonalGrowth/Business/General) pre-populating purpose.md + schema.md | FE+BE | M | F1, G-P1-4 |
-| R7-2 | **New page from UI** — "+ Nuova pagina" in the wiki tree (title/type/dir dialog → existing write path) | FE | S | UX gap #9 |
-| R7-3 | **Rename conversations** + conversation search/filter in sidebar | FE+BE | S | UX gaps #1, #15 |
-| R7-4 | **Unsaved-changes indicator** in editor + navigation guard | FE | S | UX gap #2 |
-| R7-5 | **Review search_queries** — JSONB column populated at proposal time, handed to deep-research on that action | BE+AI | M | F9, G-P1-6 |
-| R7-6 | **Recursive folder import + folderContext hint** injected into analysis prompt | BE+AI | M | F3, G-P1-9 |
-| R7-7 | **ServiceNow scheduler** — wire the Marker connector into import-schedule (periodic convert→drop→ingest); auto-download from docs.servicenow.com behind a config | BE | M/L | connector README step 3 |
-| R7-8 | **Retrieval scope decision** — citations from wiki/ only (exclude raw/ from /search assembly) — decide + implement | BE | S | G-P1-10 |
-| R7-9 | **ThinkBlock streaming preview** — rolling last-lines fade during stream | FE | S | F7, G-P1-11 |
-| R7-10 | Verifications batch: multi-provider reasoning field routing (DeepSeek/Qwen), deep-research synthesis landing in wiki/queries/, language directive in API/Local providers | AI | S | G-P1-8/12/13 |
-| R7-11 | **Bulk ops on sources** — multi-select ingest/delete; upload progress per file | FE | M | UX gaps #4, #14 |
-| R7-12 | **Cancel-all confirmation** dialog in activity bar | FE | S | UX gap #12 |
-| R7-13 | Refresh SYNAPSE-VS-LLMWIKI-PARITY.md (close stale P0/P1 rows) | Docs | S | audit |
+| ID | Item | Area | Effort | Source | Status |
+|----|------|------|--------|--------|--------|
+| R7-1 | **Scenario templates** — 5 vault presets (Research/Reading/PersonalGrowth/Business/General) pre-populating purpose.md + schema.md | FE+BE | M | F1, G-P1-4 | ✅ |
+| R7-2 | **New page from UI** — "+ Nuova pagina" in the wiki tree (title/type/dir dialog → existing write path) | FE | S | UX gap #9 | ✅ |
+| R7-3 | **Rename conversations** + conversation search/filter in sidebar | FE+BE | S | UX gaps #1, #15 | ✅ |
+| R7-4 | **Unsaved-changes indicator** in editor + navigation guard | FE | S | UX gap #2 | ✅ |
+| R7-5 | **Review search_queries** — JSONB column populated at proposal time, handed to deep-research on that action | BE+AI | M | F9, G-P1-6 | ✅ |
+| R7-6 | **Recursive folder import + folderContext hint** injected into analysis prompt | BE+AI | M | F3, G-P1-9 | ✅ |
+| R7-7 | **ServiceNow scheduler** — wire the Marker connector into import-schedule (periodic convert→drop→ingest); auto-download from docs.servicenow.com behind a config | BE | M/L | connector README step 3 | ✅ |
+| R7-8 | **Retrieval scope decision** — citations from wiki/ only (exclude raw/ from /search assembly) — decide + implement | BE | S | G-P1-10 | ✅ |
+| R7-9 | **ThinkBlock streaming preview** — rolling last-lines fade during stream | FE | S | F7, G-P1-11 | ✅ |
+| R7-10 | Verifications batch: multi-provider reasoning field routing (DeepSeek/Qwen), deep-research synthesis landing in wiki/queries/, language directive in API/Local providers | AI | S | G-P1-8/12/13 | ✅ |
+| R7-11 | **Bulk ops on sources** — multi-select ingest/delete; upload progress per file | FE | M | UX gaps #4, #14 | ✅ |
+| R7-12 | **Cancel-all confirmation** dialog in activity bar | FE | S | UX gap #12 | ✅ |
+| R7-13 | Refresh SYNAPSE-VS-LLMWIKI-PARITY.md (close stale P0/P1 rows) | Docs | S | audit | ✅ |
 
-## v0.8 — «Content power» (2 settimane)
+## v0.8 — «Content power» (2 settimane) ✅ SHIPPED 2026-07-03
 
 Theme: ingest anything, at quality — leverage what already exists in-house.
 
-| ID | Item | Area | Effort | Source |
-|----|------|------|--------|--------|
-| R8-1 | **Marker as first-class PDF extractor** — promote tools/marker-converter engine to an optional high-quality PDF path with pypdf fallback (replaces the MinerU idea: Marker is already proven in-repo) | BE | M | G-P2-5 reframed |
-| R8-2 | **Vision captions for images** — provider.chat() caption on png/jpg, cached by SHA256, indexed | AI+BE | L | F12, G-P2-1 |
-| R8-3 | **Audio/video transcription** — local whisper (MPS/RTX) behind provider abstraction; opt-in | AI+BE | L | extract.py M6 note |
-| R8-4 | **Vault export/backup** — zip of vault/ + JSON dump (pages/links/edges/runs); restore doc | BE | M | audit gap |
-| R8-5 | **Search filters & sort** — type/date facets on /search + UI | FE+BE | M | UX gap #6 |
-| R8-6 | **Citation click-through everywhere** — wire onCitationClick in all MarkdownView contexts | FE | S | UX gap #10 |
-| R8-7 | Chrome clipper release — verify extension packaging, publish flow (store or unpacked doc) | FE/DevOps | M | F11 verify |
+| ID | Item | Area | Effort | Source | Status |
+|----|------|------|--------|--------|--------|
+| R8-1 | **Marker as first-class PDF extractor** — promote tools/marker-converter engine to an optional high-quality PDF path with pypdf fallback (replaces the MinerU idea: Marker is already proven in-repo) | BE | M | G-P2-5 reframed | ✅ (ADR-0051) |
+| R8-2 | **Vision captions for images** — provider.chat() caption on png/jpg, cached by SHA256, indexed | AI+BE | L | F12, G-P2-1 | ✅ |
+| R8-3 | **Audio/video transcription** — local whisper (MPS/RTX) behind provider abstraction; opt-in | AI+BE | L | extract.py M6 note | ✅ |
+| R8-4 | **Vault export/backup** — zip of vault/ + JSON dump (pages/links/edges/runs); restore doc | BE | M | audit gap | ✅ (DEPLOY.md §14) |
+| R8-5 | **Search filters & sort** — type/date facets on /search + UI | FE+BE | M | UX gap #6 | ✅ |
+| R8-6 | **Citation click-through everywhere** — wire onCitationClick in all MarkdownView contexts | FE | S | UX gap #10 | ✅ |
+| R8-7 | Chrome clipper release — verify extension packaging, publish flow (store or unpacked doc) | FE/DevOps | M | F11 verify | ✅ (in releases) |
 
 ## v0.9 — «Trust & observability» (2 settimane)
 

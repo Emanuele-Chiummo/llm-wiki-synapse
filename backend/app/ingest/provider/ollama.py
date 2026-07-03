@@ -17,16 +17,20 @@ import json
 import logging
 import os
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import httpx
 
 from app.ingest.provider._common import (
     ANALYZE_SYSTEM,
+    CAPTION_INSTRUCTION,
     GENERATE_SYSTEM,
     build_analyze_prompt,
     build_generate_prompt,
+    encode_image_base64,
     parse_analysis,
     parse_pages,
+    resolve_image_bytes_and_media_type,
 )
 from app.ingest.provider.base import InferenceProvider
 from app.ingest.provider.config import ProviderSettings
@@ -43,6 +47,26 @@ logger = logging.getLogger(__name__)
 # Ollama endpoint from env only (I6/I9) — never a literal URL in app code.
 _OLLAMA_URL_ENV = "OLLAMA_URL"
 _DEFAULT_MAX_CONTEXT = 8192
+
+# R8-2 / F12: Ollama vision support is model-dependent. A pulled model advertises vision only if
+# its name matches a known vision family OR is listed in OLLAMA_VISION_MODELS (comma-separated,
+# substring match, case-insensitive). Default OFF for an arbitrary text model (PM safety).
+_OLLAMA_VISION_MODELS_ENV = "OLLAMA_VISION_MODELS"
+_DEFAULT_VISION_MODEL_MARKERS: tuple[str, ...] = ("llava", "bakllava", "vision", "minicpm-v")
+
+
+def _model_supports_vision(model_id: str) -> bool:
+    """
+    True if *model_id* looks like an Ollama vision model (R8-2). Matches the built-in family
+    markers (llava / bakllava / vision / minicpm-v) OR any comma-separated token in the
+    OLLAMA_VISION_MODELS env (substring, case-insensitive). Env-sourced, never a literal-model
+    list baked into a routing decision (I6 — this only advertises a capability).
+    """
+    name = (model_id or "").lower()
+    markers = list(_DEFAULT_VISION_MODEL_MARKERS)
+    extra = os.environ.get(_OLLAMA_VISION_MODELS_ENV, "")
+    markers.extend(tok.strip().lower() for tok in extra.split(",") if tok.strip())
+    return any(marker and marker in name for marker in markers)
 
 # ── num_ctx derivation (BUG A1) ──────────────────────────────────────────────────
 # Ollama defaults options.num_ctx to 4096 and SILENTLY truncates anything longer — long
@@ -98,6 +122,8 @@ class OllamaProvider(InferenceProvider):
             supports_agentic_loop=False,
             max_context=_DEFAULT_MAX_CONTEXT,
             name="OllamaProvider",
+            # R8-2: vision only if the configured model is a known/declared vision model.
+            supports_vision=_model_supports_vision(self._model),
         )
 
     # ── LLM calls ────────────────────────────────────────────────────────────────
@@ -188,6 +214,45 @@ class OllamaProvider(InferenceProvider):
             self._record_usage(
                 Usage(input_tokens=in_tok, output_tokens=out_tok, total_cost_usd=0.0)
             )
+
+    # ── Vision (R8-2 / F12) ────────────────────────────────────────────────────
+
+    async def caption_image(self, path_or_bytes: str | Path | bytes, context: str) -> str:
+        """
+        Caption an image via Ollama /api/chat with a base64 `images` field (R8-2). One bounded
+        non-streaming call; Usage recorded out of band (cost 0.0 local, I7). Raises
+        NotImplementedError when the configured model is not a vision model so the orchestrator
+        falls back to the placeholder (R8-2).
+        """
+        if not _model_supports_vision(self._model):
+            raise NotImplementedError(
+                f"Ollama model {self._model!r} is not a vision model; pull a vision model "
+                "(llava/minicpm-v/…) or set OLLAMA_VISION_MODELS to enable captioning (R8-2)"
+            )
+        data, _media_type = resolve_image_bytes_and_media_type(path_or_bytes)
+        b64 = encode_image_base64(data)
+        prompt = f"{context}\n\n{CAPTION_INSTRUCTION}" if context.strip() else CAPTION_INSTRUCTION
+        body = {
+            "model": self._model,  # from provider_config (I6)
+            "stream": False,
+            "messages": [{"role": "user", "content": prompt, "images": [b64]}],
+            "options": {"num_ctx": self._num_ctx},
+        }
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(f"{self._base_url}/api/chat", json=body)
+            resp.raise_for_status()
+            payload = resp.json()
+        self._record_usage(
+            Usage(
+                input_tokens=int(payload.get("prompt_eval_count", 0) or 0),
+                output_tokens=int(payload.get("eval_count", 0) or 0),
+                total_cost_usd=0.0,
+            )
+        )
+        content = payload.get("message", {}).get("content", "")
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError("Ollama vision returned an empty caption")
+        return content.strip()
 
     # ── Internal: /api/chat with format=json + Usage accounting ─────────────────
 

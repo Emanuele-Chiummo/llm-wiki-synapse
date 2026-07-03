@@ -4,6 +4,102 @@
 
 ---
 
+## v0.8.0 Pre-Release Docs Gate — VERDICT: PASS-PENDING-D2/D5
+
+> Gate run: 2026-07-03
+> Branch: `sprint/v0.6`
+> Release: v0.8.0 — «Content power»
+> Scope: Marker PDF extractor seam (ADR-0051), vision captions for images (G-P2-1),
+>   AV transcription (R8-3), vault export/backup (R8-4, DEPLOY.md §14), search
+>   filters + sort (R8-5), citation click-through (R8-6), Chrome clipper in releases
+>   (R8-7).
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/` (context/container/component) | UP-TO-DATE (no change) | No new container, port, or external C4 box. Marker and Whisper microservices are sidecar tools external to the Synapse compose stack, not new first-class services in the Synapse C4 model. C4 diagrams current from v0.6/M6. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (confirmed) | `IMAGE_CAPTIONS` table already present in `docs/er/schema.mmd` (lines 13–21). No additional migration-derived tables for AV transcription, search filters, citation click-through, or export/backup endpoints. ER is current; `make er` not required this gate. |
+| D3 | `docs/sequences/` | UP-TO-DATE (no new diagrams required) | No new bounded loops or multi-actor flows introduced. Marker extraction is a single HTTP call inside the existing `extract_text()` seam. Vision captioning is a single `provider.chat()` call inside ingest. AV transcription is a single HTTP call. Export is a single read-only streaming endpoint. No new swimlane needed. |
+| D4 | `docs/api/openapi.json` | PENDING-REGEN | `GET /export`, `GET /export/data.json`, `/search` filter params, new caption/transcription routes should be confirmed present. Requires `make openapi` after v0.8 migration lands. Non-blocking for docs gate; blocks v1.0.0 tag. |
+| D5 | `docs/screens/` | PENDING-LIVE (carry-forward) | Search filters UI, citation click superscripts, export actions require Playwright screenshot refresh. Carry-forward from v0.7 pending batch. Non-blocking for docs gate; blocks v1.0.0 tag. |
+| D6a | `docs/USER.md` | UPDATED (this gate) | Header updated to v0.8. New top-level sections added: (1) Search filters and sort — type facet chips, relevance/newest/oldest sort; (2) Citations in chat — click-through to wiki page; (3) Vault export and backup — `curl` commands for `/export` + `/export/data.json`, link to DEPLOY.md §14 restore; (4) Image captions — `VISION_CAPTIONS_ENABLED`, vision provider guard, SHA-256 cache, cost note; (5) Audio and video transcription — `AV_TRANSCRIPTION_ENABLED`, file types, `WHISPER_SERVICE_URL`, `AV_MAX_FILES_PER_RUN` cap; (6) Higher-quality PDF extraction with Marker — `PDF_EXTRACTOR=marker`, fallback guarantee, ADR-0051. Sources section accepted-format list updated to v0.8 (image + AV types added). "What shipped in v0.8" table added with all 7 R8 items. |
+| D6b | `docs/DEPLOY.md` | UPDATED (this gate) | Header updated to v0.8. Nine new env var rows added to §2.1: `PDF_EXTRACTOR`, `MARKER_SERVICE_URL`, `MARKER_TIMEOUT_SECONDS`, `VISION_CAPTIONS_ENABLED`, `VISION_MAX_IMAGES_PER_RUN`, `AV_TRANSCRIPTION_ENABLED`, `WHISPER_SERVICE_URL`, `AV_MAX_FILES_PER_RUN`. §6.4 scan format list updated to v0.8 (image + AV types; opt-in env vars noted). §12.7 415 error accepted-format list updated. §14 Backup section verified present (written by engineer). §15 References updated: ADR-0051 named; `tools/whisper-service/README.md` pointer added; `tools/marker-converter/README.md` description updated to include the Marker service. |
+| D7 | `docs/adr/README.md` | UP-TO-DATE (confirmed) | ADR-0051 (`0051-pluggable-pdf-extractor-seam.md`) is already indexed at line 168 of the README (Accepted, 2026-07-03, v0.8). File `docs/adr/0051-pluggable-pdf-extractor-seam.md` confirmed present in the directory. No gap. |
+| D7 | `docs/adr/0051-pluggable-pdf-extractor-seam.md` | UP-TO-DATE | File present and complete. ADR-0051 covers: `PDF_EXTRACTOR` env, Marker HTTP seam with bounded timeout, pypdf fallback, `tools/marker-converter/service.py` as the microservice, `MARKER_TIMEOUT_SECONDS` I7 bound. Accepted status. |
+| R (parity) | `docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md` | UPDATED (this gate) | v0.8 closure note added to header. G-P2-1 (vision captions) and G-P2-5 (Marker PDF — superset of MinerU) closed with ✅ + date 2026-07-03/v0.8.0. F12 table rows updated from ❌ to ✅ with code references. G-P2-6 (PWA/Tauri) also marked closed (shipped in v0.6). AV transcription noted as extract.py "deferred to M6" item now shipped v0.8.0. Phase-2 backlog table updated with strikethrough rows for G-P2-1, G-P2-5, G-P2-6. |
+| R (roadmap) | `docs/reference/ROADMAP-v0.7-v1.0.md` | UPDATED (this gate) | v0.7 section header marked ✅ SHIPPED 2026-07-03; status column added with ✅ for all 13 rows. v0.8 section header marked ✅ SHIPPED 2026-07-03; status column added with ✅ + ADR/section references for all 7 R8 rows. |
+
+### ER diagram verification (D2)
+
+File: `docs/er/schema.mmd`
+
+`IMAGE_CAPTIONS` entity confirmed present:
+
+| Column | Present | Notes |
+|--------|---------|-------|
+| `id` (UUID PK) | YES | |
+| `vault_id` | YES | Per-vault cache scoping |
+| `sha256` | YES | Content-addressed key (lowercase hex) |
+| `file_path` | YES | Audit trail; relative raw source path |
+| `caption` | YES | Provider-generated caption (R8-2) |
+| `provider_type` | YES | Audit only; never used for routing |
+| `created_at` | YES | Row creation time |
+
+**I8 holds** — `IMAGE_CAPTIONS` entity matches the v0.8 vision-caption feature spec.
+
+### ADR-0051 verification (D7)
+
+| Check | Result |
+|-------|--------|
+| `docs/adr/0051-pluggable-pdf-extractor-seam.md` present | YES (confirmed via `ls`) |
+| ADR-0051 row in `docs/adr/README.md` | YES (line 168, Accepted, 2026-07-03, v0.8) |
+| `PDF_EXTRACTOR` / `MARKER_SERVICE_URL` / `MARKER_TIMEOUT_SECONDS` in DEPLOY.md §2.1 | YES (added this gate) |
+| G-P2-5 closed in parity doc | YES (updated this gate) |
+| R8-1 marked ✅ in roadmap | YES (updated this gate) |
+
+### DEPLOY.md §14 Backup verification
+
+`docs/DEPLOY.md` §14 "Backup & restore (R8-4)" confirmed present at line 1092+:
+- `GET /export` ZIP endpoint documented with `curl` command.
+- `GET /export/data.json` metadata endpoint documented.
+- Restore path A (vault-directory re-ingest) documented.
+- Restore path B (full Postgres volume restore) documented.
+- 500 MB ZIP cap and concurrency 429 response documented.
+- Note that `data.json` is read-only audit snapshot (not a restore input) present.
+
+**No action required** — engineer's content is complete and coherent.
+
+### Invariant compliance check (v0.8 gate)
+
+| Invariant | Status |
+|-----------|--------|
+| **I1** (incremental index only) | HOLDS — Marker/Whisper extraction are pre-ingest seam steps; the existing mtime-then-hash gate (orchestrator.py) governs re-extraction. `image_captions` SHA-256 cache avoids re-captioning identical files. |
+| **I6** (pluggable inference) | HOLDS — vision captioning routes via `InferenceProvider.chat()` with `supports_vision` capability check; no hardcoded backend. AV transcription uses a host microservice, not a provider call — no I6 involvement, no issue. |
+| **I7** (bounded loops) | HOLDS — `VISION_MAX_IMAGES_PER_RUN` and `AV_MAX_FILES_PER_RUN` cap per-trigger load. `MARKER_TIMEOUT_SECONDS` bounds the Marker HTTP call. Export ZIP capped at 500 MB (413). Concurrent export returns 429. |
+| **I8** (docs-as-DoD) | HOLDS pending D4 regen (make openapi after v0.8 migration). D2 ER current (IMAGE_CAPTIONS confirmed). D6a/D6b updated. Parity doc and roadmap updated. ADR-0051 indexed. |
+| **I9** (do not reinvent) | HOLDS — Marker reuses the existing in-repo `tools/marker-converter/`; Whisper is an external host service. No custom model or search engine introduced. |
+
+### Outstanding items (carry-forward, non-blocking for code gate)
+
+1. **D4 — OpenAPI regen**: `make openapi` after v0.8 endpoints land to confirm `GET /export`, `GET /export/data.json`, search filter params in the spec.
+2. **D5 — Screenshots**: v0.7 + v0.8 UI views PENDING-LIVE (Playwright capture session).
+3. **D7 — ADR README rows 0044–0050**: the placeholder row `0044–0050` in the README table still lacks individual rows for each ADR. To be expanded by tech-writer at the v0.9 docs gate.
+
+### DOCS GATE VERDICT — v0.8.0 Pre-Release
+
+**PASS-PENDING-D2/D5**
+
+D6a (USER.md) and D6b (DEPLOY.md) fully updated for all v0.8 features. Parity matrix
+closed G-P2-1, G-P2-5 (and G-P2-6 retrospectively). Roadmap rows v0.7 and v0.8
+marked shipped. ADR-0051 confirmed indexed. DEPLOY.md §14 Backup section verified
+present. ER diagram `IMAGE_CAPTIONS` entity confirmed current.
+
+D4 (OpenAPI) pending `make openapi` run; D5 (screenshots) pending Playwright session.
+Neither blocks the code gate.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-07-03 | v0.8.0 pre-release docs gate**
+
+---
+
 ## v0.7.0 Pre-Release Docs Gate — VERDICT: PASS-PENDING-D5
 
 > Gate run: 2026-07-03
