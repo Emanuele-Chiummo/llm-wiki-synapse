@@ -186,6 +186,12 @@ export function stripLeadingFrontmatter(md: string): string {
 }
 
 export function renderMarkdown(raw: string): string {
+  // [R11-4 BUG1 / G3] Guard empty/nullish input before any parsing. An empty preview
+  // pane or a not-yet-settled message would otherwise run the whole marked/DOMPurify
+  // pipeline on "" (and trip the dev double-call tracker), producing spurious console
+  // noise. Return early with empty HTML — nothing to render.
+  if (!raw || raw.trim() === "") return "";
+
   devTrack(raw);
 
   // Pull display math OUT first so latexToUnicode/marked never mangle the raw LaTeX.
