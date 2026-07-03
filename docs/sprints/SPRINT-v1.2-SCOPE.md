@@ -730,3 +730,11 @@ backend version, uptime, data version. No new backend endpoint.
 **A3 — Vocabulary demoted to optional curated layer.** Domain sections (R12-2) render
 ABOVE auto-groups when a vocabulary is defined; with no vocabulary the Home is fully
 functional with auto-groups only (zero-config default). R12-2 backfill/auto-tag unchanged.
+
+**A4 (owner, 2026-07-03 sera) — Active jobs block + groups cap.** (1) HomeDashboard gains
+an "Active jobs" block (between system status and KPIs), visible ONLY when something is
+running: ingest queue processing/pending (reuse the activityStore /ingest/queue snapshot —
+no new poller), running deep-research runs, domain backfill in flight (GET
+/ops/backfill-domains), import scan in flight. Each row: kind, label, state, link to its
+section. (2) GRUPPI AUTOMATICI renders the TOP 4 by size with an "Espandi/Comprimi"
+toggle revealing the full capped list (12).
