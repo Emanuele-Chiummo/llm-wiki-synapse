@@ -740,6 +740,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#10-amendment-owner-feedback-on-r12-1-emanuele-2026-07-03-post-first-render" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. AMENDMENT — Owner feedback on R12-1 (Emanuele, 2026-07-03, post-first-render)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1683,6 +1694,42 @@ F16 (status version field), F17 (I6 — classification hook).
 <strong>Invariants with heightened priority:</strong> I6 (empty-vocabulary skip rule + classification
 routed through InferenceProvider), I7 (backfill bounded by max_pages + token_budget +
 cost logged), I8 (openapi.json + CLAUDE.md §4 updated before first F18 commit).</p>
+<hr />
+<h2 id="10-amendment-owner-feedback-on-r12-1-emanuele-2026-07-03-post-first-render">10. AMENDMENT — Owner feedback on R12-1 (Emanuele, 2026-07-03, post-first-render)<a class="headerlink" href="#10-amendment-owner-feedback-on-r12-1-emanuele-2026-07-03-post-first-render" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Supersedes the R12-1 rendering priorities. "Le sezioni della home devono essere dinamiche
+in base alle note dell'utente (raggruppate per fare i count); la home non deve essere solo
+una dashboard ma un'overview sul sistema in generale."</p>
+</blockquote>
+<p><strong>A1 — Dynamic groups (zero-config).</strong> New <code>GET /stats/groups</code>: sections derived
+automatically from the existing server-side Louvain communities (I2 — already computed,
+no new heavy work). Shape (FROZEN): <code>{groups:[{community:int, label:str, pages_total:int,
+pages_by_type:{}, top_pages:[{id,title,slug,degree}] (cap 5), last_activity:iso|null}]}</code>,
+ordered by pages_total DESC, cap 12; label = title of the highest-degree page in the
+community (truncated 48 chars); memoised on data_version. No AI call (heuristic label).</p>
+<p><strong>A2 — Home = system overview.</strong> HomeDashboard gains a "System status" block sourced from
+the EXISTING <code>/health/detailed</code> + <code>/status</code> + active provider config: component health
+(watcher, scheduler, ingest queue, DB, Qdrant, graph cache), active provider/model,
+backend version, uptime, data version. No new backend endpoint.</p>
+<p><strong>A3 — Vocabulary demoted to optional curated layer.</strong> Domain sections (R12-2) render
+ABOVE auto-groups when a vocabulary is defined; with no vocabulary the Home is fully
+functional with auto-groups only (zero-config default). R12-2 backfill/auto-tag unchanged.</p>
+<p><strong>A4 (owner, 2026-07-03 sera) — Active jobs block + groups cap.</strong> (1) HomeDashboard gains
+an "Active jobs" block (between system status and KPIs), visible ONLY when something is
+running: ingest queue processing/pending (reuse the activityStore /ingest/queue snapshot —
+no new poller), running deep-research runs, domain backfill in flight (GET
+/ops/backfill-domains), import scan in flight. Each row: kind, label, state, link to its
+section. (2) GRUPPI AUTOMATICI renders the TOP 4 by size with an "Espandi/Comprimi"
+toggle revealing the full capped list (12).</p>
+<p><strong>A5 (owner, 2026-07-03 sera) — R12-7: scheduled lint + scheduled domain backfill.</strong>
+Settings gains a "Job scheduling" card (Advanced group): two schedulable ops — Lint SCAN
+(findings only; the fix-apply stays human-gated, I7/K8) and domain backfill (force=false —
+only new/untagged pages, cheap). Design mirrors the ImportScheduler (ADR-0020) + the
+ADR-0053 config model: new allowed config keys <code>lint_schedule</code> and <code>backfill_schedule</code>
+(enum: off|hourly|daily|weekly, default off), a single OpsScheduler asyncio loop started
+in lifespan (bounded, one in-flight run per op, single-flight respected), per-op last-run
+outcome surfaced. UI: frequency select per op + "Esegui ora" + last outcome line,
+same card pattern as ImportScheduleCard.</p>
 
 
 

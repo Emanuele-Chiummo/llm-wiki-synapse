@@ -3,7 +3,7 @@
   "info": {
     "title": "Synapse",
     "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8]. POST /clip: Chrome MV3 web clipper ingress \u2014 token-gated, origin-checked, body-capped, safe-joined (F11, ADR-0038).",
-    "version": "0.1.0"
+    "version": "1.1.0"
   },
   "paths": {
     "/sources": {
@@ -465,6 +465,31 @@
         ]
       }
     },
+    "/stats/groups": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Dynamic Louvain community groups",
+        "description": "Returns one entry per Louvain community derived from pages.community (persisted by GraphEngine \u2014 I2, G-P0-2). Community ids -1/NULL (unassigned) are excluded. Ordered by pages_total DESC, capped at 12 groups. label = title of the highest-degree page in that community, truncated to 48 chars (heuristic, zero AI calls). top_pages = up to 5 pages ordered by degree DESC. Memoised on data_version; cache miss triggers a fresh bounded DB read. Auth: SynapseAuthMiddleware by construction (ADR-0052). (SPRINT-v1.2-SCOPE \u00a710 A1 / F18 / I2)",
+        "operationId": "get_stats_groups_stats_groups_get",
+        "responses": {
+          "200": {
+            "description": "Louvain community groups",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/ops/backfill-domains": {
       "get": {
         "summary": "Get Backfill Domains Status",
@@ -518,6 +543,88 @@
           },
           "409": {
             "description": "A backfill run is already in flight"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/ops/schedules": {
+      "get": {
+        "summary": "List schedulable ops with their effective schedule and last-run state (R12-7/A5)",
+        "description": "Returns the in-memory state of the OpsScheduler for each schedulable op (lint, backfill). Schedule frequencies are set via PUT /config/app/lint_schedule and PUT /config/app/backfill_schedule (S10/S11 \u2014 allowed values: off|hourly|daily|weekly). State is in-memory and resets on container restart. Auth: SynapseAuthMiddleware (ADR-0052).",
+        "operationId": "get_ops_schedules_ops_schedules_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpsSchedulesResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/ops/schedules/{op}/run-now": {
+      "post": {
+        "summary": "Trigger a schedulable op immediately (R12-7/A5)",
+        "description": "Manually trigger one scheduled op ('lint' or 'backfill') regardless of the configured schedule. Returns 202 if triggered, 409 if already in-flight, 400 if the op is 'backfill' and the domain vocabulary is empty (dormant). Auth: SynapseAuthMiddleware (ADR-0052).",
+        "operationId": "run_ops_schedule_now_ops_schedules__op__run_now_post",
+        "parameters": [
+          {
+            "name": "op",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Op"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Op triggered successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Run Ops Schedule Now Ops Schedules  Op  Run Now Post"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "backfill: vocabulary dormant (feature off)."
+          },
+          "404": {
+            "description": "Unknown op name."
+          },
+          "409": {
+            "description": "Op is already in-flight."
           },
           "422": {
             "description": "Validation Error",
@@ -3718,8 +3825,8 @@
     },
     "/config/app": {
       "get": {
-        "summary": "List all 9 runtime config overrides with effective value + source (ADR-0053)",
-        "description": "Returns the 9 migrated settings (S1..S9) in stable order. Each entry has key, effective value (override wins over env), and source ('override' iff a DB row exists, else 'env'). All values from in-process cache \u2014 no DB round-trip (I7). Never returns infra/secret keys (allow-list boundary \u2014 ADR-0053 \u00a72.2/\u00a72.4). Auth: SynapseAuthMiddleware (ADR-0052 / ADR-0053 \u00a73 \u2014 BearerAuth in OpenAPI).",
+        "summary": "List all 11 runtime config overrides with effective value + source (ADR-0053)",
+        "description": "Returns the 11 migrated settings (S1..S11) in stable order. Each entry has key, effective value (override wins over env), and source ('override' iff a DB row exists, else 'env'). All values from in-process cache \u2014 no DB round-trip (I7). Never returns infra/secret keys (allow-list boundary \u2014 ADR-0053 \u00a72.2/\u00a72.4). Auth: SynapseAuthMiddleware (ADR-0052 / ADR-0053 \u00a73 \u2014 BearerAuth in OpenAPI).",
         "operationId": "get_app_config_config_app_get",
         "responses": {
           "200": {
@@ -3743,7 +3850,7 @@
     "/config/app/{key}": {
       "put": {
         "summary": "Upsert one config override (ADR-0053)",
-        "description": "Sets or updates the DB override for one of the 9 allowed keys. Returns 204 on success. Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. Returns 422 on value validation failure (per-key rules \u2014 ADR-0053 \u00a72.3). Auth: SynapseAuthMiddleware (ADR-0052). After write, the in-process cache is refreshed immediately so a subsequent GET /config/app reflects source='override' (ADR-0053 \u00a73.2).",
+        "description": "Sets or updates the DB override for one of the 11 allowed keys. Returns 204 on success. Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. Returns 422 on value validation failure (per-key rules \u2014 ADR-0053 \u00a72.3). Auth: SynapseAuthMiddleware (ADR-0052). After write, the in-process cache is refreshed immediately so a subsequent GET /config/app reflects source='override' (ADR-0053 \u00a73.2).",
         "operationId": "put_app_config_config_app__key__put",
         "parameters": [
           {
@@ -3965,7 +4072,7 @@
             },
             "type": "array",
             "title": "Settings",
-            "description": "All 9 migrated settings in stable S1..S9 order."
+            "description": "All 11 migrated settings in stable S1..S11 order."
           }
         },
         "type": "object",
@@ -6493,6 +6600,74 @@
         ],
         "title": "McpToolInfo",
         "description": "Schema for a single tool entry in GET /mcp/info (ADR-0027 \u00a72.1)."
+      },
+      "OpsScheduleEntry": {
+        "properties": {
+          "op": {
+            "type": "string",
+            "title": "Op",
+            "description": "Operation name: 'lint' or 'backfill'"
+          },
+          "schedule": {
+            "type": "string",
+            "title": "Schedule",
+            "description": "Effective schedule: off|hourly|daily|weekly"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At",
+            "description": "ISO-8601 timestamp of the last completed run, or null."
+          },
+          "last_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Status",
+            "description": "'ok' | 'error:<msg>' | null (never run)."
+          },
+          "in_flight": {
+            "type": "boolean",
+            "title": "In Flight",
+            "description": "True while this op is currently executing."
+          }
+        },
+        "type": "object",
+        "required": [
+          "op",
+          "schedule",
+          "in_flight"
+        ],
+        "title": "OpsScheduleEntry",
+        "description": "One row in the GET /ops/schedules response \u2014 state of one schedulable op."
+      },
+      "OpsSchedulesResponse": {
+        "properties": {
+          "ops": {
+            "items": {
+              "$ref": "#/components/schemas/OpsScheduleEntry"
+            },
+            "type": "array",
+            "title": "Ops"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ops"
+        ],
+        "title": "OpsSchedulesResponse",
+        "description": "Response body for GET /ops/schedules."
       },
       "PageContentPutRequest": {
         "properties": {
