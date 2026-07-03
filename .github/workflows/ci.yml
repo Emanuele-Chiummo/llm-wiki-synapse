@@ -218,12 +218,13 @@ jobs:
 
       - name: Validate Mermaid diagrams
         run: |
-          # NOTE: a redirection inside the for-list is a bash syntax error —
-          # this step could never run before this fix.
+          # Puppeteer/Chromium on GitHub runners needs --no-sandbox.
+          echo '{"args":["--no-sandbox","--disable-setuid-sandbox"]}' > /tmp/puppeteer.json
           for f in docs/architecture/*.mmd docs/er/*.mmd docs/sequences/*.mmd; do
             [ -f "$f" ] || continue
             echo "Validating $f..."
-            mmdc -i "$f" -o /tmp/mmdc-check.svg || { echo "Mermaid syntax error in $f"; exit 1; }
+            mmdc -p /tmp/puppeteer.json -i "$f" -o /tmp/mmdc-check.svg \
+              || { echo "Mermaid syntax error in $f"; exit 1; }
           done
           echo "All Mermaid diagrams are valid."
 
