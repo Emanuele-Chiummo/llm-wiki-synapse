@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-07-03 (Sprint 8 / v0.8 scope locked — SPRINT-v0.8-SCOPE.md; Sprint 7 / v0.7.0 shipped — scope locked in SPRINT-v0.7-SCOPE.md)
+> Last updated: 2026-07-03 (Sprint 9 / v0.9 scope locked — SPRINT-v0.9-SCOPE.md; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -1784,6 +1784,176 @@ contexts; vitest for each context; no new `any` escapes.
 Summary: host_permissions audit + fix; icon file verification; CI job produces versioned
 `synapse-clipper-{version}.zip` artifact; USER.md Chrome Clipper section; manifest version
 bumped to 0.8.0. Chrome Web Store publication is explicitly OUT OF SCOPE.
+
+---
+
+---
+
+## Sprint 9 — v0.9 — M9 "Trust & observability"
+
+**Sprint status: IN PROGRESS**
+Branch: `sprint/v0.9` (cut from sprint/v0.8 after v0.8.0 tag).
+Scope: `docs/sprints/SPRINT-v0.9-SCOPE.md`.
+Prerequisite: EC-M8-1..EC-M8-HCP confirmed by Emanuele.
+Sequencing constraints:
+- W0 IN FLIGHT → UXB-2 (ReviewQueueView.tsx) → R9-3 frontend → R9-4 frontend
+- R9-1 → R9-2 (main.py chain)
+- R9-3 → R9-4 (review.py + orchestrator.py chain)
+- R9-5, R9-6 can proceed in parallel with R9-1/R9-2
+
+---
+
+### W0 — UX quick wins (IN FLIGHT)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1, F16 |
+| Sprint | v0.9 |
+| Status | in-progress (IN FLIGHT at scope lock) |
+| Owner | frontend-engineer |
+| Priority | P0 — gates UXB-2 |
+
+**Acceptance criteria:** AC-W0-1 through AC-W0-5 (see SPRINT-v0.9-SCOPE.md §W0).
+Summary: 10 audit quick wins (UXA-03/05/06/07/14/16/17/18/21/23) committed in one PR;
+color-mix white regex zero hits; `activity.moreFailedTasks` i18n key; D5 screenshot
+for ingest-zero-pages.
+
+---
+
+### UXB-1 — Conversation auto-titles + list preview snippet
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F6, F16 |
+| Sprint | v0.9 |
+| Status | backlog |
+| Owner | backend-engineer (title endpoint) + frontend-engineer (ConversationList preview) |
+| Priority | P0 |
+
+**Acceptance criteria:** AC-UXB1-1 through AC-UXB1-6 (see SPRINT-v0.9-SCOPE.md §UXB-1).
+Summary: `POST /conversations/{id}/generate-title` (max 60 tokens, timestamp fallback);
+frontend calls after stream end; ConversationList preview line 80 chars, 9px dim;
+Vitest snapshots; openapi.json updated.
+
+---
+
+### UXB-2 — Button / input design-system consolidation
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1, F16 |
+| Sprint | v0.9 |
+| Status | blocked — depends on W0 merged |
+| Owner | frontend-engineer |
+| Priority | P0 — gates R9-3 and R9-4 frontend (ReviewQueueView.tsx) |
+
+**Acceptance criteria:** AC-UXB2-1 through AC-UXB2-7 (see SPRINT-v0.9-SCOPE.md §UXB-2).
+Summary: `components.css` created; `.syn-button--ghost` / `.syn-meta-row` / `.syn-card-row`
+/ `.syn-role-label` classes; `--syn-bg-card` token added; @keyframes moved to theme.css;
+`color-mix.*white` zero hits tree-wide; Playwright visual regression snapshots to docs/screens/.
+
+---
+
+### R9-1 — Cost dashboard
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F17, F16 |
+| Sprint | v0.9 |
+| Status | backlog |
+| Owner | backend-engineer (aggregation endpoint) + frontend-engineer (Settings section) |
+| Priority | P0 — gates R9-2 (main.py sequencing) |
+
+**Acceptance criteria:** AC-R9-1-1 through AC-R9-1-6 (see SPRINT-v0.9-SCOPE.md §R9-1).
+Summary: `GET /costs/summary` with by_provider/by_operation/by_day/monthly_total/threshold_alert;
+`COST_ALERT_THRESHOLD_USD` env var; Settings "Cost & Usage" section; i18n EN/IT; openapi.json updated.
+
+---
+
+### R9-2 — Metrics / health endpoint
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F16 |
+| Sprint | v0.9 |
+| Status | blocked — depends on R9-1 merged |
+| Owner | backend-engineer (endpoint) + frontend-engineer (Header indicator) |
+| Priority | P0 |
+
+**Acceptance criteria:** AC-R9-2-1 through AC-R9-2-5 (see SPRINT-v0.9-SCOPE.md §R9-2).
+Summary: `GET /health/detailed` (watcher/scheduler/queue/db/qdrant liveness + last 5 errors);
+Header chip amber/red indicators; 30s polling via Zustand interval; `HEALTH_POLL_MS` env var;
+openapi.json updated.
+
+---
+
+### R9-3 — purpose.md suggestions (scope drift detection)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F2, F9 |
+| Sprint | v0.9 |
+| Status | blocked — depends on UXB-2 (ReviewQueueView.tsx) merged |
+| Owner | ai-agent-engineer (drift detection + provider call) + backend-engineer (ReviewItem type, API, review.py) |
+| Priority | P0 — gates R9-4 (review.py chain) |
+
+**Acceptance criteria:** AC-R9-3-1 through AC-R9-3-5 (see SPRINT-v0.9-SCOPE.md §R9-3).
+Summary: `purpose-suggestion` ReviewItemType; `generate_purpose_suggestion()` in review.py
+(bounded: max_tokens=300, no retry, cost logged); post-ingest orchestrator hook; ReviewQueue
+card with "Apply to purpose.md" action; sequences/ addendum.
+
+---
+
+### R9-4 — schema.md co-evolution (schema-suggestion ReviewItem)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F16, K6, F9 |
+| Sprint | v0.9 |
+| Status | blocked — depends on R9-3 merged |
+| Owner | ai-agent-engineer + backend-engineer |
+| Priority | P1 — DE-SCOPE PRIORITY 1 (first to cut if sprint runs over) |
+
+**Acceptance criteria:** AC-R9-4-1 through AC-R9-4-6 (see SPRINT-v0.9-SCOPE.md §R9-4).
+Summary: `schema-suggestion` ReviewItemType; `generate_schema_suggestion()` in review.py
+(bounded: max_tokens=400, no retry); orchestrator hook after purpose-check; ReviewQueue card
+with "Apply to schema.md" action; sequences/ addendum.
+De-scope note: if cut, no placeholder remains in orchestrator.py; clean exit; deferred to v1.0.
+
+---
+
+### R9-5 — Graph drill-down (community panel + edge tooltip + cohesion score)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F4, F1 |
+| Sprint | v0.9 |
+| Status | backlog |
+| Owner | frontend-engineer (community panel + edge tooltip UI) + backend-engineer (community + edge endpoints) |
+| Priority | P0 |
+
+**Acceptance criteria:** AC-R9-5-1 through AC-R9-5-6 (see SPRINT-v0.9-SCOPE.md §R9-5).
+Summary: `GET /graph/community/{id}` (members + cohesion_score + cohesion_warning);
+`GET /graph/edge/{src}/{dst}` (4-signal breakdown); community side panel with amber
+low-cohesion banner; edge weight tooltip with 150ms debounce; `GRAPH_COHESION_WARN`
+env var; D5 screenshots graph-community-panel.png + graph-edge-tooltip.png.
+
+---
+
+### R9-6 — Playwright E2E suite (happy-path + D5 screenshot refresh)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F15, F1 |
+| Sprint | v0.9 |
+| Status | backlog |
+| Owner | qa-test-engineer |
+| Priority | P0 |
+
+**Acceptance criteria:** AC-R9-6-1 through AC-R9-6-6 (see SPRINT-v0.9-SCOPE.md §R9-6).
+Summary: 7 happy-path E2E specs (Connect/Ingest/Search/Chat/Review/Graph/Settings) using
+`SYNAPSE_FRONTEND_URL`; all pass in CI; D5 screenshots auto-committed; auto-title
+regression test (UXB-1 coverage); playwright-report/ gitignored.
 
 ---
 

@@ -283,15 +283,30 @@ vi.mock("../api/scenariosClient", () => ({
   applyScenario: vi.fn().mockResolvedValue({ applied: true }),
 }));
 
+// ─── Mock costsClient ─────────────────────────────────────────────────────────
+
+vi.mock("../api/costsClient", () => ({
+  fetchCostsSummary: vi.fn().mockResolvedValue({
+    period: "2026-07",
+    by_provider: [],
+    by_provider_note: null,
+    by_operation: [],
+    by_day: [],
+    monthly_total_usd: 0.0,
+    threshold_usd: 5.0,
+    threshold_alert: false,
+  }),
+}));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function renderPanel() {
   return render(<SettingsPanel />);
 }
 
-// ─── 1. All 12 sub-nav items render ──────────────────────────────────────────
+// ─── 1. All 13 sub-nav items render ──────────────────────────────────────────
 
-describe("SettingsPanel — 12 sub-nav items (AC-HARD-SET-1/3)", () => {
+describe("SettingsPanel — 13 sub-nav items (AC-HARD-SET-1/3)", () => {
   beforeEach(() => {
     renderPanel();
   });
@@ -308,16 +323,17 @@ describe("SettingsPanel — 12 sub-nav items (AC-HARD-SET-1/3)", () => {
     "webClipper",
     "output",
     "interface",
+    "costs",
     "scenarios",
     "maintenance",
     "about",
   ] as const;
 
-  it("renders exactly 12 section buttons in the left nav aside", () => {
+  it("renders exactly 13 section buttons in the left nav aside", () => {
     const aside = document.querySelector("aside");
     expect(aside).not.toBeNull();
     const buttons = aside!.querySelectorAll("button");
-    expect(buttons).toHaveLength(12);
+    expect(buttons).toHaveLength(13);
   });
 
   EXPECTED_SECTION_IDS.forEach((sectionId) => {
@@ -522,10 +538,10 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
   it("ArrowDown cycles past 'about' (last) back to 'general' (first)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Navigate to "about" (index 11) — 11 ArrowDown presses from "general"
+    // Navigate to "about" (index 12) — 12 ArrowDown presses from "general"
     // NAV_ITEMS = general(0) llmModels(1) embeddings(2) sourceWatch(3) webSearch(4)
-    //             apiMcp(5) webClipper(6) output(7) interface(8) scenarios(9) maintenance(10) about(11)
-    for (let i = 0; i < 11; i++) {
+    //             apiMcp(5) webClipper(6) output(7) interface(8) costs(9) scenarios(10) maintenance(11) about(12)
+    for (let i = 0; i < 12; i++) {
       fireEvent.keyDown(aside, { key: "ArrowDown" });
     }
     expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
@@ -593,11 +609,11 @@ describe("SettingsPanel — Maintenance section", () => {
 // ─── 10. About section renders version info ───────────────────────────────────
 
 describe("SettingsPanel — About section", () => {
-  it("renders the version string 'v0.5'", () => {
+  it("renders the injected __APP_VERSION__ string", () => {
     renderPanel();
     const aboutBtn = document.querySelector('[data-settings-section="about"]');
     fireEvent.click(aboutBtn!);
-    expect(screen.getByText("v0.5")).toBeTruthy();
+    expect(screen.getByText(`v${__APP_VERSION__}`)).toBeTruthy();
   });
 });
 

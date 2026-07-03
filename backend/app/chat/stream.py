@@ -337,6 +337,17 @@ async def run_chat_stream(
         len(retrieval_citations),
     )
 
+    # ── UXB-1: conversation auto-title (UXA-02) — fires AFTER stream end, never during ──
+    # Schedule a fire-and-forget background task now that the assistant message is persisted
+    # (the guard inside runs only for the FIRST assistant turn on a still-default title). It
+    # runs after this generator yields the terminal `done` event, so it never contends with
+    # streaming (I3). It is bounded (~60 tokens, single call, no retry) and self-logging (I7).
+    from app.chat.autotitle import maybe_generate_conversation_title
+
+    asyncio.create_task(  # noqa: RUF006 — fire-and-forget; the task self-guards and never raises
+        maybe_generate_conversation_title(conv_id, effective_vault_id)
+    )
+
     # Compact citation projection for the done event (ADR-0022 §2.4 — score/phase stored, not
     # streamed). Additive field → non-breaking for existing clients that ignore unknown keys.
     done_citations = [

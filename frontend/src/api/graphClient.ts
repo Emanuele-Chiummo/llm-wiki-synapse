@@ -204,3 +204,74 @@ export async function recomputeGraph(signal?: AbortSignal): Promise<RegenerateGr
   await checkResponse(res);
   return (await res.json()) as RegenerateGraphResult;
 }
+
+// ─── R9-5: Community panel + edge breakdown ───────────────────────────────────
+
+/** One member in the community detail response (R9-5). */
+export interface CommunityMember {
+  id: string;
+  title: string;
+  page_type: string | null;
+  degree: number;
+}
+
+/** Response from GET /graph/communities/{id} (R9-5). */
+export interface CommunityDetail {
+  community_id: number;
+  size: number;
+  cohesion: number;
+  cohesion_warning: boolean;
+  members: CommunityMember[];
+}
+
+/**
+ * Fetch community detail for the community drill-down panel (R9-5).
+ * GET /graph/communities/{id}
+ *
+ * Returns 409 when the graph cache is cold (layout not yet computed).
+ * Callers should handle ApiError with status 409 by showing a toast.
+ *
+ * INVARIANT I2: read-only; no layout computed client-side.
+ */
+export async function fetchCommunityDetail(
+  communityId: number,
+  signal?: AbortSignal,
+): Promise<CommunityDetail> {
+  const url = `${apiBase()}/graph/communities/${encodeURIComponent(communityId)}`;
+  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as CommunityDetail;
+}
+
+/** 4-signal edge weight breakdown. */
+export interface EdgeBreakdown {
+  direct_links: number;
+  shared_sources: number;
+  adamic_adar: number;
+  type_affinity: number;
+}
+
+/** Response from GET /graph/edges/{src}/{tgt} (R9-5). */
+export interface EdgeDetail {
+  weight: number;
+  breakdown: EdgeBreakdown;
+}
+
+/**
+ * Fetch edge weight breakdown for the edge tooltip (R9-5).
+ * GET /graph/edges/{src}/{tgt}
+ *
+ * Returns 404 when the edge does not exist.
+ * Fetched on-demand (hover with 150 ms debounce) and cached per pair in
+ * GraphViewer component state. INVARIANT I2: read-only; no layout computed.
+ */
+export async function fetchEdgeDetail(
+  srcId: string,
+  tgtId: string,
+  signal?: AbortSignal,
+): Promise<EdgeDetail> {
+  const url = `${apiBase()}/graph/edges/${encodeURIComponent(srcId)}/${encodeURIComponent(tgtId)}`;
+  const res = await fetch(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as EdgeDetail;
+}

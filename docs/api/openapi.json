@@ -293,6 +293,77 @@
         }
       }
     },
+    "/costs/summary": {
+      "get": {
+        "tags": [
+          "costs"
+        ],
+        "summary": "Cost & usage summary",
+        "description": "Return aggregated AI inference costs across all cost-bearing tables (ingest_runs, messages, deep_research_runs, lint_runs) for the requested calendar month (default: current month). Includes by_operation, by_provider (ingest + chat only \u2014 see by_provider_note), by_day (last 30 days), monthly_total_usd, and threshold_alert. Query param ?month=YYYY-MM selects an alternative month.",
+        "operationId": "get_costs_summary_costs_summary_get",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Calendar month to aggregate (YYYY-MM). Defaults to the current UTC month.",
+              "title": "Month"
+            },
+            "description": "Calendar month to aggregate (YYYY-MM). Defaults to the current UTC month."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cost summary",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/detailed": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Detailed component health snapshot",
+        "description": "Returns per-component health: watcher heartbeat, import scheduler state, ingest queue snapshot, graph cache warmth, DB latency (SELECT 1), Qdrant ping (skipped when EMBEDDINGS_ENABLED=false), embeddings toggle, and the 5 most recent in-process ERROR log entries. Top-level status: 'ok' | 'degraded' | 'error'. NEVER returns 5xx \u2014 failed probes degrade status, not the HTTP layer. (R9-2, AC-R9-2-1..AC-R9-2-4)",
+        "operationId": "get_health_detailed_health_detailed_get",
+        "responses": {
+          "200": {
+            "description": "Health snapshot (always 200)",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/status": {
       "get": {
         "summary": "Service health + data_version",
@@ -1852,6 +1923,104 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RegenerateGraphResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/graph/communities/{community_id}": {
+      "get": {
+        "summary": "Graph community drill-down: members + cohesion score (R9-5)",
+        "description": "Returns member pages and cohesion for a Louvain community (R9-5, AC-R9-5-1). Data is read from the cached GraphSnapshot \u2014 NEVER triggers a graph recompute (I2). If the cache is cold (graph has never been computed), returns 409 with a clear message; the client should trigger POST /graph/recompute first. Members are ordered by degree descending, capped at 100 entries. cohesion_warning=true when cohesion < GRAPH_COHESION_WARN (default 0.2, env GRAPH_COHESION_WARN). Returns 404 if the community_id does not exist in the current snapshot.",
+        "operationId": "get_graph_community_graph_communities__community_id__get",
+        "parameters": [
+          {
+            "name": "community_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Community Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Community detail with members and cohesion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphCommunityDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Community id not found in the current snapshot"
+          },
+          "409": {
+            "description": "Graph snapshot is cold \u2014 no recompute has run yet. Call POST /graph/recompute first."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/graph/edges/{source_id}/{target_id}": {
+      "get": {
+        "summary": "4-signal edge weight breakdown between two pages (R9-5)",
+        "description": "Returns the 4-signal edge weight breakdown for the undirected pair (source_id, target_id) (R9-5, AC-R9-5-4). Reads from the persisted edges table (signals JSONB column) \u2014 no graph recompute (I2). The pair is matched undirectionally (either endpoint order accepted). breakdown keys: direct_links (3*direct_count), shared_sources (4*shared_count), adamic_adar (1.5*AA), type_affinity (matrix value). Returns 404 if no edge exists for the pair in the current vault.",
+        "operationId": "get_graph_edge_graph_edges__source_id___target_id__get",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Edge weight breakdown (4 signals)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphEdgeSignalsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No edge found for this pair in the persisted edges table"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -3836,6 +4005,17 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview"
           }
         },
         "type": "object",
@@ -3847,7 +4027,7 @@
           "updated_at"
         ],
         "title": "ConversationResponse",
-        "description": "API shape for one conversations row (ADR-0019 \u00a72.5)."
+        "description": "API shape for one conversations row (ADR-0019 \u00a72.5).\n\n`preview` (UXB-1) is a read-only derivation of the conversation's last message: its first\n~80 chars with <think>\u2026</think> and light markdown stripped. It is computed in the list\nhandler (bounded subquery); there is no schema change. None when the conversation has no\nmessages yet."
       },
       "EmbeddingConfigResponse": {
         "properties": {
@@ -3880,6 +4060,118 @@
           "embeddings_enabled"
         ],
         "title": "EmbeddingConfigResponse"
+      },
+      "GraphCommunityDetailResponse": {
+        "properties": {
+          "community_id": {
+            "type": "integer",
+            "title": "Community Id",
+            "description": "Louvain community id (0 = largest)"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size",
+            "description": "Number of member pages in this community"
+          },
+          "cohesion": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cohesion",
+            "description": "Intra-edge density [0,1]: intraEdges / (size*(size-1)/2). 0 for singletons (no possible edges). Null until first recompute."
+          },
+          "cohesion_warning": {
+            "type": "boolean",
+            "title": "Cohesion Warning",
+            "description": "True when cohesion < GRAPH_COHESION_WARN (default 0.2). Signals a loosely-connected / potentially fragmented community.",
+            "default": false
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/GraphCommunityMemberResponse"
+            },
+            "type": "array",
+            "title": "Members",
+            "description": "Member pages ordered by degree descending, capped at 100. Each entry carries id, title, page_type, degree."
+          }
+        },
+        "type": "object",
+        "required": [
+          "community_id",
+          "size"
+        ],
+        "title": "GraphCommunityDetailResponse",
+        "description": "Response for GET /graph/communities/{community_id} (R9-5, AC-R9-5-1).\n\nReads from the cached GraphSnapshot \u2014 never triggers a recompute (I2).\nReturns 409 when the snapshot is cold (cache has never run).\n\ncohesion formula:  cohesion = intraEdges / (size*(size-1)/2)\n  intraEdges = number of edges in the snapshot whose both endpoints belong to\n               this community.  possibleEdges = size*(size-1)/2.\n  cohesion in [0,1].  Singletons (size=1) -> cohesion=0, no possible edges.\n  cohesion_warning = True when cohesion < GRAPH_COHESION_WARN (default 0.2, env\n  GRAPH_COHESION_WARN).  See engine.py CommunitySnapshot for the per-recompute\n  computation; this endpoint reads the value stored in the snapshot (no re-derive).",
+        "example": {
+          "cohesion": 0.6,
+          "cohesion_warning": false,
+          "community_id": 0,
+          "members": [
+            {
+              "degree": 4,
+              "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+              "page_type": "entity",
+              "title": "Alpha"
+            }
+          ],
+          "size": 5
+        }
+      },
+      "GraphCommunityMemberResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Page UUID"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Page title (may be None if not yet set)"
+          },
+          "page_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Type",
+            "description": "Frontmatter type (entity/concept/etc.)"
+          },
+          "degree": {
+            "type": "integer",
+            "title": "Degree",
+            "description": "Structural degree within the full graph",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "GraphCommunityMemberResponse",
+        "description": "One member page in a community drill-down response (R9-5).",
+        "example": {
+          "degree": 4,
+          "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "page_type": "entity",
+          "title": "Alpha"
+        }
       },
       "GraphCommunityResponse": {
         "properties": {
@@ -3940,6 +4232,52 @@
         ],
         "title": "GraphEdgeResponse",
         "description": "One graph edge in the GET /graph response (ADR-0014 \u00a76, AC-F4-3, ADR-0016 \u00a74).\n\nsource/target are page-id strings (UUID). Undirected \u2014 emitted once per pair.\nkind: structural edge discriminator \u2014 \"link\" (wikilink exists) or \"source\"\n      (shared-source provenance only). ADR-0016 \u00a74."
+      },
+      "GraphEdgeSignalsResponse": {
+        "properties": {
+          "weight": {
+            "type": "number",
+            "title": "Weight",
+            "description": "Total 4-signal edge weight (ADR-0012)"
+          },
+          "breakdown": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Breakdown",
+            "description": "Per-signal weight components: {direct_links, shared_sources, adamic_adar, type_affinity}. direct_links = 3*direct_count; shared_sources = 4*shared_count; adamic_adar = 1.5*AA(A,B); type_affinity = matrix(typeA,typeB)."
+          },
+          "computed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computed At",
+            "description": "ISO datetime when this edge row was last persisted by the graph engine."
+          }
+        },
+        "type": "object",
+        "required": [
+          "weight",
+          "breakdown"
+        ],
+        "title": "GraphEdgeSignalsResponse",
+        "description": "4-signal weight breakdown for a single graph edge (R9-5, AC-R9-5-4).\n\nReads from the persisted edges.signals JSONB column (populated by\nGraphEngine.recompute() at every FA2 run).  Never triggers a recompute (I2).\n\nsignal semantics (ADR-0012):\n  direct_links   = 3.0 * direct_link_count   (wikilink coefficient x3)\n  shared_sources = 4.0 * shared_source_count  (provenance coefficient x4)\n  adamic_adar    = 1.5 * AA(A,B)             (AA coefficient x1.5)\n  type_affinity  = type_affinity_matrix(A,B)  (type-affinity, x1 -- see engine.py)\n  total weight   = sum of all four signals",
+        "example": {
+          "breakdown": {
+            "adamic_adar": 0.7,
+            "direct_links": 6.0,
+            "shared_sources": 4.0,
+            "type_affinity": 0.5
+          },
+          "computed_at": "2026-07-01T12:00:00Z",
+          "weight": 11.2
+        }
       },
       "GraphNodeResponse": {
         "properties": {
@@ -6789,7 +7127,7 @@
           "item_type": {
             "type": "string",
             "title": "Item Type",
-            "description": "missing-page | suggestion | contradiction | duplicate | confirm"
+            "description": "missing-page | suggestion | contradiction | duplicate | confirm | purpose-suggestion"
           },
           "status": {
             "type": "string",

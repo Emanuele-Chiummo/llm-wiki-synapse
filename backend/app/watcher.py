@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,12 @@ logger = logging.getLogger(__name__)
 # separate ingest → concurrent runs racing on uix_pages_vault_file_path_live (I1).
 # Each event re-arms the timer; exactly one ingest fires after the quiet period.
 _DEBOUNCE_SECONDS = float(os.environ.get("WATCH_DEBOUNCE_SECONDS", "1.5"))
+
+# ── Watcher heartbeat (R9-2 health endpoint) ──────────────────────────────────
+# Lightweight module-level timestamp updated every time a valid FS event is armed.
+# Read via get_watcher_heartbeat() from health.py. Never None after the first event;
+# None at startup means no events have been seen since this process started.
+_last_event_at: datetime | None = None
 
 # ── Event handler ──────────────────────────────────────────────────────────────
 
@@ -113,6 +120,8 @@ class _MarkdownHandler(FileSystemEventHandler):
 
     def _arm(self, path: str, action: str) -> None:
         """Cancel any pending timer for *path* and schedule the latest action."""
+        global _last_event_at  # noqa: PLW0603
+        _last_event_at = datetime.now(UTC)
         existing = self._pending.pop(path, None)
         if existing is not None:
             existing.cancel()
@@ -284,3 +293,24 @@ def _is_text_file(path: str) -> bool:
     from app.upload import _ALLOWED_EXTENSIONS  # lazy — avoids circular import
 
     return Path(path).suffix.lower() in _ALLOWED_EXTENSIONS
+
+
+def get_watcher_heartbeat() -> tuple[bool, datetime | None]:
+    """
+    Return a lightweight watcher heartbeat for the health endpoint (R9-2).
+
+    Returns:
+        (alive, last_event_at)
+
+        alive         — True if the watchdog observer is running (observer thread alive).
+        last_event_at — UTC datetime of the most recent FS event armed by this process,
+                        or None if no events have been seen since startup.
+
+    Never raises; caller wraps in try/except.  Read-only; no DB, no I/O (I1).
+    """
+    alive = (
+        _watcher._observer is not None
+        and hasattr(_watcher._observer, "is_alive")
+        and _watcher._observer.is_alive()
+    )
+    return alive, _last_event_at

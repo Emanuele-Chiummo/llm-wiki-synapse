@@ -99,7 +99,7 @@ from app.config import settings
 from app.db import dispose_engine, get_session
 from app.embeddings import EmbeddingError, get_embedding_client
 from app.graph.cache import GraphCache
-from app.graph.engine import GraphEngine
+from app.graph.engine import GraphEngine, GraphSnapshot
 from app.import_scheduler import ImportScheduler, load_schedule, upsert_schedule
 from app.ingest.orchestrator import IngestResult, ingest_file
 from app.ingest.schemas import Message
@@ -872,6 +872,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _import_scheduler.start()
     logger.info("ImportScheduler started")
 
+    # 6b. Inject singletons into the health details router (R9-2) so it can read
+    #     GraphCache and ImportScheduler state without circular imports.
+    from app.health import set_health_singletons  # noqa: PLC0415
+
+    set_health_singletons(_graph_cache, _import_scheduler)
+    logger.info("Health singletons injected (R9-2)")
+
     # 7. Chain MCP HTTP sub-app lifespan (ADR-0029 §5 / FastMCP lifespan note).
     #    The StarletteWithLifespan returned by http_app() has its own lifespan that
     #    starts the StreamableHTTP session manager.  Starlette does NOT forward lifespan
@@ -945,6 +952,16 @@ app.include_router(sources_router)
 from app.export import router as export_router  # noqa: E402
 
 app.include_router(export_router)
+
+# ── Costs router (cost aggregation dashboard — R9-1, AC-R9-1-1..6) ───────────
+from app.costs import router as costs_router  # noqa: E402
+
+app.include_router(costs_router)
+
+# ── Health details router (R9-2, AC-R9-2-1..4) ───────────────────────────────
+from app.health import router as health_router  # noqa: E402
+
+app.include_router(health_router)
 
 # ── MCP HTTP mount (ADR-0033 §2.4 — always-mount; gate is the sole arbiter) ──
 # Mounted at MCP_MOUNT_PATH — always, regardless of token configuration.
@@ -1632,15 +1649,46 @@ class RunNowResponse(BaseModel):
 
 _VALID_CHAT_ROLES = {"user", "assistant", "system"}
 
+# UXB-1: max chars for the conversation-list preview snippet (last message, stripped).
+_CONVERSATION_PREVIEW_CHARS = 80
+
+
+def _conversation_preview(content: str | None) -> str | None:
+    """Derive the list preview from a message body: strip <think>, collapse whitespace, cap.
+
+    Read-only projection for GET /conversations (UXB-1). <think>…</think> reasoning is removed
+    (split_think), light markdown markers are dropped, whitespace collapses to single spaces,
+    and the result is truncated to ~80 chars. Returns None for empty/whitespace content.
+    """
+    if not content:
+        return None
+    from app.chat.think import split_think
+
+    visible, _ = split_think(content)
+    # Drop the most common inline markdown markers so the snippet reads as plain text.
+    for marker in ("**", "__", "`", "#", ">", "*", "_", "~~"):
+        visible = visible.replace(marker, "")
+    collapsed = " ".join(visible.split())
+    if not collapsed:
+        return None
+    return collapsed[:_CONVERSATION_PREVIEW_CHARS]
+
 
 class ConversationResponse(BaseModel):
-    """API shape for one conversations row (ADR-0019 §2.5)."""
+    """API shape for one conversations row (ADR-0019 §2.5).
+
+    `preview` (UXB-1) is a read-only derivation of the conversation's last message: its first
+    ~80 chars with <think>…</think> and light markdown stripped. It is computed in the list
+    handler (bounded subquery); there is no schema change. None when the conversation has no
+    messages yet.
+    """
 
     id: uuid.UUID
     vault_id: str
     title: str | None
     created_at: datetime
     updated_at: datetime
+    preview: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -4169,8 +4217,43 @@ async def list_conversations(
             base.order_by(Conversation.updated_at.desc()).offset(offset).limit(limit)
         )
         convs = list(rows.scalars().all())
+
+        # UXB-1: last-message preview per conversation (read-only derivation, no schema change).
+        # Bounded: one extra query over ONLY the paged conversation IDs (≤ limit ≤ 100). We
+        # fetch each conversation's most-recent message content, then strip <think> + light
+        # markdown in Python and cap at 80 chars. Portable SQL: latest = max(created_at) per
+        # conversation via a grouped subquery joined back to messages (SQLite + Postgres).
+        conv_ids = [c.id for c in convs]
+        previews: dict[uuid.UUID, str] = {}
+        if conv_ids:
+            latest = (
+                select(
+                    ChatMessage.conversation_id.label("cid"),
+                    func.max(ChatMessage.created_at).label("mx"),
+                )
+                .where(ChatMessage.conversation_id.in_(conv_ids))
+                .group_by(ChatMessage.conversation_id)
+                .subquery()
+            )
+            msg_rows = await session.execute(
+                select(ChatMessage.conversation_id, ChatMessage.content).join(
+                    latest,
+                    (ChatMessage.conversation_id == latest.c.cid)
+                    & (ChatMessage.created_at == latest.c.mx),
+                )
+            )
+            for cid, content in msg_rows.all():
+                # Guard against a same-timestamp tie yielding two rows: keep the first.
+                if cid not in previews:
+                    previews[cid] = _conversation_preview(content)
+
+    items: list[ConversationResponse] = []
+    for c in convs:
+        resp = ConversationResponse.model_validate(c)
+        resp.preview = previews.get(c.id)
+        items.append(resp)
     return ConversationListResponse(
-        items=[ConversationResponse.model_validate(c) for c in convs],
+        items=items,
         total=total,
         limit=limit,
         offset=offset,
@@ -5021,6 +5104,348 @@ async def recompute_graph() -> RegenerateGraphResponse:
     )
 
 
+# ── GET /graph/communities/{community_id} (R9-5, AC-R9-5-1) ──────────────────
+
+
+class GraphCommunityMemberResponse(BaseModel):
+    """One member page in a community drill-down response (R9-5)."""
+
+    id: str = Field(..., description="Page UUID")
+    title: str | None = Field(None, description="Page title (may be None if not yet set)")
+    page_type: str | None = Field(None, description="Frontmatter type (entity/concept/etc.)")
+    degree: int = Field(0, description="Structural degree within the full graph")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                "title": "Alpha",
+                "page_type": "entity",
+                "degree": 4,
+            }
+        }
+    }
+
+
+class GraphCommunityDetailResponse(BaseModel):
+    """
+    Response for GET /graph/communities/{community_id} (R9-5, AC-R9-5-1).
+
+    Reads from the cached GraphSnapshot — never triggers a recompute (I2).
+    Returns 409 when the snapshot is cold (cache has never run).
+
+    cohesion formula:  cohesion = intraEdges / (size*(size-1)/2)
+      intraEdges = number of edges in the snapshot whose both endpoints belong to
+                   this community.  possibleEdges = size*(size-1)/2.
+      cohesion in [0,1].  Singletons (size=1) -> cohesion=0, no possible edges.
+      cohesion_warning = True when cohesion < GRAPH_COHESION_WARN (default 0.2, env
+      GRAPH_COHESION_WARN).  See engine.py CommunitySnapshot for the per-recompute
+      computation; this endpoint reads the value stored in the snapshot (no re-derive).
+    """
+
+    community_id: int = Field(..., description="Louvain community id (0 = largest)")
+    size: int = Field(..., description="Number of member pages in this community")
+    cohesion: float | None = Field(
+        None,
+        description=(
+            "Intra-edge density [0,1]: intraEdges / (size*(size-1)/2). "
+            "0 for singletons (no possible edges). Null until first recompute."
+        ),
+    )
+    cohesion_warning: bool = Field(
+        False,
+        description=(
+            "True when cohesion < GRAPH_COHESION_WARN (default 0.2). "
+            "Signals a loosely-connected / potentially fragmented community."
+        ),
+    )
+    members: list[GraphCommunityMemberResponse] = Field(
+        default_factory=list,
+        description=(
+            "Member pages ordered by degree descending, capped at 100. "
+            "Each entry carries id, title, page_type, degree."
+        ),
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "community_id": 0,
+                "size": 5,
+                "cohesion": 0.6,
+                "cohesion_warning": False,
+                "members": [
+                    {
+                        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        "title": "Alpha",
+                        "page_type": "entity",
+                        "degree": 4,
+                    }
+                ],
+            }
+        }
+    }
+
+
+@app.get(
+    "/graph/communities/{community_id}",
+    response_model=GraphCommunityDetailResponse,
+    summary="Graph community drill-down: members + cohesion score (R9-5)",
+    description=(
+        "Returns member pages and cohesion for a Louvain community (R9-5, AC-R9-5-1). "
+        "Data is read from the cached GraphSnapshot — NEVER triggers a graph recompute (I2). "
+        "If the cache is cold (graph has never been computed), returns 409 with a clear message; "
+        "the client should trigger POST /graph/recompute first. "
+        "Members are ordered by degree descending, capped at 100 entries. "
+        "cohesion_warning=true when cohesion < GRAPH_COHESION_WARN (default 0.2, env "
+        "GRAPH_COHESION_WARN). "
+        "Returns 404 if the community_id does not exist in the current snapshot."
+    ),
+    responses={
+        200: {"description": "Community detail with members and cohesion"},
+        404: {"description": "Community id not found in the current snapshot"},
+        409: {
+            "description": (
+                "Graph snapshot is cold — no recompute has run yet. "
+                "Call POST /graph/recompute first."
+            )
+        },
+    },
+)
+async def get_graph_community(community_id: int) -> GraphCommunityDetailResponse:
+    """
+    GET /graph/communities/{community_id} — community drill-down (R9-5, AC-R9-5-1/5).
+
+    I2 compliance: reads ONLY from _graph_cache._snapshot (the last stored result of
+    a previous recompute). Does NOT call get_graph() / force_recompute() / recompute().
+    Cold cache -> 409 (client must call POST /graph/recompute first).
+    """
+    from fastapi import HTTPException
+
+    global _graph_cache
+
+    # I2 guard: read directly from the in-memory snapshot, never call recompute.
+    snapshot: GraphSnapshot | None = (
+        _graph_cache._snapshot if _graph_cache is not None else None
+    )
+    if snapshot is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Il grafo non e ancora stato calcolato. "
+                "Eseguire prima POST /graph/recompute. "
+                "(Graph snapshot is cold — run POST /graph/recompute first.)"
+            ),
+        )
+
+    # Find the community summary in the snapshot for cohesion
+    community_snap = next(
+        (c for c in snapshot.communities if c.id == community_id), None
+    )
+    if community_snap is None:
+        # Also check if any node belongs to this community_id (handles edge case
+        # where communities list was not populated but nodes were assigned).
+        has_members = any(n.community == community_id for n in snapshot.nodes)
+        if not has_members:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Community {community_id} not found in the current graph snapshot.",
+            )
+        # Community exists but no summary (shouldn't happen post-recompute; degrade)
+        cohesion_val: float | None = None
+    else:
+        cohesion_val = community_snap.cohesion
+
+    # Build member list: all nodes with this community id, sorted by degree desc, cap 100
+    members_raw = [n for n in snapshot.nodes if n.community == community_id]
+    members_raw.sort(key=lambda n: n.degree, reverse=True)
+    members_raw = members_raw[:100]
+
+    members = [
+        GraphCommunityMemberResponse(
+            id=n.id,
+            title=n.title,
+            page_type=n.page_type,
+            degree=n.degree,
+        )
+        for n in members_raw
+    ]
+
+    warn_threshold: float = settings.graph_cohesion_warn
+    cohesion_warning = cohesion_val is not None and cohesion_val < warn_threshold
+
+    return GraphCommunityDetailResponse(
+        community_id=community_id,
+        size=len(members_raw),
+        cohesion=cohesion_val,
+        cohesion_warning=cohesion_warning,
+        members=members,
+    )
+
+
+# ── GET /graph/edges/{source_id}/{target_id} (R9-5, AC-R9-5-4) ────────────────
+
+
+class GraphEdgeSignalsResponse(BaseModel):
+    """
+    4-signal weight breakdown for a single graph edge (R9-5, AC-R9-5-4).
+
+    Reads from the persisted edges.signals JSONB column (populated by
+    GraphEngine.recompute() at every FA2 run).  Never triggers a recompute (I2).
+
+    signal semantics (ADR-0012):
+      direct_links   = 3.0 * direct_link_count   (wikilink coefficient x3)
+      shared_sources = 4.0 * shared_source_count  (provenance coefficient x4)
+      adamic_adar    = 1.5 * AA(A,B)             (AA coefficient x1.5)
+      type_affinity  = type_affinity_matrix(A,B)  (type-affinity, x1 -- see engine.py)
+      total weight   = sum of all four signals
+    """
+
+    weight: float = Field(..., description="Total 4-signal edge weight (ADR-0012)")
+    breakdown: dict[str, float] = Field(
+        ...,
+        description=(
+            "Per-signal weight components: "
+            "{direct_links, shared_sources, adamic_adar, type_affinity}. "
+            "direct_links = 3*direct_count; shared_sources = 4*shared_count; "
+            "adamic_adar = 1.5*AA(A,B); type_affinity = matrix(typeA,typeB)."
+        ),
+    )
+    computed_at: str | None = Field(
+        None,
+        description="ISO datetime when this edge row was last persisted by the graph engine.",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "weight": 11.2,
+                "breakdown": {
+                    "direct_links": 6.0,
+                    "shared_sources": 4.0,
+                    "adamic_adar": 0.7,
+                    "type_affinity": 0.5,
+                },
+                "computed_at": "2026-07-01T12:00:00Z",
+            }
+        }
+    }
+
+
+@app.get(
+    "/graph/edges/{source_id}/{target_id}",
+    response_model=GraphEdgeSignalsResponse,
+    summary="4-signal edge weight breakdown between two pages (R9-5)",
+    description=(
+        "Returns the 4-signal edge weight breakdown for the undirected pair "
+        "(source_id, target_id) (R9-5, AC-R9-5-4). "
+        "Reads from the persisted edges table (signals JSONB column) — no graph recompute (I2). "
+        "The pair is matched undirectionally (either endpoint order accepted). "
+        "breakdown keys: direct_links (3*direct_count), shared_sources (4*shared_count), "
+        "adamic_adar (1.5*AA), type_affinity (matrix value). "
+        "Returns 404 if no edge exists for the pair in the current vault."
+    ),
+    responses={
+        200: {"description": "Edge weight breakdown (4 signals)"},
+        404: {"description": "No edge found for this pair in the persisted edges table"},
+    },
+)
+async def get_graph_edge(source_id: str, target_id: str) -> GraphEdgeSignalsResponse:
+    """
+    GET /graph/edges/{source_id}/{target_id} — 4-signal edge breakdown (R9-5, AC-R9-5-4/5).
+
+    I2 compliance: reads edges table only (persisted at recompute time). No FA2.
+    Undirected: matches (source_id,target_id) OR (target_id,source_id).
+    """
+    from fastapi import HTTPException
+
+    _EDGE_QUERY = (
+        "SELECT weight, signals, created_at "
+        "FROM edges "
+        "WHERE vault_id = :vid "
+        "  AND ("
+        "    (CAST(source_page_id AS TEXT) = :src AND CAST(target_page_id AS TEXT) = :tgt)"
+        "    OR"
+        "    (CAST(source_page_id AS TEXT) = :tgt AND CAST(target_page_id AS TEXT) = :src)"
+        "  ) "
+        "LIMIT 1"
+    )
+
+    async with get_session() as session:
+        result = await session.execute(
+            sa_text(_EDGE_QUERY).bindparams(
+                vid=settings.vault_id,
+                src=source_id,
+                tgt=target_id,
+            )
+        )
+        row = result.fetchone()
+
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No edge found between {source_id!r} and {target_id!r} "
+                "in the persisted edges table. "
+                "The graph may need a recompute (POST /graph/recompute)."
+            ),
+        )
+
+    import json as _json
+
+    weight: float = float(row[0])
+    _raw = row[1]  # JSONB from DB — asyncpg returns dict; aiosqlite returns str
+    # Normalise: parse string representation (SQLite test path); pass dict through (Postgres)
+    raw_signals: dict[str, float] | None
+    if isinstance(_raw, str):
+        try:
+            raw_signals = _json.loads(_raw)
+        except Exception:
+            raw_signals = None
+    elif isinstance(_raw, dict):
+        raw_signals = _raw
+    else:
+        raw_signals = None
+    created_at_raw = row[2]
+
+    # Map internal signal keys {direct, source, aa, type} -> public names
+    # (stored by engine.py with short keys; we expose descriptive names for the API)
+    breakdown: dict[str, float]
+    if raw_signals:
+        breakdown = {
+            "direct_links": float(raw_signals.get("direct", 0.0)),
+            "shared_sources": float(raw_signals.get("source", 0.0)),
+            "adamic_adar": float(raw_signals.get("aa", 0.0)),
+            "type_affinity": float(raw_signals.get("type", 0.0)),
+        }
+    else:
+        # signals column is NULL (edge written before migration that added signals)
+        # reconstruct from weight alone — partial data only
+        breakdown = {
+            "direct_links": 0.0,
+            "shared_sources": 0.0,
+            "adamic_adar": 0.0,
+            "type_affinity": 0.0,
+        }
+
+    computed_at_str: str | None = None
+    if created_at_raw is not None:
+        try:
+            computed_at_str = (
+                created_at_raw.isoformat()
+                if hasattr(created_at_raw, "isoformat")
+                else str(created_at_raw)
+            )
+        except Exception:
+            computed_at_str = str(created_at_raw)
+
+    return GraphEdgeSignalsResponse(
+        weight=weight,
+        breakdown=breakdown,
+        computed_at=computed_at_str,
+    )
+
+
 # ── Deep Research REST (F10, ADR-0024 §8) ─────────────────────────────────────
 
 
@@ -5408,7 +5833,10 @@ class ReviewItemResponse(BaseModel):
     id: uuid.UUID
     vault_id: str
     item_type: str = Field(
-        description="missing-page | suggestion | contradiction | duplicate | confirm"
+        description=(
+            "missing-page | suggestion | contradiction | duplicate | confirm | "
+            "purpose-suggestion"
+        )
     )
     status: str = Field(
         description="pending | created | skipped | dismissed | deep_researched | auto_resolved"

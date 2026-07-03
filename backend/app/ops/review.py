@@ -48,7 +48,7 @@ from sqlalchemy import func, select
 from app.config import settings
 from app.db import get_session
 from app.ingest.schemas import PageType
-from app.models import Page, ReviewItem
+from app.models import Page, ReviewItem, VaultState
 
 if TYPE_CHECKING:
     from app.ingest.schemas import Analysis, WikiPage
@@ -56,8 +56,19 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # ── Accepted value sets (app-side enum-by-convention, no DB CHECK — ADR-0034 §3.1) ──
+# R9-3 (v0.9): `purpose-suggestion` added. R9-4 (v0.9): `schema-suggestion` added. item_type is
+# a free Text column (no DB CHECK constraint — ADR-0034 §3.1), so extending this app-side set is
+# sufficient for BOTH; NO migration.
 _VALID_ITEM_TYPES = frozenset(
-    {"missing-page", "suggestion", "contradiction", "duplicate", "confirm"}
+    {
+        "missing-page",
+        "suggestion",
+        "contradiction",
+        "duplicate",
+        "confirm",
+        "purpose-suggestion",
+        "schema-suggestion",
+    }
 )
 _VALID_STATUSES = frozenset(
     {"pending", "created", "skipped", "dismissed", "deep_researched", "auto_resolved"}
@@ -76,6 +87,24 @@ _RESOLVED_STATUSES = frozenset({"created", "auto_resolved", "deep_researched"})
 # Caps (I7 — bounded reads/lists)
 _SWEEP_PASS1_MAX_ITEMS: int = 200  # max pending items processed per sweep Pass-1
 _PROPOSE_MAX_ITEMS: int = 8  # max proposals emitted per run (ADR-0034 §4.3)
+
+# ── R9-3 (v0.9): purpose.md drift suggestion ─────────────────────────────────────
+# The `rationale` column carries BOTH the human-readable "why" AND the exact markdown block
+# to append to purpose.md on approve. ADR-0034 §3.1: `resolution` is a small closed enum
+# (created|skipped|…, NULL while pending) — the WRONG place for a diff. `rationale` is the
+# card body shown to the human, so it is the clean fit. The apply step splits on this marker;
+# everything after it is appended VERBATIM to purpose.md.
+_PURPOSE_ADDITION_MARKER = "\n\n--- SUGGESTED purpose.md ADDITION ---\n\n"
+_PURPOSE_SUGGESTION_TYPE = "purpose-suggestion"
+
+# ── R9-4 (v0.9): schema.md co-evolution (K6, beyond llm_wiki) ────────────────────
+# Same architecture as R9-3: the `rationale` column carries BOTH the human-readable "why" AND
+# the exact markdown rule block to append to schema.md on approve. The apply step splits on this
+# marker; everything after it is appended VERBATIM to schema.md. A DISTINCT marker string (vs.
+# the purpose one) is used so the shared apply helper is unambiguous about which file it targets
+# and so a future migration could tell the two apart.
+_SCHEMA_ADDITION_MARKER = "\n\n--- SUGGESTED schema.md ADDITION ---\n\n"
+_SCHEMA_SUGGESTION_TYPE = "schema-suggestion"
 
 
 # ── ADR-0044 §3.2: stable content-derived idempotency key (FNV-1a, no new dep) ──
@@ -553,6 +582,725 @@ async def _run_generation(
     if wiki_page is None:
         raise RuntimeError("orchestrated loop produced no page and no fallback (unexpected — §5)")
     return wiki_page
+
+
+# ── R9-3: purpose.md scope-drift suggestion (v0.9) ───────────────────────────────
+
+
+async def generate_purpose_suggestion(
+    *,
+    vault_id: str,
+    analysis: Analysis | None,
+    written_pages: list[Page],
+    origin_source: str,
+) -> ReviewItem | None:
+    """
+    Post-ingest scope-drift check (R9-3). Compare this run's analysis topics/summary against
+    the vault purpose.md; if the model judges scope drift (a new recurring theme not covered by
+    purpose), emit ONE `purpose-suggestion` ReviewItem. Called fire-and-forget from the
+    orchestrator — the caller wraps this in try/except; a failure here NEVER breaks ingest (I7).
+
+    BOUNDS (I7 / R9-3 AC "bounded provider call max_tokens 300, no retry"):
+      - Exactly ONE provider.chat() call, no loop, no retry.
+      - max_tokens = PURPOSE_SUGGESTION_MAX_TOKENS (300) enforced at the call site.
+      - asyncio.wait_for(PURPOSE_SUGGESTION_TIMEOUT_SECONDS).
+      - Cost logged to the run ledger via the bound UsageAccumulator (total_cost_usd).
+      - On no-provider / timeout / any error / empty / in-scope verdict → return None.
+
+    THROTTLE (R9-3):
+      1. Skip if a `purpose-suggestion` is already pending for the vault (max 1 pending at a
+         time — no queue spam).
+      2. Fire only when ≥ PURPOSE_SUGGESTION_MIN_SOURCES (3) `source` pages have been ingested
+         since the newest existing purpose-suggestion item (of any status). Cheap counter: a
+         bounded indexed COUNT over pages.created_at vs. the last suggestion's created_at — no
+         new column, no migration.
+
+    Returns the created ReviewItem, or None when no suggestion is emitted (in-scope, throttled,
+    disabled, or any failure).
+    """
+    if not bool(getattr(settings, "purpose_suggestion_enabled", True)):
+        return None
+    if not written_pages:
+        return None
+
+    # ── Throttle 1: at most one pending purpose-suggestion per vault ─────────────
+    try:
+        async with get_session() as session:
+            pending_existing = (
+                await session.execute(
+                    select(ReviewItem.id)
+                    .where(
+                        ReviewItem.vault_id == vault_id,
+                        ReviewItem.item_type == _PURPOSE_SUGGESTION_TYPE,
+                        ReviewItem.status == "pending",
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            # Newest purpose-suggestion of ANY status → drift counter watermark.
+            last_created = (
+                await session.execute(
+                    select(func.max(ReviewItem.created_at)).where(
+                        ReviewItem.vault_id == vault_id,
+                        ReviewItem.item_type == _PURPOSE_SUGGESTION_TYPE,
+                    )
+                )
+            ).scalar_one_or_none()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("generate_purpose_suggestion: throttle read failed (non-fatal): %s", exc)
+        return None
+
+    if pending_existing is not None:
+        logger.debug(
+            "generate_purpose_suggestion: a purpose-suggestion is already pending (vault=%s) — "
+            "skip (throttle 1, zero cost)",
+            vault_id,
+        )
+        return None
+
+    # ── Throttle 2: ≥ N source pages ingested since the last suggestion watermark ─
+    min_sources = int(getattr(settings, "purpose_suggestion_min_sources", 3))
+    try:
+        async with get_session() as session:
+            count_stmt = (
+                select(func.count())
+                .select_from(Page)
+                .where(
+                    Page.vault_id == vault_id,
+                    Page.page_type == PageType.SOURCE.value,
+                    Page.deleted_at.is_(None),
+                )
+            )
+            if last_created is not None:
+                count_stmt = count_stmt.where(Page.created_at > last_created)
+            sources_since = int((await session.execute(count_stmt)).scalar_one() or 0)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "generate_purpose_suggestion: source-counter read failed (non-fatal): %s", exc
+        )
+        return None
+
+    if sources_since < min_sources:
+        logger.debug(
+            "generate_purpose_suggestion: only %d source(s) since last check < %d (vault=%s) — "
+            "skip (throttle 2, zero cost)",
+            sources_since,
+            min_sources,
+            vault_id,
+        )
+        return None
+
+    # ── Read purpose.md (tolerant — missing file → empty purpose) ────────────────
+    purpose_text = ""
+    try:
+        purpose_path = settings.vault_root / "purpose.md"
+        if purpose_path.exists():
+            purpose_text = purpose_path.read_text(encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("generate_purpose_suggestion: purpose.md read failed (non-fatal): %s", exc)
+        purpose_text = ""
+
+    # ── Resolve provider (I6 — no provider → None, zero cost) ────────────────────
+    resolved = await _resolve_review_provider(vault_id)
+    if resolved is None:
+        logger.debug(
+            "generate_purpose_suggestion: no ingest provider resolved (vault=%s) — skip (I6)",
+            vault_id,
+        )
+        return None
+    provider, _config_row = resolved
+
+    max_tokens = int(getattr(settings, "purpose_suggestion_max_tokens", 300))
+    timeout_s = float(getattr(settings, "purpose_suggestion_timeout_seconds", 20.0))
+
+    from app.ingest.provider.base import UsageAccumulator
+
+    accumulator = UsageAccumulator()
+    provider.bind_accumulator(accumulator)
+
+    instruction = _build_purpose_drift_instruction(
+        analysis=analysis,
+        written_pages=written_pages,
+        purpose_text=purpose_text,
+        max_tokens=max_tokens,
+    )
+
+    # ── ONE bounded call, no loop, no retry (I7) ─────────────────────────────────
+    try:
+        raw = await asyncio.wait_for(
+            _chat_collect(provider, instruction, max_tokens=max_tokens),
+            timeout=timeout_s,
+        )
+    except TimeoutError:
+        logger.warning(
+            "generate_purpose_suggestion: provider call timed out after %.1fs (vault=%s) — "
+            "no suggestion (never fail ingest)",
+            timeout_s,
+            vault_id,
+        )
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "generate_purpose_suggestion: provider call failed (vault=%s): %s — no suggestion",
+            vault_id,
+            exc,
+        )
+        return None
+    finally:
+        # I7: cost logged to the run ledger regardless of outcome.
+        logger.info(
+            "purpose_suggestion provider call: vault=%s tokens=%d cost_usd=%.4f calls=%d",
+            vault_id,
+            accumulator.total_tokens,
+            round(accumulator.total_cost_usd, 4),
+            accumulator.calls,
+        )
+
+    parsed = _parse_purpose_drift(raw)
+    if parsed is None:
+        logger.debug(
+            "generate_purpose_suggestion: model judged in-scope / no parseable drift (vault=%s)",
+            vault_id,
+        )
+        return None
+
+    theme, why, addition = parsed
+
+    # ── Persist ONE purpose-suggestion ReviewItem ───────────────────────────────
+    # rationale = human "why" + delimited exact markdown to append on approve.
+    rationale = f"{why}{_PURPOSE_ADDITION_MARKER}{addition}"
+    source_page_id = written_pages[0].id if written_pages else None
+    content_key = _content_key(
+        vault_id=vault_id,
+        item_type=_PURPOSE_SUGGESTION_TYPE,
+        proposed_title=theme,
+    )
+    try:
+        item = await enqueue_review(
+            vault_id=vault_id,
+            item_type=_PURPOSE_SUGGESTION_TYPE,
+            proposed_title=theme,
+            rationale=rationale,
+            source_page_id=(uuid.UUID(str(source_page_id)) if source_page_id is not None else None),
+            content_key=content_key,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "generate_purpose_suggestion: failed to enqueue suggestion (vault=%s): %s",
+            vault_id,
+            exc,
+        )
+        return None
+
+    logger.info(
+        "generate_purpose_suggestion: vault=%s emitted purpose-suggestion theme=%r item=%s",
+        vault_id,
+        theme,
+        item.id,
+    )
+    return item
+
+
+# ── R9-4: schema.md co-evolution suggestion (v0.9, K6) ───────────────────────────
+
+
+async def generate_schema_suggestion(
+    *,
+    vault_id: str,
+    written_pages: list[Page],
+    origin_source: str,
+) -> ReviewItem | None:
+    """
+    Post-ingest schema co-evolution check (R9-4, K6 — beyond llm_wiki). Compare the ingested
+    pages' ACTUAL frontmatter/type/tag usage patterns against the vault schema.md rules; if the
+    model detects a RECURRING convention that is not yet codified (a tag family, a frontmatter
+    field consistently used, a type misfit), emit ONE `schema-suggestion` ReviewItem with the
+    exact markdown rule block to append to schema.md. Called fire-and-forget from the orchestrator
+    (right after the R9-3 purpose check) — the caller wraps this in try/except; a failure here
+    NEVER breaks ingest (I7).
+
+    Architecture MIRRORS generate_purpose_suggestion exactly. Deliberate deltas (documented):
+      1. DEFAULT OFF (schema_suggestion_enabled=False). schema.md is the formal frontmatter
+         contract (K6); an approved change alters FUTURE ingest classification/validation, so the
+         blast radius is larger than a purpose.md note — operator must opt in. (R9-3 defaults ON.)
+      2. max_tokens=400 (vs. 300) — the model restates the convention AND emits the rule block.
+      3. min_sources default 5 (vs. 3) — a convention should be seen across more material.
+      4. Compares real frontmatter (type/tags), not just topics — schema.md governs frontmatter.
+
+    BOUNDS (I7 / R9-4 AC "bounded call max_tokens 400, no retry"):
+      - Exactly ONE provider.chat() call, no loop, no retry.
+      - max_tokens = SCHEMA_SUGGESTION_MAX_TOKENS (400) enforced at the call site (_chat_collect).
+      - asyncio.wait_for(SCHEMA_SUGGESTION_TIMEOUT_SECONDS).
+      - Cost logged to the run ledger via the bound UsageAccumulator (total_cost_usd).
+      - On disabled / no-provider / timeout / any error / empty / no-pattern → return None.
+
+    THROTTLE (R9-4, identical shape to R9-3):
+      1. Skip if a `schema-suggestion` is already pending for the vault (max 1 pending — no spam).
+      2. Fire only when ≥ SCHEMA_SUGGESTION_MIN_SOURCES (5) `source` pages have been ingested
+         since the newest existing schema-suggestion item (of any status). Cheap bounded COUNT
+         over pages.created_at vs. the last suggestion's created_at — no new column, no migration.
+
+    Returns the created ReviewItem, or None (disabled, in-schema, throttled, or any failure).
+    """
+    if not bool(getattr(settings, "schema_suggestion_enabled", False)):
+        return None
+    if not written_pages:
+        return None
+
+    # ── Throttle 1: at most one pending schema-suggestion per vault ──────────────
+    try:
+        async with get_session() as session:
+            pending_existing = (
+                await session.execute(
+                    select(ReviewItem.id)
+                    .where(
+                        ReviewItem.vault_id == vault_id,
+                        ReviewItem.item_type == _SCHEMA_SUGGESTION_TYPE,
+                        ReviewItem.status == "pending",
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            # Newest schema-suggestion of ANY status → drift counter watermark.
+            last_created = (
+                await session.execute(
+                    select(func.max(ReviewItem.created_at)).where(
+                        ReviewItem.vault_id == vault_id,
+                        ReviewItem.item_type == _SCHEMA_SUGGESTION_TYPE,
+                    )
+                )
+            ).scalar_one_or_none()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("generate_schema_suggestion: throttle read failed (non-fatal): %s", exc)
+        return None
+
+    if pending_existing is not None:
+        logger.debug(
+            "generate_schema_suggestion: a schema-suggestion is already pending (vault=%s) — "
+            "skip (throttle 1, zero cost)",
+            vault_id,
+        )
+        return None
+
+    # ── Throttle 2: ≥ N source pages ingested since the last suggestion watermark ─
+    min_sources = int(getattr(settings, "schema_suggestion_min_sources", 5))
+    try:
+        async with get_session() as session:
+            count_stmt = (
+                select(func.count())
+                .select_from(Page)
+                .where(
+                    Page.vault_id == vault_id,
+                    Page.page_type == PageType.SOURCE.value,
+                    Page.deleted_at.is_(None),
+                )
+            )
+            if last_created is not None:
+                count_stmt = count_stmt.where(Page.created_at > last_created)
+            sources_since = int((await session.execute(count_stmt)).scalar_one() or 0)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "generate_schema_suggestion: source-counter read failed (non-fatal): %s", exc
+        )
+        return None
+
+    if sources_since < min_sources:
+        logger.debug(
+            "generate_schema_suggestion: only %d source(s) since last check < %d (vault=%s) — "
+            "skip (throttle 2, zero cost)",
+            sources_since,
+            min_sources,
+            vault_id,
+        )
+        return None
+
+    # ── Read schema.md (tolerant — missing file → empty schema) ──────────────────
+    schema_text = ""
+    try:
+        schema_path = settings.vault_root / "schema.md"
+        if schema_path.exists():
+            schema_text = schema_path.read_text(encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("generate_schema_suggestion: schema.md read failed (non-fatal): %s", exc)
+        schema_text = ""
+
+    # ── Resolve provider (I6 — no provider → None, zero cost) ────────────────────
+    resolved = await _resolve_review_provider(vault_id)
+    if resolved is None:
+        logger.debug(
+            "generate_schema_suggestion: no ingest provider resolved (vault=%s) — skip (I6)",
+            vault_id,
+        )
+        return None
+    provider, _config_row = resolved
+
+    max_tokens = int(getattr(settings, "schema_suggestion_max_tokens", 400))
+    timeout_s = float(getattr(settings, "schema_suggestion_timeout_seconds", 20.0))
+
+    from app.ingest.provider.base import UsageAccumulator
+
+    accumulator = UsageAccumulator()
+    provider.bind_accumulator(accumulator)
+
+    instruction = _build_schema_pattern_instruction(
+        written_pages=written_pages,
+        schema_text=schema_text,
+        max_tokens=max_tokens,
+    )
+
+    # ── ONE bounded call, no loop, no retry (I7) ─────────────────────────────────
+    try:
+        raw = await asyncio.wait_for(
+            _chat_collect(provider, instruction, max_tokens=max_tokens),
+            timeout=timeout_s,
+        )
+    except TimeoutError:
+        logger.warning(
+            "generate_schema_suggestion: provider call timed out after %.1fs (vault=%s) — "
+            "no suggestion (never fail ingest)",
+            timeout_s,
+            vault_id,
+        )
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "generate_schema_suggestion: provider call failed (vault=%s): %s — no suggestion",
+            vault_id,
+            exc,
+        )
+        return None
+    finally:
+        # I7: cost logged to the run ledger regardless of outcome.
+        logger.info(
+            "schema_suggestion provider call: vault=%s tokens=%d cost_usd=%.4f calls=%d",
+            vault_id,
+            accumulator.total_tokens,
+            round(accumulator.total_cost_usd, 4),
+            accumulator.calls,
+        )
+
+    parsed = _parse_schema_pattern(raw)
+    if parsed is None:
+        logger.debug(
+            "generate_schema_suggestion: model found no new codifiable convention (vault=%s)",
+            vault_id,
+        )
+        return None
+
+    convention, why, addition = parsed
+
+    # ── Persist ONE schema-suggestion ReviewItem ────────────────────────────────
+    # rationale = human "why" + delimited exact markdown rule block to append on approve.
+    rationale = f"{why}{_SCHEMA_ADDITION_MARKER}{addition}"
+    source_page_id = written_pages[0].id if written_pages else None
+    content_key = _content_key(
+        vault_id=vault_id,
+        item_type=_SCHEMA_SUGGESTION_TYPE,
+        proposed_title=convention,
+    )
+    try:
+        item = await enqueue_review(
+            vault_id=vault_id,
+            item_type=_SCHEMA_SUGGESTION_TYPE,
+            proposed_title=convention,
+            rationale=rationale,
+            source_page_id=(uuid.UUID(str(source_page_id)) if source_page_id is not None else None),
+            content_key=content_key,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "generate_schema_suggestion: failed to enqueue suggestion (vault=%s): %s",
+            vault_id,
+            exc,
+        )
+        return None
+
+    logger.info(
+        "generate_schema_suggestion: vault=%s emitted schema-suggestion convention=%r item=%s",
+        vault_id,
+        convention,
+        item.id,
+    )
+    return item
+
+
+def _build_schema_pattern_instruction(
+    *,
+    written_pages: list[Page],
+    schema_text: str,
+    max_tokens: int,
+) -> str:
+    """
+    Build the single bounded schema co-evolution prompt (R9-4). Asks the model to compare the
+    ACTUAL frontmatter/type/tag usage of the newly ingested pages against the vault's schema.md
+    rules; if a recurring convention is not yet codified, name it and propose the exact markdown
+    rule block to add to schema.md. Model returns ONLY JSON.
+    """
+    frontmatter_digest = _digest_frontmatter(written_pages)
+    schema_block = schema_text.strip() or "(schema.md is empty or missing)"
+
+    return (
+        "You maintain the schema.md of a self-organizing wiki. schema.md is the FORMAL contract "
+        "for page frontmatter: required fields, allowed `type` values, tag conventions, and "
+        "wikilink style. Given the current schema.md and the ACTUAL frontmatter (type, tags, and "
+        "which fields are present) of a batch of newly ingested pages, judge whether the pages "
+        "reveal a RECURRING convention that is NOT yet codified in schema.md — for example: a tag "
+        "family used consistently, a frontmatter field present on most pages but not required by "
+        "schema.md, or a `type` value that is over/under-used in a way the rules do not describe.\n"
+        "\n"
+        "Be conservative: propose a change ONLY for a genuine, recurring, useful convention. If "
+        "the pages already conform to schema.md, or the pattern is incidental / one-off, report "
+        "no change. Do NOT invent conventions the pages do not actually exhibit.\n\n"
+        f"# Current schema.md\n{schema_block}\n\n"
+        f"# Frontmatter of pages written this run\n{frontmatter_digest}\n\n"
+        'Return ONLY a JSON object. If no schema change is warranted, return '
+        '{"needs_change": false}. If a new convention SHOULD be codified, return '
+        '{"needs_change": true, "convention": "<short name of the convention, ≤6 words>", '
+        '"why": "<one sentence: what recurring pattern you observed and why schema.md should '
+        'capture it>", "addition": "<a short markdown section (heading + the exact rule text) to '
+        'APPEND to schema.md codifying this convention>"}.\n'
+        f"Keep the output well under {max_tokens} tokens. Return no prose, only the JSON object."
+    )
+
+
+def _parse_schema_pattern(raw: str) -> tuple[str, str, str] | None:
+    """
+    Parse the schema-pattern JSON. Returns (convention, why, addition) on a valid change verdict,
+    else None (no change, empty, or unparseable — degrade-safe, never raises).
+    """
+    if not raw:
+        return None
+    obj = _loads_json_lenient(raw)
+    if not isinstance(obj, dict):
+        return None
+    # Explicit no-change, or missing change fields → no suggestion.
+    if obj.get("needs_change") is False:
+        return None
+    convention = _clean_str(obj.get("convention"))
+    addition = _clean_str(obj.get("addition"))
+    if not convention or not addition:
+        return None
+    why = (
+        _clean_str(obj.get("why"))
+        or f"Recurring frontmatter convention not in schema: {convention}."
+    )
+    return convention, why, addition
+
+
+def _digest_frontmatter(written_pages: list[Page], *, max_pages: int = 20) -> str:
+    """
+    Compact frontmatter digest of the written pages for the schema-pattern prompt (R9-4).
+
+    Unlike _digest_written_pages (title + type only), this surfaces the fields schema.md actually
+    governs: `type`, `tags[]`, and whether `sources[]` is present. Bounded (max_pages); no full
+    page content (I1). Used only by the schema check.
+    """
+    lines: list[str] = []
+    for page in written_pages[:max_pages]:
+        title = (page.title or "").strip() or "(untitled)"
+        ptype = (page.page_type or "").strip() or "?"
+        tags = getattr(page, "tags", None) or []
+        tags_str = ", ".join(str(t) for t in tags[:10]) if tags else "(none)"
+        has_sources = "yes" if (getattr(page, "sources", None) or []) else "no"
+        lines.append(f"- {title} | type={ptype} | tags=[{tags_str}] | sources={has_sources}")
+    return "\n".join(lines) if lines else "(none)"
+
+
+async def _apply_suggestion_to_file(
+    item: ReviewItem,
+    *,
+    target_filename: str,
+    marker: str,
+    label: str,
+) -> None:
+    """
+    Shared apply helper for the two vault-file co-evolution suggestions (R9-3 purpose.md /
+    R9-4 schema.md). Appends the suggested block (the text after *marker* in `item.rationale`,
+    falling back to proposed_title) to `vault/<target_filename>`, then bumps data_version and
+    notifies the graph cache (the same seam write_wiki_page uses). Idempotency is the caller's
+    concern (the item is marked `created` in the same transaction path); this function only
+    performs the filesystem append + version bump.
+
+    Parameterized by target file so purpose.md and schema.md share ONE code path (R9-4 AC:
+    "factor the shared apply logic … into one helper parameterized by target file"). The only
+    per-type inputs are the filename, the rationale marker, and a log label.
+
+    Raises on write failure — the caller (create_page_from_review) converts to 502 and leaves
+    the item pending (no partial state).
+    """
+    addition = _extract_addition(item.rationale, marker) or (item.proposed_title or "").strip()
+    if not addition:
+        raise RuntimeError(f"{label} has no addition text to apply")
+
+    target_path = settings.vault_root / target_filename
+    # Read existing (tolerant), append with a clean separator, write back.
+    existing = ""
+    if target_path.exists():
+        existing = target_path.read_text(encoding="utf-8")
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not existing or existing.endswith("\n\n"):
+        sep = ""
+    elif existing.endswith("\n"):
+        sep = "\n"
+    else:
+        sep = "\n\n"
+    new_content = f"{existing}{sep}{addition.rstrip()}\n"
+    target_path.write_text(new_content, encoding="utf-8")
+
+    # Bump data_version (same monotonic +1 as the ingest write seam, AC-F16dv-2). Column-scoped
+    # UPDATE (portable, no ORM full-entity select) so a partial vault_state schema still bumps.
+    from sqlalchemy import update as _sa_update
+
+    async with get_session() as session:
+        await session.execute(
+            _sa_update(VaultState)
+            .where(VaultState.vault_id == settings.vault_id)
+            .values(
+                data_version=VaultState.data_version + 1,
+                updated_at=datetime.now(UTC),
+            )
+        )
+
+    # Notify graph cache of the bump (best-effort; skipped when the cache is not ready).
+    try:
+        from app.main import _graph_cache
+
+        if _graph_cache is not None:
+            # Read ONLY data_version (portable column-scoped select — avoids ORM full-entity
+            # selects that would require every VaultState column in narrow test schemas).
+            async with get_session() as session:
+                new_version = (
+                    await session.execute(
+                        select(VaultState.data_version).where(
+                            VaultState.vault_id == settings.vault_id
+                        )
+                    )
+                ).scalar_one_or_none() or 0
+            _graph_cache.notify_bump(new_version)
+    except Exception:  # noqa: BLE001
+        logger.debug("%s: graph cache notify_bump skipped (cache not ready)", label)
+
+    logger.info(
+        "%s: appended %d chars to %s (vault=%s item=%s)",
+        label,
+        len(addition),
+        target_filename,
+        item.vault_id,
+        item.id,
+    )
+
+
+async def apply_purpose_suggestion(item: ReviewItem) -> None:
+    """
+    Apply a `purpose-suggestion` to vault/purpose.md (R9-3 approve/create action).
+
+    Thin wrapper over the shared _apply_suggestion_to_file helper (R9-4 refactor): appends the
+    suggested section (the block after _PURPOSE_ADDITION_MARKER in `rationale`) to purpose.md,
+    bumps data_version, and notifies the graph cache. Raises on write failure.
+    """
+    await _apply_suggestion_to_file(
+        item,
+        target_filename="purpose.md",
+        marker=_PURPOSE_ADDITION_MARKER,
+        label="apply_purpose_suggestion",
+    )
+
+
+async def apply_schema_suggestion(item: ReviewItem) -> None:
+    """
+    Apply a `schema-suggestion` to vault/schema.md (R9-4 approve/create action).
+
+    Thin wrapper over the shared _apply_suggestion_to_file helper: appends the suggested rule
+    block (the text after _SCHEMA_ADDITION_MARKER in `rationale`) to schema.md, bumps
+    data_version, and notifies the graph cache. Raises on write failure. schema.md changes affect
+    FUTURE ingest classification/validation — see settings.schema_suggestion_enabled docstring.
+    """
+    await _apply_suggestion_to_file(
+        item,
+        target_filename="schema.md",
+        marker=_SCHEMA_ADDITION_MARKER,
+        label="apply_schema_suggestion",
+    )
+
+
+def _extract_addition(rationale: str | None, marker: str) -> str | None:
+    """Return the exact markdown addition stored after *marker* in *rationale*, else None."""
+    if not rationale or marker not in rationale:
+        return None
+    addition = rationale.split(marker, 1)[1].strip()
+    return addition or None
+
+
+def _extract_purpose_addition(rationale: str | None) -> str | None:
+    """Purpose-specific wrapper over _extract_addition (kept for the R9-3 test surface)."""
+    return _extract_addition(rationale, _PURPOSE_ADDITION_MARKER)
+
+
+def _extract_schema_addition(rationale: str | None) -> str | None:
+    """Schema-specific wrapper over _extract_addition (R9-4 apply/test surface)."""
+    return _extract_addition(rationale, _SCHEMA_ADDITION_MARKER)
+
+
+def _build_purpose_drift_instruction(
+    *,
+    analysis: Analysis | None,
+    written_pages: list[Page],
+    purpose_text: str,
+    max_tokens: int,
+) -> str:
+    """
+    Build the single bounded scope-drift prompt (R9-3). Asks the model to judge whether the newly
+    ingested content is within the vault's stated purpose/scope; if NOT, to name the recurring
+    theme and propose a short markdown section to add to purpose.md. Model returns ONLY JSON.
+    """
+    topics: list[str] = []
+    summary = ""
+    if analysis is not None:
+        topics = list(getattr(analysis, "topics", []) or [])
+        summary = (getattr(analysis, "summary", None) or "").strip()
+    topics_block = ", ".join(topics[:20]) or "(none)"
+    pages_digest = _digest_written_pages(written_pages)
+    purpose_block = purpose_text.strip() or "(purpose.md is empty or missing)"
+
+    return (
+        "You maintain the purpose.md of a self-organizing wiki. purpose.md declares the vault's "
+        "goal, scope, key questions, and thesis. Given the vault's current purpose.md and the "
+        "topics/summary of newly ingested content, judge whether the new content represents a "
+        "RECURRING THEME that is NOT already covered by the stated purpose (scope drift).\n\n"
+        "Be conservative: if the new content clearly fits the existing scope, report in-scope.\n\n"
+        f"# Current purpose.md\n{purpose_block}\n\n"
+        f"# Newly ingested topics\n{topics_block}\n\n"
+        f"# Newly ingested summary\n{summary or '(none)'}\n\n"
+        f"# Pages written this run\n{pages_digest}\n\n"
+        'Return ONLY a JSON object. If the content is within scope, return {"in_scope": true}. '
+        'If there IS scope drift, return {"in_scope": false, "theme": "<short theme name, ≤6 '
+        'words>", "why": "<one sentence: why this is outside current scope>", "addition": '
+        '"<a short markdown section (heading + 1-3 sentences) to append to purpose.md that '
+        'widens the scope to cover this theme>"}.\n'
+        f"Keep the output well under {max_tokens} tokens. Return no prose, only the JSON object."
+    )
+
+
+def _parse_purpose_drift(raw: str) -> tuple[str, str, str] | None:
+    """
+    Parse the drift JSON. Returns (theme, why, addition) on a valid drift verdict, else None
+    (in-scope, empty, or unparseable — degrade-safe, never raises).
+    """
+    if not raw:
+        return None
+    obj = _loads_json_lenient(raw)
+    if not isinstance(obj, dict):
+        return None
+    # Explicit in-scope, or missing drift fields → no suggestion.
+    if obj.get("in_scope") is True:
+        return None
+    theme = _clean_str(obj.get("theme"))
+    addition = _clean_str(obj.get("addition"))
+    if not theme or not addition:
+        return None
+    why = _clean_str(obj.get("why")) or f"New recurring theme not covered by purpose: {theme}."
+    return theme, why, addition
 
 
 # ── Core public operations ────────────────────────────────────────────────────
@@ -1188,6 +1936,93 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
 
     vault_id = item.vault_id
 
+    # ── R9-3: purpose-suggestion routing — apply to purpose.md, NOT a wiki page ──
+    # This item type does not create a wiki page; approve appends the suggested section to
+    # vault/purpose.md and bumps data_version, then marks the item created. No provider call.
+    if item.item_type == _PURPOSE_SUGGESTION_TYPE:
+        try:
+            await apply_purpose_suggestion(item)
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "create_page_from_review: apply_purpose_suggestion failed for item=%s: %s "
+                "— item left pending",
+                item_id_str,
+                exc,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    f"Failed to apply purpose.md suggestion: {exc}. "
+                    "Item left pending — retry or dismiss."
+                ),
+            ) from exc
+
+        async with get_session() as session:
+            row_ps = await session.execute(
+                select(ReviewItem).where(ReviewItem.id == item_id_str)
+            )
+            item_ps = row_ps.scalar_one_or_none()
+            if item_ps is None:
+                raise HTTPException(status_code=404, detail=f"Review item {item_id} not found")
+            item_ps.status = "created"
+            item_ps.resolution = "created"
+            item_ps.reviewed_at = datetime.now(UTC)
+            item_ps.reviewed_by = "web-ui"
+            await session.flush()
+            await session.refresh(item_ps)
+            session.expunge(item_ps)
+
+        logger.info(
+            "create_page_from_review: applied purpose-suggestion item=%s to purpose.md vault=%s",
+            item_id_str,
+            vault_id,
+        )
+        return item_ps
+
+    # ── R9-4: schema-suggestion routing — apply to schema.md, NOT a wiki page ────
+    # Same shape as the purpose-suggestion branch above: this item type does not create a wiki
+    # page; approve appends the suggested rule block to vault/schema.md and bumps data_version,
+    # then marks the item created. No provider call. schema.md changes affect FUTURE ingest.
+    if item.item_type == _SCHEMA_SUGGESTION_TYPE:
+        try:
+            await apply_schema_suggestion(item)
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "create_page_from_review: apply_schema_suggestion failed for item=%s: %s "
+                "— item left pending",
+                item_id_str,
+                exc,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    f"Failed to apply schema.md suggestion: {exc}. "
+                    "Item left pending — retry or dismiss."
+                ),
+            ) from exc
+
+        async with get_session() as session:
+            row_ss = await session.execute(
+                select(ReviewItem).where(ReviewItem.id == item_id_str)
+            )
+            item_ss = row_ss.scalar_one_or_none()
+            if item_ss is None:
+                raise HTTPException(status_code=404, detail=f"Review item {item_id} not found")
+            item_ss.status = "created"
+            item_ss.resolution = "created"
+            item_ss.reviewed_at = datetime.now(UTC)
+            item_ss.reviewed_by = "web-ui"
+            await session.flush()
+            await session.refresh(item_ss)
+            session.expunge(item_ss)
+
+        logger.info(
+            "create_page_from_review: applied schema-suggestion item=%s to schema.md vault=%s",
+            item_id_str,
+            vault_id,
+        )
+        return item_ss
+
     # ── 2. Resolve provider (I6 — 409 if none configured) ────────────────────
     try:
         provider_config_row = await resolve_provider_config("ingest", vault_id)
@@ -1719,23 +2554,37 @@ def _coerce_token_budget(raw: Any, fallback: int) -> int:
     return value or fallback
 
 
-async def _chat_collect(provider: Any, instruction: str) -> str:
+async def _chat_collect(provider: Any, instruction: str, *, max_tokens: int | None = None) -> str:
     """
     Run ONE capability-agnostic provider.chat() turn and collect the full text (I6).
 
     Rides the existing chat() seam (same surface ops/deep_research.py uses) so the call is
     backend-neutral — no new ABC method, no isinstance/type branching. Usage is recorded out
     of band onto the bound accumulator by the provider. Returns the concatenated text.
+
+    max_tokens (R9-3 / UXB-1 pattern): the chat() ABC intentionally has ONE neutral 2-arg
+    surface (I6 — no per-backend max_tokens plumbing). The output bound is therefore enforced
+    HERE at the collection site: streaming stops once ~max_tokens worth of text is collected
+    (~4 chars/token). Combined with the single call + no retry + wait_for timeout, this caps
+    the call cost regardless of backend.
     """
     from app.ingest.schemas import Message
 
+    char_cap: int | None = max_tokens * 4 if max_tokens else None
     chunks: list[str] = []
+    collected = 0
     async for chunk in await provider.chat(
         messages=[Message(role="user", content=instruction)],
         retrieval_context="",
     ):
         chunks.append(chunk)
-    return "".join(chunks).strip()
+        collected += len(chunk)
+        if char_cap is not None and collected >= char_cap:
+            break
+    text = "".join(chunks).strip()
+    if char_cap is not None and len(text) > char_cap:
+        text = text[:char_cap]
+    return text
 
 
 def _digest_written_pages(written_pages: list[Page], *, max_pages: int = 20) -> str:

@@ -127,6 +127,9 @@ beforeEach(() => {
     conversationsError: null,
     messagesLoading: false,
     messagesError: null,
+    // UXB-1
+    conversationsNeedRefresh: false,
+    clearConversationsNeedRefresh: vi.fn(),
     setConversations: vi.fn(),
     setActiveConversationId: vi.fn(),
     addConversation: vi.fn(),
@@ -303,5 +306,71 @@ describe("ConversationList — R7-3 rename (optimistic)", () => {
       expect(screen.queryByTestId("conv-rename-input")).toBeNull();
     });
     expect(chatClient.renameConversation).not.toHaveBeenCalled();
+  });
+});
+
+// ─── UXB-1: preview snippet ───────────────────────────────────────────────────
+
+describe("ConversationList — UXB-1 preview snippet (AC-UXB1-3)", () => {
+  it("renders conv-preview when conv.preview is a non-empty string", async () => {
+    vi.mocked(useConversations).mockReturnValue([
+      {
+        id: "c1",
+        vault_id: "v1",
+        title: "Alpha conversation",
+        created_at: "2026-01-01",
+        updated_at: "2026-01-01",
+        preview: "This is a short preview of the last message",
+      },
+    ]);
+
+    render(<ConversationList />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("conv-preview")).toBeTruthy();
+    });
+    expect(screen.getByTestId("conv-preview").textContent).toBe(
+      "This is a short preview of the last message",
+    );
+  });
+
+  it("does NOT render conv-preview when conv.preview is null", async () => {
+    vi.mocked(useConversations).mockReturnValue([
+      {
+        id: "c1",
+        vault_id: "v1",
+        title: "Alpha conversation",
+        created_at: "2026-01-01",
+        updated_at: "2026-01-01",
+        preview: null,
+      },
+    ]);
+
+    render(<ConversationList />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Alpha conversation")).toBeTruthy();
+    });
+    expect(screen.queryByTestId("conv-preview")).toBeNull();
+  });
+
+  it("does NOT render conv-preview when conv.preview is omitted (older server)", async () => {
+    vi.mocked(useConversations).mockReturnValue([
+      {
+        id: "c1",
+        vault_id: "v1",
+        title: "Alpha conversation",
+        created_at: "2026-01-01",
+        updated_at: "2026-01-01",
+        // preview field omitted entirely
+      },
+    ]);
+
+    render(<ConversationList />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Alpha conversation")).toBeTruthy();
+    });
+    expect(screen.queryByTestId("conv-preview")).toBeNull();
   });
 });

@@ -558,6 +558,38 @@ async def run_ingest_pipeline(
                     "(non-fatal): %s",
                     _sweep_d_exc,
                 )
+            # ── R9-3 delegated-route purpose drift check (F2, ADR §R9-3) ──────────────
+            # Bounded single provider call (max_tokens 300, no retry). Analysis is None on the
+            # delegated route → the seam degrades to titles-only. Fire-and-forget: any exception
+            # logs a WARNING and NEVER fails the ingest run (AC-R9-3-3).
+            try:
+                await _purpose_suggestion_for_delegated(
+                    vault_id=settings.vault_id,
+                    written_page_ids=delegated_page_ids,
+                    origin_source=origin_source,
+                )
+            except Exception as _ps_d_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: R9-3 delegated purpose-suggestion hook failed "
+                    "(non-fatal): %s",
+                    _ps_d_exc,
+                )
+            # ── R9-4 delegated-route schema.md co-evolution check (K6, ADR §R9-4) ──────
+            # Runs AFTER the delegated purpose check. Bounded single provider call (max_tokens
+            # 400, no retry). DEFAULT OFF. Fire-and-forget: any exception logs a WARNING and
+            # NEVER fails the ingest run (AC-R9-4-3).
+            try:
+                await _schema_suggestion_for_delegated(
+                    vault_id=settings.vault_id,
+                    written_page_ids=delegated_page_ids,
+                    origin_source=origin_source,
+                )
+            except Exception as _ss_d_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: R9-4 delegated schema-suggestion hook failed "
+                    "(non-fatal): %s",
+                    _ss_d_exc,
+                )
         else:
             # route is already "orchestrated" (default above) — explicit for readers.
             route = "orchestrated"
@@ -638,6 +670,48 @@ async def run_ingest_pipeline(
                 logger.warning(
                     "run_ingest_pipeline: F9 sweep_reviews hook failed (non-fatal): %s",
                     _sweep_exc,
+                )
+
+            # ── R9-3 post-ingest purpose drift check (F2, ADR §R9-3) ──────────────────
+            # Bounded single provider call (max_tokens 300, no retry, cost logged). Compares the
+            # run's analysis topics/summary against vault purpose.md; on scope drift emits ONE
+            # purpose-suggestion ReviewItem (throttled: max 1 pending + ≥N sources since last
+            # check). Fire-and-forget: any exception logs a WARNING and NEVER fails ingest
+            # (AC-R9-3-3).
+            try:
+                from app.ops.review import generate_purpose_suggestion as _gen_purpose_sugg
+
+                await _gen_purpose_sugg(
+                    vault_id=settings.vault_id,
+                    analysis=analysis,
+                    written_pages=written_pages,
+                    origin_source=origin_source,
+                )
+            except Exception as _ps_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: R9-3 purpose-suggestion hook failed (non-fatal): %s",
+                    _ps_exc,
+                )
+
+            # ── R9-4 post-ingest schema.md co-evolution check (K6, ADR §R9-4) ─────────
+            # Runs AFTER the R9-3 purpose check (AC-R9-4-3). Bounded single provider call
+            # (max_tokens 400, no retry, cost logged). Compares the written pages' actual
+            # frontmatter/type/tag usage against vault schema.md; on a recurring un-codified
+            # convention emits ONE schema-suggestion ReviewItem (throttled: max 1 pending + ≥N
+            # sources since last check; DEFAULT OFF — see settings.schema_suggestion_enabled).
+            # Fire-and-forget: any exception logs a WARNING and NEVER fails ingest.
+            try:
+                from app.ops.review import generate_schema_suggestion as _gen_schema_sugg
+
+                await _gen_schema_sugg(
+                    vault_id=settings.vault_id,
+                    written_pages=written_pages,
+                    origin_source=origin_source,
+                )
+            except Exception as _ss_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: R9-4 schema-suggestion hook failed (non-fatal): %s",
+                    _ss_exc,
                 )
     except IngestCancelled as _cancelled_exc:
         # ── ADR-0046 §3: cooperative cancel — cascade-delete partial output (I1) ──
@@ -1037,6 +1111,112 @@ async def _propose_reviews_for_delegated(
     await _propose_reviews(
         vault_id=vault_id,
         analysis=synthesized,
+        written_pages=rows,
+        origin_source=origin_source,
+    )
+
+
+async def _purpose_suggestion_for_delegated(
+    *,
+    vault_id: str,
+    written_page_ids: list[str],
+    origin_source: str,
+) -> None:
+    """
+    Drive the R9-3 purpose drift check for the delegated (CLI) route.
+
+    Loads the Page rows the CLI agent wrote through MCP write_page (recorded ids) and calls the
+    SAME `generate_purpose_suggestion(...)` seam the orchestrated route uses. Analysis is None on
+    the delegated route (the agent owns its own analysis); the seam degrades gracefully — it
+    still reads purpose.md and the written-page titles. Bounded single call, no retry. Empty
+    recorded set → early-return (zero cost). NO provider-type branch (I6).
+    """
+    if not written_page_ids:
+        logger.debug("delegated purpose-suggestion: no recorded write_page ids — skip (zero cost)")
+        return
+
+    from sqlalchemy import String as _SAString
+    from sqlalchemy import cast, select
+
+    from app.models import Page
+    from app.ops.review import generate_purpose_suggestion as _gen_purpose_sugg
+
+    async with get_session() as session:
+        rows = list(
+            (
+                await session.execute(
+                    select(Page).where(
+                        cast(Page.id, _SAString).in_([str(i) for i in written_page_ids]),
+                        Page.deleted_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for r in rows:
+            session.expunge(r)
+
+    if not rows:
+        logger.debug("delegated purpose-suggestion: recorded ids resolved to no live pages")
+        return
+
+    await _gen_purpose_sugg(
+        vault_id=vault_id,
+        analysis=None,
+        written_pages=rows,
+        origin_source=origin_source,
+    )
+
+
+async def _schema_suggestion_for_delegated(
+    *,
+    vault_id: str,
+    written_page_ids: list[str],
+    origin_source: str,
+) -> None:
+    """
+    Drive the R9-4 schema.md co-evolution check for the delegated (CLI) route.
+
+    Loads the Page rows the CLI agent wrote through MCP write_page (recorded ids) and calls the
+    SAME `generate_schema_suggestion(...)` seam the orchestrated route uses. The seam reads the
+    written pages' real frontmatter (type/tags/sources) — available regardless of route — and
+    schema.md. Bounded single call, no retry. DEFAULT OFF (the seam self-gates on
+    schema_suggestion_enabled). Empty recorded set → early-return (zero cost). NO provider-type
+    branch (I6).
+    """
+    if not written_page_ids:
+        logger.debug("delegated schema-suggestion: no recorded write_page ids — skip (zero cost)")
+        return
+
+    from sqlalchemy import String as _SAString
+    from sqlalchemy import cast, select
+
+    from app.models import Page
+    from app.ops.review import generate_schema_suggestion as _gen_schema_sugg
+
+    async with get_session() as session:
+        rows = list(
+            (
+                await session.execute(
+                    select(Page).where(
+                        cast(Page.id, _SAString).in_([str(i) for i in written_page_ids]),
+                        Page.deleted_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for r in rows:
+            session.expunge(r)
+
+    if not rows:
+        logger.debug("delegated schema-suggestion: recorded ids resolved to no live pages")
+        return
+
+    await _gen_schema_sugg(
+        vault_id=vault_id,
         written_pages=rows,
         origin_source=origin_source,
     )

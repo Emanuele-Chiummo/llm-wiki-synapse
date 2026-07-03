@@ -47,7 +47,9 @@ import type { Attributes } from "graphology-types";
 import type { Settings } from "sigma/settings";
 import type { NodeDisplayData, PartialButFor } from "sigma/types";
 import { buildGraphologyGraph } from "../api/graphTransform";
-import { fetchGraph, fetchPageDetail, patchNodePosition, recomputeGraph } from "../api/graphClient";
+import { fetchGraph, fetchPageDetail, patchNodePosition, recomputeGraph, fetchCommunityDetail, fetchEdgeDetail } from "../api/graphClient";
+import type { CommunityDetail, EdgeDetail } from "../api/graphClient";
+import { ApiError } from "../api/graphClient";
 import type { GraphCommunity, PageDetail } from "../api/types";
 import {
   selectCommunities,
@@ -322,6 +324,276 @@ const NodeTooltip: React.FC<TooltipProps> = ({ nodeId, position, neighborCount, 
   );
 };
 
+// ─── CommunityPanel (R9-5) ────────────────────────────────────────────────────
+// Side panel that opens when a community legend entry is clicked.
+// Fetches GET /graph/communities/{id} on demand (I2: read-only, no layout).
+
+interface CommunityPanelProps {
+  communityId: number;
+  communityColor: string;
+  onClose: () => void;
+  onNavigate: (pageId: string) => void;
+}
+
+const CommunityPanel: React.FC<CommunityPanelProps> = ({
+  communityId,
+  communityColor,
+  onClose,
+  onNavigate,
+}) => {
+  const { t } = useTranslation();
+  const [detail, setDetail] = useState<CommunityDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    setLoading(true);
+    setError(null);
+    fetchCommunityDetail(communityId, ctrl.signal)
+      .then((d) => {
+        setDetail(d);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === "AbortError") return;
+        if (err instanceof ApiError && err.status === 409) {
+          setError(t("graph.community.coldCache"));
+        } else {
+          setError(t("graph.community.error"));
+        }
+        setLoading(false);
+      });
+    return () => ctrl.abort();
+  }, [communityId, t]);
+
+  return (
+    <div
+      data-testid="community-panel"
+      className="syn-card"
+      style={{
+        position: "absolute",
+        top: 12,
+        right: 56,
+        width: 240,
+        maxHeight: "calc(100% - 24px)",
+        overflowY: "auto",
+        zIndex: 8,
+        padding: "12px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span
+            style={{ width: 10, height: 10, borderRadius: "50%", background: communityColor, flexShrink: 0, display: "inline-block" }}
+            aria-hidden="true"
+          />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--syn-text)" }}>
+            {t("graph.community.panelTitle", { id: communityId })}
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          aria-label={t("common.close")}
+          style={{ background: "none", border: "none", color: "var(--syn-text-dim)", cursor: "pointer", padding: "2px 4px", lineHeight: 1 }}
+        >
+          ×
+        </button>
+      </div>
+
+      {loading && (
+        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: 0 }}>{t("graph.community.loading")}</p>
+      )}
+
+      {error !== null && (
+        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: 0 }} role="alert">{error}</p>
+      )}
+
+      {detail !== null && (
+        <>
+          {/* Stats row */}
+          <div style={{ fontSize: 12, color: "var(--syn-text-muted)", display: "flex", gap: 12 }}>
+            <span>{t("graph.community.memberCount", { count: detail.size })}</span>
+            <span data-testid="community-cohesion">
+              {t("graph.community.cohesionLabel", { score: detail.cohesion.toFixed(2) })}
+            </span>
+          </div>
+
+          {/* Low-cohesion warning */}
+          {detail.cohesion_warning && (
+            <div
+              data-testid="community-low-cohesion-warning"
+              style={{
+                padding: "6px 8px",
+                background: "color-mix(in srgb, var(--syn-amber, #d97706) 10%, var(--syn-mix-base) 90%)",
+                border: "1px solid color-mix(in srgb, var(--syn-amber, #d97706) 30%, transparent 70%)",
+                borderRadius: 4,
+                fontSize: 11,
+                color: "var(--syn-amber, #d97706)",
+                fontWeight: 500,
+              }}
+            >
+              {t("graph.community.lowCohesionWarning")}
+            </div>
+          )}
+
+          {/* Member list */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {detail.members.length === 0 ? (
+              <p style={{ fontSize: 12, color: "var(--syn-text-dim)", margin: 0 }}>{t("graph.community.noMembers")}</p>
+            ) : (
+              detail.members.slice(0, 100).map((m) => (
+                <button
+                  key={m.id}
+                  data-testid={`community-member-${m.id}`}
+                  onClick={() => onNavigate(m.id)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: "4px 6px",
+                    borderRadius: 4,
+                    textAlign: "left",
+                    cursor: "pointer",
+                    color: "var(--syn-text)",
+                    fontSize: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface-hover)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                >
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</span>
+                  {m.page_type && (
+                    <span style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}>{m.page_type}</span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ─── EdgeBreakdownTooltip (R9-5) ─────────────────────────────────────────────
+// Popover showing 4-signal edge weight breakdown.
+// Fetched on click (edge click in sigma, 150ms debounce on approach not needed for click).
+// Cached per (src, tgt) pair in parent component state.
+
+interface EdgeBreakdownTooltipProps {
+  srcId: string;
+  tgtId: string;
+  position: { x: number; y: number };
+  cache: Map<string, EdgeDetail>;
+  onCached: (key: string, detail: EdgeDetail) => void;
+  onClose: () => void;
+}
+
+const EdgeBreakdownTooltip: React.FC<EdgeBreakdownTooltipProps> = ({
+  srcId,
+  tgtId,
+  position,
+  cache,
+  onCached,
+  onClose,
+}) => {
+  const { t } = useTranslation();
+  const cacheKey = `${srcId}__${tgtId}`;
+  const cached = cache.get(cacheKey) ?? cache.get(`${tgtId}__${srcId}`);
+  const [detail, setDetail] = useState<EdgeDetail | null>(cached ?? null);
+  const [loading, setLoading] = useState(cached === undefined);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (cached !== undefined) {
+      setDetail(cached);
+      setLoading(false);
+      return;
+    }
+    const ctrl = new AbortController();
+    setLoading(true);
+    fetchEdgeDetail(srcId, tgtId, ctrl.signal)
+      .then((d) => {
+        setDetail(d);
+        onCached(cacheKey, d);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === "AbortError") return;
+        if (err instanceof ApiError && err.status === 404) {
+          setError(t("graph.edge.notFound"));
+        } else {
+          setError(t("graph.edge.error"));
+        }
+        setLoading(false);
+      });
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [srcId, tgtId]);
+
+  return (
+    <div
+      data-testid="edge-breakdown-tooltip"
+      className="syn-card"
+      style={{
+        position: "absolute",
+        left: position.x + 12,
+        top: position.y - 8,
+        padding: "10px 14px",
+        maxWidth: 280,
+        zIndex: 10,
+        pointerEvents: "auto",
+      }}
+      role="tooltip"
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--syn-text)" }}>
+          {t("graph.edge.breakdownTitle")}
+        </span>
+        <button
+          onClick={onClose}
+          aria-label={t("common.close")}
+          style={{ background: "none", border: "none", color: "var(--syn-text-dim)", cursor: "pointer", padding: "2px 4px", lineHeight: 1, fontSize: 14 }}
+        >
+          ×
+        </button>
+      </div>
+
+      {loading && <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: 0 }}>{t("graph.edge.loading")}</p>}
+      {error !== null && <p style={{ fontSize: 12, color: "var(--syn-red)", margin: 0 }} role="alert">{error}</p>}
+
+      {detail !== null && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <EdgeRow label={t("graph.edge.directLinks")} value={detail.breakdown.direct_links} />
+          <EdgeRow label={t("graph.edge.sharedSources")} value={detail.breakdown.shared_sources} />
+          <EdgeRow label={t("graph.edge.adamicAdar")} value={detail.breakdown.adamic_adar} />
+          <EdgeRow label={t("graph.edge.typeAffinity")} value={detail.breakdown.type_affinity} />
+          <div style={{ borderTop: "1px solid var(--syn-border)", paddingTop: 4, marginTop: 2 }}>
+            <EdgeRow label={t("graph.edge.total")} value={detail.weight} bold />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+function EdgeRow({ label, value, bold }: { label: string; value: number; bold?: boolean }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11 }}>
+      <span style={{ color: bold ? "var(--syn-text)" : "var(--syn-text-muted)", fontWeight: bold ? 700 : 400 }}>{label}</span>
+      <span style={{ color: "var(--syn-text)", fontFamily: "monospace", fontWeight: bold ? 700 : 400 }}>
+        {value.toFixed(3)}
+      </span>
+    </div>
+  );
+}
+
 // ─── Legend ───────────────────────────────────────────────────────────────────
 // CVD-safe: shows color swatch AND type/community label (redundant encoding, WCAG 1.4.1).
 
@@ -330,9 +602,11 @@ interface GraphLegendProps {
   colorMode: ColorMode;
   /** Community summary list from GET /graph (server-computed, I2). */
   communities: GraphCommunity[];
+  /** Called when a community legend entry is clicked (R9-5). */
+  onCommunityClick?: (id: number) => void;
 }
 
-const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities }) => {
+const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCommunityClick }) => {
   const { t } = useTranslation();
 
   return (
@@ -426,8 +700,23 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities }) => 
               return (
                 <div
                   key={c.id}
-                  style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginBottom: 4,
+                    cursor: onCommunityClick ? "pointer" : "default",
+                  }}
                   data-testid={`community-legend-item-${c.id}`}
+                  onClick={() => onCommunityClick?.(c.id)}
+                  role={onCommunityClick ? "button" : undefined}
+                  tabIndex={onCommunityClick ? 0 : undefined}
+                  onKeyDown={(e) => {
+                    if (onCommunityClick && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      onCommunityClick(c.id);
+                    }
+                  }}
                 >
                   <span
                     style={{
@@ -656,6 +945,28 @@ export const GraphViewer: React.FC = () => {
   // Aria-live announcement text
   const [announcement, setAnnouncement] = useState<string>("");
 
+  // ── R9-5: Community panel state ──────────────────────────────────────────
+  const [communityPanel, setCommunityPanel] = useState<{ id: number; color: string } | null>(null);
+
+  // ── R9-5: Edge breakdown tooltip state ──────────────────────────────────
+  interface EdgeTooltipState {
+    srcId: string;
+    tgtId: string;
+    position: { x: number; y: number };
+  }
+  const [edgeTooltip, setEdgeTooltip] = useState<EdgeTooltipState | null>(null);
+  // Per-pair cache: key = "srcId__tgtId" or "tgtId__srcId"
+  const edgeDetailCache = useRef<Map<string, EdgeDetail>>(new Map());
+
+  const handleCommunityClick = useCallback((id: number) => {
+    const color = colorForCommunity(id);
+    setCommunityPanel((prev) => (prev?.id === id ? null : { id, color }));
+  }, []);
+
+  const handleEdgeCached = useCallback((key: string, detail: EdgeDetail) => {
+    edgeDetailCache.current.set(key, detail);
+  }, []);
+
   // Regenerate-graph control state (reresolve links + recompute FA2, then refetch coords)
   const [regenerating, setRegenerating] = useState(false);
   const [regenMsg, setRegenMsg] = useState<string | null>(null);
@@ -814,6 +1125,13 @@ export const GraphViewer: React.FC = () => {
 
       // Edge events required for edgeReducer hover detection
       enableEdgeEvents: true,
+
+      // The container can legitimately measure 0px for one frame while the
+      // flex layout settles (theme-driven re-instantiation, section switch).
+      // Without this sigma THROWS at construction ("Container has no width")
+      // and — before SectionErrorBoundary existed — unmounted the whole app.
+      // The existing ResizeObserver picks up the real size immediately after.
+      allowInvalidContainer: true,
 
       // zIndex enables per-node z ordering in reducers
       zIndex: true,
@@ -1016,6 +1334,16 @@ export const GraphViewer: React.FC = () => {
     sigma.on("clickStage", () => {
       hoverState.selectedNode = null;
       setSelectedNodeId(null);
+      setTooltip(null);
+      setEdgeTooltip(null);
+    });
+
+    // ── R9-5: Edge click → show breakdown tooltip ─────────────────────────
+    // sigma fires clickEdge when enableEdgeEvents:true (already set above).
+    sigma.on("clickEdge", ({ edge, event }) => {
+      const [src, tgt] = sigmaGraph.extremities(edge);
+      setEdgeTooltip({ srcId: src, tgtId: tgt, position: { x: event.x, y: event.y } });
+      // Close node tooltip if open
       setTooltip(null);
     });
 
@@ -1329,7 +1657,24 @@ export const GraphViewer: React.FC = () => {
       <StatusBar />
 
       {/* Legend overlay — CVD-safe: name + color swatch; switches on colorMode */}
-      <GraphLegend colorMode={colorMode} communities={communities} />
+      <GraphLegend
+        colorMode={colorMode}
+        communities={communities}
+        {...(colorMode === "community" ? { onCommunityClick: handleCommunityClick } : {})}
+      />
+
+      {/* R9-5: Community drill-down panel */}
+      {communityPanel !== null && (
+        <CommunityPanel
+          communityId={communityPanel.id}
+          communityColor={communityPanel.color}
+          onClose={() => setCommunityPanel(null)}
+          onNavigate={(pageId) => {
+            setSelectedNodeId(pageId);
+            setCommunityPanel(null);
+          }}
+        />
+      )}
 
       {/* Tooltip — conditional, at most 1 visible at a time */}
       {tooltip !== null && (
@@ -1338,6 +1683,18 @@ export const GraphViewer: React.FC = () => {
           position={tooltip.position}
           neighborCount={tooltip.neighborCount}
           onClose={handleTooltipClose}
+        />
+      )}
+
+      {/* R9-5: Edge weight breakdown tooltip */}
+      {edgeTooltip !== null && (
+        <EdgeBreakdownTooltip
+          srcId={edgeTooltip.srcId}
+          tgtId={edgeTooltip.tgtId}
+          position={edgeTooltip.position}
+          cache={edgeDetailCache.current}
+          onCached={handleEdgeCached}
+          onClose={() => setEdgeTooltip(null)}
         />
       )}
     </div>

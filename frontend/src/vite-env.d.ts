@@ -6,6 +6,9 @@
  */
 declare const __DEV__: boolean;
 
+/** App version injected from package.json by vite.config.ts define. */
+declare const __APP_VERSION__: string;
+
 interface ImportMetaEnv {
   /** Base URL of the Synapse FastAPI backend (no trailing slash). Default: http://localhost:8000 */
   readonly VITE_API_BASE?: string;

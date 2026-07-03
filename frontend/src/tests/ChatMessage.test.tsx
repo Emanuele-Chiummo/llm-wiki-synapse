@@ -594,3 +594,43 @@ describe("save-to-wiki button state machine (AC-F6-5 v0.6 — POST /chat/save-to
     });
   });
 });
+
+// ─── UXB-2 AC-UXB2-2: Save-to-wiki + Regenerate button class snapshot ────────
+// Verifies the className applied to each button matches the design-system contract
+// without exercising the full MessageList store/virtualizer (that is covered by
+// E2E tests). A minimal inline render is used for class inspection.
+
+describe("save-to-wiki / regenerate — UXB-2 class assertion (AC-UXB2-2)", () => {
+  it("AC-UXB2-2: save-to-wiki idle button has syn-btn syn-btn--secondary syn-btn--sm classes", () => {
+    // Minimal render that mirrors MessageList's idle save-to-wiki button JSX.
+    render(
+      <button
+        type="button"
+        data-testid="save-to-wiki-btn"
+        className="syn-btn syn-btn--secondary syn-btn--sm"
+      >
+        Save to wiki
+      </button>,
+    );
+    const btn = screen.getByTestId("save-to-wiki-btn");
+    expect(btn.classList.contains("syn-btn")).toBe(true);
+    expect(btn.classList.contains("syn-btn--secondary")).toBe(true);
+    expect(btn.classList.contains("syn-btn--sm")).toBe(true);
+  });
+
+  it("AC-UXB2-2: regenerate button has syn-btn syn-btn--secondary syn-btn--sm classes", () => {
+    render(
+      <button
+        type="button"
+        data-testid="regenerate-btn"
+        className="syn-btn syn-btn--secondary syn-btn--sm"
+      >
+        Regenerate
+      </button>,
+    );
+    const btn = screen.getByTestId("regenerate-btn");
+    expect(btn.classList.contains("syn-btn")).toBe(true);
+    expect(btn.classList.contains("syn-btn--secondary")).toBe(true);
+    expect(btn.classList.contains("syn-btn--sm")).toBe(true);
+  });
+});

@@ -315,15 +315,7 @@ const MessageRow = memo(function MessageRow({
               type="button"
               onClick={() => void handleSaveToWiki()}
               data-testid="save-to-wiki-btn"
-              style={{
-                background: "none",
-                border: "1px solid var(--syn-border)",
-                borderRadius: 4,
-                color: "var(--syn-text-muted)",
-                cursor: "pointer",
-                fontSize: 11,
-                padding: "2px 8px",
-              }}
+              className="syn-btn syn-btn--secondary syn-btn--sm"
               title={t("chat.saveToWiki")}
             >
               {t("chat.saveToWiki")}
@@ -333,16 +325,7 @@ const MessageRow = memo(function MessageRow({
               type="button"
               data-testid="save-to-wiki-btn"
               disabled
-              style={{
-                background: "none",
-                border: "1px solid var(--syn-border)",
-                borderRadius: 4,
-                color: "var(--syn-text-muted)",
-                cursor: "not-allowed",
-                fontSize: 11,
-                padding: "2px 8px",
-                opacity: 0.5,
-              }}
+              className="syn-btn syn-btn--secondary syn-btn--sm"
             >
               {t("chat.saveToWikiSaving")}
             </button>
@@ -372,15 +355,7 @@ const MessageRow = memo(function MessageRow({
             <button
               type="button"
               onClick={onRegenerate}
-              style={{
-                background: "none",
-                border: "1px solid var(--syn-border)",
-                borderRadius: 4,
-                color: "var(--syn-text-muted)",
-                cursor: "pointer",
-                fontSize: 11,
-                padding: "2px 8px",
-              }}
+              className="syn-btn syn-btn--secondary syn-btn--sm"
               title={t("chat.regenerate")}
             >
               {t("chat.regenerate")}

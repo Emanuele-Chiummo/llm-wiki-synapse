@@ -11,6 +11,7 @@
     "review": "Review",
     "deepSearch": "Research",
     "deepSearchShort": "Deep Search",
+    "toolsGroup": "Tools",
     "settings": "Settings",
     "settingsShort": "Settings",
     "chatComingSoon": "Phase 3",
@@ -67,6 +68,7 @@
     "toastError": "Ingest failed: {{detail}}",
     "costAnomaly": "Cost anomaly (> $1.00)",
     "noRunSelected": "Select a run to see details.",
+    "zeroPagesHint": "0 pages created — check the provider configuration and that the file format is supported.",
     "upload": {
       "label": "Upload document",
       "drop": "Drop a file here, or click to browse",
@@ -135,7 +137,8 @@
       "interface": "Interface",
       "maintenance": "Maintenance",
       "about": "About",
-      "scenarios": "Scenarios"
+      "scenarios": "Scenarios",
+      "costs": "Costs"
     },
     "llmModels": {
       "title": "LLM Models",
@@ -401,6 +404,25 @@
       "runNowError": "Could not trigger import: {{detail}}",
       "never": "Never run",
       "saveError": "Failed to save: {{detail}}"
+    },
+    "costs": {
+      "navLabel": "Costs",
+      "title": "Cost & Usage",
+      "desc": "Monthly AI spend aggregated from all runs. Refreshes manually — no background polling.",
+      "refresh": "Refresh",
+      "loading": "Loading cost data…",
+      "error": "Could not load cost data. Is the backend running?",
+      "period": "Period",
+      "monthlyTotal": "Monthly total",
+      "thresholdAlert": "Monthly spend exceeds threshold (${{threshold}})",
+      "byProvider": "Cost by provider",
+      "byOperation": "Cost by operation",
+      "byDay": "Daily spend",
+      "providerCol": "Provider",
+      "operationCol": "Operation",
+      "totalUsd": "Total (USD)",
+      "callCount": "Calls",
+      "noData": "No cost data for this period."
     }
   },
   "chat": {
@@ -653,6 +675,27 @@
       "collapseAriaLabel": "Collapse insights panel",
       "expandAriaLabel": "Expand insights panel",
       "empty": "No insights found. Add more pages and links to surface surprising connections and knowledge gaps."
+    },
+    "community": {
+      "panelTitle": "Community {{id}}",
+      "memberCount": "{{count}} members",
+      "cohesionLabel": "Cohesion: {{score}}",
+      "lowCohesionWarning": "Low cohesion — this community may be fragmented.",
+      "loading": "Loading community…",
+      "error": "Could not load community data.",
+      "coldCache": "Graph layout not ready — regenerate the graph first.",
+      "noMembers": "No members found."
+    },
+    "edge": {
+      "breakdownTitle": "Edge weight breakdown",
+      "directLinks": "Direct links ×3",
+      "sharedSources": "Source overlap ×4",
+      "adamicAdar": "Adamic-Adar ×1.5",
+      "typeAffinity": "Type affinity ×1",
+      "total": "Total",
+      "loading": "Loading…",
+      "error": "Could not load edge data.",
+      "notFound": "No direct edge between these nodes."
     }
   },
   "search": {
@@ -758,6 +801,7 @@
     "expand": "Expand activity panel",
     "collapse": "Collapse activity panel",
     "emptyQueue": "Queue is empty",
+    "moreFailedTasks": "+{{count}} more failed tasks",
     "etaLeft": "~{{eta}} left",
     "elapsed": "Elapsed",
     "batchIndexing": "Indexing {{done}}/{{total}}",
@@ -795,12 +839,22 @@
     "copy": "Copy",
     "unknown": "Unknown"
   },
+  "previewPanel": {
+    "connectedTo": "Connected to {{count}} other pages",
+    "connectedTo_one": "Connected to 1 other page",
+    "technicalDetails": "Technical details"
+  },
   "palette": {
     "placeholder": "Search sections and pages…",
     "noResults": "No results",
     "sections": "Sections",
     "pages": "Pages",
     "hint": "↑↓ navigate · Enter open · Esc close"
+  },
+  "conversation": {
+    "autoTitle": {
+      "fallback": "Chat {{date}}"
+    }
   },
   "desktop": {
     "serverChip": {

@@ -189,6 +189,51 @@ describe("NavRail — icon + label on each button (AC-HARD-LBL-7)", () => {
   });
 });
 
+// ─── UXA-05: inactive rail buttons must not suppress focus outline ────────────
+
+describe("NavRail — UXA-05: inactive buttons do not set outline:none", () => {
+  beforeEach(() => {
+    renderNavRail();
+  });
+
+  it("inactive rail buttons do not have outline:none inline style", () => {
+    // The active item (chat) has an active-state outline; all others must NOT
+    // set outline: "none" which would suppress :focus-visible keyboard ring.
+    const buttons = document.querySelectorAll("[data-testid='nav-rail'] button");
+    buttons.forEach((btn) => {
+      const el = btn as HTMLElement;
+      const isActive = el.getAttribute("aria-current") === "page";
+      if (!isActive) {
+        // outline style must not be the string "none"
+        expect(
+          el.style.outline,
+          `Inactive button id="${el.id}" should not override outline to "none"`,
+        ).not.toBe("none");
+      }
+    });
+  });
+});
+
+// ─── UXA-01: secondary group label rendered ───────────────────────────────────
+
+describe("NavRail — UXA-01: tools group label present", () => {
+  beforeEach(() => {
+    renderNavRail();
+  });
+
+  it("renders a group label element for the M5 tools group", () => {
+    // The group label is a <span aria-hidden="true"> with the toolsGroup translation key.
+    // Our mock returns "Toolsgroup" from "nav.toolsGroup" → "Toolsgroup".
+    // Match case-insensitively against the last segment of the i18n key.
+    const rail = document.querySelector("[data-testid='nav-rail']");
+    expect(rail).not.toBeNull();
+    // Any span with aria-hidden that contains text for the tools group
+    const allSpans = Array.from(rail!.querySelectorAll("span[aria-hidden='true']"));
+    const groupLabel = allSpans.find((s) => (s.textContent ?? "").trim().length > 0 && !s.className.includes("nav-rail__label"));
+    expect(groupLabel, "A tools-group label span should be present").not.toBeUndefined();
+  });
+});
+
 // ─── AC-HARD-LBL-8: badge does not overlap label ─────────────────────────────
 
 describe("NavRail — ingest badge position (AC-HARD-LBL-8)", () => {

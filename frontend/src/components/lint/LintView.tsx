@@ -61,10 +61,11 @@ function formatCost(usd: number): string {
 
 const CATEGORY_COLORS: Record<string, { color: string; bg: string }> = {
   "orphan-page":   { color: "var(--syn-text-muted)",  bg: "var(--syn-surface-hover)" },
-  "missing-xref":  { color: "var(--syn-amber)",        bg: "color-mix(in srgb, var(--syn-amber) 10%, white 90%)" },
-  "contradiction": { color: "var(--syn-red)",          bg: "color-mix(in srgb, var(--syn-red) 10%, white 90%)" },
-  "stale-claim":   { color: "var(--syn-type-concept)", bg: "color-mix(in srgb, var(--syn-type-concept) 10%, white 90%)" },
-  "missing-page":  { color: "var(--syn-green)",        bg: "color-mix(in srgb, var(--syn-green) 10%, white 90%)" },
+  // UXB-2 AC-UXB2-5: "white" → var(--syn-mix-base) for dark-mode safety
+  "missing-xref":  { color: "var(--syn-amber)",        bg: "color-mix(in srgb, var(--syn-amber) 10%, var(--syn-mix-base) 90%)" },
+  "contradiction": { color: "var(--syn-red)",          bg: "color-mix(in srgb, var(--syn-red) 10%, var(--syn-mix-base) 90%)" },
+  "stale-claim":   { color: "var(--syn-type-concept)", bg: "color-mix(in srgb, var(--syn-type-concept) 10%, var(--syn-mix-base) 90%)" },
+  "missing-page":  { color: "var(--syn-green)",        bg: "color-mix(in srgb, var(--syn-green) 10%, var(--syn-mix-base) 90%)" },
 };
 
 interface CategoryBadgeProps {
@@ -118,7 +119,7 @@ function SeverityChip({ severity }: SeverityChipProps) {
         fontSize: 9,
         fontWeight: 700,
         color,
-        background: `color-mix(in srgb, ${color} 12%, white 88%)`,
+        background: `color-mix(in srgb, ${color} 12%, var(--syn-mix-base) 88%)`,
         border: `1px solid color-mix(in srgb, ${color} 30%, transparent 70%)`,
         borderRadius: 4,
         padding: "0 5px",
@@ -670,7 +671,7 @@ export function LintView() {
             gap: 8,
             padding: "8px 16px",
             borderBottom: "1px solid color-mix(in srgb, var(--syn-red) 25%, transparent 75%)",
-            background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
+            background: "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)",
             flexShrink: 0,
           }}
         >
@@ -705,7 +706,7 @@ export function LintView() {
             flexShrink: 0,
             fontSize: 12,
             color: "var(--syn-red)",
-            background: "color-mix(in srgb, var(--syn-red) 6%, white 94%)",
+            background: "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)",
             display: "flex",
             alignItems: "center",
             gap: 8,

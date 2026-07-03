@@ -18,7 +18,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { isTauri } from "../api/base";
+import { isTauri, apiBase } from "../api/base";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,11 +72,15 @@ export function useDesktopUpdater(): DesktopUpdaterState {
       try {
         const { check } = await import("@tauri-apps/plugin-updater");
         const result = await check();
+        // TEMP-DEBUG: surface outcome in backend access log
+        void fetch(`${apiBase()}/status?upd_check=${encodeURIComponent(result ? "update:" + result.version : "none")}`).catch(() => undefined);
         if (cancelled) return;
         if (result !== null) {
           setUpdate({ version: result.version, notes: result.body });
         }
-      } catch {
+      } catch (err) {
+        // TEMP-DEBUG
+        void fetch(`${apiBase()}/status?upd_err=${encodeURIComponent(String(err).slice(0, 180))}`).catch(() => undefined);
         // Swallow all errors: network failures, timeout, missing manifest, etc.
         // A failed check must never block or crash the app (ADR-0049 §6 Do-NOT #3).
       }

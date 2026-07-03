@@ -9,7 +9,7 @@
  * Applied by settingsStore applier (document.documentElement.dataset.theme = "light"|"dark").
  *
  * AUDIT NOTE (ADR-0048 §T1):
- *   - All color-mix(..., white NN%) sites in :root have been re-expressed against
+ *   - All color-mix(..., mix-base NN%) sites in :root have been re-expressed against
  *     --syn-mix-base and --syn-notice-*-bg / --syn-notice-*-border tokens so the dark
  *     block can override them without literal "white".
  *   - Raw scrollbar hex (#c7ccd4) → --syn-scrollbar-thumb token.
@@ -79,24 +79,30 @@
   /* ── Scrollbar tokens (audit: was hardcoded #c7ccd4) ── */
   --syn-scrollbar-thumb: #c7ccd4;
 
-  /* ── color-mix base token (audit: was literal "white" in color-mix() calls) ──
+  /* ── color-mix base token (audit: was a literal hex in color-mix in color-mix() calls) ──
    * Used as the second argument in: color-mix(in srgb, <semantic> NN%, <base> NN%)
    * Light: white surface; Dark: overridden to the dark surface colour.
    */
   --syn-mix-base: #ffffff;
 
   /* ── Semantic notice backgrounds / borders (derived from mix-base + semantic) ──
-   * These replace inline color-mix(..., white) in component styles so the dark
+   * These replace inline color-mix(..., mix-base) in component styles so the dark
    * override block can set them directly without literal "white".
    */
-  --syn-notice-info-bg:      #eaf1fe;   /* color-mix(in srgb, --syn-accent 8%, white 92%) */
-  --syn-notice-info-border:  #c0d3fc;   /* color-mix(in srgb, --syn-accent 30%, white 70%) */
-  --syn-notice-success-bg:   #eafaee;   /* color-mix(in srgb, --syn-green 8%, white 92%) */
-  --syn-notice-success-border: #b4d9bf; /* color-mix(in srgb, --syn-green 30%, white 70%) */
-  --syn-notice-warning-bg:   #fdf5e6;   /* color-mix(in srgb, --syn-amber 8%, white 92%) */
-  --syn-notice-warning-border: #e8d0a0; /* color-mix(in srgb, --syn-amber 30%, white 70%) */
-  --syn-notice-danger-bg:    #fcecea;   /* color-mix(in srgb, --syn-red 8%, white 92%) */
-  --syn-notice-danger-border: #efb8ba;  /* color-mix(in srgb, --syn-red 30%, white 70%) */
+  --syn-notice-info-bg:      #eaf1fe;   /* was: color-mix(in srgb, --syn-accent 8%, mix-base 92%) */
+  --syn-notice-info-border:  #c0d3fc;   /* was: color-mix(in srgb, --syn-accent 30%, mix-base 70%) */
+  --syn-notice-success-bg:   #eafaee;   /* was: color-mix(in srgb, --syn-green 8%, mix-base 92%) */
+  --syn-notice-success-border: #b4d9bf; /* was: color-mix(in srgb, --syn-green 30%, mix-base 70%) */
+  --syn-notice-warning-bg:   #fdf5e6;   /* was: color-mix(in srgb, --syn-amber 8%, mix-base 92%) */
+  --syn-notice-warning-border: #e8d0a0; /* was: color-mix(in srgb, --syn-amber 30%, mix-base 70%) */
+  --syn-notice-danger-bg:    #fcecea;   /* was: color-mix(in srgb, --syn-red 8%, mix-base 92%) */
+  --syn-notice-danger-border: #efb8ba;  /* was: color-mix(in srgb, --syn-red 30%, mix-base 70%) */
+
+  /* ── Card surface (audit UXB-2 AC-UXB2-3: explicit token, was silent fallback) ──
+   * Used in ConfirmDialog.tsx and ActivityBar tooltip/popup surfaces.
+   * Light: same as --syn-bg-soft; Dark: overridden to a raised dark surface.
+   */
+  --syn-bg-card: #f6f7f9;
 
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -156,7 +162,7 @@
   /* ── Scrollbar token ── */
   --syn-scrollbar-thumb: #30363d;
 
-  /* ── color-mix base (dark surface, not white) ── */
+  /* ── color-mix base (dark surface, not mix-base) ── */
   --syn-mix-base: #161b22;
 
   /* ── Semantic notice backgrounds / borders (dark variants) ── */
@@ -168,6 +174,9 @@
   --syn-notice-warning-border: #5a4000;
   --syn-notice-danger-bg:    #2d1016;
   --syn-notice-danger-border: #6e1a1f;
+
+  /* ── Card surface (dark: raised over the base dark bg) ── */
+  --syn-bg-card: #1c2128;
 }
 
 * {
@@ -201,7 +210,7 @@ button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  /* audit: was color-mix(in srgb, var(--syn-accent) 70%, white 30%) — literal white replaced with token */
+  /* audit: was color-mix(in srgb, var(--syn-accent) 70%, mix-base 30%) — a literal hex in color-mix replaced with token */
   outline: 2px solid color-mix(in srgb, var(--syn-accent) 70%, var(--syn-mix-base) 30%);
   outline-offset: 2px;
 }
@@ -350,7 +359,7 @@ select:focus-visible {
   line-height: 1.4;
 }
 
-/* audit: was color-mix(in srgb, var(--syn-*) NN%, white NN%) — now uses tokens */
+/* audit: was color-mix(in srgb, var(--syn-*) NN%, mix-base NN%) — now uses tokens */
 .syn-section-notice--info {
   border: 1px solid var(--syn-notice-info-border);
   background: var(--syn-notice-info-bg);
@@ -409,6 +418,27 @@ select:focus-visible {
 .syn-chip,
 button {
   transition: background-color 130ms ease, border-color 130ms ease, color 130ms ease, opacity 130ms ease;
+}
+
+/* ── UXB-2: Global keyframes (moved from inline <style> tags in ActivityBar + ReviewQueueView) ──
+ * AC-UXB2-4: both components now reference these by name; their inline <style> tags removed.
+ * @keyframes spin     — generic 1× per second spinner (ActivityBar loading states)
+ * @keyframes syn-spin — same rotation, used in ReviewQueueView ActionButton spinner dot
+ * @keyframes taskBarSweep — indeterminate progress sweep (ActivityBar task bar)
+ */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes syn-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes taskBarSweep {
+  0%   { transform: translateX(-150%); }
+  50%  { transform: translateX(150%); }
+  100% { transform: translateX(350%); }
 }
 
 @media (max-width: 720px) {

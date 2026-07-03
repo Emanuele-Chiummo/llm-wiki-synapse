@@ -21,6 +21,7 @@
  */
 
 import { useGraphStore, selectActiveSection } from "../store/graphStore";
+import { SectionErrorBoundary } from "./common/SectionErrorBoundary";
 import { PanelGroup } from "./panels/PanelGroup";
 import { GraphPanel } from "./center/GraphPanel";
 import { IngestView } from "./ingest/IngestView";
@@ -37,6 +38,14 @@ import { SourcesView } from "./sources/SourcesView";
 
 export function SectionRouter() {
   const activeSection = useGraphStore(selectActiveSection);
+  return (
+    <SectionErrorBoundary sectionId={activeSection}>
+      <SectionContent activeSection={activeSection} />
+    </SectionErrorBoundary>
+  );
+}
+
+function SectionContent({ activeSection }: { activeSection: ReturnType<typeof selectActiveSection> }) {
 
   if (activeSection === "chat") {
     return <ChatSection />;
