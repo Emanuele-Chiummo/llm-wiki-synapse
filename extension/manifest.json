@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Synapse Web Clipper",
-  "version": "0.8.0",
+  "version": "1.0.0",
   "description": "Clip web articles to your Synapse knowledge base (Readability + Turndown \u2192 Markdown \u2192 secure POST /clip).",
   "permissions": [
     "activeTab",
