@@ -26,6 +26,8 @@ env/
 *.env.*.local
 
 # Vault content — gitignored; only .gitkeep files tracked
+vault/purpose.md
+vault/schema.md
 vault/raw/sources/*
 vault/raw/assets/*
 vault/wiki/**/*.md
