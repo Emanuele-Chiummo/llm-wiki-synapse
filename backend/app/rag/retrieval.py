@@ -83,6 +83,7 @@ from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.config_overrides import effective_bool
 from app.db import get_session
 from app.embeddings import get_embedding_client
 from app.qdrant_client import get_qdrant_client
@@ -235,7 +236,7 @@ async def retrieve(
     # R8-5: type_filter passed to lexical phase for SQL-level filtering (AC-R8-5-2).
     # Vector phase (Qdrant) cannot filter by type at the collection level without a
     # payload filter — type filtering is applied at Phase 4 assembly (defense-in-depth).
-    if settings.embeddings_enabled:
+    if effective_bool("embeddings_enabled", settings.embeddings_enabled):
         vector_candidates = await _phase1_vector_search(query, k=k)
     else:
         vector_candidates = await _phase1_lexical_search(
@@ -275,7 +276,9 @@ async def retrieve(
 
     approx_tokens = len(text) // _CHARS_PER_TOKEN
 
-    phase1_mode = "vector" if settings.embeddings_enabled else "lexical"
+    phase1_mode = (
+        "vector" if effective_bool("embeddings_enabled", settings.embeddings_enabled) else "lexical"
+    )
     logger.info(
         "retrieve: vault=%r query_len=%d phase1=%s phase1_hits=%d expansions=%d "
         "citations=%d approx_tokens=%d/%d data_version=%d type_filter=%r sort=%r",

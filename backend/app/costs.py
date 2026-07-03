@@ -110,8 +110,10 @@ async def get_costs_summary(
       5. Aggregate in Python (portable — SQLite + Postgres).
       6. Build and return the JSON response.
     """
+    from app.config_overrides import effective_float  # noqa: PLC0415
+
     vault_id = settings.vault_id
-    threshold = settings.cost_alert_threshold_usd
+    threshold = effective_float("cost_alert_threshold_usd", settings.cost_alert_threshold_usd)
 
     # ── 1. Resolve target month ───────────────────────────────────────────────
     now_utc = datetime.now(tz=UTC)

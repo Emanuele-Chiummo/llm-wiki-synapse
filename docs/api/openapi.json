@@ -944,6 +944,89 @@
         ]
       }
     },
+    "/ingest/convert-marker": {
+      "post": {
+        "summary": "Convert one or more PDFs through Marker and queue for ingest (R11-1)",
+        "description": "F12 / R11-1 \u2014 explicit Marker PDF conversion endpoint. Accepts multipart files[] (\u226410 files, each \u2264 MAX_UPLOAD_BYTES, .pdf only). For each file: calls Marker microservice, writes <stem>.extracted.md to vault/raw/sources/ with valid YAML frontmatter (I5), lets the watcher ingest incrementally (I1). On ANY Marker error (non-2xx / timeout / connection refused): returns 502 {'error':'marker_unavailable','detail':'...'} and writes NO file. NO silent pypdf fallback on this explicit path (unlike extract.py's CLI path). 400 if > 10 files. 413 if any file > MAX_UPLOAD_BYTES. 415 for non-.pdf files.",
+        "operationId": "convert_marker_ingest_convert_marker_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_convert_marker_ingest_convert_marker_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Per-file results (mix of ok / error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkerConvertResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "More than 10 files submitted."
+          },
+          "413": {
+            "description": "A file exceeds MAX_UPLOAD_BYTES."
+          },
+          "415": {
+            "description": "A non-.pdf file was submitted."
+          },
+          "502": {
+            "description": "Marker microservice is unavailable."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/ingest/marker-health": {
+      "get": {
+        "summary": "Proxy the Marker microservice health check (R11-1)",
+        "description": "R11-1 \u2014 GET {effective MARKER_SERVICE_URL}/health proxy. Returns {'status':'ok'} (200) when Marker responds 200. Returns {'status':'offline','detail':'...'} (503) when unreachable or non-200. Uses the effective Marker URL (env baseline + DB override via config_overrides S2).",
+        "operationId": "marker_health_ingest_marker_health_get",
+        "responses": {
+          "200": {
+            "description": "Marker is reachable and healthy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkerHealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Marker is offline or unreachable."
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/ingest/from-text": {
       "post": {
         "summary": "Write inline text to raw/sources/ and queue watcher-driven ingest",
@@ -3511,6 +3594,113 @@
         ]
       }
     },
+    "/config/app": {
+      "get": {
+        "summary": "List all 8 runtime config overrides with effective value + source (ADR-0053)",
+        "description": "Returns the 8 migrated settings (S1..S8) in stable order. Each entry has key, effective value (override wins over env), and source ('override' iff a DB row exists, else 'env'). All values from in-process cache \u2014 no DB round-trip (I7). Never returns infra/secret keys (allow-list boundary \u2014 ADR-0053 \u00a72.2/\u00a72.4). Auth: SynapseAuthMiddleware (ADR-0052 / ADR-0053 \u00a73 \u2014 BearerAuth in OpenAPI).",
+        "operationId": "get_app_config_config_app_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppConfigListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/config/app/{key}": {
+      "put": {
+        "summary": "Upsert one config override (ADR-0053)",
+        "description": "Sets or updates the DB override for one of the 8 allowed keys. Returns 204 on success. Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. Returns 422 on value validation failure (per-key rules \u2014 ADR-0053 \u00a72.3). Auth: SynapseAuthMiddleware (ADR-0052). After write, the in-process cache is refreshed immediately so a subsequent GET /config/app reflects source='override' (ADR-0053 \u00a73.2).",
+        "operationId": "put_app_config_config_app__key__put",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppConfigPutBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Override stored; effective value updated in cache."
+          },
+          "400": {
+            "description": "Key not in allow-list."
+          },
+          "422": {
+            "description": "Value fails per-key validation rule (ADR-0053 \u00a72.3)."
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Remove a config override \u2192 revert to env default (ADR-0053 \u00a73.3)",
+        "description": "Deletes the app_config row for *key*, reverting the setting to its env baseline. Returns 204 (idempotent \u2014 no-op if no row existed). Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. Auth: SynapseAuthMiddleware (ADR-0052). Reset is DELETE, not PUT null: app_config.value is NOT NULL by design (ADR-0053 \u00a73.3). S7 overview_language: frontend sends DELETE for the '(auto)' choice (\u00a72.3).",
+        "operationId": "delete_app_config_config_app__key__delete",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Override removed; setting reverts to env default."
+          },
+          "400": {
+            "description": "Key not in allow-list."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/clip": {
       "post": {
         "summary": "Chrome MV3 web clipper ingress \u2014 secure clip receiver (F11, ADR-0038)",
@@ -3645,6 +3835,88 @@
   },
   "components": {
     "schemas": {
+      "AppConfigListResponse": {
+        "properties": {
+          "settings": {
+            "items": {
+              "$ref": "#/components/schemas/AppConfigSetting"
+            },
+            "type": "array",
+            "title": "Settings",
+            "description": "All 8 migrated settings in stable S1..S8 order."
+          }
+        },
+        "type": "object",
+        "required": [
+          "settings"
+        ],
+        "title": "AppConfigListResponse",
+        "description": "Response body for GET /config/app (ADR-0053 \u00a73.1)."
+      },
+      "AppConfigPutBody": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "description": "Override value as a string. Required and non-null (app_config.value is NOT NULL \u2014 use DELETE to reset to default, \u00a73.3). Per-key validation rules: ADR-0053 \u00a72.3."
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "AppConfigPutBody",
+        "description": "Request body for PUT /config/app/{key} (ADR-0053 \u00a73.2)."
+      },
+      "AppConfigSetting": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "Config key (lower-snake attribute form, e.g. pdf_extractor)."
+          },
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "description": "Effective value as a string (override wins; env baseline otherwise). S7 overview_language with no override serialises as '' (auto sentinel)."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "override",
+              "env"
+            ],
+            "title": "Source",
+            "description": "\"override\" iff an app_config row exists for this key, else \"env\"."
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "value",
+          "source"
+        ],
+        "title": "AppConfigSetting",
+        "description": "One entry in the GET /config/app response (ADR-0053 \u00a73.1)."
+      },
+      "Body_convert_marker_ingest_convert_marker_post": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Files",
+            "description": "PDF files to convert (\u226410)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "Body_convert_marker_ingest_convert_marker_post"
+      },
       "Body_upload_ingest_ingest_upload_post": {
         "properties": {
           "file": {
@@ -5683,6 +5955,56 @@
         ],
         "title": "LintScanResponse",
         "description": "200 response for POST /lint/scan (ADR-0037 \u00a76): the run + its findings."
+      },
+      "MarkerConvertResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Results",
+            "description": "Per-file conversion results. Each entry: {file: str, status: 'ok'|'error', path: str|null, detail: str|null}. status='ok' means .extracted.md was written and watcher will ingest. status='error' means Marker returned an error; no file was written."
+          }
+        },
+        "type": "object",
+        "required": [
+          "results"
+        ],
+        "title": "MarkerConvertResponse",
+        "description": "Response for POST /ingest/convert-marker (R11-1)."
+      },
+      "MarkerHealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "offline"
+            ],
+            "title": "Status",
+            "description": "\"ok\" when Marker responds 200; \"offline\" when unreachable or non-200."
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail",
+            "description": "Error detail when status='offline'; null when ok."
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "MarkerHealthResponse",
+        "description": "Response for GET /ingest/marker-health (R11-1 / AC-R11-1-4)."
       },
       "McpAuthRequest": {
         "properties": {

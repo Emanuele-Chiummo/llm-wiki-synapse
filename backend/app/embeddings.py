@@ -83,10 +83,18 @@ class HttpEmbeddingClient(EmbeddingClient):
         api_key: str | None = None,
         timeout: float = 30.0,
     ) -> None:
+        from app.config_overrides import effective_str  # noqa: PLC0415
+
         self._url = (embedding_url or settings.embedding_url).rstrip("/")
         self._model = model or settings.embedding_model
         # `or` is safe: format is never an empty string (validated default "ollama").
-        self._format = (embedding_format or settings.embedding_format).lower()
+        # S6 (ADR-0053 §2.5 / I6): read effective value through the existing adapter seam —
+        # the override feeds the SAME EmbeddingClient constructor, no new code path.
+        _effective_format = (
+            effective_str("embedding_format", settings.embedding_format)
+            or settings.embedding_format
+        )
+        self._format = (embedding_format or _effective_format).lower()
         # `is None` check, NOT `or`: an explicitly-passed empty key should stay falsy/unset,
         # but we must not let a constructor None override a settings-provided key.
         self._api_key = api_key if api_key is not None else settings.embedding_api_key

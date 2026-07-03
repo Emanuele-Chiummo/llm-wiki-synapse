@@ -78,6 +78,12 @@ def main() -> None:
         # Sources ingest-all (ADR-0006 explicit user action)
         "/sources/ingest-all",
         "/sources/ingest-all/status",
+        # R11-1: Marker convert endpoints (ADR-0051)
+        "/ingest/convert-marker",
+        "/ingest/marker-health",
+        # R11-2: app config override layer (ADR-0053)
+        "/config/app",
+        "/config/app/{key}",
     ]:
         assert required_path in paths, f"Missing path {required_path!r} in openapi.json"
 
@@ -179,14 +185,16 @@ def main() -> None:
     )
 
     print(
-        "Sanity check passed: all 27 required endpoints present (incl. /clip, /clip/config — "
+        "Sanity check passed: all 31 required endpoints present (incl. /clip, /clip/config — "
         "ADR-0038, ADR-0040; /sources/* — Sources view; /sources/ingest-all — ADR-0006); "
         "embeddings_enabled, http_enabled, remote_write_enabled confirmed "
         "(ADR-0029, ADR-0030); token_source, allow_without_token confirmed in McpInfoResponse + "
         "McpAuthStateResponse (ADR-0033); token_configured, token_source confirmed in "
         "ClipConfigResponse (ADR-0040); no token/hash/salt field exposed (no-leak check PASS); "
         "BearerAuth securityScheme declared + all non-exempt routes reference it + "
-        "/status and /health/detailed have security=[] (ADR-0052 §2.5, EC-M10-4)"
+        "/status and /health/detailed have security=[] (ADR-0052 §2.5, EC-M10-4); "
+        "/ingest/convert-marker, /ingest/marker-health (R11-1 / ADR-0051); "
+        "/config/app, /config/app/{key} (R11-2 / ADR-0053)"
     )
 
 

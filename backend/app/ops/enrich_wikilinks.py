@@ -85,7 +85,12 @@ async def enrich_wikilinks(written_pages: list[Page], vault_id: str) -> EnrichRe
 
 async def _enrich_wikilinks_inner(written_pages: list[Page], vault_id: str) -> EnrichResult:
     # ── Master gate (zero-cost opt-out) ──────────────────────────────────────────
-    if not bool(getattr(settings, "wikilink_enrich_enabled", True)):
+    from app.config_overrides import effective_bool  # noqa: PLC0415
+
+    _enrich_enabled = effective_bool(
+        "wikilink_enrich_enabled", bool(getattr(settings, "wikilink_enrich_enabled", True))
+    )
+    if not _enrich_enabled:
         return EnrichResult(skipped_reason="disabled")
 
     # Only enrich live wiki pages that have a title (the link source must be addressable).

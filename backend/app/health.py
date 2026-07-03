@@ -40,6 +40,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from app.config import settings
+from app.config_overrides import effective_bool
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,7 @@ async def _probe_qdrant() -> dict[str, Any]:
     Returns {"ok": bool | "skipped", "latency_ms": float | None}.
     Skipped when EMBEDDINGS_ENABLED=false (ADR-0030).
     """
-    if not settings.embeddings_enabled:
+    if not effective_bool("embeddings_enabled", settings.embeddings_enabled):
         return {"ok": "skipped", "latency_ms": None}
 
     from app.qdrant_client import get_qdrant_client
@@ -358,7 +359,7 @@ async def get_health_detailed() -> JSONResponse:
                 "latency_ms": qdrant_latency,
             },
             "embeddings": {
-                "enabled": settings.embeddings_enabled,
+                "enabled": effective_bool("embeddings_enabled", settings.embeddings_enabled),
                 "ok": qdrant_ok_raw,  # same signal as Qdrant when enabled; "skipped" when off
             },
         },

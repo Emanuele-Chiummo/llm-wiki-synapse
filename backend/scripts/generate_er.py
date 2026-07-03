@@ -139,11 +139,12 @@ def main() -> None:
     assert "DEEP_RESEARCH_RUNS" in mermaid
     assert "DEEP_RESEARCH_SOURCES" in mermaid
     assert "REVIEW_ITEMS" in mermaid
+    assert "APP_CONFIG" in mermaid
     print(
-        "Sanity check passed: all 12 tables present "
+        "Sanity check passed: all 13 tables present "
         "(PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES, "
         "CONVERSATIONS, MESSAGES, IMPORT_SCHEDULES, "
-        "DEEP_RESEARCH_RUNS, DEEP_RESEARCH_SOURCES, REVIEW_ITEMS)"
+        "DEEP_RESEARCH_RUNS, DEEP_RESEARCH_SOURCES, REVIEW_ITEMS, APP_CONFIG)"
     )
 
 
