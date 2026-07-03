@@ -139,9 +139,13 @@ describe("ConvertPanel — Marker health gate (AC-R11-1-5)", () => {
 
     await renderPanel();
 
-    const badge = screen.getByTestId("marker-status-badge");
-    // i18n mock returns last key segment: "markerOfflineBadge"
-    expect(badge.textContent).toContain("markerOfflineBadge");
+    // Wait for the async health probe to resolve — the badge shows a loading state
+    // first, then the offline text. Asserting synchronously flakes in slower CI.
+    await waitFor(() => {
+      const badge = screen.getByTestId("marker-status-badge");
+      // i18n mock returns last key segment: "markerOfflineBadge"
+      expect(badge.textContent).toContain("markerOfflineBadge");
+    });
   });
 
   it("shows the Marker ready badge when health is ok", async () => {
@@ -149,8 +153,10 @@ describe("ConvertPanel — Marker health gate (AC-R11-1-5)", () => {
 
     await renderPanel();
 
-    const badge = screen.getByTestId("marker-status-badge");
-    expect(badge.textContent).toContain("markerOnlineBadge");
+    await waitFor(() => {
+      const badge = screen.getByTestId("marker-status-badge");
+      expect(badge.textContent).toContain("markerOnlineBadge");
+    });
   });
 });
 
