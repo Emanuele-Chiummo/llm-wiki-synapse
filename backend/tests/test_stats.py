@@ -938,3 +938,424 @@ async def test_get_config_app_has_9_settings_with_domain_vocabulary() -> None:
     keys = [s["key"] for s in settings_list]
     assert keys == ORDERED_KEYS, f"Keys out of order: {keys}"
     assert keys[-1] == "domain_vocabulary", "domain_vocabulary must be the last key (S9)"
+
+
+# ── T-STATS-014..018: GET /stats/groups (A1 amendment) ───────────────────────
+
+
+@pytest.mark.asyncio
+async def test_stats_groups_grouping_ordering_and_cap() -> None:
+    """
+    T-STATS-014: groups ordered by pages_total DESC; capped at 12; shape correct.
+
+    Seeds 13 communities of sizes 13, 12, 11, ..., 1 → response must contain exactly
+    12 groups, ordered by pages_total desc (community 0 first with 13 pages, community 1
+    second with 12 pages, ..., community 11 twelfth with 2 pages; community 12 dropped).
+    """
+    import app.stats as stats_mod
+
+    stats_mod._groups_cache = None
+
+    engine = _make_engine()
+    await _setup_schema(engine)
+    factory = _make_session_factory(engine)
+
+    # Seed 13 communities: community k has (13-k) pages
+    async with factory() as sess:
+        now = _now_iso()
+        for community_id in range(13):
+            page_count = 13 - community_id
+            for i in range(page_count):
+                pid = str(uuid.uuid4())
+                await sess.execute(
+                    sa_text(
+                        "INSERT INTO pages "
+                        "(id, vault_id, file_path, title, type, tags, content_hash, "
+                        "updated_at, created_at, community) "
+                        "VALUES (:id, :vid, :fp, :title, 'concept', '[]', :ch, :ts, :ts, :comm)"
+                    ),
+                    {
+                        "id": pid,
+                        "vid": VAULT_ID,
+                        "fp": f"c{community_id}_p{i}.md",
+                        "title": f"Comm{community_id} Page{i}",
+                        "ch": f"h{community_id}{i}",
+                        "ts": now,
+                        "comm": community_id,
+                    },
+                )
+        await sess.commit()
+
+    def _make_ctx() -> Any:
+        @asynccontextmanager
+        async def _ctx() -> AsyncIterator[AsyncSession]:
+            async with factory() as s:
+                yield s
+
+        return _ctx()
+
+    with (
+        patch("app.stats.settings") as mock_settings,
+        patch("app.stats.get_session", side_effect=_make_ctx),
+    ):
+        mock_settings.vault_id = VAULT_ID
+        test_app = _make_test_app(engine)
+        async with AsyncClient(
+            transport=ASGITransport(app=test_app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/stats/groups")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert "groups" in body
+    groups = body["groups"]
+
+    # Capped at 12
+    assert len(groups) == 12, f"Expected 12 groups (cap), got {len(groups)}"
+
+    # Ordered by pages_total DESC
+    totals = [g["pages_total"] for g in groups]
+    assert totals == sorted(totals, reverse=True), f"Not DESC order: {totals}"
+
+    # Largest group has 13 pages
+    assert groups[0]["pages_total"] == 13
+
+    # Community with 1 page (community_id=12) must be excluded (outside cap)
+    for g in groups:
+        assert g["pages_total"] >= 2, "Group with 1 page should have been cut by cap=12"
+
+    # Required fields on each group
+    for g in groups:
+        assert "community" in g
+        assert "label" in g
+        assert "pages_total" in g
+        assert "pages_by_type" in g
+        assert "top_pages" in g
+        assert "last_activity" in g
+        assert len(g["top_pages"]) <= 5
+
+
+@pytest.mark.asyncio
+async def test_stats_groups_label_from_top_degree_page_and_truncation() -> None:
+    """
+    T-STATS-015: label = title of highest-degree page in community, truncated to 48 chars.
+
+    Hub page has degree=2 (source of 2 edges); leaf pages have degree=1 each (target of 1
+    edge). The hub is therefore the highest-degree node and must become the label.
+    Degree is counted as total incident edges (source + target), consistent with how
+    stats.py builds the degree_map.
+    """
+    import app.stats as stats_mod
+
+    stats_mod._groups_cache = None
+
+    engine = _make_engine()
+    await _setup_schema(engine)
+    factory = _make_session_factory(engine)
+
+    async with factory() as sess:
+        now = _now_iso()
+        pid_hub = str(uuid.uuid4())
+        pid_leaf1 = str(uuid.uuid4())
+        pid_leaf2 = str(uuid.uuid4())
+        eid1 = str(uuid.uuid4())
+        eid2 = str(uuid.uuid4())
+
+        long_title = "X" * 60  # 60 chars — must be truncated to 48
+        # hub page: source of 2 edges → degree=2
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages "
+                "(id, vault_id, file_path, title, type, tags, content_hash, "
+                "updated_at, created_at, community) "
+                "VALUES (:id, :vid, 'hub.md', :title, 'concept', '[]', 'hhub', :ts, :ts, 0)"
+            ),
+            {"id": pid_hub, "vid": VAULT_ID, "title": long_title, "ts": now},
+        )
+        # leaf pages: target of 1 edge each → degree=1
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages "
+                "(id, vault_id, file_path, title, type, tags, content_hash, "
+                "updated_at, created_at, community) "
+                "VALUES (:id, :vid, 'leaf1.md', 'Leaf Page One', 'concept', '[]', 'hl1', :ts, :ts, 0)"
+            ),
+            {"id": pid_leaf1, "vid": VAULT_ID, "ts": now},
+        )
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages "
+                "(id, vault_id, file_path, title, type, tags, content_hash, "
+                "updated_at, created_at, community) "
+                "VALUES (:id, :vid, 'leaf2.md', 'Leaf Page Two', 'concept', '[]', 'hl2', :ts, :ts, 0)"
+            ),
+            {"id": pid_leaf2, "vid": VAULT_ID, "ts": now},
+        )
+        # hub → leaf1 (hub degree as source +1, leaf1 as target +1)
+        await sess.execute(
+            sa_text(
+                "INSERT INTO edges (id, vault_id, source_page_id, target_page_id) "
+                "VALUES (:id, :vid, :s, :t)"
+            ),
+            {"id": eid1, "vid": VAULT_ID, "s": pid_hub, "t": pid_leaf1},
+        )
+        # hub → leaf2 (hub degree as source +1, leaf2 as target +1)
+        await sess.execute(
+            sa_text(
+                "INSERT INTO edges (id, vault_id, source_page_id, target_page_id) "
+                "VALUES (:id, :vid, :s, :t)"
+            ),
+            {"id": eid2, "vid": VAULT_ID, "s": pid_hub, "t": pid_leaf2},
+        )
+        await sess.commit()
+
+    def _make_ctx() -> Any:
+        @asynccontextmanager
+        async def _ctx() -> AsyncIterator[AsyncSession]:
+            async with factory() as s:
+                yield s
+
+        return _ctx()
+
+    with (
+        patch("app.stats.settings") as mock_settings,
+        patch("app.stats.get_session", side_effect=_make_ctx),
+    ):
+        mock_settings.vault_id = VAULT_ID
+        test_app = _make_test_app(engine)
+        async with AsyncClient(
+            transport=ASGITransport(app=test_app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/stats/groups")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    groups = body["groups"]
+
+    assert len(groups) == 1
+    g = groups[0]
+    assert g["pages_total"] == 3
+
+    # label must come from the hub (degree=2, highest) and be truncated to 48
+    assert len(g["label"]) == 48, f"Expected label truncated to 48 chars, got {len(g['label'])!r}"
+    assert g["label"] == long_title[:48]
+
+    # top_pages: hub first (degree=2 > leaf degree=1)
+    assert len(g["top_pages"]) == 3
+    assert g["top_pages"][0]["id"] == pid_hub
+    assert g["top_pages"][0]["degree"] == 2
+    # Both leaves have degree=1
+    leaf_degrees = {g["top_pages"][1]["degree"], g["top_pages"][2]["degree"]}
+    assert leaf_degrees == {1}
+
+
+@pytest.mark.asyncio
+async def test_stats_groups_unassigned_excluded() -> None:
+    """
+    T-STATS-016: pages with community NULL or -1 are excluded from groups.
+    """
+    import app.stats as stats_mod
+
+    stats_mod._groups_cache = None
+
+    engine = _make_engine()
+    await _setup_schema(engine)
+    factory = _make_session_factory(engine)
+
+    async with factory() as sess:
+        now = _now_iso()
+        # community=NULL (never assigned)
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages "
+                "(id, vault_id, file_path, title, type, tags, content_hash, "
+                "updated_at, created_at, community) "
+                "VALUES (:id, :vid, 'null_comm.md', 'Null Comm', 'concept', '[]', 'hn', :ts, :ts, NULL)"
+            ),
+            {"id": str(uuid.uuid4()), "vid": VAULT_ID, "ts": now},
+        )
+        # community=-1 (unassigned sentinel)
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages "
+                "(id, vault_id, file_path, title, type, tags, content_hash, "
+                "updated_at, created_at, community) "
+                "VALUES (:id, :vid, 'neg_comm.md', 'Neg Comm', 'concept', '[]', 'hm', :ts, :ts, -1)"
+            ),
+            {"id": str(uuid.uuid4()), "vid": VAULT_ID, "ts": now},
+        )
+        # one assigned page
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages "
+                "(id, vault_id, file_path, title, type, tags, content_hash, "
+                "updated_at, created_at, community) "
+                "VALUES (:id, :vid, 'good.md', 'Good Page', 'concept', '[]', 'hg', :ts, :ts, 0)"
+            ),
+            {"id": str(uuid.uuid4()), "vid": VAULT_ID, "ts": now},
+        )
+        await sess.commit()
+
+    def _make_ctx() -> Any:
+        @asynccontextmanager
+        async def _ctx() -> AsyncIterator[AsyncSession]:
+            async with factory() as s:
+                yield s
+
+        return _ctx()
+
+    with (
+        patch("app.stats.settings") as mock_settings,
+        patch("app.stats.get_session", side_effect=_make_ctx),
+    ):
+        mock_settings.vault_id = VAULT_ID
+        test_app = _make_test_app(engine)
+        async with AsyncClient(
+            transport=ASGITransport(app=test_app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/stats/groups")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    groups = body["groups"]
+
+    # Only 1 group (community=0); null and -1 excluded
+    assert len(groups) == 1, f"Expected 1 group, got {len(groups)}: {groups}"
+    assert groups[0]["community"] == 0
+    assert groups[0]["pages_total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_stats_groups_no_groups_when_no_assigned_community() -> None:
+    """
+    T-STATS-016b: all pages unassigned → groups list is empty.
+    """
+    import app.stats as stats_mod
+
+    stats_mod._groups_cache = None
+
+    engine = _make_engine()
+    await _setup_schema(engine)
+    factory = _make_session_factory(engine)
+
+    async with factory() as sess:
+        now = _now_iso()
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages "
+                "(id, vault_id, file_path, title, type, tags, content_hash, "
+                "updated_at, created_at, community) "
+                "VALUES (:id, :vid, 'p.md', 'Page', 'concept', '[]', 'h', :ts, :ts, NULL)"
+            ),
+            {"id": str(uuid.uuid4()), "vid": VAULT_ID, "ts": now},
+        )
+        await sess.commit()
+
+    def _make_ctx() -> Any:
+        @asynccontextmanager
+        async def _ctx() -> AsyncIterator[AsyncSession]:
+            async with factory() as s:
+                yield s
+
+        return _ctx()
+
+    with (
+        patch("app.stats.settings") as mock_settings,
+        patch("app.stats.get_session", side_effect=_make_ctx),
+    ):
+        mock_settings.vault_id = VAULT_ID
+        test_app = _make_test_app(engine)
+        async with AsyncClient(
+            transport=ASGITransport(app=test_app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/stats/groups")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["groups"] == [], f"Expected empty groups list, got {body['groups']}"
+
+
+@pytest.mark.asyncio
+async def test_stats_groups_memo_invalidated_on_data_version_bump() -> None:
+    """
+    T-STATS-017: cache is invalidated when data_version bumps.
+    """
+    import app.stats as stats_mod
+
+    stats_mod._groups_cache = None
+
+    engine = _make_engine()
+    await _setup_schema(engine)
+    factory = _make_session_factory(engine)
+
+    async with factory() as sess:
+        now = _now_iso()
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages "
+                "(id, vault_id, file_path, title, type, tags, content_hash, "
+                "updated_at, created_at, community) "
+                "VALUES (:id, :vid, 'pg.md', 'Init Page', 'concept', '[]', 'h0', :ts, :ts, 0)"
+            ),
+            {"id": str(uuid.uuid4()), "vid": VAULT_ID, "ts": now},
+        )
+        await sess.commit()
+
+    def _make_ctx() -> Any:
+        @asynccontextmanager
+        async def _ctx() -> AsyncIterator[AsyncSession]:
+            async with factory() as s:
+                yield s
+
+        return _ctx()
+
+    with (
+        patch("app.stats.settings") as mock_settings,
+        patch("app.stats.get_session", side_effect=_make_ctx),
+    ):
+        mock_settings.vault_id = VAULT_ID
+        test_app = _make_test_app(engine)
+        async with AsyncClient(
+            transport=ASGITransport(app=test_app), base_url="http://test"
+        ) as client:
+            resp1 = await client.get("/stats/groups")
+
+    assert resp1.status_code == 200
+    assert len(resp1.json()["groups"]) == 1
+    # Cache is populated
+    assert stats_mod._groups_cache is not None
+    old_key = stats_mod._groups_cache[0]
+    assert old_key == 5  # data_version seeded as 5 in _setup_schema
+
+    # Simulate a data_version bump (direct DB update)
+    async with factory() as sess:
+        await sess.execute(
+            sa_text("UPDATE vault_state SET data_version = 6 WHERE vault_id = :vid"),
+            {"vid": VAULT_ID},
+        )
+        await sess.commit()
+
+    # Request again with bumped version — cache should be rebuilt
+    def _make_ctx2() -> Any:
+        @asynccontextmanager
+        async def _ctx2() -> AsyncIterator[AsyncSession]:
+            async with factory() as s:
+                yield s
+
+        return _ctx2()
+
+    with (
+        patch("app.stats.settings") as mock_settings,
+        patch("app.stats.get_session", side_effect=_make_ctx2),
+    ):
+        mock_settings.vault_id = VAULT_ID
+        test_app2 = _make_test_app(engine)
+        async with AsyncClient(
+            transport=ASGITransport(app=test_app2), base_url="http://test"
+        ) as client:
+            resp2 = await client.get("/stats/groups")
+
+    assert resp2.status_code == 200
+    assert stats_mod._groups_cache is not None
+    new_key = stats_mod._groups_cache[0]
+    assert new_key == 6, f"Expected cache key 6 after version bump, got {new_key}"

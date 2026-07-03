@@ -1,13 +1,14 @@
 """
-Dashboard stats API (R12-1 / ADR-0054 §5, F18).
+Dashboard stats API (R12-1 / ADR-0054 §5, F18; A1 amendment GET /stats/groups).
 
 Endpoints:
   GET /stats/overview  — global KPI snapshot (ADR-0054 §5.1)
   GET /stats/sections  — per-domain section breakdown (ADR-0054 §5.2)
+  GET /stats/groups    — dynamic Louvain community groups (SPRINT-v1.2-SCOPE §10 A1)
 
 Design:
   - Read-only aggregation over existing tables; no InferenceProvider call (I1/I6).
-  - Both endpoints are memoised keyed on vault_state.data_version (+ vocabulary hash for
+  - All endpoints are memoised keyed on vault_state.data_version (+ vocabulary hash for
     sections) using the ADR-0014 debounce-signal pattern (ADR-0054 §5 caching decision).
     A cache miss falls back to a direct bounded query — caching is an optimisation, not a
     correctness dependency.
@@ -20,13 +21,18 @@ Design:
     (ADR-0054 §5.2, ADR-0016 degree = distinct incident structural edges).
   - untagged bucket: always present; domain="untagged"; emitted last (ADR-0054 §5.2).
   - dormant vocabulary ([]): sections returns only the untagged bucket (owner-lock #4).
+  - GET /stats/groups: derives groups from pages.community (persisted by GraphEngine —
+    I2; NEVER recomputes Louvain). Excludes community=-1/NULL (unassigned). Ordered by
+    pages_total DESC; capped at 12. Label = title of highest-degree page in that community,
+    truncated to 48 chars (heuristic, zero AI calls). Memoised on data_version.
 
 Invariants:
   I1 — read-only; no vault mutation, no index re-scan, no Qdrant call.
-  I2 — no graph recompute triggered; reads cached snapshot degree from edges table.
+  I2 — no graph recompute triggered; reads persisted pages.community column (written by
+       GraphEngine) and degree from edges table. NEVER calls GraphEngine.recompute().
   I3 — cheap COUNT/GROUP reads, memoised; no heavy computation on the hot path.
   I6 — zero InferenceProvider calls.
-  I7 — all queries are bounded (LIMIT 10 recent_activity, LIMIT 5 top_pages).
+  I7 — all queries are bounded (LIMIT 10 recent_activity, LIMIT 5 top_pages, cap 12 groups).
   I8 — I8: route registered; OpenAPI auto-regenerated; BearerAuth by construction.
 """
 
@@ -68,6 +74,7 @@ def _slugify(title: str) -> str:
 
 _overview_cache: tuple[int, dict[str, Any]] | None = None
 _sections_cache: tuple[tuple[int, str], dict[str, Any]] | None = None
+_groups_cache: tuple[int, dict[str, Any]] | None = None
 
 
 def _vocab_hash(vocab: list[str]) -> str:
@@ -423,4 +430,173 @@ async def get_stats_sections() -> JSONResponse:
 
     payload: dict[str, Any] = {"sections": sections}
     _sections_cache = (cache_key, payload)
+    return JSONResponse(content=payload)
+
+
+# ── GET /stats/groups ──────────────────────────────────────────────────────────
+
+_MAX_GROUPS = 12
+_LABEL_MAX_CHARS = 48
+
+
+@router.get(
+    "/stats/groups",
+    summary="Dynamic Louvain community groups",
+    description=(
+        "Returns one entry per Louvain community derived from pages.community (persisted by "
+        "GraphEngine — I2, G-P0-2). Community ids -1/NULL (unassigned) are excluded. "
+        "Ordered by pages_total DESC, capped at 12 groups. "
+        "label = title of the highest-degree page in that community, truncated to 48 chars "
+        "(heuristic, zero AI calls). "
+        "top_pages = up to 5 pages ordered by degree DESC. "
+        "Memoised on data_version; cache miss triggers a fresh bounded DB read. "
+        "Auth: SynapseAuthMiddleware by construction (ADR-0052). "
+        "(SPRINT-v1.2-SCOPE §10 A1 / F18 / I2)"
+    ),
+    responses={200: {"description": "Louvain community groups"}},
+)
+async def get_stats_groups() -> JSONResponse:
+    """
+    GET /stats/groups — community-based dynamic grouping (A1 amendment).
+
+    Reads pages.community (persisted by GraphEngine.recompute) and the edges table for
+    degree. NEVER calls GraphEngine.recompute() (I2). Memoised on data_version.
+    Pages with community IS NULL or community = -1 are excluded (unassigned).
+    """
+    global _groups_cache  # noqa: PLW0603
+
+    vault_id = settings.vault_id
+
+    # ── Read current data_version for cache key ───────────────────────────────
+    async with get_session() as session:
+        vs_row = await session.execute(
+            select(VaultState.data_version).where(VaultState.vault_id == vault_id)
+        )
+        vs_result = vs_row.scalar_one_or_none()
+        current_version: int = vs_result if vs_result is not None else 0
+
+    if _groups_cache is not None and _groups_cache[0] == current_version:
+        logger.debug("stats/groups: cache HIT (data_version=%d)", current_version)
+        return JSONResponse(content=_groups_cache[1])
+
+    logger.debug("stats/groups: cache MISS (data_version=%d)", current_version)
+
+    async with get_session() as session:
+        # ── Fetch all live pages with community, type, updated_at, title, id ─
+        # community IS NOT NULL AND community != -1 = assigned by Louvain
+        page_rows: list[Any] = list(
+            (
+                await session.execute(
+                    select(
+                        Page.id,
+                        Page.title,
+                        Page.page_type,
+                        Page.community,
+                        Page.updated_at,
+                    ).where(
+                        Page.vault_id == vault_id,
+                        Page.deleted_at.is_(None),
+                        Page.community.is_not(None),
+                        Page.community != -1,
+                    )
+                )
+            ).all()
+        )
+
+        # ── Compute degree map from edges table ───────────────────────────────
+        # degree = count of incident structural edges (source + target)
+        degree_map: dict[str, int] = {}
+
+        src_rows: list[Any] = list(
+            (
+                await session.execute(
+                    select(
+                        literal_column("CAST(source_page_id AS TEXT)").label("pid"),
+                        func.count().label("cnt"),
+                    )
+                    .select_from(Edge)
+                    .where(Edge.vault_id == vault_id)
+                    .group_by(literal_column("source_page_id"))
+                )
+            ).all()
+        )
+        for row in src_rows:
+            degree_map[row.pid] = degree_map.get(row.pid, 0) + row.cnt
+
+        tgt_rows: list[Any] = list(
+            (
+                await session.execute(
+                    select(
+                        literal_column("CAST(target_page_id AS TEXT)").label("pid"),
+                        func.count().label("cnt"),
+                    )
+                    .select_from(Edge)
+                    .where(Edge.vault_id == vault_id)
+                    .group_by(literal_column("target_page_id"))
+                )
+            ).all()
+        )
+        for row in tgt_rows:
+            degree_map[row.pid] = degree_map.get(row.pid, 0) + row.cnt
+
+    # ── Group pages by community id ───────────────────────────────────────────
+    community_pages: dict[int, list[Any]] = {}
+    for row in page_rows:
+        cid: int = row.community  # already filtered: not None, not -1
+        community_pages.setdefault(cid, []).append(row)
+
+    # ── Build one group object per community ──────────────────────────────────
+
+    def _build_group(community_id: int, rows: list[Any]) -> dict[str, Any]:
+        # pages_by_type histogram
+        pbt: dict[str, int] = {}
+        last_ts: datetime | None = None
+        for row in rows:
+            key = row.page_type if row.page_type is not None else "untyped"
+            pbt[key] = pbt.get(key, 0) + 1
+            if row.updated_at is not None:
+                if last_ts is None or row.updated_at > last_ts:
+                    last_ts = row.updated_at
+
+        # Sort by degree DESC, then updated_at DESC (stable tiebreak)
+        def _sort_key(r: Any) -> tuple[int, float]:
+            ts = r.updated_at.timestamp() if r.updated_at is not None else 0.0
+            return (-degree_map.get(str(r.id), 0), -ts)
+
+        sorted_rows = sorted(rows, key=_sort_key)
+
+        # label = title of highest-degree page, truncated to _LABEL_MAX_CHARS
+        label_title = (sorted_rows[0].title or "") if sorted_rows else ""
+        label = label_title[:_LABEL_MAX_CHARS]
+
+        # top_pages: cap 5
+        top_pages = [
+            {
+                "id": str(r.id),
+                "title": r.title or "",
+                "slug": _slugify(r.title or ""),
+                "degree": degree_map.get(str(r.id), 0),
+            }
+            for r in sorted_rows[:5]
+        ]
+
+        return {
+            "community": community_id,
+            "label": label,
+            "pages_total": len(rows),
+            "pages_by_type": pbt,
+            "top_pages": top_pages,
+            "last_activity": last_ts.isoformat() if last_ts is not None else None,
+        }
+
+    groups: list[dict[str, Any]] = [
+        _build_group(cid, rows) for cid, rows in community_pages.items()
+    ]
+
+    # ── Order by pages_total DESC, cap at _MAX_GROUPS ─────────────────────────
+    groups.sort(key=lambda g: -g["pages_total"])
+    groups = groups[:_MAX_GROUPS]
+
+    payload: dict[str, Any] = {"groups": groups}
+    _groups_cache = (current_version, payload)
     return JSONResponse(content=payload)
