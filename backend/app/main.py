@@ -1271,7 +1271,7 @@ async def get_reclassify_types_status() -> ReclassifyTypesStatusResponse:
 class OpsScheduleEntry(BaseModel):
     """One row in the GET /ops/schedules response — state of one schedulable op."""
 
-    op: str = Field(description="Operation name: 'lint' or 'backfill'")
+    op: str = Field(description="Operation name: 'lint', 'backfill', or 'schema_review'")
     schedule: str = Field(description="Effective schedule: off|hourly|daily|weekly")
     last_run_at: str | None = Field(
         default=None, description="ISO-8601 timestamp of the last completed run, or null."
@@ -1291,18 +1291,19 @@ class OpsSchedulesResponse(BaseModel):
 @app.get(
     "/ops/schedules",
     response_model=OpsSchedulesResponse,
-    summary="List schedulable ops with their effective schedule and last-run state (R12-7/A5)",
+    summary="List schedulable ops with effective schedule and last-run state (R12-7/A5/R12-8)",
     description=(
         "Returns the in-memory state of the OpsScheduler for each schedulable op "
-        "(lint, backfill). Schedule frequencies are set via PUT /config/app/lint_schedule "
-        "and PUT /config/app/backfill_schedule (S10/S11 — allowed values: "
+        "(lint, backfill, schema_review). Schedule frequencies are set via "
+        "PUT /config/app/lint_schedule, PUT /config/app/backfill_schedule, and "
+        "PUT /config/app/schema_review_schedule (S10/S11/S12 — allowed values: "
         "off|hourly|daily|weekly). "
         "State is in-memory and resets on container restart. "
         "Auth: SynapseAuthMiddleware (ADR-0052)."
     ),
 )
 async def get_ops_schedules() -> OpsSchedulesResponse:
-    """GET /ops/schedules — OpsScheduler state for lint and backfill ops (R12-7/A5)."""
+    """GET /ops/schedules — OpsScheduler state for lint, backfill, and schema_review ops."""
     from app.config_overrides import get_effective  # noqa: PLC0415
     from app.ops_scheduler import _OP_NAMES  # noqa: PLC0415
 
@@ -1336,11 +1337,13 @@ async def get_ops_schedules() -> OpsSchedulesResponse:
 @app.post(
     "/ops/schedules/{op}/run-now",
     status_code=202,
-    summary="Trigger a schedulable op immediately (R12-7/A5)",
+    summary="Trigger a schedulable op immediately (R12-7/A5/R12-8)",
     description=(
-        "Manually trigger one scheduled op ('lint' or 'backfill') regardless of the "
-        "configured schedule. Returns 202 if triggered, 409 if already in-flight, "
-        "400 if the op is 'backfill' and the domain vocabulary is empty (dormant). "
+        "Manually trigger one scheduled op ('lint', 'backfill', or 'schema_review') "
+        "regardless of the configured schedule. Returns 202 if triggered, 409 if already "
+        "in-flight, 400 if the op is 'backfill' and the domain vocabulary is empty "
+        "(dormant). schema_review has no dormant state — it runs whenever called "
+        "(anti-spam dedup is inside the op itself). "
         "Auth: SynapseAuthMiddleware (ADR-0052)."
     ),
     responses={
@@ -1351,7 +1354,7 @@ async def get_ops_schedules() -> OpsSchedulesResponse:
     },
 )
 async def run_ops_schedule_now(op: str) -> dict[str, str]:
-    """POST /ops/schedules/{op}/run-now — manual trigger for lint or backfill (R12-7/A5)."""
+    """POST /ops/schedules/{op}/run-now — manual trigger for lint, backfill, or schema_review."""
     from app.ops_scheduler import _OP_NAMES, OpName  # noqa: PLC0415
 
     if op not in _OP_NAMES:
@@ -8389,7 +8392,7 @@ class AppConfigListResponse(BaseModel):
     """Response body for GET /config/app (ADR-0053 §3.1)."""
 
     settings: list[AppConfigSetting] = Field(
-        description="All 11 migrated settings in stable S1..S11 order."
+        description="All 12 migrated settings in stable S1..S12 order."
     )
 
 
@@ -8416,6 +8419,8 @@ def _build_app_config_response() -> AppConfigListResponse:
         # S10/S11: schedule keys have no env-var baseline; default is "off" (R12-7/A5).
         "lint_schedule": "off",
         "backfill_schedule": "off",
+        # S12: schema_review_schedule has no env-var baseline; default is "off" (R12-8).
+        "schema_review_schedule": "off",
     }
 
     result: list[AppConfigSetting] = []
@@ -8435,9 +8440,9 @@ def _build_app_config_response() -> AppConfigListResponse:
 @app.get(
     "/config/app",
     response_model=AppConfigListResponse,
-    summary="List all 11 runtime config overrides with effective value + source (ADR-0053)",
+    summary="List all 12 runtime config overrides with effective value + source (ADR-0053)",
     description=(
-        "Returns the 11 migrated settings (S1..S11) in stable order. "
+        "Returns the 12 migrated settings (S1..S12) in stable order. "
         "Each entry has key, effective value (override wins over env), and source "
         "('override' iff a DB row exists, else 'env'). "
         "All values from in-process cache — no DB round-trip (I7). "
@@ -8446,7 +8451,7 @@ def _build_app_config_response() -> AppConfigListResponse:
     ),
 )
 async def get_app_config() -> AppConfigListResponse:
-    """GET /config/app — list effective values + source for all 11 settings (ADR-0053 §3.1)."""
+    """GET /config/app — list effective values + source for all 12 settings (ADR-0053 §3.1)."""
     return _build_app_config_response()
 
 
@@ -8467,7 +8472,7 @@ class AppConfigPutBody(BaseModel):
     status_code=204,
     summary="Upsert one config override (ADR-0053)",
     description=(
-        "Sets or updates the DB override for one of the 11 allowed keys. "
+        "Sets or updates the DB override for one of the 12 allowed keys. "
         "Returns 204 on success. "
         "Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. "
         "Returns 422 on value validation failure (per-key rules — ADR-0053 §2.3). "

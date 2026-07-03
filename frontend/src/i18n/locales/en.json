@@ -457,11 +457,13 @@
       },
       "opLabel": {
         "lint": "Lint scan",
-        "backfill": "Domain classification"
+        "backfill": "Domain classification",
+        "schema_review": "Schema review"
       },
       "opDesc": {
         "lint": "Lint scan — finds structural and semantic problems; fixes remain manual.",
-        "backfill": "Domain classification — tags new or unclassified pages against the vocabulary."
+        "backfill": "Domain classification — tags new or unclassified pages against the vocabulary.",
+        "schema_review": "Schema review — proposes schema.md updates in the Review queue based on how the vault actually evolved."
       }
     },
     "costs": {

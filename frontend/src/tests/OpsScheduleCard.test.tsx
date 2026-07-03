@@ -1,14 +1,15 @@
 /**
- * OpsScheduleCard.test.tsx — vitest unit tests for the A5 / R12-7 job-scheduling card.
+ * OpsScheduleCard.test.tsx — vitest unit tests for the A5 / R12-7 / R12-8 job-scheduling card.
  *
  * Covers:
- *   1. Renders two rows from mocked schedules (lint + backfill).
+ *   1. Renders THREE rows from mocked schedules (lint + backfill + schema_review) [R12-8].
  *   2. Frequency change PUTs the right appConfigClient key and value.
  *   3. Run-now POSTs the right op and refreshes schedules.
  *   4. in_flight disables the run-now button and shows the running badge.
  *   5. 400-dormant shows vocabulary hint.
  *   6. Card is hidden when getOpsSchedules returns null (older backend).
- *   7. i18n parity: EN and IT key sets are identical.
+ *   7. i18n parity: EN and IT key sets are identical (including schema_review keys).
+ *   8. Frequency change for schema_review PUTs "schema_review_schedule" [R12-8].
  *
  * INVARIANT I3: no polling in the component — manual refresh only.
  * INVARIANT I7: 409 and 400 are surfaced, not silenced.
@@ -56,6 +57,10 @@ function makeOpsResponse(overrides: Partial<{
   backfillLastRunAt: string | null;
   backfillLastStatus: string | null;
   backfillInFlight: boolean;
+  schemaReviewSchedule: string;
+  schemaReviewLastRunAt: string | null;
+  schemaReviewLastStatus: string | null;
+  schemaReviewInFlight: boolean;
 }> = {}) {
   const {
     lintSchedule = "off",
@@ -66,6 +71,10 @@ function makeOpsResponse(overrides: Partial<{
     backfillLastRunAt = null,
     backfillLastStatus = null,
     backfillInFlight = false,
+    schemaReviewSchedule = "off",
+    schemaReviewLastRunAt = null,
+    schemaReviewLastStatus = null,
+    schemaReviewInFlight = false,
   } = overrides;
 
   return {
@@ -83,6 +92,13 @@ function makeOpsResponse(overrides: Partial<{
         last_run_at: backfillLastRunAt,
         last_status: backfillLastStatus,
         in_flight: backfillInFlight,
+      },
+      {
+        op: "schema_review" as const,
+        schedule: schemaReviewSchedule,
+        last_run_at: schemaReviewLastRunAt,
+        last_status: schemaReviewLastStatus,
+        in_flight: schemaReviewInFlight,
       },
     ],
   };
@@ -125,9 +141,9 @@ describe("OpsScheduleCard", () => {
     mockShowToast.mockClear();
   });
 
-  // ── 1. Renders two rows ─────────────────────────────────────────────────────
+  // ── 1. Renders three rows (lint + backfill + schema_review) — R12-8 ──────────
 
-  describe("renders two rows from mocked schedules", () => {
+  describe("renders three rows from mocked schedules", () => {
     beforeEach(() => {
       mockGetOpsSchedules.mockResolvedValue(makeOpsResponse());
     });
@@ -153,27 +169,37 @@ describe("OpsScheduleCard", () => {
       });
     });
 
-    it("renders frequency selects for both ops", async () => {
+    it("renders a row for schema_review [R12-8]", async () => {
+      renderCard();
+      await waitFor(() => {
+        expect(screen.getByTestId("ops-schedule-row-schema_review")).toBeDefined();
+      });
+    });
+
+    it("renders frequency selects for all three ops", async () => {
       renderCard();
       await waitFor(() => {
         expect(screen.getByTestId("ops-freq-select-lint")).toBeDefined();
         expect(screen.getByTestId("ops-freq-select-backfill")).toBeDefined();
+        expect(screen.getByTestId("ops-freq-select-schema_review")).toBeDefined();
       });
     });
 
-    it("renders run-now buttons for both ops", async () => {
+    it("renders run-now buttons for all three ops", async () => {
       renderCard();
       await waitFor(() => {
         expect(screen.getByTestId("ops-run-now-lint")).toBeDefined();
         expect(screen.getByTestId("ops-run-now-backfill")).toBeDefined();
+        expect(screen.getByTestId("ops-run-now-schema_review")).toBeDefined();
       });
     });
 
-    it("shows 'never' text when no last_run_at", async () => {
+    it("shows 'never' text when no last_run_at (all three ops)", async () => {
       renderCard();
       await waitFor(() => {
         expect(screen.getByTestId("ops-never-run-lint")).toBeDefined();
         expect(screen.getByTestId("ops-never-run-backfill")).toBeDefined();
+        expect(screen.getByTestId("ops-never-run-schema_review")).toBeDefined();
       });
     });
   });
@@ -388,6 +414,7 @@ describe("OpsScheduleCard", () => {
 
   // ── 6. Card hidden when getOpsSchedules returns null ───────────────────────
 
+
   describe("null response hides the card (older backend)", () => {
     it("renders nothing when getOpsSchedules returns null", async () => {
       mockGetOpsSchedules.mockResolvedValue(null);
@@ -405,9 +432,47 @@ describe("OpsScheduleCard", () => {
     });
   });
 
+  // ── 8. schema_review frequency change PUTs schema_review_schedule [R12-8] ───
+
+  describe("schema_review frequency change", () => {
+    beforeEach(() => {
+      mockGetOpsSchedules.mockResolvedValue(makeOpsResponse());
+      mockPutAppConfig.mockResolvedValue(undefined);
+    });
+
+    it("PUTs schema_review_schedule when schema_review frequency changes", async () => {
+      renderCard();
+      await waitFor(() => {
+        expect(screen.getByTestId("ops-freq-select-schema_review")).toBeDefined();
+      });
+
+      const srSelect = screen.getByTestId("ops-freq-select-schema_review");
+      fireEvent.change(srSelect, { target: { value: "weekly" } });
+
+      await waitFor(() => {
+        expect(mockPutAppConfig).toHaveBeenCalledWith("schema_review_schedule", "weekly");
+      });
+    });
+
+    it("run-now calls runOpNow with 'schema_review'", async () => {
+      mockRunOpNow.mockResolvedValue({ status: "triggered", op: "schema_review" });
+
+      renderCard();
+      await waitFor(() => {
+        expect(screen.getByTestId("ops-run-now-schema_review")).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId("ops-run-now-schema_review"));
+
+      await waitFor(() => {
+        expect(mockRunOpNow).toHaveBeenCalledWith("schema_review");
+      });
+    });
+  });
+
   // ── 7. i18n parity ─────────────────────────────────────────────────────────
 
-  describe("i18n parity — EN and IT key sets are identical", () => {
+  describe("i18n parity — EN and IT key sets are identical (including schema_review)", () => {
     it("both locales have the same opsSchedule keys", async () => {
       const en = (await import("../i18n/locales/en.json")) as Record<string, unknown>;
       const it = (await import("../i18n/locales/it.json")) as Record<string, unknown>;
@@ -440,6 +505,12 @@ describe("OpsScheduleCard", () => {
       const enDesc = enOps.opDesc as Record<string, unknown>;
       const itDesc = itOps.opDesc as Record<string, unknown>;
       expect(Object.keys(itDesc).sort()).toEqual(Object.keys(enDesc).sort());
+
+      // R12-8: schema_review keys must be present in both locales
+      expect(enLabel["schema_review"]).toBeDefined();
+      expect(itLabel["schema_review"]).toBeDefined();
+      expect(enDesc["schema_review"]).toBeDefined();
+      expect(itDesc["schema_review"]).toBeDefined();
     });
   });
 });

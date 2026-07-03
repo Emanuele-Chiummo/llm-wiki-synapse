@@ -87,24 +87,28 @@ export function OpsScheduleCard() {
   const [localFreqs, setLocalFreqs] = useState<Record<OpsScheduleOp, OpsScheduleFrequency>>({
     lint: "off",
     backfill: "off",
+    schema_review: "off",
   });
 
   /** Per-op saving state (while PUT is in-flight). */
   const [saving, setSaving] = useState<Record<OpsScheduleOp, boolean>>({
     lint: false,
     backfill: false,
+    schema_review: false,
   });
 
   /** Per-op run-now busy state. */
   const [runningNow, setRunningNow] = useState<Record<OpsScheduleOp, boolean>>({
     lint: false,
     backfill: false,
+    schema_review: false,
   });
 
   /** When 400-dormant is returned, show the vocabulary hint for that op. */
   const [dormantHint, setDormantHint] = useState<Record<OpsScheduleOp, boolean>>({
     lint: false,
     backfill: false,
+    schema_review: false,
   });
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
@@ -121,7 +125,11 @@ export function OpsScheduleCard() {
       setOps(data.ops);
       setFetchError(null);
       // Seed local frequency state from server
-      const freqs: Record<OpsScheduleOp, OpsScheduleFrequency> = { lint: "off", backfill: "off" };
+      const freqs: Record<OpsScheduleOp, OpsScheduleFrequency> = {
+        lint: "off",
+        backfill: "off",
+        schema_review: "off",
+      };
       for (const entry of data.ops) {
         freqs[entry.op] = entry.schedule;
       }
@@ -152,7 +160,13 @@ export function OpsScheduleCard() {
     setLocalFreqs((prev) => ({ ...prev, [op]: value }));
     setSaving((prev) => ({ ...prev, [op]: true }));
 
-    const key: AppConfigKey = op === "lint" ? "lint_schedule" : "backfill_schedule";
+    // Map op name → AppConfigKey (S10/S11/S12 — R12-7/A5/R12-8)
+    const scheduleKeyMap: Record<OpsScheduleOp, AppConfigKey> = {
+      lint: "lint_schedule",
+      backfill: "backfill_schedule",
+      schema_review: "schema_review_schedule",
+    };
+    const key: AppConfigKey = scheduleKeyMap[op];
     try {
       await putAppConfig(key, value);
       // Reload so server-authoritative state is shown

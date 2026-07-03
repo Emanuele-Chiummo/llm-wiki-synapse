@@ -40,6 +40,7 @@ export interface AppConfigResponse {
  * S1–S8: SPRINT-v1.1 §2 R11-2 MIGRATED list.
  * S9: domain_vocabulary (ADR-0054 §2.1, F18) — JSON array of domain name strings.
  * A5: lint_schedule / backfill_schedule — ops schedule frequencies (R12-7).
+ * S12: schema_review_schedule — scheduled schema review frequency (R12-8).
  */
 export type AppConfigKey =
   | "pdf_extractor"
@@ -52,7 +53,8 @@ export type AppConfigKey =
   | "wikilink_enrich_enabled"
   | "domain_vocabulary"
   | "lint_schedule"
-  | "backfill_schedule";
+  | "backfill_schedule"
+  | "schema_review_schedule";
 
 // ─── Client functions ─────────────────────────────────────────────────────────
 

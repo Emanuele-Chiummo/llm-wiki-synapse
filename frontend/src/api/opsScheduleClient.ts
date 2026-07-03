@@ -25,7 +25,7 @@ import { apiBase, apiFetch } from "./base";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /** Valid op identifiers understood by the backend. */
-export type OpsScheduleOp = "lint" | "backfill";
+export type OpsScheduleOp = "lint" | "backfill" | "schema_review";
 
 /** Valid schedule frequency strings from the backend. */
 export type OpsScheduleFrequency = "off" | "hourly" | "daily" | "weekly";
