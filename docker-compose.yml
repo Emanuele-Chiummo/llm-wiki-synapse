@@ -141,6 +141,11 @@ services:
       # Allow write_page over remote MCP surface (default false = read-only).
       MCP_REMOTE_WRITE_ENABLED: ${MCP_REMOTE_WRITE_ENABLED:-false}
 
+      # ── R12-5: Marker PDF extractor microservice (ADR-0051, optional profile) ────────
+      # Set to http://marker:8555 when the marker profile is enabled.
+      # Otherwise, uses the host default (host.docker.internal:8555 in Docker, localhost:8555 in local dev).
+      MARKER_SERVICE_URL: ${MARKER_SERVICE_URL:-http://host.docker.internal:8555}
+
     # Mount vault (contains raw/sources/ for watcher, wiki/ for output)
     # ── Feature S (ADR-0020): scheduled folder import ─────────────────────────
     # Mount any host folder you want Synapse to auto-import into the container,
@@ -175,6 +180,85 @@ services:
     restart: unless-stopped
 
   # ─────────────────────────────────────────────────────────────────────────
+  # Marker PDF extractor microservice — optional profile (disabled by default)
+  # ─────────────────────────────────────────────────────────────────────────
+  # R12-5: High-quality vision-model PDF extraction via marker-pdf (ADR-0051).
+  # Exposes POST /convert (multipart PDF → markdown + page count) and GET /health.
+  #
+  # Enable with:
+  #   docker compose --profile marker up -d
+  #
+  # When enabled, the backend uses this service for PDF extraction if PDF_EXTRACTOR=marker
+  # is set in .env. On any network error or timeout, the backend falls back to pypdf.
+  # Models (torch, surya, marker weights) are cached in the marker_models volume.
+  #
+  # ── GPU support (TrueNAS RTX 3060) ────────────────────────────────────────────
+  # To enable GPU acceleration (CUDA), uncomment the deploy block below and set
+  # TORCH_DEVICE=cuda in .env. GPU support is optional — CPU-only mode works fine
+  # for small to medium PDFs (seconds to minutes per page).
+  #
+  # ┌─────────────────────────────────────────────────────────────────────────┐
+  # │ IMPORTANT: Uncommenting the GPU block on a host without nvidia-docker   │
+  # │ runtime will break `docker compose up` (Compose fails if the requested  │
+  # │ resource is unavailable). Leave it commented unless your host has GPU   │
+  # │ support explicitly configured.                                          │
+  # └─────────────────────────────────────────────────────────────────────────┘
+  marker:
+    # ── For local dev: build from source ───────────────────────────────────
+    # For TrueNAS server: swap 'build:' for the 'image:' line below.
+    build:
+      context: ./tools/marker-converter
+      dockerfile: Dockerfile
+      args:
+        APP_VERSION: dev
+    # For GHCR deployment (R12-5): pull pre-built image (disable build: above)
+    # image: ghcr.io/emanuele-chiummo/llm-wiki-synapse-marker:latest
+    profiles:
+      - marker
+    environment:
+      # Torch device: CPU by default. Set to 'cuda' on GPU host (TrueNAS RTX 3060).
+      # If GPU is not available the backend silently falls back to CPU at runtime.
+      TORCH_DEVICE: ${TORCH_DEVICE:-}
+    volumes:
+      # Cache for downloaded model weights (torch, surya, marker PDFs).
+      # Persists across container restarts; downloaded only once.
+      - marker_models:/models
+    ports:
+      # Expose 8555 to the Docker network (used by synapse-backend internally).
+      # For host access (e.g., testing the service manually), uncomment:
+      # - "8555:8555"
+      - "8555:8555"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8555/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+    # ┌─────────────────────────────────────────────────────────────────────────┐
+    # │ NVIDIA GPU SUPPORT (TrueNAS RTX 3060 with CUDA) — COMMENTED OUT ────────│
+    # │ Uncomment this block ONLY if your host has nvidia-docker runtime        │
+    # │ installed and configured. On hosts without GPU support, leaving this    │
+    # │ commented ensures the container runs on CPU (slower but functional).    │
+    # │                                                                          │
+    # │ To enable GPU on TrueNAS SCALE:                                         │
+    # │   1. Ensure nvidia-docker is installed (TrueNAS Apps subsystem)         │
+    # │   2. Set TORCH_DEVICE=cuda in .env                                      │
+    # │   3. Uncomment the deploy block below                                   │
+    # │   4. Run: docker compose --profile marker up -d                         │
+    # │                                                                          │
+    # │ If you uncomment this on a non-GPU host, docker compose will fail.      │
+    # └─────────────────────────────────────────────────────────────────────────┘
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [compute, utility]
+
+  # ─────────────────────────────────────────────────────────────────────────
   # Watchtower — optional auto-update service (disabled by default)
   # ─────────────────────────────────────────────────────────────────────────
   # R12-3: Auto-update service, disabled by default via Compose profile.
@@ -197,4 +281,6 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  marker_models:
     driver: local

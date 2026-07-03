@@ -1590,7 +1590,156 @@ command run by the docs CI gate.
 
 ---
 
-## 18. ServiceNow doc connector (optional external tool) {#servicenow}
+## 18. Marker PDF extractor microservice (optional, R12-5) {#marker-microservice}
+
+Marker is a high-quality vision-model PDF extraction engine that uses surya OCR and layout detection to produce rich Markdown output from PDFs, including equations, tables, and figures. It is an optional component — Synapse always falls back to the bundled `pypdf` extractor if the Marker service is unavailable.
+
+### 18.1 Three deployment modes
+
+Choose based on your hardware and use case:
+
+| Mode | Best for | Setup | Speed |
+|------|----------|-------|-------|
+| **Mac dev (local)** | Development on Apple Silicon | Run `tools/marker-converter/service.py` directly; set `TORCH_DEVICE=mps` | Fast (Metal GPU acceleration) |
+| **Server CPU (Docker)** | Production without GPU | `docker compose --profile marker up -d` (CPU-only) | Medium (CPU, single-threaded lock) |
+| **TrueNAS GPU (Docker + CUDA)** | Production with RTX 3060 | `docker compose --profile marker up -d` + uncomment GPU block + `TORCH_DEVICE=cuda` | Fast (GPU acceleration) |
+
+### 18.2 Local development (macOS Apple Silicon)
+
+Run the Marker service directly on your Mac using Metal GPU acceleration:
+
+```bash
+cd tools/marker-converter
+
+# Create isolated venv (separate from the backend venv)
+python3.13 -m venv .venv
+./.venv/bin/pip install -r requirements.txt
+
+# Run with Metal GPU (fastest on Apple Silicon)
+TORCH_DEVICE=mps ./.venv/bin/python service.py --port 8555
+```
+
+First run downloads models (~2 GB) to `~/.cache/huggingface/hub/` (slow once; cached thereafter).
+
+In `.env`:
+```env
+PDF_EXTRACTOR=marker
+MARKER_SERVICE_URL=http://localhost:8555
+```
+
+### 18.3 Server deployment — CPU only (no GPU)
+
+For TrueNAS SCALE or any Docker host **without GPU**:
+
+```bash
+# Enable the marker profile and start the containerized service
+docker compose --profile marker up -d
+
+# Verify it's running
+curl http://localhost:8555/health
+# {"status":"ok"}
+```
+
+In `.env`:
+```env
+PDF_EXTRACTOR=marker
+MARKER_SERVICE_URL=http://marker:8555     # Docker network DNS name
+```
+
+The container runs on CPU (shared with backend container). A single lock prevents parallel conversions — one PDF at a time. Typical speed: 3-10 seconds per page depending on PDF complexity.
+
+### 18.4 TrueNAS GPU deployment (RTX 3060 + CUDA)
+
+To use the RTX 3060 GPU on your TrueNAS SCALE host:
+
+1. **Verify nvidia-docker is installed** on TrueNAS (check via TrueNAS Apps or CLI):
+   ```bash
+   docker run --rm --gpus all nvidia/cuda:12.2.0-runtime-ubuntu22.04 nvidia-smi
+   ```
+   If this fails, GPU support is not available — fall back to CPU mode (§18.3).
+
+2. **Uncomment the GPU block** in `docker-compose.yml` (under the `marker` service `deploy:` section):
+   ```yaml
+   deploy:
+     resources:
+       reservations:
+         devices:
+           - driver: nvidia
+             count: 1
+             capabilities: [compute, utility]
+   ```
+
+3. **Set TORCH_DEVICE in .env**:
+   ```env
+   PDF_EXTRACTOR=marker
+   MARKER_SERVICE_URL=http://marker:8555
+   TORCH_DEVICE=cuda
+   ```
+
+4. **Start the stack with the marker profile**:
+   ```bash
+   docker compose --profile marker up -d
+   ```
+
+5. **Verify GPU is active** (inside the marker container):
+   ```bash
+   docker exec synapse-marker python -c "import torch; print(f'GPU: {torch.cuda.is_available()}')"
+   # GPU: True
+   ```
+
+Typical GPU speed: 1-3 seconds per page (5-10x faster than CPU). On timeout or GPU memory exhaustion, the backend logs a WARNING and falls back to pypdf automatically.
+
+### 18.5 Model caching (HF_HOME volume)
+
+Marker downloads model weights on first use:
+- `torch` and `torchvision` (Pytorch core, ~500 MB)
+- `surya-ocr` model (layout detection, ~1.2 GB)
+- `marker-pdf` weights (~600 MB)
+
+All are cached in the `marker_models` Docker volume (named volume in `docker-compose.yml`). The volume persists across container restarts — models are downloaded only once.
+
+To clear the cache (e.g., to force a fresh download or free disk space):
+```bash
+docker volume rm synapse_marker_models
+```
+
+Next start will re-download; on slow networks this takes 2-5 minutes.
+
+### 18.6 Healthcheck and timeout
+
+The marker service exposes `GET /health` → `{"status":"ok"}` (200 OK).
+
+Docker Compose healthcheck:
+- Interval: 10 s
+- Timeout: 5 s
+- Start period: **60 s** (generous, accounting for first model download)
+- Retries: 3 before marking unhealthy
+
+Backend timeout for `POST /convert`:
+- `MARKER_TIMEOUT_SECONDS`: 120 s (default, adjustable in `.env`)
+- On timeout, the backend logs a WARNING and falls back to pypdf
+
+A typical PDF conversion takes 3-10 seconds on CPU, 1-3 seconds on GPU. Large scanned documents (500+ pages) may approach the 120 s limit — increase `MARKER_TIMEOUT_SECONDS` if needed.
+
+### 18.7 Disabling Marker
+
+To disable Marker and always use pypdf (the default):
+- Leave `PDF_EXTRACTOR=pypdf` in `.env` (or unset; pypdf is the default)
+- Do **not** start the marker profile
+- The backend will never attempt to reach the Marker service
+
+This is the safest fallback: pypdf is pure Python, always available, and never fails.
+
+### 18.8 Toggling at runtime
+
+To switch PDF extractors without restarting Synapse:
+1. Set `PDF_EXTRACTOR=marker` or `PDF_EXTRACTOR=pypdf` in Settings > Advanced (once this UI is added) or directly in `.env`
+2. Restart the backend: `docker compose restart synapse-backend`
+3. New PDFs use the selected extractor; previously extracted PDFs are unchanged
+
+---
+
+## 19. ServiceNow doc connector (optional external tool) {#servicenow}
 
 The ServiceNow connector is an external Python tool (`tools/marker-converter/`) that
 converts ServiceNow documentation PDFs (docs.servicenow.com exports) into structured
@@ -1601,7 +1750,7 @@ developer's machine (or in a sidecar container).
 For full setup instructions, see the tool's own README:
 `tools/marker-converter/README.md`
 
-### 18.1 One-shot conversion
+### 19.1 One-shot conversion
 
 ```bash
 cd tools/marker-converter
@@ -1620,7 +1769,7 @@ one Markdown source file per section into `raw/sources/servicenow/<module>/<feat
 The Synapse watcher (or `POST /sources/ingest-all`) then ingests these source files via
 the standard analyze→generate→validate loop, producing typed, linked wiki pages.
 
-### 18.2 Watch-daemon mode
+### 19.2 Watch-daemon mode
 
 The `--watch-dir` flag runs the connector as a bounded scheduler daemon: once per tick it
 scans the watch directory for new PDFs, converts them, and sleeps until the next tick.
@@ -1640,7 +1789,7 @@ Key behavior:
 - At most 20 PDFs per tick (I7 cap; override with `--max-files`).
 - A `launchd` plist template for macOS is provided in `tools/marker-converter/com.synapse.sn-connector.plist.template`. On TrueNAS SCALE, use a cron job or a Docker Compose sidecar with `restart: unless-stopped` instead of launchd.
 
-### 18.3 Integration with Synapse
+### 19.3 Integration with Synapse
 
 The converter writes raw source files into `vault/raw/sources/servicenow/`. Synapse
 treats these exactly like any other source: the watchdog detects new files and triggers
@@ -1651,13 +1800,13 @@ that broke the wiki type system.
 
 ---
 
-## 19. Backup & restore (R8-4) {#backup-restore}
+## 20. Backup & restore (R8-4) {#backup-restore}
 
 Synapse provides two export artifacts that together constitute a full vault backup.
 There is no import/restore endpoint in v0.8 — restore is a manual procedure documented
 below. A `/import` endpoint is planned for a future sprint.
 
-### 19.1 Downloading the two artifacts
+### 20.1 Downloading the two artifacts
 
 While Synapse is running:
 
@@ -1679,7 +1828,7 @@ Bounds:
 - ZIP export is capped at 500 MB uncompressed (returns HTTP 413 if exceeded).
 - Only one export may run at a time per vault; a concurrent request returns HTTP 429.
 
-### 19.2 Restore path A — vault directory only (watcher re-ingest)
+### 20.2 Restore path A — vault directory only (watcher re-ingest)
 
 Use this path when: the Postgres database was lost but the vault filesystem was preserved,
 OR when you want to restore to a new host without migrating the database.
@@ -1743,7 +1892,7 @@ a live Postgres connection.
 
 ---
 
-## 20. References
+## 21. References
 
 - `CLAUDE.md` — project context, invariants (I1–I9), and feature inventory
 - `docs/er/schema.mmd` — ER diagram (auto-generated by `make er`)

@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.git/
+.gitignore
+README.md
+*.md
+out/
+.github/
+com.synapse.sn-connector.plist.template
+servicenow_connector.py
