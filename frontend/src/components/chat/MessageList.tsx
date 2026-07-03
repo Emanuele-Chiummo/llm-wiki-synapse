@@ -28,6 +28,7 @@ import {
   memo,
   type ReactNode,
 } from "react";
+import synapseLogo from "../../assets/synapse-logo.svg";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import {
@@ -45,10 +46,12 @@ import { MarkdownView } from "./MarkdownView";
 import { StreamingMessage } from "./StreamingMessage";
 
 interface MessageListProps {
-  onRegenerate?: () => void;
+  onRegenerate?: (() => void) | undefined;
+  /** Called when an example-question chip is clicked (uses same send path as MessageInput). */
+  onSend?: ((text: string) => void) | undefined;
 }
 
-export function MessageList({ onRegenerate }: MessageListProps): ReactNode {
+export function MessageList({ onRegenerate, onSend }: MessageListProps): ReactNode {
   const { t } = useTranslation();
   // Settled messages only — NOT subscribing to streaming buffers (AC-G3-4)
   const messages = useMessages();
@@ -85,18 +88,7 @@ export function MessageList({ onRegenerate }: MessageListProps): ReactNode {
       data-testid="message-list"
     >
       {messages.length === 0 && !isStreaming && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            height: "100%",
-            color: "var(--syn-text-dim)",
-            fontSize: 14,
-          }}
-        >
-          {t("chat.empty")}
-        </div>
+        <ChatEmptyState onSend={onSend} t={t} />
       )}
 
       {/* Virtualized settled messages */}
@@ -370,6 +362,115 @@ const MessageRow = memo(function MessageRow({
     </div>
   );
 });
+
+// ─── Chat empty state ─────────────────────────────────────────────────────────
+
+/**
+ * Branded empty state shown when a conversation has no messages and is not streaming.
+ * Renders: Synapse logo (72px, subtle opacity) + short title + 3 example-question chips.
+ * Chip click uses the same onSend path as MessageInput (ADR-0048 §2.3 / T3).
+ * INVARIANT I3: no markdown/LaTeX parse here; no per-token work.
+ * INVARIANT: must NOT render while streaming — caller gates on !isStreaming.
+ */
+interface ChatEmptyStateProps {
+  onSend: ((text: string) => void) | undefined;
+  t: ReturnType<typeof useTranslation>["t"];
+}
+
+function ChatEmptyState({ onSend, t }: ChatEmptyStateProps): ReactNode {
+  const chips = [
+    t("chat.examples.q1"),
+    t("chat.examples.q2"),
+    t("chat.examples.q3"),
+  ] as const;
+
+  return (
+    <div
+      data-testid="chat-empty-state"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100%",
+        padding: "32px 24px",
+        gap: 16,
+        textAlign: "center",
+      }}
+    >
+      {/* Brand logo — subtle opacity so it doesn't overpower the chips */}
+      <img
+        src={synapseLogo}
+        alt="Synapse"
+        width={72}
+        height={72}
+        style={{ opacity: 0.25 }}
+        aria-hidden="true"
+      />
+
+      {/* Short title */}
+      <p
+        style={{
+          margin: 0,
+          fontSize: 15,
+          fontWeight: 600,
+          color: "var(--syn-text-muted)",
+          lineHeight: 1.4,
+        }}
+      >
+        {t("chat.emptyTitle")}
+      </p>
+
+      {/* Example-question chips */}
+      <div
+        data-testid="chat-example-chips"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          width: "100%",
+          maxWidth: 420,
+        }}
+      >
+        {chips.map((chip) => (
+          <button
+            key={chip}
+            type="button"
+            data-testid="chat-example-chip"
+            onClick={() => onSend?.(chip)}
+            style={{
+              background: "transparent",
+              border: "1px solid var(--syn-border)",
+              borderRadius: "var(--syn-radius-pill, 9999px)",
+              color: "var(--syn-text-muted)",
+              cursor: onSend ? "pointer" : "default",
+              fontSize: 13,
+              lineHeight: 1.4,
+              padding: "8px 16px",
+              textAlign: "left",
+              transition: "background-color 0.12s ease, border-color 0.12s ease",
+            }}
+            onMouseEnter={(e) => {
+              if (!onSend) return;
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                "var(--syn-accent-soft)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "var(--syn-accent)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                "transparent";
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "var(--syn-border)";
+            }}
+          >
+            {chip}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Role label ───────────────────────────────────────────────────────────────
 

@@ -42,25 +42,31 @@ vi.mock("react-i18next", () => ({
 
 // ─── Mock settingsStore ───────────────────────────────────────────────────────
 
+const mockSetTheme = vi.fn();
+
 vi.mock("../store/settingsStore", () => ({
   useSettingsStore: (selector: (s: unknown) => unknown) =>
     selector({
       contextWindowTokens: 32768,
       conversationHistoryLength: 10,
       language: "en",
+      theme: "system",
       setContextWindow: vi.fn(),
       setConversationHistoryLength: vi.fn(),
       setLanguage: vi.fn(),
+      setTheme: mockSetTheme,
       reset: vi.fn(),
     }),
   selectContextWindow: (s: { contextWindowTokens: number }) => s.contextWindowTokens,
   selectConversationHistoryLength: (s: { conversationHistoryLength: number }) =>
     s.conversationHistoryLength,
   selectLanguage: (s: { language: string }) => s.language,
+  selectTheme: (s: { theme: string }) => s.theme,
   selectSetContextWindow: (s: { setContextWindow: unknown }) => s.setContextWindow,
   selectSetConversationHistoryLength: (s: { setConversationHistoryLength: unknown }) =>
     s.setConversationHistoryLength,
   selectSetLanguage: (s: { setLanguage: unknown }) => s.setLanguage,
+  selectSetTheme: (s: { setTheme: unknown }) => s.setTheme,
   selectResetSettings: (s: { reset: unknown }) => s.reset,
   CONTEXT_WINDOW_OPTIONS: [4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576],
   CONV_HISTORY_OPTIONS: [2, 4, 6, 8, 10, 20],
@@ -358,13 +364,15 @@ describe("SettingsPanel — section switching (AC-HARD-SET-2)", () => {
     expect(screen.getByText("loading")).toBeTruthy();
   });
 
-  it("clicking Interface shows the ComingSoonBadge placeholder", () => {
+  it("clicking Interface shows the theme selector buttons", () => {
     renderPanel();
     const ifBtn = document.querySelector('[data-settings-section="interface"]');
     expect(ifBtn).not.toBeNull();
     fireEvent.click(ifBtn!);
-    const badges = screen.getAllByText("comingSoon");
-    expect(badges.length).toBeGreaterThanOrEqual(1);
+    // 3-way theme selector: system / light / dark
+    expect(document.querySelector('[data-testid="theme-btn-system"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="theme-btn-light"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="theme-btn-dark"]')).not.toBeNull();
   });
 
   it("active button has aria-current='true'", () => {
@@ -388,22 +396,19 @@ describe("SettingsPanel — section switching (AC-HARD-SET-2)", () => {
   });
 });
 
-// ─── 3. Placeholder sections render ComingSoonBadge (AC-HARD-SET-4) ──────────
+// ─── 3. Interface section now has theme selector (ADR-0048 §T1) ──────────────
 // Note: "embeddings" and "apiMcp" were removed from PLACEHOLDER_SECTIONS —
 // both now render real read-only panels (GET /config/embedding, GET /mcp/info).
+// "interface" was previously a stub; it now renders the 3-way theme selector.
 
-describe("SettingsPanel — ComingSoonBadge on placeholder sections (AC-HARD-SET-4)", () => {
-  const PLACEHOLDER_SECTIONS = ["interface"] as const;
-
-  PLACEHOLDER_SECTIONS.forEach((sectionId) => {
-    it(`section "${sectionId}" renders a comingSoon message (not empty)`, () => {
-      renderPanel();
-      const btn = document.querySelector(`[data-settings-section="${sectionId}"]`);
-      fireEvent.click(btn!);
-      // comingSoon key should be rendered — could appear multiple times
-      const elements = screen.getAllByText("comingSoon");
-      expect(elements.length).toBeGreaterThan(0);
-    });
+describe("SettingsPanel — Interface section renders theme selector (ADR-0048 §T1)", () => {
+  it("Interface section renders all three theme option buttons", () => {
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="interface"]');
+    fireEvent.click(btn!);
+    expect(document.querySelector('[data-testid="theme-btn-system"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="theme-btn-light"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="theme-btn-dark"]')).not.toBeNull();
   });
 });
 

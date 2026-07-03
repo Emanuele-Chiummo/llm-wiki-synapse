@@ -192,6 +192,10 @@ vi.mock("../store/chatStore", () => ({
       createConversation: vi.fn(),
       deleteConversation: vi.fn(),
       setActiveConversation: vi.fn(),
+      // Selectors used by useGlobalShortcuts (ADR-0048 §T2)
+      addConversation: vi.fn(),
+      setActiveConversationId: vi.fn(),
+      setMessages: vi.fn(),
     }),
   selectActiveConversationId: (s: { activeConversationId: string | null }) =>
     s.activeConversationId,
@@ -202,6 +206,11 @@ vi.mock("../store/chatStore", () => ({
   selectLastUsage: (s: { lastUsage: unknown }) => s.lastUsage,
   selectStreamingContent: (s: { streamingContent: string }) => s.streamingContent,
   selectStreamingThink: (s: { streamingThink: string }) => s.streamingThink,
+  // Selectors used by useGlobalShortcuts (ADR-0048 §T2)
+  selectAddConversation: (s: { addConversation: unknown }) => s.addConversation,
+  selectSetActiveConversationId: (s: { setActiveConversationId: unknown }) =>
+    s.setActiveConversationId,
+  selectSetMessages: (s: { setMessages: unknown }) => s.setMessages,
 }));
 
 // ─── Mock zustand shallow ─────────────────────────────────────────────────────
@@ -255,6 +264,19 @@ vi.mock("../components/common/Toast", () => ({
   ToastHost: () => null,
   showToast: vi.fn(),
 }));
+
+// ─── Mock CommandPalette (ADR-0048 §T2 — added to AppShell) ──────────────────
+
+vi.mock("../components/common/CommandPalette", () => ({
+  CommandPalette: () => null,
+}));
+
+// ─── Mock useGlobalShortcuts (ADR-0048 §T2 — added to AppShell) ──────────────
+
+vi.mock("../hooks/useGlobalShortcuts", () => ({
+  useGlobalShortcuts: () => undefined,
+}));
+
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

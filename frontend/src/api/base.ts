@@ -11,6 +11,11 @@
  * a single source of truth (localStorage) and lets "change server" take effect without
  * a full page reload (ADR-0047 §2.1).
  *
+ * Multi-server list (ADR-0048 §T4a):
+ *   localStorage["synapse.servers"] — JSON array, deduped (case-insensitive), most-recent
+ *   first, max 5. Written only by addKnownServer(), called only from setServerUrl() after
+ *   a validated successful connect. Never holds unvalidated or hostile URLs.
+ *
  * No secrets or API keys in this file (CLAUDE.md §12).
  * ADR-0047 §6 Do-NOT: never introduce a module-level const API_BASE in any client.
  */
@@ -23,6 +28,15 @@ const LS_SERVER_URL = "synapse.serverUrl";
  * after a "change server" instead of an empty field.
  */
 const LS_LAST_SERVER_URL = "synapse.lastServerUrl";
+
+/**
+ * Known-servers list (ADR-0048 §T4a).
+ * JSON array of normalized URLs, most-recent first, max 5, deduped
+ * case-insensitively. Written only from addKnownServer() which is called
+ * only from setServerUrl() — so every entry is a previously-validated host.
+ */
+const LS_SERVERS = "synapse.servers";
+const MAX_KNOWN_SERVERS = 5;
 
 /** ALLOWED_SCHEMES: only http and https are acceptable (ADR-0047 §2.7.1). */
 const ALLOWED_SCHEMES = ["http:", "https:"];
@@ -90,6 +104,50 @@ export function getServerUrl(): string | null {
 }
 
 /**
+ * getKnownServers — read the list of previously-connected servers (ADR-0048 §T4a).
+ *
+ * Returns a JSON array (most-recent first, max 5) of normalized URLs.
+ * Every entry was written by addKnownServer() which is only called from the
+ * successful-connect path (setServerUrl after 2xx /status), so all entries
+ * are validated http(s) URLs.
+ */
+export function getKnownServers(): string[] {
+  try {
+    const raw = localStorage.getItem(LS_SERVERS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as unknown[]).filter((v): v is string => typeof v === "string");
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * addKnownServer — append a validated URL to the known-servers list.
+ *
+ * MUST be called only from setServerUrl() after the /status probe succeeds.
+ * Dedupes case-insensitively (lowercase comparison), keeps most-recent first,
+ * caps the list at MAX_KNOWN_SERVERS (5). The URL must already be normalized
+ * (trimmed, trailing slash stripped, http(s) scheme) — callers do not re-validate.
+ *
+ * Internal use only — not exported to consumers (use getKnownServers() to read).
+ */
+function addKnownServer(url: string): void {
+  try {
+    const existing = getKnownServers();
+    const lower = url.toLowerCase();
+    // Remove any case-insensitive duplicate of the new URL
+    const deduped = existing.filter((s) => s.toLowerCase() !== lower);
+    // Prepend most-recent, cap at max
+    const next = [url, ...deduped].slice(0, MAX_KNOWN_SERVERS);
+    localStorage.setItem(LS_SERVERS, JSON.stringify(next));
+  } catch {
+    // ignore — storage unavailable
+  }
+}
+
+/**
  * setServerUrl — validate and persist the desktop server URL.
  *
  * Validation (ADR-0047 §2.7.1):
@@ -100,6 +158,9 @@ export function getServerUrl(): string | null {
  * Note: ConnectScreen MUST NOT call this until the /status probe succeeds (ADR-0047 §2.7.2).
  * This function stores the value unconditionally once validation passes; the probe gate is
  * the caller's responsibility.
+ *
+ * ADR-0048 §T4a: also registers the validated URL in the known-servers list so
+ * the Header dropdown can list previously-connected servers.
  */
 export function setServerUrl(url: string): void {
   const trimmed = url.trim().replace(/\/+$/, "");
@@ -111,6 +172,9 @@ export function setServerUrl(url: string): void {
   } catch {
     // ignore — storage unavailable
   }
+  // Register in the known-servers list ONLY after validation passes (ADR-0048 §T4a).
+  // addKnownServer is internal-only; callers cannot bypass the validation gate here.
+  addKnownServer(trimmed);
 }
 
 /**

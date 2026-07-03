@@ -9,7 +9,7 @@
     "graph": "Graph",
     "lint": "Lint",
     "review": "Review",
-    "deepSearch": "Deep Search",
+    "deepSearch": "Research",
     "deepSearchShort": "Deep Search",
     "settings": "Settings",
     "settingsShort": "Settings",
@@ -237,6 +237,13 @@
       "currentHelp": "Navigation labels, compact cards, and responsive stacking are active. Theme and density controls will become editable later.",
       "comingSoon": "Theme and density options — coming soon."
     },
+    "theme": {
+      "label": "Theme",
+      "help": "Choose how the app appearance adapts to your environment.",
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
     "maintenance": {
       "title": "Maintenance",
       "desc": "Tools for cleaning up the wiki — detect and merge duplicate entities/concepts that the LLM created under different names across re-ingests.",
@@ -398,7 +405,12 @@
     "reasoning": "Reasoning",
     "thinking": "thinking…",
     "usingProvider": "{{provider}}",
-    "ragActive": "Answers from your wiki"
+    "ragActive": "Answers from your wiki",
+    "examples": {
+      "q1": "Map the strongest concepts in this vault",
+      "q2": "Summarize what changed in the latest sources",
+      "q3": "Find gaps that need deep research"
+    }
   },
   "research": {
     "title": "Deep Search",
@@ -695,5 +707,25 @@
     "close": "Close",
     "copy": "Copy",
     "unknown": "Unknown"
+  },
+  "palette": {
+    "placeholder": "Search sections and pages…",
+    "noResults": "No results",
+    "sections": "Sections",
+    "pages": "Pages",
+    "hint": "↑↓ navigate · Enter open · Esc close"
+  },
+  "desktop": {
+    "serverChip": {
+      "label": "Connected to {{host}} — click to switch server",
+      "menuLabel": "Known servers",
+      "current": "current"
+    },
+    "notify": {
+      "ingestDone": "Ingest done: {{label}}",
+      "ingestFailed": "Ingest failed: {{label}}",
+      "pagesCreated_one": "{{count}} page created",
+      "pagesCreated_other": "{{count}} pages created"
+    }
   }
 }

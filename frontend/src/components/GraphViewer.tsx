@@ -70,6 +70,36 @@ const reducedMotion: boolean =
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// ─── Resolved theme helpers (ADR-0048 §T1) ───────────────────────────────────
+// Read render-only sigma properties from resolved CSS custom properties.
+// sigma.js cannot resolve CSS vars at canvas draw time, so we read them via
+// getComputedStyle on the document root and pass concrete values to sigma.
+// graphPalette.ts (node type/community palette) is NOT touched — ADR-0015 §CVD-SAFE.
+
+interface SigmaThemeColors {
+  /** Stage background (sigma container bg) — --syn-bg resolved value */
+  bg: string;
+  /** Label text color — --syn-text resolved value */
+  labelColor: string;
+  /** Halo stroke (contrasting surface behind labels) — #ffffff light, #0d1117 dark */
+  haloColor: string;
+  /** Hover ring stroke — --syn-text resolved value */
+  hoverRingColor: string;
+}
+
+function readSigmaThemeColors(): SigmaThemeColors {
+  try {
+    const style = getComputedStyle(document.documentElement);
+    const bg = style.getPropertyValue("--syn-bg").trim() || "#ffffff";
+    const labelColor = style.getPropertyValue("--syn-text").trim() || "#1f2328";
+    // halo: use bg as the contrasting backing stroke so it's visible on the canvas
+    const haloColor = bg;
+    return { bg, labelColor, haloColor, hoverRingColor: labelColor };
+  } catch {
+    return { bg: "#ffffff", labelColor: "#1f2328", haloColor: "#ffffff", hoverRingColor: "#1f2328" };
+  }
+}
+
 // ─── CVD-safe type palette (spec §CVD-SAFE) ──────────────────────────────────
 // Color alone MUST NOT be the only differentiator (WCAG 1.4.1).
 // Redundant encoding: legend shows swatch + type NAME; tooltip also shows type text.
@@ -139,55 +169,64 @@ function deepenColor(hex: string): string {
 
 // ─── Halo label drawer (accessible, AAA contrast) ────────────────────────────
 // sigma v3 has no built-in halo; we override defaultDrawNodeLabel.
-// Light halo (#ffffff, lineWidth 3) then dark fill (#1f2328) — ~18:1 contrast on white.
+// Halo color = bg (canvas background for readability); fill = --syn-text.
+// Colors are read once per sigma instantiation via readSigmaThemeColors().
 
 type LabelDrawData = PartialButFor<NodeDisplayData, "x" | "y" | "size" | "label" | "color">;
 
-function drawHaloNodeLabel(
-  context: CanvasRenderingContext2D,
-  data: LabelDrawData,
-  settings: Settings<Attributes, Attributes, Attributes>,
-): void {
-  if (!data.label) return;
+/**
+ * Build a halo label drawer that uses the provided theme colors.
+ * Called once per sigma instantiation, not per frame.
+ */
+function makeDrawHaloNodeLabel(themeColors: SigmaThemeColors) {
+  return function drawHaloNodeLabel(
+    context: CanvasRenderingContext2D,
+    data: LabelDrawData,
+    settings: Settings<Attributes, Attributes, Attributes>,
+  ): void {
+    if (!data.label) return;
 
-  const size = settings.labelSize;
-  const font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
-  const x = data.x;
-  const y = data.y - data.size - 3;
+    const size = settings.labelSize;
+    const font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;
+    const x = data.x;
+    const y = data.y - data.size - 3;
 
-  context.font = font;
-  context.textAlign = "center";
-  context.textBaseline = "bottom";
+    context.font = font;
+    context.textAlign = "center";
+    context.textBaseline = "bottom";
 
-  // Halo stroke (white) — improves readability on the light graph background
-  context.strokeStyle = "#ffffff"; // --syn-bg
-  context.lineWidth = 3;
-  context.lineJoin = "round";
-  context.strokeText(data.label, x, y);
+    // Halo stroke (bg color) — improves readability on the graph canvas background
+    context.strokeStyle = themeColors.haloColor;
+    context.lineWidth = 3;
+    context.lineJoin = "round";
+    context.strokeText(data.label, x, y);
 
-  // Label fill (dark near-black — --syn-text)
-  context.fillStyle = "#1f2328"; // --syn-text
-  context.fillText(data.label, x, y);
+    // Label fill (--syn-text resolved value)
+    context.fillStyle = themeColors.labelColor;
+    context.fillText(data.label, x, y);
+  };
 }
 
-// ─── Halo hover drawer ────────────────────────────────────────────────────────
-// Draws a highlight ring around the hovered node, then the halo'd label.
+/**
+ * Build a halo hover drawer that uses the provided theme colors.
+ * Draws a highlight ring around the hovered node, then the halo'd label.
+ */
+function makeDrawHaloNodeHover(themeColors: SigmaThemeColors) {
+  const drawLabel = makeDrawHaloNodeLabel(themeColors);
+  return function drawHaloNodeHover(
+    context: CanvasRenderingContext2D,
+    data: LabelDrawData,
+    settings: Settings<Attributes, Attributes, Attributes>,
+  ): void {
+    // Hover ring around the node (render-only; no layout change)
+    context.beginPath();
+    context.arc(data.x, data.y, data.size + 3, 0, Math.PI * 2);
+    context.lineWidth = 2;
+    context.strokeStyle = themeColors.hoverRingColor;
+    context.stroke();
 
-function drawHaloNodeHover(
-  context: CanvasRenderingContext2D,
-  data: LabelDrawData,
-  settings: Settings<Attributes, Attributes, Attributes>,
-): void {
-  // Light-theme hover ring around the node (NO background box — sigma's
-  // default drawDiscNodeHover paints a box that clashes; we draw a ring only).
-  context.beginPath();
-  context.arc(data.x, data.y, data.size + 3, 0, Math.PI * 2);
-  context.lineWidth = 2;
-  context.strokeStyle = "#1f2328"; // --syn-text — visible on white canvas
-  context.stroke();
-
-  // Then draw the halo'd label (reuse the label drawer)
-  drawHaloNodeLabel(context, data, settings);
+    drawLabel(context, data, settings);
+  };
 }
 
 // ─── Node tooltip ─────────────────────────────────────────────────────────────
@@ -603,6 +642,12 @@ export const GraphViewer: React.FC = () => {
   // sigma instance ref — kept outside React state to avoid re-render on mount
   const sigmaRef = useRef<Sigma<Attributes, Attributes, Attributes> | null>(null);
 
+  // Resolved sigma theme colors — updated on mount and on theme change (ADR-0048 §T1)
+  // React state drives re-render so sigma can be re-instantiated with correct colors.
+  const [sigmaThemeColors, setSigmaThemeColors] = React.useState<SigmaThemeColors>(() =>
+    readSigmaThemeColors(),
+  );
+
   // Color-mode toggle: "type" (default) or "community" (llm_wiki pattern)
   const [colorMode, setColorMode] = useState<ColorMode>("type");
 
@@ -661,6 +706,19 @@ export const GraphViewer: React.FC = () => {
 
     return () => ctrl.abort();
   }, [vaultId, setGraph, setLoading, setError]);
+
+  // ── Watch resolved theme changes, re-read sigma render properties (ADR-0048 §T1) ──
+  // Observes data-theme on <html>; on change, reads the new CSS vars and updates
+  // sigmaThemeColors, which is in the sigma-mount effect deps → sigma rebuilds with
+  // the new colors. This is a render-property update ONLY — no layout/coords touched (I2).
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setSigmaThemeColors(readSigmaThemeColors());
+    });
+    observer.observe(document.documentElement, { attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
 
   // ── Build graphology graph and mount sigma ────────────────────────────────
 
@@ -732,12 +790,14 @@ export const GraphViewer: React.FC = () => {
     // ── sigma v3 settings ────────────────────────────────────────────────
     // nodeReducer / edgeReducer implement Obsidian-style hover-dim.
     // They are set ONCE at construction; we mutate hoverState and call refresh().
+    // Theme colors (bg, labelColor, halo) are read from resolved CSS vars (ADR-0048 §T1).
+    // This is render-property only — no layout/coords touched (I2).
     const sigmaSettings: Partial<Settings<Attributes, Attributes, Attributes>> = {
-      // Label rendering — light theme: dark near-black labels (--syn-text)
+      // Label rendering — uses resolved --syn-text for label color
       labelFont: "Inter, system-ui, sans-serif",
       labelSize: 13,
       labelWeight: "600",
-      labelColor: { color: "#1f2328" }, // --syn-text
+      labelColor: { color: sigmaThemeColors.labelColor },
       // Obsidian-style labels: hidden when zoomed out (just dots), fade in as you zoom.
       // Node rendered size scales with camera zoom; a label shows only once a node's
       // on-screen size passes labelRenderedSizeThreshold. With the small node range
@@ -748,9 +808,9 @@ export const GraphViewer: React.FC = () => {
       labelGridCellSize: 70,
       labelRenderedSizeThreshold: 13,
 
-      // Custom halo drawers (AAA contrast)
-      defaultDrawNodeLabel: drawHaloNodeLabel,
-      defaultDrawNodeHover: drawHaloNodeHover,
+      // Custom halo drawers — built with resolved theme colors (ADR-0048 §T1)
+      defaultDrawNodeLabel: makeDrawHaloNodeLabel(sigmaThemeColors),
+      defaultDrawNodeHover: makeDrawHaloNodeHover(sigmaThemeColors),
 
       // Edge events required for edgeReducer hover detection
       enableEdgeEvents: true,
@@ -783,9 +843,11 @@ export const GraphViewer: React.FC = () => {
             // Mix toward black to deepen while preserving hue (light-theme pop)
             res["color"] = deepenColor((data["color"] as string | undefined) ?? DEFAULT_NODE_COLOR);
           } else {
-            // All other nodes: dim (washed-out light gray, hide label)
+            // All other nodes: dim (washed-out, hide label) — use --syn-border resolved value
             res["label"] = "";
-            res["color"] = "#c7ccd4"; // light-theme dim: close to --syn-border
+            res["color"] = sigmaThemeColors.labelColor === "#1f2328"
+              ? "#c7ccd4"  // light mode: close to --syn-border
+              : "#30363d"; // dark mode: close to --syn-border dark
             res["zIndex"] = 0;
           }
         }
@@ -968,9 +1030,10 @@ export const GraphViewer: React.FC = () => {
       sigma.kill();
       sigmaRef.current = null;
     };
-    // Rebuild sigma when graph data or color-mode changes (colorMode switches palette)
+    // Rebuild sigma when graph data, color-mode, or theme colors change.
+    // sigmaThemeColors change triggers re-instantiation with new render properties (I2).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, edges, colorMode]);
+  }, [nodes, edges, colorMode, sigmaThemeColors]);
 
   // ── Sync selectedNodeId from store → announcement (aria-live) ────────────
 
@@ -1032,12 +1095,13 @@ export const GraphViewer: React.FC = () => {
       style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", background: "var(--syn-bg)" }}
     >
       {/* sigma mounts ONE WebGL <canvas> here — I4.
-          Background is var(--syn-bg) (white) to match the llm_wiki light theme.
-          sigma inherits the container background for its WebGL clear color. */}
+          Background is set from the resolved --syn-bg token (ADR-0048 §T1).
+          sigma inherits the container background for its WebGL clear color.
+          Both inline style and CSS var are set so sigma and the DOM agree. */}
       <div
         id="sigma-container"
         ref={containerRef}
-        style={{ width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        style={{ width: "100%", height: "100%", background: sigmaThemeColors.bg }}
       />
 
       {/* Aria-live region — announces node selection for screen readers */}
