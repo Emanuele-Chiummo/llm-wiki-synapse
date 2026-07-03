@@ -1,0 +1,327 @@
+"""
+Runtime config-override layer (R11-2 / ADR-0053).
+
+Merges env baseline (settings.<key>) with DB overrides (app_config table).
+Load once at lifespan startup; O(1) reads from in-memory cache thereafter (I7).
+
+Public API
+----------
+ALLOWED_CONFIG_KEYS  : frozenset[str]   — the 8 keys the UI may override (§2.2)
+load_overrides(session) → None          — called ONCE at lifespan startup
+get_effective(key, env_default) → str   — O(1) cache read (override-else-default)
+source_of(key) → str                    — "override" | "env"
+get_override(key) → str | None          — raw cached value or None
+set_override(session, key, value) → None — allow-list + validate + upsert + cache refresh
+clear_override(session, key) → None     — allow-list + DELETE + cache refresh
+effective_str(key, default) → str | None
+effective_bool(key, default) → bool
+effective_float(key, default) → float
+
+Invariants
+----------
+I7  : single bounded SELECT at startup; no per-request DB read; refresh only on PUT/DELETE.
+I6  : S5/S6 are routed through the EXISTING embedding gate/adapter (callers do this);
+      this module only stores and retrieves the effective string — it never hardcodes shapes.
+I1  : no vault re-scan, no Qdrant re-embed — changing S5/S6 applies to SUBSEQUENT
+      ingests/queries only (documented behaviour, not a bug).
+ADR-0053 §2.5, §2.6, §3, §4.1.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
+
+# ── Allow-list (security boundary — ADR-0053 §2.2) ───────────────────────────
+# ONLY these 8 keys may be written via PUT /config/app/{key}.
+# Infra/secret keys are structurally unreachable through this surface (§2.4).
+ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
+    {
+        "pdf_extractor",  # S1  (ADR-0051)
+        "marker_service_url",  # S2  (ADR-0051)
+        "marker_timeout_seconds",  # S3  (ADR-0051)
+        "cost_alert_threshold_usd",  # S4  (R9-1)
+        "embeddings_enabled",  # S5  (ADR-0030) — routes through embedding data-plane gate
+        "embedding_format",  # S6  (ADR-0031) — routes through EmbeddingClient adapter seam (I6)
+        "overview_language",  # S7  (F3)
+        "wikilink_enrich_enabled",  # S8  (ADR-0036)
+    }
+)
+
+# ── Stable GET /config/app ordering (S1..S8) ─────────────────────────────────
+# The FE snapshot test needs a stable order; always emit in this sequence.
+ORDERED_KEYS: list[str] = [
+    "pdf_extractor",
+    "marker_service_url",
+    "marker_timeout_seconds",
+    "cost_alert_threshold_usd",
+    "embeddings_enabled",
+    "embedding_format",
+    "overview_language",
+    "wikilink_enrich_enabled",
+]
+
+# ── Per-key value validation rules (ADR-0053 §2.3) ───────────────────────────
+_PDF_EXTRACTOR_VALUES: frozenset[str] = frozenset({"pypdf", "marker"})
+_EMBEDDING_FORMAT_VALUES: frozenset[str] = frozenset({"ollama", "openai"})
+_BOOL_TRUE: frozenset[str] = frozenset({"true", "1", "yes"})
+_BOOL_FALSE: frozenset[str] = frozenset({"false", "0", "no"})
+_BOOL_VALUES: frozenset[str] = _BOOL_TRUE | _BOOL_FALSE
+
+
+def validate_value(key: str, value: str) -> str | None:
+    """
+    Validate *value* for *key* against the per-key rule (ADR-0053 §2.3).
+
+    Returns an error message string on failure, or None on success.
+    Callers turn a non-None return into an HTTP 422.
+
+    S7 `(auto)` sentinel: the caller converts this to a DELETE before calling here;
+    this function sees only the raw value and rejects empty strings.
+    """
+    if key == "pdf_extractor":
+        if value not in _PDF_EXTRACTOR_VALUES:
+            return f"pdf_extractor must be one of {sorted(_PDF_EXTRACTOR_VALUES)}, got {value!r}"
+
+    elif key == "marker_service_url":
+        if not (value.startswith("http://") or value.startswith("https://")):
+            return "marker_service_url must start with http:// or https://, " f"got {value!r}"
+
+    elif key == "marker_timeout_seconds":
+        try:
+            f = float(value)
+        except ValueError:
+            return f"marker_timeout_seconds must be a float > 0 and ≤ 3600, got {value!r}"
+        if not (0 < f <= 3600):
+            return f"marker_timeout_seconds must be > 0 and ≤ 3600, got {f!r}"
+
+    elif key == "cost_alert_threshold_usd":
+        try:
+            f = float(value)
+        except ValueError:
+            return f"cost_alert_threshold_usd must be a float ≥ 0, got {value!r}"
+        if f < 0:
+            return f"cost_alert_threshold_usd must be ≥ 0 (0 disables the alert), got {f!r}"
+
+    elif key in ("embeddings_enabled", "wikilink_enrich_enabled"):
+        if value.lower() not in _BOOL_VALUES:
+            return f"{key} must be 'true' or 'false' (case-insensitive), " f"got {value!r}"
+
+    elif key == "embedding_format":
+        if value not in _EMBEDDING_FORMAT_VALUES:
+            return (
+                f"embedding_format must be one of {sorted(_EMBEDDING_FORMAT_VALUES)}, "
+                f"got {value!r}"
+            )
+
+    elif key == "overview_language":
+        # Free text ISO code; only constraint is non-empty (caller routes "(auto)" to DELETE)
+        if not value.strip():
+            return (
+                "overview_language must be a non-empty ISO language code "
+                "(use DELETE to reset to auto)"
+            )
+
+    return None
+
+
+# ── In-memory cache ───────────────────────────────────────────────────────────
+# Single module-level dict protected by an asyncio.Lock (mirrors _ClipConfigCache).
+# key → raw TEXT value as stored in app_config (or missing ⇒ env governs).
+_cache: dict[str, str] = {}
+_cache_lock: asyncio.Lock = asyncio.Lock()
+
+
+async def load_overrides(session: AsyncSession) -> None:
+    """
+    Lifespan startup: read ALL app_config rows ONCE, cache in memory (I7 — single SELECT).
+
+    Rows whose key ∉ ALLOWED_CONFIG_KEYS are IGNORED (forward/back compat — ADR-0053 §2.6).
+    Tolerates a missing table (startup before migration applied — env governs, log once).
+    """
+    global _cache
+    try:
+        from app.models import AppConfig  # noqa: PLC0415 — deferred; models loaded after config
+
+        result = await session.execute(select(AppConfig.key, AppConfig.value))
+        rows: dict[str, str] = {}
+        for key, value in result:
+            if key in ALLOWED_CONFIG_KEYS:
+                rows[key] = value
+            else:
+                logger.debug(
+                    "config_overrides.load_overrides: ignoring unknown key %r "
+                    "(not in ALLOWED_CONFIG_KEYS — forward/back compat §2.6)",
+                    key,
+                )
+        async with _cache_lock:
+            _cache = rows
+        logger.info(
+            "config_overrides.load_overrides: loaded %d override(s): %s",
+            len(rows),
+            list(rows.keys()),
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Tolerate "relation does not exist" (migration not yet applied) — env governs.
+        err_msg = str(exc).lower()
+        if "does not exist" in err_msg or "no such table" in err_msg:
+            logger.warning(
+                "config_overrides.load_overrides: app_config table not found — "
+                "env vars govern all settings (ADR-0053 §2.6 belt-and-braces). "
+                "Apply migration 0023 to activate the override layer."
+            )
+            async with _cache_lock:
+                _cache = {}
+        else:
+            logger.error(
+                "config_overrides.load_overrides: unexpected error — env vars govern: %s",
+                exc,
+            )
+            async with _cache_lock:
+                _cache = {}
+
+
+def get_effective(key: str, env_default: str) -> str:
+    """
+    Return the cached override string for *key* if present, else *env_default*.
+    Pure in-memory O(1); never touches the DB (I7).
+    """
+    return _cache.get(key, env_default)
+
+
+def source_of(key: str) -> str:
+    """Return "override" iff a cached row exists for *key*, else "env"."""
+    return "override" if key in _cache else "env"
+
+
+def get_override(key: str) -> str | None:
+    """Return the raw cached value for *key*, or None if not overridden."""
+    return _cache.get(key)
+
+
+# ── Typed accessors (coercion lives in one place — ADR-0053 §2.5) ────────────
+
+
+def effective_str(key: str, default: str | None) -> str | None:
+    """Return the effective string value for *key*, falling back to *default*."""
+    raw = _cache.get(key)
+    if raw is not None:
+        return raw
+    return default
+
+
+def effective_bool(key: str, default: bool) -> bool:
+    """
+    Return the effective boolean for *key* (coercing "true"/"1"/"yes" → True).
+    Falls back to *default* on a coercion error (fail-closed to env default — §8 trade-offs).
+    """
+    raw = _cache.get(key)
+    if raw is None:
+        return default
+    lower = raw.lower()
+    if lower in _BOOL_TRUE:
+        return True
+    if lower in _BOOL_FALSE:
+        return False
+    # Malformed stored value (bypassed §2.3 validation — treat as default, log warning).
+    logger.warning(
+        "config_overrides.effective_bool: key=%r has malformed value %r — "
+        "falling back to env default %r",
+        key,
+        raw,
+        default,
+    )
+    return default
+
+
+def effective_float(key: str, default: float) -> float:
+    """
+    Return the effective float for *key*.
+    Falls back to *default* on a coercion error (fail-closed — §8 trade-offs).
+    """
+    raw = _cache.get(key)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning(
+            "config_overrides.effective_float: key=%r has malformed value %r — "
+            "falling back to env default %r",
+            key,
+            raw,
+            default,
+        )
+        return default
+
+
+# ── Cache write helpers ───────────────────────────────────────────────────────
+
+
+async def set_override(session: AsyncSession, key: str, value: str) -> None:
+    """
+    Allow-list check + validate + upsert into app_config + refresh in-memory cache.
+
+    Raises ValueError if key ∉ ALLOWED_CONFIG_KEYS or value fails validation.
+    (Callers convert ValueError → HTTP 400 / 422 as appropriate.)
+    """
+    if key not in ALLOWED_CONFIG_KEYS:
+        raise ValueError(f"invalid_key: {key!r}")
+    err = validate_value(key, value)
+    if err is not None:
+        raise ValueError(f"invalid_value: {err}")
+
+    from app.models import AppConfig  # noqa: PLC0415 — deferred to avoid circular import
+
+    # Upsert by primary key (key is the PK)
+    existing_result = await session.execute(select(AppConfig).where(AppConfig.key == key))
+    row = existing_result.scalar_one_or_none()
+    if row is not None:
+        row.value = value
+        from datetime import UTC, datetime  # noqa: PLC0415
+
+        row.updated_at = datetime.now(UTC)
+    else:
+        from datetime import UTC, datetime  # noqa: PLC0415
+
+        session.add(AppConfig(key=key, value=value, updated_at=datetime.now(UTC)))
+
+    await session.flush()
+
+    # Refresh cache AFTER flush (inside session scope — write committed by caller's context manager)
+    async with _cache_lock:
+        _cache[key] = value
+
+    logger.info(
+        "config_overrides.set_override: key=%r source=override (value NOT logged — ADR-0053 §6.8)",
+        key,
+    )
+
+
+async def clear_override(session: AsyncSession, key: str) -> None:
+    """
+    Allow-list check + DELETE the app_config row for *key* + refresh cache.
+
+    Raises ValueError if key ∉ ALLOWED_CONFIG_KEYS.
+    No-op if the row does not exist (idempotent DELETE).
+    """
+    if key not in ALLOWED_CONFIG_KEYS:
+        raise ValueError(f"invalid_key: {key!r}")
+
+    from app.models import AppConfig  # noqa: PLC0415
+
+    await session.execute(delete(AppConfig).where(AppConfig.key == key))
+    await session.flush()
+
+    async with _cache_lock:
+        _cache.pop(key, None)
+
+    logger.info(
+        "config_overrides.clear_override: key=%r source=env (override removed — ADR-0053 §3.3)",
+        key,
+    )

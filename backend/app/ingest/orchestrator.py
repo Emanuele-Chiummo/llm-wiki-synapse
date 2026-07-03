@@ -1563,8 +1563,11 @@ async def _update_overview(analysis: Analysis | None, origin_source: str) -> Non
         # settings.overview_language (OVERVIEW_LANGUAGE) FORCES the language when set — e.g. an
         # Italian user reading English source material wants an Italian overview regardless of
         # the content's detected language. Falls back to analysis/detected language otherwise.
-        if settings.overview_language:
-            overview_lang: str | None = settings.overview_language
+        from app.config_overrides import effective_str  # noqa: PLC0415
+
+        _effective_overview_lang = effective_str("overview_language", settings.overview_language)
+        if _effective_overview_lang:
+            overview_lang: str | None = _effective_overview_lang
         elif analysis is not None and getattr(analysis, "language", None):
             overview_lang = analysis.language
         else:
@@ -2414,9 +2417,11 @@ async def upsert_vector(
     the page stays fully indexed in Postgres and ingest remains a single incremental pass (I1).
     Toggling the flag never triggers a bulk re-embed.
     """
-    if not settings.embeddings_enabled:
+    from app.config_overrides import effective_bool  # noqa: PLC0415
+
+    if not effective_bool("embeddings_enabled", settings.embeddings_enabled):
         logger.info(
-            "upsert_vector: embeddings disabled (EMBEDDINGS_ENABLED=false) — "
+            "upsert_vector: embeddings disabled (effective EMBEDDINGS_ENABLED=false) — "
             "skipping embed + Qdrant upsert for page_id=%s (file_path=%s)",
             page_id,
             file_path,

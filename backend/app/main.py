@@ -97,6 +97,19 @@ from app import cli_auth as _cli_auth
 from app.auth import SynapseAuthMiddleware
 from app.chat.stream import ChatStreamError, run_chat_stream
 from app.config import settings
+from app.config_overrides import (
+    ALLOWED_CONFIG_KEYS,
+    ORDERED_KEYS,
+    clear_override,
+    effective_bool,
+    effective_float,
+    effective_str,
+    get_effective,
+    load_overrides,
+    set_override,
+    source_of,
+    validate_value,
+)
 from app.db import dispose_engine, get_session
 from app.embeddings import EmbeddingError, get_embedding_client
 from app.graph.cache import GraphCache
@@ -840,10 +853,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await _load_web_search_config_cache()
     await _load_cli_auth_config_cache()
 
+    # 2b. Load app_config override layer (ADR-0053 §4.1).
+    #     MUST run BEFORE _validate_embedding_and_collection so effective S5
+    #     (EMBEDDINGS_ENABLED override) governs the startup embedding validation.
+    async with get_session() as _co_session:
+        await load_overrides(_co_session)
+
     # 3. Validate EMBEDDING_DIM vs live bge-m3 + ensure collection (ADR-0004).
     #    Skipped when EMBEDDINGS_ENABLED=false (ADR-0030 §2.5) so the app boots
     #    with no embedding service reachable — startup must not fail in lexical mode.
-    if settings.embeddings_enabled:
+    #    Uses the EFFECTIVE embeddings_enabled (env baseline + DB override — ADR-0053 §2.5).
+    _effective_embeddings_enabled = effective_bool(
+        "embeddings_enabled", settings.embeddings_enabled
+    )
+    if _effective_embeddings_enabled:
         await _validate_embedding_and_collection()
     else:
         logger.info(
@@ -2895,6 +2918,280 @@ async def upload_ingest(
     )
 
 
+# ── POST /ingest/convert-marker ── R11-1: explicit Marker conversion (AC-R11-1-1..4) ──
+# ── GET  /ingest/marker-health  ── R11-1: proxy health check (AC-R11-1-4) ────────────
+#
+# Design: the user explicitly chose Marker — NO silent pypdf fallback on this path.
+# On any Marker error (non-2xx / timeout / conn-refused) → HTTP 502, write NO .extracted.md.
+# This differs from extract.py's CLI path which always falls back (PM decision, ADR-0051).
+
+
+class MarkerConvertResponse(BaseModel):
+    """Response for POST /ingest/convert-marker (R11-1)."""
+
+    results: list[dict[str, Any]] = Field(
+        description=(
+            "Per-file conversion results. Each entry: "
+            "{file: str, status: 'ok'|'error', path: str|null, detail: str|null}. "
+            "status='ok' means .extracted.md was written and watcher will ingest. "
+            "status='error' means Marker returned an error; no file was written."
+        )
+    )
+
+
+@app.post(
+    "/ingest/convert-marker",
+    response_model=MarkerConvertResponse,
+    status_code=200,
+    summary="Convert one or more PDFs through Marker and queue for ingest (R11-1)",
+    description=(
+        "F12 / R11-1 — explicit Marker PDF conversion endpoint. "
+        "Accepts multipart files[] (≤10 files, each ≤ MAX_UPLOAD_BYTES, .pdf only). "
+        "For each file: calls Marker microservice, writes <stem>.extracted.md to "
+        "vault/raw/sources/ with valid YAML frontmatter (I5), lets the watcher ingest "
+        "incrementally (I1). "
+        "On ANY Marker error (non-2xx / timeout / connection refused): "
+        "returns 502 {'error':'marker_unavailable','detail':'...'} and writes NO file. "
+        "NO silent pypdf fallback on this explicit path (unlike extract.py's CLI path). "
+        "400 if > 10 files. 413 if any file > MAX_UPLOAD_BYTES. 415 for non-.pdf files."
+    ),
+    responses={
+        200: {"description": "Per-file results (mix of ok / error)."},
+        400: {"description": "More than 10 files submitted."},
+        413: {"description": "A file exceeds MAX_UPLOAD_BYTES."},
+        415: {"description": "A non-.pdf file was submitted."},
+        502: {"description": "Marker microservice is unavailable."},
+    },
+)
+async def convert_marker(
+    files: list[UploadFile] = File(..., description="PDF files to convert (≤10)."),
+) -> MarkerConvertResponse:
+    """
+    POST /ingest/convert-marker — explicit Marker PDF conversion (R11-1 / AC-R11-1-1..4).
+
+    For each file:
+    1. Reject non-.pdf (415), oversize (413).
+    2. Write raw PDF bytes to vault/raw/sources/<stem>.pdf (preserved, I5/K1).
+    3. Call Marker microservice — on error return 502 immediately, write no .extracted.md.
+    4. Write <stem>.extracted.md with valid YAML frontmatter (type:source, title, sources).
+    5. Watcher picks up the companion under I1 (no new ingest path).
+
+    NO silent pypdf fallback — the user explicitly chose Marker.
+    """
+    import tempfile  # noqa: PLC0415
+
+    import httpx  # noqa: PLC0415
+
+    # ── AC-R11-1-1: reject > 10 files ────────────────────────────────────────
+    if len(files) > 10:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many files: {len(files)} submitted; maximum is 10.",
+        )
+
+    max_bytes: int = settings.max_upload_bytes
+
+    # ── Read effective Marker settings (S2/S3 through config_overrides — ADR-0053) ─
+    _eff_marker_url = (
+        effective_str("marker_service_url", settings.marker_service_url)
+        or settings.marker_service_url
+    )
+    _eff_marker_timeout = effective_float("marker_timeout_seconds", settings.marker_timeout_seconds)
+
+    results: list[dict[str, Any]] = []
+
+    for upload in files:
+        raw_name: str = upload.filename or ""
+        stem = Path(raw_name).stem if raw_name else "untitled"
+        suffix = Path(raw_name).suffix.lower() if raw_name else ""
+
+        # ── AC-R11-1-1: reject non-pdf ────────────────────────────────────────
+        if suffix != ".pdf":
+            raise HTTPException(
+                status_code=415,
+                detail=(
+                    f"File {raw_name!r} is not a PDF. "
+                    "POST /ingest/convert-marker accepts only .pdf files."
+                ),
+            )
+
+        # ── Read raw bytes with size cap (AC-R11-1-1 / I7) ───────────────────
+        raw_sources = settings.raw_sources_dir
+        raw_sources.mkdir(parents=True, exist_ok=True)
+
+        tmp_fd, tmp_name = tempfile.mkstemp(dir=str(raw_sources), suffix=".marker_tmp")
+        bytes_read = 0
+        try:
+            with open(tmp_fd, "wb") as tmp_file:
+                chunk_size = 65_536
+                while True:
+                    chunk = await upload.read(chunk_size)
+                    if not chunk:
+                        break
+                    bytes_read += len(chunk)
+                    if bytes_read > max_bytes:
+                        raise HTTPException(
+                            status_code=413,
+                            detail=(
+                                f"File {raw_name!r} exceeds the "
+                                f"{max_bytes // (1024 * 1024)} MB upload limit."
+                            ),
+                        )
+                    tmp_file.write(chunk)
+        except HTTPException:
+            Path(tmp_name).unlink(missing_ok=True)
+            raise
+        except Exception as exc:
+            Path(tmp_name).unlink(missing_ok=True)
+            raise HTTPException(status_code=500, detail=f"Upload read error: {exc}") from exc
+        finally:
+            await upload.close()
+
+        # ── Write raw PDF bytes to raw/sources/<stem>.pdf ────────────────────
+        safe_stem = _re.sub(r"[^a-z0-9_.-]", "_", stem.lower())[:100] or "upload"
+        pdf_name = f"{safe_stem}.pdf"
+        pdf_dst = raw_sources / pdf_name
+        pdf_bytes = Path(tmp_name).read_bytes()
+        Path(tmp_name).unlink(missing_ok=True)
+        pdf_dst.write_bytes(pdf_bytes)
+
+        # ── Call Marker microservice (AC-R11-1-3: NO fallback on error) ──────
+        convert_url = f"{_eff_marker_url.rstrip('/')}/convert"
+        marker_ok = False
+        marker_markdown: str = ""
+        marker_detail: str = ""
+
+        try:
+            async with httpx.AsyncClient(timeout=_eff_marker_timeout) as client:
+                response = await client.post(
+                    convert_url,
+                    files={"file": (pdf_name, pdf_bytes, "application/pdf")},
+                )
+            if response.status_code == 200:
+                data = response.json()
+                md = data.get("markdown")
+                if isinstance(md, str) and md:
+                    marker_markdown = md
+                    marker_ok = True
+                else:
+                    marker_detail = "Marker returned invalid or empty markdown field."
+            else:
+                marker_detail = (
+                    f"Marker returned HTTP {response.status_code}: " f"{response.text[:200]}"
+                )
+        except httpx.TimeoutException as exc:
+            marker_detail = f"Marker request timed out after {_eff_marker_timeout}s: {exc}"
+        except (httpx.ConnectError, httpx.RequestError) as exc:
+            marker_detail = f"Marker microservice unreachable ({type(exc).__name__}): {exc}"
+        except Exception as exc:  # noqa: BLE001
+            marker_detail = f"Unexpected Marker error: {exc}"
+
+        if not marker_ok:
+            # AC-R11-1-3: 502 immediately; NO .extracted.md written; NO fallback
+            logger.warning(
+                "convert_marker: Marker unavailable for %s: %s",
+                pdf_name,
+                marker_detail,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail={"error": "marker_unavailable", "detail": marker_detail},
+            )
+
+        # ── Write .extracted.md companion (AC-R11-1-2 / I5) ──────────────────
+        companion_name = f"{safe_stem}.extracted.md"
+        companion_dst = raw_sources / companion_name
+        raw_rel = str(pdf_dst.relative_to(settings.vault_root))
+        companion_content = (
+            f"---\n"
+            f"type: source\n"
+            f"title: {safe_stem}\n"
+            f'sources: ["{raw_rel}"]\n'
+            f"---\n\n" + marker_markdown
+        )
+        companion_dst.write_text(companion_content, encoding="utf-8")
+        companion_rel = str(companion_dst.relative_to(settings.vault_root))
+
+        logger.info(
+            "convert_marker: %s → %s (%d chars, Marker path — no pypdf fallback)",
+            pdf_name,
+            companion_name,
+            len(marker_markdown),
+        )
+
+        results.append(
+            {
+                "file": raw_name,
+                "status": "ok",
+                "path": companion_rel,
+                "detail": None,
+            }
+        )
+
+    return MarkerConvertResponse(results=results)
+
+
+class MarkerHealthResponse(BaseModel):
+    """Response for GET /ingest/marker-health (R11-1 / AC-R11-1-4)."""
+
+    status: Literal["ok", "offline"] = Field(
+        description='"ok" when Marker responds 200; "offline" when unreachable or non-200.'
+    )
+    detail: str | None = Field(
+        default=None,
+        description="Error detail when status='offline'; null when ok.",
+    )
+
+
+@app.get(
+    "/ingest/marker-health",
+    response_model=MarkerHealthResponse,
+    summary="Proxy the Marker microservice health check (R11-1)",
+    description=(
+        "R11-1 — GET {effective MARKER_SERVICE_URL}/health proxy. "
+        "Returns {'status':'ok'} (200) when Marker responds 200. "
+        "Returns {'status':'offline','detail':'...'} (503) when unreachable or non-200. "
+        "Uses the effective Marker URL (env baseline + DB override via config_overrides S2)."
+    ),
+    responses={
+        200: {"description": "Marker is reachable and healthy."},
+        503: {"description": "Marker is offline or unreachable."},
+    },
+)
+async def marker_health() -> Response:
+    """GET /ingest/marker-health — proxy Marker /health (R11-1 / AC-R11-1-4)."""
+    import httpx  # noqa: PLC0415
+
+    _eff_marker_url = (
+        effective_str("marker_service_url", settings.marker_service_url)
+        or settings.marker_service_url
+    )
+    health_url = f"{_eff_marker_url.rstrip('/')}/health"
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(health_url)
+        if resp.status_code == 200:
+            return Response(
+                content='{"status":"ok"}',
+                status_code=200,
+                media_type="application/json",
+            )
+        detail = f"Marker returned HTTP {resp.status_code}: {resp.text[:200]}"
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.RequestError) as exc:
+        detail = f"{type(exc).__name__}: {exc}"
+    except Exception as exc:  # noqa: BLE001
+        detail = f"Unexpected error: {exc}"
+
+    import json  # noqa: PLC0415
+
+    return Response(
+        content=json.dumps({"status": "offline", "detail": detail}),
+        status_code=503,
+        media_type="application/json",
+    )
+
+
 # ── POST /ingest/from-text ────────────────────────────────────────────────────
 
 
@@ -3613,7 +3910,7 @@ async def get_embedding_config() -> EmbeddingConfigResponse:
         embedding_url=settings.embedding_url,
         embedding_model=settings.embedding_model,
         embedding_dim=settings.embedding_dim,
-        embeddings_enabled=settings.embeddings_enabled,
+        embeddings_enabled=effective_bool("embeddings_enabled", settings.embeddings_enabled),
     )
 
 
@@ -4738,7 +5035,10 @@ async def regenerate_overview() -> RegenerateOverviewResponse:
     # unchanged, a successful regen rewrites it.
     before = _read_overview()
     # Report the language actually used: the OVERVIEW_LANGUAGE override wins, else auto-detect.
-    detected = settings.overview_language or await _detect_vault_language()
+    detected = (
+        effective_str("overview_language", settings.overview_language)
+        or await _detect_vault_language()
+    )
     # analysis=None → _update_overview detects the vault language internally (delegated-style).
     await _update_overview(None, "(manual regenerate)")
     after = _read_overview()
@@ -7666,6 +7966,183 @@ async def put_cli_auth_config(body: CliAuthConfigRequest) -> CliAuthConfigRespon
         token_source=cache.token_source(),
         auth_mode=cache.auth_mode(),
     )
+
+
+# ── GET /config/app — list all 8 effective settings with source (ADR-0053 §3.1) ─
+# ── PUT /config/app/{key} — upsert one override (ADR-0053 §3.2) ─────────────────
+# ── DELETE /config/app/{key} — remove override → revert to env (ADR-0053 §3.3) ──
+#
+# Auth: gated by SynapseAuthMiddleware (ADR-0052) by construction — no per-route dep.
+# DO NOT add Depends(verify_token) here (double-gate — ADR-0052 §6 / ADR-0053 §2.5).
+
+
+class AppConfigSetting(BaseModel):
+    """One entry in the GET /config/app response (ADR-0053 §3.1)."""
+
+    key: str = Field(description="Config key (lower-snake attribute form, e.g. pdf_extractor).")
+    value: str = Field(
+        description=(
+            "Effective value as a string (override wins; env baseline otherwise). "
+            "S7 overview_language with no override serialises as '' (auto sentinel)."
+        )
+    )
+    source: Literal["override", "env"] = Field(
+        description='"override" iff an app_config row exists for this key, else "env".'
+    )
+
+
+class AppConfigListResponse(BaseModel):
+    """Response body for GET /config/app (ADR-0053 §3.1)."""
+
+    settings: list[AppConfigSetting] = Field(
+        description="All 8 migrated settings in stable S1..S8 order."
+    )
+
+
+def _build_app_config_response() -> AppConfigListResponse:
+    """
+    Build the GET /config/app response from the in-process cache (I7 — no DB round-trip).
+
+    Value resolution per key (ADR-0053 §3.1):
+      • S7 overview_language: None env-default → serialised as "" (auto sentinel).
+      • All others: str env-default passed directly.
+    """
+    env_defaults: dict[str, str] = {
+        "pdf_extractor": settings.pdf_extractor,
+        "marker_service_url": settings.marker_service_url,
+        "marker_timeout_seconds": str(settings.marker_timeout_seconds),
+        "cost_alert_threshold_usd": str(settings.cost_alert_threshold_usd),
+        "embeddings_enabled": str(settings.embeddings_enabled).lower(),
+        "embedding_format": settings.embedding_format,
+        "overview_language": settings.overview_language or "",
+        "wikilink_enrich_enabled": str(settings.wikilink_enrich_enabled).lower(),
+    }
+
+    result: list[AppConfigSetting] = []
+    for key in ORDERED_KEYS:
+        env_default = env_defaults[key]
+        effective = get_effective(key, env_default)
+        result.append(
+            AppConfigSetting(
+                key=key,
+                value=effective,
+                source=source_of(key),
+            )
+        )
+    return AppConfigListResponse(settings=result)
+
+
+@app.get(
+    "/config/app",
+    response_model=AppConfigListResponse,
+    summary="List all 8 runtime config overrides with effective value + source (ADR-0053)",
+    description=(
+        "Returns the 8 migrated settings (S1..S8) in stable order. "
+        "Each entry has key, effective value (override wins over env), and source "
+        "('override' iff a DB row exists, else 'env'). "
+        "All values from in-process cache — no DB round-trip (I7). "
+        "Never returns infra/secret keys (allow-list boundary — ADR-0053 §2.2/§2.4). "
+        "Auth: SynapseAuthMiddleware (ADR-0052 / ADR-0053 §3 — BearerAuth in OpenAPI)."
+    ),
+)
+async def get_app_config() -> AppConfigListResponse:
+    """GET /config/app — list effective values + source for all 8 settings (ADR-0053 §3.1)."""
+    return _build_app_config_response()
+
+
+class AppConfigPutBody(BaseModel):
+    """Request body for PUT /config/app/{key} (ADR-0053 §3.2)."""
+
+    value: str = Field(
+        description=(
+            "Override value as a string. Required and non-null "
+            "(app_config.value is NOT NULL — use DELETE to reset to default, §3.3). "
+            "Per-key validation rules: ADR-0053 §2.3."
+        )
+    )
+
+
+@app.put(
+    "/config/app/{key}",
+    status_code=204,
+    summary="Upsert one config override (ADR-0053)",
+    description=(
+        "Sets or updates the DB override for one of the 8 allowed keys. "
+        "Returns 204 on success. "
+        "Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. "
+        "Returns 422 on value validation failure (per-key rules — ADR-0053 §2.3). "
+        "Auth: SynapseAuthMiddleware (ADR-0052). "
+        "After write, the in-process cache is refreshed immediately so a subsequent "
+        "GET /config/app reflects source='override' (ADR-0053 §3.2)."
+    ),
+    responses={
+        204: {"description": "Override stored; effective value updated in cache."},
+        400: {"description": "Key not in allow-list."},
+        422: {"description": "Value fails per-key validation rule (ADR-0053 §2.3)."},
+    },
+)
+async def put_app_config(key: str, body: AppConfigPutBody) -> Response:
+    """PUT /config/app/{key} — upsert one config override (ADR-0053 §3.2)."""
+    if key not in ALLOWED_CONFIG_KEYS:
+        import json as _json  # noqa: PLC0415
+
+        return Response(
+            content=_json.dumps({"error": "invalid_key", "allowed": sorted(ALLOWED_CONFIG_KEYS)}),
+            status_code=400,
+            media_type="application/json",
+        )
+
+    # S7 "(auto)" sentinel → redirect to DELETE (ADR-0053 §2.3)
+    if key == "overview_language" and body.value.strip() == "(auto)":
+        async with get_session() as session:
+            await clear_override(session, key)
+        return Response(status_code=204)
+
+    # Validate value (422 on failure, no write — ADR-0053 §2.3)
+    err = validate_value(key, body.value)
+    if err is not None:
+        raise HTTPException(status_code=422, detail=err)
+
+    async with get_session() as session:
+        await set_override(session, key, body.value)
+
+    logger.info("PUT /config/app/%s: source=override (ADR-0053)", key)
+    return Response(status_code=204)
+
+
+@app.delete(
+    "/config/app/{key}",
+    status_code=204,
+    summary="Remove a config override → revert to env default (ADR-0053 §3.3)",
+    description=(
+        "Deletes the app_config row for *key*, reverting the setting to its env baseline. "
+        "Returns 204 (idempotent — no-op if no row existed). "
+        "Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. "
+        "Auth: SynapseAuthMiddleware (ADR-0052). "
+        "Reset is DELETE, not PUT null: app_config.value is NOT NULL by design (ADR-0053 §3.3). "
+        "S7 overview_language: frontend sends DELETE for the '(auto)' choice (§2.3)."
+    ),
+    responses={
+        204: {"description": "Override removed; setting reverts to env default."},
+        400: {"description": "Key not in allow-list."},
+    },
+)
+async def delete_app_config(key: str) -> Response:
+    """DELETE /config/app/{key} — remove override, revert to env default (ADR-0053 §3.3)."""
+    if key not in ALLOWED_CONFIG_KEYS:
+        import json as _json  # noqa: PLC0415
+
+        return Response(
+            content=_json.dumps({"error": "invalid_key", "allowed": sorted(ALLOWED_CONFIG_KEYS)}),
+            status_code=400,
+            media_type="application/json",
+        )
+
+    async with get_session() as session:
+        await clear_override(session, key)
+
+    logger.info("DELETE /config/app/%s: source=env (override removed — ADR-0053 §3.3)", key)
+    return Response(status_code=204)
 
 
 _CLIP_LOOPBACK_ORIGINS: frozenset[str] = frozenset(

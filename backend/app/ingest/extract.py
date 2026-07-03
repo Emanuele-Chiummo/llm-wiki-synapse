@@ -68,22 +68,36 @@ def _extract_max_chars() -> int:
 
 
 def _get_pdf_extractor() -> str:
-    """Return the configured PDF extractor backend ('pypdf' or 'marker')."""
-    try:
-        from app.config import settings
+    """Return the effective PDF extractor backend ('pypdf' or 'marker').
 
-        return str(getattr(settings, "pdf_extractor", "pypdf")).lower().strip()
+    S1 (ADR-0053 §2.5): read effective value through config_overrides.
+    Falls back to settings.pdf_extractor (env baseline) when no override exists.
+    """
+    try:
+        from app.config import settings  # noqa: PLC0415
+        from app.config_overrides import effective_str  # noqa: PLC0415
+
+        return (
+            str(effective_str("pdf_extractor", settings.pdf_extractor) or "pypdf").lower().strip()
+        )
     except Exception:  # noqa: BLE001
         return "pypdf"
 
 
 def _get_marker_settings() -> tuple[str, float]:
-    """Return (marker_service_url, marker_timeout_seconds) from settings."""
-    try:
-        from app.config import settings
+    """Return (effective_marker_service_url, effective_marker_timeout_seconds).
 
-        url = str(getattr(settings, "marker_service_url", "http://host.docker.internal:8555"))
-        timeout = float(getattr(settings, "marker_timeout_seconds", 120.0))
+    S2/S3 (ADR-0053 §2.5): read effective values through config_overrides.
+    """
+    try:
+        from app.config import settings  # noqa: PLC0415
+        from app.config_overrides import effective_float, effective_str  # noqa: PLC0415
+
+        url = str(
+            effective_str("marker_service_url", settings.marker_service_url)
+            or "http://host.docker.internal:8555"
+        )
+        timeout = effective_float("marker_timeout_seconds", settings.marker_timeout_seconds)
         return url, timeout
     except Exception:  # noqa: BLE001
         return "http://host.docker.internal:8555", 120.0

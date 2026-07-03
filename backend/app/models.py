@@ -2028,6 +2028,56 @@ class LintFinding(Base):
         )
 
 
+class AppConfig(Base):
+    """
+    v1.1 R11-2 runtime config-override layer — one row per active override (ADR-0053 §2.1).
+
+    Schema invariant: value is NOT NULL — a row existing means an override is active.
+    Reset-to-default is a row DELETE, not a null write (§3.3 — "row exists ⇔ override active").
+    Absent row ⇒ the env baseline (settings.<key>) governs (backward-compat, §2.6).
+
+    Only the 8 keys in config_overrides.ALLOWED_CONFIG_KEYS may ever be written via the
+    API; unknown/removed keys in this table are silently ignored on load (forward-compat).
+
+    Alembic migration 0023 (next-in-sequence, additive — does not touch any existing table).
+    Run ``make er`` after applying the migration to regenerate docs/er/schema.mmd (I8).
+    """
+
+    __tablename__ = "app_config"
+
+    key: Mapped[str] = mapped_column(
+        Text,
+        primary_key=True,
+        comment=(
+            "Config key in lower-snake attribute form (e.g. pdf_extractor). "
+            "Matches the settings.<key> attribute name and the API path segment. "
+            "ADR-0053 §2.1."
+        ),
+    )
+
+    value: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment=(
+            "Override value as TEXT. NOT NULL — 'a row exists ⇔ override is active'. "
+            "Reset to default by deleting the row (§3.3). "
+            "Typed values (bool/float) are stored as their string form and coerced at read. "
+            "ADR-0053 §2.1."
+        ),
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="Last write time (audit). Refreshed on every upsert. ADR-0053 §2.1.",
+    )
+
+    def __repr__(self) -> str:
+        return f"<AppConfig key={self.key!r} value={self.value!r}>"
+
+
 class ImageCaption(Base):
     """
     R8-2 / F12 vision-caption cache — one row per (vault_id, sha256) image content.
