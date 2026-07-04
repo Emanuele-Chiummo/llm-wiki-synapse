@@ -699,6 +699,20 @@ class Settings(BaseSettings):
     Env var: IMPORT_SCAN_RECURSIVE.
     """
 
+    ingest_max_concurrency: int = 3
+    """
+    Maximum number of watcher-driven ingests that may run CONCURRENTLY (I7).
+
+    The watcher fires one task per changed file. Without a cap, dropping N files at once
+    (e.g. a bulk copy into raw/sources/) launches N simultaneous ingests — each opening
+    DB sessions, spawning a provider call (a full agent under the CLI backend) and an
+    embedding request. On a single-GPU / small-RAM host this floods the DB pool, the
+    embedding service and memory, and can OOM the box. A bounded semaphore parks the
+    surplus and drains it a few at a time; every file is still processed, just not all at
+    once. Coerced to ≥ 1 at read time. Keep well under the DB pool size (db.py).
+    Env var: INGEST_MAX_CONCURRENCY.
+    """
+
     # ── Authentication (ADR-0052) ─────────────────────────────────────────────────
 
     auth_token: str = ""

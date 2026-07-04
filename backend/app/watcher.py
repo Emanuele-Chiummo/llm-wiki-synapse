@@ -70,6 +70,16 @@ class _MarkdownHandler(FileSystemEventHandler):
     def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
         super().__init__()
         self._loop = loop
+        # ── Concurrency cap (I7, INGEST_MAX_CONCURRENCY) ──────────────────────────
+        # The watcher creates one task per changed file (see _fire). Without a bound,
+        # a bulk drop of N files launches N simultaneous ingests, each holding DB
+        # sessions + a provider call + an embedding request — enough to exhaust the DB
+        # pool, overload a single-GPU embedding host and OOM a small box. This semaphore
+        # gates the heavy work in _run so at most N ingests execute at once; the surplus
+        # tasks are created but park cheaply on acquire() and drain a few at a time.
+        # Created here (not on a running loop) — asyncio.Semaphore binds lazily on first
+        # await, so construction from a mock loop in tests is safe too.
+        self._sem = asyncio.Semaphore(max(1, int(settings.ingest_max_concurrency)))
         # All three maps are touched ONLY on the loop thread (watchdog callbacks hop
         # over via call_soon_threadsafe → _arm), so no lock is needed.
         # path → pending debounce timer (collapses a same-burst event storm).
@@ -153,12 +163,19 @@ class _MarkdownHandler(FileSystemEventHandler):
         self._loop.create_task(self._run(path, action))
 
     async def _run(self, path: str, action: str) -> None:
-        """Execute one action, then replay a single trailing action if one queued."""
+        """Execute one action, then replay a single trailing action if one queued.
+
+        The action runs inside the concurrency semaphore (I7): the task is created
+        immediately, but the heavy ingest/delete work waits its turn so at most
+        INGEST_MAX_CONCURRENCY run at once. `_inflight` (per-path dedup) is released in
+        the finally regardless, and any trailing action is replayed exactly once.
+        """
         try:
-            if action == "delete":
-                await self._on_delete(path)
-            else:
-                await self._on_ingest(path)
+            async with self._sem:
+                if action == "delete":
+                    await self._on_delete(path)
+                else:
+                    await self._on_ingest(path)
         finally:
             self._inflight.discard(path)
             queued = self._dirty.pop(path, None)
