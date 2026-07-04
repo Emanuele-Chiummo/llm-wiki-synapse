@@ -1425,6 +1425,14 @@ This is the sprint that pays T1–T10 down so multi-vault lands on clean ground.
 <td>T8, T9</td>
 <td></td>
 </tr>
+<tr>
+<td>R13-11</td>
+<td><strong>Responsive iPhone/iPad (ADR-0057)</strong> — 3 viewport tiers (mobile ≤767 / tablet 768–1023 / desktop ≥1024, legacy 720px unified); <code>useViewport()</code> hook + <code>uiStore</code> (absorbs PanelGroup collapse state); <code>PanelDrawer</code> for tree+preview on mobile and preview on tablet; iOS safe-area (<code>viewport-fit=cover</code>, <code>env(safe-area-inset-*)</code>) + <code>100dvh</code> shell; graph toolbar reachable on touch (mobile half of UXA-27); i18n EN/IT for new strings</td>
+<td>FE</td>
+<td>M/L</td>
+<td>owner request 2026-07-04</td>
+<td></td>
+</tr>
 </tbody>
 </table>
 <p><strong>Exit criteria:</strong> all tests green with an empty OpenAPI diff (R13-1 proof);
@@ -1455,7 +1463,7 @@ One ADR before any code (solution-architect gate).</p>
 <tbody>
 <tr>
 <td>R14-1</td>
-<td><strong>ADR-0057 Multi-vault model</strong> — <code>vaults</code> table (id, name, slug, fs path, scenario, created); <code>vault_id</code> becomes non-null FK on all 16 tables; <strong>auto-migration</strong>: first <code>alembic upgrade</code> adopts the existing vault as <code>default</code> (zero data loss, idempotent)</td>
+<td><strong>ADR-0058 Multi-vault model</strong> — <code>vaults</code> table (id, name, slug, fs path, scenario, created); <code>vault_id</code> becomes non-null FK on all 16 tables; <strong>auto-migration</strong>: first <code>alembic upgrade</code> adopts the existing vault as <code>default</code> (zero data loss, idempotent)</td>
 <td>BE</td>
 <td>M</td>
 <td>R10-2</td>
@@ -1463,7 +1471,7 @@ One ADR before any code (solution-architect gate).</p>
 </tr>
 <tr>
 <td>R14-2</td>
-<td><strong>Vector scoping</strong> — Qdrant: single collection + mandatory <code>vault_id</code> payload filter (decided in ADR-0057; avoids collection-per-vault ops burden on a 12 GB-VRAM homelab)</td>
+<td><strong>Vector scoping</strong> — Qdrant: single collection + mandatory <code>vault_id</code> payload filter (decided in ADR-0058; avoids collection-per-vault ops burden on a 12 GB-VRAM homelab)</td>
 <td>BE</td>
 <td>S</td>
 <td>I1</td>
