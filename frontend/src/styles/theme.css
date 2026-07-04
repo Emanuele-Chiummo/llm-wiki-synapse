@@ -32,26 +32,26 @@
   color-scheme: light;
 
   /* ── Surfaces (llm_wiki light: white content, very-light panels) ── */
-  --syn-bg: #ffffff;            /* app / content background */
-  --syn-bg-soft: #f6f7f9;       /* side panels / tree background */
-  --syn-surface: #ffffff;       /* cards */
+  --syn-bg: #ffffff; /* app / content background */
+  --syn-bg-soft: #f6f7f9; /* side panels / tree background */
+  --syn-surface: #ffffff; /* cards */
   --syn-surface-raised: #ffffff;
   --syn-surface-hover: #f0f2f5; /* hover / subtle fill (chips) */
-  --syn-surface-sunken: #f6f8fa;/* code blocks, table header */
+  --syn-surface-sunken: #f6f8fa; /* code blocks, table header */
 
   /* ── Borders ── */
   --syn-border: #e2e5ea;
   --syn-border-subtle: #eceef1;
 
   /* ── Text ── */
-  --syn-text: #1f2328;          /* primary near-black */
+  --syn-text: #1f2328; /* primary near-black */
   --syn-text-muted: #59636e;
   --syn-text-dim: #8b949e;
 
   /* ── Accent (blue links / active) ── */
   --syn-accent: #2563eb;
   --syn-accent-strong: #1d4ed8;
-  --syn-accent-soft: #eaf1fe;   /* active/hover tint */
+  --syn-accent-soft: #eaf1fe; /* active/hover tint */
 
   /* ── Semantic ── */
   --syn-green: #1a7f37;
@@ -59,13 +59,13 @@
   --syn-red: #cf222e;
 
   /* ── Per-type colors (tree icons, badges, graph legend) ── */
-  --syn-type-concept: #8250df;    /* purple */
-  --syn-type-entity: #2563eb;     /* blue */
-  --syn-type-source: #e16f24;     /* orange */
-  --syn-type-synthesis: #cf222e;  /* red */
+  --syn-type-concept: #8250df; /* purple */
+  --syn-type-entity: #2563eb; /* blue */
+  --syn-type-source: #e16f24; /* orange */
+  --syn-type-synthesis: #cf222e; /* red */
   --syn-type-comparison: #1a7f37; /* green */
-  --syn-type-query: #16a34a;      /* green */
-  --syn-type-overview: #b8860b;   /* amber */
+  --syn-type-query: #16a34a; /* green */
+  --syn-type-overview: #b8860b; /* amber */
   --syn-type-other: #6e7781;
 
   /* ── Radii / shadow ── */
@@ -89,14 +89,14 @@
    * These replace inline color-mix(..., mix-base) in component styles so the dark
    * override block can set them directly without literal "white".
    */
-  --syn-notice-info-bg:      #eaf1fe;   /* was: color-mix(in srgb, --syn-accent 8%, mix-base 92%) */
-  --syn-notice-info-border:  #c0d3fc;   /* was: color-mix(in srgb, --syn-accent 30%, mix-base 70%) */
-  --syn-notice-success-bg:   #eafaee;   /* was: color-mix(in srgb, --syn-green 8%, mix-base 92%) */
+  --syn-notice-info-bg: #eaf1fe; /* was: color-mix(in srgb, --syn-accent 8%, mix-base 92%) */
+  --syn-notice-info-border: #c0d3fc; /* was: color-mix(in srgb, --syn-accent 30%, mix-base 70%) */
+  --syn-notice-success-bg: #eafaee; /* was: color-mix(in srgb, --syn-green 8%, mix-base 92%) */
   --syn-notice-success-border: #b4d9bf; /* was: color-mix(in srgb, --syn-green 30%, mix-base 70%) */
-  --syn-notice-warning-bg:   #fdf5e6;   /* was: color-mix(in srgb, --syn-amber 8%, mix-base 92%) */
+  --syn-notice-warning-bg: #fdf5e6; /* was: color-mix(in srgb, --syn-amber 8%, mix-base 92%) */
   --syn-notice-warning-border: #e8d0a0; /* was: color-mix(in srgb, --syn-amber 30%, mix-base 70%) */
-  --syn-notice-danger-bg:    #fcecea;   /* was: color-mix(in srgb, --syn-red 8%, mix-base 92%) */
-  --syn-notice-danger-border: #efb8ba;  /* was: color-mix(in srgb, --syn-red 30%, mix-base 70%) */
+  --syn-notice-danger-bg: #fcecea; /* was: color-mix(in srgb, --syn-red 8%, mix-base 92%) */
+  --syn-notice-danger-border: #efb8ba; /* was: color-mix(in srgb, --syn-red 30%, mix-base 70%) */
 
   /* ── Card surface (audit UXB-2 AC-UXB2-3: explicit token, was silent fallback) ──
    * Used in ConfirmDialog.tsx and ActivityBar tooltip/popup surfaces.
@@ -105,8 +105,15 @@
   --syn-bg-card: #f6f7f9;
 
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Helvetica, Arial, sans-serif;
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Helvetica,
+    Arial,
+    sans-serif;
 }
 
 /* ── DARK THEME OVERRIDE (ADR-0048 §T1) ──────────────────────────────────────
@@ -146,13 +153,13 @@
   --syn-red: #f85149;
 
   /* ── Per-type colors (lightened for dark backgrounds) ── */
-  --syn-type-concept: #bc8cff;    /* purple — lighter */
-  --syn-type-entity: #58a6ff;     /* blue — lighter */
-  --syn-type-source: #f0883e;     /* orange — lighter */
-  --syn-type-synthesis: #ff7b72;  /* red — lighter */
+  --syn-type-concept: #bc8cff; /* purple — lighter */
+  --syn-type-entity: #58a6ff; /* blue — lighter */
+  --syn-type-source: #f0883e; /* orange — lighter */
+  --syn-type-synthesis: #ff7b72; /* red — lighter */
   --syn-type-comparison: #3fb950; /* green — lighter */
-  --syn-type-query: #56d364;      /* green — lighter */
-  --syn-type-overview: #e3b341;   /* amber — lighter */
+  --syn-type-query: #56d364; /* green — lighter */
+  --syn-type-overview: #e3b341; /* amber — lighter */
   --syn-type-other: #8b949e;
 
   /* ── Shadow (dark-adapted: less intense, more visible on dark) ── */
@@ -166,13 +173,13 @@
   --syn-mix-base: #161b22;
 
   /* ── Semantic notice backgrounds / borders (dark variants) ── */
-  --syn-notice-info-bg:      #1c2c3e;
-  --syn-notice-info-border:  #1f4080;
-  --syn-notice-success-bg:   #122920;
+  --syn-notice-info-bg: #1c2c3e;
+  --syn-notice-info-border: #1f4080;
+  --syn-notice-success-bg: #122920;
   --syn-notice-success-border: #1a5235;
-  --syn-notice-warning-bg:   #2d2000;
+  --syn-notice-warning-bg: #2d2000;
   --syn-notice-warning-border: #5a4000;
-  --syn-notice-danger-bg:    #2d1016;
+  --syn-notice-danger-bg: #2d1016;
   --syn-notice-danger-border: #6e1a1f;
 
   /* ── Card surface (dark: raised over the base dark bg) ── */
@@ -190,6 +197,18 @@ body,
   height: 100%;
   margin: 0;
   background: var(--syn-bg);
+}
+
+/* ADR-0057 §4: 100dvh correctly handles the iOS Safari dynamic URL bar.
+ * Falls back to 100vh on browsers that do not support the dvh unit. */
+.app-shell {
+  height: 100vh; /* fallback */
+}
+
+@supports (height: 100dvh) {
+  .app-shell {
+    height: 100dvh;
+  }
 }
 
 body {
@@ -417,7 +436,11 @@ select:focus-visible {
 .syn-toolbar-button,
 .syn-chip,
 button {
-  transition: background-color 130ms ease, border-color 130ms ease, color 130ms ease, opacity 130ms ease;
+  transition:
+    background-color 130ms ease,
+    border-color 130ms ease,
+    color 130ms ease,
+    opacity 130ms ease;
 }
 
 /* ── UXB-2: Global keyframes (moved from inline <style> tags in ActivityBar + ReviewQueueView) ──
@@ -427,51 +450,57 @@ button {
  * @keyframes taskBarSweep — indeterminate progress sweep (ActivityBar task bar)
  */
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes syn-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes taskBarSweep {
-  0%   { transform: translateX(-150%); }
-  50%  { transform: translateX(150%); }
-  100% { transform: translateX(350%); }
+  0% {
+    transform: translateX(-150%);
+  }
+  50% {
+    transform: translateX(150%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
 }
 
-/* ── MOBILE / PWA BREAKPOINT (R10-5, AC-R10-5-1 through AC-R10-5-3) ──────────
- * Approach: CSS-only, no new navigation library.
+/* ══════════════════════════════════════════════════════════════════════════
+ * RESPONSIVE — 3-TIER VIEWPORT CONTRACT (ADR-0057)
  *
- * 1. Nav rail collapses to icons-only (48px wide, labels hidden).
- *    Chosen over a bottom-tab-bar redesign because:
- *    (a) the rail already renders icons + labels; hiding labels is one CSS rule;
- *    (b) keeps the same component tree and Playwright locators unchanged;
- *    (c) avoids any JS/prop changes that could regress desktop behaviour.
- *    Desktop (≥768px): rail width 72px, labels visible — UNCHANGED.
+ * Tier      CSS condition              Devices                Layout
+ * ──────────────────────────────────────────────────────────────────────────
+ * mobile    max-width: 767px           iPhone portrait/landscape   1-column
+ * tablet    768px – 1023px             iPad portrait (768–1023px)  tree+center
+ * desktop   min-width: 1024px          iPad landscape, desktop     3-panel (unchanged)
  *
- * 2. 3-panel shell stacks: left and right panels hidden by default on mobile.
- *    The center (editor/note) panel takes full width. Left tree panel is
- *    accessible via the existing collapse toggle which is still rendered.
- *    react-resizable-panels retains its horizontal orientation; CSS hides the
- *    side panels instead of rebuilding the layout. This is the simplest robust
- *    approach that requires no changes to PanelGroup.tsx.
- *    NOTE: right panel (PreviewPanel) is hidden entirely on mobile by default;
- *    user can reveal it with the collapse button if needed.
- *
- * 3. Touch targets: interactive elements minimum 44×44px (WCAG 2.5.5 AAA).
- *    Nav rail buttons, send/stop buttons, tree rows, chat items.
- *
- * 4. Sigma graph touch-action: `touch-action: none` on .sigma-container-mobile
- *    prevents the page from scrolling during pinch-zoom on the graph canvas.
- *    Applied in theme.css so it covers the sigma container class added in GraphViewer.
+ * The matching TypeScript constants live in:
+ *   src/utils/viewport.ts → MOBILE_MAX = 767, TABLET_MAX = 1023
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── MOBILE TIER (≤ 767px) ────────────────────────────────────────────────
+ * Absorbs all former rules from the legacy 720px block (now unified here).
+ * Approach: CSS-only for presentational changes; JS (useViewport hook) drives
+ * interactive changes (drawer open/close buttons).
  */
 
 @media (max-width: 767px) {
   /* ── 1. Nav rail: icons-only, 48px wide (labels hidden) ── */
   .nav-rail {
     width: 48px !important;
+    /* iOS safe-area: shift rail away from notch when in landscape */
+    padding-left: env(safe-area-inset-left, 0px);
   }
 
   .nav-rail__label {
@@ -485,18 +514,16 @@ button {
     padding: 6px 4px !important;
   }
 
-  /* ── 2. 3-panel stacking: hide side panels by default ── */
+  /* ── 2. 3-panel shell: hide side panels, center fills full width ── */
   /*
-   * react-resizable-panels Panel components receive className props added in
-   * PanelGroup.tsx (panel-group__panel--left / --center / --right and
-   * panel-group__separator--left / --right). On mobile we hide the side panels
-   * so the center fills the full width.
+   * react-resizable-panels Panel components receive className props from
+   * PanelGroup.tsx. On mobile the side panels are hidden; access is via
+   * PanelDrawer overlays opened from the mobile toolbar (ADR-0057 §5).
    *
-   * IMPORTANT: react-resizable-panels uses inline flex sizing; we must use !important
-   * to override its inline styles.
+   * IMPORTANT: react-resizable-panels uses inline flex sizing; !important
+   * is required to override its inline styles.
    */
 
-  /* Hide the left tree panel and its right separator */
   .panel-group__panel--left {
     display: none !important;
   }
@@ -504,7 +531,6 @@ button {
     display: none !important;
   }
 
-  /* Hide the right preview panel and its left separator */
   .panel-group__panel--right {
     display: none !important;
   }
@@ -512,7 +538,6 @@ button {
     display: none !important;
   }
 
-  /* Center panel fills the full width */
   .panel-group__panel--center {
     flex: 1 1 100% !important;
     min-width: 0 !important;
@@ -521,7 +546,6 @@ button {
 
   /* ── 3. Touch targets: minimum 44×44px on critical controls ── */
 
-  /* Chat send / stop button: already 38px tall — bump to 44px */
   .chat-send-btn,
   .chat-stop-btn {
     min-height: 44px !important;
@@ -529,59 +553,63 @@ button {
     padding-bottom: 10px !important;
   }
 
-  /* Chat input: taller for comfortable touch */
   .chat-input-textarea {
     min-height: 44px !important;
     padding-top: 10px !important;
     padding-bottom: 10px !important;
   }
 
-  /* Tree rows: minimum 44px row height (TanStack Virtual rows) */
   .nav-tree__row {
     min-height: 44px !important;
   }
 
-  /* Conversation list items */
   .conversation-list__item {
     min-height: 44px !important;
     padding-top: 10px !important;
     padding-bottom: 10px !important;
   }
 
-  /* ConnectScreen connect button */
   .connect-btn {
     min-height: 44px !important;
     font-size: 14px !important;
   }
 
-  /* Generic syn-btn--sm: bump from 28px to 44px on mobile */
   .syn-btn--sm {
     min-height: 44px !important;
     padding: 10px 14px !important;
   }
 
   /* ── 4. Sigma graph container: prevent page scroll during pinch-zoom ── */
-  /*
-   * Without touch-action: none, a two-finger pinch on the sigma canvas will
-   * trigger the browser's native page-zoom or scroll, competing with sigma's
-   * pointer-event-based zoom handler. Setting touch-action: none on the container
-   * hands all pointer events exclusively to sigma, enabling correct pinch-zoom.
-   * I2 is preserved: sigma's camera zoom changes the rendering scale of the
-   * precomputed coords — no FA2 re-invocation occurs.
-   */
   #sigma-container {
     touch-action: none;
   }
-
-  /* Also apply to graph-root in case the hit-test lands on the outer wrapper */
   #graph-root {
     touch-action: none;
   }
-}
 
-/* ── Existing mobile tweaks (kept at 720px breakpoint for backwards compat) ── */
+  /* ── 5. Graph toolbar: visible + tappable on mobile (UXA-27) ── */
+  .graph-toolbar {
+    left: 10px !important;
+    right: 10px !important;
+    top: 10px !important;
+  }
 
-@media (max-width: 720px) {
+  .graph-toolbar__row {
+    flex-wrap: wrap;
+  }
+
+  .graph-toolbar__search {
+    flex-basis: 100%;
+  }
+
+  /* Graph toolbar buttons: 44px touch targets */
+  .graph-toolbar button,
+  .graph-toolbar .syn-toolbar-button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+
+  /* ── 6. Chat + settings layout adjustments (merged from former 720px block) ── */
   .chat-section__conversations {
     display: none !important;
   }
@@ -681,17 +709,79 @@ button {
     border-top: 1px solid var(--syn-border-subtle);
   }
 
-  .graph-toolbar {
-    left: 10px !important;
-    right: 10px !important;
-    top: 10px !important;
+  /* ── 7. iOS safe-area: bottom bar ── */
+  .activity-bar {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* ── TABLET TIER (768–1023px) ─────────────────────────────────────────────
+ * Tree panel stays as a fixed column; right preview panel hidden by CSS
+ * (accessible via preview drawer opened from the mobile toolbar).
+ * Nav rail icons-only at this tier (labels too wide for the narrower rail).
+ */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Nav rail: icons-only (same treatment as mobile — labels hidden) */
+  .nav-rail {
+    width: 48px !important;
   }
 
-  .graph-toolbar__row {
-    flex-wrap: wrap;
+  .nav-rail__label {
+    display: none !important;
   }
 
-  .graph-toolbar__search {
-    flex-basis: 100%;
+  .nav-rail__item {
+    width: 44px !important;
+    height: 48px !important;
+    padding: 6px 4px !important;
   }
+
+  /* Right (preview) panel hidden; replaced by preview drawer on tablet */
+  .panel-group__panel--right {
+    display: none !important;
+  }
+  .panel-group__separator--right {
+    display: none !important;
+  }
+
+  /* Center panel takes the freed space */
+  .panel-group__panel--center {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  /* Graph toolbar: tappable on tablet (UXA-27) */
+  .graph-toolbar button,
+  .graph-toolbar .syn-toolbar-button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+}
+
+/* ── PANEL DRAWER (ADR-0057 §4) ───────────────────────────────────────────
+ * Overlay drawer component styles.
+ * Transition is transform-only for GPU compositing.
+ * prefers-reduced-motion: skip animations entirely.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-drawer,
+  .panel-drawer-backdrop {
+    transition: none !important;
+  }
+}
+
+/* ── iOS SAFE-AREA — global (portrait and landscape) ─────────────────────
+ * Applied unconditionally so these work on all screen sizes:
+ *   - NavRail left padding for notch in landscape (desktop/tablet safe too).
+ *   - ActivityBar bottom padding for home indicator on all iOS devices.
+ */
+
+.nav-rail {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.activity-bar {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }

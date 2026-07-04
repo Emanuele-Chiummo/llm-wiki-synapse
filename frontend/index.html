@@ -8,7 +8,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Synapse — Knowledge Graph Viewer" />
     <title>Synapse — Knowledge Graph</title>
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -36,35 +36,51 @@
         overflow: hidden;
         background: #0d1117;
         color: #e6edf3;
-        font-family:
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          Roboto,
-          monospace;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
       }
 
       /* Chat: streaming cursor blink (F6 / ADR-0019) */
       @keyframes synapse-blink {
-        0%, 100% { opacity: 1; }
-        50%       { opacity: 0; }
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
       }
 
       /* Chat: markdown body styles */
-      .synapse-markdown__body p { margin: 0.5em 0; }
+      .synapse-markdown__body p {
+        margin: 0.5em 0;
+      }
       .synapse-markdown__body h1,
       .synapse-markdown__body h2,
       .synapse-markdown__body h3,
-      .synapse-markdown__body h4 { margin: 0.75em 0 0.25em; line-height: 1.3; }
+      .synapse-markdown__body h4 {
+        margin: 0.75em 0 0.25em;
+        line-height: 1.3;
+      }
       .synapse-markdown__body ul,
-      .synapse-markdown__body ol { padding-left: 1.5em; margin: 0.5em 0; }
-      .synapse-markdown__body li { margin: 0.2em 0; }
+      .synapse-markdown__body ol {
+        padding-left: 1.5em;
+        margin: 0.5em 0;
+      }
+      .synapse-markdown__body li {
+        margin: 0.2em 0;
+      }
       .synapse-markdown__body code {
         background: #161b22;
         border: 1px solid #30363d;
         border-radius: 3px;
         padding: 0.1em 0.4em;
-        font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
+        font-family:
+          ui-monospace,
+          SFMono-Regular,
+          SF Mono,
+          Menlo,
+          Consolas,
+          monospace;
         font-size: 0.875em;
       }
       .synapse-markdown__body pre {
@@ -87,7 +103,9 @@
         color: #8b949e;
         margin: 0.5em 0;
       }
-      .synapse-markdown__body a { color: #58a6ff; }
+      .synapse-markdown__body a {
+        color: #58a6ff;
+      }
       .synapse-markdown__body table {
         border-collapse: collapse;
         margin: 0.75em 0;
@@ -98,7 +116,9 @@
         border: 1px solid #30363d;
         padding: 6px 12px;
       }
-      .synapse-markdown__body th { background: #161b22; }
+      .synapse-markdown__body th {
+        background: #161b22;
+      }
       .synapse-markdown__body hr {
         border: none;
         border-top: 1px solid #21262d;

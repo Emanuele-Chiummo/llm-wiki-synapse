@@ -96,7 +96,7 @@ export function AppShell() {
 
   useEffect(() => {
     void fetchProviders();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once on AppShell mount
 
   const { shouldShow, markDone } = useFirstRunSetup(providerList.length);
@@ -132,6 +132,7 @@ export function AppShell() {
   }
 
   return (
+    /* Height managed by .app-shell class in theme.css: 100vh fallback + @supports 100dvh (ADR-0057 §4). */
     <div
       className="app-shell"
       data-testid="app-shell"
@@ -139,12 +140,10 @@ export function AppShell() {
         display: "flex",
         flexDirection: "column",
         width: "100vw",
-        height: "100vh",
         overflow: "hidden",
         background: "var(--syn-bg)",
         color: "var(--syn-text)",
-        fontFamily:
-          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
       }}
     >
       {/* ── Row 1: Header ──────────────────────────────────────────────────── */}
