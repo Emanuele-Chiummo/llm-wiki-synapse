@@ -66,6 +66,11 @@ src-tauri/target/
 # Tauri generated schemas (build-time)
 src-tauri/gen/schemas/
 
+# iOS Tauri target — parked on branch feature/ios-target for v2.0; keep it off
+# sprint branches so `git add -A` can't reintroduce it. (No effect on files already
+# tracked by feature/ios-target — git ignores this rule for tracked paths.)
+src-tauri/gen/apple/
+
 # iCloud sync duplicates ("name 2.ext") — the repo lives in an iCloud-synced folder
 * 2
 * 2.*
