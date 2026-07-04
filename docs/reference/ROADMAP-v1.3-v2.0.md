@@ -54,7 +54,7 @@ No TODO/FIXME anywhere in `app/` or `src/`. This is an unusually clean base.
 | T7 | Images (backend, frontend since v1.2.4, marker) are **linux/amd64 only**; version bump is a 4-file manual ritual (tauri.conf + Cargo.toml + package.json + pyproject) | `desktop-release.yml`, DEPLOY §7.7 | No ARM homelab/RPi/Apple-container users; bump errors break the updater |
 | T8 | Whisper service exists but is **not in compose**; Marker GPU block commented out | `tools/whisper-service/` | F12 AV path requires undocumented manual setup |
 | T9 | Docs drift: ADR-0039 unindexed, ADR-0023 number skipped, stale `docs/er/schema 2.mmd`, D5 screenshots PENDING-LIVE since v1.0, BACKLOG says v1.2 "blocked" while the code shipped, `frontend/package.json` description still says "v0.5" | `docs/` | I8 (docs-as-DoD) is silently eroding |
-| T10 | Known bugs carried in sprint docs: BUG-2 (ingest polling not deduped on remount), `ThinkBlock.tsx:61` conditional hook | frontend | Small, but tracked and open |
+| T10 | **Code-level bug & improvement backlog** — a dedicated v1.2.6 review found 2 P1 + 18 P2 issues (event-loop stall, cross-conversation chat contamination, SSRF, stream leaks, non-atomic index writes, hook-order violation, i18n leaks…). BUG-2 from the old sprint docs is already fixed | backend + frontend | Enumerated in §0-bis; drives R13-5..R13-9 |
 
 ### Why the next major is 2.0.0 (semver honesty)
 
@@ -78,6 +78,53 @@ AI loop**.
 
 ---
 
+## 0-bis. Bug & improvement hunt on v1.2.6 (code-level review)
+
+A dedicated backend + frontend review of the released `v1.2.6` tree (every
+finding traced through the full code path). None of these are release-blockers
+for 1.2.6 — most need concurrency or multi-vault to trigger — but they are the
+concrete worklist that feeds the v1.3 bug batch (R13-5) and shape a few v1.4
+decisions. Priorities: **P1 = fix in v1.3**, **P2 = fix opportunistically or
+when the enabling feature lands**.
+
+### Backend
+
+| # | Sev | Defect | Where | Trigger |
+|---|-----|--------|-------|---------|
+| B1 | **P1** | **FA2/igraph/Louvain layout runs synchronously in the async event loop** — no `run_in_executor`; the whole server stalls for the duration of a recompute | `graph/engine.py:405` via `graph/cache.py:129,198` | 1–2.5k-page vault; every 0.5s tick (or a cold-cache `GET /graph`) freezes all requests/streams/watcher for seconds |
+| B2 | P2 | **SSRF** — deep-research fetches SearXNG result URLs with redirects followed and no private-IP/scheme filtering; internal responses land in the prompt *and* are persisted | `ops/deep_research.py:395` | A result (or redirect) pointing at `169.254.169.254`, `127.0.0.1:6333/5432`, etc. |
+| B3 | P2 | Ingest run can be stranded `running` + a ghost queue handle never clears if context load raises **before** the finalizing `try` | `ingest/orchestrator.py:458–491`, `_load_vault_context` `:2336` | `purpose.md`/`schema.md` removed or unreadable between `exists()` and `read_text()` |
+| B4 | P2 | Chat stream leaks the provider stream (open httpx connection) on timeout/error — only the token-budget branch calls `aclose()` | `chat/stream.py:222–291` | Slow provider hitting the 60s timeout repeatedly → connection-pool/FD exhaustion |
+| B5 | P2 | `index.md` rebuild is non-atomic and races under concurrent ingest (last stale writer wins; readers can see a truncated file) | `wiki/index.py:97` | `INGEST_MAX_CONCURRENCY>1`, two ingests interleave |
+| B6 | P2 | Same-slug collision race: two concurrent ingests producing the same title both INSERT → `IntegrityError` on the live-unique index, one run spuriously `failed` | `ingest/orchestrator.py:1333–1385` | Two sources naming the same entity dropped together |
+| B7 | P2 | Wikilink enrichment matches a mention by bare substring (no word boundary) → can produce `[[Cat\|cat]]egory`, persisted to the vault | `ops/enrich_wikilinks.py:300` | LLM proposes a short mention that is a substring of a longer word |
+| B8 | P2 | GraphCache stamps its freshness marker from a *post*-recompute version read → a concurrent bump makes it serve a stale snapshot as a cache HIT (self-heals via follow-up) | `graph/cache.py:129–138` | `data_version` bumped mid-recompute |
+| B9 | P2 | `ImportScheduler.run_now` single-flight guard has a check-then-act gap across an `await` → concurrent scans | `import_scheduler.py:330–342` | Two near-simultaneous `run-now` calls |
+| B10 | P2 | `PUT /pages/{id}/content` optimistic-lock hash check is not atomic with the write → silent last-writer-wins instead of 409 | `main.py:2969–3011` | Two simultaneous editors of one page |
+| B11 | P2 | Auth exempt-list matches path regardless of HTTP method (latent, not currently exploitable) | `auth.py:98` | Future mutating route added at an exempt path |
+| B12 | P2 | `cascade_delete` is multi-transaction, not crash-atomic (documented consequence, no reconciliation on restart) | `ops/cascade_delete.py:662–765` | Crash mid-delete |
+
+### Frontend
+
+| # | Sev | Defect | Where | Trigger |
+|---|-----|--------|-------|---------|
+| F1 | **P1** | **"Keep editing" ping-pongs the unsaved-changes dialog forever** — the guard re-fires on the selection it restores; only "Discard" escapes | `wiki/NoteView.tsx:362–498` | Edit a dirty page, click another tree node, click "Keep editing" |
+| F2 | **P1** | **Chat answer lands in the wrong conversation** — switching conversation mid-stream doesn't abort; `finalizeTurn` appends to the now-current list | `chat/ConversationList.tsx:174`, `chatStore.ts:203`, `useChatStream.ts` | Send in A, switch to B while streaming |
+| F3 | P2 | `useChatStream` never aborts on unmount despite its docstring — detached reader keeps writing to the global store | `chat/useChatStream.ts:16,31` | Leave the chat section mid-stream |
+| F4 | P2 | Double-submit race: aborted stream #1's `clearStream()` wipes stream #2's live UI state | `useChatStream.ts:47–111` | Enter auto-repeat / rapid double-send |
+| F5 | P2 | `ConversationList.loadConversations` closes over stale `activeId` (deps `[vaultId]`) → yanks selection to `items[0]` and reloads after every turn | `chat/ConversationList.tsx:119–172` | Any completed chat turn while on another conversation |
+| F6 | P2 | Ingest polling keeps polling the **old** vault after a vault switch (no branch for vaultId-change while polling) — a v1.4 landmine | `ingest/IngestView.tsx:61` | Switch vault with an active ingest (needs multi-vault) |
+| F7 | P2 | `ThinkBlock` real rules-of-hooks violation — currently defused by both callers guarding non-empty content; one careless future caller = hard crash | `chat/ThinkBlock.tsx:50–65` | `<ThinkBlock content={maybeEmpty}/>` |
+| F8 | P2 | Hardcoded English strings in the graph tooltip + screen-reader announcement bypass i18n | `GraphViewer.tsx:280,299,303,319,1393` | Italian user hovering/selecting a node |
+
+**Verified clean (no action):** sigma lifecycle (kill on unmount + re-mount), NDJSON
+multi-byte/split handling, HTTP timeout signal composition, settingsStore
+persistence/migration guards, extension error surfacing. BUG-2 (ingest polling
+dedup on remount) **is fixed** in 1.2.6 — the remaining ingest issue is the
+vault-switch case (F6), not remount.
+
+---
+
 ## v1.3 — «Foundations» (settimane 1–2)
 
 Theme: zero visible behavior change; make the house solid before the extension.
@@ -89,14 +136,23 @@ This is the sprint that pays T1–T10 down so multi-vault lands on clean ground.
 | R13-2 | **Release hygiene** — merge the v1.2.4–v1.2.6 release lineage back into `main`, protect `main`, and adopt the rule *tags are only cut from `main`*; document in CONTRIBUTING | DevOps | S | T2 | |
 | R13-3 | **Cancel in-flight ingest** — `DELETE /ingest/{run_id}` on top of ADR-0046 queue (cancellation events exist); Activity bar wiring | BE+FE | S | G-P2-3 | |
 | R13-4 | **Persistent scheduler state** — last-run timestamps for ops/import schedulers into `app_config` (survives restart; T4) | BE | S | T4 | |
-| R13-5 | **Bug batch** — BUG-2 ingest-polling dedup on remount; `ThinkBlock` conditional-hook fix; PWA manifest `lang` from i18n; package.json description drift | FE | S | T10, T9 | |
-| R13-6 | **CI hardening** — (a) E2E job: compose up backend+postgres+fake-embeddings in CI, run the existing Playwright suite headless; (b) multi-arch images (linux/amd64+arm64 via buildx); (c) `make bump VERSION=x.y.z` single-command 4-file version bump with check | QA+DevOps | M | T6, T7 | |
-| R13-7 | **Deploy security pass** — drop the default `5432:5432` publish (compose-internal network), creds via `.env` with generated defaults, minimal rate limit on inference-cost endpoints (`/chat`, `/ingest/trigger`, `/research`), document Tailscale/CF-Tunnel-only posture in DEPLOY | DevOps+BE | M | T5 | |
-| R13-8 | **Docs hygiene** — index ADR-0039, delete `schema 2.mmd`, refresh D5 screenshots via the new CI E2E job, sync BACKLOG/parity/TRACEABILITY to v1.2 reality, whisper-service compose profile (`av`) | Docs+DevOps | S/M | T8, T9 | |
+| R13-5 | **P1 fix — event-loop stall (B1):** offload `GraphEngine.recompute` (igraph build + FA2 + Louvain) to a thread/process executor so recompute never blocks requests/streams/watcher. Regression-guard with the existing `graph-perf.spec.ts` | BE | M | B1 | |
+| R13-6 | **P1 fix — chat/editor UX correctness (F1, F2):** unmount/conversation-switch abort in `useChatStream` (kills the "answer in wrong conversation" race F2 and the leak F3); break the "Keep editing" dialog ping-pong in `NoteView` (F1) | FE | S/M | F1, F2, F3 | |
+| R13-7 | **Bug batch (P2s):** stream `aclose()` in `finally` (B4); atomic `index.md` write + coalesced rebuild (B5); finalize-in-`finally` for ingest runs + queue handle (B3); word-boundary mention match (B7); GraphCache marker at recompute start (B8); `run_now` sync single-flight (B9); 409 on concurrent page PUT (B10); double-submit `e.repeat` guard (F4); stale-`activeId` fix in ConversationList (F5); `ThinkBlock` hooks-order fix (F7); graph tooltip i18n (F8); PWA `lang` + package.json description drift | BE+FE | M | §0-bis | |
+| R13-8 | **CI hardening** — (a) E2E job: compose up backend+postgres+fake-embeddings in CI, run the existing Playwright suite headless; (b) multi-arch images (linux/amd64+arm64 via buildx); (c) `make bump VERSION=x.y.z` single-command 4-file version bump with check | QA+DevOps | M | T6, T7 | |
+| R13-9 | **Deploy security pass** — SSRF guard on deep-research fetch (block private/loopback/link-local/metadata ranges, http/https only, redirect cap — shared util with searxng.py; B2); method-aware auth exempt list (B11); drop the default `5432:5432` publish (compose-internal network), creds via `.env` with generated defaults; minimal rate limit on inference-cost endpoints (`/chat`, `/ingest/trigger`, `/research`); document Tailscale/CF-Tunnel-only posture in DEPLOY | DevOps+BE | M | T5, B2, B11 | |
+| R13-10 | **Docs hygiene** — index ADR-0039, delete `schema 2.mmd`, refresh D5 screenshots via the new CI E2E job, sync BACKLOG/parity/TRACEABILITY to v1.2.6 reality, whisper-service compose profile (`av`) | Docs+DevOps | S/M | T8, T9 | |
 
 **Exit criteria:** all tests green with an empty OpenAPI diff (R13-1 proof);
+both P1s fixed (no event-loop stall on a 2k-page vault under load; no
+cross-conversation contamination); the SSRF guard rejects a metadata-IP result;
 E2E job green in CI; arm64 image pulls on a Pi/ARM box; no schedule lost across
 a container restart; docs gate ALL-UP-TO-DATE with fresh screenshots.
+
+> The remaining P2s that are *multi-vault landmines* (F6 ingest-polling vault
+> switch; B6 same-slug collision race — sharper once vaults multiply the write
+> concurrency) are fixed inside v1.4 where the vault plumbing is already open,
+> not retrofitted here.
 
 ## v1.4 — «Multi-vault core» (settimane 3–4)
 
@@ -107,8 +163,8 @@ One ADR before any code (solution-architect gate).
 |----|------|------|--------|--------|--------|
 | R14-1 | **ADR-0057 Multi-vault model** — `vaults` table (id, name, slug, fs path, scenario, created); `vault_id` becomes non-null FK on all 16 tables; **auto-migration**: first `alembic upgrade` adopts the existing vault as `default` (zero data loss, idempotent) | BE | M | R10-2 | |
 | R14-2 | **Vector scoping** — Qdrant: single collection + mandatory `vault_id` payload filter (decided in ADR-0057; avoids collection-per-vault ops burden on a 12 GB-VRAM homelab) | BE | S | I1 | |
-| R14-3 | **Filesystem & watcher** — `vault/<slug>/{raw,wiki,schema.md,purpose.md,.obsidian}`; one watchdog observer per active vault; `default` keeps the current path for back-compat | BE | M | I1, I5 | |
-| R14-4 | **API vault scoping** — `X-Synapse-Vault` header (default: `default`) resolved by middleware into request state; every router from R13-1 filters by it. v1 clients keep working unchanged against the default vault — the break is opt-in until 2.0 | BE | L | T1→enabler | |
+| R14-3 | **Filesystem & watcher** — `vault/<slug>/{raw,wiki,schema.md,purpose.md,.obsidian}`; one watchdog observer per active vault; `default` keeps the current path for back-compat. Fold in the **same-slug collision race (B6)** — dedup the ingest write path by output slug, not just source path, now that N vaults multiply write concurrency | BE | M | I1, I5, B6 | |
+| R14-4 | **API vault scoping** — `X-Synapse-Vault` header (default: `default`) resolved by middleware into request state; every router from R13-1 filters by it. v1 clients keep working unchanged against the default vault — the break is opt-in until 2.0. Fix **ingest-polling vault-switch (F6)** as part of the frontend vault-aware refactor | BE+FE | L | T1→enabler, F6 | |
 | R14-5 | **Per-vault provider & costs** — `provider_config` scope=vault verified end-to-end (design already supports it); `/costs/summary` and `/stats/*` grouped per vault | BE | S/M | F17, I7 | |
 | R14-6 | **Per-vault export/import** — portable zip (vault fs + JSON dump) → restore into a new vault on another instance | BE | M | v0.8 R8-4 extension | |
 
