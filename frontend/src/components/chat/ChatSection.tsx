@@ -30,6 +30,7 @@ import { MessageInput } from "./MessageInput";
 import { EmptyState } from "../common/EmptyState";
 import { useProviderConfigured } from "../../hooks/useProviderConfigured";
 import type { ChatStreamRequest } from "../../api/chatClient";
+import { safeRandomUUID } from "../../utils/uuid";
 
 export function ChatSection(): ReactNode {
   const { t } = useTranslation();
@@ -54,7 +55,7 @@ export function ChatSection(): ReactNode {
 
       // Optimistic: insert the user message immediately
       const userMsg: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         conversation_id: activeConversationId ?? "",
         role: "user",
         content: text,
