@@ -138,12 +138,14 @@ const _mockSelectPage = vi.fn();
 const _mockSetActiveSection = vi.fn();
 
 vi.mock("../store/graphStore", () => ({
-  useGraphStore: (selector: (s: {
-    selectedNodeId: string | null;
-    nodes: [];
-    selectPage: typeof _mockSelectPage;
-    setActiveSection: typeof _mockSetActiveSection;
-  }) => unknown) =>
+  useGraphStore: (
+    selector: (s: {
+      selectedNodeId: string | null;
+      nodes: [];
+      selectPage: typeof _mockSelectPage;
+      setActiveSection: typeof _mockSetActiveSection;
+    }) => unknown,
+  ) =>
     selector({
       selectedNodeId: _selectedNodeId,
       nodes: [],
@@ -153,7 +155,8 @@ vi.mock("../store/graphStore", () => ({
   selectSelectedNodeId: (s: { selectedNodeId: string | null }) => s.selectedNodeId,
   selectNodes: (s: { nodes: [] }) => s.nodes,
   selectSelectPage: (s: { selectPage: typeof _mockSelectPage }) => s.selectPage,
-  selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) => s.setActiveSection,
+  selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) =>
+    s.setActiveSection,
   selectVaultId: () => "default",
 }));
 
@@ -217,7 +220,9 @@ describe("NoteView — R7-4 dirty state indicator", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
 
     expect(screen.queryByTestId("note-unsaved-dot")).toBeNull();
     expect(screen.queryByTestId("note-unsaved-hint")).toBeNull();
@@ -229,7 +234,9 @@ describe("NoteView — R7-4 dirty state indicator", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
 
     // Simulate a user edit
     act(() => {
@@ -247,12 +254,18 @@ describe("NoteView — R7-4 dirty state indicator", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
 
-    act(() => { capturedOnContentChange?.("changed"); });
+    act(() => {
+      capturedOnContentChange?.("changed");
+    });
     expect(screen.getByTestId("note-unsaved-dot")).toBeDefined();
 
-    act(() => { capturedOnContentChange?.(ORIGINAL_CONTENT); });
+    act(() => {
+      capturedOnContentChange?.(ORIGINAL_CONTENT);
+    });
     expect(screen.queryByTestId("note-unsaved-dot")).toBeNull();
   });
 
@@ -262,10 +275,16 @@ describe("NoteView — R7-4 dirty state indicator", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
-    act(() => { capturedOnContentChange?.("changed content"); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
+    act(() => {
+      capturedOnContentChange?.("changed content");
+    });
 
-    act(() => { fireEvent.click(screen.getByTestId("note-cancel-btn")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-cancel-btn"));
+    });
 
     expect(screen.getByTestId("confirm-dialog")).toBeDefined();
     // Still in edit mode (not cancelled yet)
@@ -278,12 +297,20 @@ describe("NoteView — R7-4 dirty state indicator", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
-    act(() => { capturedOnContentChange?.("changed content"); });
-    act(() => { fireEvent.click(screen.getByTestId("note-cancel-btn")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
+    act(() => {
+      capturedOnContentChange?.("changed content");
+    });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-cancel-btn"));
+    });
 
     // Click confirm in the dialog
-    act(() => { fireEvent.click(screen.getByTestId("confirm-dialog-confirm")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+    });
 
     // Back to read mode
     await waitFor(() => {
@@ -298,12 +325,20 @@ describe("NoteView — R7-4 dirty state indicator", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
-    act(() => { capturedOnContentChange?.("changed content"); });
-    act(() => { fireEvent.click(screen.getByTestId("note-cancel-btn")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
+    act(() => {
+      capturedOnContentChange?.("changed content");
+    });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-cancel-btn"));
+    });
 
     // Click cancel in the dialog
-    act(() => { fireEvent.click(screen.getByTestId("confirm-dialog-cancel")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-cancel"));
+    });
 
     // Still in edit mode
     expect(screen.getByTestId("note-cancel-btn")).toBeDefined();
@@ -316,9 +351,13 @@ describe("NoteView — R7-4 dirty state indicator", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
     // No content change — not dirty
-    act(() => { fireEvent.click(screen.getByTestId("note-cancel-btn")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-cancel-btn"));
+    });
 
     // Back to read mode immediately, no dialog
     expect(screen.queryByTestId("confirm-dialog")).toBeNull();
@@ -331,8 +370,12 @@ describe("NoteView — R7-4 dirty state indicator", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
-    act(() => { capturedOnContentChange?.("new content"); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
+    act(() => {
+      capturedOnContentChange?.("new content");
+    });
 
     expect(screen.getByTestId("note-unsaved-dot")).toBeDefined();
 
@@ -344,5 +387,75 @@ describe("NoteView — R7-4 dirty state indicator", () => {
       expect(screen.getByTestId("note-edit-btn")).toBeDefined();
       expect(screen.queryByTestId("note-unsaved-dot")).toBeNull();
     });
+  });
+
+  // ── 9. F1: "Keep editing" must not re-open the dialog ─────────────────────
+  //
+  // Repro of the infinite loop (pre-fix):
+  //   1. Editing page A with isDirty=true.
+  //   2. User clicks tree node B → guard effect fires → dialog shown.
+  //   3. User clicks "Keep editing" → handleNavCancel calls selectPage(A) to restore selection.
+  //   4. selectedNodeId changes back to A → guard re-fires with prev=B, current=A → dialog opens again.
+  //
+  // Fix: suppressGuardRef.current is set to true before selectPage(); the guard effect returns
+  // early on the next run and does not open the dialog.
+
+  it("clicking Keep editing does not re-open the dialog when selection is restored", async () => {
+    _selectedNodeId = "page-dirty-1";
+    mockedFetch.mockResolvedValue(PAGE_CONTENT);
+    _mockSelectPage.mockReset();
+
+    const { rerender } = render(<NoteView />);
+    await waitFor(() => screen.getByTestId("note-edit-btn"));
+
+    // Enter edit mode.
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
+
+    // Make the buffer dirty.
+    act(() => {
+      capturedOnContentChange?.("modified content — different from original");
+    });
+
+    // Simulate the user clicking a different tree node (selectedNodeId changes to page-dirty-2).
+    _selectedNodeId = "page-dirty-2";
+    act(() => {
+      rerender(<NoteView />);
+    });
+
+    // Guard fires → dialog must appear.
+    await waitFor(() => {
+      expect(screen.getByTestId("confirm-dialog")).toBeDefined();
+    });
+
+    // Click "Keep editing" (the cancel button in the dialog).
+    act(() => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-cancel"));
+    });
+
+    // selectPage should have been called to restore the original selection.
+    expect(_mockSelectPage).toHaveBeenCalledWith("page-dirty-1", "tree");
+
+    // Dialog must close immediately.
+    expect(screen.queryByTestId("confirm-dialog")).toBeNull();
+
+    // Simulate the tree/store restoring selectedNodeId to page-dirty-1 in response to selectPage().
+    // Without the suppressGuardRef fix this would re-trigger the guard and reopen the dialog.
+    _selectedNodeId = "page-dirty-1";
+    act(() => {
+      rerender(<NoteView />);
+    });
+
+    // Flush any pending microtasks / state updates.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Dialog must NOT reopen — suppressGuardRef suppressed the guard for the programmatic restore.
+    expect(screen.queryByTestId("confirm-dialog")).toBeNull();
+
+    // User is still in edit mode (they chose "Keep editing").
+    expect(screen.getByTestId("note-cancel-btn")).toBeDefined();
   });
 });
