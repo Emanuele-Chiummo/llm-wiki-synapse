@@ -1,0 +1,168 @@
+# Synapse — Product Roadmap Proposal v1.3 → v2.0.0
+
+> Produced 2026-07-04 from a full-stack audit of the v1.2.x codebase: backend
+> (~36.5K LOC Python, 16 tables, 23 migrations, 92 test files), frontend
+> (~27.6K LOC TS/TSX, 82 vitest files + 8 Playwright specs), extension, Tauri,
+> CI/CD, and all docs (54 ADRs, 12 sprint cycles, TRACEABILITY/DOCS_STATUS/BACKLOG).
+> Companion to `ROADMAP-v0.7-v1.0.md` (marked COMPLETE). Owner review pending —
+> this is a proposal. Timeline: 8 weeks / 4 sprints, evenings cadence with agents.
+
+---
+
+## 0. Where v1.2.x actually stands (audit findings)
+
+### Feature coverage — the product is functionally complete
+
+Every feature in CLAUDE.md §4 is shipped: **K1–K8 all GREEN**, **F1–F18 all
+GREEN** with three narrow residuals:
+
+| Residual | Feature | Detail |
+|---|---|---|
+| Clipper project picker | F11 | `extension/popup.js` posts `{url, title, markdown}` only — no target picker. Spec'd in §4b, never built. Becomes the **vault picker** in v2 (R15-3). |
+| Cancel in-flight ingest | K2/F17 | G-P2-3, the only open parity item vs llm_wiki matrix. Queue infra exists (ADR-0046); the `DELETE /ingest/{run_id}` endpoint does not. |
+| Multi-vault UI | R10-2 | Explicitly deferred at v1.0. `vault_id` is plumbed through every table but a single vault is hardcoded in practice. **This is the v2 headline.** |
+
+All 9 invariants hold and are *mechanically enforced* (ESLint bans on client
+layout libs, `no-client-layout` dist scan, `chat-parse-once`, i18n key-parity
+test, capability-only provider routing, bounded loops with cost ledger).
+No TODO/FIXME anywhere in `app/` or `src/`. This is an unusually clean base.
+
+### Structural debt (what a 2.0 must not carry forward)
+
+| # | Debt | Where | Impact |
+|---|---|---|---|
+| T1 | `main.py` is a **9,311-line router monolith** — CLAUDE.md's target layout (routers per domain) was never realized | `backend/app/main.py` | Every feature touches one file; merge friction, review blindness; blocks multi-vault scoping cleanly |
+| T2 | `SettingsPanel.tsx` at **3,826 LOC** | `frontend/src/components/settings/` | Same problem, frontend edition |
+| T3 | `review.py` (2,909) and `orchestrator.py` (2,780) are borderline | `backend/app/ops/`, `app/ingest/` | Acceptable, but don't let them grow through v2 |
+| T4 | `ops_scheduler` state is **in-memory** — schedules reset on container restart | `backend/app/ops_scheduler.py` | Missed weekly jobs after every update (Watchtower restarts hourly-polled containers) |
+| T5 | Auth is a **single shared Bearer token**, disabled by default; no rate limiting; Postgres port 5432 exposed with default `synapse/synapse` creds in compose | `app/auth.py`, `docker-compose.yml` | Fine for LAN/Tailscale; not fine for a 2.0 that people other than the author deploy |
+| T6 | **No E2E in CI** — the 8 Playwright specs run only manually against a live stack; integration job is commented out | `.github/workflows/ci.yml` | Regressions in wiring (proxy, auth, streaming) reach tags |
+| T7 | Images are **linux/amd64 only**; version bump is a 4-file manual ritual (tauri.conf + Cargo.toml + package.json + pyproject) | `desktop-release.yml`, DEPLOY §7.7 | No ARM homelab/RPi/Apple-container users; bump errors break the updater |
+| T8 | Whisper service exists but is **not in compose**; Marker GPU block commented out | `tools/whisper-service/` | F12 AV path requires undocumented manual setup |
+| T9 | Docs drift: ADR-0039 unindexed, ADR-0023 number skipped, stale `docs/er/schema 2.mmd`, D5 screenshots PENDING-LIVE since v1.0, BACKLOG says v1.2 "blocked" while the code shipped, `frontend/package.json` description still says "v0.5" | `docs/` | I8 (docs-as-DoD) is silently eroding |
+| T10 | Known bugs carried in sprint docs: BUG-2 (ingest polling not deduped on remount), `ThinkBlock.tsx:61` conditional hook | frontend | Small, but tracked and open |
+
+### Why the next major is 2.0.0 (semver honesty)
+
+Multi-vault changes the data model (non-null `vault_id` everywhere, vault-scoped
+Qdrant), the API surface (vault scoping on every content endpoint), and the auth
+model (per-vault/named tokens). That is a breaking change for API consumers
+(MCP clients, the clipper, scripts) → **major version**. Everything else in this
+roadmap exists to make that change safe.
+
+### Karpathy-pattern alignment (the north star)
+
+The origin pattern is *one purpose-driven wiki*: `purpose.md` defines the thesis,
+`schema.md` the rules, the human curates, the LLM maintains (K8). Synapse v1
+perfected that for **one** vault. The honest v2 reading of the pattern is not
+"more AI features" — it is **many purposes, one instance**: a research vault, a
+homelab vault, a reading vault, each with its own purpose/schema/provider/graph,
+without deploying N containers. Multi-vault is the pattern's natural plural.
+Everything AI-side (F17 routing, bounded loops, review queue, schema
+co-evolution) already exceeds llm_wiki parity — v2 deliberately adds **no new
+AI loop**.
+
+---
+
+## v1.3 — «Foundations» (settimane 1–2)
+
+Theme: zero visible behavior change; make the house solid before the extension.
+This is the sprint that pays T1–T10 down so multi-vault lands on clean ground.
+
+| ID | Item | Area | Effort | Source | Status |
+|----|------|------|--------|--------|--------|
+| R13-1 | **Router split** — decompose `main.py` into `app/routers/{pages,search,graph,ingest,chat,review,research,ops,config,stats,clip,mcp}.py` via `APIRouter`. Contract-frozen: the CI OpenAPI drift gate must show an **empty diff** (paths, schemas, examples identical) | BE | L | T1 | |
+| R13-2 | **SettingsPanel split** — one component per settings group (already 5 IA groups from v1.1), shared form primitives | FE | M | T2 | |
+| R13-3 | **Cancel in-flight ingest** — `DELETE /ingest/{run_id}` on top of ADR-0046 queue (cancellation events exist); Activity bar wiring | BE+FE | S | G-P2-3 | |
+| R13-4 | **Persistent scheduler state** — last-run timestamps for ops/import schedulers into `app_config` (survives restart; T4) | BE | S | T4 | |
+| R13-5 | **Bug batch** — BUG-2 ingest-polling dedup on remount; `ThinkBlock` conditional-hook fix; PWA manifest `lang` from i18n; package.json description drift | FE | S | T10, T9 | |
+| R13-6 | **CI hardening** — (a) E2E job: compose up backend+postgres+fake-embeddings in CI, run the existing Playwright suite headless; (b) multi-arch images (linux/amd64+arm64 via buildx); (c) `make bump VERSION=x.y.z` single-command 4-file version bump with check | QA+DevOps | M | T6, T7 | |
+| R13-7 | **Deploy security pass** — drop the default `5432:5432` publish (compose-internal network), creds via `.env` with generated defaults, minimal rate limit on inference-cost endpoints (`/chat`, `/ingest/trigger`, `/research`), document Tailscale/CF-Tunnel-only posture in DEPLOY | DevOps+BE | M | T5 | |
+| R13-8 | **Docs hygiene** — index ADR-0039, delete `schema 2.mmd`, refresh D5 screenshots via the new CI E2E job, sync BACKLOG/parity/TRACEABILITY to v1.2 reality, whisper-service compose profile (`av`) | Docs+DevOps | S/M | T8, T9 | |
+
+**Exit criteria:** all tests green with an empty OpenAPI diff (R13-1 proof);
+E2E job green in CI; arm64 image pulls on a Pi/ARM box; no schedule lost across
+a container restart; docs gate ALL-UP-TO-DATE with fresh screenshots.
+
+## v1.4 — «Multi-vault core» (settimane 3–4)
+
+Theme: the breaking change, backend-first, behind a compatibility default.
+One ADR before any code (solution-architect gate).
+
+| ID | Item | Area | Effort | Source | Status |
+|----|------|------|--------|--------|--------|
+| R14-1 | **ADR-0055 Multi-vault model** — `vaults` table (id, name, slug, fs path, scenario, created); `vault_id` becomes non-null FK on all 16 tables; **auto-migration**: first `alembic upgrade` adopts the existing vault as `default` (zero data loss, idempotent) | BE | M | R10-2 | |
+| R14-2 | **Vector scoping** — Qdrant: single collection + mandatory `vault_id` payload filter (decided in ADR-0055; avoids collection-per-vault ops burden on a 12 GB-VRAM homelab) | BE | S | I1 | |
+| R14-3 | **Filesystem & watcher** — `vault/<slug>/{raw,wiki,schema.md,purpose.md,.obsidian}`; one watchdog observer per active vault; `default` keeps the current path for back-compat | BE | M | I1, I5 | |
+| R14-4 | **API vault scoping** — `X-Synapse-Vault` header (default: `default`) resolved by middleware into request state; every router from R13-1 filters by it. v1 clients keep working unchanged against the default vault — the break is opt-in until 2.0 | BE | L | T1→enabler | |
+| R14-5 | **Per-vault provider & costs** — `provider_config` scope=vault verified end-to-end (design already supports it); `/costs/summary` and `/stats/*` grouped per vault | BE | S/M | F17, I7 | |
+| R14-6 | **Per-vault export/import** — portable zip (vault fs + JSON dump) → restore into a new vault on another instance | BE | M | v0.8 R8-4 extension | |
+
+**Exit criteria:** two vaults live on one instance — separate graphs, separate
+provider configs, separate costs; ingest/chat/search/graph/review all correctly
+scoped (cross-vault leak = P0); migration from a real v1.2 database verified;
+Obsidian opens each `wiki/` independently (I5 per vault).
+
+## v1.5 — «Multi-vault UX + access» = v2.0.0-beta (settimane 5–6)
+
+Theme: surface it, secure it, tag a beta.
+
+| ID | Item | Area | Effort | Source | Status |
+|----|------|------|--------|--------|--------|
+| R15-1 | **Vault switcher** — header dropdown + command-palette action; create-vault flow reusing scenario templates (R7-1) and the first-run wizard; per-vault purpose/schema editing | FE | M | R10-2 | |
+| R15-2 | **Home per vault** — dashboard scoped to active vault + an "all vaults" overview row (counts, last activity, cost) | FE | S/M | F18 | |
+| R15-3 | **Clipper project picker** — vault dropdown in the extension popup (`GET /vaults` public-ish via CLIP token), closes the last F11 gap | FE | S | F11 | |
+| R15-4 | **Named tokens** — replace the single `SYNAPSE_AUTH_TOKEN` with N named tokens (label, optional vault scope, created/revoked in Settings → Security; hashed at rest like ADR-0033). Env token remains honored as a bootstrap/back-compat token. Full OIDC stays post-2.0 unless a concrete need appears | BE+FE | M/L | T5, v1.0 deferral | |
+| R15-5 | **MCP + chat vault scoping** — MCP tools accept `vault` param (default = default vault); conversations belong to a vault | BE | S | ADR-0010/0029 | |
+| R15-6 | **UX-audit closure batch** — remaining P2 items from `UX-AUDIT-2026-07.md` (UXA-09..13, 19–28 triaged: fix P2s, consciously close-won't-fix the rest) | FE | M | UX audit | |
+
+**Exit criteria:** tag **v2.0.0-beta.1**; a new user can create a second vault,
+clip into it, chat in it, and see its graph without touching the first vault;
+token revocation works; migration guide drafted.
+
+## v2.0.0 — «Release» (settimane 7–8)
+
+Theme: freeze, document, ship. No new features enter this sprint.
+
+| ID | Item | Area | Effort | Source | Status |
+|----|------|------|--------|--------|--------|
+| R20-1 | **Migration guide + auto-migrate** — `docs/MIGRATION-v1-v2.md`; first-boot migration battle-tested against copies of the owner's real TrueNAS data; documented rollback (pre-upgrade pg_dump per DEPLOY §12) | BE+Docs | M | R14-1 | |
+| R20-2 | **D1–D7 full refresh** — C4 with vaults, ER regen, new sequences (vault-create, scoped ingest), OpenAPI 2.0.0, D5 screenshot sweep via CI, USER/DEPLOY rewritten for multi-vault | Docs | M | I8 | |
+| R20-3 | **Performance regression gate** — re-run the 4 llm_wiki bottleneck guards with 2+ vaults and a large vault (graph fps, no main-thread layout, parse-once, virtualized lists); watcher/queue behavior with N observers | QA | S/M | I1–I4 | |
+| R20-4 | **Release engineering** — code-signing certs purchased → signed dmg/exe (guide DEPLOY §14 ready); Chrome Web Store submission (deferred since v1.0); GHCR `:2` channel; release notes with upgrade callout | DevOps | M(€) | R10-3 | |
+| R20-5 | **RC discipline** — beta → rc.1 with only P0/P1 fixes; EC-M-HCP human checkpoint on live TrueNAS; tag **v2.0.0** | All | — | DoD | |
+
+**Exit criteria:** v2.0.0 tagged; a v1.2.x instance upgrades in place with one
+`docker compose pull && up`; signed desktop builds auto-update from 1.x; store
+listing submitted; docs site republished.
+
+---
+
+## Cross-cutting (every sprint)
+
+- i18n parity EN/IT enforced by test; invariants I1–I9; per-sprint DoD
+  (tests + architect review + docs gate + human checkpoint EC-Mx-HCP).
+- Every schema change ships its Alembic migration **and** `make er` in the same PR.
+- No new bounded loop without `max_iter` + `token_budget` + cost row (I7).
+- `main.py` and `SettingsPanel.tsx` line counts are ratcheted **down** — CI fails
+  if they grow past their post-R13 size.
+
+## Sequencing rationale
+
+The refactor (v1.3) comes first because vault scoping touches every endpoint:
+doing it inside a 9,311-line file would be the most expensive possible order.
+The data-model break (v1.4) lands mid-roadmap with a compatibility default so
+the owner's daily instance never stops working. UI and access (v1.5) ride on a
+stable core and produce the beta. The last two weeks are deliberately
+feature-frozen — v1.0 taught that distribution work (signing, store, migration
+docs) always takes longer than it looks. If multi-vault slips, the fallback is
+honest: ship v1.3 as-is (it is releasable alone), move one sprint right, and cut
+2.0 with signing/store as the only casualties.
+
+## Explicitly out of scope for 2.0 (post-2.0 candidates)
+
+- Full OIDC/SSO and true multi-user RBAC (named tokens cover the homelab reality).
+- New AI capabilities (agentic maintenance daemon, auto-merge of duplicate pages,
+  cross-vault retrieval) — the pattern says human curates; keep it that way.
+- Mobile-native apps; Kubernetes/Helm packaging; plugin system.
+- Real-time collaborative editing (single-writer model is a feature, not a gap).
