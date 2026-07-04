@@ -151,9 +151,7 @@ const RelatedPanel = memo(function RelatedPanel({
   return (
     <div data-testid="related-panel" style={RELATED_PANEL_STYLE}>
       <div style={RELATED_HEADER_STYLE}>
-        <span style={RELATED_HEADER_LABEL_STYLE}>
-          {t("noteView.related", { count: total })}
-        </span>
+        <span style={RELATED_HEADER_LABEL_STYLE}>{t("noteView.related", { count: total })}</span>
       </div>
 
       {loading && (
@@ -178,13 +176,12 @@ const RelatedPanel = memo(function RelatedPanel({
               onClick={() => onSelect(item.page_id)}
               style={RELATED_ITEM_STYLE}
             >
-              <span style={RELATED_ITEM_ARROW_STYLE} aria-hidden="true">↗</span>
+              <span style={RELATED_ITEM_ARROW_STYLE} aria-hidden="true">
+                ↗
+              </span>
               <span style={RELATED_ITEM_TITLE_STYLE}>{item.title}</span>
               {item.type && (
-                <span
-                  className="syn-chip"
-                  style={typeChipStyle(item.type)}
-                >
+                <span className="syn-chip" style={typeChipStyle(item.type)}>
                   {item.type}
                 </span>
               )}
@@ -216,9 +213,7 @@ interface RelatedState {
  * Pending navigation intent: captures what action to perform once the user
  * confirms they want to discard unsaved changes.
  */
-type PendingNavIntent =
-  | { kind: "cancel" }
-  | { kind: "selectPage"; pageId: string; origin: string };
+type PendingNavIntent = { kind: "cancel" } | { kind: "selectPage"; pageId: string; origin: string };
 
 export function NoteView() {
   const { t } = useTranslation();
@@ -317,8 +312,7 @@ export function NoteView() {
       const titleLower = wikilinkTitle.toLowerCase();
       // Resolve via the complete page index first (always loaded); fall back to graph nodes.
       const id =
-        titleIndex.get(titleLower) ??
-        nodes.find((n) => n.title.toLowerCase() === titleLower)?.id;
+        titleIndex.get(titleLower) ?? nodes.find((n) => n.title.toLowerCase() === titleLower)?.id;
       if (id) {
         selectPage(id, "tree");
       } else {
@@ -361,9 +355,23 @@ export function NoteView() {
   // If we're in edit mode with unsaved changes, we need to show the dialog first.
   const prevSelectedNodeIdRef = useRef<string | null>(null);
 
+  // F1: when handleNavCancel restores the tree selection programmatically (via selectPage),
+  // that call changes selectedNodeId and would re-trigger the guard — causing the dialog
+  // to appear again in an infinite loop. This ref suppresses exactly one guard check for
+  // the programmatic restore.
+  const suppressGuardRef = useRef(false);
+
   useEffect(() => {
     const prev = prevSelectedNodeIdRef.current;
     prevSelectedNodeIdRef.current = selectedNodeId;
+
+    // F1: suppress guard for the programmatic restore triggered by handleNavCancel.
+    // The user clicked "Keep editing" → we called selectPage(origin) → selectedNodeId
+    // changed back, which would re-trigger this guard and re-open the dialog. Skip it.
+    if (suppressGuardRef.current) {
+      suppressGuardRef.current = false;
+      return; // user is staying on the same page; no page load needed
+    }
 
     // Selection changed while editing with unsaved changes → intercept.
     if (
@@ -493,6 +501,10 @@ export function NoteView() {
     // If the intent was a tree navigation, re-select the original page so the
     // tree highlight returns to where the user was editing.
     if (intent?.kind === "selectPage") {
+      // F1: suppress the guard for this programmatic restore. Without this flag the
+      // guard effect would see selectedNodeId change back to origin and re-open the
+      // dialog immediately, producing an infinite loop.
+      suppressGuardRef.current = true;
       selectPage(intent.origin, "tree");
     }
   }, [pendingNavIntent, selectPage]);
@@ -533,8 +545,7 @@ export function NoteView() {
         showToast(t("noteView.staleConflict"), "error");
         setState((prev) => ({ ...prev, errorMessage: "stale" }));
       } else {
-        const msg =
-          err instanceof ApiError ? err.message : t("noteView.loadError");
+        const msg = err instanceof ApiError ? err.message : t("noteView.loadError");
         showToast(msg, "error");
       }
     } finally {
@@ -620,8 +631,7 @@ export function NoteView() {
   const isStale = state.errorMessage === "stale";
 
   // Non-empty sources list from the content response.
-  const sources =
-    data.sources && data.sources.length > 0 ? data.sources : null;
+  const sources = data.sources && data.sources.length > 0 ? data.sources : null;
 
   // Non-empty tags list from the content response (tags phase).
   const tags = data.tags && data.tags.length > 0 ? data.tags : null;
@@ -704,16 +714,11 @@ export function NoteView() {
               {(effectiveType || updatedLabel) && (
                 <div style={CARD_BADGE_ROW_STYLE}>
                   {effectiveType && (
-                    <span
-                      data-testid="note-type-badge"
-                      style={typeBadgeStyle(effectiveType)}
-                    >
+                    <span data-testid="note-type-badge" style={typeBadgeStyle(effectiveType)}>
                       {effectiveType}
                     </span>
                   )}
-                  {updatedLabel && (
-                    <span style={DATE_LABEL_STYLE}>{updatedLabel}</span>
-                  )}
+                  {updatedLabel && <span style={DATE_LABEL_STYLE}>{updatedLabel}</span>}
                 </div>
               )}
 
@@ -739,15 +744,13 @@ export function NoteView() {
                   </span>
                   {/* Single wrapper carries the data-testid so tests can assert textContent
                       contains all source paths (mirrors original single-span contract). */}
-                  <div
-                    data-testid="note-sources"
-                    style={SOURCES_CHIPS_ROW_STYLE}
-                  >
+                  <div data-testid="note-sources" style={SOURCES_CHIPS_ROW_STYLE}>
                     {sources.map((src) => {
                       // A chip is navigable when it looks like a raw/sources/ path.
                       // Strip the "raw/sources/" prefix to get the SourcesView path.
                       const RAW_PREFIX = "raw/sources/";
-                      const isSourcePath = src.startsWith(RAW_PREFIX) || src.startsWith("/raw/sources/");
+                      const isSourcePath =
+                        src.startsWith(RAW_PREFIX) || src.startsWith("/raw/sources/");
                       if (isSourcePath) {
                         return (
                           <button
@@ -764,12 +767,7 @@ export function NoteView() {
                         );
                       }
                       return (
-                        <span
-                          key={src}
-                          className="syn-chip"
-                          title={src}
-                          style={SOURCE_CHIP_STYLE}
-                        >
+                        <span key={src} className="syn-chip" title={src} style={SOURCE_CHIP_STYLE}>
                           {src}
                         </span>
                       );
