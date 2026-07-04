@@ -59,6 +59,7 @@ Node pinning (Feature A):
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 import os
@@ -231,18 +232,17 @@ class GraphEngine:
     ) -> GraphSnapshot:
         """
         Single bounded pass (I7):
-          1. Load nodes (pages) and resolved links from Postgres (I1 — no vault walk).
-          2. Build undirected unweighted igraph for Adamic-Adar.
-          3. Compute 4-signal weight per candidate pair (ADR-0012).
-          4. Build weighted igraph; run ForceAtlas2 → coords (I2, ADR-0045).
-          5. Persist edges + coords in ONE transaction (ADR-0013 §algorithm step 6).
-          6. Return GraphSnapshot (GraphCache stamps data_version).
-          7. Log node/edge count + wall-clock duration (I7 observability).
+          1. Async DB read: load nodes (pages) + resolved links from Postgres (I1 — no vault walk).
+          2. CPU-bound graph compute in thread executor (B1 fix — I2: never block event loop):
+               igraph build + ForceAtlas2 layout + Louvain communities + 4-signal weighting.
+          3. Async DB write: persist edges + coords in ONE transaction (ADR-0013 §algorithm step 6).
+          4. Return GraphSnapshot (GraphCache stamps data_version).
+          5. Log node/edge count + wall-clock duration (I7 observability).
         """
         t0 = time.perf_counter()
         logger.info("GraphEngine.recompute: start vault_id=%r seed=%d", vault_id, FA2_SEED)
 
-        # ── 1. Load pages and links from DB (I1 — tables only, no vault walk) ──
+        # ── 1. Async DB read: load pages + links (I1 — tables only, no vault walk) ──
         nodes_data, links_data = await self._load_data(vault_id, session)
 
         if not nodes_data:
@@ -250,267 +250,15 @@ class GraphEngine:
             await self._persist_results(vault_id, [], [], session)
             return GraphSnapshot()
 
-        # Build node index: str(uuid) → dict of page attributes
-        # pinned/stored_x/stored_y carried for Feature A (pinned-node preservation).
-        node_index: dict[str, dict[str, Any]] = {
-            str(row["id"]): {
-                "id": str(row["id"]),
-                "title": row.get("title"),
-                "page_type": row.get("page_type"),
-                "sources": set(row.get("sources") or []),
-                "pinned": bool(row.get("pinned", False)),
-                "stored_x": row.get("stored_x"),
-                "stored_y": row.get("stored_y"),
-            }
-            for row in nodes_data
-        }
-        node_ids: list[str] = list(node_index.keys())
-        id_to_idx: dict[str, int] = {nid: i for i, nid in enumerate(node_ids)}
-
-        # ── 2. Build undirected unweighted igraph for Adamic-Adar ──────────────
-        # Resolved directed links → undirected edges (deduplicated)
-        directed_links: list[tuple[str, str]] = []
-        for row in links_data:
-            src = str(row["source_page_id"])
-            tgt = str(row["target_page_id"])
-            if src in id_to_idx and tgt in id_to_idx:
-                directed_links.append((src, tgt))
-
-        # Undirected adjacency as set of frozensets for direct-link counting
-        # direct_link_count: count BOTH directions separately (each directed link = 1)
-        pair_direct: dict[tuple[str, str], int] = {}
-        for src, tgt in directed_links:
-            key = _canonical_key(src, tgt)
-            pair_direct[key] = pair_direct.get(key, 0) + 1
-
-        # Build undirected unweighted igraph (deduplicated edges)
-        import igraph
-
-        n = len(node_ids)
-        unweighted_edges_idx: list[tuple[int, int]] = []
-        seen_undirected: set[tuple[int, int]] = set()
-        for src, tgt in directed_links:
-            a, b = id_to_idx[src], id_to_idx[tgt]
-            pair = (min(a, b), max(a, b))
-            if pair not in seen_undirected:
-                seen_undirected.add(pair)
-                unweighted_edges_idx.append(pair)
-
-        g_unweighted = igraph.Graph(n=n, edges=unweighted_edges_idx, directed=False)
-
-        # ── 3. Compute 4-signal weight per structural candidate pair (ADR-0016) ──
-        # STRUCTURAL candidate set = (a) direct-link pairs UNION (b) shared-source pairs.
-        # ADR-0016 §1: AA and same-type are WEIGHT MODULATORS only — they never create
-        # a standalone edge.  Blocks (c) AA-pair enumeration and (d) same-type enumeration
-        # are REMOVED from candidate_pairs (they were the source of the type-clique hairball).
-        # AA and type terms still contribute to the weight for pairs already in the
-        # structural set (the additive formula of ADR-0012 §1/§2 is UNCHANGED).
-
-        # Neighbour sets for Adamic-Adar weight modulation (per vertex)
-        neighbours: list[set[int]] = [set(g_unweighted.neighbors(i)) for i in range(n)]
-
-        # Degree array for AA denominator: ln(degree); skip degree-0 nodes
-        degrees: list[int] = g_unweighted.degree()
-
-        # STRUCTURAL candidate pairs: only (a) + (b) — ADR-0016 §1
-        candidate_pairs: set[tuple[int, int]] = set()
-
-        # (a) direct-link pairs — always structural
-        for a, b in seen_undirected:
-            candidate_pairs.add((a, b))
-
-        # (b) shared-source pairs — structural (provenance fact, ADR-0016 §1)
-        # Group pages by each source to find overlap efficiently
-        source_to_pages: dict[str, list[int]] = {}
-        for i, nid in enumerate(node_ids):
-            for src in node_index[nid]["sources"]:
-                source_to_pages.setdefault(src, []).append(i)
-        for _src, page_list in source_to_pages.items():
-            for i_pos in range(len(page_list)):
-                for j_pos in range(i_pos + 1, len(page_list)):
-                    a, b = page_list[i_pos], page_list[j_pos]
-                    candidate_pairs.add((min(a, b), max(a, b)))
-
-        # (c) AA-pair enumeration REMOVED — AA is a weight modulator, not an edge generator.
-        # (d) same-type enumeration REMOVED — type is a weight modulator, not an edge generator.
-        # Both terms still contribute weight for pairs already in candidate_pairs above.
-
-        # Compute Adamic-Adar for all candidate pairs manually
-        # AA(A,B) = Σ_{c ∈ N(A)∩N(B)} 1/ln(deg(c))
-        # igraph.similarity_inverse_log_weighted computes this for all pairs but is O(N²).
-        # We compute only for our candidate set, which is much smaller.
-        def _aa(a: int, b: int) -> float:
-            """Adamic-Adar index for pair (a, b) on the unweighted undirected graph."""
-            common = neighbours[a] & neighbours[b]
-            total = 0.0
-            for c in common:
-                deg_c = degrees[c]
-                if deg_c > 1:
-                    total += 1.0 / math.log(deg_c)
-            return total
-
-        # Build weighted edge list — structural pairs only (ADR-0016 §1)
-        # (a_idx, b_idx, weight, signals, kind)
-        weighted_edges: list[tuple[int, int, float, dict[str, float], str]] = []
-
-        for a, b in candidate_pairs:
-            nid_a = node_ids[a]
-            nid_b = node_ids[b]
-            key = _canonical_key(nid_a, nid_b)
-
-            direct = float(pair_direct.get(key, 0))
-            shared = float(len(node_index[nid_a]["sources"] & node_index[nid_b]["sources"]))
-
-            # Structural gate (ADR-0016 §1): pair must have a real link or shared source.
-            # By construction all pairs in candidate_pairs satisfy this, but make it explicit.
-            if not (direct > 0 or shared > 0):
-                continue  # safety guard — should not be reached after removing (c)/(d)
-
-            aa = _aa(a, b)
-            type_a = node_index[nid_a]["page_type"]
-            type_b = node_index[nid_b]["page_type"]
-            # 4th signal: type-affinity matrix (G-P1-7, llm_wiki parity) — rewards
-            # cross-type pairs, penalizes same-type. Replaces the old binary same_type.
-            type_affinity = _type_affinity(type_a, type_b)
-
-            # Weight formula (ADR-0012 §1/§2 coefficients UNCHANGED; 4th term is now
-            # the type-affinity modulator instead of binary same_type — G-P1-7)
-            w = 3.0 * direct + 4.0 * shared + 1.5 * aa + 1.0 * type_affinity
-            signals = {
-                "direct": 3.0 * direct,
-                "source": 4.0 * shared,
-                "aa": 1.5 * aa,
-                "type": type_affinity,
-            }
-            # Per-edge kind (ADR-0016 §4): "link" wins when both structural signals present
-            kind = "link" if direct > 0 else "source"
-            weighted_edges.append((a, b, w, signals, kind))
-
-        # ── 4. Build weighted igraph + ForceAtlas2 → coords (I2, ADR-0045) ──────
-        weighted_edges_idx = [(a, b) for a, b, _w, _s, _k in weighted_edges]
-        edge_weights = [w for _a, _b, w, _s, _k in weighted_edges]
-
-        g_weighted = igraph.Graph(
-            n=n,
-            edges=weighted_edges_idx if weighted_edges_idx else [],
-            directed=False,
+        # ── 2. CPU-bound graph compute in thread executor (B1 fix — I2) ────────────
+        # All igraph/FA2/numpy work is offloaded so the event loop stays free for
+        # incoming requests, chat streams, and watcher events during the layout.
+        # Seam: plain Python dicts in (no AsyncSession), plain Python dicts out.
+        coord_rows, edge_db_rows, snapshot = await asyncio.to_thread(
+            _compute_graph_sync, nodes_data, links_data, vault_id
         )
-        if edge_weights:
-            g_weighted.es["weight"] = edge_weights
 
-        # Seed the igraph RNG (still used by Louvain community_multilevel below)
-        igraph.set_random_number_generator(_SeedableRNG(FA2_SEED))
-
-        # Run ForceAtlas2 layout (ADR-0045).  Determinism: circle-init pos + numpy seed.
-        raw_coords: list[tuple[float, float]] = _forceatlas2_layout(g_weighted, edge_weights, n)
-
-        # ── 4b. Feature B (disc-compression) REMOVED (ADR-0045 §3) ──────────
-        # FA2's organic spread is the desired output — raw FA2 coords used directly.
-        coords = list(raw_coords)
-
-        # ── 4c. Feature A — preserve pinned nodes ─────────────────────────────
-        # For any node with pinned=true and valid stored (x,y), overwrite the
-        # FA2-computed coord with the user-set one so drag-and-drop positions
-        # survive every subsequent recompute.
-        for i, nid in enumerate(node_ids):
-            nd = node_index[nid]
-            if nd["pinned"] and nd["stored_x"] is not None and nd["stored_y"] is not None:
-                coords[i] = (float(nd["stored_x"]), float(nd["stored_y"]))
-
-        # ── 4d. Outlier clamp (ADR-0045 §5) — LAST, so it also tames runaway PINNED
-        # coords, not just FA2 outliers.  A handful of flung-out nodes (or nodes
-        # accidentally pinned at runaway coords, e.g. a mobile tap-jitter drag) would
-        # otherwise dominate sigma's fit-to-view and collapse the dense core to a dot.
-        # The clamp leaves every in-cap node EXACTLY where it was (organic spread + legit
-        # in-view pins preserved); only nodes beyond the cap are pulled radially onto it.
-        # Running it here (after pinning) makes the layout self-healing: the clamped coords
-        # are what get persisted, so runaway stored coords are repaired on the next recompute.
-        coords = _clamp_outliers(coords)
-
-        # ── 4e. Louvain community detection (G-P0-2, I2) ─────────────────────
-        # Run community_multilevel (Louvain) on the weighted structural graph.
-        # Re-number communities by size (largest = 0) for stable coloring, matching
-        # the nashsu/llm_wiki convention (R1). Bounded: single O(n log n) pass on the
-        # server-side graph; never called on the client (I2).
-        # Isolated nodes (degree-0 in g_weighted) form their own singleton communities.
-        community_assignments: list[int] = _compute_louvain_communities(g_weighted, node_ids)
-
-        # Per-community cohesion: intra-edge density (intraEdges / possibleEdges).
-        # possibleEdges for a community of size s = s*(s-1)/2.  Zero for singletons.
-        # Collect which structural edge pairs share a community for cohesion calc.
-        community_intra_edges: dict[int, int] = {}
-        community_sizes: dict[int, int] = {}
-        for cid in community_assignments:
-            community_sizes[cid] = community_sizes.get(cid, 0) + 1
-        for a, b, _w, _s, _k in weighted_edges:
-            ca = community_assignments[a]
-            cb = community_assignments[b]
-            if ca == cb:
-                community_intra_edges[ca] = community_intra_edges.get(ca, 0) + 1
-
-        community_snapshots: list[CommunitySnapshot] = []
-        for cid, size in sorted(community_sizes.items()):
-            possible = size * (size - 1) / 2
-            intra = community_intra_edges.get(cid, 0)
-            cohesion = (intra / possible) if possible > 0 else 0.0
-            community_snapshots.append(
-                CommunitySnapshot(id=cid, size=size, cohesion=round(cohesion, 4))
-            )
-        # Sort by id ascending (id 0 = largest community, already ordered by _compute_louvain)
-        community_snapshots.sort(key=lambda c: c.id)
-
-        # ── 5. Assemble result lists ───────────────────────────────────────────
-        # structural_degree = count of distinct incident structural edges (ADR-0016 §2).
-        # After removing (c)/(d) from candidate_pairs, g_weighted IS the structural graph,
-        # so g_weighted.degree() already yields structural_degree.
-        structural_degrees = g_weighted.degree()
-
-        # Size formula: BASE + GROWTH·sqrt(structural_degree) (ADR-0016 §2)
-        # BASE=1.0 → isolated nodes render at 1.0 (clearly clickable).
-        # GROWTH=2.5 → degree-30 hub ≈ 14.7, degree-1 leaf ≈ 3.5, degree-3 ≈ 5.3.
-        _BASE = 1.0
-        _GROWTH = 2.5
-
-        node_snapshots: list[NodeSnapshot] = []
-        for i, nid in enumerate(node_ids):
-            nd = node_index[nid]
-            deg = structural_degrees[i]
-            node_size: float = max(1.0, _BASE + _GROWTH * math.sqrt(deg))
-            node_snapshots.append(
-                NodeSnapshot(
-                    id=nid,
-                    title=nd["title"],
-                    page_type=nd["page_type"],
-                    x=coords[i][0],
-                    y=coords[i][1],
-                    degree=deg,
-                    size=node_size,
-                    community=community_assignments[i],
-                )
-            )
-
-        edge_snapshots: list[EdgeSnapshot] = []
-        edge_db_rows: list[dict[str, Any]] = []
-        for a, b, w, sig, kind in weighted_edges:
-            nid_a = node_ids[a]
-            nid_b = node_ids[b]
-            src_id, tgt_id = _canonical_key_ids(nid_a, nid_b)
-            edge_snapshots.append(EdgeSnapshot(source=nid_a, target=nid_b, weight=w, kind=kind))
-            edge_db_rows.append(
-                {
-                    "vault_id": vault_id,
-                    "source_page_id": src_id,
-                    "target_page_id": tgt_id,
-                    "weight": w,
-                    "signals": sig,
-                    "kind": kind,
-                }
-            )
-
-        # ── 6. Persist coords + edges + community in ONE transaction ──────────
-        coord_rows: list[dict[str, Any]] = [
-            {"id": ns.id, "x": ns.x, "y": ns.y, "community": ns.community} for ns in node_snapshots
-        ]
+        # ── 3. Async DB write: persist coords + edges + community in ONE transaction ──
         await self._persist_results(vault_id, coord_rows, edge_db_rows, session)
 
         elapsed = time.perf_counter() - t0
@@ -518,17 +266,13 @@ class GraphEngine:
             "GraphEngine.recompute: done vault_id=%r nodes=%d edges=%d"
             " communities=%d elapsed=%.3fs",
             vault_id,
-            len(node_snapshots),
-            len(edge_snapshots),
-            len(community_snapshots),
+            len(snapshot.nodes),
+            len(snapshot.edges),
+            len(snapshot.communities),
             elapsed,
         )
 
-        return GraphSnapshot(
-            nodes=node_snapshots,
-            edges=edge_snapshots,
-            communities=community_snapshots,
-        )
+        return snapshot
 
     # ── Private helpers ────────────────────────────────────────────────────────
 
@@ -630,6 +374,301 @@ class GraphEngine:
         else:
             async with get_session() as sess:
                 await _run(sess)
+
+
+# ── CPU-bound graph computation (runs in thread via asyncio.to_thread) ────────
+
+
+def _compute_graph_sync(
+    nodes_data: list[dict[str, Any]],
+    links_data: list[dict[str, Any]],
+    vault_id: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], GraphSnapshot]:
+    """
+    Pure CPU graph computation: 4-signal weighting + FA2 layout + Louvain communities.
+
+    Designed to run in a thread via asyncio.to_thread() so the event loop is never
+    blocked during heavy igraph/FA2/numpy work (B1 fix, I2).
+
+    Inputs are plain Python data from the async DB read phase of recompute().
+    No DB sessions, no async code; all module-level helpers are pure functions.
+
+    Returns:
+        coord_rows   — list of {id, x, y, community} dicts for UPDATE pages SET x,y,community
+        edge_db_rows — list of edge dicts for INSERT INTO edges
+        snapshot     — GraphSnapshot (nodes, edges, communities)
+    """
+    # Build node index: str(uuid) → dict of page attributes
+    # pinned/stored_x/stored_y carried for Feature A (pinned-node preservation).
+    node_index: dict[str, dict[str, Any]] = {
+        str(row["id"]): {
+            "id": str(row["id"]),
+            "title": row.get("title"),
+            "page_type": row.get("page_type"),
+            "sources": set(row.get("sources") or []),
+            "pinned": bool(row.get("pinned", False)),
+            "stored_x": row.get("stored_x"),
+            "stored_y": row.get("stored_y"),
+        }
+        for row in nodes_data
+    }
+    node_ids: list[str] = list(node_index.keys())
+    id_to_idx: dict[str, int] = {nid: i for i, nid in enumerate(node_ids)}
+
+    # ── 2. Build undirected unweighted igraph for Adamic-Adar ──────────────
+    # Resolved directed links → undirected edges (deduplicated)
+    directed_links: list[tuple[str, str]] = []
+    for row in links_data:
+        src = str(row["source_page_id"])
+        tgt = str(row["target_page_id"])
+        if src in id_to_idx and tgt in id_to_idx:
+            directed_links.append((src, tgt))
+
+    # Undirected adjacency as set of frozensets for direct-link counting
+    # direct_link_count: count BOTH directions separately (each directed link = 1)
+    pair_direct: dict[tuple[str, str], int] = {}
+    for src, tgt in directed_links:
+        key = _canonical_key(src, tgt)
+        pair_direct[key] = pair_direct.get(key, 0) + 1
+
+    # Build undirected unweighted igraph (deduplicated edges)
+    import igraph
+
+    n = len(node_ids)
+    unweighted_edges_idx: list[tuple[int, int]] = []
+    seen_undirected: set[tuple[int, int]] = set()
+    for src, tgt in directed_links:
+        a, b = id_to_idx[src], id_to_idx[tgt]
+        pair = (min(a, b), max(a, b))
+        if pair not in seen_undirected:
+            seen_undirected.add(pair)
+            unweighted_edges_idx.append(pair)
+
+    g_unweighted = igraph.Graph(n=n, edges=unweighted_edges_idx, directed=False)
+
+    # ── 3. Compute 4-signal weight per structural candidate pair (ADR-0016) ──
+    # STRUCTURAL candidate set = (a) direct-link pairs UNION (b) shared-source pairs.
+    # ADR-0016 §1: AA and same-type are WEIGHT MODULATORS only — they never create
+    # a standalone edge.  Blocks (c) AA-pair enumeration and (d) same-type enumeration
+    # are REMOVED from candidate_pairs (they were the source of the type-clique hairball).
+    # AA and type terms still contribute to the weight for pairs already in the
+    # structural set (the additive formula of ADR-0012 §1/§2 is UNCHANGED).
+
+    # Neighbour sets for Adamic-Adar weight modulation (per vertex)
+    neighbours: list[set[int]] = [set(g_unweighted.neighbors(i)) for i in range(n)]
+
+    # Degree array for AA denominator: ln(degree); skip degree-0 nodes
+    degrees: list[int] = g_unweighted.degree()
+
+    # STRUCTURAL candidate pairs: only (a) + (b) — ADR-0016 §1
+    candidate_pairs: set[tuple[int, int]] = set()
+
+    # (a) direct-link pairs — always structural
+    for a, b in seen_undirected:
+        candidate_pairs.add((a, b))
+
+    # (b) shared-source pairs — structural (provenance fact, ADR-0016 §1)
+    # Group pages by each source to find overlap efficiently
+    source_to_pages: dict[str, list[int]] = {}
+    for i, nid in enumerate(node_ids):
+        for src in node_index[nid]["sources"]:
+            source_to_pages.setdefault(src, []).append(i)
+    for _src, page_list in source_to_pages.items():
+        for i_pos in range(len(page_list)):
+            for j_pos in range(i_pos + 1, len(page_list)):
+                a, b = page_list[i_pos], page_list[j_pos]
+                candidate_pairs.add((min(a, b), max(a, b)))
+
+    # (c) AA-pair enumeration REMOVED — AA is a weight modulator, not an edge generator.
+    # (d) same-type enumeration REMOVED — type is a weight modulator, not an edge generator.
+    # Both terms still contribute weight for pairs already in candidate_pairs above.
+
+    # Compute Adamic-Adar for all candidate pairs manually
+    # AA(A,B) = Σ_{c ∈ N(A)∩N(B)} 1/ln(deg(c))
+    # igraph.similarity_inverse_log_weighted computes this for all pairs but is O(N²).
+    # We compute only for our candidate set, which is much smaller.
+    def _aa(a: int, b: int) -> float:
+        """Adamic-Adar index for pair (a, b) on the unweighted undirected graph."""
+        common = neighbours[a] & neighbours[b]
+        total = 0.0
+        for c in common:
+            deg_c = degrees[c]
+            if deg_c > 1:
+                total += 1.0 / math.log(deg_c)
+        return total
+
+    # Build weighted edge list — structural pairs only (ADR-0016 §1)
+    # (a_idx, b_idx, weight, signals, kind)
+    weighted_edges: list[tuple[int, int, float, dict[str, float], str]] = []
+
+    for a, b in candidate_pairs:
+        nid_a = node_ids[a]
+        nid_b = node_ids[b]
+        key = _canonical_key(nid_a, nid_b)
+
+        direct = float(pair_direct.get(key, 0))
+        shared = float(len(node_index[nid_a]["sources"] & node_index[nid_b]["sources"]))
+
+        # Structural gate (ADR-0016 §1): pair must have a real link or shared source.
+        # By construction all pairs in candidate_pairs satisfy this, but make it explicit.
+        if not (direct > 0 or shared > 0):
+            continue  # safety guard — should not be reached after removing (c)/(d)
+
+        aa = _aa(a, b)
+        type_a = node_index[nid_a]["page_type"]
+        type_b = node_index[nid_b]["page_type"]
+        # 4th signal: type-affinity matrix (G-P1-7, llm_wiki parity) — rewards
+        # cross-type pairs, penalizes same-type. Replaces the old binary same_type.
+        type_affinity = _type_affinity(type_a, type_b)
+
+        # Weight formula (ADR-0012 §1/§2 coefficients UNCHANGED; 4th term is now
+        # the type-affinity modulator instead of binary same_type — G-P1-7)
+        w = 3.0 * direct + 4.0 * shared + 1.5 * aa + 1.0 * type_affinity
+        signals: dict[str, float] = {
+            "direct": 3.0 * direct,
+            "source": 4.0 * shared,
+            "aa": 1.5 * aa,
+            "type": type_affinity,
+        }
+        # Per-edge kind (ADR-0016 §4): "link" wins when both structural signals present
+        kind = "link" if direct > 0 else "source"
+        weighted_edges.append((a, b, w, signals, kind))
+
+    # ── 4. Build weighted igraph + ForceAtlas2 → coords (I2, ADR-0045) ──────
+    weighted_edges_idx = [(a, b) for a, b, _w, _s, _k in weighted_edges]
+    edge_weights = [w for _a, _b, w, _s, _k in weighted_edges]
+
+    g_weighted = igraph.Graph(
+        n=n,
+        edges=weighted_edges_idx if weighted_edges_idx else [],
+        directed=False,
+    )
+    if edge_weights:
+        g_weighted.es["weight"] = edge_weights
+
+    # Seed the igraph RNG (still used by Louvain community_multilevel below)
+    igraph.set_random_number_generator(_SeedableRNG(FA2_SEED))
+
+    # Run ForceAtlas2 layout (ADR-0045).  Determinism: circle-init pos + numpy seed.
+    raw_coords: list[tuple[float, float]] = _forceatlas2_layout(g_weighted, edge_weights, n)
+
+    # ── 4b. Feature B (disc-compression) REMOVED (ADR-0045 §3) ──────────
+    # FA2's organic spread is the desired output — raw FA2 coords used directly.
+    coords = list(raw_coords)
+
+    # ── 4c. Feature A — preserve pinned nodes ─────────────────────────────
+    # For any node with pinned=true and valid stored (x,y), overwrite the
+    # FA2-computed coord with the user-set one so drag-and-drop positions
+    # survive every subsequent recompute.
+    for i, nid in enumerate(node_ids):
+        nd = node_index[nid]
+        if nd["pinned"] and nd["stored_x"] is not None and nd["stored_y"] is not None:
+            coords[i] = (float(nd["stored_x"]), float(nd["stored_y"]))
+
+    # ── 4d. Outlier clamp (ADR-0045 §5) — LAST, so it also tames runaway PINNED
+    # coords, not just FA2 outliers.  A handful of flung-out nodes (or nodes
+    # accidentally pinned at runaway coords, e.g. a mobile tap-jitter drag) would
+    # otherwise dominate sigma's fit-to-view and collapse the dense core to a dot.
+    # The clamp leaves every in-cap node EXACTLY where it was (organic spread + legit
+    # in-view pins preserved); only nodes beyond the cap are pulled radially onto it.
+    # Running it here (after pinning) makes the layout self-healing: the clamped coords
+    # are what get persisted, so runaway stored coords are repaired on the next recompute.
+    coords = _clamp_outliers(coords)
+
+    # ── 4e. Louvain community detection (G-P0-2, I2) ─────────────────────
+    # Run community_multilevel (Louvain) on the weighted structural graph.
+    # Re-number communities by size (largest = 0) for stable coloring, matching
+    # the nashsu/llm_wiki convention (R1). Bounded: single O(n log n) pass on the
+    # server-side graph; never called on the client (I2).
+    # Isolated nodes (degree-0 in g_weighted) form their own singleton communities.
+    community_assignments: list[int] = _compute_louvain_communities(g_weighted, node_ids)
+
+    # Per-community cohesion: intra-edge density (intraEdges / possibleEdges).
+    # possibleEdges for a community of size s = s*(s-1)/2.  Zero for singletons.
+    # Collect which structural edge pairs share a community for cohesion calc.
+    community_intra_edges: dict[int, int] = {}
+    community_sizes: dict[int, int] = {}
+    for cid in community_assignments:
+        community_sizes[cid] = community_sizes.get(cid, 0) + 1
+    for a, b, _w, _s, _k in weighted_edges:
+        ca = community_assignments[a]
+        cb = community_assignments[b]
+        if ca == cb:
+            community_intra_edges[ca] = community_intra_edges.get(ca, 0) + 1
+
+    community_snapshots: list[CommunitySnapshot] = []
+    for cid, size in sorted(community_sizes.items()):
+        possible = size * (size - 1) / 2
+        intra = community_intra_edges.get(cid, 0)
+        cohesion = (intra / possible) if possible > 0 else 0.0
+        community_snapshots.append(
+            CommunitySnapshot(id=cid, size=size, cohesion=round(cohesion, 4))
+        )
+    # Sort by id ascending (id 0 = largest community, already ordered by _compute_louvain)
+    community_snapshots.sort(key=lambda c: c.id)
+
+    # ── 5. Assemble result lists ───────────────────────────────────────────
+    # structural_degree = count of distinct incident structural edges (ADR-0016 §2).
+    # After removing (c)/(d) from candidate_pairs, g_weighted IS the structural graph,
+    # so g_weighted.degree() already yields structural_degree.
+    structural_degrees = g_weighted.degree()
+
+    # Size formula: BASE + GROWTH·sqrt(structural_degree) (ADR-0016 §2)
+    # BASE=1.0 → isolated nodes render at 1.0 (clearly clickable).
+    # GROWTH=2.5 → degree-30 hub ≈ 14.7, degree-1 leaf ≈ 3.5, degree-3 ≈ 5.3.
+    _BASE = 1.0
+    _GROWTH = 2.5
+
+    node_snapshots: list[NodeSnapshot] = []
+    for i, nid in enumerate(node_ids):
+        nd = node_index[nid]
+        deg = structural_degrees[i]
+        node_size: float = max(1.0, _BASE + _GROWTH * math.sqrt(deg))
+        node_snapshots.append(
+            NodeSnapshot(
+                id=nid,
+                title=nd["title"],
+                page_type=nd["page_type"],
+                x=coords[i][0],
+                y=coords[i][1],
+                degree=deg,
+                size=node_size,
+                community=community_assignments[i],
+            )
+        )
+
+    edge_snapshots: list[EdgeSnapshot] = []
+    edge_db_rows: list[dict[str, Any]] = []
+    for a, b, w, sig, kind in weighted_edges:
+        nid_a = node_ids[a]
+        nid_b = node_ids[b]
+        src_id, tgt_id = _canonical_key_ids(nid_a, nid_b)
+        edge_snapshots.append(EdgeSnapshot(source=nid_a, target=nid_b, weight=w, kind=kind))
+        edge_db_rows.append(
+            {
+                "vault_id": vault_id,
+                "source_page_id": src_id,
+                "target_page_id": tgt_id,
+                "weight": w,
+                "signals": sig,
+                "kind": kind,
+            }
+        )
+
+    # ── 6. Coord rows for async DB write ──────────────────────────────────
+    coord_rows: list[dict[str, Any]] = [
+        {"id": ns.id, "x": ns.x, "y": ns.y, "community": ns.community} for ns in node_snapshots
+    ]
+
+    return (
+        coord_rows,
+        edge_db_rows,
+        GraphSnapshot(
+            nodes=node_snapshots,
+            edges=edge_snapshots,
+            communities=community_snapshots,
+        ),
+    )
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
