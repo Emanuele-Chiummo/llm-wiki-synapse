@@ -30,6 +30,13 @@ export interface UseChatStreamReturn {
 
 export function useChatStream(): UseChatStreamReturn {
   const abortRef = useRef<AbortController | null>(null);
+  /**
+   * F4 double-submit guard: each send() call increments this counter and captures
+   * a snapshot (`myGen`). Before any store write the async loop checks
+   * `generationRef.current !== myGen` — if true, a newer send() has superseded
+   * this stream, so all callbacks become no-ops and stream state is NOT clobbered.
+   */
+  const generationRef = useRef(0);
 
   const appendToken = useChatStore((s) => s.appendToken);
   const appendThink = useChatStore((s) => s.appendThink);
@@ -63,6 +70,10 @@ export function useChatStream(): UseChatStreamReturn {
       useChatStore.getState().abortStream();
       abortRef.current = null;
 
+      // F4: snapshot the generation ID for THIS stream so its callbacks can detect
+      // when a newer send() has superseded them and become no-ops.
+      const myGen = ++generationRef.current;
+
       const ctrl = new AbortController();
       abortRef.current = ctrl;
 
@@ -87,6 +98,9 @@ export function useChatStream(): UseChatStreamReturn {
             const { done, value } = await reader.read();
             if (done) break;
 
+            // F4: bail out if a newer send() superseded this stream
+            if (generationRef.current !== myGen) return;
+
             lineBuffer += decoder.decode(value, { stream: true });
             const lines = lineBuffer.split("\n");
             // Last element may be an incomplete line — keep it in buffer
@@ -102,21 +116,29 @@ export function useChatStream(): UseChatStreamReturn {
                 // Malformed line — skip gracefully
                 continue;
               }
+              // F4: check generation before each event so a late-firing reader cannot
+              // write into the store after stream #2 has already started.
+              if (generationRef.current !== myGen) return;
               handleEvent(event);
             }
           }
 
           // Flush any remaining partial line (shouldn't happen with well-formed NDJSON)
+          if (generationRef.current !== myGen) return;
           const remaining = lineBuffer.trim();
           if (remaining) {
             try {
               const event = JSON.parse(remaining) as StreamEvent;
+              if (generationRef.current !== myGen) return;
               handleEvent(event);
             } catch {
               // discard
             }
           }
         } catch (err: unknown) {
+          // F4: if superseded, the catch is a no-op — do NOT clear stream state that
+          // belongs to the newer send() (avoids clearStream() clobbering stream #2).
+          if (generationRef.current !== myGen) return;
           if (err instanceof Error && err.name === "AbortError") {
             // User-initiated abort — clear stream, no toast
             clearStream();
@@ -130,6 +152,8 @@ export function useChatStream(): UseChatStreamReturn {
       })();
 
       function handleEvent(event: StreamEvent): void {
+        // F4: guard against superseded-stream callbacks reaching the store
+        if (generationRef.current !== myGen) return;
         switch (event.type) {
           case "token":
             // I3: cheap string append only — no parse

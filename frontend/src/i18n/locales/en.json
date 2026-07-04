@@ -783,7 +783,16 @@
       "loading": "Loading…",
       "error": "Could not load edge data.",
       "notFound": "No direct edge between these nodes."
-    }
+    },
+    "tooltip": {
+      "loading": "Loading...",
+      "notFound": "Page not found",
+      "closeLabel": "Close tooltip",
+      "connections": "{{count}} connection",
+      "connections_plural": "{{count}} connections"
+    },
+    "nodeSelected": "Selected: {{title}}. Type: {{type}}. {{count}} neighbor.",
+    "nodeSelected_plural": "Selected: {{title}}. Type: {{type}}. {{count}} neighbors."
   },
   "search": {
     "title": "Search",

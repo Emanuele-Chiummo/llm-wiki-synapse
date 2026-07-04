@@ -36,18 +36,21 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ZoomIn, ZoomOut, Maximize2, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import {
-  COMMUNITY_PALETTE,
-  LOW_COHESION_THRESHOLD,
-  colorForCommunity,
-} from "./graphPalette";
+import { COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity } from "./graphPalette";
 import type { ColorMode } from "./graphPalette";
 import Sigma from "sigma";
 import type { Attributes } from "graphology-types";
 import type { Settings } from "sigma/settings";
 import type { NodeDisplayData, PartialButFor } from "sigma/types";
 import { buildGraphologyGraph } from "../api/graphTransform";
-import { fetchGraph, fetchPageDetail, patchNodePosition, recomputeGraph, fetchCommunityDetail, fetchEdgeDetail } from "../api/graphClient";
+import {
+  fetchGraph,
+  fetchPageDetail,
+  patchNodePosition,
+  recomputeGraph,
+  fetchCommunityDetail,
+  fetchEdgeDetail,
+} from "../api/graphClient";
 import type { CommunityDetail, EdgeDetail } from "../api/graphClient";
 import { ApiError } from "../api/graphClient";
 import type { GraphCommunity, PageDetail } from "../api/types";
@@ -69,8 +72,7 @@ import {
 // ─── Reduced-motion detection ─────────────────────────────────────────────────
 
 const reducedMotion: boolean =
-  typeof window !== "undefined" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // ─── Resolved theme helpers (ADR-0048 §T1) ───────────────────────────────────
 // Read render-only sigma properties from resolved CSS custom properties.
@@ -98,7 +100,12 @@ function readSigmaThemeColors(): SigmaThemeColors {
     const haloColor = bg;
     return { bg, labelColor, haloColor, hoverRingColor: labelColor };
   } catch {
-    return { bg: "#ffffff", labelColor: "#1f2328", haloColor: "#ffffff", hoverRingColor: "#1f2328" };
+    return {
+      bg: "#ffffff",
+      labelColor: "#1f2328",
+      haloColor: "#ffffff",
+      hoverRingColor: "#1f2328",
+    };
   }
 }
 
@@ -121,13 +128,13 @@ function readSigmaThemeColors(): SigmaThemeColors {
 //   DEFAULT (--syn-text-dim): #8b949e
 
 const TYPE_COLORS: Record<string, string> = {
-  concept:    "#8250df", // matches --syn-type-concept
-  entity:     "#2563eb", // matches --syn-type-entity
-  source:     "#e16f24", // matches --syn-type-source
-  synthesis:  "#cf222e", // matches --syn-type-synthesis
+  concept: "#8250df", // matches --syn-type-concept
+  entity: "#2563eb", // matches --syn-type-entity
+  source: "#e16f24", // matches --syn-type-source
+  synthesis: "#cf222e", // matches --syn-type-synthesis
   comparison: "#1a7f37", // matches --syn-type-comparison
-  query:      "#16a34a", // matches --syn-type-query
-  overview:   "#b8860b", // matches --syn-type-overview
+  query: "#16a34a", // matches --syn-type-query
+  overview: "#b8860b", // matches --syn-type-overview
 };
 
 const DEFAULT_NODE_COLOR = "#6e7781"; // matches --syn-type-other
@@ -241,6 +248,7 @@ interface TooltipProps {
 }
 
 const NodeTooltip: React.FC<TooltipProps> = ({ nodeId, position, neighborCount, onClose }) => {
+  const { t } = useTranslation();
   const [detail, setDetail] = useState<PageDetail | null>(null);
   const [fetching, setFetching] = useState(true);
 
@@ -277,7 +285,9 @@ const NodeTooltip: React.FC<TooltipProps> = ({ nodeId, position, neighborCount, 
       role="tooltip"
     >
       {fetching ? (
-        <span style={{ color: "var(--syn-text-muted)", fontSize: 12 }}>Loading...</span>
+        <span style={{ color: "var(--syn-text-muted)", fontSize: 12 }}>
+          {t("graph.tooltip.loading")}
+        </span>
       ) : detail !== null ? (
         <>
           <div style={{ fontWeight: 600, fontSize: 13, color: "var(--syn-text)", marginBottom: 4 }}>
@@ -296,11 +306,13 @@ const NodeTooltip: React.FC<TooltipProps> = ({ nodeId, position, neighborCount, 
             </div>
           )}
           <div style={{ fontSize: 11, color: "var(--syn-text-muted)", marginTop: 4 }}>
-            {neighborCount} connection{neighborCount !== 1 ? "s" : ""}
+            {t("graph.tooltip.connections", { count: neighborCount })}
           </div>
         </>
       ) : (
-        <span style={{ color: "var(--syn-text-muted)", fontSize: 12 }}>Page not found</span>
+        <span style={{ color: "var(--syn-text-muted)", fontSize: 12 }}>
+          {t("graph.tooltip.notFound")}
+        </span>
       )}
       <button
         style={{
@@ -316,7 +328,7 @@ const NodeTooltip: React.FC<TooltipProps> = ({ nodeId, position, neighborCount, 
           pointerEvents: "auto",
         }}
         onClick={onClose}
-        aria-label="Close tooltip"
+        aria-label={t("graph.tooltip.closeLabel")}
       >
         x
       </button>
@@ -386,10 +398,19 @@ const CommunityPanel: React.FC<CommunityPanelProps> = ({
       }}
     >
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+      <div
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span
-            style={{ width: 10, height: 10, borderRadius: "50%", background: communityColor, flexShrink: 0, display: "inline-block" }}
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              background: communityColor,
+              flexShrink: 0,
+              display: "inline-block",
+            }}
             aria-hidden="true"
           />
           <span style={{ fontSize: 13, fontWeight: 700, color: "var(--syn-text)" }}>
@@ -399,18 +420,29 @@ const CommunityPanel: React.FC<CommunityPanelProps> = ({
         <button
           onClick={onClose}
           aria-label={t("common.close")}
-          style={{ background: "none", border: "none", color: "var(--syn-text-dim)", cursor: "pointer", padding: "2px 4px", lineHeight: 1 }}
+          style={{
+            background: "none",
+            border: "none",
+            color: "var(--syn-text-dim)",
+            cursor: "pointer",
+            padding: "2px 4px",
+            lineHeight: 1,
+          }}
         >
           ×
         </button>
       </div>
 
       {loading && (
-        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: 0 }}>{t("graph.community.loading")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: 0 }}>
+          {t("graph.community.loading")}
+        </p>
       )}
 
       {error !== null && (
-        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: 0 }} role="alert">{error}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: 0 }} role="alert">
+          {error}
+        </p>
       )}
 
       {detail !== null && (
@@ -429,8 +461,10 @@ const CommunityPanel: React.FC<CommunityPanelProps> = ({
               data-testid="community-low-cohesion-warning"
               style={{
                 padding: "6px 8px",
-                background: "color-mix(in srgb, var(--syn-amber, #d97706) 10%, var(--syn-mix-base) 90%)",
-                border: "1px solid color-mix(in srgb, var(--syn-amber, #d97706) 30%, transparent 70%)",
+                background:
+                  "color-mix(in srgb, var(--syn-amber, #d97706) 10%, var(--syn-mix-base) 90%)",
+                border:
+                  "1px solid color-mix(in srgb, var(--syn-amber, #d97706) 30%, transparent 70%)",
                 borderRadius: 4,
                 fontSize: 11,
                 color: "var(--syn-amber, #d97706)",
@@ -444,7 +478,9 @@ const CommunityPanel: React.FC<CommunityPanelProps> = ({
           {/* Member list */}
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {detail.members.length === 0 ? (
-              <p style={{ fontSize: 12, color: "var(--syn-text-dim)", margin: 0 }}>{t("graph.community.noMembers")}</p>
+              <p style={{ fontSize: 12, color: "var(--syn-text-dim)", margin: 0 }}>
+                {t("graph.community.noMembers")}
+              </p>
             ) : (
               detail.members.slice(0, 100).map((m) => (
                 <button
@@ -464,12 +500,28 @@ const CommunityPanel: React.FC<CommunityPanelProps> = ({
                     alignItems: "center",
                     gap: 6,
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface-hover)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      "var(--syn-surface-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "none";
+                  }}
                 >
-                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</span>
+                  <span
+                    style={{
+                      flex: 1,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {m.title}
+                  </span>
                   {m.page_type && (
-                    <span style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}>{m.page_type}</span>
+                    <span style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}>
+                      {m.page_type}
+                    </span>
                   )}
                 </button>
               ))
@@ -552,21 +604,44 @@ const EdgeBreakdownTooltip: React.FC<EdgeBreakdownTooltipProps> = ({
       }}
       role="tooltip"
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 8,
+        }}
+      >
         <span style={{ fontSize: 12, fontWeight: 700, color: "var(--syn-text)" }}>
           {t("graph.edge.breakdownTitle")}
         </span>
         <button
           onClick={onClose}
           aria-label={t("common.close")}
-          style={{ background: "none", border: "none", color: "var(--syn-text-dim)", cursor: "pointer", padding: "2px 4px", lineHeight: 1, fontSize: 14 }}
+          style={{
+            background: "none",
+            border: "none",
+            color: "var(--syn-text-dim)",
+            cursor: "pointer",
+            padding: "2px 4px",
+            lineHeight: 1,
+            fontSize: 14,
+          }}
         >
           ×
         </button>
       </div>
 
-      {loading && <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: 0 }}>{t("graph.edge.loading")}</p>}
-      {error !== null && <p style={{ fontSize: 12, color: "var(--syn-red)", margin: 0 }} role="alert">{error}</p>}
+      {loading && (
+        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: 0 }}>
+          {t("graph.edge.loading")}
+        </p>
+      )}
+      {error !== null && (
+        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: 0 }} role="alert">
+          {error}
+        </p>
+      )}
 
       {detail !== null && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -586,8 +661,17 @@ const EdgeBreakdownTooltip: React.FC<EdgeBreakdownTooltipProps> = ({
 function EdgeRow({ label, value, bold }: { label: string; value: number; bold?: boolean }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11 }}>
-      <span style={{ color: bold ? "var(--syn-text)" : "var(--syn-text-muted)", fontWeight: bold ? 700 : 400 }}>{label}</span>
-      <span style={{ color: "var(--syn-text)", fontFamily: "monospace", fontWeight: bold ? 700 : 400 }}>
+      <span
+        style={{
+          color: bold ? "var(--syn-text)" : "var(--syn-text-muted)",
+          fontWeight: bold ? 700 : 400,
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{ color: "var(--syn-text)", fontFamily: "monospace", fontWeight: bold ? 700 : 400 }}
+      >
         {value.toFixed(3)}
       </span>
     </div>
@@ -657,7 +741,9 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCom
                 aria-hidden="true"
               />
               {/* Redundant encoding: type NAME shown alongside color (WCAG 1.4.1) */}
-              <span style={{ fontSize: 11, color: "var(--syn-text)", textTransform: "capitalize" }}>{type}</span>
+              <span style={{ fontSize: 11, color: "var(--syn-text)", textTransform: "capitalize" }}>
+                {type}
+              </span>
             </div>
           ))}
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
@@ -1167,9 +1253,10 @@ export const GraphViewer: React.FC = () => {
           } else {
             // All other nodes: dim (washed-out, hide label) — use --syn-border resolved value
             res["label"] = "";
-            res["color"] = sigmaThemeColors.labelColor === "#1f2328"
-              ? "#c7ccd4"  // light mode: close to --syn-border
-              : "#30363d"; // dark mode: close to --syn-border dark
+            res["color"] =
+              sigmaThemeColors.labelColor === "#1f2328"
+                ? "#c7ccd4" // light mode: close to --syn-border
+                : "#30363d"; // dark mode: close to --syn-border dark
             res["zIndex"] = 0;
           }
         }
@@ -1184,11 +1271,9 @@ export const GraphViewer: React.FC = () => {
         if (hoverState.hoveredNode !== null) {
           const [src, tgt] = sigmaGraph.extremities(edge);
           const srcRelevant =
-            src === hoverState.hoveredNode ||
-            (hoverState.hoveredNeighbors?.has(src) ?? false);
+            src === hoverState.hoveredNode || (hoverState.hoveredNeighbors?.has(src) ?? false);
           const tgtRelevant =
-            tgt === hoverState.hoveredNode ||
-            (hoverState.hoveredNeighbors?.has(tgt) ?? false);
+            tgt === hoverState.hoveredNode || (hoverState.hoveredNeighbors?.has(tgt) ?? false);
 
           if (!srcRelevant || !tgtRelevant) {
             // Non-incident: hide entirely (Obsidian dim)
@@ -1389,13 +1474,12 @@ export const GraphViewer: React.FC = () => {
     const type = attrs["nodeType"] ?? "unknown type";
     const neighborCount = graph.neighbors(selectedNodeId).length;
 
-    setAnnouncement(
-      `Selected: ${title}. Type: ${type}. ${neighborCount} neighbor${neighborCount !== 1 ? "s" : ""}.`,
-    );
+    // F8: use i18n for screen-reader announcement (was hardcoded English)
+    setAnnouncement(t("graph.nodeSelected", { title, type, count: neighborCount }));
 
     // Trigger a refresh so sigma re-applies reducers with updated selectedNode
     sigmaRef.current.refresh({ skipIndexation: true });
-  }, [selectedNodeId]);
+  }, [selectedNodeId, t]);
 
   const handleTooltipClose = useCallback(() => {
     setSelectedNodeId(null);
@@ -1426,7 +1510,13 @@ export const GraphViewer: React.FC = () => {
       id="graph-root"
       role="application"
       aria-label="Knowledge graph"
-      style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", background: "var(--syn-bg)" }}
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+        background: "var(--syn-bg)",
+      }}
     >
       {/* sigma mounts ONE WebGL <canvas> here — I4.
           Background is set from the resolved --syn-bg token (ADR-0048 §T1).
@@ -1624,7 +1714,14 @@ export const GraphViewer: React.FC = () => {
         aria-label={t("graph.colorModeToggleLabel")}
         data-testid="color-mode-toolbar"
       >
-        <span style={{ fontSize: 10, color: "var(--syn-text-muted)", marginRight: 2, letterSpacing: "0.05em" }}>
+        <span
+          style={{
+            fontSize: 10,
+            color: "var(--syn-text-muted)",
+            marginRight: 2,
+            letterSpacing: "0.05em",
+          }}
+        >
           {t("graph.colorModeToggleLabel")}
         </span>
         <button

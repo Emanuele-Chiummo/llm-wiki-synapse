@@ -1,4 +1,10 @@
 <!doctype html>
+<!-- lang="en" is the static default; the runtime i18n (i18next + LanguageDetector) applies
+     the user's preferred language (IT/EN) to all UI strings via useTranslation(). Updating
+     the html[lang] attribute dynamically would require a top-level effect in main.tsx that
+     listens to i18n.on("languageChanged") and sets document.documentElement.lang — a
+     reasonable future enhancement, but the static "en" default is an acceptable baseline
+     since screen readers can detect the per-element language from translated text content. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />

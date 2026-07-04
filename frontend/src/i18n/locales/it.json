@@ -783,7 +783,16 @@
       "loading": "Caricamento…",
       "error": "Impossibile caricare i dati dell'arco.",
       "notFound": "Nessun arco diretto tra questi nodi."
-    }
+    },
+    "tooltip": {
+      "loading": "Caricamento...",
+      "notFound": "Pagina non trovata",
+      "closeLabel": "Chiudi tooltip",
+      "connections": "{{count}} connessione",
+      "connections_plural": "{{count}} connessioni"
+    },
+    "nodeSelected": "Selezionato: {{title}}. Tipo: {{type}}. {{count}} vicino.",
+    "nodeSelected_plural": "Selezionato: {{title}}. Tipo: {{type}}. {{count}} vicini."
   },
   "search": {
     "title": "Cerca",
