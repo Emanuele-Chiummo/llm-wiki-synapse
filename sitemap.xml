@@ -2,486 +2,486 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/DEPLOY/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/USER/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0001-incremental-indexing-strategy/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0002-datastore-split-postgres-qdrant/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0003-thin-ingest-seam-preserves-f17/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0004-embedding-dimension-config-policy/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0005-soft-delete-and-vault-state-seeding/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0006-ingest-trigger-response-and-startup-behavior/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0007-inference-provider-abc/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0008-provider-config-schema/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0009-bounded-loop-defaults/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0010-mcp-transport-and-write-path/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0011-ingest-contract-schemas/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0012-graph-edge-weight-formula/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0013-server-side-fa2-coord-persistence/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0014-graph-cache-debounce-and-graph-endpoint/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0015-no-client-side-layout-sigma-contract/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0016-obsidian-graph-rendering/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0017-three-panel-shell/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0018-navrail-ingest-provider/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0019-chat-streaming/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0020-upload-and-scheduled-import/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0021-labeled-navrail-and-provider-crud/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0022-retrieval-and-citations/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0024-deep-research/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0025-review-queue-and-multiformat/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0026-cascade-delete/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0027-mcp-info-ui/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0028-relative-api-base-and-server-only-proxy-target/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0029-remote-mcp-over-http/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0030-embeddings-toggle-lexical-degrade/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0031-openai-compatible-embeddings-adapter/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0032-remote-mcp-runtime-toggle/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0033-ui-settable-mcp-token-allow-without-token/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0034-review-queue-proposal-model/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0035-page-content-read-edit-endpoints/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0036-wikilink-enrichment-post-pass/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0037-lint-fix-loop/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0038-web-clipper-ingress-security-model/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0039-tauri-v2-desktop-shell/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0040-web-clipper-runtime-configuration/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0041-web-search-runtime-configuration/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0042-cli-provider-subscription-auth/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0043-ui-settable-cli-subscription-token/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0044-review-queue-contextual-depth-and-idempotency/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0045-forceatlas2-graph-layout/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0046-ingest-activity-queue-cancellation/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0047-desktop-runtime-server-url-and-connect-gate/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0048-dark-mode-command-palette-ui-polish-desktop-pack/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0049-desktop-auto-update-github-releases/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0050-retrieval-wiki-only-scope/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0051-pluggable-pdf-extractor-seam/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0052-auth-token-model/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0053-ui-config-overrides/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0054-domain-taxonomy-and-dashboard-stats/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/api/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/architecture/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/process/BACKLOG/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/process/DOCS_STATUS/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/process/TRACEABILITY/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/ROADMAP-v0.7-v1.0/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/SYNAPSE-VS-LLMWIKI-PARITY/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/UX-AUDIT-2026-07/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/llm_wiki-audit/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/llm_wiki-audit/01-AUDIT-FUNZIONALE/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/llm_wiki-audit/02-CODE-UI-REVIEW/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/llm_wiki-audit/03-PIANO-AGENTICO-v1.0/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sequences/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v0.7-SCOPE/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v0.8-SCOPE/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v0.9-SCOPE/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.0-SCOPE/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.1-SCOPE/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.2-SCOPE/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.1-architect-review/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.1-architecture/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.1-m1-closure/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.1-pm-signoff/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.1-qa-report/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.1-scope/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.1-stories/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.2-architect-review/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.2-architecture/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.2-pm-signoff/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.2-qa-report/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.2-scope/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.2-stories/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.3-architect-review/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.3-architecture/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.3-pm-signoff/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.3-qa-report/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.3-scope/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.3-stories/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.4-hard-scope/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.4-m4-closure/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.4-pm-scope/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.4-pm-signoff/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-architect-review-phase1/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-architect-review-phase2/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-architect-review-phase3/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-architect-review-phase4/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-architect-review-phase5/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-architecture/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-m5-exit-criteria/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-pm-phase1-signoff/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-pm-phase2-signoff/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-pm-phase3-signoff/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-pm-phase4-signoff/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-pm-phase5-signoff/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-qa-phase1/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-qa-phase2/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-qa-phase3/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-qa-phase4/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-qa-phase5/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-scope/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-stories/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.6-m6-status/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.6-scope/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.6-test-runbook/</loc>
-         <lastmod>2026-07-03</lastmod>
+         <lastmod>2026-07-04</lastmod>
     </url>
 </urlset>
