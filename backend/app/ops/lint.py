@@ -148,9 +148,15 @@ async def run_lint_scan(
     Produces FINDINGS only — NEVER applies a fix (the human gate is apply_lint_fix, §5).
     """
     # ── Resolve and freeze bounds (I7) ───────────────────────────────────────────
-    frozen_max_iter: int = max_iter if max_iter is not None else int(settings.lint_max_iter)
+    from app.config_overrides import effective_int
+
+    frozen_max_iter: int = (
+        max_iter if max_iter is not None else effective_int("lint_max_iter", int(settings.lint_max_iter))
+    )
     frozen_token_budget: int = (
-        token_budget if token_budget is not None else int(settings.lint_token_budget)
+        token_budget
+        if token_budget is not None
+        else effective_int("lint_token_budget", int(settings.lint_token_budget))
     )
     max_findings: int = int(settings.lint_max_findings)
 

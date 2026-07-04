@@ -1,13 +1,14 @@
 """
 Runtime config-override layer (R11-2 / ADR-0053; extended by ADR-0054 for S9;
-extended by R12-7/A5 for S10/S11; extended by R12-8 for S12; extended by R12-9 for S13).
+extended by R12-7/A5 for S10/S11; extended by R12-8 for S12; extended by R12-9 for S13;
+extended for S14-S18 loop-bounds / invariant I7).
 
 Merges env baseline (settings.<key>) with DB overrides (app_config table).
 Load once at lifespan startup; O(1) reads from in-memory cache thereafter (I7).
 
 Public API
 ----------
-ALLOWED_CONFIG_KEYS  : frozenset[str]   — the 13 keys the UI may override (§2.2)
+ALLOWED_CONFIG_KEYS  : frozenset[str]   — the 18 keys the UI may override (§2.2)
 load_overrides(session) → None          — called ONCE at lifespan startup
 get_effective(key, env_default) → str   — O(1) cache read (override-else-default)
 source_of(key) → str                    — "override" | "env"
@@ -17,12 +18,16 @@ clear_override(session, key) → None     — allow-list + DELETE + cache refres
 effective_str(key, default) → str | None
 effective_bool(key, default) → bool
 effective_float(key, default) → float
+effective_int(key, default) → int       — typed int accessor (S14–S18, fail-closed to default)
 effective_domain_vocabulary() → list[str]  — S9 typed accessor (ADR-0054 §2.1)
 effective_schedule(key) → str              — S10/S11/S12/S13 typed accessor (R12-7/A5, R12-8, R12-9)
 
 Invariants
 ----------
 I7  : single bounded SELECT at startup; no per-request DB read; refresh only on PUT/DELETE.
+      S14–S18 are the loop-bound keys (deep_research_max_iter, deep_research_token_budget,
+      deep_research_max_queries, lint_max_iter, lint_token_budget); overriding them caps
+      the relevant bounded loops without any mid-loop re-read.
 I6  : S5/S6 are routed through the EXISTING embedding gate/adapter (callers do this);
       this module only stores and retrieves the effective string — it never hardcodes shapes.
       S9: empty vocabulary ⇒ zero provider calls at auto-tag (dormant — I6 satisfied).
@@ -47,8 +52,8 @@ logger = logging.getLogger(__name__)
 
 # ── Allow-list (security boundary — ADR-0053 §2.2; extended by ADR-0054 §2.1,
 #   further extended by R12-7/A5 for S10/S11; further extended by R12-8 for S12;
-#   further extended by R12-9 for S13) ─
-# ONLY these 13 keys may be written via PUT /config/app/{key}.
+#   further extended by R12-9 for S13; further extended for S14-S18 loop bounds) ─
+# ONLY these 18 keys may be written via PUT /config/app/{key}.
 # Infra/secret keys are structurally unreachable through this surface (§2.4).
 ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
     {
@@ -65,10 +70,15 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "backfill_schedule",  # S11 (R12-7/A5) — enum: off|hourly|daily|weekly; default "off"
         "schema_review_schedule",  # S12 (R12-8) — enum: off|hourly|daily|weekly; default "off"
         "reclassify_schedule",  # S13 (R12-9) — enum: off|hourly|daily|weekly; default "off"
+        "deep_research_max_iter",  # S14 — int 1–10; caps DeepResearch loop (I7)
+        "deep_research_token_budget",  # S15 — int 1000–1_000_000; caps DeepResearch token spend (I7)
+        "deep_research_max_queries",  # S16 — int 1–10; caps SearXNG query fan-out (I7)
+        "lint_max_iter",  # S17 — int 1–10; caps LintScan semantic loop (I7)
+        "lint_token_budget",  # S18 — int 1000–500_000; caps LintScan token spend (I7)
     }
 )
 
-# ── Stable GET /config/app ordering (S1..S13) ────────────────────────────────
+# ── Stable GET /config/app ordering (S1..S18) ────────────────────────────────
 # The FE snapshot test needs a stable order; always emit in this sequence.
 ORDERED_KEYS: list[str] = [
     "pdf_extractor",
@@ -84,6 +94,11 @@ ORDERED_KEYS: list[str] = [
     "backfill_schedule",  # S11 (R12-7/A5)
     "schema_review_schedule",  # S12 (R12-8)
     "reclassify_schedule",  # S13 (R12-9)
+    "deep_research_max_iter",  # S14 — loop bound (I7)
+    "deep_research_token_budget",  # S15 — loop bound (I7)
+    "deep_research_max_queries",  # S16 — loop bound (I7)
+    "lint_max_iter",  # S17 — loop bound (I7)
+    "lint_token_budget",  # S18 — loop bound (I7)
 ]
 
 # ── Per-key value validation rules (ADR-0053 §2.3) ───────────────────────────
@@ -178,6 +193,41 @@ def validate_value(key: str, value: str) -> str | None:
         _SCHEDULE_VALUES: frozenset[str] = frozenset({"off", "hourly", "daily", "weekly"})
         if value not in _SCHEDULE_VALUES:
             return f"{key} must be one of {sorted(_SCHEDULE_VALUES)}, got {value!r}"
+
+    elif key in ("deep_research_max_iter", "deep_research_max_queries", "lint_max_iter"):
+        # S14 / S16 / S17: int in [1, 10] — loop iteration / query fan-out caps (I7).
+        try:
+            i = int(value)
+        except ValueError:
+            return f"{key} must be an integer between 1 and 10, got {value!r}"
+        if not (1 <= i <= 10):
+            return f"{key} must be between 1 and 10, got {i!r}"
+
+    elif key == "deep_research_token_budget":
+        # S15: int in [1000, 1_000_000] — DeepResearch token-spend cap (I7).
+        try:
+            i = int(value)
+        except ValueError:
+            return (
+                f"deep_research_token_budget must be an integer between 1000 and 1000000, "
+                f"got {value!r}"
+            )
+        if not (1_000 <= i <= 1_000_000):
+            return (
+                f"deep_research_token_budget must be between 1000 and 1000000, got {i!r}"
+            )
+
+    elif key == "lint_token_budget":
+        # S18: int in [1000, 500_000] — LintScan token-spend cap (I7).
+        try:
+            i = int(value)
+        except ValueError:
+            return (
+                f"lint_token_budget must be an integer between 1000 and 500000, "
+                f"got {value!r}"
+            )
+        if not (1_000 <= i <= 500_000):
+            return f"lint_token_budget must be between 1000 and 500000, got {i!r}"
 
     return None
 
@@ -304,6 +354,30 @@ def effective_float(key: str, default: float) -> float:
     except ValueError:
         logger.warning(
             "config_overrides.effective_float: key=%r has malformed value %r — "
+            "falling back to env default %r",
+            key,
+            raw,
+            default,
+        )
+        return default
+
+
+def effective_int(key: str, default: int) -> int:
+    """
+    Return the effective integer for *key* (S14–S18 loop-bound accessors — I7).
+    Falls back to *default* on a coercion error (fail-closed — §8 trade-offs).
+
+    Same pattern as effective_float; callers pass the env-baseline default so the
+    module never needs to know per-key semantics.
+    """
+    raw = _cache.get(key)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning(
+            "config_overrides.effective_int: key=%r has malformed value %r — "
             "falling back to env default %r",
             key,
             raw,

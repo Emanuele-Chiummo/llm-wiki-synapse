@@ -146,7 +146,31 @@
       "groupAiModels": "AI e Modelli",
       "groupSources": "Sorgenti e PDF",
       "groupOutput": "Output e Aspetto",
-      "groupAdvanced": "Avanzate"
+      "groupAdvanced": "Avanzate",
+      "groupGeneral": "Generale",
+      "groupAiModelsNew": "AI e modelli",
+      "groupWikiContent": "Contenuti wiki",
+      "groupSourcesImport": "Sorgenti e import",
+      "groupConnections": "Connessioni",
+      "groupSystem": "Sistema",
+      "appearance": "Aspetto",
+      "setup": "Configurazione",
+      "providers": "Provider",
+      "scenarios": "Scenari",
+      "context": "Finestra di contesto",
+      "embeddings2": "Embedding",
+      "webSearch2": "Ricerca web",
+      "generation": "Generazione",
+      "automation": "Automazione",
+      "limits": "Limiti loop",
+      "sourceWatch2": "Osservazione sorgenti",
+      "clipper": "Web clipper",
+      "pdf": "Estrazione PDF",
+      "apiMcp2": "API e MCP",
+      "security2": "Sicurezza",
+      "costs2": "Costi",
+      "maintenance2": "Manutenzione",
+      "about2": "Informazioni"
     },
     "llmModels": {
       "title": "Modelli LLM",
@@ -1047,6 +1071,35 @@
     "runtimeOverridesSection": {
       "title": "Override runtime",
       "desc": "Queste impostazioni vengono salvate nel database e sovrascrivono i valori predefiniti delle variabili d'ambiente senza riavviare Docker."
+    },
+    "limitsSection": {
+      "title": "Limiti loop",
+      "desc": "Limita le iterazioni massime e il consumo di token per i loop bounded (I7). Le modifiche hanno effetto alla prossima esecuzione senza riavviare Docker."
+    },
+    "deepResearchMaxIter": {
+      "label": "Deep Research — iterazioni massime",
+      "help": "Numero massimo di cicli ricerca-valutazione-raffinamento per ogni esecuzione di Deep Research. Previene loop senza controllo (I7).",
+      "placeholder": "10"
+    },
+    "deepResearchTokenBudget": {
+      "label": "Deep Research — budget token",
+      "help": "Numero massimo di token consumati per ogni esecuzione di Deep Research su tutte le iterazioni. Registrato come total_cost_usd (I7).",
+      "placeholder": "80000"
+    },
+    "deepResearchMaxQueries": {
+      "label": "Deep Research — query massime",
+      "help": "Numero massimo di query SearXNG emesse per ogni esecuzione di Deep Research.",
+      "placeholder": "20"
+    },
+    "lintMaxIter": {
+      "label": "Lint-fix — iterazioni massime",
+      "help": "Numero massimo di iterazioni del loop lint-fix prima di fermarsi e segnalare per revisione umana (I7).",
+      "placeholder": "5"
+    },
+    "lintTokenBudget": {
+      "label": "Lint-fix — budget token",
+      "help": "Numero massimo di token consumati dal loop lint-fix per esecuzione. Registrato come total_cost_usd (I7).",
+      "placeholder": "20000"
     },
     "gettingStarted": {
       "wizardSlot": "Configurazione guidata iniziale",

@@ -195,10 +195,10 @@ vi.mock("../api/costsClient", () => ({
 
 function navigateToCosts() {
   render(<SettingsPanel />);
-  // A2.1: SectionCosts is inside GroupAdvanced — navigate to "advanced" group.
-  const advBtn = document.querySelector('[data-settings-section="advanced"]');
-  if (!advBtn) throw new Error("advanced group nav button not found in rendered SettingsPanel");
-  fireEvent.click(advBtn);
+  // ADR-0055: SectionCosts is on page "costs" in the 2-level nav.
+  const costsBtn = document.querySelector('[data-settings-section="costs"]');
+  if (!costsBtn) throw new Error("costs page nav button not found in rendered SettingsPanel");
+  fireEvent.click(costsBtn);
 }
 
 beforeEach(() => {
@@ -207,12 +207,12 @@ beforeEach(() => {
 });
 
 // ─── A. Nav group renders ─────────────────────────────────────────────────────
-// A2.1: SectionCosts is now inside GroupAdvanced.
+// ADR-0055: SectionCosts is now on page "costs" in the 2-level nav.
 
 describe("SettingsPanel — costs nav item", () => {
-  it("renders the 'advanced' group button containing costs content", () => {
+  it("renders the 'costs' page button (ADR-0055)", () => {
     render(<SettingsPanel />);
-    const btn = document.querySelector('[data-settings-section="advanced"]');
+    const btn = document.querySelector('[data-settings-section="costs"]');
     expect(btn).not.toBeNull();
   });
 

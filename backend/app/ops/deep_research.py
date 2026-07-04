@@ -49,20 +49,23 @@ COST_ANOMALY_THRESHOLD_USD: float = 1.00
 
 def _default_max_iter() -> int:
     from app.config import settings
+    from app.config_overrides import effective_int
 
-    return int(settings.deep_research_max_iter)
+    return effective_int("deep_research_max_iter", int(settings.deep_research_max_iter))
 
 
 def _default_token_budget() -> int:
     from app.config import settings
+    from app.config_overrides import effective_int
 
-    return int(settings.deep_research_token_budget)
+    return effective_int("deep_research_token_budget", int(settings.deep_research_token_budget))
 
 
 def _max_queries() -> int:
     from app.config import settings
+    from app.config_overrides import effective_int
 
-    return int(settings.deep_research_max_queries)
+    return effective_int("deep_research_max_queries", int(settings.deep_research_max_queries))
 
 
 def _fetch_max_chars() -> int:

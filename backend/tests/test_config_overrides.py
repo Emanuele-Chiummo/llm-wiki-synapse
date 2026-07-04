@@ -10,6 +10,8 @@ Acceptance checks:
   EC-M11-13  : empty app_config table ⇒ all sources = "env" (backward-compat)
   Forward-compat: unknown key in table is ignored on load
   Per-key validation rules (ADR-0053 §2.3)
+  S14–S18: loop-bound keys (deep_research_max_iter, deep_research_token_budget,
+           deep_research_max_queries, lint_max_iter, lint_token_budget) + effective_int
 """
 
 from __future__ import annotations
@@ -220,7 +222,7 @@ def test_validate_value_overview_language() -> None:
 
 @pytest.mark.asyncio
 async def test_get_config_app_all_env_sources() -> None:
-    """AC-R11-2-2a: with no overrides, all 13 settings have source='env'."""
+    """AC-R11-2-2a: with no overrides, all 18 settings have source='env'."""
     import app.config_overrides as co
 
     # Ensure cache is clean (env-only)
@@ -234,8 +236,8 @@ async def test_get_config_app_all_env_sources() -> None:
     body = resp.json()
     settings_list = body["settings"]
     assert (
-        len(settings_list) == 13
-    )  # S1..S13 (S9=domain_vocabulary ADR-0054; S10/S11=schedule R12-7/A5; S12=schema_review R12-8; S13=reclassify R12-9)
+        len(settings_list) == 18
+    )  # S1..S18 (S14-S18 = loop-bound keys added for I7)
     for entry in settings_list:
         assert entry["source"] == "env", f"Expected source=env for {entry['key']}"
 
@@ -395,3 +397,134 @@ async def test_get_config_app_shows_override_after_put() -> None:
     others = [s for s in settings_list if s["key"] != "embedding_format"]
     for entry in others:
         assert entry["source"] == "env"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# S14–S18: loop-bound key validation + effective_int
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_validate_s14_deep_research_max_iter() -> None:
+    """S14: deep_research_max_iter must be int in [1, 10]."""
+    from app.config_overrides import validate_value
+
+    # happy-path
+    assert validate_value("deep_research_max_iter", "1") is None
+    assert validate_value("deep_research_max_iter", "5") is None
+    assert validate_value("deep_research_max_iter", "10") is None
+    # out-of-range
+    assert validate_value("deep_research_max_iter", "0") is not None
+    assert validate_value("deep_research_max_iter", "11") is not None
+    # non-int
+    assert validate_value("deep_research_max_iter", "abc") is not None
+    assert validate_value("deep_research_max_iter", "3.5") is not None
+
+
+def test_validate_s15_deep_research_token_budget() -> None:
+    """S15: deep_research_token_budget must be int in [1000, 1_000_000]."""
+    from app.config_overrides import validate_value
+
+    # happy-path
+    assert validate_value("deep_research_token_budget", "1000") is None
+    assert validate_value("deep_research_token_budget", "100000") is None
+    assert validate_value("deep_research_token_budget", "1000000") is None
+    # out-of-range
+    assert validate_value("deep_research_token_budget", "999") is not None
+    assert validate_value("deep_research_token_budget", "1000001") is not None
+    # non-int
+    assert validate_value("deep_research_token_budget", "lots") is not None
+    assert validate_value("deep_research_token_budget", "100.5") is not None
+
+
+def test_validate_s16_deep_research_max_queries() -> None:
+    """S16: deep_research_max_queries must be int in [1, 10]."""
+    from app.config_overrides import validate_value
+
+    assert validate_value("deep_research_max_queries", "1") is None
+    assert validate_value("deep_research_max_queries", "10") is None
+    assert validate_value("deep_research_max_queries", "0") is not None
+    assert validate_value("deep_research_max_queries", "11") is not None
+    assert validate_value("deep_research_max_queries", "five") is not None
+
+
+def test_validate_s17_lint_max_iter() -> None:
+    """S17: lint_max_iter must be int in [1, 10]."""
+    from app.config_overrides import validate_value
+
+    assert validate_value("lint_max_iter", "1") is None
+    assert validate_value("lint_max_iter", "10") is None
+    assert validate_value("lint_max_iter", "0") is not None
+    assert validate_value("lint_max_iter", "11") is not None
+    assert validate_value("lint_max_iter", "two") is not None
+
+
+def test_validate_s18_lint_token_budget() -> None:
+    """S18: lint_token_budget must be int in [1000, 500_000]."""
+    from app.config_overrides import validate_value
+
+    assert validate_value("lint_token_budget", "1000") is None
+    assert validate_value("lint_token_budget", "20000") is None
+    assert validate_value("lint_token_budget", "500000") is None
+    assert validate_value("lint_token_budget", "999") is not None
+    assert validate_value("lint_token_budget", "500001") is not None
+    assert validate_value("lint_token_budget", "many") is not None
+
+
+@pytest.mark.asyncio
+async def test_effective_int_coercion() -> None:
+    """effective_int coerces stored string correctly; falls back on malformed."""
+    import app.config_overrides as co
+
+    async with co._cache_lock:
+        co._cache["deep_research_max_iter"] = "7"
+    assert co.effective_int("deep_research_max_iter", 3) == 7
+
+    # Malformed stored value → fallback to default
+    async with co._cache_lock:
+        co._cache["deep_research_max_iter"] = "not_an_int"
+    assert co.effective_int("deep_research_max_iter", 3) == 3
+
+    # Missing key → default
+    async with co._cache_lock:
+        co._cache.pop("deep_research_max_iter", None)
+    assert co.effective_int("deep_research_max_iter", 3) == 3
+
+
+@pytest.mark.asyncio
+async def test_get_config_app_s14_s18_present_in_stable_order() -> None:
+    """S14-S18 appear in GET /config/app at the correct positions (ORDERED_KEYS tail)."""
+    import app.config_overrides as co
+    from app.config_overrides import ORDERED_KEYS
+
+    async with co._cache_lock:
+        co._cache.clear()
+
+    async with _make_client() as client:
+        resp = await client.get("/config/app")
+
+    assert resp.status_code == 200
+    keys = [s["key"] for s in resp.json()["settings"]]
+    # The new keys must be at positions 13-17 (0-indexed) in ORDERED_KEYS order
+    assert keys == ORDERED_KEYS
+    assert keys[13] == "deep_research_max_iter"
+    assert keys[14] == "deep_research_token_budget"
+    assert keys[15] == "deep_research_max_queries"
+    assert keys[16] == "lint_max_iter"
+    assert keys[17] == "lint_token_budget"
+
+
+@pytest.mark.asyncio
+async def test_effective_int_drives_override_for_s14() -> None:
+    """S14 override wins over env default when cache has the key."""
+    import app.config_overrides as co
+
+    async with co._cache_lock:
+        co._cache["deep_research_max_iter"] = "2"
+
+    # The effective value is now 2, overriding whatever settings.deep_research_max_iter holds
+    assert co.effective_int("deep_research_max_iter", 3) == 2
+    assert co.source_of("deep_research_max_iter") == "override"
+
+    # Clean up
+    async with co._cache_lock:
+        co._cache.pop("deep_research_max_iter", None)
