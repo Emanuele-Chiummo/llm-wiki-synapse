@@ -1,0 +1,86 @@
+services:
+  postgres:
+    image: {{ values.postgres_image }}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: {{ values.pg_user }}
+      POSTGRES_PASSWORD: {{ values.pg_password }}
+      POSTGRES_DB: {{ values.pg_db }}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ values.pg_user }} -d {{ values.pg_db }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: {{ values.qdrant_image }}
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  synapse-backend:
+    image: {{ values.backend_image }}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment:
+      DATABASE_URL: postgresql+asyncpg://{{ values.pg_user }}:{{ values.pg_password }}@postgres:5432/{{ values.pg_db }}
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: synapse_pages
+      OLLAMA_URL: {{ values.ollama_url }}
+      EMBEDDING_URL: {{ values.embedding_url }}
+      EMBEDDING_MODEL: {{ values.embedding_model }}
+      EMBEDDING_DIM: "{{ values.embedding_dim }}"
+      EMBEDDINGS_ENABLED: "{{ 'true' if values.embeddings_enabled else 'false' }}"
+{% if values.searxng_url %}
+      SEARXNG_URL: {{ values.searxng_url }}
+{% endif %}
+      VAULT_ID: {{ values.vault_id }}
+      VAULT_PATH: /vault
+      OVERVIEW_LANGUAGE: {{ values.overview_language }}
+      CORS_ALLOW_ORIGINS: "tauri://localhost,http://tauri.localhost{% if values.cors_extra_origins %},{{ values.cors_extra_origins }}{% endif %}"
+      MAX_UPLOAD_BYTES: "{{ values.max_upload_bytes }}"
+      IMPORT_SCAN_MAX_FILES: "{{ values.import_scan_max_files }}"
+      IMPORT_SCAN_MAX_SECONDS: "{{ values.import_scan_max_seconds }}"
+      PDF_EXTRACTOR: {{ values.pdf_extractor }}
+      VISION_CAPTIONS_ENABLED: "{{ 'true' if values.vision_captions_enabled else 'false' }}"
+      AV_TRANSCRIPTION_ENABLED: "{{ 'true' if values.av_transcription_enabled else 'false' }}"
+{% if values.anthropic_api_key %}
+      ANTHROPIC_API_KEY: {{ values.anthropic_api_key }}
+{% endif %}
+{% if values.claude_code_oauth_token %}
+      CLAUDE_CODE_OAUTH_TOKEN: {{ values.claude_code_oauth_token }}
+{% endif %}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - {{ values.vault_host_path }}:/vault
+{% if values.import_host_path %}
+      - {{ values.import_host_path }}:/import:ro
+{% endif %}
+    ports:
+      - {{ values.api_port }}:8000
+
+  synapse-frontend:
+    image: {{ values.frontend_image }}
+    restart: unless-stopped
+    depends_on:
+      synapse-backend:
+        condition: service_started
+    environment:
+      BACKEND_PROXY_TARGET: http://synapse-backend:8000
+    ports:
+      - {{ values.web_port }}:80
+
+volumes:
+  postgres_data:
+  qdrant_data:
