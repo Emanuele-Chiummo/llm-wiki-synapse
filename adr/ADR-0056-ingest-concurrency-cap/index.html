@@ -12,7 +12,7 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0050-retrieval-wiki-only-scope/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0056-ingest-concurrency-cap/">
       
       
       
@@ -25,7 +25,7 @@
     
     
       
-        <title>ADR-0050 — Retrieval scope restricted to wiki/ pages only - Synapse</title>
+        <title>ADR-0056 — Bounded watcher ingest concurrency (INGEST_MAX_CONCURRENCY) - Synapse</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0050-retrieval-scope-restricted-to-wiki-pages-only" class="md-skip">
+        <a href="#adr-0056-bounded-watcher-ingest-concurrency-ingest_max_concurrency" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +111,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-0050 — Retrieval scope restricted to wiki/ pages only
+              ADR-0056 — Bounded watcher ingest concurrency (INGEST_MAX_CONCURRENCY)
             
           </span>
         </div>
@@ -558,10 +558,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
+  <a href="#contesto" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Context
+        Contesto
       
     </span>
   </a>
@@ -569,10 +569,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
+  <a href="#decisione" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decision
+        Decisione
       
     </span>
   </a>
@@ -580,10 +580,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
+  <a href="#alternative-considerate" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Consequences
+        Alternative considerate
       
     </span>
   </a>
@@ -591,10 +591,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#alternatives-considered" class="md-nav__link">
+  <a href="#conseguenze" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Alternatives considered
+        Conseguenze
       
     </span>
   </a>
@@ -618,101 +618,58 @@
 
 
 
-<h1 id="adr-0050-retrieval-scope-restricted-to-wiki-pages-only">ADR-0050 — Retrieval scope restricted to wiki/ pages only<a class="headerlink" href="#adr-0050-retrieval-scope-restricted-to-wiki-pages-only" title="Permanent link">&para;</a></h1>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Value</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Status</td>
-<td>Accepted</td>
-</tr>
-<tr>
-<td>Date</td>
-<td>2026-07-03</td>
-</tr>
-<tr>
-<td>Feature</td>
-<td>R7-8 — Retrieval scope: citations from wiki/ only (AC-R7-8-1..4)</td>
-</tr>
-<tr>
-<td>Decider</td>
-<td>backend-engineer</td>
-</tr>
-</tbody>
-</table>
-<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The 4-phase retrieval pipeline (<code>backend/app/rag/retrieval.py</code>) assembles a grounded context
-string for chat and search from pages stored in Qdrant and Postgres. Prior to this decision,
-the assembly phase (<code>_load_page_meta</code>) did not filter by directory prefix: any page present
-in the <code>pages</code> table — including raw source documents stored under <code>raw/</code> — could be cited
-in the assembled context.</p>
-<p>This was architecturally incorrect for two reasons:</p>
-<ol>
-<li>
-<p><strong>Raw documents are not wiki knowledge.</strong> Files under <code>vault/raw/sources/</code> are the
-   <em>input material</em> to the ingest pipeline. They have not been analyzed, classified, or
-   synthesized by the LLM. Surfacing them as citations alongside synthesized wiki pages
-   misleads the user about the epistemic status of the cited content.</p>
-</li>
-<li>
-<p><strong>Wikilinks and frontmatter types do not apply.</strong> Raw source files may lack valid
-   frontmatter, may be in non-Markdown formats, and are not linked in the graph. Citing
-   them breaks the <code>[n]</code> citation UX (clicking a citation should navigate to a wiki page,
-   not a raw source file dump).</p>
-</li>
-</ol>
-<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>The citation/candidate assembly phase (<code>_load_page_meta</code>) and the lexical Phase-1 fallback
-(<code>_phase1_lexical_search</code>) both apply the SQL filter:</p>
-<div class="highlight"><pre><span></span><code><span class="n">file_path</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">LIKE</span><span class="w"> </span><span class="s1">&#39;raw/%&#39;</span>
-</code></pre></div>
-<p>This restricts citations to pages whose <code>file_path</code> starts with <code>wiki/</code> (the only other
-prefix used by <code>write_wiki_page</code>). The vector Phase-1 path (Qdrant) may still return raw/
-point ids from the collection — these are silently dropped by the <code>_load_page_meta</code> filter
-in Phase 4 assembly rather than at the Qdrant query level, because Qdrant payload filtering
-would add coupling and the performance impact of dropping a few raw/ ids after a top-k
-lookup is negligible.</p>
-<p>The filter <code>file_path NOT LIKE 'raw/%'</code> is portable SQL: it works identically on Postgres
-(production) and SQLite (tests, aiosqlite). It is <strong>not</strong> a whitelist of allowed prefixes
-(which would break if new valid prefixes were added) but a blacklist of the excluded raw/
-prefix (which is stable by the I1/K1 vault architecture: raw/ is always input, wiki/ is
-always output).</p>
-<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<h1 id="adr-0056-bounded-watcher-ingest-concurrency-ingest_max_concurrency">ADR-0056 — Bounded watcher ingest concurrency (INGEST_MAX_CONCURRENCY)<a class="headerlink" href="#adr-0056-bounded-watcher-ingest-concurrency-ingest_max_concurrency" title="Permanent link">&para;</a></h1>
 <ul>
-<li>Chat and GET /search citations now exclusively reference citable wiki knowledge pages.</li>
-<li>Users cannot be confused by raw source files appearing in chat context.</li>
-<li>The Qdrant collection continues to index raw/ pages (the watcher upserts them); only
-  the assembly phase discards them. This avoids a re-indexing migration and preserves the
-  ability to add other retrieval use-cases (e.g. source-search) in the future.</li>
-<li>A new pytest test (<code>test_ac_r7_8_raw_excluded</code>) asserts that a raw/ page present in
-  Qdrant is not returned by the assembly phase (AC-R7-8-1).</li>
-<li>Existing retrieval tests remain green (AC-R7-8-3); all existing test fixtures already
-  use <code>raw/sources/…</code> file paths, which are now correctly excluded, but the existing tests
-  were not asserting on those paths being included — so no regressions.</li>
+<li><strong>Stato:</strong> Accettata</li>
+<li><strong>Data:</strong> 2026-07-04</li>
+<li><strong>Invariante:</strong> I7 (loops/fan-out bounded)</li>
+<li><strong>Correlate:</strong> ADR-0001 (mtime-then-hash ingest), ADR-0003 (ingest seam), ADR-0006 (no startup rescan), ADR-0046 (ingest queue)</li>
 </ul>
-<p><strong>Note on existing tests:</strong> The pre-R7-8 retrieval tests in <code>test_retrieval.py</code> used
-<code>raw/sources/…</code> file paths in their fixture pages. After R7-8 those pages are excluded by
-the filter, causing some existing tests to receive fewer citations than before. The tests
-have been updated to use <code>wiki/…</code> file paths where the assertion depends on citation
-presence, proving the filter is correct. Tests that assert on exclusion behavior (e.g.
-soft-deleted page not cited) continue to work unmodified.</p>
-<h2 id="alternatives-considered">Alternatives considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
+<h2 id="contesto">Contesto<a class="headerlink" href="#contesto" title="Permanent link">&para;</a></h2>
+<p>Il watcher (<code>app/watcher.py</code>) crea <strong>un task di ingest per ogni file</strong> modificato
+(<code>_fire</code> → <code>create_task(_run)</code>). L'unico controllo esistente, <code>_inflight</code>, è un dedup
+<strong>per singolo path</strong>: impedisce due ingest concorrenti <em>dello stesso</em> file, ma non pone
+alcun limite al numero di file <strong>diversi</strong> processati insieme.</p>
+<p>In produzione (TrueNAS SCALE, RTX 3060 12 GB, host senza swap) un utente ha copiato in
+blocco decine di <code>.md</code> in <code>raw/sources/</code>. Il watcher ha lanciato decine di ingest
+simultanei; con provider CLI (<code>claude-agent-sdk</code>) ogni ingest avvia un intero agente più
+una richiesta di embedding. Effetti a cascata osservati nei log:</p>
 <ul>
-<li><strong>Filter at Qdrant query level</strong> (payload filter on file_path): rejected because it
-  requires the file_path to be stored as a Qdrant payload field and adds coupling between
-  the vector store and the directory structure. The current approach keeps Qdrant as a
-  pure similarity index.</li>
-<li><strong>Only index wiki/ pages in Qdrant</strong>: rejected because the watcher's incremental upsert
-  already indexes every <code>.md</code> file it encounters; changing this would require a watcher
-  code path split and a Qdrant migration to remove existing raw/ points.</li>
-<li><strong>Allow raw/ pages but mark them differently in citations</strong>: rejected as over-engineered
-  for the use case. The clean separation (raw = input, wiki = output) is already enforced
-  by the vault architecture (K1, I1).</li>
+<li><code>sqlalchemy.exc.TimeoutError: QueuePool limit of size 5 overflow 10 reached</code> — pool DB
+  esaurito (<code>db.py</code>: <code>pool_size=5, max_overflow=10</code>);</li>
+<li>Ollama <code>500 Internal Server Error</code> sull'endpoint embeddings — GPU singola sommersa da
+  richieste concorrenti;</li>
+<li>picco di RAM senza swap → OOM → <strong>crash dell'host</strong>.</li>
+</ul>
+<p>La causa radice è la concorrenza dell'ingest <strong>illimitata</strong>, in violazione dello spirito
+di I7 ("ogni loop/fan-out ha un tetto").</p>
+<h2 id="decisione">Decisione<a class="headerlink" href="#decisione" title="Permanent link">&para;</a></h2>
+<p>Introdurre un <strong>semaforo asyncio</strong> in <code>_MarkdownHandler</code> che limita gli ingest concorrenti
+a <code>settings.ingest_max_concurrency</code> (env <code>INGEST_MAX_CONCURRENCY</code>, <strong>default 3</strong>, coerciato
+a ≥ 1). Il task per file viene comunque creato subito, ma il lavoro pesante in <code>_run</code>
+attende il semaforo: al massimo N ingest girano insieme, il resto si accoda a costo
+trascurabile (<code>acquire()</code>) e scala man mano che un posto si libera. Ogni file viene
+comunque processato — cambia solo il <em>quando</em>, non il <em>se</em>.</p>
+<p>Il default 3 è tenuto ben sotto la dimensione del pool DB (15) così che gli ingest
+concorrenti, più le query servite dagli endpoint, non saturino il pool. Il semaforo gate
+anche le delete (stesso data-plane).</p>
+<h2 id="alternative-considerate">Alternative considerate<a class="headerlink" href="#alternative-considerate" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Allargare il pool DB / aggiungere swap</strong>: mitigano i sintomi ma non il fan-out
+  illimitato; un burst abbastanza grande satura comunque GPU e memoria. Restano consigli
+  operativi validi (lo swap in particolare), non la fix.</li>
+<li><strong>Coda con worker pool dedicati</strong>: più codice; il semaforo ottiene lo stesso bound con
+  una riga, riusando lo scheduling asyncio esistente.</li>
+<li><strong>Throttle a monte nell'ImportScheduler</strong>: coprirebbe solo il path <code>/import</code>, non il
+  drop diretto in <code>raw/sources/</code> via SMB/editor.</li>
+</ul>
+<h2 id="conseguenze">Conseguenze<a class="headerlink" href="#conseguenze" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Un drop in blocco di N file non può più floodare DB, embedding host o RAM: il carico è
+  limitato per costruzione (I7 soddisfatta anche sul fan-out dell'ingest).</li>
+<li>Nuova env <code>INGEST_MAX_CONCURRENCY</code> (default 3) — regolabile per host più capienti.</li>
+<li>Bulk load grandi diventano semplicemente più lenti e stabili invece di fatali.</li>
+<li>Nessun cambiamento di schema/API; nessun impatto su ER/OpenAPI.</li>
 </ul>
 
 

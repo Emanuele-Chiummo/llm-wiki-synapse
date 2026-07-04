@@ -1,0 +1,1727 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/ROADMAP-v1.3-v2.0/">
+      
+      
+        <link rel="prev" href="../../sequences/">
+      
+      
+        <link rel="next" href="../ROADMAP-v0.7-v1.0/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>v1.3 → v2.0 - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#synapse-product-roadmap-proposal-v13-v200" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              v1.3 → v2.0
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-where-v126-actually-stands-audit-findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Where v1.2.6 actually stands (audit findings)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0. Where v1.2.6 actually stands (audit findings)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-v124-v126-delta-already-shipped-adjusts-this-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The v1.2.4 → v1.2.6 delta (already shipped, adjusts this audit)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#feature-coverage-the-product-is-functionally-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature coverage — the product is functionally complete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#structural-debt-what-a-20-must-not-carry-forward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Structural debt (what a 2.0 must not carry forward)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-the-next-major-is-200-semver-honesty" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why the next major is 2.0.0 (semver honesty)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#karpathy-pattern-alignment-the-north-star" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Karpathy-pattern alignment (the north star)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0-bis-bug-improvement-hunt-on-v126-code-level-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0-bis. Bug &amp; improvement hunt on v1.2.6 (code-level review)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0-bis. Bug &amp; improvement hunt on v1.2.6 (code-level review)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v13-foundations-settimane-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.3 — «Foundations» (settimane 1–2)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v14-multi-vault-core-settimane-34" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.4 — «Multi-vault core» (settimane 3–4)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v15-multi-vault-ux-access-v200-beta-settimane-56" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.5 — «Multi-vault UX + access» = v2.0.0-beta (settimane 5–6)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v200-release-settimane-78" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v2.0.0 — «Release» (settimane 7–8)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-cutting-every-sprint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-cutting (every sprint)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sequencing-rationale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sequencing rationale
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#explicitly-out-of-scope-for-20-post-20-candidates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Explicitly out of scope for 2.0 (post-2.0 candidates)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-where-v126-actually-stands-audit-findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Where v1.2.6 actually stands (audit findings)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0. Where v1.2.6 actually stands (audit findings)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-v124-v126-delta-already-shipped-adjusts-this-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The v1.2.4 → v1.2.6 delta (already shipped, adjusts this audit)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#feature-coverage-the-product-is-functionally-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature coverage — the product is functionally complete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#structural-debt-what-a-20-must-not-carry-forward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Structural debt (what a 2.0 must not carry forward)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-the-next-major-is-200-semver-honesty" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why the next major is 2.0.0 (semver honesty)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#karpathy-pattern-alignment-the-north-star" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Karpathy-pattern alignment (the north star)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0-bis-bug-improvement-hunt-on-v126-code-level-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0-bis. Bug &amp; improvement hunt on v1.2.6 (code-level review)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0-bis. Bug &amp; improvement hunt on v1.2.6 (code-level review)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v13-foundations-settimane-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.3 — «Foundations» (settimane 1–2)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v14-multi-vault-core-settimane-34" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.4 — «Multi-vault core» (settimane 3–4)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v15-multi-vault-ux-access-v200-beta-settimane-56" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.5 — «Multi-vault UX + access» = v2.0.0-beta (settimane 5–6)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v200-release-settimane-78" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v2.0.0 — «Release» (settimane 7–8)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-cutting-every-sprint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-cutting (every sprint)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sequencing-rationale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sequencing rationale
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#explicitly-out-of-scope-for-20-post-20-candidates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Explicitly out of scope for 2.0 (post-2.0 candidates)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="synapse-product-roadmap-proposal-v13-v200">Synapse — Product Roadmap Proposal v1.3 → v2.0.0<a class="headerlink" href="#synapse-product-roadmap-proposal-v13-v200" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Produced 2026-07-04 from a full-stack audit of the <strong>v1.2.6 release tag</strong>:
+backend (~36.5K LOC Python, 16 tables, 23 migrations, 92 test files), frontend
+(~27.6K LOC TS/TSX, 82 vitest files + 8 Playwright specs), extension, Tauri,
+CI/CD, all docs (56 ADRs, 12 sprint cycles, TRACEABILITY/DOCS_STATUS/BACKLOG),
+plus a dedicated backend+frontend bug hunt (§0-bis).
+Companion to <code>ROADMAP-v0.7-v1.0.md</code> (marked COMPLETE). Owner review pending —
+this is a proposal. Timeline: 8 weeks / 4 sprints, evenings cadence with agents.</p>
+</blockquote>
+<hr />
+<h2 id="0-where-v126-actually-stands-audit-findings">0. Where v1.2.6 actually stands (audit findings)<a class="headerlink" href="#0-where-v126-actually-stands-audit-findings" title="Permanent link">&para;</a></h2>
+<h3 id="the-v124-v126-delta-already-shipped-adjusts-this-audit">The v1.2.4 → v1.2.6 delta (already shipped, adjusts this audit)<a class="headerlink" href="#the-v124-v126-delta-already-shipped-adjusts-this-audit" title="Permanent link">&para;</a></h3>
+<p>Nine commits sit on the release tags beyond <code>main</code>'s tip (see T2 below):
+<strong>v1.2.4</strong> split the Settings monolith (3,987 → 433 lines; two-level IA,
+<code>settings/sections/*.tsx</code> + shared <code>ui.tsx</code>, ADR-0055) and made the S14–S18
+loop bounds (deep-research/lint <code>max_iter</code>/<code>token_budget</code>) UI-editable;
+it also added a <strong>production frontend image</strong> (multi-stage Vite→nginx with API
+reverse-proxy, GHCR publish job) and a <strong>TrueNAS SCALE custom-app catalog</strong>
+(<code>trains/stable/synapse</code> — one-click Postgres+Qdrant+backend+frontend).
+<strong>v1.2.5</strong> fixed chat over plain-HTTP LAN (secure-context-safe UUID).
+<strong>v1.2.6</strong> bounded watcher→ingest concurrency to survive bulk file drops
+without flooding/OOM (ADR-0056).</p>
+<h3 id="feature-coverage-the-product-is-functionally-complete">Feature coverage — the product is functionally complete<a class="headerlink" href="#feature-coverage-the-product-is-functionally-complete" title="Permanent link">&para;</a></h3>
+<p>Every feature in CLAUDE.md §4 is shipped: <strong>K1–K8 all GREEN</strong>, <strong>F1–F18 all
+GREEN</strong> with three narrow residuals:</p>
+<table>
+<thead>
+<tr>
+<th>Residual</th>
+<th>Feature</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clipper project picker</td>
+<td>F11</td>
+<td><code>extension/popup.js</code> posts <code>{url, title, markdown}</code> only — no target picker. Spec'd in §4b, never built. Becomes the <strong>vault picker</strong> in v2 (R15-3).</td>
+</tr>
+<tr>
+<td>Cancel in-flight ingest</td>
+<td>K2/F17</td>
+<td>G-P2-3, the only open parity item vs llm_wiki matrix. Queue infra exists (ADR-0046); the <code>DELETE /ingest/{run_id}</code> endpoint does not.</td>
+</tr>
+<tr>
+<td>Multi-vault UI</td>
+<td>R10-2</td>
+<td>Explicitly deferred at v1.0. <code>vault_id</code> is plumbed through every table but a single vault is hardcoded in practice. <strong>This is the v2 headline.</strong></td>
+</tr>
+</tbody>
+</table>
+<p>All 9 invariants hold and are <em>mechanically enforced</em> (ESLint bans on client
+layout libs, <code>no-client-layout</code> dist scan, <code>chat-parse-once</code>, i18n key-parity
+test, capability-only provider routing, bounded loops with cost ledger).
+No TODO/FIXME anywhere in <code>app/</code> or <code>src/</code>. This is an unusually clean base.</p>
+<h3 id="structural-debt-what-a-20-must-not-carry-forward">Structural debt (what a 2.0 must not carry forward)<a class="headerlink" href="#structural-debt-what-a-20-must-not-carry-forward" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Debt</th>
+<th>Where</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T1</td>
+<td><code>main.py</code> is a <strong>9,311-line router monolith</strong> — CLAUDE.md's target layout (routers per domain) was never realized</td>
+<td><code>backend/app/main.py</code></td>
+<td>Every feature touches one file; merge friction, review blindness; blocks multi-vault scoping cleanly</td>
+</tr>
+<tr>
+<td>T2</td>
+<td><strong>Release tags ahead of <code>main</code></strong> — v1.2.4/5/6 were tagged from commits never merged back; <code>main</code> sits at v1.2.3+1</td>
+<td>git history</td>
+<td>Contributors and CI on <code>main</code> build stale code; the OSS front door lies about the product</td>
+</tr>
+<tr>
+<td>T3</td>
+<td><code>review.py</code> (2,909) and <code>orchestrator.py</code> (2,780) are borderline</td>
+<td><code>backend/app/ops/</code>, <code>app/ingest/</code></td>
+<td>Acceptable, but don't let them grow through v2</td>
+</tr>
+<tr>
+<td>T4</td>
+<td><code>ops_scheduler</code> state is <strong>in-memory</strong> — schedules reset on container restart</td>
+<td><code>backend/app/ops_scheduler.py</code></td>
+<td>Missed weekly jobs after every update (Watchtower restarts hourly-polled containers)</td>
+</tr>
+<tr>
+<td>T5</td>
+<td>Auth is a <strong>single shared Bearer token</strong>, disabled by default; no rate limiting; Postgres port 5432 exposed with default <code>synapse/synapse</code> creds in compose</td>
+<td><code>app/auth.py</code>, <code>docker-compose.yml</code></td>
+<td>Fine for LAN/Tailscale; not fine for a 2.0 that people other than the author deploy</td>
+</tr>
+<tr>
+<td>T6</td>
+<td><strong>No E2E in CI</strong> — the 8 Playwright specs run only manually against a live stack; integration job is commented out</td>
+<td><code>.github/workflows/ci.yml</code></td>
+<td>Regressions in wiring (proxy, auth, streaming) reach tags</td>
+</tr>
+<tr>
+<td>T7</td>
+<td>Images (backend, frontend since v1.2.4, marker) are <strong>linux/amd64 only</strong>; version bump is a 4-file manual ritual (tauri.conf + Cargo.toml + package.json + pyproject)</td>
+<td><code>desktop-release.yml</code>, DEPLOY §7.7</td>
+<td>No ARM homelab/RPi/Apple-container users; bump errors break the updater</td>
+</tr>
+<tr>
+<td>T8</td>
+<td>Whisper service exists but is <strong>not in compose</strong>; Marker GPU block commented out</td>
+<td><code>tools/whisper-service/</code></td>
+<td>F12 AV path requires undocumented manual setup</td>
+</tr>
+<tr>
+<td>T9</td>
+<td>Docs drift: ADR-0039 unindexed, ADR-0023 number skipped, stale <code>docs/er/schema 2.mmd</code>, D5 screenshots PENDING-LIVE since v1.0, BACKLOG says v1.2 "blocked" while the code shipped, <code>frontend/package.json</code> description still says "v0.5"</td>
+<td><code>docs/</code></td>
+<td>I8 (docs-as-DoD) is silently eroding</td>
+</tr>
+<tr>
+<td>T10</td>
+<td><strong>Code-level bug &amp; improvement backlog</strong> — a dedicated v1.2.6 review found 2 P1 + 18 P2 issues (event-loop stall, cross-conversation chat contamination, SSRF, stream leaks, non-atomic index writes, hook-order violation, i18n leaks…). BUG-2 from the old sprint docs is already fixed</td>
+<td>backend + frontend</td>
+<td>Enumerated in §0-bis; drives R13-5..R13-9</td>
+</tr>
+</tbody>
+</table>
+<h3 id="why-the-next-major-is-200-semver-honesty">Why the next major is 2.0.0 (semver honesty)<a class="headerlink" href="#why-the-next-major-is-200-semver-honesty" title="Permanent link">&para;</a></h3>
+<p>Multi-vault changes the data model (non-null <code>vault_id</code> everywhere, vault-scoped
+Qdrant), the API surface (vault scoping on every content endpoint), and the auth
+model (per-vault/named tokens). That is a breaking change for API consumers
+(MCP clients, the clipper, scripts) → <strong>major version</strong>. Everything else in this
+roadmap exists to make that change safe.</p>
+<h3 id="karpathy-pattern-alignment-the-north-star">Karpathy-pattern alignment (the north star)<a class="headerlink" href="#karpathy-pattern-alignment-the-north-star" title="Permanent link">&para;</a></h3>
+<p>The origin pattern is <em>one purpose-driven wiki</em>: <code>purpose.md</code> defines the thesis,
+<code>schema.md</code> the rules, the human curates, the LLM maintains (K8). Synapse v1
+perfected that for <strong>one</strong> vault. The honest v2 reading of the pattern is not
+"more AI features" — it is <strong>many purposes, one instance</strong>: a research vault, a
+homelab vault, a reading vault, each with its own purpose/schema/provider/graph,
+without deploying N containers. Multi-vault is the pattern's natural plural.
+Everything AI-side (F17 routing, bounded loops, review queue, schema
+co-evolution) already exceeds llm_wiki parity — v2 deliberately adds <strong>no new
+AI loop</strong>.</p>
+<hr />
+<h2 id="0-bis-bug-improvement-hunt-on-v126-code-level-review">0-bis. Bug &amp; improvement hunt on v1.2.6 (code-level review)<a class="headerlink" href="#0-bis-bug-improvement-hunt-on-v126-code-level-review" title="Permanent link">&para;</a></h2>
+<p>A dedicated backend + frontend review of the released <code>v1.2.6</code> tree (every
+finding traced through the full code path). None of these are release-blockers
+for 1.2.6 — most need concurrency or multi-vault to trigger — but they are the
+concrete worklist that feeds the v1.3 bug batch (R13-5) and shape a few v1.4
+decisions. Priorities: <strong>P1 = fix in v1.3</strong>, <strong>P2 = fix opportunistically or
+when the enabling feature lands</strong>.</p>
+<h3 id="backend">Backend<a class="headerlink" href="#backend" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Sev</th>
+<th>Defect</th>
+<th>Where</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B1</td>
+<td><strong>P1</strong></td>
+<td><strong>FA2/igraph/Louvain layout runs synchronously in the async event loop</strong> — no <code>run_in_executor</code>; the whole server stalls for the duration of a recompute</td>
+<td><code>graph/engine.py:405</code> via <code>graph/cache.py:129,198</code></td>
+<td>1–2.5k-page vault; every 0.5s tick (or a cold-cache <code>GET /graph</code>) freezes all requests/streams/watcher for seconds</td>
+</tr>
+<tr>
+<td>B2</td>
+<td>P2</td>
+<td><strong>SSRF</strong> — deep-research fetches SearXNG result URLs with redirects followed and no private-IP/scheme filtering; internal responses land in the prompt <em>and</em> are persisted</td>
+<td><code>ops/deep_research.py:395</code></td>
+<td>A result (or redirect) pointing at <code>169.254.169.254</code>, <code>127.0.0.1:6333/5432</code>, etc.</td>
+</tr>
+<tr>
+<td>B3</td>
+<td>P2</td>
+<td>Ingest run can be stranded <code>running</code> + a ghost queue handle never clears if context load raises <strong>before</strong> the finalizing <code>try</code></td>
+<td><code>ingest/orchestrator.py:458–491</code>, <code>_load_vault_context</code> <code>:2336</code></td>
+<td><code>purpose.md</code>/<code>schema.md</code> removed or unreadable between <code>exists()</code> and <code>read_text()</code></td>
+</tr>
+<tr>
+<td>B4</td>
+<td>P2</td>
+<td>Chat stream leaks the provider stream (open httpx connection) on timeout/error — only the token-budget branch calls <code>aclose()</code></td>
+<td><code>chat/stream.py:222–291</code></td>
+<td>Slow provider hitting the 60s timeout repeatedly → connection-pool/FD exhaustion</td>
+</tr>
+<tr>
+<td>B5</td>
+<td>P2</td>
+<td><code>index.md</code> rebuild is non-atomic and races under concurrent ingest (last stale writer wins; readers can see a truncated file)</td>
+<td><code>wiki/index.py:97</code></td>
+<td><code>INGEST_MAX_CONCURRENCY&gt;1</code>, two ingests interleave</td>
+</tr>
+<tr>
+<td>B6</td>
+<td>P2</td>
+<td>Same-slug collision race: two concurrent ingests producing the same title both INSERT → <code>IntegrityError</code> on the live-unique index, one run spuriously <code>failed</code></td>
+<td><code>ingest/orchestrator.py:1333–1385</code></td>
+<td>Two sources naming the same entity dropped together</td>
+</tr>
+<tr>
+<td>B7</td>
+<td>P2</td>
+<td>Wikilink enrichment matches a mention by bare substring (no word boundary) → can produce <code>[[Cat\|cat]]egory</code>, persisted to the vault</td>
+<td><code>ops/enrich_wikilinks.py:300</code></td>
+<td>LLM proposes a short mention that is a substring of a longer word</td>
+</tr>
+<tr>
+<td>B8</td>
+<td>P2</td>
+<td>GraphCache stamps its freshness marker from a <em>post</em>-recompute version read → a concurrent bump makes it serve a stale snapshot as a cache HIT (self-heals via follow-up)</td>
+<td><code>graph/cache.py:129–138</code></td>
+<td><code>data_version</code> bumped mid-recompute</td>
+</tr>
+<tr>
+<td>B9</td>
+<td>P2</td>
+<td><code>ImportScheduler.run_now</code> single-flight guard has a check-then-act gap across an <code>await</code> → concurrent scans</td>
+<td><code>import_scheduler.py:330–342</code></td>
+<td>Two near-simultaneous <code>run-now</code> calls</td>
+</tr>
+<tr>
+<td>B10</td>
+<td>P2</td>
+<td><code>PUT /pages/{id}/content</code> optimistic-lock hash check is not atomic with the write → silent last-writer-wins instead of 409</td>
+<td><code>main.py:2969–3011</code></td>
+<td>Two simultaneous editors of one page</td>
+</tr>
+<tr>
+<td>B11</td>
+<td>P2</td>
+<td>Auth exempt-list matches path regardless of HTTP method (latent, not currently exploitable)</td>
+<td><code>auth.py:98</code></td>
+<td>Future mutating route added at an exempt path</td>
+</tr>
+<tr>
+<td>B12</td>
+<td>P2</td>
+<td><code>cascade_delete</code> is multi-transaction, not crash-atomic (documented consequence, no reconciliation on restart)</td>
+<td><code>ops/cascade_delete.py:662–765</code></td>
+<td>Crash mid-delete</td>
+</tr>
+</tbody>
+</table>
+<h3 id="frontend">Frontend<a class="headerlink" href="#frontend" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Sev</th>
+<th>Defect</th>
+<th>Where</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1</td>
+<td><strong>P1</strong></td>
+<td><strong>"Keep editing" ping-pongs the unsaved-changes dialog forever</strong> — the guard re-fires on the selection it restores; only "Discard" escapes</td>
+<td><code>wiki/NoteView.tsx:362–498</code></td>
+<td>Edit a dirty page, click another tree node, click "Keep editing"</td>
+</tr>
+<tr>
+<td>F2</td>
+<td><strong>P1</strong></td>
+<td><strong>Chat answer lands in the wrong conversation</strong> — switching conversation mid-stream doesn't abort; <code>finalizeTurn</code> appends to the now-current list</td>
+<td><code>chat/ConversationList.tsx:174</code>, <code>chatStore.ts:203</code>, <code>useChatStream.ts</code></td>
+<td>Send in A, switch to B while streaming</td>
+</tr>
+<tr>
+<td>F3</td>
+<td>P2</td>
+<td><code>useChatStream</code> never aborts on unmount despite its docstring — detached reader keeps writing to the global store</td>
+<td><code>chat/useChatStream.ts:16,31</code></td>
+<td>Leave the chat section mid-stream</td>
+</tr>
+<tr>
+<td>F4</td>
+<td>P2</td>
+<td>Double-submit race: aborted stream #1's <code>clearStream()</code> wipes stream #2's live UI state</td>
+<td><code>useChatStream.ts:47–111</code></td>
+<td>Enter auto-repeat / rapid double-send</td>
+</tr>
+<tr>
+<td>F5</td>
+<td>P2</td>
+<td><code>ConversationList.loadConversations</code> closes over stale <code>activeId</code> (deps <code>[vaultId]</code>) → yanks selection to <code>items[0]</code> and reloads after every turn</td>
+<td><code>chat/ConversationList.tsx:119–172</code></td>
+<td>Any completed chat turn while on another conversation</td>
+</tr>
+<tr>
+<td>F6</td>
+<td>P2</td>
+<td>Ingest polling keeps polling the <strong>old</strong> vault after a vault switch (no branch for vaultId-change while polling) — a v1.4 landmine</td>
+<td><code>ingest/IngestView.tsx:61</code></td>
+<td>Switch vault with an active ingest (needs multi-vault)</td>
+</tr>
+<tr>
+<td>F7</td>
+<td>P2</td>
+<td><code>ThinkBlock</code> real rules-of-hooks violation — currently defused by both callers guarding non-empty content; one careless future caller = hard crash</td>
+<td><code>chat/ThinkBlock.tsx:50–65</code></td>
+<td><code>&lt;ThinkBlock content={maybeEmpty}/&gt;</code></td>
+</tr>
+<tr>
+<td>F8</td>
+<td>P2</td>
+<td>Hardcoded English strings in the graph tooltip + screen-reader announcement bypass i18n</td>
+<td><code>GraphViewer.tsx:280,299,303,319,1393</code></td>
+<td>Italian user hovering/selecting a node</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verified clean (no action):</strong> sigma lifecycle (kill on unmount + re-mount), NDJSON
+multi-byte/split handling, HTTP timeout signal composition, settingsStore
+persistence/migration guards, extension error surfacing. BUG-2 (ingest polling
+dedup on remount) <strong>is fixed</strong> in 1.2.6 — the remaining ingest issue is the
+vault-switch case (F6), not remount.</p>
+<hr />
+<h2 id="v13-foundations-settimane-12">v1.3 — «Foundations» (settimane 1–2)<a class="headerlink" href="#v13-foundations-settimane-12" title="Permanent link">&para;</a></h2>
+<p>Theme: zero visible behavior change; make the house solid before the extension.
+This is the sprint that pays T1–T10 down so multi-vault lands on clean ground.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Item</th>
+<th>Area</th>
+<th>Effort</th>
+<th>Source</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R13-1</td>
+<td><strong>Router split</strong> — decompose <code>main.py</code> into <code>app/routers/{pages,search,graph,ingest,chat,review,research,ops,config,stats,clip,mcp}.py</code> via <code>APIRouter</code>. Contract-frozen: the CI OpenAPI drift gate must show an <strong>empty diff</strong> (paths, schemas, examples identical)</td>
+<td>BE</td>
+<td>L</td>
+<td>T1</td>
+<td></td>
+</tr>
+<tr>
+<td>R13-2</td>
+<td><strong>Release hygiene</strong> — merge the v1.2.4–v1.2.6 release lineage back into <code>main</code>, protect <code>main</code>, and adopt the rule <em>tags are only cut from <code>main</code></em>; document in CONTRIBUTING</td>
+<td>DevOps</td>
+<td>S</td>
+<td>T2</td>
+<td></td>
+</tr>
+<tr>
+<td>R13-3</td>
+<td><strong>Cancel in-flight ingest</strong> — <code>DELETE /ingest/{run_id}</code> on top of ADR-0046 queue (cancellation events exist); Activity bar wiring</td>
+<td>BE+FE</td>
+<td>S</td>
+<td>G-P2-3</td>
+<td></td>
+</tr>
+<tr>
+<td>R13-4</td>
+<td><strong>Persistent scheduler state</strong> — last-run timestamps for ops/import schedulers into <code>app_config</code> (survives restart; T4)</td>
+<td>BE</td>
+<td>S</td>
+<td>T4</td>
+<td></td>
+</tr>
+<tr>
+<td>R13-5</td>
+<td><strong>P1 fix — event-loop stall (B1):</strong> offload <code>GraphEngine.recompute</code> (igraph build + FA2 + Louvain) to a thread/process executor so recompute never blocks requests/streams/watcher. Regression-guard with the existing <code>graph-perf.spec.ts</code></td>
+<td>BE</td>
+<td>M</td>
+<td>B1</td>
+<td></td>
+</tr>
+<tr>
+<td>R13-6</td>
+<td><strong>P1 fix — chat/editor UX correctness (F1, F2):</strong> unmount/conversation-switch abort in <code>useChatStream</code> (kills the "answer in wrong conversation" race F2 and the leak F3); break the "Keep editing" dialog ping-pong in <code>NoteView</code> (F1)</td>
+<td>FE</td>
+<td>S/M</td>
+<td>F1, F2, F3</td>
+<td></td>
+</tr>
+<tr>
+<td>R13-7</td>
+<td><strong>Bug batch (P2s):</strong> stream <code>aclose()</code> in <code>finally</code> (B4); atomic <code>index.md</code> write + coalesced rebuild (B5); finalize-in-<code>finally</code> for ingest runs + queue handle (B3); word-boundary mention match (B7); GraphCache marker at recompute start (B8); <code>run_now</code> sync single-flight (B9); 409 on concurrent page PUT (B10); double-submit <code>e.repeat</code> guard (F4); stale-<code>activeId</code> fix in ConversationList (F5); <code>ThinkBlock</code> hooks-order fix (F7); graph tooltip i18n (F8); PWA <code>lang</code> + package.json description drift</td>
+<td>BE+FE</td>
+<td>M</td>
+<td>§0-bis</td>
+<td></td>
+</tr>
+<tr>
+<td>R13-8</td>
+<td><strong>CI hardening</strong> — (a) E2E job: compose up backend+postgres+fake-embeddings in CI, run the existing Playwright suite headless; (b) multi-arch images (linux/amd64+arm64 via buildx); (c) <code>make bump VERSION=x.y.z</code> single-command 4-file version bump with check</td>
+<td>QA+DevOps</td>
+<td>M</td>
+<td>T6, T7</td>
+<td></td>
+</tr>
+<tr>
+<td>R13-9</td>
+<td><strong>Deploy security pass</strong> — SSRF guard on deep-research fetch (block private/loopback/link-local/metadata ranges, http/https only, redirect cap — shared util with searxng.py; B2); method-aware auth exempt list (B11); drop the default <code>5432:5432</code> publish (compose-internal network), creds via <code>.env</code> with generated defaults; minimal rate limit on inference-cost endpoints (<code>/chat</code>, <code>/ingest/trigger</code>, <code>/research</code>); document Tailscale/CF-Tunnel-only posture in DEPLOY</td>
+<td>DevOps+BE</td>
+<td>M</td>
+<td>T5, B2, B11</td>
+<td></td>
+</tr>
+<tr>
+<td>R13-10</td>
+<td><strong>Docs hygiene</strong> — index ADR-0039, delete <code>schema 2.mmd</code>, refresh D5 screenshots via the new CI E2E job, sync BACKLOG/parity/TRACEABILITY to v1.2.6 reality, whisper-service compose profile (<code>av</code>)</td>
+<td>Docs+DevOps</td>
+<td>S/M</td>
+<td>T8, T9</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exit criteria:</strong> all tests green with an empty OpenAPI diff (R13-1 proof);
+both P1s fixed (no event-loop stall on a 2k-page vault under load; no
+cross-conversation contamination); the SSRF guard rejects a metadata-IP result;
+E2E job green in CI; arm64 image pulls on a Pi/ARM box; no schedule lost across
+a container restart; docs gate ALL-UP-TO-DATE with fresh screenshots.</p>
+<blockquote>
+<p>The remaining P2s that are <em>multi-vault landmines</em> (F6 ingest-polling vault
+switch; B6 same-slug collision race — sharper once vaults multiply the write
+concurrency) are fixed inside v1.4 where the vault plumbing is already open,
+not retrofitted here.</p>
+</blockquote>
+<h2 id="v14-multi-vault-core-settimane-34">v1.4 — «Multi-vault core» (settimane 3–4)<a class="headerlink" href="#v14-multi-vault-core-settimane-34" title="Permanent link">&para;</a></h2>
+<p>Theme: the breaking change, backend-first, behind a compatibility default.
+One ADR before any code (solution-architect gate).</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Item</th>
+<th>Area</th>
+<th>Effort</th>
+<th>Source</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R14-1</td>
+<td><strong>ADR-0057 Multi-vault model</strong> — <code>vaults</code> table (id, name, slug, fs path, scenario, created); <code>vault_id</code> becomes non-null FK on all 16 tables; <strong>auto-migration</strong>: first <code>alembic upgrade</code> adopts the existing vault as <code>default</code> (zero data loss, idempotent)</td>
+<td>BE</td>
+<td>M</td>
+<td>R10-2</td>
+<td></td>
+</tr>
+<tr>
+<td>R14-2</td>
+<td><strong>Vector scoping</strong> — Qdrant: single collection + mandatory <code>vault_id</code> payload filter (decided in ADR-0057; avoids collection-per-vault ops burden on a 12 GB-VRAM homelab)</td>
+<td>BE</td>
+<td>S</td>
+<td>I1</td>
+<td></td>
+</tr>
+<tr>
+<td>R14-3</td>
+<td><strong>Filesystem &amp; watcher</strong> — <code>vault/&lt;slug&gt;/{raw,wiki,schema.md,purpose.md,.obsidian}</code>; one watchdog observer per active vault; <code>default</code> keeps the current path for back-compat. Fold in the <strong>same-slug collision race (B6)</strong> — dedup the ingest write path by output slug, not just source path, now that N vaults multiply write concurrency</td>
+<td>BE</td>
+<td>M</td>
+<td>I1, I5, B6</td>
+<td></td>
+</tr>
+<tr>
+<td>R14-4</td>
+<td><strong>API vault scoping</strong> — <code>X-Synapse-Vault</code> header (default: <code>default</code>) resolved by middleware into request state; every router from R13-1 filters by it. v1 clients keep working unchanged against the default vault — the break is opt-in until 2.0. Fix <strong>ingest-polling vault-switch (F6)</strong> as part of the frontend vault-aware refactor</td>
+<td>BE+FE</td>
+<td>L</td>
+<td>T1→enabler, F6</td>
+<td></td>
+</tr>
+<tr>
+<td>R14-5</td>
+<td><strong>Per-vault provider &amp; costs</strong> — <code>provider_config</code> scope=vault verified end-to-end (design already supports it); <code>/costs/summary</code> and <code>/stats/*</code> grouped per vault</td>
+<td>BE</td>
+<td>S/M</td>
+<td>F17, I7</td>
+<td></td>
+</tr>
+<tr>
+<td>R14-6</td>
+<td><strong>Per-vault export/import</strong> — portable zip (vault fs + JSON dump) → restore into a new vault on another instance</td>
+<td>BE</td>
+<td>M</td>
+<td>v0.8 R8-4 extension</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exit criteria:</strong> two vaults live on one instance — separate graphs, separate
+provider configs, separate costs; ingest/chat/search/graph/review all correctly
+scoped (cross-vault leak = P0); migration from a real v1.2 database verified;
+Obsidian opens each <code>wiki/</code> independently (I5 per vault).</p>
+<h2 id="v15-multi-vault-ux-access-v200-beta-settimane-56">v1.5 — «Multi-vault UX + access» = v2.0.0-beta (settimane 5–6)<a class="headerlink" href="#v15-multi-vault-ux-access-v200-beta-settimane-56" title="Permanent link">&para;</a></h2>
+<p>Theme: surface it, secure it, tag a beta.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Item</th>
+<th>Area</th>
+<th>Effort</th>
+<th>Source</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R15-1</td>
+<td><strong>Vault switcher</strong> — header dropdown + command-palette action; create-vault flow reusing scenario templates (R7-1) and the first-run wizard; per-vault purpose/schema editing</td>
+<td>FE</td>
+<td>M</td>
+<td>R10-2</td>
+<td></td>
+</tr>
+<tr>
+<td>R15-2</td>
+<td><strong>Home per vault</strong> — dashboard scoped to active vault + an "all vaults" overview row (counts, last activity, cost)</td>
+<td>FE</td>
+<td>S/M</td>
+<td>F18</td>
+<td></td>
+</tr>
+<tr>
+<td>R15-3</td>
+<td><strong>Clipper project picker</strong> — vault dropdown in the extension popup (<code>GET /vaults</code> public-ish via CLIP token), closes the last F11 gap</td>
+<td>FE</td>
+<td>S</td>
+<td>F11</td>
+<td></td>
+</tr>
+<tr>
+<td>R15-4</td>
+<td><strong>Named tokens</strong> — replace the single <code>SYNAPSE_AUTH_TOKEN</code> with N named tokens (label, optional vault scope, created/revoked in Settings → Security; hashed at rest like ADR-0033). Env token remains honored as a bootstrap/back-compat token. Full OIDC stays post-2.0 unless a concrete need appears</td>
+<td>BE+FE</td>
+<td>M/L</td>
+<td>T5, v1.0 deferral</td>
+<td></td>
+</tr>
+<tr>
+<td>R15-5</td>
+<td><strong>MCP + chat vault scoping</strong> — MCP tools accept <code>vault</code> param (default = default vault); conversations belong to a vault</td>
+<td>BE</td>
+<td>S</td>
+<td>ADR-0010/0029</td>
+<td></td>
+</tr>
+<tr>
+<td>R15-6</td>
+<td><strong>UX-audit closure batch</strong> — remaining P2 items from <code>UX-AUDIT-2026-07.md</code> (UXA-09..13, 19–28 triaged: fix P2s, consciously close-won't-fix the rest)</td>
+<td>FE</td>
+<td>M</td>
+<td>UX audit</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exit criteria:</strong> tag <strong>v2.0.0-beta.1</strong>; a new user can create a second vault,
+clip into it, chat in it, and see its graph without touching the first vault;
+token revocation works; migration guide drafted.</p>
+<h2 id="v200-release-settimane-78">v2.0.0 — «Release» (settimane 7–8)<a class="headerlink" href="#v200-release-settimane-78" title="Permanent link">&para;</a></h2>
+<p>Theme: freeze, document, ship. No new features enter this sprint.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Item</th>
+<th>Area</th>
+<th>Effort</th>
+<th>Source</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R20-1</td>
+<td><strong>Migration guide + auto-migrate</strong> — <code>docs/MIGRATION-v1-v2.md</code>; first-boot migration battle-tested against copies of the owner's real TrueNAS data; documented rollback (pre-upgrade pg_dump per DEPLOY §12)</td>
+<td>BE+Docs</td>
+<td>M</td>
+<td>R14-1</td>
+<td></td>
+</tr>
+<tr>
+<td>R20-2</td>
+<td><strong>D1–D7 full refresh</strong> — C4 with vaults, ER regen, new sequences (vault-create, scoped ingest), OpenAPI 2.0.0, D5 screenshot sweep via CI, USER/DEPLOY rewritten for multi-vault</td>
+<td>Docs</td>
+<td>M</td>
+<td>I8</td>
+<td></td>
+</tr>
+<tr>
+<td>R20-3</td>
+<td><strong>Performance regression gate</strong> — re-run the 4 llm_wiki bottleneck guards with 2+ vaults and a large vault (graph fps, no main-thread layout, parse-once, virtualized lists); watcher/queue behavior with N observers</td>
+<td>QA</td>
+<td>S/M</td>
+<td>I1–I4</td>
+<td></td>
+</tr>
+<tr>
+<td>R20-4</td>
+<td><strong>Release engineering</strong> — code-signing certs purchased → signed dmg/exe (guide DEPLOY §14 ready); Chrome Web Store submission (deferred since v1.0); GHCR <code>:2</code> channel; release notes with upgrade callout</td>
+<td>DevOps</td>
+<td>M(€)</td>
+<td>R10-3</td>
+<td></td>
+</tr>
+<tr>
+<td>R20-5</td>
+<td><strong>RC discipline</strong> — beta → rc.1 with only P0/P1 fixes; EC-M-HCP human checkpoint on live TrueNAS; tag <strong>v2.0.0</strong></td>
+<td>All</td>
+<td>—</td>
+<td>DoD</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exit criteria:</strong> v2.0.0 tagged; a v1.2.x instance upgrades in place with one
+<code>docker compose pull &amp;&amp; up</code>; signed desktop builds auto-update from 1.x; store
+listing submitted; docs site republished.</p>
+<hr />
+<h2 id="cross-cutting-every-sprint">Cross-cutting (every sprint)<a class="headerlink" href="#cross-cutting-every-sprint" title="Permanent link">&para;</a></h2>
+<ul>
+<li>i18n parity EN/IT enforced by test; invariants I1–I9; per-sprint DoD
+  (tests + architect review + docs gate + human checkpoint EC-Mx-HCP).</li>
+<li>Every schema change ships its Alembic migration <strong>and</strong> <code>make er</code> in the same PR.</li>
+<li>No new bounded loop without <code>max_iter</code> + <code>token_budget</code> + cost row (I7).</li>
+<li><code>main.py</code>, <code>review.py</code> and <code>orchestrator.py</code> line counts are ratcheted
+  <strong>down</strong> — CI fails if they grow past their post-R13 size (Settings already
+  paid this debt in v1.2.4).</li>
+</ul>
+<h2 id="sequencing-rationale">Sequencing rationale<a class="headerlink" href="#sequencing-rationale" title="Permanent link">&para;</a></h2>
+<p>The refactor (v1.3) comes first because vault scoping touches every endpoint:
+doing it inside a 9,311-line file would be the most expensive possible order.
+The data-model break (v1.4) lands mid-roadmap with a compatibility default so
+the owner's daily instance never stops working. UI and access (v1.5) ride on a
+stable core and produce the beta. The last two weeks are deliberately
+feature-frozen — v1.0 taught that distribution work (signing, store, migration
+docs) always takes longer than it looks. If multi-vault slips, the fallback is
+honest: ship v1.3 as-is (it is releasable alone), move one sprint right, and cut
+2.0 with signing/store as the only casualties.</p>
+<h2 id="explicitly-out-of-scope-for-20-post-20-candidates">Explicitly out of scope for 2.0 (post-2.0 candidates)<a class="headerlink" href="#explicitly-out-of-scope-for-20-post-20-candidates" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Full OIDC/SSO and true multi-user RBAC (named tokens cover the homelab reality).</li>
+<li>New AI capabilities (agentic maintenance daemon, auto-merge of duplicate pages,
+  cross-vault retrieval) — the pattern says human curates; keep it that way.</li>
+<li>Mobile-native apps; Kubernetes/Helm packaging; plugin system.</li>
+<li>Real-time collaborative editing (single-writer model is a feature, not a gap).</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -12,7 +12,7 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0050-retrieval-wiki-only-scope/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0055-settings-ia-v2/">
       
       
       
@@ -25,7 +25,7 @@
     
     
       
-        <title>ADR-0050 — Retrieval scope restricted to wiki/ pages only - Synapse</title>
+        <title>ADR-0055 — Settings IA v2: nav a due livelli, pagine focalizzate, config co-locata - Synapse</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0050-retrieval-scope-restricted-to-wiki-pages-only" class="md-skip">
+        <a href="#adr-0055-settings-ia-v2-nav-a-due-livelli-pagine-focalizzate-config-co-locata" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +111,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-0050 — Retrieval scope restricted to wiki/ pages only
+              ADR-0055 — Settings IA v2: nav a due livelli, pagine focalizzate, config co-locata
             
           </span>
         </div>
@@ -558,10 +558,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
+  <a href="#contesto" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Context
+        Contesto
       
     </span>
   </a>
@@ -569,10 +569,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
+  <a href="#decisione" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decision
+        Decisione
       
     </span>
   </a>
@@ -580,10 +580,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
+  <a href="#alternative-considerate" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Consequences
+        Alternative considerate
       
     </span>
   </a>
@@ -591,10 +591,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#alternatives-considered" class="md-nav__link">
+  <a href="#conseguenze" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Alternatives considered
+        Conseguenze
       
     </span>
   </a>
@@ -618,101 +618,67 @@
 
 
 
-<h1 id="adr-0050-retrieval-scope-restricted-to-wiki-pages-only">ADR-0050 — Retrieval scope restricted to wiki/ pages only<a class="headerlink" href="#adr-0050-retrieval-scope-restricted-to-wiki-pages-only" title="Permanent link">&para;</a></h1>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Value</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Status</td>
-<td>Accepted</td>
-</tr>
-<tr>
-<td>Date</td>
-<td>2026-07-03</td>
-</tr>
-<tr>
-<td>Feature</td>
-<td>R7-8 — Retrieval scope: citations from wiki/ only (AC-R7-8-1..4)</td>
-</tr>
-<tr>
-<td>Decider</td>
-<td>backend-engineer</td>
-</tr>
-</tbody>
-</table>
-<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The 4-phase retrieval pipeline (<code>backend/app/rag/retrieval.py</code>) assembles a grounded context
-string for chat and search from pages stored in Qdrant and Postgres. Prior to this decision,
-the assembly phase (<code>_load_page_meta</code>) did not filter by directory prefix: any page present
-in the <code>pages</code> table — including raw source documents stored under <code>raw/</code> — could be cited
-in the assembled context.</p>
-<p>This was architecturally incorrect for two reasons:</p>
-<ol>
-<li>
-<p><strong>Raw documents are not wiki knowledge.</strong> Files under <code>vault/raw/sources/</code> are the
-   <em>input material</em> to the ingest pipeline. They have not been analyzed, classified, or
-   synthesized by the LLM. Surfacing them as citations alongside synthesized wiki pages
-   misleads the user about the epistemic status of the cited content.</p>
-</li>
-<li>
-<p><strong>Wikilinks and frontmatter types do not apply.</strong> Raw source files may lack valid
-   frontmatter, may be in non-Markdown formats, and are not linked in the graph. Citing
-   them breaks the <code>[n]</code> citation UX (clicking a citation should navigate to a wiki page,
-   not a raw source file dump).</p>
-</li>
-</ol>
-<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>The citation/candidate assembly phase (<code>_load_page_meta</code>) and the lexical Phase-1 fallback
-(<code>_phase1_lexical_search</code>) both apply the SQL filter:</p>
-<div class="highlight"><pre><span></span><code><span class="n">file_path</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">LIKE</span><span class="w"> </span><span class="s1">&#39;raw/%&#39;</span>
-</code></pre></div>
-<p>This restricts citations to pages whose <code>file_path</code> starts with <code>wiki/</code> (the only other
-prefix used by <code>write_wiki_page</code>). The vector Phase-1 path (Qdrant) may still return raw/
-point ids from the collection — these are silently dropped by the <code>_load_page_meta</code> filter
-in Phase 4 assembly rather than at the Qdrant query level, because Qdrant payload filtering
-would add coupling and the performance impact of dropping a few raw/ ids after a top-k
-lookup is negligible.</p>
-<p>The filter <code>file_path NOT LIKE 'raw/%'</code> is portable SQL: it works identically on Postgres
-(production) and SQLite (tests, aiosqlite). It is <strong>not</strong> a whitelist of allowed prefixes
-(which would break if new valid prefixes were added) but a blacklist of the excluded raw/
-prefix (which is stable by the I1/K1 vault architecture: raw/ is always input, wiki/ is
-always output).</p>
-<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<h1 id="adr-0055-settings-ia-v2-nav-a-due-livelli-pagine-focalizzate-config-co-locata">ADR-0055 — Settings IA v2: nav a due livelli, pagine focalizzate, config co-locata<a class="headerlink" href="#adr-0055-settings-ia-v2-nav-a-due-livelli-pagine-focalizzate-config-co-locata" title="Permanent link">&para;</a></h1>
 <ul>
-<li>Chat and GET /search citations now exclusively reference citable wiki knowledge pages.</li>
-<li>Users cannot be confused by raw source files appearing in chat context.</li>
-<li>The Qdrant collection continues to index raw/ pages (the watcher upserts them); only
-  the assembly phase discards them. This avoids a re-indexing migration and preserves the
-  ability to add other retrieval use-cases (e.g. source-search) in the future.</li>
-<li>A new pytest test (<code>test_ac_r7_8_raw_excluded</code>) asserts that a raw/ page present in
-  Qdrant is not returned by the assembly phase (AC-R7-8-1).</li>
-<li>Existing retrieval tests remain green (AC-R7-8-3); all existing test fixtures already
-  use <code>raw/sources/…</code> file paths, which are now correctly excluded, but the existing tests
-  were not asserting on those paths being included — so no regressions.</li>
+<li><strong>Stato:</strong> Accettata</li>
+<li><strong>Data:</strong> 2026-07-04</li>
+<li><strong>Sostituisce:</strong> ADR-0018 §5 (layout settings a left-nav piatta), layout A2.1 (5 gruppi-pagina)</li>
+<li><strong>Correlate:</strong> ADR-0053 (runtime config overrides), ADR-0054 (domain vocabulary), R12-7/8/9 (ops schedules)</li>
 </ul>
-<p><strong>Note on existing tests:</strong> The pre-R7-8 retrieval tests in <code>test_retrieval.py</code> used
-<code>raw/sources/…</code> file paths in their fixture pages. After R7-8 those pages are excluded by
-the filter, causing some existing tests to receive fewer citations than before. The tests
-have been updated to use <code>wiki/…</code> file paths where the assertion depends on citation
-presence, proving the filter is correct. Tests that assert on exclusion behavior (e.g.
-soft-deleted page not cited) continue to work unmodified.</p>
-<h2 id="alternatives-considered">Alternatives considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
+<h2 id="contesto">Contesto<a class="headerlink" href="#contesto" title="Permanent link">&para;</a></h2>
+<p>Il pannello impostazioni era un monolite (<code>SettingsPanel.tsx</code>, ~3.800 righe) con 5 voci di
+navigazione ("Getting started", "AI &amp; Models", "Sources", "Output", "Advanced"); ogni voce
+renderizzava 3–6 sezioni eterogenee impilate in un'unica pagina a scorrimento. Problemi:</p>
+<ol>
+<li><strong>Densità</strong>: "Advanced" mescolava costi, sicurezza, manutenzione, override runtime,
+   scheduler operazioni e about in una sola pagina.</li>
+<li><strong>IA incoerente</strong>: gli override runtime (ADR-0053) erano un elenco grezzo di chiavi in
+   "Advanced", scollegato dal dominio funzionale (es. <code>embeddings_enabled</code> lontano dalla
+   sezione Embeddings; <code>cost_alert_threshold_usd</code> lontano da Costi). Lo scheduling era
+   diviso tra "Sources" (import) e "Advanced" (ops).</li>
+<li><strong>Copertura</strong>: i bound dei loop (I7: deep research, lint) erano configurabili solo via
+   env, non dalla UI.</li>
+<li><strong>Manutenibilità</strong>: file singolo da 152 KB, test fragili, nessun deep-link alle sezioni.</li>
+</ol>
+<h2 id="decisione">Decisione<a class="headerlink" href="#decisione" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Nav a due livelli</strong>: 6 intestazioni di gruppo non cliccabili + ~17 voci-pagina.
+   Una pagina = una funzione. Attraversamento tastiera (frecce/Home/End) solo sulle voci.</li>
+<li><strong>Struttura</strong>:</li>
+<li><strong>Generale</strong> → Aspetto e lingua · Configurazione guidata</li>
+<li><strong>AI e modelli</strong> → Provider LLM · Scenari · Contesto e budget · Embeddings · Ricerca web</li>
+<li><strong>Contenuti wiki</strong> → Generazione · Automazioni (schedule S10–S13) · Limiti e budget AI (S14–S18)</li>
+<li><strong>Sorgenti e import</strong> → Cartelle sorvegliate · Web Clipper · PDF e conversione (S1–S3)</li>
+<li><strong>Connessioni</strong> → API e MCP (incl. CLI auth) · Sicurezza</li>
+<li><strong>Sistema</strong> → Costi (S4 co-locata) · Manutenzione · Informazioni</li>
+<li><strong>Config co-locata</strong>: ogni chiave runtime (ADR-0053) è renderizzata nella pagina del suo
+   dominio funzionale, non in un elenco "Advanced". <code>SectionRuntimeConfig</code> resta l'unico
+   renderer (prop <code>keys</code>).</li>
+<li><strong>Allow-list estesa S14–S18</strong> (<code>config_overrides.py</code>): <code>deep_research_max_iter</code>,
+   <code>deep_research_token_budget</code>, <code>deep_research_max_queries</code>, <code>lint_max_iter</code>,
+   <code>lint_token_budget</code> — interi con range validati; i read-site in <code>ops/deep_research.py</code> e
+   <code>ops/lint.py</code> passano per <code>effective_int()</code>. I bound restano obbligatori (I7): la UI può
+   regolarli entro range sicuri, mai disattivarli.</li>
+<li><strong>Decomposizione file</strong>: <code>settings/sections/*.tsx</code> (una sezione per file) + <code>ui.tsx</code>
+   condiviso; <code>SettingsPanel.tsx</code> è solo shell (nav + routing pagina).</li>
+<li><strong>Deep-link</strong>: CustomEvent <code>synapse:settingsSection</code> (<code>detail.section</code> = pageId) per
+   aprire una pagina specifica da altre superfici (stesso pattern di <code>synapse:openWizard</code>).</li>
+</ol>
+<h2 id="alternative-considerate">Alternative considerate<a class="headerlink" href="#alternative-considerate" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Filter at Qdrant query level</strong> (payload filter on file_path): rejected because it
-  requires the file_path to be stored as a Qdrant payload field and adds coupling between
-  the vector store and the directory structure. The current approach keeps Qdrant as a
-  pure similarity index.</li>
-<li><strong>Only index wiki/ pages in Qdrant</strong>: rejected because the watcher's incremental upsert
-  already indexes every <code>.md</code> file it encounters; changing this would require a watcher
-  code path split and a Qdrant migration to remove existing raw/ points.</li>
-<li><strong>Allow raw/ pages but mark them differently in citations</strong>: rejected as over-engineered
-  for the use case. The clean separation (raw = input, wiki = output) is already enforced
-  by the vault architecture (K1, I1).</li>
+<li><strong>Tenere 5 gruppi-pagina con ancore interne</strong>: respinta — non risolve la densità né la
+  scopribilità; lo scroll-spy aggiunge complessità senza chiarezza.</li>
+<li><strong>Esporre l'intero <code>Settings</code> env a runtime</strong>: respinta — l'allow-list è un confine di
+  sicurezza (ADR-0053 §2.4); chiavi infra/segreti (DATABASE_URL, token, endpoint interni)
+  non devono essere raggiungibili dalla UI. L'estensione è curata, per chiavi operative.</li>
+</ul>
+<h2 id="conseguenze">Conseguenze<a class="headerlink" href="#conseguenze" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Ogni pagina è corta e monotematica; le impostazioni runtime sono dove l'utente le cerca.</li>
+<li>5 nuove chiavi S14–S18 nel contratto GET/PUT/DELETE <code>/config/app</code> (ordine stabile esteso).</li>
+<li>I test FE sulla nav vanno aggiornati ai nuovi pageId; i <code>data-testid</code> delle sezioni sono
+  invariati.</li>
+<li>D5 (screenshot Playwright) da rigenerare alla prossima gate di milestone.</li>
 </ul>
 
 
