@@ -8441,6 +8441,7 @@ def _build_app_config_response() -> AppConfigListResponse:
       • S7 overview_language: None env-default → serialised as "" (auto sentinel).
       • S9 domain_vocabulary: no env var; env-default is "[]" (empty JSON array — dormant).
       • S13 reclassify_schedule: no env-var baseline; default is "off" (R12-9).
+      • S14–S18: loop-bound int keys; env-var baseline from settings (I7).
       • All others: str env-default passed directly.
     """
     env_defaults: dict[str, str] = {
@@ -8461,6 +8462,12 @@ def _build_app_config_response() -> AppConfigListResponse:
         "schema_review_schedule": "off",
         # S13: reclassify_schedule has no env-var baseline; default is "off" (R12-9).
         "reclassify_schedule": "off",
+        # S14–S18: loop-bound keys — env-var baseline from settings (I7).
+        "deep_research_max_iter": str(settings.deep_research_max_iter),
+        "deep_research_token_budget": str(settings.deep_research_token_budget),
+        "deep_research_max_queries": str(settings.deep_research_max_queries),
+        "lint_max_iter": str(settings.lint_max_iter),
+        "lint_token_budget": str(settings.lint_token_budget),
     }
 
     result: list[AppConfigSetting] = []

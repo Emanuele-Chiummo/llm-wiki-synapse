@@ -220,13 +220,12 @@ const SAMPLE_SCENARIOS = [
 
 async function openScenariosSection() {
   render(<SettingsPanel />);
-  // A2.1: SectionScenarios is inside GroupOutput — navigate there.
+  // ADR-0055: SectionScenarios is on page "scenarios" in the 2-level nav.
   await waitFor(() => {
-    // The "Output & Appearance" group nav button should be present
-    expect(document.querySelector('[data-settings-section="output"]')).not.toBeNull();
+    expect(document.querySelector('[data-settings-section="scenarios"]')).not.toBeNull();
   });
-  const outputBtn = document.querySelector('[data-settings-section="output"]') as HTMLElement;
-  fireEvent.click(outputBtn);
+  const scenariosBtn = document.querySelector('[data-settings-section="scenarios"]') as HTMLElement;
+  fireEvent.click(scenariosBtn);
   // SectionScenarios title "Scenario Templates" should appear
   await waitFor(() => {
     expect(screen.getAllByText("Scenario Templates").length).toBeGreaterThan(0);

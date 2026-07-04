@@ -750,7 +750,7 @@ async def test_schema_review_run_now_no_dormant_400() -> None:
 
 @pytest.mark.asyncio
 async def test_get_config_app_returns_12_settings() -> None:
-    """GET /config/app returns 13 settings (S1..S13); schema_review_schedule is at index 11."""
+    """GET /config/app returns 18 settings (S1..S18); schema_review_schedule is at index 11."""
     import app.config_overrides as co
 
     async with co._cache_lock:
@@ -761,7 +761,7 @@ async def test_get_config_app_returns_12_settings() -> None:
 
     assert resp.status_code == 200
     settings_list = resp.json()["settings"]
-    assert len(settings_list) == 13  # S1..S13 (reclassify_schedule = S13, R12-9)
+    assert len(settings_list) == 18  # S1..S18 (S14-S18 = loop-bound keys)
     keys = [s["key"] for s in settings_list]
     assert "schema_review_schedule" in keys
     # schema_review_schedule must appear at position 11 (0-indexed) — S12 position unchanged
@@ -990,7 +990,7 @@ async def test_post_run_now_reclassify_no_dormant_400() -> None:
 
 @pytest.mark.asyncio
 async def test_get_config_app_returns_13_settings() -> None:
-    """GET /config/app now returns 13 settings (S1..S13) including reclassify_schedule."""
+    """GET /config/app now returns 18 settings (S1..S18) including reclassify_schedule."""
     import app.config_overrides as co
 
     async with co._cache_lock:
@@ -1001,7 +1001,7 @@ async def test_get_config_app_returns_13_settings() -> None:
 
     assert resp.status_code == 200
     settings_list = resp.json()["settings"]
-    assert len(settings_list) == 13  # S1..S13 (reclassify_schedule = S13, R12-9)
+    assert len(settings_list) == 18  # S1..S18 (S14-S18 = loop-bound keys)
     keys = [s["key"] for s in settings_list]
     assert "reclassify_schedule" in keys
     # Must appear at position 12 (0-indexed)

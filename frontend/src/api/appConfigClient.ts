@@ -42,6 +42,11 @@ export interface AppConfigResponse {
  * A5: lint_schedule / backfill_schedule — ops schedule frequencies (R12-7).
  * S12: schema_review_schedule — scheduled schema review frequency (R12-8).
  * S13: reclassify_schedule — scheduled type reclassification frequency (R12-9).
+ * S14: deep_research_max_iter — max loop iterations for Deep Research (I7 loop cap).
+ * S15: deep_research_token_budget — token budget for Deep Research loop (I7).
+ * S16: deep_research_max_queries — max SearXNG queries per Deep Research run (I7).
+ * S17: lint_max_iter — max lint-fix loop iterations (I7 loop cap).
+ * S18: lint_token_budget — token budget for the lint-fix loop (I7).
  */
 export type AppConfigKey =
   | "pdf_extractor"
@@ -56,7 +61,13 @@ export type AppConfigKey =
   | "lint_schedule"
   | "backfill_schedule"
   | "schema_review_schedule"
-  | "reclassify_schedule";
+  | "reclassify_schedule"
+  // S14–S18: loop-limit overrides (ADR-0055 §2 / I7)
+  | "deep_research_max_iter"
+  | "deep_research_token_budget"
+  | "deep_research_max_queries"
+  | "lint_max_iter"
+  | "lint_token_budget";
 
 // ─── Client functions ─────────────────────────────────────────────────────────
 

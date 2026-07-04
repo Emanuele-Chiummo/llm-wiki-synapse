@@ -146,7 +146,31 @@
       "groupAiModels": "AI & Models",
       "groupSources": "Sources & PDF",
       "groupOutput": "Output & Appearance",
-      "groupAdvanced": "Advanced"
+      "groupAdvanced": "Advanced",
+      "groupGeneral": "General",
+      "groupAiModelsNew": "AI & Models",
+      "groupWikiContent": "Wiki content",
+      "groupSourcesImport": "Sources & import",
+      "groupConnections": "Connections",
+      "groupSystem": "System",
+      "appearance": "Appearance",
+      "setup": "Setup",
+      "providers": "Providers",
+      "scenarios": "Scenarios",
+      "context": "Context window",
+      "embeddings2": "Embeddings",
+      "webSearch2": "Web search",
+      "generation": "Generation",
+      "automation": "Automation",
+      "limits": "Loop limits",
+      "sourceWatch2": "Source watch",
+      "clipper": "Web clipper",
+      "pdf": "PDF extraction",
+      "apiMcp2": "API & MCP",
+      "security2": "Security",
+      "costs2": "Costs",
+      "maintenance2": "Maintenance",
+      "about2": "About"
     },
     "llmModels": {
       "title": "LLM Models",
@@ -1047,6 +1071,35 @@
     "runtimeOverridesSection": {
       "title": "Runtime overrides",
       "desc": "These settings are persisted in the database and override the environment-variable defaults without restarting Docker."
+    },
+    "limitsSection": {
+      "title": "Loop limits",
+      "desc": "Cap the maximum iterations and token spend for bounded loops (I7). Changes take effect on the next run without restarting Docker."
+    },
+    "deepResearchMaxIter": {
+      "label": "Deep Research — max iterations",
+      "help": "Maximum number of search-assess-refine cycles per Deep Research run. Prevents runaway loops (I7).",
+      "placeholder": "10"
+    },
+    "deepResearchTokenBudget": {
+      "label": "Deep Research — token budget",
+      "help": "Maximum tokens consumed per Deep Research run across all iterations. Logged as total_cost_usd (I7).",
+      "placeholder": "80000"
+    },
+    "deepResearchMaxQueries": {
+      "label": "Deep Research — max queries",
+      "help": "Maximum SearXNG queries issued per Deep Research run.",
+      "placeholder": "20"
+    },
+    "lintMaxIter": {
+      "label": "Lint-fix — max iterations",
+      "help": "Maximum number of lint-fix loop iterations before stopping and flagging for human review (I7).",
+      "placeholder": "5"
+    },
+    "lintTokenBudget": {
+      "label": "Lint-fix — token budget",
+      "help": "Maximum tokens consumed by the lint-fix loop per run. Logged as total_cost_usd (I7).",
+      "placeholder": "20000"
     },
     "gettingStarted": {
       "wizardSlot": "First-run setup wizard",

@@ -94,7 +94,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 
 ---
 
-## Distribution & Security (ADR-0047 through ADR-0054)
+## Distribution & Security (ADR-0047 through ADR-0055)
 
 | # | Title | Status |
 |---|-------|--------|
@@ -104,6 +104,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0052** | [Shared Bearer token auth (`SYNAPSE_AUTH_TOKEN`): env-only credential, FastAPI middleware, CORS-safe 401 (R10-1, v1.0)](0052-auth-token-model.md) | Accepted |
 | **0053** | [Runtime UI config-override layer (`app_config` key/value store; env baseline → DB override; GET/PUT/DELETE `/config/app`) (R11-2, v1.1)](ADR-0053-ui-config-overrides.md) | Accepted |
 | **0054** | [Domain taxonomy (controlled vocabulary + ingest auto-tag) and dashboard stats API (`/stats/overview`, `/stats/sections`, `/ops/backfill-domains`) (F18, R12-1/R12-2, v1.2)](ADR-0054-domain-taxonomy-and-dashboard-stats.md) | Accepted |
+| **0055** | [Settings IA v2: two-level nav, focused pages, domain-co-located runtime config, S14–S18 loop-bound keys (v1.2)](ADR-0055-settings-ia-v2.md) | Accepted |
 
 ---
 
