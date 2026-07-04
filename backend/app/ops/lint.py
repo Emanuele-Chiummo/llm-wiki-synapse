@@ -151,7 +151,9 @@ async def run_lint_scan(
     from app.config_overrides import effective_int
 
     frozen_max_iter: int = (
-        max_iter if max_iter is not None else effective_int("lint_max_iter", int(settings.lint_max_iter))
+        max_iter
+        if max_iter is not None
+        else effective_int("lint_max_iter", int(settings.lint_max_iter))
     )
     frozen_token_budget: int = (
         token_budget

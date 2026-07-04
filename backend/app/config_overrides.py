@@ -71,7 +71,7 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "schema_review_schedule",  # S12 (R12-8) — enum: off|hourly|daily|weekly; default "off"
         "reclassify_schedule",  # S13 (R12-9) — enum: off|hourly|daily|weekly; default "off"
         "deep_research_max_iter",  # S14 — int 1–10; caps DeepResearch loop (I7)
-        "deep_research_token_budget",  # S15 — int 1000–1_000_000; caps DeepResearch token spend (I7)
+        "deep_research_token_budget",  # S15 — int 1000–1_000_000; caps DR token spend (I7)
         "deep_research_max_queries",  # S16 — int 1–10; caps SearXNG query fan-out (I7)
         "lint_max_iter",  # S17 — int 1–10; caps LintScan semantic loop (I7)
         "lint_token_budget",  # S18 — int 1000–500_000; caps LintScan token spend (I7)
@@ -213,9 +213,7 @@ def validate_value(key: str, value: str) -> str | None:
                 f"got {value!r}"
             )
         if not (1_000 <= i <= 1_000_000):
-            return (
-                f"deep_research_token_budget must be between 1000 and 1000000, got {i!r}"
-            )
+            return f"deep_research_token_budget must be between 1000 and 1000000, got {i!r}"
 
     elif key == "lint_token_budget":
         # S18: int in [1000, 500_000] — LintScan token-spend cap (I7).
@@ -223,8 +221,7 @@ def validate_value(key: str, value: str) -> str | None:
             i = int(value)
         except ValueError:
             return (
-                f"lint_token_budget must be an integer between 1000 and 500000, "
-                f"got {value!r}"
+                f"lint_token_budget must be an integer between 1000 and 500000, " f"got {value!r}"
             )
         if not (1_000 <= i <= 500_000):
             return f"lint_token_budget must be between 1000 and 500000, got {i!r}"

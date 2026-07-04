@@ -235,9 +235,7 @@ async def test_get_config_app_all_env_sources() -> None:
     assert resp.status_code == 200
     body = resp.json()
     settings_list = body["settings"]
-    assert (
-        len(settings_list) == 18
-    )  # S1..S18 (S14-S18 = loop-bound keys added for I7)
+    assert len(settings_list) == 18  # S1..S18 (S14-S18 = loop-bound keys added for I7)
     for entry in settings_list:
         assert entry["source"] == "env", f"Expected source=env for {entry['key']}"
 
