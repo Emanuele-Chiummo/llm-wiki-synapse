@@ -1,15 +1,29 @@
 # Synapse — Product Roadmap Proposal v1.3 → v2.0.0
 
-> Produced 2026-07-04 from a full-stack audit of the v1.2.x codebase: backend
-> (~36.5K LOC Python, 16 tables, 23 migrations, 92 test files), frontend
+> Produced 2026-07-04 from a full-stack audit of the **v1.2.6 release tag**:
+> backend (~36.5K LOC Python, 16 tables, 23 migrations, 92 test files), frontend
 > (~27.6K LOC TS/TSX, 82 vitest files + 8 Playwright specs), extension, Tauri,
-> CI/CD, and all docs (54 ADRs, 12 sprint cycles, TRACEABILITY/DOCS_STATUS/BACKLOG).
+> CI/CD, all docs (56 ADRs, 12 sprint cycles, TRACEABILITY/DOCS_STATUS/BACKLOG),
+> plus a dedicated backend+frontend bug hunt (§0-bis).
 > Companion to `ROADMAP-v0.7-v1.0.md` (marked COMPLETE). Owner review pending —
 > this is a proposal. Timeline: 8 weeks / 4 sprints, evenings cadence with agents.
 
 ---
 
-## 0. Where v1.2.x actually stands (audit findings)
+## 0. Where v1.2.6 actually stands (audit findings)
+
+### The v1.2.4 → v1.2.6 delta (already shipped, adjusts this audit)
+
+Nine commits sit on the release tags beyond `main`'s tip (see T2 below):
+**v1.2.4** split the Settings monolith (3,987 → 433 lines; two-level IA,
+`settings/sections/*.tsx` + shared `ui.tsx`, ADR-0055) and made the S14–S18
+loop bounds (deep-research/lint `max_iter`/`token_budget`) UI-editable;
+it also added a **production frontend image** (multi-stage Vite→nginx with API
+reverse-proxy, GHCR publish job) and a **TrueNAS SCALE custom-app catalog**
+(`trains/stable/synapse` — one-click Postgres+Qdrant+backend+frontend).
+**v1.2.5** fixed chat over plain-HTTP LAN (secure-context-safe UUID).
+**v1.2.6** bounded watcher→ingest concurrency to survive bulk file drops
+without flooding/OOM (ADR-0056).
 
 ### Feature coverage — the product is functionally complete
 
@@ -32,12 +46,12 @@ No TODO/FIXME anywhere in `app/` or `src/`. This is an unusually clean base.
 | # | Debt | Where | Impact |
 |---|---|---|---|
 | T1 | `main.py` is a **9,311-line router monolith** — CLAUDE.md's target layout (routers per domain) was never realized | `backend/app/main.py` | Every feature touches one file; merge friction, review blindness; blocks multi-vault scoping cleanly |
-| T2 | `SettingsPanel.tsx` at **3,826 LOC** | `frontend/src/components/settings/` | Same problem, frontend edition |
+| T2 | **Release tags ahead of `main`** — v1.2.4/5/6 were tagged from commits never merged back; `main` sits at v1.2.3+1 | git history | Contributors and CI on `main` build stale code; the OSS front door lies about the product |
 | T3 | `review.py` (2,909) and `orchestrator.py` (2,780) are borderline | `backend/app/ops/`, `app/ingest/` | Acceptable, but don't let them grow through v2 |
 | T4 | `ops_scheduler` state is **in-memory** — schedules reset on container restart | `backend/app/ops_scheduler.py` | Missed weekly jobs after every update (Watchtower restarts hourly-polled containers) |
 | T5 | Auth is a **single shared Bearer token**, disabled by default; no rate limiting; Postgres port 5432 exposed with default `synapse/synapse` creds in compose | `app/auth.py`, `docker-compose.yml` | Fine for LAN/Tailscale; not fine for a 2.0 that people other than the author deploy |
 | T6 | **No E2E in CI** — the 8 Playwright specs run only manually against a live stack; integration job is commented out | `.github/workflows/ci.yml` | Regressions in wiring (proxy, auth, streaming) reach tags |
-| T7 | Images are **linux/amd64 only**; version bump is a 4-file manual ritual (tauri.conf + Cargo.toml + package.json + pyproject) | `desktop-release.yml`, DEPLOY §7.7 | No ARM homelab/RPi/Apple-container users; bump errors break the updater |
+| T7 | Images (backend, frontend since v1.2.4, marker) are **linux/amd64 only**; version bump is a 4-file manual ritual (tauri.conf + Cargo.toml + package.json + pyproject) | `desktop-release.yml`, DEPLOY §7.7 | No ARM homelab/RPi/Apple-container users; bump errors break the updater |
 | T8 | Whisper service exists but is **not in compose**; Marker GPU block commented out | `tools/whisper-service/` | F12 AV path requires undocumented manual setup |
 | T9 | Docs drift: ADR-0039 unindexed, ADR-0023 number skipped, stale `docs/er/schema 2.mmd`, D5 screenshots PENDING-LIVE since v1.0, BACKLOG says v1.2 "blocked" while the code shipped, `frontend/package.json` description still says "v0.5" | `docs/` | I8 (docs-as-DoD) is silently eroding |
 | T10 | Known bugs carried in sprint docs: BUG-2 (ingest polling not deduped on remount), `ThinkBlock.tsx:61` conditional hook | frontend | Small, but tracked and open |
@@ -72,7 +86,7 @@ This is the sprint that pays T1–T10 down so multi-vault lands on clean ground.
 | ID | Item | Area | Effort | Source | Status |
 |----|------|------|--------|--------|--------|
 | R13-1 | **Router split** — decompose `main.py` into `app/routers/{pages,search,graph,ingest,chat,review,research,ops,config,stats,clip,mcp}.py` via `APIRouter`. Contract-frozen: the CI OpenAPI drift gate must show an **empty diff** (paths, schemas, examples identical) | BE | L | T1 | |
-| R13-2 | **SettingsPanel split** — one component per settings group (already 5 IA groups from v1.1), shared form primitives | FE | M | T2 | |
+| R13-2 | **Release hygiene** — merge the v1.2.4–v1.2.6 release lineage back into `main`, protect `main`, and adopt the rule *tags are only cut from `main`*; document in CONTRIBUTING | DevOps | S | T2 | |
 | R13-3 | **Cancel in-flight ingest** — `DELETE /ingest/{run_id}` on top of ADR-0046 queue (cancellation events exist); Activity bar wiring | BE+FE | S | G-P2-3 | |
 | R13-4 | **Persistent scheduler state** — last-run timestamps for ops/import schedulers into `app_config` (survives restart; T4) | BE | S | T4 | |
 | R13-5 | **Bug batch** — BUG-2 ingest-polling dedup on remount; `ThinkBlock` conditional-hook fix; PWA manifest `lang` from i18n; package.json description drift | FE | S | T10, T9 | |
@@ -91,8 +105,8 @@ One ADR before any code (solution-architect gate).
 
 | ID | Item | Area | Effort | Source | Status |
 |----|------|------|--------|--------|--------|
-| R14-1 | **ADR-0055 Multi-vault model** — `vaults` table (id, name, slug, fs path, scenario, created); `vault_id` becomes non-null FK on all 16 tables; **auto-migration**: first `alembic upgrade` adopts the existing vault as `default` (zero data loss, idempotent) | BE | M | R10-2 | |
-| R14-2 | **Vector scoping** — Qdrant: single collection + mandatory `vault_id` payload filter (decided in ADR-0055; avoids collection-per-vault ops burden on a 12 GB-VRAM homelab) | BE | S | I1 | |
+| R14-1 | **ADR-0057 Multi-vault model** — `vaults` table (id, name, slug, fs path, scenario, created); `vault_id` becomes non-null FK on all 16 tables; **auto-migration**: first `alembic upgrade` adopts the existing vault as `default` (zero data loss, idempotent) | BE | M | R10-2 | |
+| R14-2 | **Vector scoping** — Qdrant: single collection + mandatory `vault_id` payload filter (decided in ADR-0057; avoids collection-per-vault ops burden on a 12 GB-VRAM homelab) | BE | S | I1 | |
 | R14-3 | **Filesystem & watcher** — `vault/<slug>/{raw,wiki,schema.md,purpose.md,.obsidian}`; one watchdog observer per active vault; `default` keeps the current path for back-compat | BE | M | I1, I5 | |
 | R14-4 | **API vault scoping** — `X-Synapse-Vault` header (default: `default`) resolved by middleware into request state; every router from R13-1 filters by it. v1 clients keep working unchanged against the default vault — the break is opt-in until 2.0 | BE | L | T1→enabler | |
 | R14-5 | **Per-vault provider & costs** — `provider_config` scope=vault verified end-to-end (design already supports it); `/costs/summary` and `/stats/*` grouped per vault | BE | S/M | F17, I7 | |
@@ -144,8 +158,9 @@ listing submitted; docs site republished.
   (tests + architect review + docs gate + human checkpoint EC-Mx-HCP).
 - Every schema change ships its Alembic migration **and** `make er` in the same PR.
 - No new bounded loop without `max_iter` + `token_budget` + cost row (I7).
-- `main.py` and `SettingsPanel.tsx` line counts are ratcheted **down** — CI fails
-  if they grow past their post-R13 size.
+- `main.py`, `review.py` and `orchestrator.py` line counts are ratcheted
+  **down** — CI fails if they grow past their post-R13 size (Settings already
+  paid this debt in v1.2.4).
 
 ## Sequencing rationale
 
