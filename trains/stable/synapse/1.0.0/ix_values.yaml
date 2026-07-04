@@ -1,0 +1,4 @@
+# Static default values merged under `values` at render time.
+# Everything the user can change lives in questions.yaml; this file only holds
+# non-question defaults. Kept minimal on purpose.
+{}

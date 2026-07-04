@@ -1,0 +1,260 @@
+groups:
+  - name: Container Images
+    description: Image tags pulled from GHCR. Pin a version for controlled updates, or use :latest.
+  - name: Networking
+    description: Host ports exposed by the frontend and backend.
+  - name: Storage
+    description: Host paths bind-mounted into the backend. Must be writable by uid 1000.
+  - name: External AI Services
+    description: Ollama / bge-m3 / SearXNG that already run on your NAS (not containerized).
+  - name: Inference Authentication
+    description: Credential for the API / CLI provider. Leave BOTH empty to use only Local (Ollama).
+  - name: Vault
+    description: Vault identity and overview language.
+  - name: Embeddings & Search
+    description: bge-m3 vectorization settings.
+  - name: Database
+    description: PostgreSQL credentials (defaults are fine for a single-vault deployment).
+  - name: Resource Limits
+    description: Bounded-loop / upload caps (invariant I7).
+  - name: Advanced Features
+    description: Optional feature flags (off by default).
+
+questions:
+  # ── Container Images ────────────────────────────────────────────────────────
+  - variable: backend_image
+    label: Backend image
+    group: Container Images
+    schema:
+      type: string
+      default: ghcr.io/emanuele-chiummo/llm-wiki-synapse-backend:latest
+      required: true
+  - variable: frontend_image
+    label: Frontend image
+    group: Container Images
+    schema:
+      type: string
+      default: ghcr.io/emanuele-chiummo/llm-wiki-synapse-frontend:latest
+      required: true
+  - variable: qdrant_image
+    label: Qdrant image
+    group: Container Images
+    schema:
+      type: string
+      default: qdrant/qdrant:v1.12.4
+      required: true
+  - variable: postgres_image
+    label: PostgreSQL image
+    group: Container Images
+    schema:
+      type: string
+      default: postgres:16-alpine
+      required: true
+
+  # ── Networking ──────────────────────────────────────────────────────────────
+  - variable: web_port
+    label: Frontend Web UI port (host)
+    group: Networking
+    description: Open the UI at http://<nas-ip>:<this-port>
+    schema:
+      type: int
+      default: 5173
+      required: true
+      min: 1
+      max: 65535
+  - variable: api_port
+    label: Backend API port (host)
+    group: Networking
+    description: FastAPI + Swagger at http://<nas-ip>:<this-port>/docs
+    schema:
+      type: int
+      default: 8000
+      required: true
+      min: 1
+      max: 65535
+
+  # ── Storage ─────────────────────────────────────────────────────────────────
+  - variable: vault_host_path
+    label: Vault host path
+    group: Storage
+    description: e.g. /mnt/cloud_one/APP_Configs/Synapse/vault — chown 1000:1000 first.
+    schema:
+      type: hostpath
+      required: true
+  - variable: import_host_path
+    label: Import host path (optional)
+    group: Storage
+    description: Folder for scheduled auto-import. Leave empty to disable the /import mount.
+    schema:
+      type: hostpath
+      required: false
+      default: ""
+
+  # ── External AI Services ────────────────────────────────────────────────────
+  - variable: ollama_url
+    label: Ollama base URL
+    group: External AI Services
+    description: Generative + embedding host. Use your NAS IP (e.g. http://192.168.1.107:11434).
+    schema:
+      type: string
+      default: http://host.docker.internal:11434
+      required: true
+  - variable: embedding_url
+    label: Embedding endpoint URL
+    group: External AI Services
+    schema:
+      type: string
+      default: http://host.docker.internal:11434/api/embeddings
+      required: true
+  - variable: embedding_model
+    label: Embedding model
+    group: External AI Services
+    schema:
+      type: string
+      default: bge-m3
+      required: true
+  - variable: searxng_url
+    label: SearXNG URL (optional)
+    group: External AI Services
+    description: Required for Deep Research. Leave empty to disable.
+    schema:
+      type: string
+      default: ""
+      required: false
+
+  # ── Inference Authentication ────────────────────────────────────────────────
+  - variable: anthropic_api_key
+    label: Anthropic API key (pay-per-token)
+    group: Inference Authentication
+    description: For the API/CLI provider with per-token billing. If set, it TAKES PRECEDENCE over the subscription token below.
+    schema:
+      type: string
+      default: ""
+      private: true
+      required: false
+  - variable: claude_code_oauth_token
+    label: Claude Code OAuth token (subscription)
+    group: Inference Authentication
+    description: From `claude setup-token` on your Mac (sk-ant-oat01-...). Used only when the API key above is empty.
+    schema:
+      type: string
+      default: ""
+      private: true
+      required: false
+
+  # ── Vault ───────────────────────────────────────────────────────────────────
+  - variable: vault_id
+    label: Vault ID
+    group: Vault
+    schema:
+      type: string
+      default: default
+      required: true
+  - variable: overview_language
+    label: Overview language
+    group: Vault
+    schema:
+      type: string
+      default: it
+      enum:
+        - value: it
+          description: Italian
+        - value: en
+          description: English
+
+  # ── Embeddings & Search ─────────────────────────────────────────────────────
+  - variable: embeddings_enabled
+    label: Enable embeddings (Qdrant + bge-m3)
+    group: Embeddings & Search
+    description: If off, ingest still runs (Postgres metadata only) and search degrades to keyword.
+    schema:
+      type: boolean
+      default: true
+  - variable: embedding_dim
+    label: Embedding dimension
+    group: Embeddings & Search
+    description: Must match the model output (bge-m3 = 1024).
+    schema:
+      type: int
+      default: 1024
+      required: true
+
+  # ── Database ────────────────────────────────────────────────────────────────
+  - variable: pg_user
+    label: PostgreSQL user
+    group: Database
+    schema:
+      type: string
+      default: synapse
+      required: true
+  - variable: pg_password
+    label: PostgreSQL password
+    group: Database
+    schema:
+      type: string
+      default: synapse
+      private: true
+      required: true
+  - variable: pg_db
+    label: PostgreSQL database
+    group: Database
+    schema:
+      type: string
+      default: synapse
+      required: true
+
+  # ── Resource Limits (I7) ────────────────────────────────────────────────────
+  - variable: max_upload_bytes
+    label: Max upload bytes
+    group: Resource Limits
+    schema:
+      type: int
+      default: 26214400
+      required: true
+  - variable: import_scan_max_files
+    label: Import scan — max files per tick
+    group: Resource Limits
+    schema:
+      type: int
+      default: 200
+      required: true
+  - variable: import_scan_max_seconds
+    label: Import scan — max seconds per tick
+    group: Resource Limits
+    schema:
+      type: int
+      default: 60
+      required: true
+  - variable: cors_extra_origins
+    label: Extra CORS origins (comma-separated)
+    group: Resource Limits
+    description: Added to the built-in Tauri/localhost origins. E.g. http://192.168.1.107:5173
+    schema:
+      type: string
+      default: ""
+      required: false
+
+  # ── Advanced Features ───────────────────────────────────────────────────────
+  - variable: pdf_extractor
+    label: PDF extractor
+    group: Advanced Features
+    schema:
+      type: string
+      default: pypdf
+      enum:
+        - value: pypdf
+          description: pypdf (built-in, no extra service)
+        - value: marker
+          description: Marker (requires the Marker microservice)
+  - variable: vision_captions_enabled
+    label: Enable image captioning
+    group: Advanced Features
+    schema:
+      type: boolean
+      default: false
+  - variable: av_transcription_enabled
+    label: Enable audio/video transcription
+    group: Advanced Features
+    schema:
+      type: boolean
+      default: false

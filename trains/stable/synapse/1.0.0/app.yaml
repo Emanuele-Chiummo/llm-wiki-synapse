@@ -1,0 +1,29 @@
+name: synapse
+title: Synapse
+train: stable
+version: 1.0.0
+app_version: "1.2.4"
+categories:
+  - productivity
+  - ai
+icon: https://raw.githubusercontent.com/Emanuele-Chiummo/llm-wiki-synapse/v1.2.4/frontend/public/icons/icon-512.png
+description: >-
+  Synapse builds and maintains a self-organising wiki from your raw documents
+  (Karpathy LLM-Wiki pattern): incremental ingest, a 4-signal knowledge graph,
+  4-phase RAG retrieval, and a pluggable inference provider (Local Ollama /
+  Anthropic API / Claude CLI). Reuses your existing Ollama, Qdrant and SearXNG.
+home: https://github.com/Emanuele-Chiummo/llm-wiki-synapse
+sources:
+  - https://github.com/Emanuele-Chiummo/llm-wiki-synapse
+maintainers:
+  - name: Emanuele Chiummo
+    email: emanuelechiummo@outlook.it
+    url: https://github.com/Emanuele-Chiummo
+run_as_context:
+  - description: Synapse backend runs as the non-root 'synapse' user (uid 1000).
+    gid: 1000
+    group_name: synapse
+    uid: 1000
+    user_name: synapse
+capabilities: []
+host_mounts: []
