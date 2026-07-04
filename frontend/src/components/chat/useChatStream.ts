@@ -16,7 +16,7 @@
  * Abort: AbortController is created per call; Cancel button calls abort(); unmount aborts.
  */
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { useChatStore } from "../../store/chatStore";
 import type { ChatMessage } from "../../store/chatStore";
 import { openChatStream } from "../../api/chatClient";
@@ -39,17 +39,36 @@ export function useChatStream(): UseChatStreamReturn {
   const clearStream = useChatStore((s) => s.clearStream);
 
   const abort = useCallback(() => {
-    abortRef.current?.abort();
+    // F2/F3: delegate to store.abortStream() — it calls the registered fn (which aborts
+    // the AbortController) and clears all streaming state in one atomic set().
+    useChatStore.getState().abortStream();
     abortRef.current = null;
-    clearStream();
-  }, [clearStream]);
+  }, []);
+
+  // F3: abort in-flight stream on component unmount so a detached reader cannot keep
+  // writing into the global store after the chat section is navigated away from.
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) {
+        useChatStore.getState().abortStream();
+        abortRef.current = null;
+      }
+    };
+  }, []);
 
   const send = useCallback(
     (req: ChatStreamRequest) => {
-      // Abort any in-flight stream
-      abortRef.current?.abort();
+      // F2/F3: abort any in-flight stream via the store (clears stream state + calls the
+      // registered abort fn for the old controller).
+      useChatStore.getState().abortStream();
+      abortRef.current = null;
+
       const ctrl = new AbortController();
       abortRef.current = ctrl;
+
+      // Register this controller's abort fn so external callers (conversation switch,
+      // unmount) can abort without prop-drilling (F2/F3).
+      useChatStore.getState().setStreamAbortFn(() => ctrl.abort());
 
       setIsStreaming(true);
       setStreamError(null);

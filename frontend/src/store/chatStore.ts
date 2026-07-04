@@ -98,6 +98,12 @@ export interface ChatState {
    * re-fetch fires.
    */
   conversationsNeedRefresh: boolean;
+  /**
+   * F2/F3: stores the abort callback for the in-flight fetch so any caller
+   * (conversation switch, unmount) can abort the stream without prop-drilling.
+   * Null when no stream is in flight.
+   */
+  streamAbortFn: (() => void) | null;
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -126,6 +132,19 @@ export interface ChatActions {
   appendThink: (delta: string) => void;
   setIsStreaming: (v: boolean) => void;
   setStreamError: (error: string | null) => void;
+
+  /**
+   * F2/F3: register the abort callback for the current in-flight fetch.
+   * Called by useChatStream after creating each AbortController.
+   */
+  setStreamAbortFn: (fn: (() => void) | null) => void;
+
+  /**
+   * F2/F3: abort any in-flight stream and clear streaming state in one step.
+   * Called by ConversationList on conversation switch and by useChatStream on unmount.
+   * Safe to call when no stream is in flight (no-op).
+   */
+  abortStream: () => void;
 
   /**
    * Finalise the streaming turn on `done`:
@@ -164,11 +183,12 @@ const INITIAL: ChatState = {
   messagesLoading: false,
   messagesError: null,
   conversationsNeedRefresh: false,
+  streamAbortFn: null,
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-export const useChatStore = create<ChatStore>((set) => ({
+export const useChatStore = create<ChatStore>((set, get) => ({
   ...INITIAL,
 
   setConversations: (conversations) => set({ conversations }),
@@ -181,9 +201,7 @@ export const useChatStore = create<ChatStore>((set) => ({
     })),
   updateConversation: (id, patch) =>
     set((s) => ({
-      conversations: s.conversations.map((c) =>
-        c.id === id ? { ...c, ...patch } : c,
-      ),
+      conversations: s.conversations.map((c) => (c.id === id ? { ...c, ...patch } : c)),
     })),
   setConversationsLoading: (conversationsLoading) => set({ conversationsLoading }),
   setConversationsError: (conversationsError) => set({ conversationsError }),
@@ -201,22 +219,37 @@ export const useChatStore = create<ChatStore>((set) => ({
   setStreamError: (streamError) => set({ streamError }),
 
   finalizeTurn: (msg, usage) =>
-    set((s) => ({
-      messages: [...s.messages, msg],
-      streamingContent: "",
-      streamingThink: "",
-      isStreaming: false,
-      streamError: null,
-      lastUsage: usage,
-      activeConversationId: s.activeConversationId ?? msg.conversation_id,
-      conversationsNeedRefresh: true, // UXB-1: triggers ConversationList re-fetch for auto-title+preview
-    })),
+    set((s) => {
+      // F2: only append if the stream belongs to the currently-active conversation.
+      // A stream whose conversation was navigated away from must NEVER write into
+      // the new conversation's message list.
+      if (s.activeConversationId !== null && msg.conversation_id !== s.activeConversationId) {
+        // Discard the completed message; still clear all streaming state.
+        return {
+          streamingContent: "",
+          streamingThink: "",
+          isStreaming: false,
+          streamError: null,
+          lastUsage: usage,
+          streamAbortFn: null,
+        };
+      }
+      return {
+        messages: [...s.messages, msg],
+        streamingContent: "",
+        streamingThink: "",
+        isStreaming: false,
+        streamError: null,
+        lastUsage: usage,
+        activeConversationId: s.activeConversationId ?? msg.conversation_id,
+        conversationsNeedRefresh: true, // UXB-1: triggers ConversationList re-fetch for auto-title+preview
+        streamAbortFn: null,
+      };
+    }),
 
   updateMessageCitations: (messageId, citations) =>
     set((s) => ({
-      messages: s.messages.map((m) =>
-        m.id === messageId ? { ...m, citations } : m,
-      ),
+      messages: s.messages.map((m) => (m.id === messageId ? { ...m, citations } : m)),
     })),
 
   clearStream: () =>
@@ -224,14 +257,29 @@ export const useChatStore = create<ChatStore>((set) => ({
       streamingContent: "",
       streamingThink: "",
       isStreaming: false,
+      streamAbortFn: null,
     }),
+
+  // ── F2/F3: stream abort registration + abort action ───────────────────────
+  setStreamAbortFn: (fn) => set({ streamAbortFn: fn }),
+
+  abortStream: () => {
+    // Capture the fn before clearing it so we don't call a stale fn after reset.
+    const fn = get().streamAbortFn;
+    set({
+      streamAbortFn: null,
+      streamingContent: "",
+      streamingThink: "",
+      isStreaming: false,
+    });
+    fn?.(); // Actually abort the fetch (may throw AbortError in the stream reader)
+  },
 }));
 
 // ─── Typed selectors (I3) — import these in components, never the raw store ───
 
 // Scalars — Object.is comparison, no useShallow needed
-export const selectActiveConversationId = (s: ChatStore): string | null =>
-  s.activeConversationId;
+export const selectActiveConversationId = (s: ChatStore): string | null => s.activeConversationId;
 export const selectIsStreaming = (s: ChatStore): boolean => s.isStreaming;
 export const selectStreamError = (s: ChatStore): string | null => s.streamError;
 export const selectLastUsage = (s: ChatStore): LastUsage | null => s.lastUsage;
@@ -270,12 +318,10 @@ export const selectUpdateConversation = (s: ChatStore): ChatActions["updateConve
 export const selectSetConversationsLoading = (
   s: ChatStore,
 ): ChatActions["setConversationsLoading"] => s.setConversationsLoading;
-export const selectSetConversationsError = (
-  s: ChatStore,
-): ChatActions["setConversationsError"] => s.setConversationsError;
+export const selectSetConversationsError = (s: ChatStore): ChatActions["setConversationsError"] =>
+  s.setConversationsError;
 export const selectSetMessages = (s: ChatStore): ChatActions["setMessages"] => s.setMessages;
-export const selectAppendMessage = (s: ChatStore): ChatActions["appendMessage"] =>
-  s.appendMessage;
+export const selectAppendMessage = (s: ChatStore): ChatActions["appendMessage"] => s.appendMessage;
 export const selectSetMessagesLoading = (s: ChatStore): ChatActions["setMessagesLoading"] =>
   s.setMessagesLoading;
 export const selectSetMessagesError = (s: ChatStore): ChatActions["setMessagesError"] =>
@@ -286,15 +332,18 @@ export const selectSetIsStreaming = (s: ChatStore): ChatActions["setIsStreaming"
   s.setIsStreaming;
 export const selectFinalizeTurn = (s: ChatStore): ChatActions["finalizeTurn"] => s.finalizeTurn;
 export const selectClearStream = (s: ChatStore): ChatActions["clearStream"] => s.clearStream;
-export const selectUpdateMessageCitations = (
-  s: ChatStore,
-): ChatActions["updateMessageCitations"] => s.updateMessageCitations;
+export const selectUpdateMessageCitations = (s: ChatStore): ChatActions["updateMessageCitations"] =>
+  s.updateMessageCitations;
 // UXB-1
-export const selectConversationsNeedRefresh = (s: ChatStore): boolean =>
-  s.conversationsNeedRefresh;
+export const selectConversationsNeedRefresh = (s: ChatStore): boolean => s.conversationsNeedRefresh;
 export const selectClearConversationsNeedRefresh = (
   s: ChatStore,
 ): ChatActions["clearConversationsNeedRefresh"] => s.clearConversationsNeedRefresh;
+
+// F2/F3
+export const selectAbortStream = (s: ChatStore): ChatActions["abortStream"] => s.abortStream;
+export const selectSetStreamAbortFn = (s: ChatStore): ChatActions["setStreamAbortFn"] =>
+  s.setStreamAbortFn;
 
 // ─── Shallow-equality hooks (I3) ─────────────────────────────────────────────
 

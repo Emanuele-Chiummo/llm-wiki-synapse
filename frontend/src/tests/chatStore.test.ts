@@ -31,6 +31,8 @@ beforeEach(() => {
     conversationsError: null,
     messagesLoading: false,
     messagesError: null,
+    conversationsNeedRefresh: false,
+    streamAbortFn: null,
   });
 });
 
@@ -200,9 +202,11 @@ describe("chatStore — clearStream", () => {
 
 describe("chatStore — conversation management", () => {
   it("addConversation prepends to the list", () => {
-    useChatStore.getState().setConversations([
-      { id: "c1", vault_id: "v", title: "First", created_at: "", updated_at: "" },
-    ]);
+    useChatStore
+      .getState()
+      .setConversations([
+        { id: "c1", vault_id: "v", title: "First", created_at: "", updated_at: "" },
+      ]);
     useChatStore.getState().addConversation({
       id: "c2",
       vault_id: "v",
@@ -282,6 +286,154 @@ describe("chatStore — setStreamError", () => {
     expect(useChatStore.getState().streamError).toBe("timeout");
     useChatStore.getState().setStreamError(null);
     expect(useChatStore.getState().streamError).toBeNull();
+  });
+});
+
+// ─── F2: finalizeTurn conversation-id guard ───────────────────────────────────
+
+describe("chatStore — F2: finalizeTurn guards by conversation_id", () => {
+  it("discards the message and clears stream state when msg.conversation_id !== activeConversationId", () => {
+    // User started a stream for conv-A, then switched to conv-B.
+    useChatStore.setState({ activeConversationId: "conv-B", messages: [] });
+    useChatStore.getState().appendToken("answer for conv-A...");
+    useChatStore.getState().setIsStreaming(true);
+
+    const msgForA: ChatMessage = {
+      id: "msg-1",
+      conversation_id: "conv-A", // does NOT match activeConversationId
+      role: "assistant",
+      content: "answer for conv-A",
+      input_tokens: 10,
+      output_tokens: 5,
+      total_cost_usd: 0.001,
+      created_at: new Date().toISOString(),
+      citations: [],
+    };
+
+    useChatStore
+      .getState()
+      .finalizeTurn(msgForA, { inputTokens: 10, outputTokens: 5, totalCostUsd: 0.001 });
+
+    const state = useChatStore.getState();
+    // Message must NOT appear in conv-B's messages list.
+    expect(state.messages).toHaveLength(0);
+    // Stream state must be cleared.
+    expect(state.isStreaming).toBe(false);
+    expect(state.streamingContent).toBe("");
+    expect(state.streamingThink).toBe("");
+    // streamAbortFn cleared.
+    expect(state.streamAbortFn).toBeNull();
+    // lastUsage is still updated (billing info).
+    expect(state.lastUsage?.totalCostUsd).toBe(0.001);
+    // conversationsNeedRefresh must NOT be set for the discarded message.
+    expect(state.conversationsNeedRefresh).toBe(false);
+  });
+
+  it("appends the message normally when conversation_id matches activeConversationId", () => {
+    useChatStore.setState({ activeConversationId: "conv-A", messages: [] });
+    useChatStore.getState().appendToken("answer");
+    useChatStore.getState().setIsStreaming(true);
+
+    const msgForA: ChatMessage = {
+      id: "msg-1",
+      conversation_id: "conv-A",
+      role: "assistant",
+      content: "answer",
+      input_tokens: 10,
+      output_tokens: 5,
+      total_cost_usd: 0.001,
+      created_at: new Date().toISOString(),
+      citations: [],
+    };
+
+    useChatStore
+      .getState()
+      .finalizeTurn(msgForA, { inputTokens: 10, outputTokens: 5, totalCostUsd: 0.001 });
+
+    const state = useChatStore.getState();
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("answer");
+    expect(state.isStreaming).toBe(false);
+    expect(state.conversationsNeedRefresh).toBe(true);
+  });
+
+  it("appends normally when activeConversationId is null (first message in a new conversation)", () => {
+    // activeConversationId starts null (e.g., brand-new conversation)
+    useChatStore.setState({ activeConversationId: null, messages: [] });
+
+    const msg: ChatMessage = {
+      id: "msg-1",
+      conversation_id: "conv-new",
+      role: "assistant",
+      content: "hello",
+      input_tokens: 5,
+      output_tokens: 5,
+      total_cost_usd: 0,
+      created_at: new Date().toISOString(),
+      citations: [],
+    };
+
+    useChatStore.getState().finalizeTurn(msg, { inputTokens: 5, outputTokens: 5, totalCostUsd: 0 });
+
+    const state = useChatStore.getState();
+    expect(state.messages).toHaveLength(1);
+    // activeConversationId is adopted from the message.
+    expect(state.activeConversationId).toBe("conv-new");
+  });
+});
+
+// ─── F2/F3: abortStream action ────────────────────────────────────────────────
+
+describe("chatStore — F2/F3: abortStream action", () => {
+  it("calls the registered streamAbortFn and clears stream state", () => {
+    const mockAbort = vi.fn();
+    useChatStore.setState({
+      streamAbortFn: mockAbort,
+      isStreaming: true,
+      streamingContent: "partial",
+      streamingThink: "thinking",
+    });
+
+    useChatStore.getState().abortStream();
+
+    expect(mockAbort).toHaveBeenCalledOnce();
+    const state = useChatStore.getState();
+    expect(state.isStreaming).toBe(false);
+    expect(state.streamingContent).toBe("");
+    expect(state.streamingThink).toBe("");
+    expect(state.streamAbortFn).toBeNull();
+  });
+
+  it("is a no-op when streamAbortFn is null (no in-flight stream)", () => {
+    useChatStore.setState({ streamAbortFn: null, isStreaming: false });
+    // Should not throw.
+    expect(() => useChatStore.getState().abortStream()).not.toThrow();
+  });
+
+  it("does not call the old fn a second time if abortStream is called twice", () => {
+    const mockAbort = vi.fn();
+    useChatStore.setState({ streamAbortFn: mockAbort, isStreaming: true });
+
+    useChatStore.getState().abortStream();
+    useChatStore.getState().abortStream(); // second call — fn is already null
+
+    expect(mockAbort).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── F2/F3: setStreamAbortFn action ──────────────────────────────────────────
+
+describe("chatStore — F2/F3: setStreamAbortFn", () => {
+  it("stores the provided function", () => {
+    const fn = vi.fn();
+    useChatStore.getState().setStreamAbortFn(fn);
+    expect(useChatStore.getState().streamAbortFn).toBe(fn);
+  });
+
+  it("can be cleared to null", () => {
+    useChatStore.getState().setStreamAbortFn(vi.fn());
+    useChatStore.getState().setStreamAbortFn(null);
+    expect(useChatStore.getState().streamAbortFn).toBeNull();
   });
 });
 
