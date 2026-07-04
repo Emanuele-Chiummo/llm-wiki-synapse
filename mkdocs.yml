@@ -56,4 +56,6 @@ nav:
   - ADRs: adr/index.md
   - API Reference: api/index.md
   - Sequences: sequences/index.md
-  - Roadmap: reference/ROADMAP-v0.7-v1.0.md
+  - Roadmap:
+      - v1.3 → v2.0: reference/ROADMAP-v1.3-v2.0.md
+      - v0.7 → v1.0 (complete): reference/ROADMAP-v0.7-v1.0.md
