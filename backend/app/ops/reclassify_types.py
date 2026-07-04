@@ -58,6 +58,13 @@ _CONTENT_CHAR_CAP = 3_000
 _VALID_TYPES: tuple[str, ...] = tuple(t.value for t in PageType)
 # Reserved catalogue types — NEVER touched, in either default or force mode (K3/F3).
 _RESERVED_TYPES: frozenset[str] = frozenset({OVERVIEW_TYPE, INDEX_TYPE})
+
+# Pages already EXAMINED this process (changed, confirmed-same or failed). Without this
+# memory, confirmed-'concept' pages stay candidates forever and the updated_at-DESC head
+# is re-billed on every run (observed live: run 25 = 68 processed / 0 changed / $0.60).
+# Process-lifetime by design: a backend restart re-examines, which is safe (idempotent
+# writes) just not free. force=True clears it (explicit full re-sweep).
+_examined_ids: set[Any] = set()  # native Page.id values (UUID) — never str (Postgres uuid binds)
 # Default "suspicious" candidate types (NULL is handled separately in the query).
 _DEFAULT_CANDIDATE_TYPES: frozenset[str] = frozenset({"untyped", PageType.CONCEPT.value})
 
@@ -238,6 +245,10 @@ async def _run_inner(
         bump_version,
     )
 
+    if force:
+        # Explicit full re-sweep: forget what was examined in previous runs.
+        _examined_ids.clear()
+
     candidates = await _load_candidate_pages(vault_id, max_pages, force)
     changed_any = False
 
@@ -263,25 +274,33 @@ async def _run_inner(
             )
             if proposed is None:
                 # STRICT validation failed (malformed / out-of-vocabulary) → skip, count failed.
+                # Examined anyway: a page the model cannot type will not get better next run;
+                # force=True re-opens it.
+                _examined_ids.add(page.id)
                 summary.failed += 1
                 logger.debug("reclassify-types: page=%s no valid type (skipped)", page.id)
                 continue
             if proposed == (page.page_type or ""):
-                # Same type ⇒ no write (idempotent, counted as skipped).
+                # Same type ⇒ no write (idempotent, counted as skipped) — and EXAMINED,
+                # so the next run advances to fresh pages instead of re-billing this one.
+                _examined_ids.add(page.id)
                 summary.skipped += 1
                 continue
             await apply_page_type(page, proposed)
+            _examined_ids.add(page.id)
             changed_any = True
             summary.changed += 1
             summary.by_type[proposed] = summary.by_type.get(proposed, 0) + 1
             logger.debug("reclassify-types: page=%s type=%s", page.id, proposed)
-        except Exception as exc:  # noqa: BLE001 — per-page non-fatal
+        except Exception as exc:  # noqa: BLE001 — per-page non-fatal (NOT examined: retryable)
             summary.failed += 1
             logger.warning(
                 "reclassify-types: classification failed for page=%s (skipped): %s", page.id, exc
             )
     else:
-        # for-loop completed without break → all candidates processed.
+        # for-loop completed without break → all candidates processed. With the examined-set
+        # exclusion, an EMPTY candidate list means the sweep is genuinely done (complete);
+        # a full page means there may be more (maxpages).
         if summary.stopped_reason == "complete" and len(candidates) >= max_pages:
             summary.stopped_reason = "maxpages"
 
@@ -447,6 +466,10 @@ async def _load_candidate_pages(vault_id: str, max_pages: int, force: bool) -> l
                 Page.page_type.in_(tuple(_DEFAULT_CANDIDATE_TYPES)),
             )
         )
+    if _examined_ids:
+        # Skip pages already examined this process — the fix for the observed
+        # stuck loop (same updated_at-DESC head re-billed every run).
+        filters.append(Page.id.not_in(tuple(_examined_ids)))
 
     async with get_session() as session:
         rows = list(
