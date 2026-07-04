@@ -963,6 +963,14 @@
     "startMarkerConfigHint": "Inserisci il comando shell per avviare il microservizio Marker. Salvato localmente su questa macchina.",
     "startMarkerConfigCancel": "Annulla"
   },
+  "panels": {
+    "expandPanel": "Espandi pannello",
+    "collapsePanel": "Comprimi pannello",
+    "expand": "Espandi",
+    "collapse": "Comprimi",
+    "openTree": "Apri albero wiki",
+    "openPreview": "Apri dettagli pagina"
+  },
   "common": {
     "loading": "Caricamento…",
     "retry": "Riprova",

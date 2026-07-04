@@ -963,6 +963,14 @@
     "startMarkerConfigHint": "Enter the shell command to launch the Marker microservice. Saved locally on this machine only.",
     "startMarkerConfigCancel": "Cancel"
   },
+  "panels": {
+    "expandPanel": "Expand panel",
+    "collapsePanel": "Collapse panel",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "openTree": "Open wiki tree",
+    "openPreview": "Open page details"
+  },
   "common": {
     "loading": "Loading…",
     "retry": "Retry",
