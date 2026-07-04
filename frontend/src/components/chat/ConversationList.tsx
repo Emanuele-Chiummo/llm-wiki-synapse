@@ -123,8 +123,14 @@ export function ConversationList(): ReactNode {
     try {
       const res = await fetchConversations({ vault_id: vaultId }, ctrl.signal);
       setConversations(res.items);
-      // AC-F6-1: restore last active conversation (most-recently updated)
-      if (!activeId && res.items.length > 0) {
+      // AC-F6-1: restore last active conversation (most-recently updated).
+      // F5 fix: read activeConversationId from the store at execution time via
+      // getState() — NOT from the closure captured at callback-creation time.
+      // The closure only has [vaultId] in deps, so `activeId` (from the outer render)
+      // would be stale after a completed turn sets it; that stale null would cause
+      // every UXB-1 refresh to yank selection back to items[0].
+      const currentActiveId = useChatStore.getState().activeConversationId;
+      if (!currentActiveId && res.items.length > 0) {
         const first = res.items[0];
         if (first) {
           setActiveId(first.id);

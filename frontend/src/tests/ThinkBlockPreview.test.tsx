@@ -100,17 +100,10 @@ describe("ThinkBlock — R7-9 streaming preview", () => {
   // ── 5. Preview updates on content prop change ──────────────────────────────
 
   it("updates preview when new content arrives (chunk boundary)", () => {
-    const { rerender } = render(
-      <ThinkBlock content="Line 1\nLine 2\nLine 3" streaming={true} />,
-    );
+    const { rerender } = render(<ThinkBlock content="Line 1\nLine 2\nLine 3" streaming={true} />);
 
     // Chunk arrives — re-render with more content
-    rerender(
-      <ThinkBlock
-        content="Line 1\nLine 2\nLine 3\nLine 4 — new chunk"
-        streaming={true}
-      />,
-    );
+    rerender(<ThinkBlock content="Line 1\nLine 2\nLine 3\nLine 4 — new chunk" streaming={true} />);
 
     const preview = screen.getByTestId("think-preview");
     expect(preview.textContent).toContain("Line 4 — new chunk");
@@ -159,5 +152,35 @@ describe("ThinkBlock — R7-9 streaming preview", () => {
     expect(text).toContain("Fourth");
     // "First" is pushed out by the 3-line window
     expect(text).not.toContain("First");
+  });
+
+  // ── 10. F7: hooks order safety — empty→non-empty rerender does not crash ───
+  //
+  // Regression guard: before the F7 fix, useMemo was placed AFTER a conditional
+  // early-return (`if (!content) return null`), violating Rules of Hooks. This
+  // caused React to throw on the second render when content transitioned from ""
+  // to a non-empty string (hooks count changed between renders).
+  //
+  // After the fix (useMemo moved above all early-returns), both renders go through
+  // the same set of hooks unconditionally. This test verifies:
+  //   a. Empty content renders without error (early-return path)
+  //   b. Rerender with non-empty content also renders without error
+  //   c. The preview is visible after the content arrives (behavior unchanged)
+
+  it("re-renders from empty to non-empty content without hooks violation (F7)", () => {
+    // Mount with empty content → should hit the `if (!content) return null` path
+    const { rerender } = render(<ThinkBlock content="" streaming={true} />);
+
+    // Nothing should be in the DOM for an empty think block
+    expect(screen.queryByTestId("think-preview")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+
+    // Simulate content arriving (stream delivers first chunk)
+    rerender(<ThinkBlock content="Line 1\nLine 2" streaming={true} />);
+
+    // Preview should now appear (streaming + collapsed + non-empty content)
+    expect(screen.getByTestId("think-preview")).toBeDefined();
+    const preview = screen.getByTestId("think-preview");
+    expect(preview.textContent).toContain("Line 2");
   });
 });

@@ -24,8 +24,7 @@ import { useTranslation } from "react-i18next";
 // ─── prefers-reduced-motion detection (module level, stable reference) ────────
 
 const reducedMotion: boolean =
-  typeof window !== "undefined" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // ─── VITE_SHOW_THINKING gate ──────────────────────────────────────────────────
 
@@ -51,18 +50,21 @@ export function ThinkBlock({ content, streaming = false }: ThinkBlockProps): Rea
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
 
-  // Env gate: when VITE_SHOW_THINKING is absent or "false", never render.
-  if (!SHOW_THINKING) return null;
-  if (!content) return null;
-
   // R7-9: rolling preview — last 3 lines of the think buffer (collapsed + streaming only).
   // Computed from the buffered prop string: no per-token overhead.
   // useMemo key: content string (changes on each chunk boundary, not per-token).
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  //
+  // F7 fix: this useMemo MUST appear before any conditional return to satisfy
+  // Rules of Hooks (hooks must always be called in the same order, unconditionally).
+  // When content is empty or the env gate is off the result is "" — harmless.
   const previewText = useMemo(
-    () => (streaming && !open ? lastLines(content, reducedMotion ? 1 : 3) : ""),
+    () => (content && streaming && !open ? lastLines(content, reducedMotion ? 1 : 3) : ""),
     [content, streaming, open],
   );
+
+  // Env gate: when VITE_SHOW_THINKING is absent or "false", never render.
+  if (!SHOW_THINKING) return null;
+  if (!content) return null;
 
   const showPreview = streaming && !open && previewText.length > 0;
 
@@ -181,8 +183,7 @@ export function ThinkBlock({ content, streaming = false }: ThinkBlockProps): Rea
               fontSize: 10,
               lineHeight: 1.4,
               color: "var(--syn-text-dim)",
-              fontFamily:
-                "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace",
+              fontFamily: "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace",
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
               opacity: 0.75,

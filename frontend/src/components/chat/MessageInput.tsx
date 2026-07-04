@@ -11,7 +11,14 @@
  * - Pre-fillable by ScenarioTemplates (F1) via the `initialValue` prop.
  */
 
-import { useState, useRef, useCallback, useEffect, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useProviderStore, selectActiveProvider } from "../../store/providerStore";
 
@@ -71,6 +78,9 @@ export function MessageInput({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
+        // F4: guard against key auto-repeat — holding Enter fires repeated keydown
+        // events; only the first one should trigger send.
+        if (e.repeat) return;
         e.preventDefault();
         handleSend();
       }
@@ -116,7 +126,9 @@ export function MessageInput({
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={isInputDisabled}
-          placeholder={isStreaming ? t("chat.inputPlaceholderStreaming") : t("chat.inputPlaceholder")}
+          placeholder={
+            isStreaming ? t("chat.inputPlaceholderStreaming") : t("chat.inputPlaceholder")
+          }
           rows={1}
           aria-label={t("chat.inputLabel")}
           className="chat-input-textarea"
@@ -170,13 +182,7 @@ export function MessageInput({
             }}
           >
             {/* Stop icon */}
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-            >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <rect x="3" y="3" width="18" height="18" rx="2" />
             </svg>
             {t("chat.stop")}
@@ -193,7 +199,8 @@ export function MessageInput({
             style={{
               flexShrink: 0,
               padding: "8px 14px",
-              background: value.trim() && !isInputDisabled ? "var(--syn-accent)" : "var(--syn-border)",
+              background:
+                value.trim() && !isInputDisabled ? "var(--syn-accent)" : "var(--syn-border)",
               border: "none",
               borderRadius: 6,
               color: value.trim() && !isInputDisabled ? "#fff" : "var(--syn-text-dim)",
@@ -227,9 +234,7 @@ export function MessageInput({
         )}
       </div>
 
-      <div style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
-        {t("chat.inputHint")}
-      </div>
+      <div style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>{t("chat.inputHint")}</div>
     </div>
   );
 }
