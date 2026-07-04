@@ -110,9 +110,7 @@ export function ConversationList(): ReactNode {
   const filteredConversations = useMemo(() => {
     const q = filter.toLowerCase().trim();
     if (!q) return conversations;
-    return conversations.filter((c) =>
-      (c.title ?? "").toLowerCase().includes(q),
-    );
+    return conversations.filter((c) => (c.title ?? "").toLowerCase().includes(q));
   }, [conversations, filter]);
 
   // Fetch conversation list
@@ -173,6 +171,10 @@ export function ConversationList(): ReactNode {
 
   const handleSelect = useCallback(
     (conv: ConversationSummary) => {
+      // F2: abort any in-flight stream before switching conversations. Without this,
+      // the stream's finalizeTurn would target the new conversation's messages list.
+      // store.abortStream() also clears isStreaming so the UI updates immediately.
+      useChatStore.getState().abortStream();
       setActiveId(conv.id);
       setMessages([]);
       void loadMessages(conv.id);
@@ -256,7 +258,15 @@ export function ConversationList(): ReactNode {
           flexShrink: 0,
         }}
       >
-        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--syn-text-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
           {t("chat.conversations")}
         </span>
         <button
@@ -512,10 +522,18 @@ function ConvItem({
         <button
           type="button"
           data-testid="conv-rename-commit-btn"
-          onClick={() => { void commitRename(); }}
+          onClick={() => {
+            void commitRename();
+          }}
           title={t("chat.renameCommit")}
           aria-label={t("chat.renameCommit")}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--syn-accent)", padding: "2px" }}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--syn-accent)",
+            padding: "2px",
+          }}
         >
           <Check size={12} aria-hidden="true" />
         </button>
@@ -525,7 +543,13 @@ function ConvItem({
           onClick={cancelRename}
           title={t("chat.renameCancel")}
           aria-label={t("chat.renameCancel")}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--syn-text-dim)", padding: "2px" }}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--syn-text-dim)",
+            padding: "2px",
+          }}
         >
           <X size={12} aria-hidden="true" />
         </button>
