@@ -263,10 +263,15 @@ async def run_one_scan(cfg: object) -> tuple[int, str, str | None]:
 class _ClockProtocol(Protocol):
     async def sleep(self, seconds: float) -> None: ...
 
+    def now(self) -> datetime: ...
+
 
 class _RealClock:
     async def sleep(self, seconds: float) -> None:
         await asyncio.sleep(seconds)
+
+    def now(self) -> datetime:
+        return datetime.now(UTC)
 
 
 class ImportScheduler:
@@ -294,6 +299,27 @@ class ImportScheduler:
         self._stopping: bool = False
         self._scan_in_flight: bool = False
         self._task: asyncio.Task[None] | None = None
+        # Last successful scan timestamp (R13-4 / T4).
+        # Populated by initialize() from app_config at startup; updated after each
+        # successful scan so the _run() loop computes remaining sleep correctly.
+        self._last_run_at: datetime | None = None
+
+    async def initialize(self) -> None:
+        """
+        Load the persisted last-run timestamp from app_config (R13-4 / T4).
+
+        Must be called BEFORE start() so the first sleep in _run() is shortened by
+        the time already elapsed since the last scan (prevents immediate re-scan on
+        container restart). Non-fatal: any DB error leaves _last_run_at as None.
+        """
+        from app.scheduler_state import load_scheduler_ts  # noqa: PLC0415
+
+        ts = await load_scheduler_ts("import_scheduler.last_run")
+        if ts is not None:
+            self._last_run_at = ts
+            logger.info("ImportScheduler: loaded persisted last_run_at: %s", ts.isoformat())
+        else:
+            logger.debug("ImportScheduler: no persisted state — treating as never run")
 
     def start(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
         """Start the background scheduler task. Safe to call multiple times (idempotent)."""
@@ -379,11 +405,22 @@ class ImportScheduler:
 
             enabled: bool = getattr(cfg, "enabled", False) if cfg is not None else False
             frequency: str = getattr(cfg, "frequency", "1h") if cfg is not None else "1h"
-            interval = FREQ_SECONDS.get(frequency, 3_600) if enabled else _IDLE_POLL_SECONDS
+            full_interval = FREQ_SECONDS.get(frequency, 3_600) if enabled else _IDLE_POLL_SECONDS
 
-            # Sleep the full interval (injectable for tests)
+            # Compute remaining sleep time (R13-4 / T4).
+            # On the first iteration after startup, account for time already elapsed
+            # since the last successful scan (from _last_run_at, loaded by initialize()).
+            # This prevents an immediate re-scan after a container restart.
+            # Use self._clock.now() so tests with a mock clock control the perceived time.
+            if enabled and self._last_run_at is not None:
+                clock_now = self._clock.now()
+                elapsed = (clock_now - self._last_run_at).total_seconds()
+                sleep_secs = max(0.0, full_interval - elapsed)
+            else:
+                sleep_secs = full_interval
+
             try:
-                await self._clock.sleep(interval)
+                await self._clock.sleep(sleep_secs)
             except asyncio.CancelledError:
                 break
 
@@ -414,14 +451,23 @@ class ImportScheduler:
                     updated_at=datetime.now(UTC),
                 )
                 imported_count, status, error = await self._scan_fn(cfg)
+                run_at = self._clock.now()
                 await upsert_schedule(
                     settings.vault_id,
-                    last_run_at=datetime.now(UTC),
+                    last_run_at=run_at,
                     last_status=status,
                     last_imported_count=imported_count,
                     last_error=error,
-                    updated_at=datetime.now(UTC),
+                    updated_at=run_at,
                 )
+                # Persist last-run timestamp on success (R13-4 / T4).
+                self._last_run_at = run_at
+                try:
+                    from app.scheduler_state import save_scheduler_ts  # noqa: PLC0415
+
+                    await save_scheduler_ts("import_scheduler.last_run", run_at)
+                except Exception as _ts_exc:  # noqa: BLE001
+                    logger.debug("ImportScheduler: failed to persist last_run_at: %s", _ts_exc)
             except asyncio.CancelledError:
                 self._scan_in_flight = False
                 raise

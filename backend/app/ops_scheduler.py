@@ -180,6 +180,32 @@ class OpsScheduler:
             self._task.cancel()
         logger.info("OpsScheduler stopped")
 
+    async def initialize(self) -> None:
+        """
+        Load persisted last-run timestamps from app_config (R13-4 / T4).
+
+        Must be called BEFORE start() so the first-tick due-check uses the correct
+        last_run_at values and does not re-run ops that completed before the restart.
+        Non-fatal: any DB error leaves state as None ("never run" — safe fallback).
+        """
+        from app.scheduler_state import load_scheduler_ts  # noqa: PLC0415
+
+        for op in _OP_NAMES:
+            key = f"ops_scheduler.last_run.{op}"
+            ts = await load_scheduler_ts(key)
+            if ts is not None:
+                self._state[op].last_run_at = ts
+                logger.info(
+                    "OpsScheduler: loaded persisted last_run_at for op=%s: %s",
+                    op,
+                    ts.isoformat(),
+                )
+            else:
+                logger.debug(
+                    "OpsScheduler: no persisted state for op=%s — treating as never run",
+                    op,
+                )
+
     # ── Per-op state accessors ────────────────────────────────────────────────
 
     def get_state(self, op: OpName) -> OpState:
@@ -292,6 +318,7 @@ class OpsScheduler:
         state = self._state[op]
         state.in_flight = True
         logger.info("ops_scheduler: starting op=%s", op)
+        _succeeded = False
         try:
             if op == "lint":
                 await self._lint_fn()
@@ -302,14 +329,23 @@ class OpsScheduler:
             else:
                 await self._reclassify_fn()
             state.last_status = "ok"
+            _succeeded = True
             logger.info("ops_scheduler: op=%s completed (status=ok)", op)
         except Exception as exc:  # noqa: BLE001 — never crash the scheduler loop (I7)
             msg = str(exc)
             state.last_status = f"error:{msg[:120]}"
             logger.error("ops_scheduler: op=%s failed: %s", op, exc)
         finally:
-            state.last_run_at = self._clock.now()
+            now = self._clock.now()
+            state.last_run_at = now
             state.in_flight = False
+            # Persist last-run timestamp on success only (R13-4 / T4).
+            # Failed runs do not update the persisted timestamp so the op will be
+            # re-attempted on the next tick (fail-open retry semantics).
+            if _succeeded:
+                from app.scheduler_state import save_scheduler_ts  # noqa: PLC0415
+
+                await save_scheduler_ts(f"ops_scheduler.last_run.{op}", now)
 
 
 # ── Default op implementations ────────────────────────────────────────────────
