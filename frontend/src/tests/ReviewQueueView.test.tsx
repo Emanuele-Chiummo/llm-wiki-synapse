@@ -89,7 +89,7 @@ vi.mock("react-i18next", () => ({
         "review.conflictsWith": "Conflicts with",
         "review.referencedPages": "Related pages",
         "review.willSearch": "will search",
-        "review.sweep": "Clean up resolved",
+        "review.sweep": "Auto-resolve",
         "review.sweepHelp": "Run auto-resolution sweep.",
         "review.sweepResult": `Sweep complete: ${String(params?.rule ?? 0)} rule-resolved, ${String(params?.llm ?? 0)} LLM-resolved, ${String(params?.kept ?? 0)} kept pending.`,
         "review.bulkResult": `Bulk action complete: ${String(params?.updated ?? 0)} updated, ${String(params?.skipped ?? 0)} already resolved.`,

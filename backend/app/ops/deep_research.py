@@ -254,9 +254,20 @@ async def run_deep_research(
 
         # ── Single terminal synthesize (ADR-0024 §3.2 — runs for all terminal statuses) ──
         # NOTE: status "error" falls through to the finally block below (no synthesize).
+        # GUARD: only synthesize + ingest when at least one source was collected.
+        # With zero sources the synthesis prompt degrades into a conversational
+        # non-answer that must NOT be ingested as a wiki page (would create noise).
         if status in ("converged", "max_iter_reached", "budget_exhausted"):
-            synthesis_md = await _synthesize(provider, topic, collected)
-            synthesis_page_id = await _ingest_synthesis(run_id, vault_id, synthesis_md, topic)
+            if collected:
+                synthesis_md = await _synthesize(provider, topic, collected)
+                synthesis_page_id = await _ingest_synthesis(run_id, vault_id, synthesis_md, topic)
+            else:
+                logger.info(
+                    "deep_research run_id=%s: 0 sources collected — skipping synthesis/ingest "
+                    "(no wiki page created; topic=%r)",
+                    run_id,
+                    topic,
+                )
 
     except Exception as exc:  # noqa: BLE001
         # Terminal error path — always write "error" status (Do-NOT #7, AC-F10-2b)

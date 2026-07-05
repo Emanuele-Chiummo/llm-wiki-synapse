@@ -456,6 +456,71 @@ async def test_max_iter_reached_terminates_at_exactly_max_iter() -> None:
     ), f"status must be 'max_iter_reached'; got {result.status!r}"
 
 
+# ── T-DR-002b: zero sources → NO synthesis, NO page created (B2 regression) ───
+
+
+@pytest.mark.asyncio
+async def test_zero_sources_skips_synthesis_and_page() -> None:
+    """
+    B2 regression: when the loop collects zero sources (e.g. SearXNG returns
+    nothing / is unreachable), the terminal step MUST NOT synthesize or ingest a
+    page — otherwise the degraded synthesis prompt yields a conversational
+    non-answer that gets ingested as a junk wiki page.
+    """
+    synth_calls: list[int] = [0]
+    ingest_calls: list[int] = [0]
+
+    from app.ops.deep_research import Sufficiency
+
+    async def _mock_synth(p: Any, topic: str, collected: list[Any]) -> str:
+        synth_calls[0] += 1
+        return "synthesis"
+
+    async def _mock_ingest(run_id: Any, vault_id: str, md: str, topic: str) -> uuid.UUID:
+        ingest_calls[0] += 1
+        return uuid.uuid4()
+
+    async def _mock_create_run(**kwargs: Any) -> Any:
+        run = MagicMock()
+        run.id = uuid.uuid4()
+        run.max_iter = 3
+        run.token_budget = 100_000
+        return run
+
+    with (
+        patch("app.ops.deep_research._generate_queries", new=AsyncMock(return_value=["q1"])),
+        patch(
+            "app.ops.deep_research._search_searxng",
+            new=AsyncMock(return_value=_make_search_hits(0)),
+        ),
+        # No sources fetched at any iteration → collected stays empty.
+        patch("app.ops.deep_research._fetch_and_extract", new=AsyncMock(return_value=[])),
+        patch(
+            "app.ops.deep_research._assess_sufficiency",
+            new=AsyncMock(return_value=Sufficiency(sufficient=False, gaps=["need more"])),
+        ),
+        patch("app.ops.deep_research._synthesize", side_effect=_mock_synth),
+        patch("app.ops.deep_research._ingest_synthesis", side_effect=_mock_ingest),
+        patch("app.ops.deep_research._create_run_row", side_effect=_mock_create_run),
+        patch("app.ops.deep_research._update_run_iterations", new=AsyncMock()),
+        patch("app.ops.deep_research._update_run_sources", new=AsyncMock()),
+        patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
+        patch("app.ops.deep_research._finalize_run_row", new=AsyncMock()),
+        patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
+        patch("app.ops.deep_research._resolve_provider", new=AsyncMock(return_value=MagicMock())),
+    ):
+        from app.ops.deep_research import run_deep_research
+
+        result = await run_deep_research(
+            vault_id="test", topic="topic", max_iter=3, token_budget=100_000
+        )
+
+    assert result.sources_fetched == 0
+    assert synth_calls[0] == 0, "must NOT synthesize when zero sources collected"
+    assert ingest_calls[0] == 0, "must NOT ingest a page when zero sources collected"
+    assert result.synthesis_page_id is None, "no page must be created on zero sources"
+
+
 # ── T-DR-003: status is set correctly (not "running") ─────────────────────────
 
 

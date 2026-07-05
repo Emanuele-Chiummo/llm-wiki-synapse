@@ -57,6 +57,10 @@ vi.mock("../api/base", () => ({
   authHeaders: () => ({}),
   register401Handler: vi.fn(),
   isTauri: () => false,
+  // Step 1 now persists the entered backend URL via these helpers.
+  setServerUrl: vi.fn(),
+  clearServerUrl: vi.fn(),
+  getLastServerUrl: () => null,
 }));
 
 // ─── Mock appConfigClient — putAppConfig is the sanctioned PDF write path ─────

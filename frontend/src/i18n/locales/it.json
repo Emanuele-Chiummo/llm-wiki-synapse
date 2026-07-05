@@ -620,7 +620,7 @@
     "deepResearchStarted": "Ricerca approfondita avviata.",
     "viewRun": "Visualizza esecuzione",
     "searxngUnavailable": "Ricerca approfondita non disponibile: SEARXNG_URL non configurato nel backend.",
-    "sweep": "Pulisci risolti",
+    "sweep": "Auto-risolvi",
     "sweepHelp": "Avvia la scansione di auto-risoluzione: chiude le proposte di pagine mancanti e duplicati la cui pagina ora esiste, e chiede opzionalmente all'LLM di chiudere suggerimenti obsoleti.",
     "sweepResult": "Scansione completata: {{rule}} risolti per regola, {{llm}} risolti da LLM, {{kept}} rimasti in attesa.",
     "bulkResult": "Azione collettiva completata: {{updated}} aggiornati, {{skipped}} già risolti.",
@@ -1146,7 +1146,8 @@
       "ok": "Il backend è raggiungibile.",
       "errNotOk": "Il backend ha restituito lo stato {{status}}. Controlla che il servizio sia in esecuzione.",
       "errUnknown": "Impossibile raggiungere il backend. Controlla l'URL in Impostazioni › Sicurezza.",
-      "relativeOrigin": "(stessa origine)"
+      "relativeOrigin": "(stessa origine)",
+      "urlHelp": "Lascia vuoto per usare la stessa origine di questa pagina. Inserisci un URL http:// o https:// per puntare a un backend diverso."
     },
     "step2": {
       "title": "Scegli un provider di inferenza",
