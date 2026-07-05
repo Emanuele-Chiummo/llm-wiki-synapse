@@ -195,15 +195,17 @@ jobs:
       - name: Wait for services to be healthy
         run: |
           set +e
+          # Health checks rely on exit codes, not on parsing human-readable
+          # output: pg_isready's message format is "host:port - accepting
+          # connections" (not stable to string-compare), and Qdrant serves
+          # /healthz (plain 200) — /health does not exist (404).
           for i in {1..60}; do
-            # Check postgres
-            pg_ready=$(docker compose -f docker-compose.ci.yml exec -T postgres pg_isready -U synapse -d synapse 2>/dev/null)
-            # Check qdrant
-            qdrant_ready=$(curl -s http://localhost:6333/health | grep -q '"ok"' && echo "ok")
-            # Check fake-embeddings
-            embeddings_ready=$(curl -s http://localhost:11435/health | grep -q '"status":"ok"' && echo "ok")
+            ok=1
+            docker compose -f docker-compose.ci.yml exec -T postgres pg_isready -U synapse -d synapse >/dev/null 2>&1 || ok=0
+            curl -sf http://localhost:6333/healthz >/dev/null || ok=0
+            curl -sf http://localhost:11435/health >/dev/null || ok=0
 
-            if [ "$pg_ready" = "synapse is accepting connections" ] && [ -n "$qdrant_ready" ] && [ -n "$embeddings_ready" ]; then
+            if [ "$ok" -eq 1 ]; then
               echo "All services are healthy"
               exit 0
             fi
