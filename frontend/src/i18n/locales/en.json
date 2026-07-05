@@ -160,7 +160,6 @@
       "appearance": "Appearance",
       "setup": "Setup",
       "providers": "Providers",
-      "scenarios": "Scenarios",
       "context": "Context window",
       "embeddings2": "Embeddings",
       "webSearch2": "Web search",
@@ -519,6 +518,7 @@
   "chat": {
     "title": "Chat",
     "conversations": "Conversations",
+    "showConversations": "Show conversations",
     "newConversation": "New conversation",
     "untitled": "Untitled",
     "noConversations": "No conversations yet. Click + to start.",

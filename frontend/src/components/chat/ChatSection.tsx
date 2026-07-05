@@ -16,17 +16,29 @@
  * Context window comes from settingsStore (F14).
  */
 
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useChatStore, selectActiveConversationId, selectIsStreaming, selectMessages } from "../../store/chatStore";
+import { MessagesSquare } from "lucide-react";
+import {
+  useChatStore,
+  selectActiveConversationId,
+  selectIsStreaming,
+  selectMessages,
+} from "../../store/chatStore";
 import type { ChatMessage } from "../../store/chatStore";
 import { useGraphStore, selectVaultId, selectSetActiveSection } from "../../store/graphStore";
-import { useSettingsStore, selectContextWindow, selectConversationHistoryLength } from "../../store/settingsStore";
+import {
+  useSettingsStore,
+  selectContextWindow,
+  selectConversationHistoryLength,
+} from "../../store/settingsStore";
 import { useChatStream } from "./useChatStream";
 import { buildMessagePayload } from "./buildMessagePayload";
 import { ConversationList } from "./ConversationList";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
+import { PanelDrawer } from "../panels/PanelDrawer";
+import { useViewport } from "../../hooks/useViewport";
 import { EmptyState } from "../common/EmptyState";
 import { useProviderConfigured } from "../../hooks/useProviderConfigured";
 import type { ChatStreamRequest } from "../../api/chatClient";
@@ -44,6 +56,13 @@ export function ChatSection(): ReactNode {
   const historyLength = useSettingsStore(selectConversationHistoryLength);
 
   const { send, abort } = useChatStream();
+
+  // ADR-0057 §3: on mobile the conversation list lives in a left drawer
+  // (the fixed 220px column would eat half an iPhone screen).
+  const viewport = useViewport();
+  const isMobile = viewport === "mobile";
+  const [convDrawerOpen, setConvDrawerOpen] = useState(false);
+  const closeConvDrawer = useCallback(() => setConvDrawerOpen(false), []);
 
   // Provider gate (P0): check once on mount whether a provider is configured.
   // Show nothing until resolved (no flicker), then either the gate or the normal view.
@@ -85,13 +104,25 @@ export function ChatSection(): ReactNode {
 
       send(req);
     },
-    [isStreaming, activeConversationId, messages, vaultId, contextWindow, historyLength, appendMessage, send],
+    [
+      isStreaming,
+      activeConversationId,
+      messages,
+      vaultId,
+      contextWindow,
+      historyLength,
+      appendMessage,
+      send,
+    ],
   );
 
   const handleRegenerate = useCallback(() => {
     if (isStreaming) return;
     // Find the last user message to re-send
-    const lastUserIdx = messages.slice().reverse().findIndex((m) => m.role === "user");
+    const lastUserIdx = messages
+      .slice()
+      .reverse()
+      .findIndex((m) => m.role === "user");
     if (lastUserIdx === -1) return;
     const lastUser = messages[messages.length - 1 - lastUserIdx];
     if (!lastUser) return;
@@ -119,7 +150,13 @@ export function ChatSection(): ReactNode {
   if (providerLoading || configured === null) {
     return (
       <div
-        style={{ flex: 1, display: "flex", width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        style={{
+          flex: 1,
+          display: "flex",
+          width: "100%",
+          height: "100%",
+          background: "var(--syn-bg)",
+        }}
         data-testid="section-chat"
       />
     );
@@ -129,7 +166,15 @@ export function ChatSection(): ReactNode {
   if (!configured) {
     return (
       <div
-        style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+          height: "100%",
+          background: "var(--syn-bg)",
+        }}
         data-testid="section-chat"
       >
         <EmptyState
@@ -160,18 +205,31 @@ export function ChatSection(): ReactNode {
       }}
       data-testid="section-chat"
     >
-      {/* Left: conversation list */}
-      <div
-        style={{
-          width: 220,
-          flexShrink: 0,
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <ConversationList />
-      </div>
+      {/* Left: conversation list — fixed column on tablet/desktop, drawer on mobile */}
+      {!isMobile && (
+        <div
+          style={{
+            width: 220,
+            flexShrink: 0,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <ConversationList />
+        </div>
+      )}
+
+      {isMobile && (
+        <PanelDrawer
+          open={convDrawerOpen}
+          side="left"
+          onClose={closeConvDrawer}
+          label={t("chat.conversations")}
+        >
+          <ConversationList onConversationSelected={closeConvDrawer} />
+        </PanelDrawer>
+      )}
 
       {/* Center: message area */}
       <div
@@ -191,8 +249,34 @@ export function ChatSection(): ReactNode {
             fontSize: 13,
             color: "var(--syn-text-muted)",
             flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
           }}
         >
+          {isMobile && (
+            <button
+              type="button"
+              data-testid="chat-conversations-drawer-btn"
+              onClick={() => setConvDrawerOpen(true)}
+              aria-label={t("chat.showConversations")}
+              title={t("chat.showConversations")}
+              style={{
+                background: "none",
+                border: "1px solid var(--syn-border)",
+                borderRadius: 6,
+                color: "var(--syn-text-muted)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "8px",
+                flexShrink: 0,
+              }}
+            >
+              <MessagesSquare size={18} aria-hidden="true" />
+            </button>
+          )}
           {t("chat.title")}
         </div>
 
@@ -200,11 +284,7 @@ export function ChatSection(): ReactNode {
         <MessageList onRegenerate={handleRegenerate} onSend={handleSend} />
 
         {/* Input (plain textarea, I4) */}
-        <MessageInput
-          onSend={handleSend}
-          onStop={abort}
-          isStreaming={isStreaming}
-        />
+        <MessageInput onSend={handleSend} onStop={abort} isStreaming={isStreaming} />
       </div>
     </div>
   );

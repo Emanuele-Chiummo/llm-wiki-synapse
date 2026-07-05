@@ -138,9 +138,7 @@ export function MessageList({ onRegenerate, onSend }: MessageListProps): ReactNo
       }}
       data-testid="message-list"
     >
-      {messages.length === 0 && !isStreaming && (
-        <ChatEmptyState onSend={onSend} t={t} />
-      )}
+      {messages.length === 0 && !isStreaming && <ChatEmptyState onSend={onSend} t={t} />}
 
       {/* Virtualized settled messages */}
       {messages.length > 0 && (
@@ -177,7 +175,9 @@ export function MessageList({ onRegenerate, onSend }: MessageListProps): ReactNo
                   isLast={isLast}
                   onRegenerate={isLast && msg.role === "assistant" ? onRegenerate : undefined}
                   showCost={isLast && msg.role === "assistant" && lastUsage !== null}
-                  costUsd={isLast ? (lastUsage?.totalCostUsd ?? msg.total_cost_usd) : msg.total_cost_usd}
+                  costUsd={
+                    isLast ? (lastUsage?.totalCostUsd ?? msg.total_cost_usd) : msg.total_cost_usd
+                  }
                   vaultId={vaultId}
                   conversationId={activeConversationId}
                   onCitationClick={handleCitationClick}
@@ -219,11 +219,7 @@ type SaveState =
  * message. Falls back to the first line of the assistant content, then to a generic
  * fallback string. Trims to 80 chars max.
  */
-function deriveSaveTitle(
-  msg: ChatMessage,
-  msgIndex: number,
-  allMessages: ChatMessage[],
-): string {
+function deriveSaveTitle(msg: ChatMessage, msgIndex: number, allMessages: ChatMessage[]): string {
   // Search backwards for a user message preceding this assistant message
   for (let i = msgIndex - 1; i >= 0; i--) {
     const candidate = allMessages[i];
@@ -233,11 +229,12 @@ function deriveSaveTitle(
     }
   }
   // Fallback: first line of the assistant content (strip <think> preamble)
-  const firstLine = msg.content
-    .replace(/<think>[\s\S]*?<\/think>/gi, "")
-    .trim()
-    .split("\n")[0]
-    ?.trim() ?? "";
+  const firstLine =
+    msg.content
+      .replace(/<think>[\s\S]*?<\/think>/gi, "")
+      .trim()
+      .split("\n")[0]
+      ?.trim() ?? "";
   return firstLine.length > 80 ? firstLine.slice(0, 80) : firstLine || "Saved answer";
 }
 
@@ -287,9 +284,7 @@ const MessageRow = memo(function MessageRow({
       const title = deriveSaveTitle(msg, msgIndex, allMessages);
       // Collect source page-ids from citations if available
       const sources =
-        msg.citations && msg.citations.length > 0
-          ? msg.citations.map((c) => c.id)
-          : undefined;
+        msg.citations && msg.citations.length > 0 ? msg.citations.map((c) => c.id) : undefined;
       const result = await saveToWikiV2({
         title,
         content: msg.content,
@@ -412,14 +407,11 @@ interface ChatEmptyStateProps {
 }
 
 function ChatEmptyState({ onSend, t }: ChatEmptyStateProps): ReactNode {
-  const chips = [
-    t("chat.examples.q1"),
-    t("chat.examples.q2"),
-    t("chat.examples.q3"),
-  ] as const;
+  const chips = [t("chat.examples.q1"), t("chat.examples.q2"), t("chat.examples.q3")] as const;
 
   return (
     <div
+      className="chat-empty-state"
       data-testid="chat-empty-state"
       style={{
         display: "flex",
@@ -457,6 +449,7 @@ function ChatEmptyState({ onSend, t }: ChatEmptyStateProps): ReactNode {
 
       {/* Example-question chips */}
       <div
+        className="chat-empty-prompts"
         data-testid="chat-example-chips"
         style={{
           display: "flex",
@@ -470,6 +463,7 @@ function ChatEmptyState({ onSend, t }: ChatEmptyStateProps): ReactNode {
           <button
             key={chip}
             type="button"
+            className="syn-quick-prompt"
             data-testid="chat-example-chip"
             onClick={() => onSend?.(chip)}
             style={{
@@ -488,14 +482,11 @@ function ChatEmptyState({ onSend, t }: ChatEmptyStateProps): ReactNode {
               if (!onSend) return;
               (e.currentTarget as HTMLButtonElement).style.backgroundColor =
                 "var(--syn-accent-soft)";
-              (e.currentTarget as HTMLButtonElement).style.borderColor =
-                "var(--syn-accent)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-accent)";
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                "transparent";
-              (e.currentTarget as HTMLButtonElement).style.borderColor =
-                "var(--syn-border)";
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-border)";
             }}
           >
             {chip}
