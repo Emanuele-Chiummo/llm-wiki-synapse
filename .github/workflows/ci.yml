@@ -314,12 +314,15 @@ jobs:
 
       - name: Build frontend
         working-directory: frontend
+        env:
+          # VITE_API_BASE is INLINED AT BUILD TIME (import.meta.env) — it must
+          # be set here, not on the preview step, or the bundle ships with a
+          # relative base and every browser API call 404s against :5173.
+          VITE_API_BASE: http://localhost:8000
         run: npm run build
 
       - name: Start frontend (vite preview)
         working-directory: frontend
-        env:
-          VITE_API_BASE: http://localhost:8000
         run: |
           npm run preview -- --host 127.0.0.1 --port 5173 > /tmp/frontend.log 2>&1 &
           sleep 3
