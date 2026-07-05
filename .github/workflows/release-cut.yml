@@ -1,0 +1,55 @@
+# Release cut (R13-2 / CONTRIBUTING policy: tags are only cut from main).
+#
+# Manual workflow_dispatch that creates the annotated vX.Y.Z tag and the
+# GitHub Release from the current main HEAD. Exists because some remote
+# development environments can push branches but not tags; this keeps the
+# release cut auditable and runnable from the Actions UI (or API) instead.
+#
+# NOTE: the tag created here uses GITHUB_TOKEN, and GitHub does NOT chain
+# workflow runs off events produced by GITHUB_TOKEN — so the `Desktop release`
+# workflow must be dispatched explicitly on the new tag afterwards (one click
+# in the Actions UI, ref = the new tag), or via API.
+
+name: Release cut
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (X.Y.Z, no leading v). Must match the versions committed in the repo."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  cut:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify version files agree with input
+        run: |
+          python scripts/bump_version.py check
+          FILE_VERSION=$(python -c "import tomllib; print(tomllib.load(open('backend/pyproject.toml','rb'))['project']['version'])")
+          if [ "$FILE_VERSION" != "${{ inputs.version }}" ]; then
+            echo "ERROR: repo version is $FILE_VERSION but requested release is ${{ inputs.version }}. Run 'make bump VERSION=${{ inputs.version }}' and commit first."
+            exit 1
+          fi
+
+      - name: Create tag + GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ inputs.version }}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — nothing to do."
+            exit 0
+          fi
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Synapse $TAG" \
+            --generate-notes
+          echo "Created $TAG at $GITHUB_SHA"
