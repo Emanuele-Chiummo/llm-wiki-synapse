@@ -172,7 +172,10 @@ jobs:
   e2e:
     name: E2E Tests (Playwright + Docker services)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Setup alone (compose pull/up + pip + npm ci + vite build + Playwright
+    # browser download) takes ~12-13 min on a cold runner; 15 killed the suite
+    # mid-run (job timeout surfaces as "cancelled", not "failed").
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
