@@ -476,21 +476,25 @@ async def run_ingest_pipeline(
     # Wrapped so a route failure still persists an ingest_runs row with status="failed" and the
     # error_message + accumulated cost (BUG A2 / I7), then re-raises so the REST/watcher caller
     # surfaces the error unchanged.
-    # ── F3/K3 cross-ingest connectivity: assemble the provider context ONCE ──────
-    # purpose.md + schema.md + the existing-pages catalogue ("LINK TO THESE"). Built here in
-    # the async pipeline (the catalogue needs an async DB query) and threaded into BOTH the
-    # delegated (CLI) and orchestrated (API/Local) paths so the LLM links to existing pages on
-    # every backend → one connected graph instead of isolated islands (I6 — guidance is in the
-    # context STRING, never in provider code).
-    ingest_context = await _load_ingest_context()
-    # R7-6: prepend the folderContext hint (subfolder topical context) so it reaches BOTH the
-    # orchestrated analyze() vault_context and the delegated/CLI system_prompt (I6 — the hint is
-    # in the STRING, not provider code). "" when the source has no subfolder path.
-    _folder_block = _folder_context_block(origin_source)
-    if _folder_block:
-        ingest_context = f"{_folder_block}\n\n{ingest_context}" if ingest_context else _folder_block
-
     try:
+        # ── F3/K3 cross-ingest connectivity: assemble the provider context ONCE ──────
+        # purpose.md + schema.md + the existing-pages catalogue ("LINK TO THESE"). Built INSIDE
+        # the try-block (B3 fix) so a TOCTOU FileNotFoundError on purpose.md/schema.md — file
+        # removed between exists() and read_text() — is caught by the except block below and
+        # finalises the run as "failed" instead of stranding it as "running" forever.
+        # Threaded into BOTH the delegated (CLI) and orchestrated (API/Local) paths so the LLM
+        # links to existing pages on every backend → one connected graph instead of isolated
+        # islands (I6 — guidance is in the context STRING, never in provider code).
+        ingest_context = await _load_ingest_context()
+        # R7-6: prepend the folderContext hint (subfolder topical context) so it reaches BOTH the
+        # orchestrated analyze() vault_context and the delegated/CLI system_prompt (I6 — the hint
+        # is in the STRING, not provider code). "" when the source has no subfolder path.
+        _folder_block = _folder_context_block(origin_source)
+        if _folder_block:
+            ingest_context = (
+                f"{_folder_block}\n\n{ingest_context}" if ingest_context else _folder_block
+            )
+
         if caps.supports_agentic_loop:
             route = "delegated"
             ingest_queue.set_route(run_id, route)
@@ -2342,8 +2346,13 @@ def _load_vault_context() -> str:
     parts: list[str] = []
     for name in ("purpose.md", "schema.md"):
         path = settings.vault_root / name
-        if path.exists():
-            parts.append(f"# {name}\n{path.read_text(encoding='utf-8')}")
+        try:
+            # B3 fix: read without a prior exists() check to avoid TOCTOU — if the file
+            # is removed between exists() and read_text() the OSError is silently skipped.
+            text = path.read_text(encoding="utf-8")
+            parts.append(f"# {name}\n{text}")
+        except FileNotFoundError:
+            pass  # file removed between check and read — tolerate silently
     return "\n\n".join(parts)
 
 

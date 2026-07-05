@@ -327,43 +327,47 @@ class ImportScheduler:
         Raises RuntimeError if a scan is already in-flight (caller maps to 409).
         Raises ValueError if disabled or source_dir unset/missing.
         """
+        # B9 fix: claim the in-flight slot SYNCHRONOUSLY before any await so two
+        # near-simultaneous calls cannot both pass the check-then-act gap.
+        # The flag is always released in the finally block below (even for ValueError).
         if self._scan_in_flight:
             raise RuntimeError("scan_in_flight")
+        self._scan_in_flight = True  # atomic — no await between check and set (B9 fix)
 
-        cfg = await load_schedule(settings.vault_id)
-        if cfg is None or not getattr(cfg, "enabled", False):
-            raise ValueError("Schedule is disabled or not configured")
-        source_dir = getattr(cfg, "source_dir", None)
-        if not source_dir:
-            raise ValueError("source_dir is not set")
-        if not Path(source_dir).is_dir():
-            raise ValueError(f"Directory not accessible inside container: {source_dir}")
-
-        self._scan_in_flight = True
         try:
-            await upsert_schedule(
-                settings.vault_id,
-                last_status="running",
-                updated_at=datetime.now(UTC),
-            )
-            imported_count, status, error = await self._scan_fn(cfg)
-            await upsert_schedule(
-                settings.vault_id,
-                last_run_at=datetime.now(UTC),
-                last_status=status,
-                last_imported_count=imported_count,
-                last_error=error,
-                updated_at=datetime.now(UTC),
-            )
-        except Exception as exc:
-            await upsert_schedule(
-                settings.vault_id,
-                last_run_at=datetime.now(UTC),
-                last_status="error",
-                last_error=str(exc),
-                updated_at=datetime.now(UTC),
-            )
-            raise
+            cfg = await load_schedule(settings.vault_id)
+            if cfg is None or not getattr(cfg, "enabled", False):
+                raise ValueError("Schedule is disabled or not configured")
+            source_dir = getattr(cfg, "source_dir", None)
+            if not source_dir:
+                raise ValueError("source_dir is not set")
+            if not Path(source_dir).is_dir():
+                raise ValueError(f"Directory not accessible inside container: {source_dir}")
+
+            try:
+                await upsert_schedule(
+                    settings.vault_id,
+                    last_status="running",
+                    updated_at=datetime.now(UTC),
+                )
+                imported_count, status, error = await self._scan_fn(cfg)
+                await upsert_schedule(
+                    settings.vault_id,
+                    last_run_at=datetime.now(UTC),
+                    last_status=status,
+                    last_imported_count=imported_count,
+                    last_error=error,
+                    updated_at=datetime.now(UTC),
+                )
+            except Exception as exc:
+                await upsert_schedule(
+                    settings.vault_id,
+                    last_run_at=datetime.now(UTC),
+                    last_status="error",
+                    last_error=str(exc),
+                    updated_at=datetime.now(UTC),
+                )
+                raise
         finally:
             self._scan_in_flight = False
 

@@ -126,19 +126,19 @@ class GraphCache:
             self._pending = False
             try:
                 logger.debug("GraphCache.tick: firing recompute vault_id=%r", self._vault_id)
+                # B8 fix: capture data_version BEFORE the recompute starts.
+                # If a concurrent bump increments the version DURING the recompute, stamping
+                # the marker with the post-recompute version would make a stale snapshot look
+                # fresh (next get_graph() would be a HIT returning stale data).  Using the
+                # pre-recompute version means the marker will NOT match the bumped version, so
+                # the next get_graph() will be a MISS and trigger a fresh recompute.
+                version_before = await self._read_data_version()
                 snapshot = await self._engine.recompute(self._vault_id)
-                # Read current data_version from the snapshot or keep existing
-                # We use the snapshot's node/edge count as a proxy; the caller
-                # (get_graph) passes the live data_version to get_graph().
-                # The cache stores the snapshot and the caller updates the marker
-                # via get_graph(). But for background tick, we need the version.
-                # We read it from the DB after recompute.
-                new_version = await self._read_data_version()
                 self._snapshot = snapshot
-                self._marker = new_version
+                self._marker = version_before  # stamp with pre-recompute version (B8 fix)
                 logger.info(
                     "GraphCache.tick: recompute done marker=%d nodes=%d edges=%d",
-                    new_version,
+                    version_before,
                     len(snapshot.nodes),
                     len(snapshot.edges),
                 )

@@ -755,75 +755,89 @@ async def put_page_content(
             ),
         ) from _fm_exc
 
-    async with _m.get_session() as session:
-        row = await session.execute(
-            select(Page).where(
-                Page.id == page_id,
-                Page.vault_id == settings.vault_id,
-                Page.deleted_at.is_(None),
-            )
-        )
-        page = row.scalar_one_or_none()
-
-    if page is None:
-        raise HTTPException(status_code=404, detail=f"Page {page_id} not found")
-
-    # ── Path safety + wiki-only guard (ADR-0035) ──────────────────────────────
-    abs_path = _resolve_wiki_page_path(page.file_path)
-
-    if not abs_path.exists():
-        raise HTTPException(
-            status_code=410,
-            detail=(
-                f"Page {page_id} row exists (file_path={page.file_path!r}) "
-                "but the file is not present on disk."
-            ),
-        )
-
-    # ── Optimistic concurrency check ──────────────────────────────────────────
-    if body.expected_hash is not None:
-        on_disk_bytes = await asyncio.get_event_loop().run_in_executor(None, abs_path.read_bytes)
-        on_disk_hash = hashlib.sha256(on_disk_bytes).hexdigest()
-        if on_disk_hash != body.expected_hash:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    f"Content hash mismatch: expected {body.expected_hash!r} but the "
-                    f"current on-disk hash is {on_disk_hash!r}. "
-                    "The page was modified since you last read it. "
-                    "Reload the page before retrying."
-                ),
-            )
-
     # ── Enforce trailing newline (Obsidian / git convention, I5) ─────────────
+    # Compute new content before opening the session so _write() can be defined
+    # as a closure inside the session scope (B10 fix requires abs_path to be known).
     new_content = body.content if body.content.endswith("\n") else body.content + "\n"
     new_bytes = new_content.encode("utf-8")
     new_hash = hashlib.sha256(new_bytes).hexdigest()
 
-    # ── Atomic write: tmp file in same dir + os.replace (Path.replace) ───────
-    def _write() -> None:
-        tmp_fd, tmp_name = tempfile.mkstemp(
-            dir=str(abs_path.parent),
-            suffix=".content_tmp",
+    # ── SELECT FOR UPDATE + hash check + atomic write (B10 fix) ──────────────
+    # Holding the page-row lock for the duration makes the hash check atomic with the
+    # disk write: a concurrent PUT sees a different lock state and serialises behind us,
+    # so it cannot both pass the expected_hash check AND overwrite our write (the previous
+    # non-atomic check-then-write allowed silent last-writer-wins).  On SQLite (tests)
+    # with_for_update() is a no-op (SQLite silently ignores FOR UPDATE), so tests remain
+    # unaffected.  The lock is released when the session commits at the end of the block.
+    async with _m.get_session() as session:
+        row = await session.execute(
+            select(Page)
+            .where(
+                Page.id == page_id,
+                Page.vault_id == settings.vault_id,
+                Page.deleted_at.is_(None),
+            )
+            .with_for_update()  # serialise concurrent PUTs to the same page (B10 fix)
         )
-        try:
-            import os
+        page = row.scalar_one_or_none()
 
-            os.write(tmp_fd, new_bytes)
-            os.close(tmp_fd)
-            Path(tmp_name).replace(abs_path)
-        except Exception:  # noqa: BLE001
+        if page is None:
+            raise HTTPException(status_code=404, detail=f"Page {page_id} not found")
+
+        # ── Path safety + wiki-only guard (ADR-0035) ──────────────────────────
+        abs_path = _resolve_wiki_page_path(page.file_path)
+
+        if not abs_path.exists():
+            raise HTTPException(
+                status_code=410,
+                detail=(
+                    f"Page {page_id} row exists (file_path={page.file_path!r}) "
+                    "but the file is not present on disk."
+                ),
+            )
+
+        # ── Optimistic concurrency check — under the row lock (B10 fix) ──────
+        if body.expected_hash is not None:
+            on_disk_bytes = await asyncio.get_event_loop().run_in_executor(
+                None, abs_path.read_bytes
+            )
+            on_disk_hash = hashlib.sha256(on_disk_bytes).hexdigest()
+            if on_disk_hash != body.expected_hash:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Content hash mismatch: expected {body.expected_hash!r} but the "
+                        f"current on-disk hash is {on_disk_hash!r}. "
+                        "The page was modified since you last read it. "
+                        "Reload the page before retrying."
+                    ),
+                )
+
+        # ── Atomic write: tmp file in same dir + os.replace — under the row lock ──
+        def _write() -> None:
+            tmp_fd, tmp_name = tempfile.mkstemp(
+                dir=str(abs_path.parent),
+                suffix=".content_tmp",
+            )
             try:
+                import os
+
+                os.write(tmp_fd, new_bytes)
                 os.close(tmp_fd)
-            except Exception:  # noqa: BLE001, S110
-                pass
-            try:
-                Path(tmp_name).unlink(missing_ok=True)
-            except Exception:  # noqa: BLE001, S110
-                pass
-            raise
+                Path(tmp_name).replace(abs_path)
+            except Exception:  # noqa: BLE001
+                try:
+                    os.close(tmp_fd)
+                except Exception:  # noqa: BLE001, S110
+                    pass
+                try:
+                    Path(tmp_name).unlink(missing_ok=True)
+                except Exception:  # noqa: BLE001, S110
+                    pass
+                raise
 
-    await asyncio.get_event_loop().run_in_executor(None, _write)
+        await asyncio.get_event_loop().run_in_executor(None, _write)
+    # Session commits here → FOR UPDATE lock released; page (expire_on_commit=False) is usable
 
     # ── Inline incremental re-index (I1, ADR-0035) ───────────────────────────
     # The watcher observes vault/raw/sources/ ONLY — not vault/wiki/. We use the

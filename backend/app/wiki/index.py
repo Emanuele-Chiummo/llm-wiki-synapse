@@ -19,7 +19,9 @@ The index.md file lives at: vault_path/wiki/index.md
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -29,6 +31,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Page
 
 logger = logging.getLogger(__name__)
+
+# B5 fix: module-level lock so concurrent ingest coroutines never race on the same index.md.
+# asyncio.Lock() is acquired per-write; waiting writers serialize behind the first writer.
+# No starvation: all callers run in the same event loop.
+_INDEX_WRITE_LOCK: asyncio.Lock = asyncio.Lock()
 
 # Ordering for the catalogue sections (consistent output for idempotency checks).
 _TYPE_ORDER: list[str] = ["entity", "concept", "source", "synthesis", "comparison"]
@@ -94,7 +101,13 @@ async def update_index(session: AsyncSession, vault_path: Path) -> None:
 
     content = _build_index_content(by_type, uncategorised)
 
-    index_path.write_text(content, encoding="utf-8")
+    # B5 fix: atomic write (temp file in same dir + os.replace) so readers never see a
+    # truncated file, and concurrent rebuilds serialize through _INDEX_WRITE_LOCK so the
+    # last *fresh* writer wins instead of the last *stale* writer.
+    async with _INDEX_WRITE_LOCK:
+        tmp_path = index_path.with_name("index.md.tmp")
+        tmp_path.write_text(content, encoding="utf-8")
+        os.replace(tmp_path, index_path)  # atomic on POSIX (same directory → same filesystem)
     logger.debug("update_index: wrote %s (%d types)", index_path, len(by_type))
 
 
