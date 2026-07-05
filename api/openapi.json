@@ -1162,10 +1162,59 @@
         ]
       }
     },
+    "/pages/{page_id}/cascade-delete/preview": {
+      "post": {
+        "summary": "Dry-run preview of cascade delete (read-only)",
+        "description": "F13 Cascade Delete \u2014 mandatory dry-run (ADR-0026 \u00a76, AC-F13-5). Computes the full deletion plan WITHOUT mutating any store or file: no soft-delete, no Qdrant delete, no file write, no data_version bump. Returns will_delete, wikilinks_to_rewrite, shared_entity_warnings, match_methods_used. 404 if the page does not exist or is already soft-deleted. Call this before DELETE /pages/{id} to populate a confirmation modal (AC-F13-6).",
+        "operationId": "cascade_delete_preview_pages__page_id__cascade_delete_preview_post",
+        "parameters": [
+          {
+            "name": "page_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Page Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cascade plan computed (read-only)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CascadePreviewResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Page not found or already deleted"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/ingest/trigger": {
       "post": {
         "summary": "Manually trigger ingest of a single file",
-        "description": "Synchronously ingests the file at file_path through the seam. Returns HTTP 202 with typed {task_id, status, page_id} (ADR-0006, AC-REST-4, AC-D4u). status is 'completed' or 'skipped' (I1 fast-path).",
+        "description": "Synchronously ingests the file at file_path through the seam. Returns HTTP 202 with typed {task_id, status, page_id} (ADR-0006, AC-REST-4, AC-D4u). status is 'completed' or 'skipped' (I1 fast-path). 429 if per-IP rate limit exceeded (R13-9).",
         "operationId": "trigger_ingest_ingest_trigger_post",
         "requestBody": {
           "content": {
@@ -1190,6 +1239,9 @@
           },
           "422": {
             "description": "Validation error (missing file_path, bad format, or file not found)"
+          },
+          "429": {
+            "description": "Per-IP rate limit exceeded (R13-9)"
           }
         },
         "security": [
@@ -1202,7 +1254,7 @@
     "/ingest/upload": {
       "post": {
         "summary": "Upload a document for async watcher-driven ingest (F12 multi-format)",
-        "description": "Feature U (ADR-0020 \u00a72, M4-EXT) + F12 Multi-format ingest (ADR-0025 \u00a74.2). Accepts text/markdown (.md/.txt/.markdown), binary formats (.pdf/.docx/.pptx/.xlsx), and placeholder formats (.png/.jpg/.jpeg/.gif/.webp/.mp3/.mp4/.wav/.m4a). For text: writes directly to vault/raw/sources/<name>; watcher ingests asynchronously. For binary/placeholder: (1) writes original binary to vault/raw/sources/<name>.<ext> (preserved, I5/K1); (2) synchronously extracts text \u2192 companion <stem>.extracted.md with valid YAML frontmatter (I5); (3) returns 202. The watcher ingests ONLY the companion (.md is in _ALLOWED_EXTENSIONS); the binary is ignored by the watcher (I1). Extraction is upload-time, NEVER in the watcher. 413 on oversize (MAX_UPLOAD_BYTES). 415 for truly unknown types. 422 for unsafe filename. 202 {file_path, status:'queued', overwritten}.",
+        "description": "Feature U (ADR-0020 \u00a72, M4-EXT) + F12 Multi-format ingest (ADR-0025 \u00a74.2). Accepts text/markdown (.md/.txt/.markdown), binary formats (.pdf/.docx/.pptx/.xlsx), and placeholder formats (.png/.jpg/.jpeg/.gif/.webp/.mp3/.mp4/.wav/.m4a). For text: writes directly to vault/raw/sources/<name>; watcher ingests asynchronously. For binary/placeholder: (1) writes original binary to vault/raw/sources/<name>.<ext> (preserved, I5/K1); (2) synchronously extracts text \u2192 companion <stem>.extracted.md with valid YAML frontmatter (I5); (3) returns 202. The watcher ingests ONLY the companion (.md is in _ALLOWED_EXTENSIONS); the binary is ignored by the watcher (I1). Extraction is upload-time, NEVER in the watcher. 413 on oversize (MAX_UPLOAD_BYTES). 415 for truly unknown types. 422 for unsafe filename. 202 {file_path, status:'queued', overwritten}. 429 if per-IP rate limit exceeded (R13-9).",
         "operationId": "upload_ingest_ingest_upload_post",
         "requestBody": {
           "content": {
@@ -1233,6 +1285,9 @@
           },
           "422": {
             "description": "Filename is empty or unsafe after sanitization"
+          },
+          "429": {
+            "description": "Per-IP rate limit exceeded (R13-9)"
           }
         },
         "security": [
@@ -1328,7 +1383,7 @@
     "/ingest/from-text": {
       "post": {
         "summary": "Write inline text to raw/sources/ and queue watcher-driven ingest",
-        "description": "Save-to-wiki seam (ADR-0019 \u00a72.7, AC-F6-5). Materialises ``text`` to ``vault/raw/sources/chat-<hint>.md`` and returns 202 immediately. The watcher picks up the file and runs the full ingest pipeline (no new ingest logic \u2014 ADR-0003 guarantee, I1/I6). ``source_hint`` is sanitised to a safe basename; falls back to ``chat-<uuid>`` when omitted or unsafe. 422 on empty text.",
+        "description": "Save-to-wiki seam (ADR-0019 \u00a72.7, AC-F6-5). Materialises ``text`` to ``vault/raw/sources/chat-<hint>.md`` and returns 202 immediately. The watcher picks up the file and runs the full ingest pipeline (no new ingest logic \u2014 ADR-0003 guarantee, I1/I6). ``source_hint`` is sanitised to a safe basename; falls back to ``chat-<uuid>`` when omitted or unsafe. 422 on empty text. 429 if per-IP rate limit exceeded (R13-9).",
         "operationId": "ingest_from_text_ingest_from_text_post",
         "requestBody": {
           "content": {
@@ -1353,135 +1408,9 @@
           },
           "422": {
             "description": "Validation error (text empty or too long)"
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      }
-    },
-    "/search": {
-      "get": {
-        "summary": "4-phase RAG retrieval (F5, ADR-0022)",
-        "description": "Run the F5 4-phase retrieval pipeline (ADR-0022 \u00a72.2, AC-F5-6) and return a grounded context string + citation list. Phase 1: dense vector search via bge-m3 (Qdrant, top-k). Phase 2: BFS graph-expansion over the `edges` table (depth \u2264 2). Phase 3: token-budget allocation (20% of context_window, F14). Phase 4: context assembly with inline [n] markers. 0-hit query \u2192 200 with empty results + empty context (AC-F5-7a). READ-ONLY \u2014 never bumps data_version (AC-F5-5). R8-5: optional `type` (comma-separated page types) and `sort` (relevance|date_desc|date_asc) params \u2014 422 on unknown type or sort value (AC-R8-5-1). Documented in openapi.json (I8, AC-F5-6).",
-        "operationId": "search_search_get",
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "description": "The query string to retrieve context for",
-              "title": "Q"
-            },
-            "description": "The query string to retrieve context for"
           },
-          {
-            "name": "vault_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Vault scope; defaults to settings.vault_id",
-              "title": "Vault Id"
-            },
-            "description": "Vault scope; defaults to settings.vault_id"
-          },
-          {
-            "name": "k",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 50,
-              "minimum": 1,
-              "description": "Dense top-k for the vector phase (1..50); default 8 (ADR-0022 \u00a72.1)",
-              "default": 8,
-              "title": "K"
-            },
-            "description": "Dense top-k for the vector phase (1..50); default 8 (ADR-0022 \u00a72.1)"
-          },
-          {
-            "name": "context_window",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "maximum": 1000000,
-                  "minimum": 4096
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Context window override (4096..1_000_000); null \u2192 32 768 default (F14)",
-              "title": "Context Window"
-            },
-            "description": "Context window override (4096..1_000_000); null \u2192 32 768 default (F14)"
-          },
-          {
-            "name": "type",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "R8-5: Comma-separated page types to filter results. Valid values: entity, concept, source, synthesis, comparison, query. Multiple values: type=entity,concept. Omit to return all types (AC-R8-5-1). Unknown value \u2192 422.",
-              "title": "Type"
-            },
-            "description": "R8-5: Comma-separated page types to filter results. Valid values: entity, concept, source, synthesis, comparison, query. Multiple values: type=entity,concept. Omit to return all types (AC-R8-5-1). Unknown value \u2192 422."
-          },
-          {
-            "name": "sort",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "R8-5: Sort order for results. relevance (default) = cosine/edge-weight ranking unchanged. date_desc = newest first (updated_at DESC). date_asc = oldest first (updated_at ASC). Phase internals (budgets, BFS) are never changed (I7). Unknown value \u2192 422 (AC-R8-5-1).",
-              "title": "Sort"
-            },
-            "description": "R8-5: Sort order for results. relevance (default) = cosine/edge-weight ranking unchanged. date_desc = newest first (updated_at DESC). date_asc = oldest first (updated_at ASC). Phase internals (budgets, BFS) are never changed (I7). Unknown value \u2192 422 (AC-R8-5-1)."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Retrieval result (0-hit \u2192 empty results array)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SearchResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error (k out of range, missing q, or unknown type/sort)"
+          "429": {
+            "description": "Per-IP rate limit exceeded (R13-9)"
           }
         },
         "security": [
@@ -1641,6 +1570,59 @@
         ]
       }
     },
+    "/ingest/{run_id}": {
+      "delete": {
+        "summary": "Cancel a queued or running ingest run (R13-3)",
+        "description": "QUEUED (not yet started, in _pending): removes the run from the queue so it never starts. Returns 200 {'status': 'cancelled'}. RUNNING (in-flight): signals cooperative cancellation via cancel_event. Returns 202 {'status': 'cancelling'} \u2014 cleanup completes asynchronously. Already terminal (completed/failed/cancelled): 409. Unknown run_id: 404. (R13-3)",
+        "operationId": "delete_ingest_run_ingest__run_id__delete",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run was queued and has been immediately cancelled",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "202": {
+            "description": "Cancel requested \u2014 pipeline will abort at next loop boundary"
+          },
+          "404": {
+            "description": "run_id not found"
+          },
+          "409": {
+            "description": "Run is already in a terminal state"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/ingest/runs/{run_id}/retry": {
       "post": {
         "summary": "Retry a failed ingest run",
@@ -1729,6 +1711,201 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/QueueResumeResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/search": {
+      "get": {
+        "summary": "4-phase RAG retrieval (F5, ADR-0022)",
+        "description": "Run the F5 4-phase retrieval pipeline (ADR-0022 \u00a72.2, AC-F5-6) and return a grounded context string + citation list. Phase 1: dense vector search via bge-m3 (Qdrant, top-k). Phase 2: BFS graph-expansion over the `edges` table (depth \u2264 2). Phase 3: token-budget allocation (20% of context_window, F14). Phase 4: context assembly with inline [n] markers. 0-hit query \u2192 200 with empty results + empty context (AC-F5-7a). READ-ONLY \u2014 never bumps data_version (AC-F5-5). R8-5: optional `type` (comma-separated page types) and `sort` (relevance|date_desc|date_asc) params \u2014 422 on unknown type or sort value (AC-R8-5-1). Documented in openapi.json (I8, AC-F5-6).",
+        "operationId": "search_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The query string to retrieve context for",
+              "title": "Q"
+            },
+            "description": "The query string to retrieve context for"
+          },
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Vault scope; defaults to settings.vault_id",
+              "title": "Vault Id"
+            },
+            "description": "Vault scope; defaults to settings.vault_id"
+          },
+          {
+            "name": "k",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "description": "Dense top-k for the vector phase (1..50); default 8 (ADR-0022 \u00a72.1)",
+              "default": 8,
+              "title": "K"
+            },
+            "description": "Dense top-k for the vector phase (1..50); default 8 (ADR-0022 \u00a72.1)"
+          },
+          {
+            "name": "context_window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 1000000,
+                  "minimum": 4096
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Context window override (4096..1_000_000); null \u2192 32 768 default (F14)",
+              "title": "Context Window"
+            },
+            "description": "Context window override (4096..1_000_000); null \u2192 32 768 default (F14)"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "R8-5: Comma-separated page types to filter results. Valid values: entity, concept, source, synthesis, comparison, query. Multiple values: type=entity,concept. Omit to return all types (AC-R8-5-1). Unknown value \u2192 422.",
+              "title": "Type"
+            },
+            "description": "R8-5: Comma-separated page types to filter results. Valid values: entity, concept, source, synthesis, comparison, query. Multiple values: type=entity,concept. Omit to return all types (AC-R8-5-1). Unknown value \u2192 422."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "R8-5: Sort order for results. relevance (default) = cosine/edge-weight ranking unchanged. date_desc = newest first (updated_at DESC). date_asc = oldest first (updated_at ASC). Phase internals (budgets, BFS) are never changed (I7). Unknown value \u2192 422 (AC-R8-5-1).",
+              "title": "Sort"
+            },
+            "description": "R8-5: Sort order for results. relevance (default) = cosine/edge-weight ranking unchanged. date_desc = newest first (updated_at DESC). date_asc = oldest first (updated_at ASC). Phase internals (budgets, BFS) are never changed (I7). Unknown value \u2192 422 (AC-R8-5-1)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieval result (0-hit \u2192 empty results array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (k out of range, missing q, or unknown type/sort)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/provider/cli-auth": {
+      "get": {
+        "summary": "Read-only CLI subscription OAuth token posture (ADR-0043)",
+        "description": "Returns the current posture of the CLI provider subscription token: token_configured (bool, never the value), token_source (db|env|none), auth_mode (api-key|subscription|unconfigured). Mirrors GET /clip/config: no sensitive values ever returned. ADR-0043 \u00a72.5.",
+        "operationId": "get_cli_auth_config_provider_cli_auth_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliAuthConfigResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Set or clear the CLI subscription OAuth token (ADR-0043)",
+        "description": "ADR-0043 \u00a72.5 \u2014 store a pasted Claude subscription OAuth token or clear it. clear=true: set DB token to NULL (falls back to env / none). token=<value>: validate and store to vault_state.cli_oauth_token; refresh cache. Returns post-write posture (same shape as GET); NEVER the token value. 400 if body has neither token nor clear. 422 if token is empty/whitespace or absurd length. Soft prefix check warns but does NOT hard-reject \u2014 ADR-0043 \u00a72.5.",
+        "operationId": "put_cli_auth_config_provider_cli_auth_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CliAuthConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliAuthConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -2115,6 +2292,245 @@
         ]
       }
     },
+    "/clip/config": {
+      "get": {
+        "summary": "Read-only web clipper ingress posture (ADR-0040)",
+        "description": "Returns the current posture of the POST /clip ingress: enabled state, token_configured (bool, never the value), token_source (db|env|none), allowed_origins list, and max_body_bytes. Mirrors GET /mcp/info: no sensitive values ever returned. F11-clip-config (ADR-0040).",
+        "operationId": "get_clip_config_clip_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipConfigResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Set, rotate, or clear the clip ingress token + enabled/origins (ADR-0040)",
+        "description": "ADR-0040 \u00a72.4 \u2014 runtime web clipper configuration. rotate_token=true: generate a new token (secrets.token_urlsafe(32)), store its PBKDF2-SHA256 hash in vault_state.clip_access_token, return plaintext ONCE in generated_token (never stored). clear_token=true: set DB token to NULL (falls back to CLIP_TOKEN env or none). set_enabled: set clip_enabled_db (DB wins over CLIP_ENABLED env when set). set_allowed_origins: replace DB origins (empty string \"\" clears to env fallback). Same-origin / unauthenticated \u2014 consistent with PUT /mcp/auth (ADR-0033 \u00a72.5). NEVER returns or stores the token plaintext (except the one-time generated_token). F11-clip-config (ADR-0040).",
+        "operationId": "put_clip_config_clip_config_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClipConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipConfigStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/web-search/config": {
+      "get": {
+        "summary": "Read-only SearXNG web-search posture (ADR-0041)",
+        "description": "Returns the current SearXNG configuration: configured flag, resolved URL, categories, max_queries, and source (db|env|none). DB value wins over env when set (ADR-0041 \u00a72.2). The URL is NOT a secret and IS returned in full. F10-web-search-config (ADR-0041).",
+        "operationId": "get_web_search_config_web_search_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSearchConfigResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Set or clear the SearXNG web-search configuration (ADR-0041)",
+        "description": "ADR-0041 \u00a72.4 \u2014 runtime SearXNG configuration. set_url: set searxng_url_db (validates http/https; DB wins over SEARXNG_URL env). set_categories: set searxng_categories_db (comma-separated; empty string clears). set_max_queries: set searxng_max_queries_db (1\u201350; DB wins over env). clear=true: clear ALL three DB columns (falls back to env / code defaults). I9 invariant: SearXNG is the ONLY web-search backend. No provider field accepted \u2014 any attempt to configure a non-SearXNG provider is rejected. F10-web-search-config (ADR-0041).",
+        "operationId": "put_web_search_config_web_search_config_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebSearchConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSearchConfigStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/config/app": {
+      "get": {
+        "summary": "List all 13 runtime config overrides with effective value + source (ADR-0053)",
+        "description": "Returns the 13 migrated settings (S1..S13) in stable order. Each entry has key, effective value (override wins over env), and source ('override' iff a DB row exists, else 'env'). All values from in-process cache \u2014 no DB round-trip (I7). Never returns infra/secret keys (allow-list boundary \u2014 ADR-0053 \u00a72.2/\u00a72.4). Auth: SynapseAuthMiddleware (ADR-0052 / ADR-0053 \u00a73 \u2014 BearerAuth in OpenAPI).",
+        "operationId": "get_app_config_config_app_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppConfigListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/config/app/{key}": {
+      "put": {
+        "summary": "Upsert one config override (ADR-0053)",
+        "description": "Sets or updates the DB override for one of the 13 allowed keys. Returns 204 on success. Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. Returns 422 on value validation failure (per-key rules \u2014 ADR-0053 \u00a72.3). Auth: SynapseAuthMiddleware (ADR-0052). After write, the in-process cache is refreshed immediately so a subsequent GET /config/app reflects source='override' (ADR-0053 \u00a73.2).",
+        "operationId": "put_app_config_config_app__key__put",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppConfigPutBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Override stored; effective value updated in cache."
+          },
+          "400": {
+            "description": "Key not in allow-list."
+          },
+          "422": {
+            "description": "Value fails per-key validation rule (ADR-0053 \u00a72.3)."
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Remove a config override \u2192 revert to env default (ADR-0053 \u00a73.3)",
+        "description": "Deletes the app_config row for *key*, reverting the setting to its env baseline. Returns 204 (idempotent \u2014 no-op if no row existed). Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. Auth: SynapseAuthMiddleware (ADR-0052). Reset is DELETE, not PUT null: app_config.value is NOT NULL by design (ADR-0053 \u00a73.3). S7 overview_language: frontend sends DELETE for the '(auto)' choice (\u00a72.3).",
+        "operationId": "delete_app_config_config_app__key__delete",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Override removed; setting reverts to env default."
+          },
+          "400": {
+            "description": "Key not in allow-list."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/conversations": {
       "get": {
         "summary": "List chat conversations for a vault",
@@ -2378,7 +2794,7 @@
     "/chat/stream": {
       "post": {
         "summary": "Stream a chat turn (NDJSON)",
-        "description": "Bounded chat turn (F6/F7, I6/I7, ADR-0019 \u00a72.2). Returns 200 with application/x-ndjson: one JSON event per line (token | think | done | error). Routes via resolve_provider_config('chat', vault_id) \u2014 never a hardcoded provider (I6). Bounded by token_budget + timeout (I7); total_cost_usd in the done event. 404 if conversation_id is unknown; 503 if no chat provider resolves.",
+        "description": "Bounded chat turn (F6/F7, I6/I7, ADR-0019 \u00a72.2). Returns 200 with application/x-ndjson: one JSON event per line (token | think | done | error). Routes via resolve_provider_config('chat', vault_id) \u2014 never a hardcoded provider (I6). Bounded by token_budget + timeout (I7); total_cost_usd in the done event. 404 if conversation_id is unknown; 503 if no chat provider resolves. 429 if per-IP rate limit exceeded (R13-9).",
         "operationId": "chat_stream_chat_stream_post",
         "requestBody": {
           "content": {
@@ -2405,6 +2821,9 @@
           },
           "422": {
             "description": "Body validation failure"
+          },
+          "429": {
+            "description": "Per-IP rate limit exceeded (R13-9)"
           },
           "503": {
             "description": "No chat provider_config resolves (I6)"
@@ -2669,7 +3088,7 @@
     "/research/start": {
       "post": {
         "summary": "Start a bounded deep-research run",
-        "description": "F10 Deep Research loop (ADR-0024 \u00a78.1, AC-F10-4a). Validates topic/vault_id; bounds max_iter (1..10) and token_budget (1k..1M) so the caller cannot request an unbounded run (I7). Freezes bounds onto the deep_research_runs row before the background task starts (AQ-v0.5-4). Schedules run_deep_research as a background asyncio task (fire-and-poll). Returns 202 {run_id} immediately \u2014 poll GET /research/runs/{id} for progress. 503 if SEARXNG_URL is unset (I9 \u2014 no fake run, no fallback engine).",
+        "description": "F10 Deep Research loop (ADR-0024 \u00a78.1, AC-F10-4a). Validates topic/vault_id; bounds max_iter (1..10) and token_budget (1k..1M) so the caller cannot request an unbounded run (I7). Freezes bounds onto the deep_research_runs row before the background task starts (AQ-v0.5-4). Schedules run_deep_research as a background asyncio task (fire-and-poll). Returns 202 {run_id} immediately \u2014 poll GET /research/runs/{id} for progress. 503 if SEARXNG_URL is unset (I9 \u2014 no fake run, no fallback engine). 429 if per-IP rate limit exceeded (R13-9).",
         "operationId": "research_start_research_start_post",
         "requestBody": {
           "content": {
@@ -2694,6 +3113,9 @@
           },
           "422": {
             "description": "Validation error (empty topic, max_iter out of range, etc.)"
+          },
+          "429": {
+            "description": "Per-IP rate limit exceeded (R13-9)"
           },
           "503": {
             "description": "SEARXNG_URL is not configured (I9)"
@@ -3626,360 +4048,6 @@
           },
           "404": {
             "description": "Lint finding not found"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      }
-    },
-    "/pages/{page_id}/cascade-delete/preview": {
-      "post": {
-        "summary": "Dry-run preview of cascade delete (read-only)",
-        "description": "F13 Cascade Delete \u2014 mandatory dry-run (ADR-0026 \u00a76, AC-F13-5). Computes the full deletion plan WITHOUT mutating any store or file: no soft-delete, no Qdrant delete, no file write, no data_version bump. Returns will_delete, wikilinks_to_rewrite, shared_entity_warnings, match_methods_used. 404 if the page does not exist or is already soft-deleted. Call this before DELETE /pages/{id} to populate a confirmation modal (AC-F13-6).",
-        "operationId": "cascade_delete_preview_pages__page_id__cascade_delete_preview_post",
-        "parameters": [
-          {
-            "name": "page_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Page Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Cascade plan computed (read-only)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CascadePreviewResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Page not found or already deleted"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      }
-    },
-    "/clip/config": {
-      "get": {
-        "summary": "Read-only web clipper ingress posture (ADR-0040)",
-        "description": "Returns the current posture of the POST /clip ingress: enabled state, token_configured (bool, never the value), token_source (db|env|none), allowed_origins list, and max_body_bytes. Mirrors GET /mcp/info: no sensitive values ever returned. F11-clip-config (ADR-0040).",
-        "operationId": "get_clip_config_clip_config_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClipConfigResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      },
-      "put": {
-        "summary": "Set, rotate, or clear the clip ingress token + enabled/origins (ADR-0040)",
-        "description": "ADR-0040 \u00a72.4 \u2014 runtime web clipper configuration. rotate_token=true: generate a new token (secrets.token_urlsafe(32)), store its PBKDF2-SHA256 hash in vault_state.clip_access_token, return plaintext ONCE in generated_token (never stored). clear_token=true: set DB token to NULL (falls back to CLIP_TOKEN env or none). set_enabled: set clip_enabled_db (DB wins over CLIP_ENABLED env when set). set_allowed_origins: replace DB origins (empty string \"\" clears to env fallback). Same-origin / unauthenticated \u2014 consistent with PUT /mcp/auth (ADR-0033 \u00a72.5). NEVER returns or stores the token plaintext (except the one-time generated_token). F11-clip-config (ADR-0040).",
-        "operationId": "put_clip_config_clip_config_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ClipConfigRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClipConfigStateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      }
-    },
-    "/web-search/config": {
-      "get": {
-        "summary": "Read-only SearXNG web-search posture (ADR-0041)",
-        "description": "Returns the current SearXNG configuration: configured flag, resolved URL, categories, max_queries, and source (db|env|none). DB value wins over env when set (ADR-0041 \u00a72.2). The URL is NOT a secret and IS returned in full. F10-web-search-config (ADR-0041).",
-        "operationId": "get_web_search_config_web_search_config_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WebSearchConfigResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      },
-      "put": {
-        "summary": "Set or clear the SearXNG web-search configuration (ADR-0041)",
-        "description": "ADR-0041 \u00a72.4 \u2014 runtime SearXNG configuration. set_url: set searxng_url_db (validates http/https; DB wins over SEARXNG_URL env). set_categories: set searxng_categories_db (comma-separated; empty string clears). set_max_queries: set searxng_max_queries_db (1\u201350; DB wins over env). clear=true: clear ALL three DB columns (falls back to env / code defaults). I9 invariant: SearXNG is the ONLY web-search backend. No provider field accepted \u2014 any attempt to configure a non-SearXNG provider is rejected. F10-web-search-config (ADR-0041).",
-        "operationId": "put_web_search_config_web_search_config_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WebSearchConfigRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WebSearchConfigStateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      }
-    },
-    "/provider/cli-auth": {
-      "get": {
-        "summary": "Read-only CLI subscription OAuth token posture (ADR-0043)",
-        "description": "Returns the current posture of the CLI provider subscription token: token_configured (bool, never the value), token_source (db|env|none), auth_mode (api-key|subscription|unconfigured). Mirrors GET /clip/config: no sensitive values ever returned. ADR-0043 \u00a72.5.",
-        "operationId": "get_cli_auth_config_provider_cli_auth_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CliAuthConfigResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      },
-      "put": {
-        "summary": "Set or clear the CLI subscription OAuth token (ADR-0043)",
-        "description": "ADR-0043 \u00a72.5 \u2014 store a pasted Claude subscription OAuth token or clear it. clear=true: set DB token to NULL (falls back to env / none). token=<value>: validate and store to vault_state.cli_oauth_token; refresh cache. Returns post-write posture (same shape as GET); NEVER the token value. 400 if body has neither token nor clear. 422 if token is empty/whitespace or absurd length. Soft prefix check warns but does NOT hard-reject \u2014 ADR-0043 \u00a72.5.",
-        "operationId": "put_cli_auth_config_provider_cli_auth_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CliAuthConfigRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CliAuthConfigResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      }
-    },
-    "/config/app": {
-      "get": {
-        "summary": "List all 13 runtime config overrides with effective value + source (ADR-0053)",
-        "description": "Returns the 13 migrated settings (S1..S13) in stable order. Each entry has key, effective value (override wins over env), and source ('override' iff a DB row exists, else 'env'). All values from in-process cache \u2014 no DB round-trip (I7). Never returns infra/secret keys (allow-list boundary \u2014 ADR-0053 \u00a72.2/\u00a72.4). Auth: SynapseAuthMiddleware (ADR-0052 / ADR-0053 \u00a73 \u2014 BearerAuth in OpenAPI).",
-        "operationId": "get_app_config_config_app_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AppConfigListResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      }
-    },
-    "/config/app/{key}": {
-      "put": {
-        "summary": "Upsert one config override (ADR-0053)",
-        "description": "Sets or updates the DB override for one of the 13 allowed keys. Returns 204 on success. Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. Returns 422 on value validation failure (per-key rules \u2014 ADR-0053 \u00a72.3). Auth: SynapseAuthMiddleware (ADR-0052). After write, the in-process cache is refreshed immediately so a subsequent GET /config/app reflects source='override' (ADR-0053 \u00a73.2).",
-        "operationId": "put_app_config_config_app__key__put",
-        "parameters": [
-          {
-            "name": "key",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Key"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AppConfigPutBody"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Override stored; effective value updated in cache."
-          },
-          "400": {
-            "description": "Key not in allow-list."
-          },
-          "422": {
-            "description": "Value fails per-key validation rule (ADR-0053 \u00a72.3)."
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      },
-      "delete": {
-        "summary": "Remove a config override \u2192 revert to env default (ADR-0053 \u00a73.3)",
-        "description": "Deletes the app_config row for *key*, reverting the setting to its env baseline. Returns 204 (idempotent \u2014 no-op if no row existed). Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. Auth: SynapseAuthMiddleware (ADR-0052). Reset is DELETE, not PUT null: app_config.value is NOT NULL by design (ADR-0053 \u00a73.3). S7 overview_language: frontend sends DELETE for the '(auto)' choice (\u00a72.3).",
-        "operationId": "delete_app_config_config_app__key__delete",
-        "parameters": [
-          {
-            "name": "key",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Key"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Override removed; setting reverts to env default."
-          },
-          "400": {
-            "description": "Key not in allow-list."
           },
           "422": {
             "description": "Validation Error",
