@@ -48,6 +48,11 @@ import { fileURLToPath } from "url";
 const FRONTEND_URL = process.env["SYNAPSE_FRONTEND_URL"] ?? "http://localhost:5173";
 const BACKEND_URL  = process.env["SYNAPSE_BACKEND_URL"]  ?? "http://localhost:8000";
 
+// Gate for tests that require a live Ollama endpoint with qwen2.5:3b loaded.
+// In CI the model is not available; those describes are skipped automatically.
+// Manual TrueNAS runs export E2E_LIVE_CHAT=1 to opt-in.
+const isLiveChat = process.env["E2E_LIVE_CHAT"] === "1";
+
 const _thisDir    = path.dirname(fileURLToPath(import.meta.url));
 const SCREENS_DIR = path.resolve(_thisDir, "../../docs/screens");
 
@@ -305,8 +310,11 @@ test("I3-ISOLATION: sending chat message does NOT activate graph/tree section", 
 });
 
 // ── Live streaming test with real qwen2.5:3b ──────────────────────────────────
+// Requires E2E_LIVE_CHAT=1 and a live Ollama instance with qwen2.5:3b loaded.
+// CI skips this block automatically; manual TrueNAS runs export E2E_LIVE_CHAT=1.
 
 test.describe("Live streaming (qwen2.5:3b)", () => {
+  test.skip(!isLiveChat, "Requires E2E_LIVE_CHAT=1 and live Ollama with qwen2.5:3b. Manual TrueNAS runs export E2E_LIVE_CHAT=1.");
   test.setTimeout(120_000);
 
   test("CHAT-STREAM-1/2/3: tokens stream into assistant bubble, finalize with GFM rendering + cost", async ({ page }) => {
@@ -427,6 +435,8 @@ test.describe("G3 — Streaming performance gate", () => {
   test.setTimeout(120_000);
 
   test("G3-LONGTASK: NO main-thread longtask >50ms during a live qwen2.5:3b stream", async ({ page }) => {
+    // Requires a live qwen2.5:3b stream; skip in CI where Ollama is unavailable.
+    test.skip(!isLiveChat, "Requires E2E_LIVE_CHAT=1 and live Ollama with qwen2.5:3b. Manual TrueNAS runs export E2E_LIVE_CHAT=1.");
     await gotoChat(page);
 
     // Inject PerformanceObserver BEFORE we trigger the stream
@@ -481,6 +491,8 @@ test.describe("G3 — Streaming performance gate", () => {
   test("G3-PARSE-ONCE: markdown/LaTeX NOT parsed per token (vitest contract verified; runtime check)", async ({ page }) => {
     // This test verifies that during streaming the .synapse-markdown class is NOT present
     // (parsed HTML only appears after finalization in MarkdownView, never during stream).
+    // Requires a live stream to exercise the in-flight state; skip in CI.
+    test.skip(!isLiveChat, "Requires E2E_LIVE_CHAT=1 and live Ollama with qwen2.5:3b. Manual TrueNAS runs export E2E_LIVE_CHAT=1.");
     await gotoChat(page);
 
     const textarea = page.locator("textarea").first();
@@ -527,8 +539,11 @@ test.describe("G3 — Streaming performance gate", () => {
 });
 
 // ── D5 screenshots ─────────────────────────────────────────────────────────────
+// Requires a live qwen2.5:3b stream to capture mid-stream and final state.
+// Skipped in CI; manual TrueNAS runs export E2E_LIVE_CHAT=1 to produce screenshots.
 
 test.describe("D5 screenshots (chat)", () => {
+  test.skip(!isLiveChat, "Requires E2E_LIVE_CHAT=1 and live Ollama with qwen2.5:3b. Manual TrueNAS runs export E2E_LIVE_CHAT=1.");
   test.setTimeout(120_000);
 
   test("D5: chat-streaming.png — captures stream in flight then final conversation", async ({ page }) => {

@@ -238,6 +238,50 @@ jobs:
           cd backend
           python -m alembic upgrade head
 
+      # ── E2E fixture seeding ──────────────────────────────────────────────────
+      # Runs AFTER migrations (schema must exist) and BEFORE backend (uvicorn
+      # connects to the same DB; seeding must complete before specs run).
+      # All three seed scripts are idempotent: re-running is safe.
+
+      - name: Seed demo vault (140-node Barabási–Albert graph)
+        # Produces 140 pages (demo/ prefix) + directed links + ~10 ingest_run rows.
+        # shell-m4-phase1.spec.ts prereq: "140-node demo graph seeded".
+        # shell-m4-phase2.spec.ts prereq: "10 demo ingest runs seeded".
+        # vault_id=test matches VAULT_ID used by the backend in CI.
+        env:
+          DATABASE_URL: postgresql+asyncpg://synapse:synapse@localhost:5432/synapse
+        run: |
+          cd backend
+          python scripts/seed_demo_vault.py --nodes 140 --vault-id test
+
+      - name: Seed graph performance fixture (200 nodes, 500 edges)
+        # Produces 200 pages (fixture/ prefix) with pre-computed x/y coords +
+        # 500 weighted edges. graph-perf.spec.ts (G2/G4) uses this data.
+        # demo/ and fixture/ paths are disjoint — both seeds coexist in vault 'test'.
+        # Node-count assertions in specs check virtualisation (<100 rendered rows),
+        # not exact totals, so the combined 340-node graph does not break any test.
+        env:
+          DATABASE_URL: postgresql+asyncpg://synapse:synapse@localhost:5432/synapse
+        run: |
+          cd backend
+          python scripts/seed_graph_fixture.py --nodes 200 --edges 500 --vault-id test
+
+      - name: Seed E2E extras (provider_config + conversations)
+        # Adds rows that seed_demo_vault.py and seed_graph_fixture.py omit:
+        #   - provider_config: scope=operation, operation=chat, vault_id=test,
+        #     provider_type=local, model_id=qwen2.5:3b
+        #     (required by shell-m4-phase3-chat.spec.ts "chat provider_config seeded")
+        #   - 4 conversations with 2 messages each for vault_id=test
+        #     (required by shell-m4-phase3-chat.spec.ts "backend has 4+ seeded conversations")
+        # The Alembic migration 0002 already seeds 2 global provider_config rows
+        # (api/claude-sonnet-4-6 + api/claude-haiku-4-5-20251001); this step only
+        # adds the operation-scoped chat row the migration does not create.
+        env:
+          DATABASE_URL: postgresql+asyncpg://synapse:synapse@localhost:5432/synapse
+        run: |
+          cd backend
+          python scripts/seed_e2e_extras.py --vault-id test
+
       - name: Start backend (uvicorn)
         env:
           DATABASE_URL: postgresql+asyncpg://synapse:synapse@localhost:5432/synapse
