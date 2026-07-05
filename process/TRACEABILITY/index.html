@@ -1710,6 +1710,100 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#sprint-13-v13-m13-foundations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint 13 — v1.3 — M13 «Foundations»
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sprint 13 — v1.3 — M13 «Foundations»">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#r13-3-cancel-in-flight-ingest-k2-f17-g-p2-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-3 — Cancel in-flight ingest (K2 / F17 / G-P2-3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-4-persistent-scheduler-state-t4-i7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-4 — Persistent scheduler state (T4 / I7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-9-deploy-security-pass-ssrf-guard-rate-limit-t5-i7-b2-b11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-9 — Deploy security pass: SSRF guard + rate limit (T5 / I7 / B2 / B11)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-11-responsive-iphoneipad-f1-f15-adr-0057" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-11 — Responsive iPhone/iPad (F1 / F15 / ADR-0057)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-10-docs-hygiene-t8-t9-i8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-10 — Docs hygiene (T8 / T9 / I8)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m13-exit-criteria-coverage-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M13 Exit Criteria coverage summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gap-register-m13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gap register (M13)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -8533,6 +8627,371 @@ Non-blocking for code-correctness gate; blocking for the <code>v1.0.0</code> tag
 <td>AC-D6-M6-1</td>
 <td>CLI delegated-ingest path does NOT enqueue review items (ADR-0025 §7)</td>
 <td>DOCUMENTED in docs/USER.md Review section. Conscious design gap — review items populated only by orchestrated ingest paths (Local + API providers).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="sprint-13-v13-m13-foundations">Sprint 13 — v1.3 — M13 «Foundations»<a class="headerlink" href="#sprint-13-v13-m13-foundations" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Sprint date: 2026-07-05. Theme: structural debt paydown (T1–T10). No new user-facing
+feature surface; all changes are refactor, hardening, and docs.
+Source: docs/reference/ROADMAP-v1.3-v2.0.md §v1.3</p>
+</blockquote>
+<h3 id="r13-3-cancel-in-flight-ingest-k2-f17-g-p2-3">R13-3 — Cancel in-flight ingest (K2 / F17 / G-P2-3)<a class="headerlink" href="#r13-3-cancel-in-flight-ingest-k2-f17-g-p2-3" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>EC</th>
+<th>D-artifacts</th>
+<th>Invariants</th>
+<th>Test file</th>
+<th>Test IDs</th>
+<th>Commit</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-R13-3-1</td>
+<td>EC-M13-3</td>
+<td>—</td>
+<td>K2, F17, I1, I7</td>
+<td>backend/tests/test_ingest_cancel.py</td>
+<td>test_delete_ingest_run_cancels</td>
+<td>sprint/v1.3</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-3-2</td>
+<td>EC-M13-3</td>
+<td>—</td>
+<td>K2, I7</td>
+<td>backend/tests/test_ingest_cancel.py</td>
+<td>test_cancelled_run_not_restartable</td>
+<td>sprint/v1.3</td>
+<td>GREEN</td>
+</tr>
+</tbody>
+</table>
+<p>Note: <code>DELETE /ingest/{run_id}</code> wired to ADR-0046 cancellation queue. Activity bar cancel
+button now functional. Closes G-P2-3, the last open parity item vs llm_wiki matrix — full
+parity achieved as of v1.3. See SYNAPSE-VS-LLMWIKI-PARITY.md (updated 2026-07-05).</p>
+<hr />
+<h3 id="r13-4-persistent-scheduler-state-t4-i7">R13-4 — Persistent scheduler state (T4 / I7)<a class="headerlink" href="#r13-4-persistent-scheduler-state-t4-i7" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>EC</th>
+<th>D-artifacts</th>
+<th>Invariants</th>
+<th>Test file</th>
+<th>Test IDs</th>
+<th>Commit</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-R13-4-1</td>
+<td>EC-M13-4</td>
+<td>—</td>
+<td>I7, T4</td>
+<td>backend/tests/test_scheduler.py</td>
+<td>test_scheduler_state_survives_restart</td>
+<td>sprint/v1.3</td>
+<td>GREEN</td>
+</tr>
+</tbody>
+</table>
+<p>Note: <code>ops_scheduler</code> last-run timestamps persisted into <code>app_config</code> table (ADR-0053
+mechanism). Scheduled jobs resume correctly after container restart (Watchtower-safe).</p>
+<hr />
+<h3 id="r13-9-deploy-security-pass-ssrf-guard-rate-limit-t5-i7-b2-b11">R13-9 — Deploy security pass: SSRF guard + rate limit (T5 / I7 / B2 / B11)<a class="headerlink" href="#r13-9-deploy-security-pass-ssrf-guard-rate-limit-t5-i7-b2-b11" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>EC</th>
+<th>D-artifacts</th>
+<th>Invariants</th>
+<th>Test file</th>
+<th>Test IDs</th>
+<th>Commit</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-R13-9-1</td>
+<td>EC-M13-9</td>
+<td>D6b</td>
+<td>I7, T5</td>
+<td>backend/tests/test_ssrf_guard.py</td>
+<td>test_ssrf_blocks_private_ip</td>
+<td>sprint/v1.3</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-9-2</td>
+<td>EC-M13-9</td>
+<td>D6b</td>
+<td>I7, T5</td>
+<td>backend/tests/test_ssrf_guard.py</td>
+<td>test_ssrf_blocks_loopback</td>
+<td>sprint/v1.3</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-9-3</td>
+<td>EC-M13-9</td>
+<td>D6b</td>
+<td>I7, T5</td>
+<td>backend/tests/test_ssrf_guard.py</td>
+<td>test_ssrf_blocks_link_local</td>
+<td>sprint/v1.3</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-9-4</td>
+<td>EC-M13-9</td>
+<td>D6b</td>
+<td>I7</td>
+<td>backend/tests/test_rate_limit.py</td>
+<td>test_chat_rate_limited</td>
+<td>sprint/v1.3</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-9-5</td>
+<td>EC-M13-9</td>
+<td>D6b</td>
+<td>I7</td>
+<td>backend/tests/test_rate_limit.py</td>
+<td>test_ingest_trigger_rate_limited</td>
+<td>sprint/v1.3</td>
+<td>GREEN</td>
+</tr>
+</tbody>
+</table>
+<p>Note: SSRF guard is a shared util (used by deep_research.py and searxng.py). Blocks
+private/loopback/link-local/metadata-IP ranges + redirect chains. Method-aware auth
+exempt list (B11) applied. Default 5432 port publish removed from compose.
+DEPLOY.md §3.6 documents the hardening; see ADR-0052 (auth model).</p>
+<hr />
+<h3 id="r13-11-responsive-iphoneipad-f1-f15-adr-0057">R13-11 — Responsive iPhone/iPad (F1 / F15 / ADR-0057)<a class="headerlink" href="#r13-11-responsive-iphoneipad-f1-f15-adr-0057" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>EC</th>
+<th>D-artifacts</th>
+<th>Invariants</th>
+<th>Test file</th>
+<th>Test IDs</th>
+<th>Commit</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-R13-11-1</td>
+<td>EC-M13-11</td>
+<td>D5</td>
+<td>F1, F15, I3</td>
+<td>frontend/tests/responsive.spec.ts</td>
+<td>responsive-mobile-layout</td>
+<td>sprint/v1.3</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-11-2</td>
+<td>EC-M13-11</td>
+<td>D5</td>
+<td>F1, F15, I3</td>
+<td>frontend/tests/responsive.spec.ts</td>
+<td>responsive-tablet-layout</td>
+<td>sprint/v1.3</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-11-3</td>
+<td>EC-M13-11</td>
+<td>—</td>
+<td>F15, I5</td>
+<td>frontend/tests/responsive.spec.ts</td>
+<td>viewport-safe-area-dvh</td>
+<td>sprint/v1.3</td>
+<td>GREEN</td>
+</tr>
+</tbody>
+</table>
+<p>Note: Three viewport tiers (≤767 mobile / 768–1023 tablet / ≥1024 desktop via ADR-0057).
+<code>useViewport()</code> hook + <code>uiStore</code> absorbs PanelGroup collapse state. <code>PanelDrawer</code> renders
+tree/preview as slide-over drawers on mobile; preview drawer on tablet. iOS <code>100dvh</code> + safe-area
+insets applied. i18n EN/IT strings added for drawer labels. ADR-0057 accepted.</p>
+<hr />
+<h3 id="r13-10-docs-hygiene-t8-t9-i8">R13-10 — Docs hygiene (T8 / T9 / I8)<a class="headerlink" href="#r13-10-docs-hygiene-t8-t9-i8" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>EC</th>
+<th>D-artifacts</th>
+<th>Invariants</th>
+<th>Evidence</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-R13-10-1</td>
+<td>EC-M13-10</td>
+<td>D7</td>
+<td>I8</td>
+<td>docs/adr/index.md: ADR-0039 row added; 0023 gap footnote added; Distribution &amp; Security heading updated</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-10-2</td>
+<td>EC-M13-10</td>
+<td>D2</td>
+<td>I8</td>
+<td><code>docs/er/schema 2.mmd</code> deleted (stale duplicate)</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-10-3</td>
+<td>EC-M13-10</td>
+<td>—</td>
+<td>I8</td>
+<td>docs/process/BACKLOG.md: Sprint 12 all items set to done; Sprint 13 section added</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-10-4</td>
+<td>EC-M13-10</td>
+<td>—</td>
+<td>I8</td>
+<td>docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md: G-P2-3 closed, full parity note added</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-10-5</td>
+<td>EC-M13-10</td>
+<td>—</td>
+<td>I8</td>
+<td>docs/process/TRACEABILITY.md: v1.3 section added (R13-3, R13-4, R13-9, R13-11)</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-10-6</td>
+<td>EC-M13-10</td>
+<td>—</td>
+<td>I8</td>
+<td>docker-compose.yml: whisper service added under <code>profiles: ["av"]</code> (port 8666)</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-10-7</td>
+<td>EC-M13-10</td>
+<td>—</td>
+<td>I8</td>
+<td>CONTRIBUTING.md created (branching, commit format, release rule, version bump)</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-10-8</td>
+<td>EC-M13-10</td>
+<td>—</td>
+<td>I8</td>
+<td>docs/process/DOCS_STATUS.md: v1.3 gate added; overall verdict ALL UP-TO-DATE</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>AC-R13-10-D5</td>
+<td>EC-M13-HCP</td>
+<td>D5</td>
+<td>I8</td>
+<td>D5 screenshots: pending CI E2E job run (R13-8 E2E job must execute against live stack)</td>
+<td>PENDING-LIVE</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="m13-exit-criteria-coverage-summary">M13 Exit Criteria coverage summary<a class="headerlink" href="#m13-exit-criteria-coverage-summary" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>EC</th>
+<th>Description</th>
+<th>Covering ACs</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EC-M13-3</td>
+<td>Cancel in-flight ingest: DELETE /ingest/{run_id} functional; G-P2-3 closed</td>
+<td>AC-R13-3-1..2</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>EC-M13-4</td>
+<td>Scheduler state survives container restart</td>
+<td>AC-R13-4-1</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>EC-M13-9</td>
+<td>SSRF guard rejects metadata-IP results; rate limit on cost endpoints</td>
+<td>AC-R13-9-1..5</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>EC-M13-11</td>
+<td>Responsive layout: 3 tiers, PanelDrawer, safe-area — mobile and tablet verified</td>
+<td>AC-R13-11-1..3</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>EC-M13-10</td>
+<td>Docs gate: all T8/T9 hygiene items resolved; DOCS_STATUS = ALL UP-TO-DATE</td>
+<td>AC-R13-10-1..8</td>
+<td>GREEN</td>
+</tr>
+<tr>
+<td>EC-M13-HCP</td>
+<td>Human checkpoint: E2E job green in CI; arm64 image; D5 screenshots refreshed</td>
+<td>AC-R13-10-D5</td>
+<td>PENDING-LIVE</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="gap-register-m13">Gap register (M13)<a class="headerlink" href="#gap-register-m13" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Gap ID</th>
+<th>AC ID</th>
+<th>Issue</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GAP-M13-1</td>
+<td>AC-R13-10-D5</td>
+<td>D5 screenshots require a live stack + CI E2E job (R13-8) to have executed</td>
+<td>PENDING-LIVE — captured by R13-8 E2E job on first CI run post-merge. Non-blocking for code gate; blocking for EC-M13-HCP human checkpoint.</td>
+</tr>
+<tr>
+<td>GAP-M13-2</td>
+<td>EC-M13-HCP</td>
+<td>arm64 image pull requires Actions runner with ARM capacity or QEMU buildx</td>
+<td>PENDING — "da validare al primo run Actions" per R13-8 roadmap note.</td>
 </tr>
 </tbody>
 </table>

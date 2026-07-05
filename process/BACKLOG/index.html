@@ -569,6 +569,144 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sprint-13-v13-m13-foundations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint 13 — v1.3 — M13 "Foundations"
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sprint 13 — v1.3 — M13 &#34;Foundations&#34;">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#r13-1-router-split" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-1 — Router split
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-2-release-hygiene" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-2 — Release hygiene
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-3-cancel-in-flight-ingest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-3 — Cancel in-flight ingest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-4-persistent-scheduler-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-4 — Persistent scheduler state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-5-p1-fix-event-loop-stall-b1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-5 — P1 fix: event-loop stall (B1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-6-p1-fix-chateditor-ux-correctness-f1-f2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-6 — P1 fix: chat/editor UX correctness (F1, F2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-7-bug-batch-p2s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-7 — Bug batch (P2s)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-8-ci-hardening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-8 — CI hardening
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-9-deploy-security-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-9 — Deploy security pass
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-10-docs-hygiene" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-10 — Docs hygiene
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r13-11-responsive-iphoneipad-adr-0057" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R13-11 — Responsive iPhone/iPad (ADR-0057)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sprint-12-v12-m12-home-insights" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1820,7 +1958,7 @@
 <h1 id="synapse-product-backlog">Synapse — Product Backlog<a class="headerlink" href="#synapse-product-backlog" title="Permanent link">&para;</a></h1>
 <blockquote>
 <p>Maintained by: product-manager
-Last updated: 2026-07-03 (Sprint 12 / v1.2 scope locked — SPRINT-v1.2-SCOPE.md; Sprint 11 / v1.1 scope locked — SPRINT-v1.1-SCOPE.md; Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
+Last updated: 2026-07-05 (Sprint 13 / v1.3 shipped — ROADMAP-v1.3-v2.0.md; Sprint 12 / v1.2 shipped (v1.2.4–v1.2.6) — SPRINT-v1.2-SCOPE.md; Sprint 11 / v1.1 scope locked — SPRINT-v1.1-SCOPE.md; Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
 Source of truth for feature IDs: CLAUDE.md §4
 Sprint roadmap: CLAUDE.md §8</p>
 </blockquote>
@@ -1857,15 +1995,332 @@ Sprint roadmap: CLAUDE.md §8</p>
 </tbody>
 </table>
 <hr />
+<h2 id="sprint-13-v13-m13-foundations">Sprint 13 — v1.3 — M13 "Foundations"<a class="headerlink" href="#sprint-13-v13-m13-foundations" title="Permanent link">&para;</a></h2>
+<p>Goal: zero visible behavior change; make the house solid before multi-vault extension.
+Pay down T1–T10 structural debt (router monolith split, release-lineage merge, P1/P2
+bug fixes, CI E2E, SSRF hardening, scheduler persistence, docs hygiene, responsive
+mobile/tablet).</p>
+<p><strong>Sprint status: DONE — v1.3 shipped 2026-07-05</strong>
+Source: docs/reference/ROADMAP-v1.3-v2.0.md §v1.3
+Branch: claude/v1-v2-roadmap-skvc4e</p>
+<h3 id="r13-1-router-split">R13-1 — Router split<a class="headerlink" href="#r13-1-router-split" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>T1 (structural debt)</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.3</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>done</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>L</td>
+</tr>
+</tbody>
+</table>
+<p>Decompose <code>main.py</code> into <code>app/routers/{pages,search,graph,ingest,chat,review,research,ops,config,stats,clip,mcp}.py</code> via <code>APIRouter</code>. CI OpenAPI drift gate shows empty diff (paths/schemas identical).</p>
+<h3 id="r13-2-release-hygiene">R13-2 — Release hygiene<a class="headerlink" href="#r13-2-release-hygiene" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>T2 (structural debt), F15</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.3</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>done-pending-live-demo</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S</td>
+</tr>
+</tbody>
+</table>
+<p>Merge v1.2.4–v1.2.6 release lineage back into <code>main</code>; protect <code>main</code> branch; adopt rule that tags are only cut from <code>main</code>; document in CONTRIBUTING.md.</p>
+<h3 id="r13-3-cancel-in-flight-ingest">R13-3 — Cancel in-flight ingest<a class="headerlink" href="#r13-3-cancel-in-flight-ingest" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>K2, F17, G-P2-3 (parity)</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.3</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>done</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S</td>
+</tr>
+</tbody>
+</table>
+<p><code>DELETE /ingest/{run_id}</code> on top of ADR-0046 queue (cancellation events existed); Activity bar wiring. Closes the last open parity item vs llm_wiki matrix (G-P2-3). See SYNAPSE-VS-LLMWIKI-PARITY.md.</p>
+<h3 id="r13-4-persistent-scheduler-state">R13-4 — Persistent scheduler state<a class="headerlink" href="#r13-4-persistent-scheduler-state" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>T4 (structural debt)</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.3</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>done</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S</td>
+</tr>
+</tbody>
+</table>
+<p>Last-run timestamps for ops/import schedulers persisted into <code>app_config</code> (survives container restart; fixes missed weekly jobs after Watchtower updates).</p>
+<h3 id="r13-5-p1-fix-event-loop-stall-b1">R13-5 — P1 fix: event-loop stall (B1)<a class="headerlink" href="#r13-5-p1-fix-event-loop-stall-b1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>I2 (invariant enforcement), B1</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.3</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>done</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M</td>
+</tr>
+</tbody>
+</table>
+<p>Offload <code>GraphEngine.recompute</code> (igraph + FA2 + Louvain) to thread/process executor so recompute never blocks requests/streams/watcher. Regression-guarded by <code>graph-perf.spec.ts</code>.</p>
+<h3 id="r13-6-p1-fix-chateditor-ux-correctness-f1-f2">R13-6 — P1 fix: chat/editor UX correctness (F1, F2)<a class="headerlink" href="#r13-6-p1-fix-chateditor-ux-correctness-f1-f2" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F6, F7 (frontend), I3</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.3</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>done</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S/M</td>
+</tr>
+</tbody>
+</table>
+<p>Unmount/conversation-switch abort in <code>useChatStream</code> (kills cross-conversation contamination race F2 and leak F3); break "Keep editing" dialog ping-pong in <code>NoteView</code> (F1).</p>
+<h3 id="r13-7-bug-batch-p2s">R13-7 — Bug batch (P2s)<a class="headerlink" href="#r13-7-bug-batch-p2s" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>B3–B5, B7–B10, F4, F5, F7, F8</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.3</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>done</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M</td>
+</tr>
+</tbody>
+</table>
+<p>Stream <code>aclose()</code> in <code>finally</code> (B4); atomic <code>index.md</code> write (B5); finalize-in-<code>finally</code> for ingest runs (B3); word-boundary mention match (B7); GraphCache marker at recompute start (B8); <code>run_now</code> single-flight fix (B9); 409 on concurrent page PUT (B10); double-submit <code>e.repeat</code> guard (F4); stale-activeId fix (F5); <code>ThinkBlock</code> hooks-order fix (F7); graph tooltip i18n (F8); PWA <code>lang</code> + package.json description.</p>
+<h3 id="r13-8-ci-hardening">R13-8 — CI hardening<a class="headerlink" href="#r13-8-ci-hardening" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>T6, T7</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.3</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>done-pending-live-demo</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M</td>
+</tr>
+</tbody>
+</table>
+<p>E2E job (compose up backend+postgres+fake-embeddings, run Playwright headless); multi-arch images (linux/amd64+arm64 via buildx); <code>make bump VERSION=x.y.z</code> single-command 4-file version bump. Note: E2E/arm64 "da validare al primo run Actions".</p>
+<h3 id="r13-9-deploy-security-pass">R13-9 — Deploy security pass<a class="headerlink" href="#r13-9-deploy-security-pass" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>T5, B2, B11</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.3</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>done</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M</td>
+</tr>
+</tbody>
+</table>
+<p>SSRF guard on deep-research fetch (block private/loopback/link-local/metadata ranges); method-aware auth exempt list (B11); drop default <code>5432:5432</code> publish; creds via <code>.env</code> with generated defaults; minimal rate limit on inference-cost endpoints (<code>/chat</code>, <code>/ingest/trigger</code>, <code>/research</code>); DEPLOY.md Tailscale/CF-Tunnel posture documented.</p>
+<h3 id="r13-10-docs-hygiene">R13-10 — Docs hygiene<a class="headerlink" href="#r13-10-docs-hygiene" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>T8, T9, I8</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.3</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>done</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>S/M</td>
+</tr>
+</tbody>
+</table>
+<p>Index ADR-0039; delete <code>schema 2.mmd</code>; add ADR-0023 gap note; sync BACKLOG/parity/TRACEABILITY to v1.2.6 reality; add whisper-service compose profile (<code>av</code>); create CONTRIBUTING.md; update DOCS_STATUS.md. See DOCS_STATUS.md v1.3 gate.</p>
+<h3 id="r13-11-responsive-iphoneipad-adr-0057">R13-11 — Responsive iPhone/iPad (ADR-0057)<a class="headerlink" href="#r13-11-responsive-iphoneipad-adr-0057" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature ID</td>
+<td>F1, F15, R13-11</td>
+</tr>
+<tr>
+<td>Sprint</td>
+<td>v1.3</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>done</td>
+</tr>
+<tr>
+<td>Effort</td>
+<td>M/L</td>
+</tr>
+</tbody>
+</table>
+<p>Three viewport tiers (mobile ≤767 / tablet 768–1023 / desktop ≥1024); <code>useViewport()</code> hook + <code>uiStore</code>; <code>PanelDrawer</code> for tree+preview on mobile/tablet; iOS safe-area + <code>100dvh</code>; graph toolbar touch-reachable; i18n EN/IT for new strings.</p>
+<hr />
 <h2 id="sprint-12-v12-m12-home-insights">Sprint 12 — v1.2 — M12 "Home &amp; Insights"<a class="headerlink" href="#sprint-12-v12-m12-home-insights" title="Permanent link">&para;</a></h2>
 <p>Goal: glanceable home dashboard (vault KPIs, AI spend, per-domain breakdowns); domain
 vocabulary machinery (controlled vocabulary stored in app_config, auto-tag on ingest,
 one-time bounded backfill); server release channel (GHCR image publish + StatusResponse
 version field + frontend mismatch notice + optional Watchtower auto-update block);
 ingest polling dedup carry-over fix.</p>
-<p><strong>Sprint status: SCOPE LOCKED 2026-07-03</strong>
+<p><strong>Sprint status: DONE — v1.2.4–v1.2.6 shipped (see ROADMAP-v1.3-v2.0.md §0)</strong>
 Scope file: docs/sprints/SPRINT-v1.2-SCOPE.md
-Branch: sprint/v1.2 (cut from main after v1.1.0 tag)
+Branch: sprint/v1.2 (cut from main after v1.1.0 tag; v1.2.4–v1.2.6 tags merged to main in v1.3 via R13-2)
 Prerequisite: EC-M11-1..EC-M11-HCP met by Emanuele.</p>
 <h3 id="r12-1-home-dashboard">R12-1 — Home dashboard<a class="headerlink" href="#r12-1-home-dashboard" title="Permanent link">&para;</a></h3>
 <table>
@@ -1886,7 +2341,7 @@ Prerequisite: EC-M11-1..EC-M11-HCP met by Emanuele.</p>
 </tr>
 <tr>
 <td>Status</td>
-<td>backlog</td>
+<td>done</td>
 </tr>
 <tr>
 <td>Effort</td>
@@ -1922,7 +2377,7 @@ library). Domain section card click dispatches filter navigation.</p>
 </tr>
 <tr>
 <td>Status</td>
-<td>blocked — ADR-0054 required before backend code</td>
+<td>done — ADR-0054 accepted; shipped in v1.2.4</td>
 </tr>
 <tr>
 <td>Effort</td>
@@ -1959,7 +2414,7 @@ dormant (zero provider calls). Settings &gt; Advanced vocabulary editor in front
 </tr>
 <tr>
 <td>Status</td>
-<td>backlog</td>
+<td>done</td>
 </tr>
 <tr>
 <td>Effort</td>
@@ -1996,7 +2451,7 @@ and automatic (Watchtower/TrueNAS/Diun) options plus data-service caveat.</p>
 </tr>
 <tr>
 <td>Status</td>
-<td>backlog (confirm done from v1.1 before starting)</td>
+<td>done — BUG-2 confirmed fixed in v1.2.6 (see ROADMAP-v1.3-v2.0.md §0-bis)</td>
 </tr>
 <tr>
 <td>Effort</td>
@@ -2030,7 +2485,7 @@ mount/unmount/remount cycle.</p>
 </tr>
 <tr>
 <td>Status</td>
-<td>in-progress</td>
+<td>done</td>
 </tr>
 </tbody>
 </table>

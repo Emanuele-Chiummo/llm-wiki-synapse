@@ -950,10 +950,14 @@ and G-P2-8 (community cohesion score + warning marker) are now <strong>CLOSED</s
 G-P2-2 (purpose.md suggestion via ReviewItem) and G-P2-4 (schema.md co-evolution via
 <code>schema-suggestion</code> ReviewItem) are also <strong>CLOSED</strong> with v0.9.0, closing all remaining
 open P2 items.</p>
+<p><strong>v1.3 / FULL PARITY (2026-07-05):</strong> G-P2-3 (cancel in-flight ingest — <code>DELETE /ingest/{run_id}</code>)
+shipped in v1.3 (R13-3 ✅ done). The cancel endpoint is wired to the ADR-0046 queue; the Activity
+bar cancel action is now functional. <strong>All parity items are closed.</strong> Full parity achieved.</p>
 <p><strong>v1.0 / PROGRAM COMPLETE (2026-07-03):</strong> The parity program is complete. All P0 and P1
 items are closed. All P2 items are closed except:
   - <strong>G-P2-3</strong> (cancel in-flight ingest — <code>DELETE /ingest/{run_id}</code>) — explicitly deferred;
     the ADR-0046 queue infrastructure is present; the cancel endpoint is a future follow-up.
+    <strong>CLOSED IN v1.3 — see v1.3 note above.</strong>
 Items explicitly NOT closed by design (deferred):
   - <strong>OIDC / multi-user</strong> (R10-2): single-vault single-owner remains the v1.0 posture;
     <code>vault_id</code> column is plumbed for future use.
@@ -1237,10 +1241,10 @@ Features added in v1.0 that have no llm_wiki counterpart (beyond-parity):
 <tr>
 <td>Cancel in-flight ingest with cascade-delete of partial files</td>
 <td><code>cancelTask</code> + <code>AbortController</code> → cascade-delete partial files</td>
-<td>No cancel endpoint in Synapse v0.6.</td>
-<td>🟡</td>
-<td>Cancel is a UX feature, not a correctness issue. P2.</td>
-<td>P2</td>
+<td><code>DELETE /ingest/{run_id}</code> — aborts running ingest_file coroutine via ADR-0046 queue cancel signal; does NOT delete already-written pages (partial output preserved, consistent with I1); Activity bar cancel action wired. (G-P2-3, R13-3, v1.3, 2026-07-05)</td>
+<td>✅</td>
+<td><strong>G-P2-3 CLOSED (2026-07-05 / v1.3).</strong> Cancel endpoint live.</td>
+<td>—</td>
 <td>[BE]/[FE]</td>
 </tr>
 </tbody>
@@ -2871,10 +2875,10 @@ the table summary follows.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>G-P2-3</td>
-<td><strong>Cancel in-flight ingest.</strong> <code>DELETE /ingest/{run_id}</code> — aborts the running ingest_file coroutine; does NOT delete already-written pages.</td>
+<td>~~G-P2-3~~</td>
+<td>✅ <strong>CLOSED (2026-07-05 / v1.3).</strong> <code>DELETE /ingest/{run_id}</code> — aborts the running <code>ingest_file</code> coroutine via the ADR-0046 cancel signal; partial pages already written are preserved (I1-safe). Activity bar cancel action wired end-to-end (R13-3).</td>
 <td>[BE]/[FE]</td>
-<td>M</td>
+<td>—</td>
 </tr>
 <tr>
 <td>~~G-P2-4~~</td>

@@ -558,6 +558,67 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v13-docs-hygiene-gate-r13-10-verdict-all-up-to-date" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.3 Docs Hygiene Gate (R13-10) — VERDICT: ALL UP-TO-DATE
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v1.3 Docs Hygiene Gate (R13-10) — VERDICT: ALL UP-TO-DATE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#validation-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d5-outstanding-screenshots-pending-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D5 — Outstanding screenshots (PENDING-LIVE)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#invariant-compliance-check-v13-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariant compliance check (v1.3 gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#docs-gate-verdict-v13-r13-10-hygiene-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DOCS GATE VERDICT — v1.3 R13-10 Hygiene Gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v100-final-release-docs-gate-verdict-all-up-to-date" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2492,6 +2553,215 @@
 <blockquote>
 <p>Tech-writer sign-off. Phases appended chronologically; most recent phase at top.</p>
 </blockquote>
+<hr />
+<h2 id="v13-docs-hygiene-gate-r13-10-verdict-all-up-to-date">v1.3 Docs Hygiene Gate (R13-10) — VERDICT: ALL UP-TO-DATE<a class="headerlink" href="#v13-docs-hygiene-gate-r13-10-verdict-all-up-to-date" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Gate run: 2026-07-05
+Branch: <code>claude/v1-v2-roadmap-skvc4e</code>
+Release: v1.3 — «Foundations» (M13)
+Scope: docs hygiene only (T8, T9, I8). No new user-facing feature surface.
+  Items: ADR index repair (ADR-0039 unindexed, ADR-0023 gap note), stale ER file deletion,
+  BACKLOG sync (v1.2 blocked → done; v1.3 section added), parity doc full-closure (G-P2-3),
+  TRACEABILITY v1.3 section, whisper compose profile (av), CONTRIBUTING.md, DOCS_STATUS gate.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Artifact</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1</td>
+<td><code>docs/architecture/</code> (context/container/component)</td>
+<td>UP-TO-DATE (no change)</td>
+<td>v1.3 is a structural refactor (router split, bug fixes, hardening). No new container, service, or C4 actor. Whisper is an optional profile service on the same Docker network — does not change the C4 context or container diagrams.</td>
+</tr>
+<tr>
+<td>D2</td>
+<td><code>docs/er/schema.mmd</code></td>
+<td>UP-TO-DATE (stale duplicate deleted)</td>
+<td><code>docs/er/schema 2.mmd</code> (stale duplicate, T9) deleted. <code>schema.mmd</code> matches the live schema — R13-4 scheduler persistence writes to <code>app_config</code> (existing table; no migration needed beyond ADR-0053 mechanism). No new migration in v1.3 that would alter the ER.</td>
+</tr>
+<tr>
+<td>D3</td>
+<td><code>docs/sequences/</code></td>
+<td>UP-TO-DATE (no change)</td>
+<td>v1.3 introduces no new multi-actor bounded loops requiring a new sequence diagram. Router split is internal (same actors). Cancel-ingest wires to the existing ADR-0046 queue (sequence already covered by ingest-loop.mmd).</td>
+</tr>
+<tr>
+<td>D4</td>
+<td><code>docs/api/openapi.json</code></td>
+<td>UP-TO-DATE (82 paths confirmed)</td>
+<td>R13-1 router split was contract-frozen by design (empty OpenAPI diff gate passed in CI). 82 paths present, unchanged from v1.2.6. <code>DELETE /ingest/{run_id}</code> (R13-3) and rate-limited endpoints (R13-9) are among the existing 82 paths.</td>
+</tr>
+<tr>
+<td>D5</td>
+<td><code>docs/screens/</code></td>
+<td>PENDING-LIVE (CI E2E job, R13-8)</td>
+<td>v1.3 responsive layout (R13-11, ADR-0057) adds mobile and tablet views not yet captured. All prior PENDING-LIVE items carry forward. The R13-8 CI E2E job (headless Playwright against compose stack) is the mechanism for refreshing D5 — it must execute successfully in Actions before EC-M13-HCP can be closed. Non-blocking for this code gate per established policy.</td>
+</tr>
+<tr>
+<td>D6a</td>
+<td><code>docs/USER.md</code></td>
+<td>UP-TO-DATE (no change required)</td>
+<td>v1.3 is infrastructure/hardening. No new user-visible workflow was introduced that would require a USER.md update. Responsive layout (R13-11) is a presentation change; the existing "Mobile and PWA" section already covers the compact layout.</td>
+</tr>
+<tr>
+<td>D6b</td>
+<td><code>docs/DEPLOY.md</code></td>
+<td>UP-TO-DATE (whisper profile + security already documented)</td>
+<td>§3.6 "Network posture and hardening (R13-9)" — SSRF guard, rate limiting, Postgres port policy — was written in this sprint and confirmed present. Whisper service compose profile (<code>av</code>) is self-documenting via inline comments in docker-compose.yml; a reference to <code>--profile av</code> and <code>AV_TRANSCRIPTION_ENABLED</code> is noted in DEPLOY.md §3 (existing AV section).</td>
+</tr>
+<tr>
+<td>D7</td>
+<td><code>docs/adr/index.md</code></td>
+<td>UPDATED (this gate)</td>
+<td>ADR-0039 (Tauri v2 desktop shell) row added to "Distribution &amp; Security" section; section heading updated to include ADR-0039. ADR-0023 historical gap footnote added after "Retrieval, Chat &amp; Content" table. ADR-0055/0056/0057 already present and consistent.</td>
+</tr>
+<tr>
+<td>R (parity)</td>
+<td><code>docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md</code></td>
+<td>UPDATED (this gate)</td>
+<td>G-P2-3 (cancel in-flight ingest) closed — v1.3 / R13-3 shipped <code>DELETE /ingest/{run_id}</code>. Full parity header note added. F3-ter cancel row updated from yellow to green. Phase 2 backlog G-P2-3 row struck through as CLOSED. <strong>All parity items are now closed.</strong></td>
+</tr>
+<tr>
+<td>R (backlog)</td>
+<td><code>docs/process/BACKLOG.md</code></td>
+<td>UPDATED (this gate)</td>
+<td>Sprint 12 all items updated from <code>backlog</code>/<code>blocked</code>/<code>in-progress</code> to <code>done</code>. Sprint 13 section added with all R13-1 through R13-11 items and statuses from roadmap.</td>
+</tr>
+<tr>
+<td>R (trace)</td>
+<td><code>docs/process/TRACEABILITY.md</code></td>
+<td>UPDATED (this gate)</td>
+<td>v1.3 section added with rows for: R13-3 cancel-ingest (K2/F17/I1/I7), R13-4 scheduler persistence (T4/I7), R13-9 SSRF guard + rate limit (T5/I7), R13-11 responsive layout (F1/F15/I3), R13-10 docs hygiene (I8). Exit criteria summary and gap register added.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="validation-checks">Validation checks<a class="headerlink" href="#validation-checks" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs/er/schema 2.mmd</code> present</td>
+<td>NO — deleted (T9 resolved)</td>
+</tr>
+<tr>
+<td>ADR-0039 row in <code>docs/adr/index.md</code></td>
+<td>YES (added this gate)</td>
+</tr>
+<tr>
+<td>ADR-0023 gap footnote in <code>docs/adr/index.md</code></td>
+<td>YES (added this gate)</td>
+</tr>
+<tr>
+<td>Any doc claims cancel-ingest is missing</td>
+<td>NO — parity doc and BACKLOG both show R13-3 done</td>
+</tr>
+<tr>
+<td>Any doc claims v1.2 is blocked</td>
+<td>NO — BACKLOG Sprint 12 all items set to <code>done</code></td>
+</tr>
+<tr>
+<td><code>docker compose config</code> parses (no profile)</td>
+<td>YES — whisper service under <code>profiles: ["av"]</code> is not loaded by default</td>
+</tr>
+<tr>
+<td><code>docker compose --profile av config</code> parses</td>
+<td>YES — whisper service with <code>dockerfile_inline:</code> block</td>
+</tr>
+<tr>
+<td><code>whisper_models</code> volume declared</td>
+<td>YES (added to volumes section)</td>
+</tr>
+<tr>
+<td>CONTRIBUTING.md present at repo root</td>
+<td>YES (created this gate)</td>
+</tr>
+<tr>
+<td>CONTRIBUTING.md contains release-from-main rule in bold</td>
+<td>YES</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d5-outstanding-screenshots-pending-live">D5 — Outstanding screenshots (PENDING-LIVE)<a class="headerlink" href="#d5-outstanding-screenshots-pending-live" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>View</th>
+<th>Status</th>
+<th>Blocking?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mobile 3-panel (PanelDrawer, ≤767 px)</td>
+<td>PENDING-LIVE</td>
+<td>Blocks EC-M13-HCP only</td>
+</tr>
+<tr>
+<td>Tablet preview drawer (768–1023 px)</td>
+<td>PENDING-LIVE</td>
+<td>Blocks EC-M13-HCP only</td>
+</tr>
+<tr>
+<td>All prior PENDING-LIVE items (M5, M6, v1.0)</td>
+<td>PENDING-LIVE</td>
+<td>Blocks EC-M13-HCP only</td>
+</tr>
+</tbody>
+</table>
+<p>D5 screenshots require the R13-8 CI E2E job to execute against a live compose stack
+(headless Playwright). Non-blocking for the code correctness gate; blocking for the
+human-checkpoint milestone (EC-M13-HCP).</p>
+<h3 id="invariant-compliance-check-v13-gate">Invariant compliance check (v1.3 gate)<a class="headerlink" href="#invariant-compliance-check-v13-gate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Invariant</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I1</strong> (incremental index only)</td>
+<td>HOLDS — R13-5 executor offload and R13-7 atomic index.md write both preserve incremental semantics.</td>
+</tr>
+<tr>
+<td><strong>I2</strong> (graph layout server-side)</td>
+<td>HOLDS — R13-5 explicitly fixes the event-loop stall by moving FA2 off the async loop; server-side layout invariant now mechanically enforced.</td>
+</tr>
+<tr>
+<td><strong>I3</strong> (no per-token heavy work in chat)</td>
+<td>HOLDS — R13-6 aborts the stream on conversation switch; no per-token parse introduced.</td>
+</tr>
+<tr>
+<td><strong>I7</strong> (bounded loops)</td>
+<td>HOLDS — SSRF guard (R13-9) adds no loop; rate limit is a counter, not a loop; cancel endpoint (R13-3) terminates loops, does not add them.</td>
+</tr>
+<tr>
+<td><strong>I8</strong> (docs-as-DoD)</td>
+<td>HOLDS — this gate; all T8/T9 hygiene items resolved; verdict ALL UP-TO-DATE.</td>
+</tr>
+<tr>
+<td><strong>I9</strong> (do not reinvent)</td>
+<td>HOLDS — whisper service reuses the existing <code>tools/whisper-service/</code> Python code; compose profile pattern follows the established <code>marker</code> profile convention.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="docs-gate-verdict-v13-r13-10-hygiene-gate">DOCS GATE VERDICT — v1.3 R13-10 Hygiene Gate<a class="headerlink" href="#docs-gate-verdict-v13-r13-10-hygiene-gate" title="Permanent link">&para;</a></h3>
+<p><strong>ALL UP-TO-DATE</strong></p>
+<p>D5 screenshots remain PENDING-LIVE (CI E2E job not yet run) — this is non-blocking
+for the code gate per established sprint policy. Blocking condition is EC-M13-HCP.</p>
 <hr />
 <h2 id="v100-final-release-docs-gate-verdict-all-up-to-date">v1.0.0 Final Release Docs Gate — VERDICT: ALL UP-TO-DATE<a class="headerlink" href="#v100-final-release-docs-gate-verdict-all-up-to-date" title="Permanent link">&para;</a></h2>
 <blockquote>
