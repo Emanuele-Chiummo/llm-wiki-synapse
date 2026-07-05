@@ -246,12 +246,18 @@ jobs:
         run: |
           cd backend
           python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/backend.log 2>&1 &
-          sleep 3
-          # Verify backend is up
-          curl -f http://localhost:8000/health || {
-            cat /tmp/backend.log
-            exit 1
-          }
+          # App import (igraph, providers, routers) can take >3s on a cold
+          # runner — retry /health for up to 60s instead of a fixed sleep.
+          for i in {1..60}; do
+            if curl -sf http://localhost:8000/health >/dev/null; then
+              echo "Backend is up (after ${i}s)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend failed to start within 60 seconds"
+          cat /tmp/backend.log
+          exit 1
 
       - name: Install frontend dependencies
         working-directory: frontend
