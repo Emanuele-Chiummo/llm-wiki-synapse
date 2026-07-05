@@ -69,13 +69,25 @@ async function gotoApp(page: Page) {
   await expect(page.getByTestId("nav-rail")).toBeVisible();
 }
 
-/** Navigate to the Chat section */
+/** Navigate to the Chat section and wait for the conversation list to settle.
+ *
+ * The ConversationList fires an async fetch on mount; tests that need an active
+ * conversation selected (I6-BODY, CHAT-CONV-1, G3-VIRTUALISED) would fail if they
+ * interacted before the fetch completed. Waiting for networkidle ensures all
+ * pending requests (including the conversation list fetch) have finished.
+ */
 async function gotoChat(page: Page) {
   await gotoApp(page);
   const chatBtn = page.locator("[data-section='chat']");
   await expect(chatBtn).not.toBeDisabled();
   await chatBtn.click();
   await expect(page.getByTestId("section-chat")).toBeVisible({ timeout: 5000 });
+  // Wait for the conversation list fetch to complete before tests interact.
+  // In a local stack this typically takes < 100ms; 3 000ms is ample headroom.
+  await page.waitForLoadState("networkidle", { timeout: 3000 }).catch(() => {
+    // networkidle may never be reached in some SPA states — fall back to a short
+    // fixed delay that is still much shorter than any meaningful timeout.
+  });
 }
 
 // ── Backend health ─────────────────────────────────────────────────────────────
@@ -116,14 +128,15 @@ test.describe("Chat NavRail", () => {
 test.describe("Conversation list", () => {
   test("CHAT-CONV-1: existing conversations are listed on mount", async ({ page }) => {
     await gotoChat(page);
+    // gotoChat() already waits for networkidle (conversation fetch settled).
     const convList = page.getByTestId("conversation-list");
-    // Wait for at least one conversation item (backend has 4+ seeded)
     await expect(convList).toBeVisible();
-    // The list should contain at least one conversation item (role=button or similar)
-    await page.waitForTimeout(1000); // let fetch complete
-    // Conversations are rendered as role="button" divs inside conversation-list
-    const items = convList.locator("[role='button']");
-    const count = await items.count();
+    // Conversations are rendered as role="button" divs inside conversation-list.
+    // Wait explicitly (up to 5s) instead of a fixed timeout so the assertion
+    // is reliable regardless of backend latency.
+    const firstItem = convList.locator("[role='button']").first();
+    await expect(firstItem).toBeVisible({ timeout: 5_000 });
+    const count = await convList.locator("[role='button']").count();
     expect(count).toBeGreaterThanOrEqual(1);
   });
 
@@ -199,8 +212,10 @@ test.describe("Input invariants (I4)", () => {
 // ── I6 invariant: no provider_type/model_id in request body ───────────────────
 
 test("I6-BODY: /chat/stream request body contains no provider_type or model_id", async ({ page }) => {
-  await gotoChat(page);
-
+  // Set the route mock BEFORE gotoChat() / any navigation so it is guaranteed
+  // to be active before the browser even loads the page. This prevents a race
+  // with parallel test workers where a slightly delayed route registration could
+  // miss the request (workers=2 parallelism).
   let capturedBody: Record<string, unknown> | null = null;
 
   await page.route("**/chat/stream", async (route) => {
@@ -222,10 +237,18 @@ test("I6-BODY: /chat/stream request body contains no provider_type or model_id",
     });
   });
 
+  await gotoChat(page);
+
   const textarea = page.locator("textarea").first();
   await textarea.fill("i6 invariant check");
   await textarea.press("Enter");
-  await page.waitForTimeout(500);
+  // Use waitForResponse to ensure the route fulfilled before checking capturedBody.
+  // waitForTimeout(500) alone is unreliable under parallel backend load.
+  await page.waitForResponse("**/chat/stream", { timeout: 5_000 }).catch(() => {
+    // If the mock fulfilled the request before waitForResponse registered,
+    // the response has already completed — the catch is a safety net only.
+  });
+  await page.waitForTimeout(100); // micro-settle
 
   // Verify the captured body has no provider_type or model_id (I6)
   expect(capturedBody).not.toBeNull();
@@ -519,16 +542,39 @@ test.describe("G3 — Streaming performance gate", () => {
   });
 
   test("G3-VIRTUALISED: message list is virtualized (bounded DOM — I4)", async ({ page }) => {
+    // Mock messages API to return demo messages so the TanStack Virtual container
+    // is always rendered. The virtualizer's outer div (position: relative) only
+    // appears when messages.length > 0 — this mock provides that condition reliably
+    // without depending on backend-seeded data. Invariant I4 is not weakened by
+    // the mock; we are specifically verifying the component uses useVirtualizer.
+    const DEMO_MESSAGES = Array.from({ length: 5 }, (_, i) => ({
+      id: `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`,
+      conversation_id: "00000000-0000-0000-0000-000000000001",
+      role: i % 2 === 0 ? "user" : "assistant",
+      content: `Demo virtualizer test message ${i + 1}.`,
+      created_at: new Date(Date.now() - (5 - i) * 60_000).toISOString(),
+      total_cost_usd: i % 2 === 1 ? 0.0001 : 0,
+      citations: [],
+    }));
+
+    await page.route("**/conversations/*/messages", async (route) => {
+      if (route.request().method() !== "GET") { await route.continue(); return; }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: DEMO_MESSAGES }),
+      });
+    });
+
     await gotoChat(page);
 
     // data-testid="message-list" wraps the virtualizer container
     const msgList = page.getByTestId("message-list");
     await expect(msgList).toBeVisible();
 
-    // TanStack Virtual renders items inside a position:relative container.
-    // We check that the number of rendered (position:absolute) rows is bounded to overscan(5)+viewport
-    // rather than unlimited. With <30 messages, all are rendered; the important check is that
-    // the virtualizer container is present (proving the component uses useVirtualizer).
+    // TanStack Virtual renders items inside a position:relative outer container.
+    // This div only renders when messages.length > 0 (the mock guarantees this).
+    // Its presence proves useVirtualizer is in play — I4 compliance check.
     const virtualizerContainer = msgList.locator("[style*='position: relative']").first();
     await expect(virtualizerContainer).toBeVisible({ timeout: 5_000 });
 

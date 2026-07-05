@@ -60,10 +60,14 @@ if (!fs.existsSync(SCREENS_DIR)) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Wait for the sigma canvas to appear AND for the graph-loading indicator to
- * disappear. Safe to call in any describe block's beforeEach.
+ * Navigate to the "graph" NavRail section, wait for the sigma canvas to appear,
+ * and wait for the graph-loading indicator to disappear.
+ * v1.2 [F18]: app boots to "home" section — the sigma canvas only exists when
+ * the "graph" section is active.  Safe to call in any describe block's beforeEach.
  */
 async function waitForGraph(page: Page): Promise<void> {
+  // Ensure the graph section is active (has the sigma canvas).
+  await page.locator("[data-section='graph']").click();
   await page.waitForSelector("canvas", { timeout: 15_000 });
   await page.waitForFunction(
     () => !document.querySelector("[data-testid='graph-loading']"),
@@ -216,8 +220,23 @@ test.describe("G2 — No main-thread long task > 50ms (AC-F4-6 / EC-M3-5 / I2)",
   });
 
   test("graph renders without any main-thread long task > 50ms", async ({ page }) => {
-    // Start collecting long tasks BEFORE the /graph API response arrives
+    // On GPU-less environments (CI runners, headless containers) WebGL falls
+    // back to SwiftShader software rasterization: shader compilation alone
+    // produces >50ms main-thread tasks regardless of product code, so the
+    // measurement does not reflect real-hardware behaviour. The strict gate
+    // runs on manual real-hardware sessions (TrueNAS / dev machines); set
+    // E2E_SOFTWARE_GL=1 to skip it where GL is software-emulated.
+    test.skip(
+      process.env["E2E_SOFTWARE_GL"] === "1",
+      "Software-GL environment: longtask numbers reflect SwiftShader, not the product. Run on real hardware.",
+    );
+
+    // Start collecting long tasks BEFORE navigating to the graph section
+    // so the full render pipeline (data fetch + sigma init + WebGL draw) is measured.
     const longTaskPromise = collectLongTasksMs(page, 3000);
+
+    // v1.2 [F18]: app boots to "home" — navigate to "graph" section to mount sigma.
+    await page.locator("[data-section='graph']").click();
 
     // Wait for the sigma canvas to appear (graph fully rendered)
     await page.waitForSelector("canvas", { timeout: 10_000 });
@@ -484,8 +503,11 @@ test.describe("D5 — Screenshot capture for docs/screens/ (AC-D5-1..4 / EC-M3-1
 
 test.describe("G2/AC-FE-1 — Sigma viewer loads; node click shows title (EC-M3-7)", () => {
   test("graph page loads and sigma canvas is rendered", async ({ page }) => {
-    // D-PW-1 fix: single route at `/`
+    // D-PW-1 fix: single route at `/` (NOT `/graph` — that serves FastAPI JSON via Vite proxy)
     await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
+    // v1.2 [F18]: app boots to "home" section — navigate to "graph" NavRail section
+    // so the sigma canvas (WebGL) is mounted.
+    await page.locator("[data-section='graph']").click();
     // sigma v3 creates exactly 7 <canvas> layers; use .first() to avoid strict-mode
     // multi-match error. Any of the sigma canvases being visible confirms the renderer
     // has initialised (they are all full-viewport size and stack on top of each other).

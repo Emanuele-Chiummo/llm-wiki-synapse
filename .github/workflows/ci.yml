@@ -340,6 +340,10 @@ jobs:
         env:
           SYNAPSE_BACKEND_URL: http://localhost:8000
           SYNAPSE_FRONTEND_URL: http://localhost:5173
+          # GH runners have no GPU: WebGL runs on SwiftShader, so the G2
+          # longtask gate would measure the software rasterizer, not the
+          # product. The strict gate runs on real-hardware manual sessions.
+          E2E_SOFTWARE_GL: "1"
         run: npx playwright test e2e/ --reporter=list
 
       - name: Upload Playwright report on failure

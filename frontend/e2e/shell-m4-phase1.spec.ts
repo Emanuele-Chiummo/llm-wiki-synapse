@@ -42,15 +42,14 @@ const VIEWPORT = { width: 1440, height: 900 };
 async function loadShell(page: Page): Promise<void> {
   await page.setViewportSize(VIEWPORT);
   await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
-  // Wait for canvas (graph) and nav-tree to be in DOM
-  await page.waitForSelector("canvas",                    { timeout: 20_000 });
+  // v1.2 [F18]: app boots to "home" section, not pages/graph.
+  // Navigate to "pages" section (PanelGroup: NavTree | NoteView | PreviewPanel)
+  // so that nav-tree, preview panel, and scenario templates are in the DOM.
+  await page.waitForSelector("[data-testid='app-shell']", { timeout: 15_000 });
+  await page.locator("[data-section='pages']").click();
+  // Wait for nav-tree to be in DOM (pages section mounts NavTree)
   await page.waitForSelector("[data-testid='nav-tree']",  { timeout: 10_000 });
-  // Ensure loading state clears
-  await page.waitForFunction(
-    () => !document.querySelector("[data-testid='graph-loading']"),
-    { timeout: 10_000 },
-  );
-  await page.waitForTimeout(600); // let sigma finish first frame
+  await page.waitForTimeout(400); // let the tree and note-view settle
 }
 
 // ── CHECK-2: FUNCTIONAL ────────────────────────────────────────────────────────
@@ -68,7 +67,9 @@ test.describe("CHECK-2 — 3-panel shell renders correctly (F1 / ADR-0017)", () 
   });
 
   test("left panel: NavTree is visible with at least one type-group header", async ({ page }) => {
-    const navTree = page.locator("[data-testid='nav-tree']");
+    // PanelGroup renders two NavTree instances (main panel + mobile drawer).
+    // Use .first() to avoid Playwright strict-mode multi-match error.
+    const navTree = page.locator("[data-testid='nav-tree']").first();
     await expect(navTree).toBeVisible();
 
     // At least one group header button (Concepts / Entities / etc.)
@@ -82,7 +83,8 @@ test.describe("CHECK-2 — 3-panel shell renders correctly (F1 / ADR-0017)", () 
     // The NavTree is virtualised (I4): group headers only exist in the DOM when
     // they are within the visible scroll window. Scroll to the bottom of the
     // NavTree scroll container to force all groups into the DOM, then check.
-    const scrollContainer = page.locator(".nav-tree__scroll");
+    // PanelGroup renders two NavTree instances — scope to .first() for strict-mode safety.
+    const scrollContainer = page.locator(".nav-tree__scroll").first();
     await expect(scrollContainer).toBeVisible();
 
     // Scroll to bottom to load all group headers (concepts group is at top;
@@ -100,39 +102,50 @@ test.describe("CHECK-2 — 3-panel shell renders correctly (F1 / ADR-0017)", () 
     await scrollContainer.evaluate((el) => { el.scrollTop = 0; });
     await page.waitForTimeout(100);
 
-    // Verify the visible Concepts group has a valid count in its aria-label
-    const conceptsBtn = page.locator(".nav-tree__group-header[data-type='concept']");
+    // Verify the visible Concepts group has a valid count in its aria-label.
+    // Use .first() because PanelGroup renders two NavTree instances (main panel + drawer).
+    const conceptsBtn = page.locator(".nav-tree__group-header[data-type='concept']").first();
     await expect(conceptsBtn).toBeVisible({ timeout: 3000 });
     const conceptsLabel = await conceptsBtn.getAttribute("aria-label");
     expect(conceptsLabel).toMatch(/Concepts,\s*\d+\s*items/i);
     console.log(`[CHECK-2] Concepts group label: "${conceptsLabel}"; total visible group headers after scroll: ${groupCount}`);
   });
 
-  test("center panel: Graph tab is active and sigma canvas is visible", async ({ page }) => {
+  test("center panel: NoteView (wiki editor) is visible in pages section", async ({ page }) => {
+    // As of v1.3 the "pages" section center panel shows NoteView (wiki page viewer /
+    // editor), NOT a graph canvas. The sigma canvas lives in the dedicated "graph"
+    // NavRail section.  This test confirms the pages-section center panel is present.
+    const noteView = page.locator("[data-testid='note-view']").first();
+    await expect(noteView).toBeVisible();
+    // The GraphPanel / sigma canvas must NOT be in the pages section DOM.
     const graphPanel = page.locator("[data-testid='graph-panel']");
-    await expect(graphPanel).toBeVisible();
-
-    // sigma canvas present
-    const canvas = page.locator("canvas").first();
-    await expect(canvas).toBeVisible();
+    await expect(graphPanel).not.toBeVisible();
   });
 
-  test("NavRail: Chat button is ENABLED (Phase 3 — chat shipped, ADR-0019)", async ({ page }) => {
-    // Phase 3 enabled the Chat section. The NavRail Chat item is now a live, clickable section.
+  test("NavRail: Chat button is ENABLED and pages section is active after loadShell()", async ({ page }) => {
+    // Phase 3 enabled the Chat section — Chat NavRail button must be clickable.
     const chatBtn = page.locator("[data-section='chat']");
     await expect(chatBtn).toBeVisible();
     await expect(chatBtn).toBeEnabled();
     const ariaDisabled = await chatBtn.getAttribute("aria-disabled");
     expect(ariaDisabled === null || ariaDisabled === "false", "NavRail Chat must not be aria-disabled").toBe(true);
 
-    // Chat section is active on load (M4-HARD AC-HARD-ORD-2: default section = Chat)
+    // v1.2 [F18][R12-1]: default boot section is now "home" (changed from "chat").
+    // loadShell() navigates to "pages", so after beforeEach the "pages" button is aria-current.
+    const pagesBtn = page.locator("[data-section='pages']");
+    const pagesCurrent = await pagesBtn.getAttribute("aria-current");
+    expect(pagesCurrent, "pages must be aria-current=page after loadShell() navigates there").toBe("page");
+    // Chat is NOT the default — its aria-current must be absent
     const chatCurrent = await chatBtn.getAttribute("aria-current");
-    expect(chatCurrent, "Chat must be aria-current=page after load (AC-HARD-ORD-2)").toBe("page");
-    console.log(`[CHECK-2] NavRail Chat button enabled (Phase 3); Chat active on load (AC-HARD-ORD-2)`);
+    expect(chatCurrent === null || chatCurrent === "false",
+      "Chat must NOT be aria-current=page (home is the boot default since v1.2)").toBe(true);
+    console.log(`[CHECK-2] NavRail Chat button enabled; pages section active (loadShell navigated there)`);
   });
 
   test("right panel: PreviewPanel shows empty state when nothing selected", async ({ page }) => {
-    const preview = page.locator("[data-testid='preview-panel']");
+    // PanelGroup renders two PreviewPanel instances (right panel + mobile drawer).
+    // Use .first() to target the main panel and avoid strict-mode multi-match error.
+    const preview = page.locator("[data-testid='preview-panel']").first();
     await expect(preview).toBeVisible();
     // Empty state text
     await expect(preview).toContainText("Select a node");
@@ -147,8 +160,9 @@ test.describe("CHECK-2 — 3-panel shell renders correctly (F1 / ADR-0017)", () 
     console.log(`[CHECK-2] Clicking tree row: "${pageTitle}"`);
     await pageRow.click();
 
-    // PreviewPanel must switch from empty-state to populated (title visible)
-    const preview = page.locator("[data-testid='preview-panel']");
+    // PreviewPanel must switch from empty-state to populated (title visible).
+    // Use .first() — PanelGroup renders two PreviewPanel instances (panel + drawer).
+    const preview = page.locator("[data-testid='preview-panel']").first();
     await expect(preview).not.toContainText("Select a node", { timeout: 3_000 });
     // Should show a type badge (concept/entity/source/etc.)
     const typeBadge = preview.locator("[aria-label^='Type:']");
@@ -168,18 +182,20 @@ test.describe("CHECK-2 — 3-panel shell renders correctly (F1 / ADR-0017)", () 
   test("scenario templates: 'Most connected node' selects a node and populates preview", async ({
     page,
   }) => {
-    const templates = page.locator("[data-testid='scenario-templates']");
+    // PanelGroup renders two ScenarioTemplates and two PreviewPanel (panel + drawer).
+    // Use .first() on all to avoid strict-mode multi-match errors.
+    const templates = page.locator("[data-testid='scenario-templates']").first();
     await expect(templates).toBeVisible();
 
     // Find and click "Most connected node" button
     const highDegreeBtn = page.locator(".scenario-templates__btn", {
       hasText: "Most connected node",
-    });
+    }).first();
     await expect(highDegreeBtn).toBeVisible();
     await highDegreeBtn.click();
 
     // PreviewPanel must be populated
-    const preview = page.locator("[data-testid='preview-panel']");
+    const preview = page.locator("[data-testid='preview-panel']").first();
     await expect(preview).not.toContainText("Select a node", { timeout: 3_000 });
 
     // Verify the title in preview matches a known high-degree node (Max Pooling from backend)
@@ -194,19 +210,27 @@ test.describe("CHECK-2 — 3-panel shell renders correctly (F1 / ADR-0017)", () 
   test("scenario templates: degree shown in PreviewPanel after selection", async ({ page }) => {
     const highDegreeBtn = page.locator(".scenario-templates__btn", {
       hasText: "Most connected node",
-    });
+    }).first();
     await highDegreeBtn.click();
 
-    // PreviewPanel should show degree info via the <dt>Degree</dt><dd>N</dd> pair
-    const preview = page.locator("[data-testid='preview-panel']");
+    // PreviewPanel should show degree info via the <dt>Degree</dt><dd>N</dd> pair.
+    // Use .first() — PanelGroup renders two PreviewPanel instances.
+    const preview = page.locator("[data-testid='preview-panel']").first();
     await expect(preview).not.toContainText("Select a node", { timeout: 3_000 });
-    // Degree field present
-    await expect(preview.locator("dt", { hasText: "Degree" })).toBeVisible();
-    const degreeDd = preview.locator("dd").nth(1); // second dd is degree
-    const degreeText = await degreeDd.textContent();
-    const degree = parseInt(degreeText ?? "0", 10);
-    expect(degree, "Degree of most-connected node should be > 0").toBeGreaterThan(0);
-    console.log(`[CHECK-2] Most connected node degree from PreviewPanel: ${degree}`);
+    // Connections field present (was "Degree" pre-v1.3; renamed to "Connections" in PreviewPanel).
+    // The <dd> shows an i18n string like "Connected to N pages".
+    await expect(preview.locator("dt", { hasText: "Connections" })).toBeVisible();
+    // Retrieve the <dd> text via DOM traversal (CSS adjacent sibling not supported in Playwright locators).
+    const ddText = await page.evaluate(() => {
+      const panels = document.querySelectorAll("[data-testid='preview-panel']");
+      const panel = panels[0]; // first = main panel
+      if (!panel) return "";
+      const dts = Array.from(panel.querySelectorAll("dt"));
+      const connectionsDt = dts.find((el) => el.textContent?.trim() === "Connections");
+      return connectionsDt?.nextElementSibling?.textContent?.trim() ?? "";
+    });
+    expect(ddText.length, `Connections dd must be non-empty (got: "${ddText}")`).toBeGreaterThan(0);
+    console.log(`[CHECK-2] Most connected node connections from PreviewPanel: "${ddText}"`);
   });
 
   test("separators are present (2 Separator elements between panels)", async ({ page }) => {
@@ -229,8 +253,9 @@ test.describe("CHECK-3 — Accessibility: landmarks, tablist, keyboard (WCAG 2.1
     const header = page.locator("header.app-header");
     await expect(header).toBeVisible();
 
-    // <nav> is the NavTree
-    const nav = page.locator("nav[aria-label='Wiki pages']");
+    // <nav> is the NavTree. PanelGroup renders two NavTree instances (panel + drawer).
+    // Use .first() to target the main panel nav-tree.
+    const nav = page.locator("nav[aria-label='Wiki pages']").first();
     await expect(nav).toBeVisible();
 
     // <footer> is the ActivityBar
@@ -287,8 +312,9 @@ test.describe("CHECK-3 — Accessibility: landmarks, tablist, keyboard (WCAG 2.1
   });
 
   test("PreviewPanel empty-state is present when no node selected on load", async ({ page }) => {
-    // On fresh load, nothing is selected: empty-state message must be present
-    const emptyPreview = page.locator(".preview-panel--empty");
+    // On fresh load, nothing is selected: empty-state message must be present.
+    // PanelGroup renders two PreviewPanel instances (panel + drawer) — use .first().
+    const emptyPreview = page.locator(".preview-panel--empty").first();
     await expect(emptyPreview).toBeVisible();
     console.log(`[CHECK-3] PreviewPanel empty-state visible on initial load`);
   });
@@ -331,15 +357,16 @@ test.describe("CHECK-4 — D5: shell screenshots at 1440x900 (I8 / ADR-0017 Phas
   test("shell-3panel-selected.png: node selected via scenario template", async ({ page }) => {
     await loadShell(page);
 
-    // Trigger "Most connected node" to get a populated preview
+    // Trigger "Most connected node" to get a populated preview.
+    // Use .first() — PanelGroup renders two ScenarioTemplates (panel + drawer).
     const highDegreeBtn = page.locator(".scenario-templates__btn", {
       hasText: "Most connected node",
-    });
+    }).first();
     await expect(highDegreeBtn).toBeVisible();
     await highDegreeBtn.click();
 
-    // Wait for preview to populate
-    const preview = page.locator("[data-testid='preview-panel']");
+    // Wait for preview to populate. Use .first() — two PreviewPanel instances.
+    const preview = page.locator("[data-testid='preview-panel']").first();
     await expect(preview).not.toContainText("Select a node", { timeout: 4_000 });
     await page.waitForTimeout(400); // let selection animation settle
 
@@ -371,6 +398,13 @@ test.describe("CHECK-5 — Invariant spot-checks: I4 virtualised tree, I3 no con
   test.beforeEach(async ({ page }) => { await loadShell(page); });
 
   test("I4 — sigma-container has only <canvas> children (bounded DOM)", async ({ page }) => {
+    // sigma-container lives in the "graph" NavRail section — navigate there now.
+    // (loadShell() puts us in "pages"; we need graph for the sigma canvas.)
+    await page.locator("[data-section='graph']").click();
+    await page.waitForSelector("[data-testid='graph-panel']", { timeout: 10_000 });
+    await page.waitForSelector("canvas", { timeout: 10_000 });
+    await page.waitForTimeout(300); // let sigma mount all layers
+
     const result = await page.evaluate(() => {
       const container =
         document.querySelector("[data-testid='sigma-container']") ??
@@ -386,7 +420,7 @@ test.describe("CHECK-5 — Invariant spot-checks: I4 virtualised tree, I3 no con
       };
     });
 
-    expect(result.found, "sigma-container must exist in the DOM").toBe(true);
+    expect(result.found, "sigma-container must exist in the DOM when graph section is active").toBe(true);
     expect(result.allCanvas, `Non-canvas children in sigma container: ${result.tagNames.join(", ")}`).toBe(true);
     // sigma v3: 7 layers; ≤9 allows for future additions without I4 violation
     expect(result.count, `sigma-container has ${result.count} children; expected ≤9 (bounded, not per-node)`).toBeLessThanOrEqual(9);
@@ -424,9 +458,11 @@ test.describe("CHECK-5 — Invariant spot-checks: I4 virtualised tree, I3 no con
       consoleErrors.push(`PAGE ERROR: ${err.message}`);
     });
 
-    // Reload and wait for full settle
+    // Reload and wait for full settle.
+    // v1.2 [F18]: app boots to "home" section (no canvas on initial load).
+    // We wait for app-shell to be present, then allow subscriptions time to fire.
     await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
-    await page.waitForSelector("canvas", { timeout: 20_000 });
+    await page.waitForSelector("[data-testid='app-shell']", { timeout: 15_000 });
     await page.waitForTimeout(1_500); // let all subscriptions fire
 
     // Filter out known benign errors (e.g. favicon 404)
@@ -450,6 +486,13 @@ test.describe("CHECK-5 — Invariant spot-checks: I4 virtualised tree, I3 no con
   });
 
   test("I4 — graph panel DOM: no per-node div/span elements present", async ({ page }) => {
+    // sigma-container lives in the "graph" NavRail section — navigate there first.
+    // (loadShell() beforeEach puts us in "pages"; sigma canvas is only in graph section.)
+    await page.locator("[data-section='graph']").click();
+    await page.waitForSelector("[data-testid='graph-panel']", { timeout: 10_000 });
+    await page.waitForSelector("canvas", { timeout: 10_000 });
+    await page.waitForTimeout(300);
+
     const perNodeElements = await page.evaluate(() => {
       // Check for any elements with data-node-id attribute (would indicate per-node DOM)
       const nodeEls = document.querySelectorAll("[data-node-id]");
@@ -478,17 +521,28 @@ test.describe("CHECK-5 — Invariant spot-checks: I4 virtualised tree, I3 no con
   });
 
   test("graph loads data from backend (nodes > 0 in store via DOM evidence)", async ({ page }) => {
-    // NavTree group headers confirm nodes were loaded
+    // NavTree group headers confirm nodes were loaded.
+    // PanelGroup renders two NavTree instances (panel + drawer), so count is doubled.
     const groupHeaders = page.locator(".nav-tree__group-header");
     const count = await groupHeaders.count();
     expect(count, "At least one type group should be present (indicates nodes loaded from API)").toBeGreaterThan(0);
 
-    // Verify a group has items > 0 via aria-label
-    const firstLabel = await groupHeaders.first().getAttribute("aria-label");
-    const match = firstLabel?.match(/(\d+)\s*items/);
-    const itemCount = match ? parseInt(match[1], 10) : 0;
-    expect(itemCount, `Group must have at least 1 item (got label: "${firstLabel}")`).toBeGreaterThan(0);
-    console.log(`[CHECK-5] Backend data loaded: first group "${firstLabel}"`);
+    // Verify at least ONE group has items > 0 via aria-label.
+    // Note: some groups (e.g. "Overview") may have 0 items if no pages of that type exist.
+    // The fixture has 140 nodes but may not have all types populated.
+    let foundNonEmpty = false;
+    let foundLabel = "";
+    for (let i = 0; i < Math.min(count, 8); i++) {
+      const label = await groupHeaders.nth(i).getAttribute("aria-label");
+      const m = label?.match(/(\d+)\s*items/);
+      if (m && parseInt(m[1], 10) > 0) {
+        foundNonEmpty = true;
+        foundLabel = label ?? "";
+        break;
+      }
+    }
+    expect(foundNonEmpty, `At least one NavTree group must have items > 0. All groups checked had 0 items — data may not have loaded.`).toBe(true);
+    console.log(`[CHECK-5] Backend data loaded: found non-empty group "${foundLabel}"`);
   });
 
   test("X-Graph-Cache header: second /graph call returns hit (G2/I2 cache)", async ({ page }) => {
