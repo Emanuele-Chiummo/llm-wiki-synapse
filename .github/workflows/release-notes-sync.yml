@@ -1,0 +1,34 @@
+# Syncs docs/release-notes/vX.Y.Z.md onto the corresponding GitHub Releases.
+# Notes-as-code (I8): the file in the repo is the source of truth; this
+# workflow overwrites the release body for every tag that has a notes file.
+# Runs on demand (workflow_dispatch) — same rationale as release-cut.yml:
+# remote dev sessions cannot edit releases directly.
+
+name: Release notes sync
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync notes files onto releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          for f in docs/release-notes/v*.md; do
+            tag=$(basename "$f" .md)
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes-file "$f"
+              echo "synced $tag"
+            else
+              echo "skip $tag (no release)"
+            fi
+          done
