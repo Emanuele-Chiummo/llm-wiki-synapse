@@ -83,6 +83,7 @@ ignore = [
 "tests/test_r9_schema_suggestions.py" = ["ANN", "S", "F811"]
 "tests/test_page_content_api.py" = ["ANN", "S", "F811"]
 "tests/test_put_content_no_llm.py" = ["ANN", "S", "F811"]
+"tests/test_pages_by_slug.py" = ["ANN", "S", "F811"]
 "tests/test_write_wiki_page_upsert.py" = ["ANN", "S", "F811"]
 "tests/test_page_content_generated.py" = ["ANN", "S", "F811"]
 "tests/test_page_tags.py" = ["ANN", "S", "F811"]

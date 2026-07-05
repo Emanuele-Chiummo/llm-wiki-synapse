@@ -230,8 +230,17 @@ async def run_deep_research(
             collected.extend(new_sources)
 
             # ── Persist per-source rows ───────────────────────────────────────
+            # v1.3.3: one unpersistable source must never fail the whole run
+            # (Do-NOT #9 extended to the persistence step).
             for src in new_sources:
-                await _insert_source_row(run_id, src)
+                try:
+                    await _insert_source_row(run_id, src)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "deep_research: failed to persist source %s: %s — continuing",
+                        src.url,
+                        exc,
+                    )
 
             await _update_run_sources(run_id, len(collected))
 
@@ -386,6 +395,77 @@ async def _search_searxng(queries: list[str]) -> list[SearchHit]:
     return await searxng_search_many(queries)
 
 
+# ── Fetched-body handling (v1.3.3) ────────────────────────────────────────────
+# SearXNG results are often PDFs or other binaries. Storing resp.text for those
+# persisted raw bytes (incl. NUL 0x00) into a Postgres text column and failed the
+# whole run with CharacterNotInRepertoireError.
+
+# Max PDF body routed to the extractor (I7 — SearXNG can return arbitrary files).
+_PDF_MAX_BYTES = 15 * 1024 * 1024
+
+# Content types treated as text and eligible for HTML→markdown extraction.
+_TEXTY_CONTENT_TYPES = frozenset(
+    {
+        "",  # missing header: fall through to the NUL-sanitized text path
+        "application/xhtml+xml",
+        "application/xml",
+        "application/json",
+        "application/rss+xml",
+        "application/atom+xml",
+    }
+)
+
+
+def _sanitize_db_text(text: str) -> str:
+    """Strip NUL bytes — Postgres TEXT/VARCHAR reject 0x00 in UTF-8 (v1.3.3)."""
+    return text.replace("\x00", "")
+
+
+def _is_texty_content_type(content_type: str) -> bool:
+    """True when the (bare, lower-cased) content type is safe to treat as text."""
+    return content_type.startswith("text/") or content_type in _TEXTY_CONTENT_TYPES
+
+
+async def _extract_pdf_body(body: bytes, url: str) -> str | None:
+    """
+    Extract text from a fetched PDF body via the ingest extractor seam
+    (Marker when configured, pypdf fallback — ADR-0051). Runs in a thread:
+    pypdf parsing is CPU-bound and must not block the event loop (I2 discipline).
+    Returns None on any failure — the source is kept with content_md=None
+    (Do-NOT #9: fetch failures never kill the run).
+    """
+    if len(body) > _PDF_MAX_BYTES:
+        logger.info(
+            "_extract_pdf_body: %s is %d bytes (> %d cap) — skipping",
+            url,
+            len(body),
+            _PDF_MAX_BYTES,
+        )
+        return None
+
+    def _run() -> str | None:
+        import os
+        import tempfile
+
+        from app.ingest.extract import extract_text
+
+        fd, tmp_path = tempfile.mkstemp(suffix=".pdf", prefix="synapse-dr-")
+        try:
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(body)
+            return extract_text(tmp_path)
+        except Exception as exc:  # noqa: BLE001
+            logger.info("_extract_pdf_body: extraction failed for %s: %s", url, exc)
+            return None
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+    return await asyncio.to_thread(_run)
+
+
 async def _fetch_and_extract(
     hits: list[SearchHit],
     *,
@@ -413,8 +493,27 @@ async def _fetch_and_extract(
                     headers={"User-Agent": "Synapse/0.5 DeepResearch"},
                 )
                 if resp.status_code == 200:
-                    raw_html = resp.text
-                    content_md = _html_to_markdown(raw_html)[: _fetch_max_chars()]
+                    # v1.3.3: dispatch on content type — SearXNG results are often
+                    # PDFs/binaries, and resp.text for those is NUL-ridden mojibake
+                    # that Postgres rejects (0x00 in UTF-8) killing the whole run.
+                    content_type = (
+                        resp.headers.get("content-type", "").split(";")[0].strip().lower()
+                    )
+                    body = resp.content
+                    if content_type == "application/pdf" or body[:5] == b"%PDF-":
+                        extracted = await _extract_pdf_body(body, hit.url)
+                        if extracted:
+                            content_md = extracted[: _fetch_max_chars()]
+                    elif _is_texty_content_type(content_type):
+                        content_md = _html_to_markdown(resp.text)[: _fetch_max_chars()]
+                    else:
+                        logger.info(
+                            "_fetch_and_extract: skipping non-text content-type %r for %s",
+                            content_type,
+                            hit.url,
+                        )
+                    if content_md is not None:
+                        content_md = _sanitize_db_text(content_md)
                 else:
                     logger.debug(
                         "_fetch_and_extract: HTTP %d for %s",
@@ -429,7 +528,8 @@ async def _fetch_and_extract(
 
             return FetchedSource(
                 url=hit.url,
-                title=hit.title,
+                # Titles come from SearXNG results — sanitize them too (v1.3.3)
+                title=_sanitize_db_text(hit.title) if hit.title else hit.title,
                 content_md=content_md,
                 iteration=iteration,
             )
@@ -712,8 +812,12 @@ async def _insert_source_row(run_id: uuid.UUID, src: FetchedSource) -> None:
             id=str(uuid.uuid4()),
             run_id=str(run_id),
             url=src.url,
-            title=src.title,
-            fetched_content_md=src.content_md,
+            # Defense in depth (v1.3.3): NUL bytes are stripped at fetch time,
+            # but this is the last line before Postgres — never trust upstream.
+            title=_sanitize_db_text(src.title) if src.title else src.title,
+            fetched_content_md=(
+                _sanitize_db_text(src.content_md) if src.content_md else src.content_md
+            ),
             relevance_score=None,  # optional/best-effort in Phase 2
             iteration=src.iteration,
             created_at=datetime.now(UTC),
