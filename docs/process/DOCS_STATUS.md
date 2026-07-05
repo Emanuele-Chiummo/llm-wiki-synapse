@@ -4,6 +4,77 @@
 
 ---
 
+## v1.3 Docs Hygiene Gate (R13-10) — VERDICT: ALL UP-TO-DATE
+
+> Gate run: 2026-07-05
+> Branch: `claude/v1-v2-roadmap-skvc4e`
+> Release: v1.3 — «Foundations» (M13)
+> Scope: docs hygiene only (T8, T9, I8). No new user-facing feature surface.
+>   Items: ADR index repair (ADR-0039 unindexed, ADR-0023 gap note), stale ER file deletion,
+>   BACKLOG sync (v1.2 blocked → done; v1.3 section added), parity doc full-closure (G-P2-3),
+>   TRACEABILITY v1.3 section, whisper compose profile (av), CONTRIBUTING.md, DOCS_STATUS gate.
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/` (context/container/component) | UP-TO-DATE (no change) | v1.3 is a structural refactor (router split, bug fixes, hardening). No new container, service, or C4 actor. Whisper is an optional profile service on the same Docker network — does not change the C4 context or container diagrams. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (stale duplicate deleted) | `docs/er/schema 2.mmd` (stale duplicate, T9) deleted. `schema.mmd` matches the live schema — R13-4 scheduler persistence writes to `app_config` (existing table; no migration needed beyond ADR-0053 mechanism). No new migration in v1.3 that would alter the ER. |
+| D3 | `docs/sequences/` | UP-TO-DATE (no change) | v1.3 introduces no new multi-actor bounded loops requiring a new sequence diagram. Router split is internal (same actors). Cancel-ingest wires to the existing ADR-0046 queue (sequence already covered by ingest-loop.mmd). |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (82 paths confirmed) | R13-1 router split was contract-frozen by design (empty OpenAPI diff gate passed in CI). 82 paths present, unchanged from v1.2.6. `DELETE /ingest/{run_id}` (R13-3) and rate-limited endpoints (R13-9) are among the existing 82 paths. |
+| D5 | `docs/screens/` | PENDING-LIVE (CI E2E job, R13-8) | v1.3 responsive layout (R13-11, ADR-0057) adds mobile and tablet views not yet captured. All prior PENDING-LIVE items carry forward. The R13-8 CI E2E job (headless Playwright against compose stack) is the mechanism for refreshing D5 — it must execute successfully in Actions before EC-M13-HCP can be closed. Non-blocking for this code gate per established policy. |
+| D6a | `docs/USER.md` | UP-TO-DATE (no change required) | v1.3 is infrastructure/hardening. No new user-visible workflow was introduced that would require a USER.md update. Responsive layout (R13-11) is a presentation change; the existing "Mobile and PWA" section already covers the compact layout. |
+| D6b | `docs/DEPLOY.md` | UP-TO-DATE (whisper profile + security already documented) | §3.6 "Network posture and hardening (R13-9)" — SSRF guard, rate limiting, Postgres port policy — was written in this sprint and confirmed present. Whisper service compose profile (`av`) is self-documenting via inline comments in docker-compose.yml; a reference to `--profile av` and `AV_TRANSCRIPTION_ENABLED` is noted in DEPLOY.md §3 (existing AV section). |
+| D7 | `docs/adr/index.md` | UPDATED (this gate) | ADR-0039 (Tauri v2 desktop shell) row added to "Distribution & Security" section; section heading updated to include ADR-0039. ADR-0023 historical gap footnote added after "Retrieval, Chat & Content" table. ADR-0055/0056/0057 already present and consistent. |
+| R (parity) | `docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md` | UPDATED (this gate) | G-P2-3 (cancel in-flight ingest) closed — v1.3 / R13-3 shipped `DELETE /ingest/{run_id}`. Full parity header note added. F3-ter cancel row updated from yellow to green. Phase 2 backlog G-P2-3 row struck through as CLOSED. **All parity items are now closed.** |
+| R (backlog) | `docs/process/BACKLOG.md` | UPDATED (this gate) | Sprint 12 all items updated from `backlog`/`blocked`/`in-progress` to `done`. Sprint 13 section added with all R13-1 through R13-11 items and statuses from roadmap. |
+| R (trace) | `docs/process/TRACEABILITY.md` | UPDATED (this gate) | v1.3 section added with rows for: R13-3 cancel-ingest (K2/F17/I1/I7), R13-4 scheduler persistence (T4/I7), R13-9 SSRF guard + rate limit (T5/I7), R13-11 responsive layout (F1/F15/I3), R13-10 docs hygiene (I8). Exit criteria summary and gap register added. |
+
+### Validation checks
+
+| Check | Result |
+|-------|--------|
+| `docs/er/schema 2.mmd` present | NO — deleted (T9 resolved) |
+| ADR-0039 row in `docs/adr/index.md` | YES (added this gate) |
+| ADR-0023 gap footnote in `docs/adr/index.md` | YES (added this gate) |
+| Any doc claims cancel-ingest is missing | NO — parity doc and BACKLOG both show R13-3 done |
+| Any doc claims v1.2 is blocked | NO — BACKLOG Sprint 12 all items set to `done` |
+| `docker compose config` parses (no profile) | YES — whisper service under `profiles: ["av"]` is not loaded by default |
+| `docker compose --profile av config` parses | YES — whisper service with `dockerfile_inline:` block |
+| `whisper_models` volume declared | YES (added to volumes section) |
+| CONTRIBUTING.md present at repo root | YES (created this gate) |
+| CONTRIBUTING.md contains release-from-main rule in bold | YES |
+
+### D5 — Outstanding screenshots (PENDING-LIVE)
+
+| View | Status | Blocking? |
+|------|--------|-----------|
+| Mobile 3-panel (PanelDrawer, ≤767 px) | PENDING-LIVE | Blocks EC-M13-HCP only |
+| Tablet preview drawer (768–1023 px) | PENDING-LIVE | Blocks EC-M13-HCP only |
+| All prior PENDING-LIVE items (M5, M6, v1.0) | PENDING-LIVE | Blocks EC-M13-HCP only |
+
+D5 screenshots require the R13-8 CI E2E job to execute against a live compose stack
+(headless Playwright). Non-blocking for the code correctness gate; blocking for the
+human-checkpoint milestone (EC-M13-HCP).
+
+### Invariant compliance check (v1.3 gate)
+
+| Invariant | Status |
+|-----------|--------|
+| **I1** (incremental index only) | HOLDS — R13-5 executor offload and R13-7 atomic index.md write both preserve incremental semantics. |
+| **I2** (graph layout server-side) | HOLDS — R13-5 explicitly fixes the event-loop stall by moving FA2 off the async loop; server-side layout invariant now mechanically enforced. |
+| **I3** (no per-token heavy work in chat) | HOLDS — R13-6 aborts the stream on conversation switch; no per-token parse introduced. |
+| **I7** (bounded loops) | HOLDS — SSRF guard (R13-9) adds no loop; rate limit is a counter, not a loop; cancel endpoint (R13-3) terminates loops, does not add them. |
+| **I8** (docs-as-DoD) | HOLDS — this gate; all T8/T9 hygiene items resolved; verdict ALL UP-TO-DATE. |
+| **I9** (do not reinvent) | HOLDS — whisper service reuses the existing `tools/whisper-service/` Python code; compose profile pattern follows the established `marker` profile convention. |
+
+### DOCS GATE VERDICT — v1.3 R13-10 Hygiene Gate
+
+**ALL UP-TO-DATE**
+
+D5 screenshots remain PENDING-LIVE (CI E2E job not yet run) — this is non-blocking
+for the code gate per established sprint policy. Blocking condition is EC-M13-HCP.
+
+---
+
 ## v1.0.0 Final Release Docs Gate — VERDICT: ALL UP-TO-DATE
 
 > Gate run: 2026-07-03

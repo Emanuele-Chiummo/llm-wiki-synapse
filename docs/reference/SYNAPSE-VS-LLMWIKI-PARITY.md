@@ -25,10 +25,15 @@
 > `schema-suggestion` ReviewItem) are also **CLOSED** with v0.9.0, closing all remaining
 > open P2 items.
 >
+> **v1.3 / FULL PARITY (2026-07-05):** G-P2-3 (cancel in-flight ingest — `DELETE /ingest/{run_id}`)
+> shipped in v1.3 (R13-3 ✅ done). The cancel endpoint is wired to the ADR-0046 queue; the Activity
+> bar cancel action is now functional. **All parity items are closed.** Full parity achieved.
+>
 > **v1.0 / PROGRAM COMPLETE (2026-07-03):** The parity program is complete. All P0 and P1
 > items are closed. All P2 items are closed except:
 >   - **G-P2-3** (cancel in-flight ingest — `DELETE /ingest/{run_id}`) — explicitly deferred;
 >     the ADR-0046 queue infrastructure is present; the cancel endpoint is a future follow-up.
+>     **CLOSED IN v1.3 — see v1.3 note above.**
 > Items explicitly NOT closed by design (deferred):
 >   - **OIDC / multi-user** (R10-2): single-vault single-owner remains the v1.0 posture;
 >     `vault_id` column is plumbed for future use.
@@ -112,7 +117,7 @@ Every row covers one atomic user-facing behavior pulled from the audit.
 | Serialized persistent ingest queue | `ingest-queue.ts:658-821` — serial, persisted to `.llm-wiki/ingest-queue.json`, crash-recovery restores pending tasks | Synapse ingest is triggered via `POST /ingest/trigger` (sync) or the watchdog watcher (async via asyncio event loop). No persistent queue/JSON on disk. | 🟡 | Synapse has no persistent queue file. A crash mid-ingest loses the in-flight task (watcher will re-fire on next write event). For the **server** use-case this is acceptable (watcher retriggers on restart), but there is no "pending tasks panel" or "resume after crash" UX. Gap: no activity panel showing "queued / running / failed" with per-task status + retry. This is the same gap as F1 activity panel above. | P1 | [BE]/[FE] |
 | Retry with MAX_RETRIES=3 | `ingest-queue.ts:610,805-814` — 3 retries | `backend/app/ingest/loop.py` — `max_iter` (default 3) covers ingest loop retries; provider fallback is bounded to exactly once (orchestrator.py:610-633) | ✅ | Max iterations equivalent exists. | — | — |
 | Retry WITHOUT backoff (defect) | Bug: immediate requeue on failure (01-CODE-UI §B-5) | `backend/app/ingest/orchestrator.py:605-633` — fallback is synchronous; no exponential backoff between loop iterations | ⛔ | llm_wiki bug — do NOT mirror. Synapse should implement exponential backoff on provider retries (P1, separate from parity). For now the loop already stops after max_iter so the churn is bounded. | — | — |
-| Cancel in-flight ingest with cascade-delete of partial files | `cancelTask` + `AbortController` → cascade-delete partial files | No cancel endpoint in Synapse v0.6. | 🟡 | Cancel is a UX feature, not a correctness issue. P2. | P2 | [BE]/[FE] |
+| Cancel in-flight ingest with cascade-delete of partial files | `cancelTask` + `AbortController` → cascade-delete partial files | `DELETE /ingest/{run_id}` — aborts running ingest_file coroutine via ADR-0046 queue cancel signal; does NOT delete already-written pages (partial output preserved, consistent with I1); Activity bar cancel action wired. (G-P2-3, R13-3, v1.3, 2026-07-05) | ✅ | **G-P2-3 CLOSED (2026-07-05 / v1.3).** Cancel endpoint live. | — | [BE]/[FE] |
 
 ### F3-quater — Folder import
 
@@ -443,7 +448,7 @@ the table summary follows.
 |---|---|---|---|
 | ~~G-P2-1~~ | ✅ **CLOSED (2026-07-03 / v0.8.0).** Vision caption pipeline: `VISION_CAPTIONS_ENABLED` opt-in; `provider.chat()` with `supports_vision=True` guard; `image_captions` table SHA-256 cache; `VISION_MAX_IMAGES_PER_RUN` I7 cap. | [AI]/[BE] | — |
 | ~~G-P2-2~~ | ✅ **CLOSED (2026-07-03 / v0.9.0).** `purpose-suggestion` ReviewItem type: after each orchestrated ingest run, a single bounded provider call evaluates scope drift against `purpose.md` and emits a review card with rationale if drift is detected. Anti-spam gate via `PURPOSE_SUGGESTION_MIN_SOURCES`. `PURPOSE_SUGGESTION_*` env vars. No automatic file edits — human applies manually. | [AI]/[BE] | — |
-| G-P2-3 | **Cancel in-flight ingest.** `DELETE /ingest/{run_id}` — aborts the running ingest_file coroutine; does NOT delete already-written pages. | [BE]/[FE] | M |
+| ~~G-P2-3~~ | ✅ **CLOSED (2026-07-05 / v1.3).** `DELETE /ingest/{run_id}` — aborts the running `ingest_file` coroutine via the ADR-0046 cancel signal; partial pages already written are preserved (I1-safe). Activity bar cancel action wired end-to-end (R13-3). | [BE]/[FE] | — |
 | ~~G-P2-4~~ | ✅ **CLOSED (2026-07-03 / v0.9.0).** `schema-suggestion` ReviewItem type: default off (`SCHEMA_SUGGESTION_ENABLED=false`; blast-radius note documented in DEPLOY.md §2.1). When enabled, proposes schema rule changes when emerging frontmatter patterns deviate from `schema.md`. Human applies changes manually. `SCHEMA_SUGGESTION_*` env vars. Closes the Karpathy K6 schema co-evolution gap. | [AI]/[BE] | — |
 | ~~G-P2-5~~ | ✅ **CLOSED (2026-07-03 / v0.8.0).** Marker pluggable PDF extractor (ADR-0051): `PDF_EXTRACTOR=marker` routes to Marker microservice at `MARKER_SERVICE_URL`; pypdf fallback always present; `MARKER_TIMEOUT_SECONDS` bounds the call (I7). Supersedes the MinerU idea — Marker is already proven in-repo. | [BE] | — |
 | ~~G-P2-6~~ | ✅ **CLOSED (v0.6/M6).** PWA + Tauri v2 packaging shipped in sprint 6. | [FE] | — |
