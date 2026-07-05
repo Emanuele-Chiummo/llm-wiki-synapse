@@ -132,7 +132,7 @@ This is the sprint that pays T1–T10 down so multi-vault lands on clean ground.
 
 | ID | Item | Area | Effort | Source | Status |
 |----|------|------|--------|--------|--------|
-| R13-1 | **Router split** — decompose `main.py` into `app/routers/{pages,search,graph,ingest,chat,review,research,ops,config,stats,clip,mcp}.py` via `APIRouter`. Contract-frozen: the CI OpenAPI drift gate must show an **empty diff** (paths, schemas, examples identical) | BE | L | T1 | |
+| R13-1 | **Router split** — decompose `main.py` into `app/routers/{pages,search,graph,ingest,chat,review,research,ops,config,stats,clip,mcp}.py` via `APIRouter`. Contract-frozen: the CI OpenAPI drift gate must show an **empty diff** (paths, schemas, examples identical) | BE | L | T1 | ✅ done |
 | R13-2 | **Release hygiene** — merge the v1.2.4–v1.2.6 release lineage back into `main`, protect `main`, and adopt the rule *tags are only cut from `main`*; document in CONTRIBUTING | DevOps | S | T2 | |
 | R13-3 | **Cancel in-flight ingest** — `DELETE /ingest/{run_id}` on top of ADR-0046 queue (cancellation events exist); Activity bar wiring | BE+FE | S | G-P2-3 | |
 | R13-4 | **Persistent scheduler state** — last-run timestamps for ops/import schedulers into `app_config` (survives restart; T4) | BE | S | T4 | |
