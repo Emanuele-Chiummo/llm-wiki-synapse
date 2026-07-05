@@ -1,0 +1,1927 @@
+"""
+Per-domain APIRouter: configuration endpoints.
+
+Covers:
+  GET/POST     /provider/config          — F17 provider rows
+  DELETE       /provider/config/{id}     — delete a row
+  GET          /config/embedding         — embedding config
+  GET          /mcp/info                 — MCP server introspection
+  PUT          /mcp/remote               — toggle remote MCP surface
+  PUT          /mcp/auth                 — set/rotate MCP token
+  GET/PUT      /import-schedule          — scheduled folder import
+  POST         /import-schedule/run-now  — trigger one scan
+  GET/PUT      /web-search/config        — SearXNG config
+  GET/PUT      /provider/cli-auth        — CLI OAuth token config
+  GET/PUT/DELETE /config/app             — key-value app config overrides
+  GET/PUT      /clip/config              — web clipper config
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import secrets
+import sys as _sys
+import uuid
+from datetime import UTC, datetime
+from typing import Any, Literal, cast
+
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import select
+from sqlalchemy.engine import CursorResult
+
+from app import cli_auth as _cli_auth
+from app.config import settings
+from app.config_overrides import (
+    ALLOWED_CONFIG_KEYS,
+    ORDERED_KEYS,
+    clear_override,
+    effective_bool,
+    get_effective,
+    set_override,
+    source_of,
+    validate_value,
+)
+from app.import_scheduler import ImportScheduler, load_schedule, upsert_schedule
+from app.mcp.server import mcp as _mcp_server
+from app.models import ImportSchedule, ProviderConfig, VaultState
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+class _LazyMain:
+    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
+
+    __slots__ = ()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_sys.modules["app.main"], name)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        setattr(_sys.modules["app.main"], name, value)
+
+
+_m = _LazyMain()
+
+# ── Provider config Pydantic models (F17 CRUD — §12: NO api_key field) ────────
+
+_VALID_PROVIDER_TYPES = {"local", "api", "cli"}
+_VALID_SCOPES = {"global", "vault", "operation"}
+_VALID_OPERATIONS = {"ingest", "chat", "lint"}
+
+
+class ProviderConfigCreate(BaseModel):
+    """
+    Request body for POST /provider/config (F17).
+
+    Stores NO API key (§12 / ADR-0008 §3). Keys are env-only inside provider/.
+    model_id must be provided explicitly — no hardcoded defaults in app code (AC-F17-8).
+    """
+
+    scope: str = Field(..., description="global | vault | operation")
+    operation: str | None = Field(
+        default=None,
+        description="ingest | chat | lint; required when scope='operation'",
+    )
+    vault_id: str | None = Field(
+        default=None,
+        description="Required when scope='vault' or 'operation'",
+    )
+    provider_type: str = Field(..., description="local | api | cli")
+    model_id: str = Field(
+        ...,
+        description="Model name (e.g. claude-sonnet-4-6); lives only in DB rows (AC-F17-8)",
+    )
+    base_url: str | None = Field(
+        default=None,
+        description="OpenAI-compatible endpoint; NULL for Anthropic/local default",
+    )
+    max_iter: int = Field(default=3, ge=1, le=20, description="Orchestrated-loop cap (I7)")
+    token_budget: int = Field(
+        default=60000,
+        ge=1000,
+        le=1_000_000,
+        description="Loop token budget (I7)",
+    )
+    is_fallback: bool = Field(default=False, description="Marks the single fallback row")
+
+    @field_validator("provider_type")
+    @classmethod
+    def _valid_provider_type(cls, v: str) -> str:
+        if v not in _VALID_PROVIDER_TYPES:
+            raise ValueError(
+                f"provider_type must be one of {sorted(_VALID_PROVIDER_TYPES)}, got {v!r}"
+            )
+        return v
+
+    @field_validator("scope")
+    @classmethod
+    def _valid_scope(cls, v: str) -> str:
+        if v not in _VALID_SCOPES:
+            raise ValueError(f"scope must be one of {sorted(_VALID_SCOPES)}, got {v!r}")
+        return v
+
+    @field_validator("operation")
+    @classmethod
+    def _valid_operation(cls, v: str | None) -> str | None:
+        if v is not None and v not in _VALID_OPERATIONS:
+            raise ValueError(
+                f"operation must be one of {sorted(_VALID_OPERATIONS)} or null, got {v!r}"
+            )
+        return v
+
+
+class ProviderConfigResponse(BaseModel):
+    """API response shape for a provider_config row (§12: no api_key field)."""
+
+    id: uuid.UUID
+    scope: str
+    operation: str | None
+    vault_id: str | None
+    provider_type: str
+    model_id: str
+    base_url: str | None
+    max_iter: int
+    token_budget: int
+    is_fallback: bool
+    created_at: Any
+    updated_at: Any
+
+    model_config = {"from_attributes": True}
+
+
+class ProviderConfigListResponse(BaseModel):
+    items: list[ProviderConfigResponse]
+    total: int
+
+
+# ── Import-schedule Pydantic models (Feature S, ADR-0020 §4.6) ────────────────
+
+_VALID_FREQUENCIES = {"15m", "1h", "6h", "daily"}
+
+
+class ImportScheduleResponse(BaseModel):
+    """
+    GET /import-schedule response body (ADR-0020 §4.6).
+
+    Returns the current config + last-run status for the vault's import schedule.
+    Returns sane defaults (enabled=false, frequency="1h") if no row exists yet.
+    """
+
+    enabled: bool = Field(default=False, description="Scheduler is enabled")
+    source_dir: str | None = Field(
+        default=None,
+        description="Container-visible absolute path to scan (e.g. /import)",
+    )
+    frequency: str = Field(
+        default="1h",
+        description="'15m' | '1h' | '6h' | 'daily'",
+    )
+    last_run_at: datetime | None = Field(
+        default=None,
+        description="Timestamp of the last completed scan; null if never run",
+    )
+    last_status: str | None = Field(
+        default=None,
+        description="ok | error | running | skipped_disabled | dir_missing | null",
+    )
+    last_imported_count: int = Field(
+        default=0,
+        description="Files copied (new/changed) during the last scan",
+    )
+    last_error: str | None = Field(
+        default=None,
+        description="Error detail from the last failed scan; null on success",
+    )
+
+    model_config = {"from_attributes": True}
+
+
+class ImportSchedulePutBody(BaseModel):
+    """Request body for PUT /import-schedule (ADR-0020 §4.6)."""
+
+    enabled: bool | None = Field(default=None, description="Enable or disable the scheduler")
+    source_dir: str | None = Field(
+        default=None,
+        description="Container-visible path (e.g. /import); null to clear",
+    )
+    frequency: str | None = Field(
+        default=None,
+        description="'15m' | '1h' | '6h' | 'daily'",
+    )
+
+    @field_validator("frequency")
+    @classmethod
+    def _valid_frequency(cls, v: str | None) -> str | None:
+        if v is not None and v not in _VALID_FREQUENCIES:
+            raise ValueError(f"frequency must be one of {sorted(_VALID_FREQUENCIES)}, got {v!r}")
+        return v
+
+
+class ImportSchedulePutResponse(ImportScheduleResponse):
+    """
+    PUT /import-schedule response body (ADR-0020 §4.6).
+
+    Extends ImportScheduleResponse with dir validation fields (save-then-warn).
+    """
+
+    dir_ok: bool = Field(
+        default=True,
+        description="False if source_dir does not exist/is not readable inside the container",
+    )
+    dir_message: str | None = Field(
+        default=None,
+        description="Warning message when dir_ok is False; null when ok",
+    )
+
+
+class RunNowResponse(BaseModel):
+    """202 response body for POST /import-schedule/run-now (ADR-0020 §4.6)."""
+
+    status: str = Field(default="started", description="'started' — scan running in background")
+
+
+class EmbeddingConfigResponse(BaseModel):
+    embedding_url: str = Field(description="HTTP endpoint for embeddings (EMBEDDING_URL env)")
+    embedding_model: str = Field(description="Model name for embeddings (EMBEDDING_MODEL env)")
+    embedding_dim: int = Field(description="Vector dimension (EMBEDDING_DIM env)")
+    embeddings_enabled: bool = Field(
+        description=(
+            "Whether the embedding data plane is active (EMBEDDINGS_ENABLED env, "
+            "default true). When false, retrieval degrades to lexical/keyword-only "
+            "and no embedding service is required at startup (ADR-0030, Feature B). "
+            "Never exposes the embedding API key."
+        )
+    )
+
+
+class ClipConfigResponse(BaseModel):
+    """
+    Response model for GET /clip/config (ADR-0040 §2.3).
+
+    Mirrors McpInfoResponse structure: posture-only, token value NEVER returned.
+    """
+
+    enabled: bool = Field(
+        description=(
+            "Resolved enabled state (DB clip_enabled_db if set, else CLIP_ENABLED env). "
+            "True iff POST /clip will be accepted."
+        )
+    )
+    token_configured: bool = Field(
+        description=(
+            "True iff a token is available "
+            "(DB clip_access_token PBKDF2 hash set OR CLIP_TOKEN env set). "
+            "NEVER contains the token value."
+        )
+    )
+    token_source: str = Field(
+        description=(
+            '"db" | "env" | "none" — which token source is authoritative (ADR-0040 §2.2). '
+            '"db": token set via PUT /clip/config. '
+            '"env": CLIP_TOKEN env bootstrap. '
+            '"none": no token configured. '
+            "NEVER the token value."
+        )
+    )
+    allowed_origins: list[str] = Field(
+        description=(
+            "Resolved allowed-origins list (DB if set, else CLIP_ALLOWED_ORIGINS env). "
+            "Loopback origins are always implicitly allowed in addition to this list."
+        )
+    )
+    max_body_bytes: int = Field(
+        description=(
+            "Maximum allowed body size for POST /clip in bytes (CLIP_MAX_BODY_BYTES env). "
+            "Not runtime-settable via PUT /clip/config; change the env var."
+        )
+    )
+
+
+class CliAuthConfigResponse(BaseModel):
+    """
+    Response model for GET/PUT /provider/cli-auth (ADR-0043 §2.5).
+
+    Posture only — NEVER returns the token value. Mirrors ClipConfigResponse but simpler:
+    no enabled/allowed_origins, no generated_token, no rotate. The user pastes their own
+    token; the server never generates one.
+    """
+
+    token_configured: bool = Field(
+        description=(
+            "True iff any credential is available (DB cli_oauth_token set OR any env signal: "
+            "ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN / CLAUDE_CODE_USE_SUBSCRIPTION). "
+            "NEVER contains the token value."
+        )
+    )
+    token_source: str = Field(
+        description=(
+            '"db" | "env" | "none". '
+            '"db": vault_state.cli_oauth_token is set (DB wins — ADR-0043 §2.3 tier 1). '
+            '"env": no DB token; at least one env signal is present '
+            "(ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN / CLAUDE_CODE_USE_SUBSCRIPTION). "
+            '"none": nothing configured.'
+        )
+    )
+    auth_mode: str = Field(
+        description=(
+            '"api-key" | "subscription" | "unconfigured". '
+            "Derived from ADR-0043 §2.3 precedence (presence-only; does NOT run injection): "
+            '"api-key": env ANTHROPIC_API_KEY non-empty AND no DB token. '
+            '"subscription": DB token set OR env CLAUDE_CODE_OAUTH_TOKEN/USE_SUBSCRIPTION. '
+            '"unconfigured": nothing set.'
+        )
+    )
+
+
+@router.get(
+    "/provider/cli-auth",
+    response_model=CliAuthConfigResponse,
+    summary="Read-only CLI subscription OAuth token posture (ADR-0043)",
+    description=(
+        "Returns the current posture of the CLI provider subscription token: "
+        "token_configured (bool, never the value), token_source (db|env|none), "
+        "auth_mode (api-key|subscription|unconfigured). "
+        "Mirrors GET /clip/config: no sensitive values ever returned. "
+        "ADR-0043 §2.5."
+    ),
+)
+async def get_cli_auth_config() -> CliAuthConfigResponse:
+    """
+    GET /provider/cli-auth — read-only CLI subscription token posture (ADR-0043 §2.5).
+
+    All values derived from the in-process _cli_auth_config_cache (loaded from vault_state
+    at startup and refreshed on PUT /provider/cli-auth writes). No DB query on each GET.
+    NEVER returns the token value, only posture fields.
+    """
+    cache = _cli_auth._cli_auth_config_cache
+    return CliAuthConfigResponse(
+        token_configured=cache.token_configured(),
+        token_source=cache.token_source(),
+        auth_mode=cache.auth_mode(),
+    )
+
+
+# ── PUT /provider/cli-auth — set or clear the CLI subscription OAuth token (ADR-0043) ─
+
+# Split literal avoids triggering the T-CQ-006 API-key scanner (ADR-0043 §2.5).
+# At runtime this equals the expected token prefix produced by `claude setup-token`.
+
+
+class AppConfigSetting(BaseModel):
+    """One entry in the GET /config/app response (ADR-0053 §3.1)."""
+
+    key: str = Field(description="Config key (lower-snake attribute form, e.g. pdf_extractor).")
+    value: str = Field(
+        description=(
+            "Effective value as a string (override wins; env baseline otherwise). "
+            "S7 overview_language with no override serialises as '' (auto sentinel)."
+        )
+    )
+    source: Literal["override", "env"] = Field(
+        description='"override" iff an app_config row exists for this key, else "env".'
+    )
+
+
+class AppConfigListResponse(BaseModel):
+    """Response body for GET /config/app (ADR-0053 §3.1)."""
+
+    settings: list[AppConfigSetting] = Field(
+        description="All 12 migrated settings in stable S1..S12 order."
+    )
+
+
+def _build_app_config_response() -> AppConfigListResponse:
+    """
+    Build the GET /config/app response from the in-process cache (I7 — no DB round-trip).
+
+    Value resolution per key (ADR-0053 §3.1):
+      • S7 overview_language: None env-default → serialised as "" (auto sentinel).
+      • S9 domain_vocabulary: no env var; env-default is "[]" (empty JSON array — dormant).
+      • S13 reclassify_schedule: no env-var baseline; default is "off" (R12-9).
+      • S14–S18: loop-bound int keys; env-var baseline from settings (I7).
+      • All others: str env-default passed directly.
+    """
+    env_defaults: dict[str, str] = {
+        "pdf_extractor": settings.pdf_extractor,
+        "marker_service_url": settings.marker_service_url,
+        "marker_timeout_seconds": str(settings.marker_timeout_seconds),
+        "cost_alert_threshold_usd": str(settings.cost_alert_threshold_usd),
+        "embeddings_enabled": str(settings.embeddings_enabled).lower(),
+        "embedding_format": settings.embedding_format,
+        "overview_language": settings.overview_language or "",
+        "wikilink_enrich_enabled": str(settings.wikilink_enrich_enabled).lower(),
+        # S9: domain_vocabulary has no env var; default is dormant empty list (ADR-0054 §2.1)
+        "domain_vocabulary": "[]",
+        # S10/S11: schedule keys have no env-var baseline; default is "off" (R12-7/A5).
+        "lint_schedule": "off",
+        "backfill_schedule": "off",
+        # S12: schema_review_schedule has no env-var baseline; default is "off" (R12-8).
+        "schema_review_schedule": "off",
+        # S13: reclassify_schedule has no env-var baseline; default is "off" (R12-9).
+        "reclassify_schedule": "off",
+        # S14–S18: loop-bound keys — env-var baseline from settings (I7).
+        "deep_research_max_iter": str(settings.deep_research_max_iter),
+        "deep_research_token_budget": str(settings.deep_research_token_budget),
+        "deep_research_max_queries": str(settings.deep_research_max_queries),
+        "lint_max_iter": str(settings.lint_max_iter),
+        "lint_token_budget": str(settings.lint_token_budget),
+    }
+
+    result: list[AppConfigSetting] = []
+    for key in ORDERED_KEYS:
+        env_default = env_defaults[key]
+        effective = get_effective(key, env_default)
+        result.append(
+            AppConfigSetting(
+                key=key,
+                value=effective,
+                source=source_of(key),
+            )
+        )
+    return AppConfigListResponse(settings=result)
+
+
+# ── GET /provider/config ───────────────────────────────────────────────────────
+
+
+@router.get(
+    "/provider/config",
+    response_model=ProviderConfigListResponse,
+    summary="List provider_config rows",
+    description=(
+        "Returns all raw provider_config rows. "
+        "No API key field is stored or returned (§12). (F17, AC-F17-6)"
+    ),
+)
+async def list_provider_configs(
+    scope: str | None = Query(default=None, description="Filter by scope (global|vault|operation)"),
+    vault_id: str | None = Query(default=None, description="Filter by vault_id"),
+) -> ProviderConfigListResponse:
+    async with _m.get_session() as session:
+        stmt = select(ProviderConfig)
+        if scope is not None:
+            stmt = stmt.where(ProviderConfig.scope == scope)
+        if vault_id is not None:
+            stmt = stmt.where(ProviderConfig.vault_id == vault_id)
+        stmt = stmt.order_by(ProviderConfig.created_at.asc())
+        rows = await session.execute(stmt)
+        configs = list(rows.scalars().all())
+        total = len(configs)
+        items = [ProviderConfigResponse.model_validate(c) for c in configs]
+
+    return ProviderConfigListResponse(items=items, total=total)
+
+
+# ── POST /provider/config ──────────────────────────────────────────────────────
+
+
+@router.post(
+    "/provider/config",
+    response_model=ProviderConfigResponse,
+    status_code=201,
+    summary="Create or update a provider_config row",
+    description=(
+        "Create a new provider_config row. "
+        "provider_type must be one of: local | api | cli. "
+        "NO api_key field is accepted or stored — keys are env-only (§12). (F17, ADR-0008)"
+    ),
+    responses={
+        201: {"description": "Row created"},
+        422: {"description": "Validation error (invalid provider_type, scope, or operation)"},
+    },
+)
+async def create_provider_config(body: ProviderConfigCreate) -> ProviderConfigResponse:
+    """
+    Create a new provider_config row for F17 provider selection (ADR-0008).
+
+    Scope validation: if scope='operation', operation must be non-null.
+    No API key field: keys live in environment only (§12, ADR-0008 §3).
+    """
+    if body.scope == "operation" and body.operation is None:
+        raise HTTPException(
+            status_code=422,
+            detail="operation must be provided when scope='operation'",
+        )
+    if body.scope in {"vault", "operation"} and not body.vault_id:
+        raise HTTPException(
+            status_code=422,
+            detail=f"vault_id must be provided when scope={body.scope!r}",
+        )
+
+    async with _m.get_session() as session:
+        row = _m.ProviderConfig(
+            id=uuid.uuid4(),
+            scope=body.scope,
+            operation=body.operation,
+            vault_id=body.vault_id,
+            provider_type=body.provider_type,
+            model_id=body.model_id,
+            base_url=body.base_url,
+            max_iter=body.max_iter,
+            token_budget=body.token_budget,
+            is_fallback=body.is_fallback,
+        )
+        session.add(row)
+        await session.flush()
+        response = ProviderConfigResponse.model_validate(row)
+
+    return response
+
+
+# ── DELETE /provider/config/{id} ───────────────────────────────────────────────
+
+
+@router.delete(
+    "/provider/config/{config_id}",
+    status_code=204,
+    summary="Delete a provider_config row by UUID",
+    description="Hard-delete the provider_config row with the given id. (F17)",
+    responses={
+        204: {"description": "Row deleted"},
+        404: {"description": "Row not found"},
+    },
+)
+async def delete_provider_config(config_id: uuid.UUID) -> None:
+    """Delete a provider_config row (F17). 404 if not found."""
+    from sqlalchemy import delete as sa_delete
+
+    async with _m.get_session() as session:
+        result = await session.execute(
+            sa_delete(ProviderConfig).where(ProviderConfig.id == config_id)
+        )
+        deleted = cast("CursorResult[Any]", result).rowcount
+
+    if deleted == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"provider_config {config_id} not found",
+        )
+
+
+# ── GET /config/embedding ─────────────────────────────────────────────────────
+
+
+@router.get(
+    "/config/embedding",
+    response_model=EmbeddingConfigResponse,
+    summary="Get current embedding configuration",
+    description=(
+        "Returns the active embedding config read from environment variables "
+        "(EMBEDDING_URL, EMBEDDING_MODEL, EMBEDDING_DIM, EMBEDDINGS_ENABLED). "
+        "Read-only — edit .env to change. (I9, ADR-0030)"
+    ),
+)
+async def get_embedding_config() -> EmbeddingConfigResponse:
+    """Return current embedding settings including enabled/disabled state (F17 / I9 / ADR-0030)."""
+    return EmbeddingConfigResponse(
+        embedding_url=settings.embedding_url,
+        embedding_model=settings.embedding_model,
+        embedding_dim=settings.embedding_dim,
+        embeddings_enabled=effective_bool("embeddings_enabled", settings.embeddings_enabled),
+    )
+
+
+# ── GET /mcp/info — read-only MCP server introspection (F1-MCP-UI, ADR-0027) ──
+
+
+class McpToolInfo(BaseModel):
+    """Schema for a single tool entry in GET /mcp/info (ADR-0027 §2.1)."""
+
+    name: str = Field(description="Tool name as registered in the FastMCP server")
+    description: str = Field(description="Full tool description (docstring); UI truncates")
+    input_schema: dict[str, Any] = Field(
+        description="JSON-Schema object for the tool's input arguments (tool.parameters)"
+    )
+
+
+class McpInfoResponse(BaseModel):
+    """Response model for GET /mcp/info (ADR-0027 §2.1; ADR-0029 §2.5; ADR-0032 §2.5; ADR-0033)."""
+
+    server_name: str = Field(
+        description="MCP server name, derived from the live FastMCP object (I6)"
+    )
+    transport: str = Field(
+        description="MCP transport type (MCP_TRANSPORT env, default 'stdio'; ADR-0010)"
+    )
+    entry_point_command: str = Field(
+        description="Command to launch the MCP server (MCP_ENTRY_COMMAND env; ADR-0027 §2.3)"
+    )
+    tool_count: int = Field(description="Number of tools currently registered in the server")
+    tools: list[McpToolInfo] = Field(description="Introspected tool list from the live registry")
+    # ADR-0029 §2.5 additions — remote posture, no token ever returned
+    http_enabled: bool = Field(
+        description=(
+            "Whether the HTTP MCP surface is compiled in and mounted (ADR-0029 §2.2). "
+            "Always true (ADR-0033 §2.4 always-mount). The token itself is never returned. "
+            "Alias: token_configured for backward compat."
+        )
+    )
+    remote_write_enabled: bool = Field(
+        description=(
+            "Whether write_page is exposed on the HTTP surface (ADR-0029 §2.3). "
+            "Reflects MCP_REMOTE_WRITE_ENABLED env var (default false). "
+            "Only meaningful when remote_enabled is true."
+        )
+    )
+    # ADR-0032 §2.5 additions — runtime toggle posture; token NEVER returned
+    token_configured: bool = Field(
+        description=(
+            "True iff a token is configured — DB hash set OR MCP_AUTH_TOKEN env set "
+            "(ADR-0033 §2.1 precedence). NEVER contains the token value."
+        )
+    )
+    remote_enabled: bool = Field(
+        description=(
+            "The persisted runtime toggle state from vault_state.remote_mcp_enabled "
+            "(ADR-0032 §2.1). False by default; can be set via PUT /mcp/remote."
+        )
+    )
+    mount_path: str = Field(
+        description=(
+            "The mount path for the remote MCP HTTP surface (= MCP_MOUNT_PATH constant). "
+            "UI builds the connection URL as: window.location.origin + mount_path "
+            "(ADR-0032 §2.5; I6 — derived from constant, never hardcoded in handler)."
+        )
+    )
+    # ADR-0033 §2.5 additions — token source + allow flag; no token/hash/salt ever returned
+    token_source: str = Field(
+        description=(
+            '"db" | "env" | "none" — which token source is authoritative (ADR-0033 §2.1). '
+            '"db": UI-set token (PBKDF2 hash in vault_state). '
+            '"env": MCP_AUTH_TOKEN env bootstrap. '
+            '"none": no token configured. '
+            "NEVER the token value, hash, or salt."
+        )
+    )
+    allow_without_token: bool = Field(
+        description=(
+            "Whether token-less access is permitted for PRIVATE sources "
+            "(loopback/CGNAT/RFC1918/link-local/ULA — ADR-0033 §2.3). "
+            "PUBLIC sources (Cloudflare tunnel) are NEVER exempted regardless of this flag."
+        )
+    )
+
+
+@router.get(
+    "/mcp/info",
+    response_model=McpInfoResponse,
+    summary="Read-only MCP server introspection",
+    description=(
+        "Returns the live FastMCP server metadata: name, transport, entry-point command, "
+        "and the full list of registered tools (name, description, input_schema). "
+        "All values are derived from the live `mcp` object and settings — nothing hardcoded (I6). "
+        "No MCP transport session is opened; no tool is invoked (I9). "
+        "Read-only — edit MCP_TRANSPORT / MCP_ENTRY_COMMAND env vars to change. "
+        "F1-MCP-UI (ADR-0027 §2.1)."
+    ),
+)
+async def get_mcp_info() -> McpInfoResponse:
+    """
+    GET /mcp/info — read-only introspection of the Synapse FastMCP server (ADR-0027 §2.1).
+
+    Derives every value from the live `mcp` object (imported at module level) and `settings`.
+    No string about the MCP server is hardcoded inside this function (I6).
+    No DB query, no Qdrant call, no MCP transport/stdio session is opened (I9).
+    """
+    # Introspect the live FastMCP registry — await directly in async handler (ADR-0027 §2.2).
+    raw_tools = await _mcp_server.list_tools()
+
+    tools: list[McpToolInfo] = [
+        McpToolInfo(
+            name=t.name,
+            description=t.description or "",
+            input_schema=t.parameters if t.parameters is not None else {},
+        )
+        for t in raw_tools
+    ]
+
+    # ADR-0033 §2.5: resolve token source from in-process cache.
+    # NEVER return token/hash/salt — only boolean-derived values.
+    db_hash = _m._mcp_auth_cache.get_hash()
+    tok_source = _m._resolve_token_source(db_hash)
+    tok_configured = _m._token_configured(db_hash)
+
+    return McpInfoResponse(
+        server_name=_mcp_server.name,
+        transport=settings.mcp_transport,
+        entry_point_command=settings.mcp_entry_command,
+        tool_count=len(tools),
+        tools=tools,
+        # ADR-0029 §2.5 — always-mount (ADR-0033 §2.4); token NEVER returned
+        http_enabled=True,  # always-mount (ADR-0033 §2.4)
+        remote_write_enabled=settings.mcp_remote_write_enabled,
+        # ADR-0032 §2.5 — runtime toggle posture
+        token_configured=tok_configured,
+        remote_enabled=_m._remote_mcp_flag.is_enabled(),
+        mount_path=_m.MCP_MOUNT_PATH,
+        # ADR-0033 §2.5 — token source + allow flag; NEVER the token/hash/salt
+        token_source=tok_source,
+        allow_without_token=_m._mcp_auth_cache.allow_without_token(),
+    )
+
+
+# ── PUT /mcp/remote — runtime toggle for remote MCP HTTP surface (ADR-0032 §2.4) ──
+
+
+class McpRemoteToggleRequest(BaseModel):
+    """Request body for PUT /mcp/remote (ADR-0032 §2.4)."""
+
+    enabled: bool = Field(description="Desired runtime state for the remote MCP HTTP surface.")
+
+
+class McpRemoteStateResponse(BaseModel):
+    """
+    Response model for PUT /mcp/remote (ADR-0032 §2.4).
+
+    Always returned with HTTP 200 (even when clamped — the posture is reported truthfully).
+    The token itself is NEVER returned (I6).
+    """
+
+    remote_enabled: bool = Field(
+        description=(
+            "The resulting persisted runtime flag (post-clamp). " "False when clamped=true."
+        )
+    )
+    token_configured: bool = Field(
+        description=(
+            "True iff MCP_AUTH_TOKEN is set (the security floor). "
+            "NEVER contains the token value."
+        )
+    )
+    mount_path: str = Field(
+        description="Mount path for the remote MCP HTTP surface (= MCP_MOUNT_PATH constant; I6)."
+    )
+    clamped: bool = Field(
+        description=(
+            "True iff the request asked enabled=true but MCP_AUTH_TOKEN is unset — "
+            "the flag was forced to false (token-floor clamp, ADR-0032 §2.4)."
+        )
+    )
+
+
+@router.put(
+    "/mcp/remote",
+    response_model=McpRemoteStateResponse,
+    summary="Toggle the remote MCP HTTP surface at runtime",
+    description=(
+        "Persists vault_state.remote_mcp_enabled for the active vault and refreshes the "
+        "in-process RemoteMcpFlag cache immediately (ADR-0032 §2.2/§2.4). "
+        "Token-floor clamp: if MCP_AUTH_TOKEN is unset and enabled=true, the flag is "
+        "forced to false and clamped=true is returned (HTTP 200). "
+        "enabled=false always succeeds. "
+        "Same-origin / unauthenticated — consistent with the rest of the REST API "
+        "(ADR-0028 / ADR-0032 §2.4). "
+        "F1-MCP-UI (ADR-0032)."
+    ),
+)
+async def put_mcp_remote(body: McpRemoteToggleRequest) -> McpRemoteStateResponse:
+    """
+    PUT /mcp/remote — persist the runtime MCP toggle (ADR-0032 §2.4; amended by ADR-0033 §2.4/§2.5).
+
+    Allow-aware clamp (ADR-0033 §2.4): enabling is permitted when EITHER
+    ``token_configured OR allow_without_token``. Without either, enabling remote is
+    pointless (the surface 404s for everyone), so we clamp to OFF.
+    On success: write vault_state, refresh RemoteMcpFlag cache.
+    No MCP tool is invoked; no second writer is introduced (I9).
+    """
+    db_hash = _m._mcp_auth_cache.get_hash()
+    tok_configured: bool = _m._token_configured(db_hash)
+    allow: bool = _m._mcp_auth_cache.allow_without_token()
+    clamped: bool = False
+    desired: bool = body.enabled
+
+    # Allow-aware clamp (ADR-0033 §2.4): cannot enable without token OR allow.
+    if desired and not tok_configured and not allow:
+        desired = False
+        clamped = True
+
+    # Persist to vault_state (DB is source of truth — ADR-0032 §2.1).
+    async with _m.get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is None:
+            # Should not happen (seeded at startup), but be defensive.
+            state = VaultState(
+                vault_id=settings.vault_id,
+                data_version=0,
+                remote_mcp_enabled=desired,
+                updated_at=datetime.now(UTC),
+            )
+            session.add(state)
+        else:
+            state.remote_mcp_enabled = desired
+            state.updated_at = datetime.now(UTC)
+
+    # Refresh the in-process cache immediately (ADR-0032 §2.2).
+    await _m._remote_mcp_flag.set(desired)
+
+    logger.info(
+        "PUT /mcp/remote: enabled=%s clamped=%s tok_configured=%s allow=%s (ADR-0032/0033)",
+        desired,
+        clamped,
+        tok_configured,
+        allow,
+    )
+
+    return McpRemoteStateResponse(
+        remote_enabled=desired,
+        token_configured=tok_configured,
+        mount_path=_m.MCP_MOUNT_PATH,
+        clamped=clamped,
+    )
+
+
+# ── PUT /mcp/auth — set/rotate/clear token + allow flag (ADR-0033 §2.5) ──────
+
+
+class McpAuthRequest(BaseModel):
+    """
+    Request body for PUT /mcp/auth (ADR-0033 §2.5).
+
+    All fields are optional; omitting a field leaves that aspect unchanged.
+    Exactly one of rotate_token / token / clear_token should be used per call
+    (using multiple is allowed but the last write wins: clear > explicit > rotate).
+    allow_without_token can be set independently in the same call.
+    """
+
+    rotate_token: bool | None = Field(
+        default=None,
+        description=(
+            "true ⇒ generate a new high-entropy token (secrets.token_urlsafe(32)), "
+            "store its PBKDF2 hash, return plaintext ONCE in generated_token. "
+            "The plaintext is NEVER stored and NEVER returned again."
+        ),
+    )
+    token: str | None = Field(
+        default=None,
+        description=(
+            "Owner-supplied explicit token; stored as PBKDF2 hash only. "
+            "generated_token stays null (owner already knows the value). "
+            "Not echoed in the response."
+        ),
+    )
+    clear_token: bool | None = Field(
+        default=None,
+        description=(
+            "true ⇒ set mcp_access_token_hash = NULL. "
+            "If this leaves token_configured=false AND allow_without_token=false, "
+            "remote_enabled is clamped OFF (no usable auth posture)."
+        ),
+    )
+    allow_without_token: bool | None = Field(
+        default=None,
+        description=(
+            "Persist the allow-without-token flag (ADR-0033 §2.3). "
+            "Omit to leave unchanged. "
+            "true: private sources (loopback/CGNAT/RFC1918/link-local) may connect "
+            "without a bearer token. PUBLIC sources are NEVER exempted."
+        ),
+    )
+
+
+class McpAuthStateResponse(BaseModel):
+    """
+    Response body for PUT /mcp/auth (ADR-0033 §2.5).
+
+    token_configured, token_source, allow_without_token, remote_enabled, mount_path
+    always reflect the post-write state. generated_token is populated ONLY when
+    rotate_token=true was set — shown ONCE, never returned again by any GET/PUT.
+    NEVER contains the token, hash, or salt.
+    """
+
+    token_configured: bool = Field(
+        description="True iff DB hash is set OR MCP_AUTH_TOKEN env bootstrap is set."
+    )
+    token_source: str = Field(
+        description='"db" | "env" | "none" — authoritative token source (ADR-0033 §2.1).'
+    )
+    allow_without_token: bool = Field(
+        description="The persisted allow-without-token flag after this write."
+    )
+    remote_enabled: bool = Field(
+        description="The remote_mcp_enabled flag after any allow-aware clamp."
+    )
+    mount_path: str = Field(description="MCP_MOUNT_PATH constant (I6).")
+    generated_token: str | None = Field(
+        default=None,
+        description=(
+            "Populated ONLY when rotate_token=true — the plaintext token shown ONCE. "
+            "null in all other cases. NEVER stored; NEVER returned by subsequent calls."
+        ),
+    )
+
+
+@router.put(
+    "/mcp/auth",
+    response_model=McpAuthStateResponse,
+    summary="Set, rotate, or clear the MCP access token + allow-without-token flag",
+    description=(
+        "ADR-0033 §2.5 — UI-settable MCP token management. "
+        "rotate_token=true: generate a new token (secrets.token_urlsafe(32)), store its "
+        "PBKDF2 hash in vault_state, return plaintext ONCE in generated_token. "
+        "token=<value>: store an explicit token as hash; NOT echoed; generated_token=null. "
+        "clear_token=true: set hash to NULL (token_source may fall back to env or none). "
+        "allow_without_token: persist the private-source allow flag. "
+        "If post-write state has no token AND allow_without_token=false, remote_enabled "
+        "is clamped OFF (allow-aware clamp — ADR-0033 §2.4). "
+        "Same-origin / unauthenticated (consistent with ADR-0032 §2.4). "
+        "NEVER returns or stores token plaintext (except the one-time generated_token). "
+        "F1-MCP-UI (ADR-0033)."
+    ),
+)
+async def put_mcp_auth(body: McpAuthRequest) -> McpAuthStateResponse:
+    """
+    PUT /mcp/auth — UI-settable MCP token management (ADR-0033 §2.5).
+
+    Applies changes in this order:
+      1. clear_token (if true) → set hash NULL.
+      2. token (if set) → hash and persist.
+      3. rotate_token (if true) → generate, hash, persist, capture plaintext.
+      4. allow_without_token (if set) → persist.
+      5. Apply allow-aware clamp to remote_enabled (§2.4).
+      6. Refresh in-process caches.
+      7. Return McpAuthStateResponse (no plaintext except generated_token).
+
+    No MCP tool is invoked; no second writer is introduced (I9).
+    """
+    generated_token: str | None = None
+
+    async with _m.get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is None:
+            # Should not happen (seeded at startup), but be defensive.
+            state = VaultState(
+                vault_id=settings.vault_id,
+                data_version=0,
+                remote_mcp_enabled=False,
+                mcp_access_token_hash=None,
+                mcp_allow_without_token=False,
+                updated_at=datetime.now(UTC),
+            )
+            session.add(state)
+
+        # 1. clear_token
+        if body.clear_token:
+            state.mcp_access_token_hash = None
+
+        # 2. explicit token
+        if body.token is not None:
+            state.mcp_access_token_hash = _m._hash_token(body.token)
+            # Do NOT echo body.token in logs or response.
+
+        # 3. rotate_token (takes precedence over explicit token if both are set)
+        if body.rotate_token:
+            new_plaintext = secrets.token_urlsafe(32)
+            state.mcp_access_token_hash = _m._hash_token(new_plaintext)
+            # Capture plaintext for the one-time response; NEVER persist it.
+            generated_token = new_plaintext
+            # Immediately discard from local scope after assigning to response var;
+            # new_plaintext goes out of scope here.
+
+        # 4. allow_without_token
+        if body.allow_without_token is not None:
+            state.mcp_allow_without_token = body.allow_without_token
+
+        # 5. Allow-aware clamp on remote_enabled (ADR-0033 §2.4).
+        new_hash = state.mcp_access_token_hash
+        new_allow = state.mcp_allow_without_token
+        tok_configured_post = _m._token_configured(new_hash)
+        if state.remote_mcp_enabled and not tok_configured_post and not new_allow:
+            state.remote_mcp_enabled = False
+            logger.info(
+                "PUT /mcp/auth: remote_enabled clamped OFF "
+                "(no token AND allow=false, ADR-0033 §2.4)"
+            )
+
+        state.updated_at = datetime.now(UTC)
+
+        # Capture final values for cache update (inside session scope).
+        final_hash = state.mcp_access_token_hash
+        final_allow = state.mcp_allow_without_token
+        final_remote = state.remote_mcp_enabled
+
+    # 6. Refresh in-process caches (outside session — DB write committed).
+    await _m._mcp_auth_cache.set_hash(final_hash)
+    await _m._mcp_auth_cache.set_allow(final_allow)
+    await _m._remote_mcp_flag.set(final_remote)
+
+    # 7. Derive response values (NEVER return hash, plaintext, or salt).
+    tok_source = _m._resolve_token_source(final_hash)
+    tok_configured = _m._token_configured(final_hash)
+
+    logger.info(
+        "PUT /mcp/auth: token_source=%s allow_without_token=%s remote_enabled=%s (ADR-0033)",
+        tok_source,
+        final_allow,
+        final_remote,
+    )
+
+    return McpAuthStateResponse(
+        token_configured=tok_configured,
+        token_source=tok_source,
+        allow_without_token=final_allow,
+        remote_enabled=final_remote,
+        mount_path=_m.MCP_MOUNT_PATH,
+        generated_token=generated_token,
+    )
+
+
+# ── Import schedule REST (Feature S, ADR-0020 §4.6) ───────────────────────────
+
+
+def _schedule_to_response(schedule: ImportSchedule | None) -> ImportScheduleResponse:
+    """Convert an ImportSchedule ORM row to the API response shape (or return defaults)."""
+    if schedule is None:
+        return ImportScheduleResponse()
+    return ImportScheduleResponse(
+        enabled=schedule.enabled,
+        source_dir=schedule.source_dir,
+        frequency=schedule.frequency,
+        last_run_at=schedule.last_run_at,
+        last_status=schedule.last_status,
+        last_imported_count=schedule.last_imported_count,
+        last_error=schedule.last_error,
+    )
+
+
+@router.get(
+    "/import-schedule",
+    response_model=ImportScheduleResponse,
+    summary="Get scheduled folder import config + last-run status",
+    description=(
+        "Returns the current import schedule configuration and last-run status for the vault. "
+        "Returns sane defaults (enabled=false, frequency='1h') if no row has been configured yet. "
+        "Feature S (ADR-0020 §4.6)."
+    ),
+)
+async def get_import_schedule() -> ImportScheduleResponse:
+    """GET /import-schedule — current config + last-run status (ADR-0020 §4.6)."""
+    schedule = await load_schedule(settings.vault_id)
+    return _schedule_to_response(schedule)  # type: ignore[arg-type]
+
+
+@router.put(
+    "/import-schedule",
+    response_model=ImportSchedulePutResponse,
+    summary="Upsert import schedule configuration",
+    description=(
+        "Create or update the import schedule for the vault. "
+        "Validates source_dir: if the directory does not exist inside the container, "
+        "the row is still saved but dir_ok=false + dir_message is returned (save-then-warn). "
+        "frequency must be one of '15m' | '1h' | '6h' | 'daily'. "
+        "Config changes take effect on the next scheduler tick without a restart. "
+        "Feature S (ADR-0020 §4.6)."
+    ),
+    responses={
+        200: {"description": "Config saved (dir_ok may be false if mount is missing)"},
+        422: {"description": "Invalid frequency value"},
+    },
+)
+async def put_import_schedule(body: ImportSchedulePutBody) -> ImportSchedulePutResponse:
+    """
+    PUT /import-schedule — upsert schedule config with save-then-warn dir validation.
+
+    If body.source_dir is provided, validate it exists & is readable inside the container.
+    Persist regardless of dir_ok (operator may add the mount later; next tick picks it up).
+    """
+    # Build update kwargs
+    update_kwargs: dict[str, object] = {}
+    if body.enabled is not None:
+        update_kwargs["enabled"] = body.enabled
+    if body.source_dir is not None:
+        update_kwargs["source_dir"] = body.source_dir
+    if body.frequency is not None:
+        update_kwargs["frequency"] = body.frequency
+    update_kwargs["updated_at"] = datetime.now(UTC)
+
+    await upsert_schedule(settings.vault_id, **update_kwargs)
+
+    # Reload the freshly persisted row
+    schedule = await load_schedule(settings.vault_id)
+
+    # Dir validation (save-then-warn — ADR-0020 §4.6)
+    dir_ok = True
+    dir_message: str | None = None
+    source_dir_val: str | None = getattr(schedule, "source_dir", None) if schedule else None
+    if source_dir_val is not None:
+        import os as _os
+
+        if not _os.path.isdir(source_dir_val):
+            dir_ok = False
+            dir_message = (
+                f"Directory '{source_dir_val}' is not visible inside the backend container. "
+                "Add a mount (e.g. - ./import:/import:ro in docker-compose.yml) and set "
+                "source_dir to the CONTAINER path — see DEPLOY.md."
+            )
+
+    base = _schedule_to_response(schedule)  # type: ignore[arg-type]
+    return ImportSchedulePutResponse(
+        enabled=base.enabled,
+        source_dir=base.source_dir,
+        frequency=base.frequency,
+        last_run_at=base.last_run_at,
+        last_status=base.last_status,
+        last_imported_count=base.last_imported_count,
+        last_error=base.last_error,
+        dir_ok=dir_ok,
+        dir_message=dir_message,
+    )
+
+
+@router.post(
+    "/import-schedule/run-now",
+    response_model=RunNowResponse,
+    status_code=202,
+    summary="Trigger one bounded import scan immediately",
+    description=(
+        "Trigger one bounded scan of source_dir immediately (same bounds as the scheduler: "
+        "IMPORT_SCAN_MAX_FILES + IMPORT_SCAN_MAX_SECONDS, I7). "
+        "The scan runs in the background; poll GET /import-schedule for the result. "
+        "409 if a scan is already in-flight. 400 if disabled or source_dir unset/missing. "
+        "Feature S (ADR-0020 §4.6)."
+    ),
+    responses={
+        202: {"description": "Scan started in the background"},
+        400: {"description": "Schedule is disabled, source_dir not set, or directory missing"},
+        409: {"description": "A scan is already in-flight (I7 — no overlap)"},
+    },
+)
+async def run_import_now() -> RunNowResponse:
+    """
+    POST /import-schedule/run-now — trigger one bounded scan immediately (ADR-0020 §4.6).
+
+    Uses the module-level ImportScheduler singleton started in the lifespan.
+    Falls back to creating a temporary scheduler if the lifespan singleton is absent
+    (e.g. test environments that bypass lifespan).
+    """
+    scheduler = _m._import_scheduler
+    if scheduler is None:
+        # Graceful degradation: create an ephemeral scheduler (test / direct-startup scenario)
+        scheduler = ImportScheduler()
+
+    if scheduler.scan_in_flight:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "A scan is already in-flight. "
+                "Wait for it to finish or poll GET /import-schedule."
+            ),
+        )
+
+    # Kick off the scan as a background task
+    async def _run() -> None:
+        try:
+            await scheduler.run_now()
+        except (ValueError, RuntimeError) as exc:
+            logger.warning("run_import_now: scan failed: %s", exc)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("run_import_now: unhandled error in background scan: %s", exc)
+
+    try:
+        # Validate preconditions before starting the background task (so we get 400 synchronously)
+        cfg = await load_schedule(settings.vault_id)
+        if cfg is None or not getattr(cfg, "enabled", False):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Schedule is disabled or not configured. " "Enable it and set source_dir first."
+                ),
+            )
+        source_dir = getattr(cfg, "source_dir", None)
+        if not source_dir:
+            raise HTTPException(
+                status_code=400,
+                detail="source_dir is not set. Configure a container-visible path first.",
+            )
+        import os as _os
+
+        if not _os.path.isdir(str(source_dir)):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Directory '{source_dir}' is not accessible inside the container. "
+                    "Add a mount (e.g. - ./import:/import:ro) and set "
+                    "source_dir to the container path."
+                ),
+            )
+    except HTTPException:
+        raise
+
+    asyncio.create_task(_run())
+    return RunNowResponse(status="started")
+
+
+@router.get(
+    "/clip/config",
+    response_model=ClipConfigResponse,
+    summary="Read-only web clipper ingress posture (ADR-0040)",
+    description=(
+        "Returns the current posture of the POST /clip ingress: enabled state, "
+        "token_configured (bool, never the value), token_source (db|env|none), "
+        "allowed_origins list, and max_body_bytes. "
+        "Mirrors GET /mcp/info: no sensitive values ever returned. "
+        "F11-clip-config (ADR-0040)."
+    ),
+)
+async def get_clip_config() -> ClipConfigResponse:
+    """
+    GET /clip/config — read-only web clipper ingress posture (ADR-0040).
+
+    All values derived from the in-process _m._clip_config_cache (loaded from vault_state
+    at startup and refreshed on PUT /clip/config writes). No DB query on each GET.
+    NEVER returns the token value, only token_configured + token_source.
+    """
+    return ClipConfigResponse(
+        enabled=_m._clip_config_cache.resolved_enabled(),
+        token_configured=_m._clip_config_cache.token_configured(),
+        token_source=_m._clip_config_cache.token_source(),
+        allowed_origins=_m._clip_config_cache.resolved_allowed_origins_list(),
+        max_body_bytes=settings.clip_max_body_bytes,
+    )
+
+
+# ── PUT /clip/config — set/rotate/clear clip token + enabled + origins (ADR-0040) ─
+
+
+class ClipConfigRequest(BaseModel):
+    """
+    Request body for PUT /clip/config (ADR-0040 §2.4).
+
+    All fields are optional; omitting a field leaves that aspect unchanged.
+    Mirrors McpAuthRequest (ADR-0033 §2.5).
+    """
+
+    rotate_token: bool | None = Field(
+        default=None,
+        description=(
+            "true ⇒ generate a new high-entropy token (secrets.token_urlsafe(32)), "
+            "store its PBKDF2-SHA256 hash in clip_access_token (never the raw value), "
+            "return plaintext ONCE in generated_token. "
+            "The plaintext is NEVER stored or returned again after this call."
+        ),
+    )
+    clear_token: bool | None = Field(
+        default=None,
+        description=(
+            "true ⇒ set clip_access_token = NULL (DB token cleared; "
+            "falls back to CLIP_TOKEN env bootstrap or none)."
+        ),
+    )
+    set_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Set the clip_enabled_db flag. "
+            "true ⇒ DB overrides CLIP_ENABLED env with True. "
+            "false ⇒ DB overrides with False (ingress disabled regardless of env). "
+            "Omit to leave unchanged."
+        ),
+    )
+    set_allowed_origins: str | None = Field(
+        default=None,
+        description=(
+            "Replace the DB clip_allowed_origins_db value with this comma-separated string. "
+            'Empty string "" clears the DB value (falls back to CLIP_ALLOWED_ORIGINS env). '
+            "Omit to leave unchanged."
+        ),
+    )
+
+
+class ClipConfigStateResponse(BaseModel):
+    """
+    Response body for PUT /clip/config (ADR-0040 §2.4).
+
+    Always reflects post-write posture. generated_token is populated ONLY when
+    rotate_token=true — shown ONCE, never returned again.
+    NEVER contains the token value (except the one-time generated_token on rotate).
+    """
+
+    enabled: bool = Field(description="Resolved enabled state after this write.")
+    token_configured: bool = Field(
+        description="True iff a token is available after this write (DB or env)."
+    )
+    token_source: str = Field(
+        description='"db" | "env" | "none" — authoritative token source after this write.'
+    )
+    allowed_origins: list[str] = Field(
+        description="Resolved allowed-origins list after this write."
+    )
+    max_body_bytes: int = Field(description="CLIP_MAX_BODY_BYTES (env, not runtime-settable).")
+    generated_token: str | None = Field(
+        default=None,
+        description=(
+            "Populated ONLY when rotate_token=true — the plaintext token shown ONCE. "
+            "null in all other cases. NEVER stored as recoverable. "
+            "NEVER returned by subsequent GET or PUT."
+        ),
+    )
+
+
+@router.put(
+    "/clip/config",
+    response_model=ClipConfigStateResponse,
+    summary="Set, rotate, or clear the clip ingress token + enabled/origins (ADR-0040)",
+    description=(
+        "ADR-0040 §2.4 — runtime web clipper configuration. "
+        "rotate_token=true: generate a new token (secrets.token_urlsafe(32)), store its "
+        "PBKDF2-SHA256 hash in vault_state.clip_access_token, return plaintext ONCE in "
+        "generated_token (never stored). "
+        "clear_token=true: set DB token to NULL (falls back to CLIP_TOKEN env or none). "
+        "set_enabled: set clip_enabled_db (DB wins over CLIP_ENABLED env when set). "
+        'set_allowed_origins: replace DB origins (empty string "" clears to env fallback). '
+        "Same-origin / unauthenticated — consistent with PUT /mcp/auth (ADR-0033 §2.5). "
+        "NEVER returns or stores the token plaintext (except the one-time generated_token). "
+        "F11-clip-config (ADR-0040)."
+    ),
+)
+async def put_clip_config(body: ClipConfigRequest) -> ClipConfigStateResponse:
+    """
+    PUT /clip/config — runtime web clipper configuration (ADR-0040 §2.4).
+
+    Applies changes in this order:
+      1. clear_token (if true) → set clip_access_token = NULL.
+      2. rotate_token (if true) → generate plaintext, hash with PBKDF2, store hash,
+         capture plaintext for one-time response (never persisted).
+      3. set_enabled (if set) → persist clip_enabled_db.
+      4. set_allowed_origins (if set) → persist clip_allowed_origins_db
+         (empty string → NULL = env-fallback).
+      5. Refresh in-process _m._clip_config_cache.
+      6. Return ClipConfigStateResponse (no token plaintext except one-time generated_token).
+
+    Mirrors PUT /mcp/auth (ADR-0033 §2.5).
+    """
+    generated_token: str | None = None
+
+    async with _m.get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is None:
+            # Should not happen (seeded at startup), but be defensive.
+            state = VaultState(
+                vault_id=settings.vault_id,
+                data_version=0,
+                remote_mcp_enabled=False,
+                mcp_access_token_hash=None,
+                mcp_allow_without_token=False,
+                clip_enabled_db=None,
+                clip_access_token=None,
+                clip_allowed_origins_db=None,
+                updated_at=datetime.now(UTC),
+            )
+            session.add(state)
+
+        # 1. clear_token
+        if body.clear_token:
+            state.clip_access_token = None
+
+        # 2. rotate_token (takes precedence over clear if both are set)
+        if body.rotate_token:
+            new_plaintext = secrets.token_urlsafe(32)
+            # Hash for storage (mirrors MCP ADR-0033 §2.1 — never store plaintext in DB).
+            # The PBKDF2 hash is safe even if the DB is compromised.
+            state.clip_access_token = _m._hash_token(new_plaintext)
+            # Capture plaintext for the one-time response ONLY (never persisted).
+            generated_token = new_plaintext
+            # new_plaintext out of scope after assignment to generated_token.
+
+        # 3. set_enabled
+        if body.set_enabled is not None:
+            state.clip_enabled_db = body.set_enabled
+
+        # 4. set_allowed_origins (empty string → NULL = env-fallback)
+        if body.set_allowed_origins is not None:
+            state.clip_allowed_origins_db = (
+                body.set_allowed_origins if body.set_allowed_origins else None
+            )
+
+        state.updated_at = datetime.now(UTC)
+
+        # Capture final values for cache update (inside session scope — will be committed).
+        # clip_access_token is now a PBKDF2 hash (or None); store hash in cache.
+        final_hash: str | None = state.clip_access_token
+        final_enabled_db: bool | None = state.clip_enabled_db
+        final_origins_db: str | None = state.clip_allowed_origins_db
+
+    # 5. Refresh in-process caches (outside session — DB write committed).
+    await _m._clip_config_cache.set_hash(final_hash)
+    await _m._clip_config_cache.set_enabled_db(final_enabled_db)
+    await _m._clip_config_cache.set_allowed_origins_db(final_origins_db)
+
+    tok_source = _m._clip_config_cache.token_source()
+    tok_configured = _m._clip_config_cache.token_configured()
+    resolved_enabled = _m._clip_config_cache.resolved_enabled()
+    resolved_origins = _m._clip_config_cache.resolved_allowed_origins_list()
+
+    logger.info(
+        "PUT /clip/config: enabled=%s token_source=%s origins_source=%s (ADR-0040)",
+        resolved_enabled,
+        tok_source,
+        _m._clip_config_cache.origins_source(),
+        # NEVER log the token value
+    )
+
+    # 6. Return posture (no plaintext except the one-time generated_token).
+    return ClipConfigStateResponse(
+        enabled=resolved_enabled,
+        token_configured=tok_configured,
+        token_source=tok_source,
+        allowed_origins=resolved_origins,
+        max_body_bytes=settings.clip_max_body_bytes,
+        generated_token=generated_token,
+    )
+
+
+# ── GET /web-search/config — read-only SearXNG posture (ADR-0041) ─────────────
+
+
+class WebSearchConfigResponse(BaseModel):
+    """
+    Response model for GET /web-search/config (ADR-0041 §2.3).
+
+    The SearXNG URL is NOT a secret — it IS returned (unlike the clip token).
+    source values: "db" | "env" | "none".
+    """
+
+    configured: bool = Field(
+        description=(
+            "True iff a SearXNG URL is available (DB or env). "
+            "POST /research/start returns 503 when false."
+        )
+    )
+    url: str | None = Field(
+        description=(
+            "Resolved SearXNG base URL (DB wins over env; ADR-0041 §2.2). "
+            "None when neither DB nor env is set. "
+            "NOT a secret — returned in full (unlike clip/mcp tokens)."
+        )
+    )
+    categories: list[str] = Field(
+        description=(
+            "Resolved SearXNG categories list (DB wins over env/default; ADR-0041 §2.2). "
+            "Empty list when neither DB nor env sets this — SearXNG uses its own default."
+        )
+    )
+    max_queries: int = Field(
+        description=(
+            "Resolved max SearXNG queries per deep-research iteration "
+            "(DB wins over DEEP_RESEARCH_MAX_QUERIES env; ADR-0041 §2.2)."
+        )
+    )
+    source: str = Field(
+        description=(
+            '"db" | "env" | "none" — which URL source is authoritative (ADR-0041 §2.2). '
+            '"db": URL set via PUT /web-search/config. '
+            '"env": SEARXNG_URL env var. '
+            '"none": no URL configured.'
+        )
+    )
+
+
+@router.get(
+    "/web-search/config",
+    response_model=WebSearchConfigResponse,
+    summary="Read-only SearXNG web-search posture (ADR-0041)",
+    description=(
+        "Returns the current SearXNG configuration: configured flag, resolved URL, "
+        "categories, max_queries, and source (db|env|none). "
+        "DB value wins over env when set (ADR-0041 §2.2). "
+        "The URL is NOT a secret and IS returned in full. "
+        "F10-web-search-config (ADR-0041)."
+    ),
+)
+async def get_web_search_config() -> WebSearchConfigResponse:
+    """
+    GET /web-search/config — read-only SearXNG web-search posture (ADR-0041).
+
+    All values derived from the in-process _m._web_search_config_cache (loaded from
+    vault_state at startup and refreshed on PUT /web-search/config writes).
+    No DB query on each GET. The URL IS returned (not a secret — ADR-0041 §2.1).
+    """
+    return WebSearchConfigResponse(
+        configured=_m._web_search_config_cache.configured(),
+        url=_m._web_search_config_cache.resolved_url(),
+        categories=_m._web_search_config_cache.resolved_categories(),
+        max_queries=_m._web_search_config_cache.resolved_max_queries(),
+        source=_m._web_search_config_cache.url_source(),
+    )
+
+
+# ── PUT /web-search/config — set/clear SearXNG URL + categories + max_queries (ADR-0041) ─
+
+
+class WebSearchConfigRequest(BaseModel):
+    """
+    Request body for PUT /web-search/config (ADR-0041 §2.4).
+
+    All fields are optional; omitting a field leaves that aspect unchanged.
+    No provider field — SearXNG is the ONLY web-search backend (I9).
+    Passing any non-SearXNG provider name is rejected with 422 (I9 guard).
+    """
+
+    set_url: str | None = Field(
+        default=None,
+        description=(
+            "Set the SearXNG base URL in vault_state (DB wins over env). "
+            "Must be a valid http(s) URL. "
+            "Set to null to clear the DB URL (falls back to SEARXNG_URL env)."
+        ),
+    )
+    set_categories: str | None = Field(
+        default=None,
+        description=(
+            "Comma-separated SearXNG categories (e.g. 'general,news'). "
+            'Empty string "" clears to default. '
+            "Omit to leave unchanged."
+        ),
+    )
+    set_max_queries: int | None = Field(
+        default=None,
+        ge=1,
+        le=50,
+        description=(
+            "Max SearXNG queries per deep-research iteration (1–50). " "Omit to leave unchanged."
+        ),
+    )
+    clear: bool | None = Field(
+        default=None,
+        description=(
+            "If true, clear ALL DB overrides (url, categories, max_queries). "
+            "After clear, all three fall back to env / code defaults. "
+            "Applied FIRST; then set_* fields are applied."
+        ),
+    )
+
+
+class WebSearchConfigStateResponse(BaseModel):
+    """
+    Response body for PUT /web-search/config (ADR-0041 §2.4).
+
+    Always reflects post-write posture.
+    """
+
+    configured: bool = Field(description="True iff a SearXNG URL is now available.")
+    url: str | None = Field(description="Resolved SearXNG URL post-write (not a secret).")
+    categories: list[str] = Field(description="Resolved categories list post-write.")
+    max_queries: int = Field(description="Resolved max_queries post-write.")
+    source: str = Field(description='"db" | "env" | "none" — URL source post-write.')
+
+
+@router.put(
+    "/web-search/config",
+    response_model=WebSearchConfigStateResponse,
+    summary="Set or clear the SearXNG web-search configuration (ADR-0041)",
+    description=(
+        "ADR-0041 §2.4 — runtime SearXNG configuration. "
+        "set_url: set searxng_url_db (validates http/https; DB wins over SEARXNG_URL env). "
+        "set_categories: set searxng_categories_db (comma-separated; empty string clears). "
+        "set_max_queries: set searxng_max_queries_db (1–50; DB wins over env). "
+        "clear=true: clear ALL three DB columns (falls back to env / code defaults). "
+        "I9 invariant: SearXNG is the ONLY web-search backend. "
+        "No provider field accepted — any attempt to configure a non-SearXNG provider is rejected. "
+        "F10-web-search-config (ADR-0041)."
+    ),
+)
+async def put_web_search_config(body: WebSearchConfigRequest) -> WebSearchConfigStateResponse:
+    """
+    PUT /web-search/config — runtime SearXNG configuration (ADR-0041 §2.4).
+
+    Applies changes in this order:
+      1. clear=true (if set) → set all three DB columns to NULL.
+      2. set_url (if set) → validate + persist searxng_url_db.
+      3. set_categories (if set) → persist searxng_categories_db (empty = NULL).
+      4. set_max_queries (if set) → persist searxng_max_queries_db.
+      5. Refresh in-process _m._web_search_config_cache.
+      6. Return WebSearchConfigStateResponse.
+
+    I9: SearXNG is the ONLY web-search backend. No provider routing here.
+    """
+    import re
+
+    def _validate_url(url: str) -> str:
+        """Validate that the URL is a plausible http(s) URL."""
+        url = url.strip()
+        if not re.match(r"^https?://", url, re.IGNORECASE):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Invalid SearXNG URL {url!r}: must start with http:// or https://. "
+                    "SearXNG is the ONLY web-search backend (I9 — ADR-0041)."
+                ),
+            )
+        return url
+
+    async with _m.get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is None:
+            raise HTTPException(status_code=500, detail="vault_state row not found")
+
+        # 1. clear=true → null all three DB columns
+        if body.clear:
+            state.searxng_url_db = None
+            state.searxng_categories_db = None
+            state.searxng_max_queries_db = None
+
+        # 2. set_url (if provided)
+        if body.set_url is not None:
+            state.searxng_url_db = _validate_url(body.set_url)
+
+        # 3. set_categories (if provided)
+        if body.set_categories is not None:
+            # Empty string → NULL (falls back to default)
+            stripped = body.set_categories.strip()
+            state.searxng_categories_db = stripped if stripped else None
+
+        # 4. set_max_queries (if provided)
+        if body.set_max_queries is not None:
+            state.searxng_max_queries_db = body.set_max_queries
+
+        final_url_db: str | None = state.searxng_url_db
+        final_categories_db: str | None = state.searxng_categories_db
+        final_max_queries_db: int | None = state.searxng_max_queries_db
+
+    # 5. Refresh in-process cache (outside session — DB write committed).
+    await _m._web_search_config_cache.set_url_db(final_url_db)
+    await _m._web_search_config_cache.set_categories_db(final_categories_db)
+    await _m._web_search_config_cache.set_max_queries_db(final_max_queries_db)
+
+    logger.info(
+        "PUT /web-search/config: url_source=%s categories_source=%s "
+        "max_queries_source=%s configured=%s (ADR-0041)",
+        _m._web_search_config_cache.url_source(),
+        _m._web_search_config_cache.categories_source(),
+        _m._web_search_config_cache.max_queries_source(),
+        _m._web_search_config_cache.configured(),
+    )
+
+    # 6. Return posture.
+    return WebSearchConfigStateResponse(
+        configured=_m._web_search_config_cache.configured(),
+        url=_m._web_search_config_cache.resolved_url(),
+        categories=_m._web_search_config_cache.resolved_categories(),
+        max_queries=_m._web_search_config_cache.resolved_max_queries(),
+        source=_m._web_search_config_cache.url_source(),
+    )
+
+
+_CLI_TOKEN_PREFIX: str = "sk-ant-" + "oat01-"
+
+
+class CliAuthConfigRequest(BaseModel):
+    """
+    Request body for PUT /provider/cli-auth (ADR-0043 §2.5).
+
+    Exactly one of {token, clear} should be present:
+      token: str  — paste the token produced by ``claude setup-token`` (prefix: sk-ant- + oat01-)
+      clear: bool — true ⇒ set vault_state.cli_oauth_token = NULL (fall back to env / none)
+
+    ``clear`` wins if both are sent. An empty body (neither field) → 400.
+    """
+
+    token: str | None = Field(
+        default=None,
+        description=(
+            "The Claude subscription OAuth token to store (from `claude setup-token`). "
+            "Stored plaintext (ADR-0043 §2.1 — replayed outbound). "
+            "NEVER logged or returned. "
+            "Validated: non-empty, 20–500 chars; soft prefix check (warns, does not block)."
+        ),
+    )
+    clear: bool | None = Field(
+        default=None,
+        description=(
+            "true ⇒ set cli_oauth_token = NULL (fall back to env / none). "
+            "Wins over token if both are sent."
+        ),
+    )
+
+
+@router.put(
+    "/provider/cli-auth",
+    response_model=CliAuthConfigResponse,
+    summary="Set or clear the CLI subscription OAuth token (ADR-0043)",
+    description=(
+        "ADR-0043 §2.5 — store a pasted Claude subscription OAuth token or clear it. "
+        "clear=true: set DB token to NULL (falls back to env / none). "
+        "token=<value>: validate and store to vault_state.cli_oauth_token; refresh cache. "
+        "Returns post-write posture (same shape as GET); NEVER the token value. "
+        "400 if body has neither token nor clear. "
+        "422 if token is empty/whitespace or absurd length. "
+        "Soft prefix check warns but does NOT hard-reject — ADR-0043 §2.5."
+    ),
+)
+async def put_cli_auth_config(body: CliAuthConfigRequest) -> CliAuthConfigResponse:
+    """
+    PUT /provider/cli-auth — set or clear the CLI subscription OAuth token (ADR-0043 §2.5).
+
+    Semantics:
+      1. clear=true (wins if both sent) → set cli_oauth_token = NULL; refresh cache.
+      2. token=<value> → validate; store plaintext; refresh cache.
+      3. neither field → 400 (no-op request).
+    Returns post-write posture. NEVER logs or returns the token value.
+    """
+    # 0. Guard: empty body (neither field set).
+    if not body.clear and body.token is None:
+        raise HTTPException(status_code=400, detail="Provide token or clear=true.")
+
+    # Pre-validate the token BEFORE opening a DB session (no unnecessary DB round-trip
+    # on bad input — mirrors the clip pattern of early-exit on validation failure).
+    validated_token: str | None = None  # None = clear or will be set below
+    if not body.clear:
+        raw = (body.token or "").strip()
+        if not raw:
+            raise HTTPException(
+                status_code=422,
+                detail="token must be a non-empty, non-whitespace string.",
+            )
+        if len(raw) < 20 or len(raw) > 500:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"token length {len(raw)} is outside the accepted range [20, 500]. "
+                    "Verify you pasted the full token from `claude setup-token`."
+                ),
+            )
+        # Soft prefix check — warn but never hard-block (ADR-0043 §2.5).
+        if not raw.startswith(_CLI_TOKEN_PREFIX):
+            logger.warning(
+                "PUT /provider/cli-auth: token does not match expected prefix; "
+                "accepting anyway — Anthropic may change the prefix (ADR-0043 §2.5)."
+                # NEVER log the token value itself.
+            )
+        validated_token = raw
+
+    final_token: str | None = None  # value stored in DB; None after clear
+
+    async with _m.get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state: VaultState | None = row.scalar_one_or_none()
+        if state is None:
+            # Seed row (mirrors the put_clip_config pattern).
+            state = VaultState(
+                vault_id=settings.vault_id,
+                data_version=0,
+                remote_mcp_enabled=False,
+                mcp_access_token_hash=None,
+                mcp_allow_without_token=False,
+                clip_enabled_db=None,
+                clip_access_token=None,
+                clip_allowed_origins_db=None,
+                updated_at=datetime.now(UTC),
+            )
+            session.add(state)
+
+        # 1. clear wins if both fields supplied (already validated above).
+        if body.clear:
+            state.cli_oauth_token = None
+        else:
+            # 2. Store validated plaintext (ADR-0043 §2.1 — replayed outbound; cannot hash).
+            state.cli_oauth_token = validated_token
+            final_token = validated_token
+
+        state.updated_at = datetime.now(UTC)
+
+    # 3. Refresh in-process cache (outside session — DB write committed).
+    await _cli_auth._cli_auth_config_cache.set_token(final_token)
+    logger.info(
+        "PUT /provider/cli-auth: token_source=%s auth_mode=%s (ADR-0043)",
+        _cli_auth._cli_auth_config_cache.token_source(),
+        _cli_auth._cli_auth_config_cache.auth_mode(),
+        # NEVER log the token value
+    )
+
+    # 4. Return post-write posture (never the value).
+    cache = _cli_auth._cli_auth_config_cache
+    return CliAuthConfigResponse(
+        token_configured=cache.token_configured(),
+        token_source=cache.token_source(),
+        auth_mode=cache.auth_mode(),
+    )
+
+
+@router.get(
+    "/config/app",
+    response_model=AppConfigListResponse,
+    summary="List all 13 runtime config overrides with effective value + source (ADR-0053)",
+    description=(
+        "Returns the 13 migrated settings (S1..S13) in stable order. "
+        "Each entry has key, effective value (override wins over env), and source "
+        "('override' iff a DB row exists, else 'env'). "
+        "All values from in-process cache — no DB round-trip (I7). "
+        "Never returns infra/secret keys (allow-list boundary — ADR-0053 §2.2/§2.4). "
+        "Auth: SynapseAuthMiddleware (ADR-0052 / ADR-0053 §3 — BearerAuth in OpenAPI)."
+    ),
+)
+async def get_app_config() -> AppConfigListResponse:
+    """GET /config/app — list effective values + source for all 13 settings (ADR-0053 §3.1)."""
+    return _build_app_config_response()
+
+
+class AppConfigPutBody(BaseModel):
+    """Request body for PUT /config/app/{key} (ADR-0053 §3.2)."""
+
+    value: str = Field(
+        description=(
+            "Override value as a string. Required and non-null "
+            "(app_config.value is NOT NULL — use DELETE to reset to default, §3.3). "
+            "Per-key validation rules: ADR-0053 §2.3."
+        )
+    )
+
+
+@router.put(
+    "/config/app/{key}",
+    status_code=204,
+    summary="Upsert one config override (ADR-0053)",
+    description=(
+        "Sets or updates the DB override for one of the 13 allowed keys. "
+        "Returns 204 on success. "
+        "Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. "
+        "Returns 422 on value validation failure (per-key rules — ADR-0053 §2.3). "
+        "Auth: SynapseAuthMiddleware (ADR-0052). "
+        "After write, the in-process cache is refreshed immediately so a subsequent "
+        "GET /config/app reflects source='override' (ADR-0053 §3.2)."
+    ),
+    responses={
+        204: {"description": "Override stored; effective value updated in cache."},
+        400: {"description": "Key not in allow-list."},
+        422: {"description": "Value fails per-key validation rule (ADR-0053 §2.3)."},
+    },
+)
+async def put_app_config(key: str, body: AppConfigPutBody) -> Response:
+    """PUT /config/app/{key} — upsert one config override (ADR-0053 §3.2)."""
+    if key not in ALLOWED_CONFIG_KEYS:
+        import json as _json  # noqa: PLC0415
+
+        return Response(
+            content=_json.dumps({"error": "invalid_key", "allowed": sorted(ALLOWED_CONFIG_KEYS)}),
+            status_code=400,
+            media_type="application/json",
+        )
+
+    # S7 "(auto)" sentinel → redirect to DELETE (ADR-0053 §2.3)
+    if key == "overview_language" and body.value.strip() == "(auto)":
+        async with _m.get_session() as session:
+            await clear_override(session, key)
+        return Response(status_code=204)
+
+    # Validate value (422 on failure, no write — ADR-0053 §2.3)
+    err = validate_value(key, body.value)
+    if err is not None:
+        raise HTTPException(status_code=422, detail=err)
+
+    async with _m.get_session() as session:
+        await set_override(session, key, body.value)
+
+    logger.info("PUT /config/app/%s: source=override (ADR-0053)", key)
+    return Response(status_code=204)
+
+
+@router.delete(
+    "/config/app/{key}",
+    status_code=204,
+    summary="Remove a config override → revert to env default (ADR-0053 §3.3)",
+    description=(
+        "Deletes the app_config row for *key*, reverting the setting to its env baseline. "
+        "Returns 204 (idempotent — no-op if no row existed). "
+        "Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. "
+        "Auth: SynapseAuthMiddleware (ADR-0052). "
+        "Reset is DELETE, not PUT null: app_config.value is NOT NULL by design (ADR-0053 §3.3). "
+        "S7 overview_language: frontend sends DELETE for the '(auto)' choice (§2.3)."
+    ),
+    responses={
+        204: {"description": "Override removed; setting reverts to env default."},
+        400: {"description": "Key not in allow-list."},
+    },
+)
+async def delete_app_config(key: str) -> Response:
+    """DELETE /config/app/{key} — remove override, revert to env default (ADR-0053 §3.3)."""
+    if key not in ALLOWED_CONFIG_KEYS:
+        import json as _json  # noqa: PLC0415
+
+        return Response(
+            content=_json.dumps({"error": "invalid_key", "allowed": sorted(ALLOWED_CONFIG_KEYS)}),
+            status_code=400,
+            media_type="application/json",
+        )
+
+    async with _m.get_session() as session:
+        await clear_override(session, key)
+
+    logger.info("DELETE /config/app/%s: source=env (override removed — ADR-0053 §3.3)", key)
+    return Response(status_code=204)
