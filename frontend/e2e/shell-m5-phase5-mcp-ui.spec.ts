@@ -39,12 +39,9 @@ const VIEWPORT = { width: 1440, height: 900 };
 async function loadShell(page: Page): Promise<void> {
   await page.setViewportSize(VIEWPORT);
   await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
-  await page.waitForSelector("canvas", { timeout: 20_000 });
-  await page.waitForSelector("[data-testid='nav-tree']", { timeout: 10_000 });
-  await page.waitForFunction(
-    () => !document.querySelector("[data-testid='graph-loading']"),
-    { timeout: 10_000 },
-  );
+  // v1.2 [F18]: app boots to "home" section — no canvas or nav-tree on initial load.
+  // Wait only for the app-shell root to confirm the SPA has mounted.
+  await page.waitForSelector("[data-testid='app-shell']", { timeout: 15_000 });
   await page.waitForTimeout(400);
 }
 
@@ -77,8 +74,8 @@ test.describe("D5 screenshot — Settings > API + MCP panel (AC-F1-MCP-UI-9)", (
     await loadShell(page);
 
     // Open the Settings panel via the nav rail Settings button.
-    // The Settings button carries data-testid="nav-settings" in the NavRail component.
-    const settingsBtn = page.locator("[data-testid='nav-settings']");
+    // NavRail buttons use data-section attribute (not data-testid). [ADR-0018]
+    const settingsBtn = page.locator("[data-section='settings']");
     await expect(settingsBtn).toBeVisible({ timeout: 5_000 });
     await settingsBtn.click();
 

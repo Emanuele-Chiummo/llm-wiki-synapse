@@ -66,17 +66,21 @@ test("backend is reachable", async ({ request }) => {
 // ── NavRail ───────────────────────────────────────────────────────────────────
 
 test.describe("NavRail", () => {
-  test("CHECK-NAVRAIL-1: renders 5 buttons (pages/graph/ingest/chat/settings)", async ({ page }) => {
+  test("CHECK-NAVRAIL-1: renders 12 buttons (6 top + 5 M5 + 1 settings)", async ({ page }) => {
+    // v1.3 NavRail: TOP_ITEMS(6) = home/chat/pages/sources/search/graph
+    //               M5_ITEMS(5)  = lint/review/deep-search/ingest/convert
+    //               BOTTOM_ITEMS(1) = settings
+    //               Total = 12 <button> elements (the "Tools" group label is a <span>, not a button)
     await gotoApp(page);
     const buttons = page.getByTestId("nav-rail").getByRole("button");
-    await expect(buttons).toHaveCount(5);
+    await expect(buttons).toHaveCount(12);
   });
 
-  test("CHECK-NAVRAIL-2: Chat is active by default (AC-HARD-ORD-2 — default section = Chat)", async ({ page }) => {
+  test("CHECK-NAVRAIL-2: Home is active by default (v1.2 [F18] changed default from chat to home)", async ({ page }) => {
     await gotoApp(page);
-    // M4-HARD F1-HARD-NAV-ORDER: default section on first load is Chat (graphStore INITIAL_STATE.activeSection = "chat")
-    const chatBtn = page.locator("[data-section='chat']");
-    await expect(chatBtn).toHaveAttribute("aria-current", "page");
+    // v1.2 [F18]: graphStore INITIAL_STATE.activeSection = "home" (was "chat" in v0.4)
+    const homeBtn = page.locator("[data-section='home']");
+    await expect(homeBtn).toHaveAttribute("aria-current", "page");
   });
 
   test("CHECK-NAVRAIL-3: clicking Graph switches section, shows graph canvas", async ({ page }) => {
@@ -113,12 +117,43 @@ test.describe("NavRail", () => {
     await page.locator("[data-section='graph']").click();
     await expect(page.getByTestId("section-graph")).toBeVisible();
     await page.locator("[data-section='pages']").click();
-    // Pages section = PanelGroup; nav-tree should be visible
-    await expect(page.getByTestId("nav-tree")).toBeVisible({ timeout: 5000 });
+    // Pages section = PanelGroup; nav-tree should be visible.
+    // PanelGroup renders two NavTree instances (panel + mobile drawer) — use .first().
+    await expect(page.getByTestId("nav-tree").first()).toBeVisible({ timeout: 5000 });
   });
 });
 
 // ── Ingest section ────────────────────────────────────────────────────────────
+
+/** Demo ingest runs fixture — used when the live backend has 0 runs. */
+const DEMO_RUNS = Array.from({ length: 5 }, (_, i) => ({
+  id: `00000000-0000-0000-0000-00000000000${i + 1}`,
+  vault_id: "default",
+  status: i === 0 ? "running" : (i === 1 ? "failed" : "completed"),
+  provider_type: "api",
+  pages_created: i * 3,
+  iterations_used: 2,
+  total_cost_usd: 0.0012 + i * 0.0003,
+  started_at: new Date(Date.now() - i * 3_600_000).toISOString(),
+  completed_at: i === 0 ? null : new Date(Date.now() - i * 3_600_000 + 120_000).toISOString(),
+  error_message: i === 1 ? "LLM timeout after 60s" : null,
+}));
+
+/**
+ * Set up a mock for GET /ingest/runs that returns demo runs when the live
+ * backend has no data.  Must be called before navigating to the ingest section.
+ * Contract: `{ items: [...], total: N, limit: 20, offset: 0 }` (IngestRunListResponse)
+ */
+async function setupIngestRunsMock(page: Page) {
+  await page.route("**/ingest/runs*", async (route) => {
+    if (route.request().method() !== "GET") { await route.continue(); return; }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items: DEMO_RUNS, total: DEMO_RUNS.length, limit: 20, offset: 0 }),
+    });
+  });
+}
 
 test.describe("Ingest section", () => {
   async function gotoIngest(page: Page) {
@@ -134,10 +169,12 @@ test.describe("Ingest section", () => {
   });
 
   test("CHECK-INGEST-2: run list loads demo rows", async ({ page }) => {
+    // Mock the ingest runs endpoint — live backend may have 0 runs seeded.
+    await setupIngestRunsMock(page);
     await gotoIngest(page);
     // Wait for the run list to appear (backend needs to respond)
     await expect(page.getByTestId("ingest-run-list")).toBeVisible({ timeout: 8000 });
-    // At least 1 run card must be visible (10 demo rows seeded)
+    // At least 1 run card must be visible (demo rows injected via route mock)
     const cards = page.getByTestId("ingest-run-card");
     await expect(cards.first()).toBeVisible({ timeout: 8000 });
     const count = await cards.count();
@@ -145,6 +182,7 @@ test.describe("Ingest section", () => {
   });
 
   test("CHECK-INGEST-3: each visible card has a status badge", async ({ page }) => {
+    await setupIngestRunsMock(page);
     await gotoIngest(page);
     await expect(page.getByTestId("ingest-run-list")).toBeVisible({ timeout: 8000 });
     await expect(page.getByTestId("ingest-run-card").first()).toBeVisible({ timeout: 5000 });
@@ -158,6 +196,7 @@ test.describe("Ingest section", () => {
   });
 
   test("CHECK-INGEST-4: cost column shows $x.xxxx format", async ({ page }) => {
+    await setupIngestRunsMock(page);
     await gotoIngest(page);
     await expect(page.getByTestId("ingest-run-card").first()).toBeVisible({ timeout: 8000 });
     // Find any element with monospace cost text — match $N.NNNN pattern
@@ -169,6 +208,7 @@ test.describe("Ingest section", () => {
   });
 
   test("CHECK-INGEST-5: clicking a card opens IngestRunDetail", async ({ page }) => {
+    await setupIngestRunsMock(page);
     await gotoIngest(page);
     await expect(page.getByTestId("ingest-run-card").first()).toBeVisible({ timeout: 8000 });
     // Initially detail shows "Select a run" placeholder
@@ -235,13 +275,20 @@ test.describe("Settings panel", () => {
     await expect(page.getByTestId("settings-panel")).toBeVisible();
   }
 
-  test("CHECK-SETTINGS-1: renders context window select", async ({ page }) => {
+  test("CHECK-SETTINGS-1: renders context window select on 'context' sub-page", async ({ page }) => {
+    // SettingsPanel uses two-level navigation (ADR-0055).
+    // Default page = "appearance"; #ctx-select is on the "context" sub-page (SectionGeneral).
     await gotoSettings(page);
+    await page.locator("[data-testid='settings-nav-context']").click();
+    await page.waitForTimeout(200);
     await expect(page.locator("#ctx-select")).toBeVisible();
   });
 
   test("CHECK-SETTINGS-2: context window select has expected options", async ({ page }) => {
+    // Navigate to "context" sub-page where #ctx-select lives.
     await gotoSettings(page);
+    await page.locator("[data-testid='settings-nav-context']").click();
+    await page.waitForTimeout(200);
     const select = page.locator("#ctx-select");
     const options = await select.locator("option").allTextContents();
     // Should include 4K, 8K, 16K, 32K, 64K, 128K, 256K, 512K, 1M
@@ -290,6 +337,8 @@ test("CHECK-I3-1: no console errors about store subscriptions", async ({ page })
 test.describe("D5 screenshots", () => {
   test("captures ingest section screenshot", async ({ page }) => {
     ensureScreensDir();
+    // Mock runs so the screenshot shows populated list (backend may have 0 runs seeded).
+    await setupIngestRunsMock(page);
     await gotoApp(page);
     await page.locator("[data-section='ingest']").click();
     await expect(page.getByTestId("ingest-view")).toBeVisible();

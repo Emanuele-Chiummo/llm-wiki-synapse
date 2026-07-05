@@ -59,6 +59,14 @@ async function gotoSettings(page: Page) {
   await expect(page.getByTestId("settings-panel")).toBeVisible();
 }
 
+/** Navigate to Settings → sourceWatch sub-page where import-schedule-card lives (ADR-0055 two-level nav). */
+async function gotoScheduleSettings(page: Page) {
+  await gotoSettings(page);
+  // SettingsPanel default page = "appearance"; import-schedule-card is in "sourceWatch" sub-page.
+  await page.locator("[data-testid='settings-nav-sourceWatch']").click();
+  await page.waitForTimeout(200);
+}
+
 // ── Backend health ────────────────────────────────────────────────────────────
 
 test("backend is reachable", async ({ request }) => {
@@ -82,6 +90,21 @@ test("UPLOAD-1: upload-zone is present in Ingest section", async ({ page }) => {
 // ── UPLOAD-2: upload a .md file → 201 non-blocking, run list refreshes ───────
 
 test("UPLOAD-2: uploading a .md file intercepts POST /ingest/upload → 201 fast, run list updates", async ({ page }) => {
+  // Mock the ingest runs endpoint so the run list appears (live backend may have 0 runs).
+  await page.route("**/ingest/runs*", async (route) => {
+    if (route.request().method() !== "GET") { await route.continue(); return; }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [{ id: "00000000-0000-0000-0000-000000000001", vault_id: "default", status: "completed",
+          provider_type: "api", pages_created: 3, iterations_used: 2, total_cost_usd: 0.0012,
+          started_at: new Date(Date.now() - 3_600_000).toISOString(), completed_at: new Date().toISOString(),
+          error_message: null }],
+        total: 1, limit: 20, offset: 0,
+      }),
+    });
+  });
   await gotoIngest(page);
 
   // Wait for ingest run list to be visible
@@ -164,9 +187,12 @@ test("UPLOAD-2: uploading a .md file intercepts POST /ingest/upload → 201 fast
   }
 });
 
-// ── UPLOAD-3: non-text file is rejected client-side ─────────────────────────
+// ── UPLOAD-3: genuinely unsupported file type is rejected client-side ─────────
+// NOTE on F12 change: PDFs, DOCX, PPTX, XLSX were added to ACCEPTED_EXTENSIONS in
+// v1.3 (F12 / ADR-0025 §4). A PDF drop now PASSES the client-side guard and is sent
+// to the backend for extraction. This test uses .exe which is still blocked client-side.
 
-test("UPLOAD-3: non-text file (.pdf) is rejected client-side (no POST sent, error toast)", async ({ page }) => {
+test("UPLOAD-3: unsupported file (.exe) is rejected client-side (no POST sent, error toast)", async ({ page }) => {
   await gotoIngest(page);
   const zone = page.getByTestId("upload-zone");
   await expect(zone).toBeVisible();
@@ -178,19 +204,14 @@ test("UPLOAD-3: non-text file (.pdf) is rejected client-side (no POST sent, erro
     await route.continue();
   });
 
-  // Collect console messages (error toasts show up there)
-  const toastMessages: string[] = [];
-  page.on("console", (msg) => {
-    toastMessages.push(msg.text());
-  });
-
-  // Simulate a drag-drop of a PDF (client-side guard should reject before fetch)
-  // We use a DataTransfer with a .pdf file
+  // Simulate a drag-drop of an .exe file (client-side guard must block it before fetch).
+  // F12 (ADR-0025 §4): only .md/.txt/.markdown/.pdf/.docx/.pptx/.xlsx are accepted.
+  // .exe is NOT in the accepted list → isAccepted() returns false → showToast error + early return.
   await page.evaluate(() => {
     const zone = document.querySelector("[data-testid='upload-zone']") as HTMLElement;
     if (!zone) return;
 
-    const file = new File(["fake pdf content"], "document.pdf", { type: "application/pdf" });
+    const file = new File(["fake exe content"], "malware.exe", { type: "application/octet-stream" });
     const dataTransfer = new DataTransfer();
     dataTransfer.items.add(file);
 
@@ -200,14 +221,15 @@ test("UPLOAD-3: non-text file (.pdf) is rejected client-side (no POST sent, erro
 
   await page.waitForTimeout(300);
 
-  // Client-side guard: no API call should be made
-  expect(uploadApiCalled, "PDF must be rejected client-side — no POST to /ingest/upload").toBe(false);
+  // Client-side guard: no API call should be made for unsupported types
+  expect(uploadApiCalled, ".exe must be rejected client-side — no POST to /ingest/upload").toBe(false);
 });
 
 // ── SCHEDULE-1: import-schedule-card presence ────────────────────────────────
 
-test("SCHEDULE-1: import-schedule-card is present in Settings section", async ({ page }) => {
-  await gotoSettings(page);
+test("SCHEDULE-1: import-schedule-card is present in Settings → sourceWatch sub-page", async ({ page }) => {
+  // import-schedule-card is in the "sourceWatch" sub-page of SettingsPanel (ADR-0055).
+  await gotoScheduleSettings(page);
   const card = page.getByTestId("import-schedule-card");
   await expect(card).toBeVisible({ timeout: 8000 });
 });
@@ -215,7 +237,7 @@ test("SCHEDULE-1: import-schedule-card is present in Settings section", async ({
 // ── SCHEDULE-2: card has expected form controls ──────────────────────────────
 
 test("SCHEDULE-2: import-schedule-card has enabled toggle, source_dir input, frequency select", async ({ page }) => {
-  await gotoSettings(page);
+  await gotoScheduleSettings(page);
   const card = page.getByTestId("import-schedule-card");
   await expect(card).toBeVisible({ timeout: 8000 });
 
@@ -250,7 +272,7 @@ test("SCHEDULE-2: import-schedule-card has enabled toggle, source_dir input, fre
 // ── SCHEDULE-3: Save schedule → PUT 200 with dir_ok ──────────────────────────
 
 test("SCHEDULE-3: saving schedule (source_dir=/import) → PUT /import-schedule returns 200 with dir_ok", async ({ page }) => {
-  await gotoSettings(page);
+  await gotoScheduleSettings(page);
   const card = page.getByTestId("import-schedule-card");
   await expect(card).toBeVisible({ timeout: 8000 });
   await page.waitForTimeout(1000);
@@ -314,7 +336,7 @@ test("SCHEDULE-3: saving schedule (source_dir=/import) → PUT /import-schedule 
 // ── SCHEDULE-4: Run now → 202 ─────────────────────────────────────────────────
 
 test("SCHEDULE-4: Run now → POST /import-schedule/run-now returns 202", async ({ page }) => {
-  await gotoSettings(page);
+  await gotoScheduleSettings(page);
   const card = page.getByTestId("import-schedule-card");
   await expect(card).toBeVisible({ timeout: 8000 });
   await page.waitForTimeout(1000);
@@ -369,8 +391,8 @@ test("SCHEDULE-4: Run now → POST /import-schedule/run-now returns 202", async 
     runNowStatus = 202;
   });
 
-  // Reload settings to pick up the mocked schedule data
-  await gotoSettings(page);
+  // Reload settings with mocked data, then navigate to sourceWatch sub-page
+  await gotoScheduleSettings(page);
   const card2 = page.getByTestId("import-schedule-card");
   await expect(card2).toBeVisible({ timeout: 8000 });
   await page.waitForTimeout(1000);
@@ -398,7 +420,7 @@ test("SCHEDULE-4: Run now → POST /import-schedule/run-now returns 202", async 
 // ── SCHEDULE-5: last-run status is visible ────────────────────────────────────
 
 test("SCHEDULE-5: last-run status line is visible after schedule is loaded", async ({ page }) => {
-  await gotoSettings(page);
+  await gotoScheduleSettings(page);
   const card = page.getByTestId("import-schedule-card");
   await expect(card).toBeVisible({ timeout: 8000 });
   // Wait for fetch to complete
@@ -458,7 +480,8 @@ test("D5-UPLOAD: ingest-upload.png at 1440x900", async ({ page }) => {
 test("D5-SCHEDULE: settings-import-schedule.png at 1440x900", async ({ page }) => {
   ensureScreensDir();
   await page.setViewportSize(VIEWPORT);
-  await gotoSettings(page);
+  // Navigate to sourceWatch sub-page so the import-schedule-card is visible in the screenshot.
+  await gotoScheduleSettings(page);
 
   // Wait for schedule card to load data
   await page.waitForTimeout(1500);

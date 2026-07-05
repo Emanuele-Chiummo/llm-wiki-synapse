@@ -104,7 +104,37 @@ async function navTo(page: Page, section: string): Promise<void> {
 // ── CHAT section ───────────────────────────────────────────────────────────────
 
 test.describe("CHAT — empty state and example chips", () => {
+  /**
+   * Mock conversations and messages APIs so these tests are independent of
+   * backend state. If other parallel tests have persisted messages to the DB,
+   * those messages would prevent the empty state from appearing (MessageList
+   * shows messages instead of ChatEmptyState when messages.length > 0).
+   * Mocking ensures a clean slate: no conversations → no selection → no messages
+   * → ChatEmptyState is always rendered.
+   */
+  async function mockEmptyChat(page: Page): Promise<void> {
+    await page.route("**/conversations**", async (route) => {
+      if (route.request().method() !== "GET") { await route.continue(); return; }
+      const url = route.request().url();
+      if (url.includes("/messages")) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ items: [] }),
+        });
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ items: [], total: 0, limit: 50, offset: 0 }),
+        });
+      }
+    });
+  }
+
   test("chat section mounts with empty state and 3 example chips", async ({ page }) => {
+    // Mock before navigation: conversations = [] → no selection → messages = [] → empty state.
+    await mockEmptyChat(page);
     await gotoApp(page);
     await navTo(page, "chat");
 
@@ -141,6 +171,8 @@ test.describe("CHAT — empty state and example chips", () => {
   });
 
   test("chat example chips container renders", async ({ page }) => {
+    // Mock before navigation: conversations = [] → no selection → messages = [] → empty state.
+    await mockEmptyChat(page);
     await gotoApp(page);
     await navTo(page, "chat");
     await expect(page.getByTestId("section-chat")).toBeVisible({ timeout: 8_000 });
@@ -172,12 +204,14 @@ test.describe("WIKI (pages section) — tree, page content, related panel", () =
     await navTo(page, "pages");
 
     // NavTree is virtualised; wait for at least one group header and some page rows.
-    const navTree = page.getByTestId("nav-tree");
+    // PanelGroup renders TWO NavTree instances (main + mobile drawer); use .first()
+    // to avoid Playwright strict-mode violations (ADR-0057 / PanelGroup.tsx).
+    const navTree = page.getByTestId("nav-tree").first();
     await expect(navTree).toBeVisible({ timeout: 10_000 });
 
     // With 986 pages the virtualiser renders only the visible window (~28–50 rows).
     // We confirm: (a) rows > 0, (b) rows << 986 (virtualisation working).
-    const scrollContainer = page.locator(".nav-tree__scroll");
+    const scrollContainer = page.locator(".nav-tree__scroll").first();
     await expect(scrollContainer).toBeVisible({ timeout: 5_000 });
     // Scroll slightly to give the virtualizer a chance to render.
     await scrollContainer.evaluate((el) => { el.scrollTop = 300; });
@@ -200,7 +234,8 @@ test.describe("WIKI (pages section) — tree, page content, related panel", () =
     await primeGraphStore(page);
     await navTo(page, "pages");
 
-    const navTree = page.getByTestId("nav-tree");
+    // PanelGroup renders two NavTree + two PreviewPanel instances; use .first() (PanelGroup.tsx).
+    const navTree = page.getByTestId("nav-tree").first();
     await expect(navTree).toBeVisible({ timeout: 10_000 });
 
     // Wait for first page row to be present.
@@ -210,7 +245,7 @@ test.describe("WIKI (pages section) — tree, page content, related panel", () =
     await firstRow.click();
 
     // PreviewPanel should leave the empty state.
-    const preview = page.getByTestId("preview-panel");
+    const preview = page.getByTestId("preview-panel").first();
     await expect(preview).not.toContainText("Select a node", { timeout: 8_000 });
     console.log(`[WIKI] Clicked "${pageTitle}" — preview populated`);
   });
@@ -221,12 +256,13 @@ test.describe("WIKI (pages section) — tree, page content, related panel", () =
     await primeGraphStore(page);
     await navTo(page, "pages");
 
-    await expect(page.getByTestId("nav-tree")).toBeVisible({ timeout: 10_000 });
+    // PanelGroup renders two NavTree + two PreviewPanel instances; use .first() (PanelGroup.tsx).
+    await expect(page.getByTestId("nav-tree").first()).toBeVisible({ timeout: 10_000 });
     const firstRow = page.locator(".nav-tree__page-row").first();
     await expect(firstRow).toBeVisible({ timeout: 8_000 });
     await firstRow.click();
 
-    const preview = page.getByTestId("preview-panel");
+    const preview = page.getByTestId("preview-panel").first();
     await expect(preview).not.toContainText("Select a node", { timeout: 8_000 });
 
     // Type badge is rendered as [aria-label^='Type:'] in PreviewPanel.
@@ -788,12 +824,13 @@ test.describe("D5 screenshots at 1440x900 (I8 / AC-R9-6-3)", () => {
     // Prime the graph store (GraphViewer must mount to load node data).
     await primeGraphStore(page);
     await navTo(page, "pages");
-    await expect(page.getByTestId("nav-tree")).toBeVisible({ timeout: 10_000 });
+    // PanelGroup renders two NavTree + two PreviewPanel instances; use .first() (PanelGroup.tsx).
+    await expect(page.getByTestId("nav-tree").first()).toBeVisible({ timeout: 10_000 });
     const firstRow = page.locator(".nav-tree__page-row").first();
     await expect(firstRow).toBeVisible({ timeout: 8_000 });
     await firstRow.click();
     // Wait for preview to populate.
-    await expect(page.getByTestId("preview-panel")).not.toContainText("Select a node", { timeout: 8_000 });
+    await expect(page.getByTestId("preview-panel").first()).not.toContainText("Select a node", { timeout: 8_000 });
     await page.waitForTimeout(400);
     await stableShot(page, "wiki-page-v09.png");
   });
