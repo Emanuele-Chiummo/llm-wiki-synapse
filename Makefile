@@ -1,4 +1,4 @@
-.PHONY: help up down dev dev-down migrate logs test lint typecheck fmt er openapi docs-serve docs-build clean
+.PHONY: help up down dev dev-down migrate logs test lint typecheck fmt er openapi docs-serve docs-build bump bump-check clean
 
 # Default target
 help:
@@ -97,6 +97,20 @@ docs-build:
 	command -v pipx >/dev/null 2>&1 && pipx install mkdocs-material >/dev/null 2>&1 || \
 	(echo "ERROR: pip or pipx not found. Install Python first." && exit 1)
 	python -m mkdocs build --strict
+
+# ──────────────────────────────────────────────────────────────────────────
+# Version management (R13-8 part c)
+# ──────────────────────────────────────────────────────────────────────────
+
+bump:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "ERROR: VERSION not specified. Usage: make bump VERSION=X.Y.Z"; \
+		exit 1; \
+	fi
+	python scripts/bump_version.py bump $(VERSION)
+
+bump-check:
+	python scripts/bump_version.py check
 
 # ──────────────────────────────────────────────────────────────────────────
 # Cleanup
