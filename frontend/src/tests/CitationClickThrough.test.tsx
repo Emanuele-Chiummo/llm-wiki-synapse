@@ -91,8 +91,7 @@ vi.mock("../store/chatStore", () => ({
   useMessages: () => mockMessages,
   selectIsStreaming: (s: { isStreaming: boolean }) => s.isStreaming,
   selectLastUsage: (s: { lastUsage: null }) => s.lastUsage,
-  selectActiveConversationId: (s: { activeConversationId: string }) =>
-    s.activeConversationId,
+  selectActiveConversationId: (s: { activeConversationId: string }) => s.activeConversationId,
 }));
 
 // ─── Mock TanStack Virtual ────────────────────────────────────────────────────
@@ -127,6 +126,13 @@ vi.mock("../api/chatClient", () => ({
 
 vi.mock("../components/common/Toast", () => ({
   showToast: vi.fn(),
+}));
+
+// ─── Mock pagesClient (v1.3.3 slug→page fallback resolution) ─────────────────
+
+const mockFetchPageBySlug = vi.fn();
+vi.mock("../api/pagesClient", () => ({
+  fetchPageBySlug: (slug: string) => mockFetchPageBySlug(slug) as Promise<unknown>,
 }));
 
 // ─── Mock StreamingMessage ────────────────────────────────────────────────────
@@ -173,7 +179,8 @@ describe("MarkdownView — onCitationClick (AC-R8-6-3)", () => {
     fireEvent.click(citation!);
 
     expect(onCitationClick).toHaveBeenCalledTimes(1);
-    expect(onCitationClick).toHaveBeenCalledWith("alpha-source");
+    // v1.3.3: the handler now also receives the page UUID (data-page-id).
+    expect(onCitationClick).toHaveBeenCalledWith("alpha-source", "uuid-1");
   });
 
   it("does not call onCitationClick when handler is not provided (graceful no-op)", () => {
@@ -213,7 +220,7 @@ describe("MarkdownView — onCitationClick (AC-R8-6-3)", () => {
 
     // Click the second citation [2]
     fireEvent.click(citationEls[1]!);
-    expect(onCitationClick).toHaveBeenCalledWith("second-page");
+    expect(onCitationClick).toHaveBeenCalledWith("second-page", "uuid-2");
   });
 });
 
@@ -243,10 +250,12 @@ describe("MessageList — citation click-through navigation (R8-6)", () => {
 
     fireEvent.click(citation);
 
-    // The slug from the citation ref ("alpha-page") should be passed to selectPage.
-    // AC-R8-6-2: navigates to pages section and selects page.
-    expect(mockSelectPage).toHaveBeenCalledWith("alpha-page", "tree");
+    // v1.3.3: the citation carries the page UUID (data-page-id) — navigation
+    // uses the id directly (the derived slug is NOT a selection key and used
+    // to 422 against /pages/{uuid} routes).
+    expect(mockSelectPage).toHaveBeenCalledWith("uuid-alpha", "tree");
     expect(mockSetActiveSection).toHaveBeenCalledWith("pages");
+    expect(mockFetchPageBySlug).not.toHaveBeenCalled();
   });
 
   it("onCitationClick navigates with slug from the first citation ref", () => {

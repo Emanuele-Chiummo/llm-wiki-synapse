@@ -347,6 +347,44 @@ async def create_page(body: PageCreateRequest) -> PageCreateResponse:
     )
 
 
+# ── GET /pages/by-slug/{slug} ─────────────────────────────────────────────────
+# v1.3.3: chat citations carry a derived slug (rag.retrieval.slugify(title) —
+# NOT a DB column), while every /pages/{page_id} route demands a UUID. The UI
+# used to feed the slug straight into the content endpoint → 422. This route is
+# the single resolution point, using the SAME slugify as retrieval.
+# NOTE: declared BEFORE /pages/{page_id} so the literal segment wins routing.
+
+
+@router.get(
+    "/pages/by-slug/{slug}",
+    response_model=PageResponse,
+    summary="Resolve a derived citation slug to a page",
+    description=(
+        "Resolves a slug as produced by the retrieval citations "
+        "(slugify(title), not stored in the DB) to the live page with that title. "
+        "404 if no live page slugifies to it. (v1.3.3, F5/F6 citation click-through)"
+    ),
+)
+async def get_page_by_slug(slug: str) -> PageResponse:
+    from app.rag.retrieval import slugify
+
+    async with _m.get_session() as session:
+        rows = await session.execute(
+            select(Page).where(
+                Page.vault_id == settings.vault_id,
+                Page.deleted_at.is_(None),
+            )
+        )
+        pages = rows.scalars().all()
+
+    wanted = slug.strip().lower()
+    for page in pages:
+        if page.title and slugify(page.title) == wanted:
+            return _page_to_response(page)
+
+    raise HTTPException(status_code=404, detail=f"No live page for slug '{slug}'")
+
+
 # ── GET /pages/{id} ────────────────────────────────────────────────────────────
 
 

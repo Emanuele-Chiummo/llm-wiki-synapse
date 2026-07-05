@@ -39,7 +39,7 @@ interface MarkdownViewProps {
    * Optional — if not provided, citation clicks are no-ops (stub for when page navigation
    * is not yet wired in the calling context).
    */
-  onCitationClick?: (slug: string) => void;
+  onCitationClick?: (slug: string, pageId?: string) => void;
 }
 
 /**
@@ -79,10 +79,7 @@ export const MarkdownView = memo(function MarkdownView({
   // This is NOT a second markdown parse; it only wraps [n] text tokens in <sup> tags.
   // Memoized on (rawHtml, citations) — re-runs only when the message or citations change.
   // During streaming, citations is undefined and rawHtml is never set, so this never runs.
-  const html = useMemo(
-    () => decorateCitations(rawHtml, citations ?? []),
-    [rawHtml, citations],
-  );
+  const html = useMemo(() => decorateCitations(rawHtml, citations ?? []), [rawHtml, citations]);
 
   // Event delegation: catch clicks on .synapse-citation elements within the rendered HTML.
   // Uses data-slug attribute written by decorateCitations. No inline onclick in the HTML.
@@ -93,9 +90,12 @@ export const MarkdownView = memo(function MarkdownView({
       const citEl = target.closest(".synapse-citation");
       if (citEl) {
         const slug = citEl.getAttribute("data-slug");
-        if (slug) {
+        // v1.3.3: prefer the page UUID when present (id navigates directly;
+        // the derived slug needs a by-slug resolution roundtrip).
+        const pageId = citEl.getAttribute("data-page-id");
+        if (slug || pageId) {
           e.preventDefault();
-          onCitationClick(slug);
+          onCitationClick(slug ?? "", pageId ?? undefined);
         }
       }
     },

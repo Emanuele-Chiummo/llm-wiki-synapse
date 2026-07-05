@@ -78,6 +78,21 @@ export async function fetchAllPages(
 }
 
 /**
+ * Resolve a chat-citation slug (derived slugify(title), NOT a DB column) to the
+ * live page carrying that title. GET /pages/by-slug/{slug} (v1.3.3).
+ *
+ * Throws ApiError(404) when no live page slugifies to it — callers surface a
+ * toast instead of navigating (the old path fed the slug into /pages/{uuid}
+ * routes and got a 422).
+ */
+export async function fetchPageBySlug(slug: string, signal?: AbortSignal): Promise<PageListItem> {
+  const url = `${apiBase()}/pages/by-slug/${encodeURIComponent(slug)}`;
+  const res = await fetchWithTimeout(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as PageListItem;
+}
+
+/**
  * Fetch the raw markdown content of a single wiki page.
  * GET /pages/{id}/content
  *
@@ -115,15 +130,12 @@ export async function savePageContent(
     content,
     expected_hash: expectedHash,
   };
-  const res = await fetchWithTimeout(
-    url,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      ...(signal !== undefined ? { signal } : {}),
-    },
-  );
+  const res = await fetchWithTimeout(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    ...(signal !== undefined ? { signal } : {}),
+  });
   await checkResponse(res);
   return (await res.json()) as PageContentPutResponse;
 }
@@ -141,8 +153,7 @@ export async function fetchRelatedPages(
   limit = 10,
   signal?: AbortSignal,
 ): Promise<RelatedPagesResponse> {
-  const url =
-    `${apiBase()}/pages/${encodeURIComponent(pageId)}/related?limit=${limit}`;
+  const url = `${apiBase()}/pages/${encodeURIComponent(pageId)}/related?limit=${limit}`;
   const res = await fetchWithTimeout(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as RelatedPagesResponse;
@@ -150,13 +161,7 @@ export async function fetchRelatedPages(
 
 // ─── Types for new page creation (R7-2) ──────────────────────────────────────
 
-export type NewPageType =
-  | "concept"
-  | "entity"
-  | "source"
-  | "synthesis"
-  | "comparison"
-  | "query";
+export type NewPageType = "concept" | "entity" | "source" | "synthesis" | "comparison" | "query";
 
 export interface CreatePageRequest {
   title: string;
@@ -186,15 +191,12 @@ export async function createPage(
   signal?: AbortSignal,
 ): Promise<CreatePageResponse> {
   const url = `${apiBase()}/pages`;
-  const res = await fetchWithTimeout(
-    url,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      ...(signal !== undefined ? { signal } : {}),
-    },
-  );
+  const res = await fetchWithTimeout(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    ...(signal !== undefined ? { signal } : {}),
+  });
   await checkResponse(res);
   return (await res.json()) as CreatePageResponse;
 }

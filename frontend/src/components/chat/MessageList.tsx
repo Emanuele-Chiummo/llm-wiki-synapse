@@ -47,6 +47,7 @@ import {
   selectSetActiveSection,
 } from "../../store/graphStore";
 import { saveToWikiV2 } from "../../api/chatClient";
+import { fetchPageBySlug } from "../../api/pagesClient";
 import { showToast } from "../common/Toast";
 import { MarkdownView } from "./MarkdownView";
 import { StreamingMessage } from "./StreamingMessage";
@@ -73,13 +74,27 @@ export function MessageList({ onRegenerate, onSend }: MessageListProps): ReactNo
   // Slug from the citation → match against page nodes, then navigate (AC-R8-6-2).
   // Called at most once per click (not per token — I3 compliant).
   const handleCitationClick = useCallback(
-    (slug: string) => {
-      // Navigate to pages section and select the page by slug.
-      // selectPage uses "tree" source so NavTree highlights the row.
-      selectPage(slug, "tree");
-      setActiveSection("pages");
+    (slug: string, pageId?: string) => {
+      // v1.3.3: the selection key is the page UUID, but citations expose a
+      // DERIVED slug (slugify(title)) — feeding it into selectPage made
+      // /pages/{id}/content 422. Navigate by id when the citation carries it;
+      // otherwise resolve slug → page via GET /pages/by-slug (legacy messages).
+      if (pageId) {
+        selectPage(pageId, "tree");
+        setActiveSection("pages");
+        return;
+      }
+      void (async () => {
+        try {
+          const page = await fetchPageBySlug(slug);
+          selectPage(page.id, "tree");
+          setActiveSection("pages");
+        } catch {
+          showToast(t("chat.citationNotFound"), "error");
+        }
+      })();
     },
-    [selectPage, setActiveSection],
+    [selectPage, setActiveSection, t],
   );
 
   const parentRef = useRef<HTMLDivElement>(null);
