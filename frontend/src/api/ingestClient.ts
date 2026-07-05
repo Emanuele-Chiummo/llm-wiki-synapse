@@ -63,10 +63,7 @@ export async function fetchIngestRuns(
  * POST /ingest/trigger { file_path }
  * Returns 202 Accepted on success.
  */
-export async function triggerIngest(
-  filePath: string,
-  signal?: AbortSignal,
-): Promise<void> {
+export async function triggerIngest(filePath: string, signal?: AbortSignal): Promise<void> {
   const url = `${apiBase()}/ingest/trigger`;
   const res = await apiFetch(url, {
     method: "POST",
@@ -91,17 +88,20 @@ export async function getIngestQueue(signal?: AbortSignal): Promise<IngestQueueS
 }
 
 /**
- * Cancel an active ingest run.
- * POST /ingest/runs/{id}/cancel
- * Returns 202 Accepted; 404 if unknown; 409 if already terminal.
+ * Cancel an active ingest run (R13-3).
+ * DELETE /ingest/{id}
+ * 202 → {"status":"cancelling"} (running run signalled; will transition to "cancelled")
+ * 200 → {"status":"cancelled"}  (queued run cancelled immediately)
+ * 404 → throws ApiError (unknown run)
+ * 409 → throws ApiError (already terminal)
  */
 export async function cancelIngestRun(
   id: string,
   signal?: AbortSignal,
 ): Promise<CancelRunResponse> {
-  const url = `${apiBase()}/ingest/runs/${encodeURIComponent(id)}/cancel`;
+  const url = `${apiBase()}/ingest/${encodeURIComponent(id)}`;
   const res = await apiFetch(url, {
-    method: "POST",
+    method: "DELETE",
     ...(signal !== undefined ? { signal } : {}),
   });
   await checkResponse(res);
@@ -114,10 +114,7 @@ export async function cancelIngestRun(
  * Returns 202 Accepted; 409 with detail:"max_retries_exceeded" when retry_count >= 3; 404 unknown.
  * Throws MaxRetriesExceededError on 409.
  */
-export async function retryIngestRun(
-  id: string,
-  signal?: AbortSignal,
-): Promise<RetryRunResponse> {
+export async function retryIngestRun(id: string, signal?: AbortSignal): Promise<RetryRunResponse> {
   const url = `${apiBase()}/ingest/runs/${encodeURIComponent(id)}/retry`;
   const res = await apiFetch(url, {
     method: "POST",
@@ -169,10 +166,7 @@ export async function resumeIngestQueue(signal?: AbortSignal): Promise<ResumeQue
  *
  * ADR-0020 §3 / Feature U.
  */
-export async function uploadDocument(
-  file: File,
-  signal?: AbortSignal,
-): Promise<UploadResponse> {
+export async function uploadDocument(file: File, signal?: AbortSignal): Promise<UploadResponse> {
   const url = `${apiBase()}/ingest/upload`;
   const form = new FormData();
   form.append("file", file);

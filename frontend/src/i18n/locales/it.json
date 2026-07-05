@@ -52,8 +52,12 @@
       "running": "In esecuzione",
       "completed": "Completato",
       "failed": "Errore",
-      "convergedFalse": "Non convergito"
+      "convergedFalse": "Non convergito",
+      "cancelling": "Annullamento in corso",
+      "cancelled": "Annullato"
     },
+    "cancelRun": "Annulla esecuzione",
+    "toastCancelError": "Annullamento fallito: {{detail}}",
     "pagesCreated": "pagine create",
     "cost": "Costo",
     "startedAt": "Avviato",
