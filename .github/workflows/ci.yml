@@ -247,9 +247,11 @@ jobs:
           cd backend
           python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/backend.log 2>&1 &
           # App import (igraph, providers, routers) can take >3s on a cold
-          # runner — retry /health for up to 60s instead of a fixed sleep.
+          # runner — retry for up to 60s instead of a fixed sleep. The probe
+          # is /status: the app has no /health route (only /status and
+          # /health/detailed, both auth-exempt).
           for i in {1..60}; do
-            if curl -sf http://localhost:8000/health >/dev/null; then
+            if curl -sf http://localhost:8000/status >/dev/null; then
               echo "Backend is up (after ${i}s)"
               exit 0
             fi
