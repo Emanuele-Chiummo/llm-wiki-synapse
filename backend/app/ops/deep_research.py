@@ -29,12 +29,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-import httpx
-
 from app.db import get_session
 from app.ingest.provider.base import UsageAccumulator
 from app.models import DeepResearchRun, DeepResearchSource
 from app.ops.searxng import SearchHit, _semaphore, searxng_search_many
+from app.security_net import SSRFError, safe_fetch
 
 logger = logging.getLogger(__name__)
 
@@ -396,12 +395,12 @@ async def _fetch_and_extract(
         async with _semaphore:
             content_md: str | None = None
             try:
-                async with httpx.AsyncClient(
-                    timeout=10.0,
-                    follow_redirects=True,
+                # safe_fetch validates scheme/host (incl. redirect hops) before
+                # connecting — guards against SSRF on SearXNG result URLs (R13-9/B2).
+                resp = await safe_fetch(
+                    hit.url,
                     headers={"User-Agent": "Synapse/0.5 DeepResearch"},
-                ) as client:
-                    resp = await client.get(hit.url)
+                )
                 if resp.status_code == 200:
                     raw_html = resp.text
                     content_md = _html_to_markdown(raw_html)[: _fetch_max_chars()]
@@ -411,6 +410,9 @@ async def _fetch_and_extract(
                         resp.status_code,
                         hit.url,
                     )
+            except SSRFError as exc:
+                # Private/blocked URL — log at INFO so admins can see blocked fetches
+                logger.info("_fetch_and_extract: SSRF guard blocked %s: %s", hit.url, exc)
             except Exception as exc:  # noqa: BLE001
                 logger.debug("_fetch_and_extract: fetch failed for %s: %s", hit.url, exc)
 

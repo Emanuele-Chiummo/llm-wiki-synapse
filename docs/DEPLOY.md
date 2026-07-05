@@ -152,6 +152,12 @@ cp .env.example .env
 | `SCHEMA_SUGGESTION_TIMEOUT_SECONDS` | `20.0` | No | Timeout (seconds) wrapping the schema-suggestion provider call. On timeout → no suggestion emitted. (R9-4, I7) |
 | `GRAPH_COHESION_WARN` | `0.15` | No | Cohesion score threshold below which a community is flagged with a warning indicator in the graph community panel (`GET /graph/communities/{id}`). Default `0.15` (mirrors the llm_wiki threshold). Communities with `cohesion < GRAPH_COHESION_WARN` are marked visually in the drill-down panel. (R9-5) |
 | `SYNAPSE_AUTH_TOKEN` | *(empty)* | No | Shared Bearer token for the REST API (ADR-0052). **Empty or absent = authentication DISABLED** (default; backward-compatible with all v0.9 and earlier deployments). When set to a non-empty string, every route except the exempt set (`GET /status`, `GET /health/detailed`, `GET /docs`, `GET /openapi.json`, `OPTIONS`, `/mcp/server/*`, `POST /clip`) requires `Authorization: Bearer <token>`. Compared constant-time; never stored, never hashed, never logged. Recommend at least 32 characters. Generate with `openssl rand -base64 32`. The MCP surface (`/mcp/server`) and the web-clipper ingress (`POST /clip`) keep their own independent tokens — `SYNAPSE_AUTH_TOKEN` does NOT gate them. |
+| `POSTGRES_USER` | `synapse` | No | PostgreSQL database user. Drives the postgres container's `POSTGRES_USER` environment variable and, when `DATABASE_URL` is left at its default, must match the credential encoded in `DATABASE_URL`. Override via `.env`; never commit the actual value for production deployments. Default `synapse` (matches the compose default). (R13-9) |
+| `POSTGRES_PASSWORD` | `synapse` | No | PostgreSQL user password. Same scoping as `POSTGRES_USER`. Override in `.env` with a strong random value for production: `openssl rand -base64 24`. If you change this, also update `DATABASE_URL` (or its components). Default `synapse` (acceptable only for local/dev; not for internet-facing deployments). (R13-9) |
+| `POSTGRES_DB` | `synapse` | No | PostgreSQL database name. Drives the postgres container's `POSTGRES_DB` environment variable. Default `synapse`. (R13-9) |
+| `RATE_LIMIT_ENABLED` | `true` | No | Enable the in-process per-IP fixed-window rate limiter on inference-cost endpoints (`POST /chat/stream`, `/ingest/trigger`, `/ingest/upload`, `/ingest/from-text`, `/research/start`). Set `false` in CI or dev to remove the 429 gate. Default `true`. (R13-9, B4) |
+| `RATE_LIMIT_REQUESTS` | `20` | No | Maximum requests per IP per window for the endpoints listed above. Requests beyond this limit receive HTTP 429 with a `Retry-After` header. Default 20. (R13-9, B4) |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60` | No | Window length in seconds for the per-IP rate limiter. The counter resets to zero at the start of each new window. Default 60 s. (R13-9, B4) |
 
 ### 2.2 Example .env for TrueNAS Docker deployment
 
@@ -311,6 +317,64 @@ npm run dev
 
 Navigate to `http://localhost:5173`. The three-panel shell should load with the
 navigation rail on the left and the knowledge graph in the center.
+
+### 3.6 Network posture and hardening (R13-9)
+
+Synapse is designed for **LAN / Tailscale / Cloudflare-Tunnel** deployments. It is
+**not designed for raw public internet exposure**. Key assumptions:
+
+- The TrueNAS host is on a trusted home LAN (or accessible only via Tailscale mesh).
+- External access is proxied through Cloudflare Tunnel (which enforces TLS and,
+  optionally, Cloudflare Access authentication) — never via a raw-WAN open port.
+
+**Postgres network isolation.** In `docker-compose.yml` (production), the Postgres port
+**5432 is not published to the host interface**. Postgres is reachable only by the
+`synapse-backend` container on the compose-internal Docker bridge network. To connect
+interactively from the host for debugging, use `docker compose exec postgres psql -U synapse`
+or temporarily uncomment the loopback-only port line in `docker-compose.yml`:
+
+```yaml
+# ports:
+#   - "127.0.0.1:5432:5432"
+```
+
+In `docker-compose.dev.yml` (local development), Postgres and Qdrant are published on
+`127.0.0.1` only — accessible from the developer's machine but not the LAN.
+
+**Postgres credentials.** Default credentials (`synapse`/`synapse`) are acceptable for
+local development only. For any internet-adjacent or shared deployment, override in `.env`:
+
+```env
+POSTGRES_USER=synapse
+POSTGRES_PASSWORD=<strong random password — openssl rand -base64 24>
+POSTGRES_DB=synapse
+# Update DATABASE_URL to match:
+DATABASE_URL=postgresql+asyncpg://synapse:<password>@postgres:5432/synapse
+```
+
+The compose file uses `${POSTGRES_USER:-synapse}` / `${POSTGRES_PASSWORD:-synapse}` so
+`docker compose up` works out of the box without an `.env` file, while a production
+`.env` overrides the defaults silently.
+
+**Inference-cost rate limiting.** Endpoints that trigger AI inference
+(`POST /chat/stream`, `/ingest/trigger`, `/ingest/upload`, `/ingest/from-text`,
+`/research/start`) carry an in-process fixed-window rate limiter (per client IP,
+configurable, no external dependency). Excess requests receive HTTP 429 with a
+`Retry-After` header. Streaming request **starts** are counted, not individual tokens (I3).
+Configurable via `RATE_LIMIT_ENABLED` / `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS`
+(see §2.1 for defaults and descriptions).
+
+**SSRF guard for Deep Research.** When Deep Research fetches the URLs returned by
+SearXNG, every outbound HTTP request passes through the SSRF guard (`app/security_net.py`).
+Blocked ranges: RFC 1918 (10/8, 172.16/12, 192.168/16); loopback (127/8, ::1);
+link-local / cloud metadata (169.254/16, incl. 169.254.169.254); IPv6 ULA (fc00::/7),
+link-local (fe80::/10), and multicast (ff00::/8). Redirects are capped at 3 hops,
+re-validating the target on each hop. The SearXNG search endpoint itself (`SEARXNG_URL`)
+is trusted operator config and is NOT subject to the SSRF guard.
+
+**Auth route method-awareness.** The bearer-token auth middleware (`SYNAPSE_AUTH_TOKEN`)
+exempts routes by **(path, method) pair**, not path alone. A future mutating route on an
+otherwise-probe path (e.g. `POST /status`) will NOT be silently open. (R13-9 / B11)
 
 ---
 

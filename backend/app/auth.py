@@ -23,6 +23,11 @@ Exempt set (bypass_auth predicate — authoritative per ADR-0052 §2.3)
 * Exact path ``POST /clip``  — uses ADR-0038 CLIP_TOKEN; the browser extension
   cannot know the API token.
 
+Exemptions are (path, methods) pairs (R13-9, B11): a path is exempt only for the
+explicitly listed HTTP methods.  A future mutating route on an otherwise-exempt path
+(e.g. a hypothetical ``POST /status``) will NOT be silently open — it will require
+the API Bearer token like any other route.  Current-route behaviour is unchanged.
+
 The ``/mcp/*`` management routes (``/mcp/info``, ``/mcp/auth``, ``/mcp/remote``)
 and the clip config routes (``/clip/config``) are ordinary REST routes and ARE
 gated by this middleware (not in the exempt set).
@@ -64,16 +69,27 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 # MUST match the value in main.py exactly.
 MCP_MOUNT_PATH: str = "/mcp/server"
 
-# Exact paths always passed through without a token check.
-_EXEMPT_EXACT: frozenset[str] = frozenset(
-    {
-        "/status",
-        "/health/detailed",
-        "/docs",
-        "/redoc",
-        "/openapi.json",
-        "/clip",  # POST /clip — ADR-0038 CLIP_TOKEN gate; extension cannot know API token
-    }
+# Method-aware exempt set (R13-9 / B11).
+#
+# Each entry is (exact_path, allowed_methods).  A request matches this set only when
+# BOTH the path AND the HTTP method are in the entry — a future mutating route on an
+# otherwise-probe path (e.g. POST /status) will NOT be silently exempt.
+#
+# HEAD is included alongside GET because HTTP clients and health-check tools send HEAD
+# for liveness probes; HEAD exposes the same (empty) response body as GET.
+#
+# Rationale for each entry:
+#   /status, /health/detailed — liveness/readiness probes (no vault data, safe public)
+#   /docs, /redoc             — Swagger/ReDoc UIs (schema is public in git)
+#   /openapi.json             — raw OpenAPI schema (same rationale as docs)
+#   /clip                     — POST only; uses ADR-0038 CLIP_TOKEN (extension token)
+_EXEMPT_EXACT: tuple[tuple[str, frozenset[str]], ...] = (
+    ("/status", frozenset({"GET", "HEAD"})),
+    ("/health/detailed", frozenset({"GET", "HEAD"})),
+    ("/docs", frozenset({"GET", "HEAD"})),
+    ("/redoc", frozenset({"GET", "HEAD"})),
+    ("/openapi.json", frozenset({"GET", "HEAD"})),
+    ("/clip", frozenset({"POST"})),  # ADR-0038 CLIP_TOKEN; extension auth
 )
 
 # 401 response body (PM-locked contract per SPRINT-v1.0-SCOPE §R10-1 and ADR-0052 §2.4).
@@ -87,16 +103,21 @@ def _bypass_auth(method: str, path: str) -> bool:
     """
     Return True when this request MUST bypass the token check.
 
-    Predicate (authoritative summary — ADR-0052 §2.3):
-        method == "OPTIONS"
-        or path in EXEMPT_EXACT
-        or path == MCP_MOUNT_PATH
-        or path.startswith(MCP_MOUNT_PATH + "/")
+    Predicate (authoritative summary — ADR-0052 §2.3, amended R13-9/B11):
+        method == "OPTIONS"                         (CORS preflights)
+        or (path, method) matches _EXEMPT_EXACT     (method-aware pairs)
+        or path == MCP_MOUNT_PATH / starts with it  (FastMCP sub-app, all methods)
+
+    The _EXEMPT_EXACT check is now METHOD-AWARE (R13-9/B11): only the listed methods
+    are exempt for each path. A POST to /status, for example, is no longer silently
+    open — it will require a valid Bearer token when auth is enabled.
     """
     if method == "OPTIONS":
         return True
-    if path in _EXEMPT_EXACT:
-        return True
+    # Method-aware exempt-set check (R13-9 / B11).
+    for exempt_path, exempt_methods in _EXEMPT_EXACT:
+        if path == exempt_path and method in exempt_methods:
+            return True
     # Mount exclusion: the FastMCP sub-app at /mcp/server and all sub-paths.
     # Management routes (/mcp/info, /mcp/auth, /mcp/remote) are on the main
     # router and are NOT prefixed with /mcp/server — they are gated normally.

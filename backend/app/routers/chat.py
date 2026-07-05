@@ -21,7 +21,7 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Any, Literal, cast
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
@@ -31,6 +31,7 @@ from app.chat.stream import ChatStreamError, run_chat_stream
 from app.config import settings
 from app.ingest.schemas import Message
 from app.models import ChatMessage, Conversation
+from app.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -475,14 +476,17 @@ async def rename_conversation(
         "application/x-ndjson: one JSON event per line (token | think | done | error). "
         "Routes via resolve_provider_config('chat', vault_id) — never a hardcoded provider "
         "(I6). Bounded by token_budget + timeout (I7); total_cost_usd in the done event. "
-        "404 if conversation_id is unknown; 503 if no chat provider resolves."
+        "404 if conversation_id is unknown; 503 if no chat provider resolves. "
+        "429 if per-IP rate limit exceeded (R13-9)."
     ),
     responses={
         200: {"content": {"application/x-ndjson": {}}, "description": "NDJSON event stream"},
         404: {"description": "conversation_id provided but unknown"},
         422: {"description": "Body validation failure"},
+        429: {"description": "Per-IP rate limit exceeded (R13-9)"},
         503: {"description": "No chat provider_config resolves (I6)"},
     },
+    dependencies=[Depends(rate_limit)],
 )
 async def chat_stream(body: ChatRequest) -> StreamingResponse:
     """

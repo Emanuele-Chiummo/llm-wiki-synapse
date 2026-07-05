@@ -813,6 +813,33 @@ class Settings(BaseSettings):
         """Parsed MCP_TRUSTED_PROXIES as a trimmed list (may be empty)."""
         return [p.strip() for p in self.mcp_trusted_proxies.split(",") if p.strip()]
 
+    # ── R13-9: In-process rate limiting for inference-cost endpoints (B4) ────────
+
+    rate_limit_enabled: bool = True
+    """
+    Master gate for the per-IP fixed-window rate limiter (R13-9, B4).
+    When False, no rate limiting is applied to inference-cost endpoints — useful for
+    CI/dev environments where the test suite would hit the limit.
+    Default True (rate limiting active).
+    Env var: RATE_LIMIT_ENABLED.
+    """
+
+    rate_limit_requests: int = 20
+    """
+    Maximum requests per ``RATE_LIMIT_WINDOW_SECONDS`` per client IP (R13-9, B4).
+    Applied to POST /chat/stream, POST /ingest/trigger, POST /ingest/upload,
+    POST /ingest/from-text, POST /research/start.
+    Default 20 (generous enough for normal use; tight enough to deter abuse).
+    Env var: RATE_LIMIT_REQUESTS.
+    """
+
+    rate_limit_window_seconds: int = 60
+    """
+    Fixed-window duration in seconds for the per-IP rate limiter (R13-9, B4).
+    Default 60 s — 20 requests per minute sustained.
+    Env var: RATE_LIMIT_WINDOW_SECONDS.
+    """
+
 
 # Module-level singleton — import with `from app.config import settings`
 settings = Settings()
