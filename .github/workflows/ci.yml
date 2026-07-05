@@ -282,6 +282,17 @@ jobs:
           cd backend
           python scripts/seed_e2e_extras.py --vault-id test
 
+      - name: Seed vault filesystem (sources listing)
+        # The Sources view lists raw/sources/ from DISK (not the DB): without
+        # files the tree renders its empty state and the SORGENTI specs fail.
+        # Pre-placing files is safe: the watcher reacts to new events only
+        # (no startup rescan — ADR-0006/I1), so nothing gets ingested.
+        run: |
+          mkdir -p /tmp/synapse-test-vault/raw/sources
+          for i in 1 2 3 4 5; do
+            printf '# Seed source %s\n' "$i" > /tmp/synapse-test-vault/raw/sources/seed-source-$i.md
+          done
+
       - name: Start backend (uvicorn)
         env:
           DATABASE_URL: postgresql+asyncpg://synapse:synapse@localhost:5432/synapse
@@ -319,6 +330,10 @@ jobs:
           # be set here, not on the preview step, or the bundle ships with a
           # relative base and every browser API call 404s against :5173.
           VITE_API_BASE: http://localhost:8000
+          # The UI's vault id is also build-time inlined (no runtime sync from
+          # /status): it must match the backend's VAULT_ID=test or the
+          # conversation list queries the wrong vault and shows nothing.
+          VITE_DEFAULT_VAULT_ID: test
         run: npm run build
 
       - name: Start frontend (vite preview)
