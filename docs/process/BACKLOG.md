@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-07-03 (Sprint 12 / v1.2 scope locked — SPRINT-v1.2-SCOPE.md; Sprint 11 / v1.1 scope locked — SPRINT-v1.1-SCOPE.md; Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
+> Last updated: 2026-07-05 (Sprint 13 / v1.3 shipped — ROADMAP-v1.3-v2.0.md; Sprint 12 / v1.2 shipped (v1.2.4–v1.2.6) — SPRINT-v1.2-SCOPE.md; Sprint 11 / v1.1 scope locked — SPRINT-v1.1-SCOPE.md; Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -18,6 +18,140 @@
 
 ---
 
+## Sprint 13 — v1.3 — M13 "Foundations"
+
+Goal: zero visible behavior change; make the house solid before multi-vault extension.
+Pay down T1–T10 structural debt (router monolith split, release-lineage merge, P1/P2
+bug fixes, CI E2E, SSRF hardening, scheduler persistence, docs hygiene, responsive
+mobile/tablet).
+
+**Sprint status: DONE — v1.3 shipped 2026-07-05**
+Source: docs/reference/ROADMAP-v1.3-v2.0.md §v1.3
+Branch: claude/v1-v2-roadmap-skvc4e
+
+### R13-1 — Router split
+
+| Field | Value |
+|-------|-------|
+| Feature ID | T1 (structural debt) |
+| Sprint | v1.3 |
+| Status | done |
+| Effort | L |
+
+Decompose `main.py` into `app/routers/{pages,search,graph,ingest,chat,review,research,ops,config,stats,clip,mcp}.py` via `APIRouter`. CI OpenAPI drift gate shows empty diff (paths/schemas identical).
+
+### R13-2 — Release hygiene
+
+| Field | Value |
+|-------|-------|
+| Feature ID | T2 (structural debt), F15 |
+| Sprint | v1.3 |
+| Status | done-pending-live-demo |
+| Effort | S |
+
+Merge v1.2.4–v1.2.6 release lineage back into `main`; protect `main` branch; adopt rule that tags are only cut from `main`; document in CONTRIBUTING.md.
+
+### R13-3 — Cancel in-flight ingest
+
+| Field | Value |
+|-------|-------|
+| Feature ID | K2, F17, G-P2-3 (parity) |
+| Sprint | v1.3 |
+| Status | done |
+| Effort | S |
+
+`DELETE /ingest/{run_id}` on top of ADR-0046 queue (cancellation events existed); Activity bar wiring. Closes the last open parity item vs llm_wiki matrix (G-P2-3). See SYNAPSE-VS-LLMWIKI-PARITY.md.
+
+### R13-4 — Persistent scheduler state
+
+| Field | Value |
+|-------|-------|
+| Feature ID | T4 (structural debt) |
+| Sprint | v1.3 |
+| Status | done |
+| Effort | S |
+
+Last-run timestamps for ops/import schedulers persisted into `app_config` (survives container restart; fixes missed weekly jobs after Watchtower updates).
+
+### R13-5 — P1 fix: event-loop stall (B1)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | I2 (invariant enforcement), B1 |
+| Sprint | v1.3 |
+| Status | done |
+| Effort | M |
+
+Offload `GraphEngine.recompute` (igraph + FA2 + Louvain) to thread/process executor so recompute never blocks requests/streams/watcher. Regression-guarded by `graph-perf.spec.ts`.
+
+### R13-6 — P1 fix: chat/editor UX correctness (F1, F2)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F6, F7 (frontend), I3 |
+| Sprint | v1.3 |
+| Status | done |
+| Effort | S/M |
+
+Unmount/conversation-switch abort in `useChatStream` (kills cross-conversation contamination race F2 and leak F3); break "Keep editing" dialog ping-pong in `NoteView` (F1).
+
+### R13-7 — Bug batch (P2s)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | B3–B5, B7–B10, F4, F5, F7, F8 |
+| Sprint | v1.3 |
+| Status | done |
+| Effort | M |
+
+Stream `aclose()` in `finally` (B4); atomic `index.md` write (B5); finalize-in-`finally` for ingest runs (B3); word-boundary mention match (B7); GraphCache marker at recompute start (B8); `run_now` single-flight fix (B9); 409 on concurrent page PUT (B10); double-submit `e.repeat` guard (F4); stale-activeId fix (F5); `ThinkBlock` hooks-order fix (F7); graph tooltip i18n (F8); PWA `lang` + package.json description.
+
+### R13-8 — CI hardening
+
+| Field | Value |
+|-------|-------|
+| Feature ID | T6, T7 |
+| Sprint | v1.3 |
+| Status | done-pending-live-demo |
+| Effort | M |
+
+E2E job (compose up backend+postgres+fake-embeddings, run Playwright headless); multi-arch images (linux/amd64+arm64 via buildx); `make bump VERSION=x.y.z` single-command 4-file version bump. Note: E2E/arm64 "da validare al primo run Actions".
+
+### R13-9 — Deploy security pass
+
+| Field | Value |
+|-------|-------|
+| Feature ID | T5, B2, B11 |
+| Sprint | v1.3 |
+| Status | done |
+| Effort | M |
+
+SSRF guard on deep-research fetch (block private/loopback/link-local/metadata ranges); method-aware auth exempt list (B11); drop default `5432:5432` publish; creds via `.env` with generated defaults; minimal rate limit on inference-cost endpoints (`/chat`, `/ingest/trigger`, `/research`); DEPLOY.md Tailscale/CF-Tunnel posture documented.
+
+### R13-10 — Docs hygiene
+
+| Field | Value |
+|-------|-------|
+| Feature ID | T8, T9, I8 |
+| Sprint | v1.3 |
+| Status | done |
+| Effort | S/M |
+
+Index ADR-0039; delete `schema 2.mmd`; add ADR-0023 gap note; sync BACKLOG/parity/TRACEABILITY to v1.2.6 reality; add whisper-service compose profile (`av`); create CONTRIBUTING.md; update DOCS_STATUS.md. See DOCS_STATUS.md v1.3 gate.
+
+### R13-11 — Responsive iPhone/iPad (ADR-0057)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1, F15, R13-11 |
+| Sprint | v1.3 |
+| Status | done |
+| Effort | M/L |
+
+Three viewport tiers (mobile ≤767 / tablet 768–1023 / desktop ≥1024); `useViewport()` hook + `uiStore`; `PanelDrawer` for tree+preview on mobile/tablet; iOS safe-area + `100dvh`; graph toolbar touch-reachable; i18n EN/IT for new strings.
+
+---
+
 ## Sprint 12 — v1.2 — M12 "Home & Insights"
 
 Goal: glanceable home dashboard (vault KPIs, AI spend, per-domain breakdowns); domain
@@ -26,9 +160,9 @@ one-time bounded backfill); server release channel (GHCR image publish + StatusR
 version field + frontend mismatch notice + optional Watchtower auto-update block);
 ingest polling dedup carry-over fix.
 
-**Sprint status: SCOPE LOCKED 2026-07-03**
+**Sprint status: DONE — v1.2.4–v1.2.6 shipped (see ROADMAP-v1.3-v2.0.md §0)**
 Scope file: docs/sprints/SPRINT-v1.2-SCOPE.md
-Branch: sprint/v1.2 (cut from main after v1.1.0 tag)
+Branch: sprint/v1.2 (cut from main after v1.1.0 tag; v1.2.4–v1.2.6 tags merged to main in v1.3 via R13-2)
 Prerequisite: EC-M11-1..EC-M11-HCP met by Emanuele.
 
 ### R12-1 — Home dashboard
@@ -37,7 +171,7 @@ Prerequisite: EC-M11-1..EC-M11-HCP met by Emanuele.
 |-------|-------|
 | Feature ID | F18 (new), F1, F4, F16 |
 | Sprint | v1.2 |
-| Status | backlog |
+| Status | done |
 | Effort | L |
 | Acceptance criteria | AC-R12-1-1 through AC-R12-1-10 (SPRINT-v1.2-SCOPE.md §3) |
 
@@ -53,7 +187,7 @@ library). Domain section card click dispatches filter navigation.
 |-------|-------|
 | Feature ID | F18, F17 (I6 — classification via InferenceProvider), K6 (pages.tags domain/ convention) |
 | Sprint | v1.2 |
-| Status | blocked — ADR-0054 required before backend code |
+| Status | done — ADR-0054 accepted; shipped in v1.2.4 |
 | Effort | L |
 | Acceptance criteria | AC-R12-2-0 through AC-R12-2-8 (SPRINT-v1.2-SCOPE.md §3) |
 
@@ -70,7 +204,7 @@ dormant (zero provider calls). Settings > Advanced vocabulary editor in frontend
 |-------|-------|
 | Feature ID | F15, F16 |
 | Sprint | v1.2 |
-| Status | backlog |
+| Status | done |
 | Effort | M |
 | Acceptance criteria | AC-R12-3-1 through AC-R12-3-8 (SPRINT-v1.2-SCOPE.md §3) |
 
@@ -87,7 +221,7 @@ and automatic (Watchtower/TrueNAS/Diun) options plus data-service caveat.
 |-------|-------|
 | Feature ID | F1, F16 |
 | Sprint | v1.2 |
-| Status | backlog (confirm done from v1.1 before starting) |
+| Status | done — BUG-2 confirmed fixed in v1.2.6 (see ROADMAP-v1.3-v2.0.md §0-bis) |
 | Effort | S |
 | Acceptance criteria | AC-R12-4-1, AC-R12-4-2 (SPRINT-v1.2-SCOPE.md §3) — or confirmed green from v1.1 |
 
@@ -101,7 +235,7 @@ mount/unmount/remount cycle.
 |-------|-------|
 | Feature ID | F18 (NEW — registered sprint v1.2) |
 | Sprint | v1.2 (first sprint) |
-| Status | in-progress |
+| Status | done |
 
 F18: Home dashboard + per-section domain insights — a landing screen surfacing vault
 KPIs (pages_by_type, total_links, communities_count, AI spend), community topology, and

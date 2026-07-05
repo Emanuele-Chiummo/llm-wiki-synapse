@@ -58,6 +58,8 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0026** | [Cascade deletion of wiki pages (F13)](0026-cascade-delete.md) | Accepted |
 | **0027** | [Read-only MCP server introspection endpoint + Settings panel (F1-MCP-UI)](0027-mcp-info-ui.md) | Accepted |
 
+> **Note:** ADR-0023 was intentionally skipped during sprint v0.5 — the number was reserved but never assigned. No document exists for 0023; this is a historical gap in the numbering sequence, not a missing index entry.
+
 ---
 
 ## Configuration & Integrations (ADR-0028 through ADR-0043)
@@ -94,10 +96,11 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 
 ---
 
-## Distribution & Security (ADR-0047 through ADR-0057)
+## Distribution & Security (ADR-0039, ADR-0047 through ADR-0057)
 
 | # | Title | Status |
 |---|-------|--------|
+| **0039** | [Tauri v2 desktop shell: Vite SPA wrapped in Tauri, native window, cross-platform CI (F15, v0.6)](0039-tauri-v2-desktop-shell.md) | Accepted |
 | **0047** | [Desktop runtime server URL + Connect gate (Tauri first-launch backend binding)](0047-desktop-runtime-server-url-and-connect-gate.md) | Accepted |
 | **0048** | [Dark mode, command palette, UI polish, and desktop pack (v0.6 frontend + Tauri)](0048-dark-mode-command-palette-ui-polish-desktop-pack.md) | Accepted |
 | **0049** | [Desktop auto-update over GitHub Releases (unified `v*` tag, minisign-verified)](0049-desktop-auto-update-github-releases.md) | Accepted |

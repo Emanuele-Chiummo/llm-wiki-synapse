@@ -1772,3 +1772,103 @@ Non-blocking for code-correctness gate; blocking for the `v1.0.0` tag (EC-M6-HCP
 | GAP-M6-2 | AC-F15-5 | Tauri native binary build (macOS/Windows/Linux) requires native runners; CI-only or local build | CI matrix on tag push OR local `cargo tauri build`. Verified during EC-M6-HCP (human checkpoint §5.3). |
 | FU-P4-3 | (docs) | ADR-0026 cascade_delete non-atomic (5 separate DB sessions); partial-run leaves transiently-inconsistent state | DOCUMENTED in ADR-0026 §9 (FU-P4-3 note). No code change; idempotent-on-retry via lint-fix loop. |
 | FU-P3-2 | AC-D6-M6-1 | CLI delegated-ingest path does NOT enqueue review items (ADR-0025 §7) | DOCUMENTED in docs/USER.md Review section. Conscious design gap — review items populated only by orchestrated ingest paths (Local + API providers). |
+
+---
+
+## Sprint 13 — v1.3 — M13 «Foundations»
+
+> Sprint date: 2026-07-05. Theme: structural debt paydown (T1–T10). No new user-facing
+> feature surface; all changes are refactor, hardening, and docs.
+> Source: docs/reference/ROADMAP-v1.3-v2.0.md §v1.3
+
+### R13-3 — Cancel in-flight ingest (K2 / F17 / G-P2-3)
+
+| AC ID | EC | D-artifacts | Invariants | Test file | Test IDs | Commit | Status |
+|-------|-----|------------|------------|-----------|----------|--------|--------|
+| AC-R13-3-1 | EC-M13-3 | — | K2, F17, I1, I7 | backend/tests/test_ingest_cancel.py | test_delete_ingest_run_cancels | sprint/v1.3 | GREEN |
+| AC-R13-3-2 | EC-M13-3 | — | K2, I7 | backend/tests/test_ingest_cancel.py | test_cancelled_run_not_restartable | sprint/v1.3 | GREEN |
+
+Note: `DELETE /ingest/{run_id}` wired to ADR-0046 cancellation queue. Activity bar cancel
+button now functional. Closes G-P2-3, the last open parity item vs llm_wiki matrix — full
+parity achieved as of v1.3. See SYNAPSE-VS-LLMWIKI-PARITY.md (updated 2026-07-05).
+
+---
+
+### R13-4 — Persistent scheduler state (T4 / I7)
+
+| AC ID | EC | D-artifacts | Invariants | Test file | Test IDs | Commit | Status |
+|-------|-----|------------|------------|-----------|----------|--------|--------|
+| AC-R13-4-1 | EC-M13-4 | — | I7, T4 | backend/tests/test_scheduler.py | test_scheduler_state_survives_restart | sprint/v1.3 | GREEN |
+
+Note: `ops_scheduler` last-run timestamps persisted into `app_config` table (ADR-0053
+mechanism). Scheduled jobs resume correctly after container restart (Watchtower-safe).
+
+---
+
+### R13-9 — Deploy security pass: SSRF guard + rate limit (T5 / I7 / B2 / B11)
+
+| AC ID | EC | D-artifacts | Invariants | Test file | Test IDs | Commit | Status |
+|-------|-----|------------|------------|-----------|----------|--------|--------|
+| AC-R13-9-1 | EC-M13-9 | D6b | I7, T5 | backend/tests/test_ssrf_guard.py | test_ssrf_blocks_private_ip | sprint/v1.3 | GREEN |
+| AC-R13-9-2 | EC-M13-9 | D6b | I7, T5 | backend/tests/test_ssrf_guard.py | test_ssrf_blocks_loopback | sprint/v1.3 | GREEN |
+| AC-R13-9-3 | EC-M13-9 | D6b | I7, T5 | backend/tests/test_ssrf_guard.py | test_ssrf_blocks_link_local | sprint/v1.3 | GREEN |
+| AC-R13-9-4 | EC-M13-9 | D6b | I7 | backend/tests/test_rate_limit.py | test_chat_rate_limited | sprint/v1.3 | GREEN |
+| AC-R13-9-5 | EC-M13-9 | D6b | I7 | backend/tests/test_rate_limit.py | test_ingest_trigger_rate_limited | sprint/v1.3 | GREEN |
+
+Note: SSRF guard is a shared util (used by deep_research.py and searxng.py). Blocks
+private/loopback/link-local/metadata-IP ranges + redirect chains. Method-aware auth
+exempt list (B11) applied. Default 5432 port publish removed from compose.
+DEPLOY.md §3.6 documents the hardening; see ADR-0052 (auth model).
+
+---
+
+### R13-11 — Responsive iPhone/iPad (F1 / F15 / ADR-0057)
+
+| AC ID | EC | D-artifacts | Invariants | Test file | Test IDs | Commit | Status |
+|-------|-----|------------|------------|-----------|----------|--------|--------|
+| AC-R13-11-1 | EC-M13-11 | D5 | F1, F15, I3 | frontend/tests/responsive.spec.ts | responsive-mobile-layout | sprint/v1.3 | GREEN |
+| AC-R13-11-2 | EC-M13-11 | D5 | F1, F15, I3 | frontend/tests/responsive.spec.ts | responsive-tablet-layout | sprint/v1.3 | GREEN |
+| AC-R13-11-3 | EC-M13-11 | — | F15, I5 | frontend/tests/responsive.spec.ts | viewport-safe-area-dvh | sprint/v1.3 | GREEN |
+
+Note: Three viewport tiers (≤767 mobile / 768–1023 tablet / ≥1024 desktop via ADR-0057).
+`useViewport()` hook + `uiStore` absorbs PanelGroup collapse state. `PanelDrawer` renders
+tree/preview as slide-over drawers on mobile; preview drawer on tablet. iOS `100dvh` + safe-area
+insets applied. i18n EN/IT strings added for drawer labels. ADR-0057 accepted.
+
+---
+
+### R13-10 — Docs hygiene (T8 / T9 / I8)
+
+| AC ID | EC | D-artifacts | Invariants | Evidence | Status |
+|-------|-----|------------|------------|----------|--------|
+| AC-R13-10-1 | EC-M13-10 | D7 | I8 | docs/adr/index.md: ADR-0039 row added; 0023 gap footnote added; Distribution & Security heading updated | GREEN |
+| AC-R13-10-2 | EC-M13-10 | D2 | I8 | `docs/er/schema 2.mmd` deleted (stale duplicate) | GREEN |
+| AC-R13-10-3 | EC-M13-10 | — | I8 | docs/process/BACKLOG.md: Sprint 12 all items set to done; Sprint 13 section added | GREEN |
+| AC-R13-10-4 | EC-M13-10 | — | I8 | docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md: G-P2-3 closed, full parity note added | GREEN |
+| AC-R13-10-5 | EC-M13-10 | — | I8 | docs/process/TRACEABILITY.md: v1.3 section added (R13-3, R13-4, R13-9, R13-11) | GREEN |
+| AC-R13-10-6 | EC-M13-10 | — | I8 | docker-compose.yml: whisper service added under `profiles: ["av"]` (port 8666) | GREEN |
+| AC-R13-10-7 | EC-M13-10 | — | I8 | CONTRIBUTING.md created (branching, commit format, release rule, version bump) | GREEN |
+| AC-R13-10-8 | EC-M13-10 | — | I8 | docs/process/DOCS_STATUS.md: v1.3 gate added; overall verdict ALL UP-TO-DATE | GREEN |
+| AC-R13-10-D5 | EC-M13-HCP | D5 | I8 | D5 screenshots: pending CI E2E job run (R13-8 E2E job must execute against live stack) | PENDING-LIVE |
+
+---
+
+## M13 Exit Criteria coverage summary
+
+| EC | Description | Covering ACs | Status |
+|----|-------------|-------------|--------|
+| EC-M13-3 | Cancel in-flight ingest: DELETE /ingest/{run_id} functional; G-P2-3 closed | AC-R13-3-1..2 | GREEN |
+| EC-M13-4 | Scheduler state survives container restart | AC-R13-4-1 | GREEN |
+| EC-M13-9 | SSRF guard rejects metadata-IP results; rate limit on cost endpoints | AC-R13-9-1..5 | GREEN |
+| EC-M13-11 | Responsive layout: 3 tiers, PanelDrawer, safe-area — mobile and tablet verified | AC-R13-11-1..3 | GREEN |
+| EC-M13-10 | Docs gate: all T8/T9 hygiene items resolved; DOCS_STATUS = ALL UP-TO-DATE | AC-R13-10-1..8 | GREEN |
+| EC-M13-HCP | Human checkpoint: E2E job green in CI; arm64 image; D5 screenshots refreshed | AC-R13-10-D5 | PENDING-LIVE |
+
+---
+
+## Gap register (M13)
+
+| Gap ID | AC ID | Issue | Resolution |
+|--------|-------|-------|-----------|
+| GAP-M13-1 | AC-R13-10-D5 | D5 screenshots require a live stack + CI E2E job (R13-8) to have executed | PENDING-LIVE — captured by R13-8 E2E job on first CI run post-merge. Non-blocking for code gate; blocking for EC-M13-HCP human checkpoint. |
+| GAP-M13-2 | EC-M13-HCP | arm64 image pull requires Actions runner with ARM capacity or QEMU buildx | PENDING — "da validare al primo run Actions" per R13-8 roadmap note. |

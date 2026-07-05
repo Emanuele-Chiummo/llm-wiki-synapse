@@ -270,6 +270,87 @@ services:
     #           capabilities: [compute, utility]
 
   # ─────────────────────────────────────────────────────────────────────────
+  # Whisper AV transcription microservice — optional profile (disabled by default)
+  # ─────────────────────────────────────────────────────────────────────────
+  # R13-10 / T8 / F12: faster-whisper (CPU/CUDA) AV transcription at port 8666.
+  # Exposes POST /transcribe (multipart "file" → text/language/duration) and GET /health.
+  # The backend calls this when AV_TRANSCRIPTION_ENABLED=true; on any error it falls back
+  # to the extract.py placeholder — this service is opt-in and never a hard dependency.
+  #
+  # Enable with:
+  #   docker compose --profile av up -d
+  #
+  # When enabled, set in .env (or synapse-backend environment above):
+  #   AV_TRANSCRIPTION_ENABLED=true
+  #   WHISPER_SERVICE_URL=http://whisper:8666
+  #
+  # ── GPU support (TrueNAS RTX 3060) ────────────────────────────────────────────
+  # To enable GPU acceleration (CUDA), uncomment the deploy block below and set
+  # WHISPER_DEVICE=cuda in .env. CPU-only mode (default) works without changes.
+  #
+  # ┌─────────────────────────────────────────────────────────────────────────┐
+  # │ IMPORTANT: Uncommenting the GPU block on a host without nvidia-docker   │
+  # │ runtime will break `docker compose up`. Leave it commented unless your  │
+  # │ host has GPU support explicitly configured.                             │
+  # └─────────────────────────────────────────────────────────────────────────┘
+  whisper:
+    build:
+      context: ./tools/whisper-service
+      dockerfile_inline: |
+        FROM python:3.11-slim
+        WORKDIR /app
+        COPY requirements.txt .
+        # Install faster-whisper (Linux/CUDA cross-platform path; mlx-whisper is macOS-only)
+        RUN pip install --no-cache-dir faster-whisper fastapi "uvicorn[standard]" python-multipart
+        COPY service.py .
+        ENV HF_HOME=/models
+        EXPOSE 8666
+        HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=60s \
+          CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8666/health')"
+        CMD ["python", "service.py", "--port", "8666"]
+    profiles:
+      - av
+    environment:
+      # Whisper model — default large-v3 (~3 GB, downloaded on first use to /models).
+      WHISPER_MODEL: ${WHISPER_MODEL:-large-v3}
+      # Compute device: cpu (default) or cuda (requires nvidia-docker; see GPU block below).
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+    volumes:
+      # Cache for downloaded Whisper model weights (persists across container restarts).
+      - whisper_models:/models
+    ports:
+      - "8666:8666"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8666/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+    # ┌─────────────────────────────────────────────────────────────────────────┐
+    # │ NVIDIA GPU SUPPORT (TrueNAS RTX 3060 with CUDA) — COMMENTED OUT ────────│
+    # │ Uncomment this block ONLY if your host has nvidia-docker runtime        │
+    # │ installed and configured. On hosts without GPU support, leaving this    │
+    # │ commented ensures the container runs on CPU (slower but functional).    │
+    # │                                                                          │
+    # │ To enable GPU on TrueNAS SCALE:                                         │
+    # │   1. Ensure nvidia-docker is installed (TrueNAS Apps subsystem)         │
+    # │   2. Set WHISPER_DEVICE=cuda in .env                                    │
+    # │   3. Uncomment the deploy block below                                   │
+    # │   4. Run: docker compose --profile av up -d                             │
+    # │                                                                          │
+    # │ If you uncomment this on a non-GPU host, docker compose will fail.      │
+    # └─────────────────────────────────────────────────────────────────────────┘
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [compute, utility]
+
+  # ─────────────────────────────────────────────────────────────────────────
   # Watchtower — optional auto-update service (disabled by default)
   # ─────────────────────────────────────────────────────────────────────────
   # R12-3: Auto-update service, disabled by default via Compose profile.
@@ -294,4 +375,6 @@ volumes:
   postgres_data:
     driver: local
   marker_models:
+    driver: local
+  whisper_models:
     driver: local
