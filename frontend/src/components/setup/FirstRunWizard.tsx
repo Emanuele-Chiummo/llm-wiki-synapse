@@ -44,7 +44,13 @@ import React, {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { apiBase, apiFetch } from "../../api/base";
+import {
+  apiBase,
+  apiFetch,
+  setServerUrl,
+  clearServerUrl,
+  getLastServerUrl,
+} from "../../api/base";
 import { putAppConfig } from "../../api/appConfigClient";
 import { createProviderConfig } from "../../api/providerClient";
 import type { CreateProviderConfigBody } from "../../api/types";
@@ -182,16 +188,54 @@ function Step1Connect({
   onSkip: () => void;
 }) {
   const { t } = useTranslation();
+  // Editable backend URL — prefilled with the currently-resolved base (or the
+  // last successfully-connected URL). Blank = same-origin / relative (web/PWA).
+  const [serverUrl, setServerUrlInput] = useState<string>(
+    () => apiBase() || getLastServerUrl() || "",
+  );
   const [status, setStatus] = useState<"idle" | "checking" | "ok" | "error">("idle");
   const [errMsg, setErrMsg] = useState("");
 
+  // Same-origin placeholder hint (runtime, not i18n).
+  const originHint =
+    typeof window !== "undefined" && window.location?.origin
+      ? window.location.origin
+      : "http://truenas:8000";
+
   const handleCheck = async () => {
-    setStatus("checking");
     setErrMsg("");
+    const trimmed = serverUrl.trim().replace(/\/+$/, "");
+
+    // Validate scheme when a URL is provided; blank means same-origin (relative).
+    let probeBase = "";
+    if (trimmed.length > 0) {
+      let parsed: URL;
+      try {
+        parsed = new URL(trimmed);
+      } catch {
+        setStatus("error");
+        setErrMsg(t("connect.errors.invalidUrl"));
+        return;
+      }
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        setStatus("error");
+        setErrMsg(t("connect.errors.scheme"));
+        return;
+      }
+      probeBase = trimmed;
+    }
+
+    setStatus("checking");
     try {
-      const url = `${apiBase()}/status`;
-      const res = await apiFetch(url);
+      const res = await apiFetch(`${probeBase}/status`);
       if (res.ok) {
+        // Persist the entered URL so every later call (provider/config, app config,
+        // and the rest of the app) targets this backend. Blank reverts to same-origin.
+        if (trimmed.length > 0) {
+          setServerUrl(trimmed);
+        } else {
+          clearServerUrl();
+        }
         setStatus("ok");
       } else {
         setStatus("error");
@@ -221,17 +265,45 @@ function Step1Connect({
         {t("wizard.step1.desc")}
       </p>
 
-      {/* Show current backend URL */}
-      <p
+      {/* Editable backend URL */}
+      <label
+        htmlFor="wizard-step1-url"
         style={{
-          margin: "0 0 14px",
+          display: "block",
           fontSize: 12,
-          color: "var(--syn-text-dim)",
-          fontFamily: "monospace",
-          wordBreak: "break-all",
+          fontWeight: 600,
+          color: "var(--syn-text-muted)",
+          marginBottom: 4,
         }}
       >
-        {apiBase() || t("wizard.step1.relativeOrigin")}
+        {t("connect.urlLabel")}
+      </label>
+      <input
+        id="wizard-step1-url"
+        type="text"
+        data-testid="wizard-step1-url"
+        value={serverUrl}
+        onChange={(e) => {
+          setServerUrlInput(e.target.value);
+          // Editing invalidates a prior OK/error result.
+          if (status !== "idle") setStatus("idle");
+          setErrMsg("");
+        }}
+        placeholder={originHint}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        style={{ ...INPUT_STYLE, fontFamily: "monospace", marginBottom: 4 }}
+      />
+      <p
+        style={{
+          margin: "0 0 16px",
+          fontSize: 11,
+          color: "var(--syn-text-dim)",
+          lineHeight: 1.5,
+        }}
+      >
+        {t("wizard.step1.urlHelp")}
       </p>
 
       {status === "ok" && (

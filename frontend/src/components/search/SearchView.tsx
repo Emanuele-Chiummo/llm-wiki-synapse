@@ -227,8 +227,15 @@ function ResultRow({ item, onSelect }: ResultRowProps) {
   // Derive a readable "type" from the phase field for display.
   // The SearchResultItem shape has no `type` field (it's a citation projection);
   // we use `phase` to indicate vector vs expansion provenance.
-  const phaseLabel = item.phase === "vector" ? t("search.phaseVector") : t("search.phaseExpansion");
-  const scoreDisplay = (item.score * 100).toFixed(0);
+  const isVector = item.phase === "vector";
+  const phaseLabel = isVector ? t("search.phaseVector") : t("search.phaseExpansion");
+  // Only vector-phase results carry a 0..1 cosine similarity that maps to a
+  // meaningful 0-100%. Expansion results carry a raw graph relevance weight
+  // (can be >1), so rendering it as a percentage produces nonsense like 2144%.
+  // Show the % chip for vector only; clamp to [0,100] defensively.
+  const scoreDisplay = isVector
+    ? Math.min(100, Math.max(0, item.score * 100)).toFixed(0)
+    : null;
 
   const handleClick = useCallback(() => {
     onSelect(item.id);
@@ -291,16 +298,18 @@ function ResultRow({ item, onSelect }: ResultRowProps) {
 
         <TypeBadge type={phaseLabel} />
 
-        <span
-          aria-label={`${t("search.score")}: ${scoreDisplay}%`}
-          style={{
-            fontSize: 10,
-            color: "var(--syn-text-dim)",
-            flexShrink: 0,
-          }}
-        >
-          {scoreDisplay}%
-        </span>
+        {scoreDisplay !== null && (
+          <span
+            aria-label={`${t("search.score")}: ${scoreDisplay}%`}
+            style={{
+              fontSize: 10,
+              color: "var(--syn-text-dim)",
+              flexShrink: 0,
+            }}
+          >
+            {scoreDisplay}%
+          </span>
+        )}
       </div>
 
       {/* Slug as context hint (no snippet field on SearchResultItem) */}

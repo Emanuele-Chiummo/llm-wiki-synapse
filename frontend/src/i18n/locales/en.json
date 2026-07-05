@@ -620,7 +620,7 @@
     "deepResearchStarted": "Deep research run started.",
     "viewRun": "View run",
     "searxngUnavailable": "Deep research is unavailable: SEARXNG_URL is not configured on the backend.",
-    "sweep": "Clean up resolved",
+    "sweep": "Auto-resolve",
     "sweepHelp": "Run the auto-resolution sweep: closes missing-page and duplicate proposals whose page now exists, and optionally asks the LLM to close stale suggestions.",
     "sweepResult": "Sweep complete: {{rule}} rule-resolved, {{llm}} LLM-resolved, {{kept}} kept pending.",
     "bulkResult": "Bulk action complete: {{updated}} updated, {{skipped}} already resolved.",
@@ -1146,7 +1146,8 @@
       "ok": "Backend is reachable.",
       "errNotOk": "Backend returned status {{status}}. Check that the service is running.",
       "errUnknown": "Could not reach the backend. Check the URL in Settings › Security.",
-      "relativeOrigin": "(same origin)"
+      "relativeOrigin": "(same origin)",
+      "urlHelp": "Leave blank to use the same origin as this page. Enter an http:// or https:// URL to point to a different backend."
     },
     "step2": {
       "title": "Choose an inference provider",
