@@ -160,7 +160,6 @@
       "appearance": "Aspetto",
       "setup": "Configurazione",
       "providers": "Provider",
-      "scenarios": "Scenari",
       "context": "Finestra di contesto",
       "embeddings2": "Embedding",
       "webSearch2": "Ricerca web",
@@ -519,6 +518,7 @@
   "chat": {
     "title": "Chat",
     "conversations": "Conversazioni",
+    "showConversations": "Mostra conversazioni",
     "newConversation": "Nuova conversazione",
     "untitled": "Senza titolo",
     "noConversations": "Nessuna conversazione. Clicca + per iniziare.",

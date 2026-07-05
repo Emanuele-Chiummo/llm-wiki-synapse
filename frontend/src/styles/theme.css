@@ -211,6 +211,82 @@ body,
   }
 }
 
+/* ── TOUCH RESPONSIVENESS (ADR-0057, R13-11 follow-up) ────────────────────────
+ * touch-action: manipulation removes the ~350ms tap delay iOS Safari adds to
+ * every click while waiting to disambiguate a double-tap zoom. Applied to all
+ * interactive controls (NOT to the sigma canvas, which needs touch-action:none
+ * for pinch-zoom — declared later with higher specificity in the mobile block).
+ */
+button,
+a,
+input,
+textarea,
+select,
+label,
+[role="button"],
+[role="tab"],
+[role="menuitem"],
+.nav-rail__item,
+.nav-tree__page-row,
+.nav-tree__group-header,
+.conversation-list__item,
+.syn-quick-prompt,
+.panel-drawer-backdrop {
+  touch-action: manipulation;
+}
+
+/* Touch devices only: kill the grey iOS tap flash (we provide our own :active
+ * feedback below), stop long-press text-selection callouts on controls, and
+ * give every tap an instant pressed state so touch never feels dead. */
+@media (hover: none) and (pointer: coarse) {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  [role="button"],
+  .nav-rail__item,
+  .nav-tree__page-row,
+  .nav-tree__group-header,
+  .conversation-list__item,
+  .syn-quick-prompt {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  button:active,
+  [role="button"]:active,
+  .nav-rail__item:active,
+  .nav-tree__page-row:active,
+  .nav-tree__group-header:active,
+  .conversation-list__item:active,
+  .syn-quick-prompt:active,
+  .syn-toolbar-button:active {
+    background: var(--syn-surface-hover) !important;
+    transition: background 0s !important; /* pressed state must be instant */
+  }
+
+  /* Scrollable panes must not chain their overscroll to the page (body
+   * rubber-banding mid-list feels broken on iOS). */
+  .panel-drawer,
+  .nav-tree,
+  [data-testid="message-list"],
+  .nav-tree__scroll,
+  .chat-section__conversations,
+  .conversation-list,
+  .preview-panel {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hover-revealed controls do not exist on touch: conversation rename/delete
+   * actions must always be visible (inline style sets opacity 0 off-hover,
+   * hence the !important). */
+  .conv-item__actions {
+    opacity: 1 !important;
+  }
+}
+
 body {
   overflow: hidden;
   color: var(--syn-text);
@@ -559,7 +635,8 @@ button {
     padding-bottom: 10px !important;
   }
 
-  .nav-tree__row {
+  .nav-tree__page-row,
+  .nav-tree__group-header {
     min-height: 44px !important;
   }
 
@@ -587,33 +664,23 @@ button {
     touch-action: none;
   }
 
-  /* ── 5. Graph toolbar: visible + tappable on mobile (UXA-27) ── */
-  .graph-toolbar {
-    left: 10px !important;
-    right: 10px !important;
-    top: 10px !important;
-  }
-
-  .graph-toolbar__row {
-    flex-wrap: wrap;
-  }
-
-  .graph-toolbar__search {
-    flex-basis: 100%;
-  }
-
-  /* Graph toolbar buttons: 44px touch targets */
-  .graph-toolbar button,
-  .graph-toolbar .syn-toolbar-button {
+  /* ── 5. Graph controls: tappable on mobile (UXA-27) ──
+   * The zoom cluster is already positioned bottom-right (inline styles in
+   * GraphViewer); we only enlarge its buttons — no repositioning. */
+  [data-testid="graph-zoom-controls"] button,
+  [data-testid="color-mode-toolbar"] button {
     min-height: 44px !important;
     min-width: 44px !important;
   }
 
-  /* ── 6. Chat + settings layout adjustments (merged from former 720px block) ── */
-  .chat-section__conversations {
-    display: none !important;
+  [data-testid="color-mode-toolbar"] {
+    flex-wrap: wrap;
   }
 
+  /* ── 6. Chat + settings layout adjustments (merged from former 720px block) ──
+   * NOTE: the conversation list is NOT hidden here via CSS — ChatSection.tsx
+   * renders it inside a PanelDrawer on the mobile tier (a CSS display:none
+   * would also hide it inside the drawer). */
   .chat-empty-prompts {
     grid-template-columns: 1fr !important;
   }
@@ -752,8 +819,8 @@ button {
   }
 
   /* Graph toolbar: tappable on tablet (UXA-27) */
-  .graph-toolbar button,
-  .graph-toolbar .syn-toolbar-button {
+  [data-testid="graph-zoom-controls"] button,
+  [data-testid="color-mode-toolbar"] button {
     min-height: 44px !important;
     min-width: 44px !important;
   }

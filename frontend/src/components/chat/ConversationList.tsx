@@ -64,7 +64,13 @@ const VIRTUAL_THRESHOLD = 50;
 // AC-R7-3-3: debounce for the filter input (ms)
 const FILTER_DEBOUNCE_MS = 200;
 
-export function ConversationList(): ReactNode {
+export function ConversationList({
+  onConversationSelected,
+}: {
+  /** Called after a conversation is selected or created — the mobile drawer
+   * uses this to close itself (ADR-0057 §3: selection closes the drawer). */
+  onConversationSelected?: () => void;
+} = {}): ReactNode {
   const { t } = useTranslation();
   const vaultId = useGraphStore(selectVaultId);
 
@@ -184,8 +190,9 @@ export function ConversationList(): ReactNode {
       setActiveId(conv.id);
       setMessages([]);
       void loadMessages(conv.id);
+      onConversationSelected?.();
     },
-    [setActiveId, setMessages, loadMessages],
+    [setActiveId, setMessages, loadMessages, onConversationSelected],
   );
 
   const handleNew = useCallback(async () => {
@@ -194,11 +201,12 @@ export function ConversationList(): ReactNode {
       addConversation(conv);
       setActiveId(conv.id);
       setMessages([]);
+      onConversationSelected?.();
     } catch (err) {
       showToast(t("chat.newConvError"), "error");
       console.error("[chat] create conversation error", err);
     }
-  }, [vaultId, addConversation, setActiveId, setMessages, t]);
+  }, [vaultId, addConversation, setActiveId, setMessages, t, onConversationSelected]);
 
   const handleDelete = useCallback(
     async (convId: string, e: MouseEvent) => {
@@ -243,6 +251,7 @@ export function ConversationList(): ReactNode {
 
   return (
     <div
+      className="chat-section__conversations"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -565,6 +574,7 @@ function ConvItem({
 
   return (
     <div
+      className="conversation-list__item"
       role="button"
       tabIndex={0}
       onClick={() => onSelect(conv)}
@@ -617,8 +627,12 @@ function ConvItem({
         <div style={{ fontSize: 11, color: "var(--syn-text-dim)", marginTop: 2 }}>{date}</div>
       </div>
 
-      {/* Actions: rename + delete (visible on hover or active) */}
-      <div style={{ display: "flex", gap: 2, flexShrink: 0, opacity: hovered || isActive ? 1 : 0 }}>
+      {/* Actions: rename + delete (visible on hover or active; always visible on
+          touch devices via .conv-item__actions CSS override — no hover exists there) */}
+      <div
+        className="conv-item__actions"
+        style={{ display: "flex", gap: 2, flexShrink: 0, opacity: hovered || isActive ? 1 : 0 }}
+      >
         {/* Rename button (R7-3) */}
         <button
           type="button"
