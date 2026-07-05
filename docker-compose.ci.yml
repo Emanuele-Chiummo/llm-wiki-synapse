@@ -1,0 +1,59 @@
+# docker-compose.ci.yml — minimal stack for E2E tests in CI
+#
+# This compose file spins up ONLY the infrastructure services needed for E2E tests:
+#   - postgres:16 (database for backend)
+#   - qdrant (vector search)
+#   - fake-embeddings (HTTP stub returning fixed-dim vectors)
+#
+# The backend and frontend are started separately by the CI job (not via compose).
+#
+# Usage:
+#   docker compose -f docker-compose.ci.yml up -d
+#   # Then start backend + frontend in separate processes
+#   docker compose -f docker-compose.ci.yml down
+#
+# Do NOT add backend/frontend services here; the CI job starts them directly
+# so it can control logging, environment, and lifecycle separately.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: synapse
+      POSTGRES_PASSWORD: synapse
+      POSTGRES_DB: synapse
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  fake-embeddings:
+    image: python:3.11-slim
+    ports:
+      - "11435:11435"
+    working_dir: /app
+    volumes:
+      - ./scripts:/app:ro
+    # Run the fake embeddings server on port 11435
+    command: python fake_embeddings.py --host 0.0.0.0 --port 11435 --dim 1024
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11435/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
