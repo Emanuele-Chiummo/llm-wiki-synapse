@@ -10,7 +10,11 @@
 # Image: ghcr.io/<owner>/llm-wiki-synapse-frontend
 
 # ---- build stage ----------------------------------------------------------
-FROM node:20-alpine AS build
+# --platform=$BUILDPLATFORM: the Vite bundle is architecture-independent, so
+# the node build always runs NATIVELY on the build host. Without this, a
+# multi-arch buildx build runs node under QEMU for the arm64 leg — hours of
+# emulated npm/esbuild instead of minutes (observed: >4.5h vs ~3min).
+FROM --platform=$BUILDPLATFORM node:20-alpine AS build
 WORKDIR /app
 
 # Install deps from the lockfile (reproducible)
