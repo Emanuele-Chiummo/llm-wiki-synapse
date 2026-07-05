@@ -529,6 +529,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#36-network-posture-and-hardening-r13-9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.6 Network posture and hardening (R13-9)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2116,6 +2127,17 @@
     <span class="md-ellipsis">
       
         3.5 Open the frontend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#36-network-posture-and-hardening-r13-9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.6 Network posture and hardening (R13-9)
       
     </span>
   </a>
@@ -3774,6 +3796,42 @@ chmod<span class="w"> </span><span class="m">755</span><span class="w"> </span>/
 <td>No</td>
 <td>Shared Bearer token for the REST API (ADR-0052). <strong>Empty or absent = authentication DISABLED</strong> (default; backward-compatible with all v0.9 and earlier deployments). When set to a non-empty string, every route except the exempt set (<code>GET /status</code>, <code>GET /health/detailed</code>, <code>GET /docs</code>, <code>GET /openapi.json</code>, <code>OPTIONS</code>, <code>/mcp/server/*</code>, <code>POST /clip</code>) requires <code>Authorization: Bearer &lt;token&gt;</code>. Compared constant-time; never stored, never hashed, never logged. Recommend at least 32 characters. Generate with <code>openssl rand -base64 32</code>. The MCP surface (<code>/mcp/server</code>) and the web-clipper ingress (<code>POST /clip</code>) keep their own independent tokens — <code>SYNAPSE_AUTH_TOKEN</code> does NOT gate them.</td>
 </tr>
+<tr>
+<td><code>POSTGRES_USER</code></td>
+<td><code>synapse</code></td>
+<td>No</td>
+<td>PostgreSQL database user. Drives the postgres container's <code>POSTGRES_USER</code> environment variable and, when <code>DATABASE_URL</code> is left at its default, must match the credential encoded in <code>DATABASE_URL</code>. Override via <code>.env</code>; never commit the actual value for production deployments. Default <code>synapse</code> (matches the compose default). (R13-9)</td>
+</tr>
+<tr>
+<td><code>POSTGRES_PASSWORD</code></td>
+<td><code>synapse</code></td>
+<td>No</td>
+<td>PostgreSQL user password. Same scoping as <code>POSTGRES_USER</code>. Override in <code>.env</code> with a strong random value for production: <code>openssl rand -base64 24</code>. If you change this, also update <code>DATABASE_URL</code> (or its components). Default <code>synapse</code> (acceptable only for local/dev; not for internet-facing deployments). (R13-9)</td>
+</tr>
+<tr>
+<td><code>POSTGRES_DB</code></td>
+<td><code>synapse</code></td>
+<td>No</td>
+<td>PostgreSQL database name. Drives the postgres container's <code>POSTGRES_DB</code> environment variable. Default <code>synapse</code>. (R13-9)</td>
+</tr>
+<tr>
+<td><code>RATE_LIMIT_ENABLED</code></td>
+<td><code>true</code></td>
+<td>No</td>
+<td>Enable the in-process per-IP fixed-window rate limiter on inference-cost endpoints (<code>POST /chat/stream</code>, <code>/ingest/trigger</code>, <code>/ingest/upload</code>, <code>/ingest/from-text</code>, <code>/research/start</code>). Set <code>false</code> in CI or dev to remove the 429 gate. Default <code>true</code>. (R13-9, B4)</td>
+</tr>
+<tr>
+<td><code>RATE_LIMIT_REQUESTS</code></td>
+<td><code>20</code></td>
+<td>No</td>
+<td>Maximum requests per IP per window for the endpoints listed above. Requests beyond this limit receive HTTP 429 with a <code>Retry-After</code> header. Default 20. (R13-9, B4)</td>
+</tr>
+<tr>
+<td><code>RATE_LIMIT_WINDOW_SECONDS</code></td>
+<td><code>60</code></td>
+<td>No</td>
+<td>Window length in seconds for the per-IP rate limiter. The counter resets to zero at the start of each new window. Default 60 s. (R13-9, B4)</td>
+</tr>
 </tbody>
 </table>
 <h3 id="22-example-env-for-truenas-docker-deployment">2.2 Example .env for TrueNAS Docker deployment<a class="headerlink" href="#22-example-env-for-truenas-docker-deployment" title="Permanent link">&para;</a></h3>
@@ -3912,6 +3970,52 @@ npm<span class="w"> </span>run<span class="w"> </span>dev
 </code></pre></div>
 <p>Navigate to <code>http://localhost:5173</code>. The three-panel shell should load with the
 navigation rail on the left and the knowledge graph in the center.</p>
+<h3 id="36-network-posture-and-hardening-r13-9">3.6 Network posture and hardening (R13-9)<a class="headerlink" href="#36-network-posture-and-hardening-r13-9" title="Permanent link">&para;</a></h3>
+<p>Synapse is designed for <strong>LAN / Tailscale / Cloudflare-Tunnel</strong> deployments. It is
+<strong>not designed for raw public internet exposure</strong>. Key assumptions:</p>
+<ul>
+<li>The TrueNAS host is on a trusted home LAN (or accessible only via Tailscale mesh).</li>
+<li>External access is proxied through Cloudflare Tunnel (which enforces TLS and,
+  optionally, Cloudflare Access authentication) — never via a raw-WAN open port.</li>
+</ul>
+<p><strong>Postgres network isolation.</strong> In <code>docker-compose.yml</code> (production), the Postgres port
+<strong>5432 is not published to the host interface</strong>. Postgres is reachable only by the
+<code>synapse-backend</code> container on the compose-internal Docker bridge network. To connect
+interactively from the host for debugging, use <code>docker compose exec postgres psql -U synapse</code>
+or temporarily uncomment the loopback-only port line in <code>docker-compose.yml</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># ports:</span>
+<span class="c1">#   - &quot;127.0.0.1:5432:5432&quot;</span>
+</code></pre></div>
+<p>In <code>docker-compose.dev.yml</code> (local development), Postgres and Qdrant are published on
+<code>127.0.0.1</code> only — accessible from the developer's machine but not the LAN.</p>
+<p><strong>Postgres credentials.</strong> Default credentials (<code>synapse</code>/<code>synapse</code>) are acceptable for
+local development only. For any internet-adjacent or shared deployment, override in <code>.env</code>:</p>
+<div class="highlight"><pre><span></span><code>POSTGRES_USER=synapse
+POSTGRES_PASSWORD=&lt;strong random password — openssl rand -base64 24&gt;
+POSTGRES_DB=synapse
+# Update DATABASE_URL to match:
+DATABASE_URL=postgresql+asyncpg://synapse:&lt;password&gt;@postgres:5432/synapse
+</code></pre></div>
+<p>The compose file uses <code>${POSTGRES_USER:-synapse}</code> / <code>${POSTGRES_PASSWORD:-synapse}</code> so
+<code>docker compose up</code> works out of the box without an <code>.env</code> file, while a production
+<code>.env</code> overrides the defaults silently.</p>
+<p><strong>Inference-cost rate limiting.</strong> Endpoints that trigger AI inference
+(<code>POST /chat/stream</code>, <code>/ingest/trigger</code>, <code>/ingest/upload</code>, <code>/ingest/from-text</code>,
+<code>/research/start</code>) carry an in-process fixed-window rate limiter (per client IP,
+configurable, no external dependency). Excess requests receive HTTP 429 with a
+<code>Retry-After</code> header. Streaming request <strong>starts</strong> are counted, not individual tokens (I3).
+Configurable via <code>RATE_LIMIT_ENABLED</code> / <code>RATE_LIMIT_REQUESTS</code> / <code>RATE_LIMIT_WINDOW_SECONDS</code>
+(see §2.1 for defaults and descriptions).</p>
+<p><strong>SSRF guard for Deep Research.</strong> When Deep Research fetches the URLs returned by
+SearXNG, every outbound HTTP request passes through the SSRF guard (<code>app/security_net.py</code>).
+Blocked ranges: RFC 1918 (10/8, 172.16/12, 192.168/16); loopback (127/8, ::1);
+link-local / cloud metadata (169.254/16, incl. 169.254.169.254); IPv6 ULA (fc00::/7),
+link-local (fe80::/10), and multicast (ff00::/8). Redirects are capped at 3 hops,
+re-validating the target on each hop. The SearXNG search endpoint itself (<code>SEARXNG_URL</code>)
+is trusted operator config and is NOT subject to the SSRF guard.</p>
+<p><strong>Auth route method-awareness.</strong> The bearer-token auth middleware (<code>SYNAPSE_AUTH_TOKEN</code>)
+exempts routes by <strong>(path, method) pair</strong>, not path alone. A future mutating route on an
+otherwise-probe path (e.g. <code>POST /status</code>) will NOT be silently open. (R13-9 / B11)</p>
 <hr />
 <h2 id="4-configuring-an-inference-provider">4. Configuring an inference provider<a class="headerlink" href="#4-configuring-an-inference-provider" title="Permanent link">&para;</a></h2>
 <p>Synapse requires at least one <code>provider_config</code> row for each operation you want to
