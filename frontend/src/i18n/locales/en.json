@@ -564,7 +564,8 @@
     "renameConversation": "Rename conversation",
     "renameCommit": "Save rename",
     "renameCancel": "Cancel rename",
-    "renameError": "Failed to rename conversation"
+    "renameError": "Failed to rename conversation",
+    "citationNotFound": "Cited page not found in the wiki"
   },
   "research": {
     "title": "Deep Search",

@@ -564,7 +564,8 @@
     "renameConversation": "Rinomina conversazione",
     "renameCommit": "Salva nome",
     "renameCancel": "Annulla rinomina",
-    "renameError": "Impossibile rinominare la conversazione"
+    "renameError": "Impossibile rinominare la conversazione",
+    "citationNotFound": "Pagina citata non trovata nella wiki"
   },
   "research": {
     "title": "Ricerca Profonda",

@@ -834,6 +834,51 @@
         ]
       }
     },
+    "/pages/by-slug/{slug}": {
+      "get": {
+        "summary": "Resolve a derived citation slug to a page",
+        "description": "Resolves a slug as produced by the retrieval citations (slugify(title), not stored in the DB) to the live page with that title. 404 if no live page slugifies to it. (v1.3.3, F5/F6 citation click-through)",
+        "operationId": "get_page_by_slug_pages_by_slug__slug__get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/pages/{page_id}": {
       "get": {
         "summary": "Get a single page by UUID",

@@ -68,19 +68,17 @@ export function decorateCitations(html: string, citations: CitationRef[]): strin
   if (!citations || citations.length === 0) return html;
 
   // Build a stable cache key: citation n+title+slug joined (cheap, deterministic)
-  const citationKey = citations
-    .map((c) => `${c.n}:${c.id}`)
-    .join("|");
+  const citationKey = citations.map((c) => `${c.n}:${c.id}`).join("|");
 
   // Memoization: same html + same citation set → return cached result
   if (html === _lastHtml && citationKey === _lastCitationKey) {
     return _lastResult;
   }
 
-  // Build lookup: n (number) → {title, slug}
-  const lookup = new Map<number, { title: string; slug: string }>();
+  // Build lookup: n (number) → {title, slug, id}
+  const lookup = new Map<number, { title: string; slug: string; id: string }>();
   for (const c of citations) {
-    lookup.set(c.n, { title: c.title, slug: c.slug });
+    lookup.set(c.n, { title: c.title, slug: c.slug, id: c.id });
   }
 
   // Build a regex that matches exactly [n] where n is a known citation number.
@@ -97,7 +95,11 @@ export function decorateCitations(html: string, citations: CitationRef[]): strin
     if (!ref) return _match; // shouldn't happen but guard anyway
     const titleAttr = escapeAttr(ref.title);
     const slugAttr = escapeAttr(ref.slug);
-    return `<sup role="link" tabindex="0" class="synapse-citation" title="${titleAttr}" data-slug="${slugAttr}">[${n}]</sup>`;
+    // v1.3.3: also carry the page UUID — the click handler navigates by id
+    // directly (the slug is derived, not a selection key) and only falls back
+    // to the by-slug resolution endpoint when the id is missing.
+    const idAttr = escapeAttr(ref.id);
+    return `<sup role="link" tabindex="0" class="synapse-citation" title="${titleAttr}" data-slug="${slugAttr}" data-page-id="${idAttr}">[${n}]</sup>`;
   });
 
   // Store in 1-entry cache
