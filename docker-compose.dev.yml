@@ -15,11 +15,11 @@
 #                     loop; fixes the prior front/back skew where the backend image
 #                     was stale)
 #
-# Ports exposed to the host:
+# Ports exposed to the host (loopback only — never 0.0.0.0 for data services):
 #   5173  — frontend (http://localhost:5173)
 #   8000  — backend  (http://localhost:8000)
-#   5432  — postgres (localhost:5432)
-#   6333  — qdrant   (localhost:6333)
+#   5432  — postgres (127.0.0.1:5432) — dev only; not published in prod compose
+#   6333  — qdrant   (127.0.0.1:6333) — dev only; Qdrant is external in prod
 #
 # Production docker-compose.yml is unchanged.
 
@@ -27,10 +27,21 @@ services:
   qdrant:
     image: qdrant/qdrant:latest
     ports:
-      - "6333:6333"
+      # Bound to loopback only (R13-9 / B3): host browser tools can still reach
+      # http://127.0.0.1:6333 for Qdrant dashboard, but the port is not open on
+      # the LAN/Wi-Fi interface.  In production, Qdrant runs as an external TrueNAS
+      # service and is NOT in the compose file at all.
+      - "127.0.0.1:6333:6333"
     volumes:
       - qdrant_data:/qdrant/storage
     restart: unless-stopped
+
+  postgres:
+    # Dev override: expose postgres to the host for interactive psql / GUI tools.
+    # Bound to loopback only — not reachable on LAN.
+    # In production (docker-compose.yml), the postgres port is NOT published.
+    ports:
+      - "127.0.0.1:5432:5432"
 
   synapse-backend:
     environment:

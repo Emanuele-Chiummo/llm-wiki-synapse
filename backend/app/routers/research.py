@@ -16,12 +16,13 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 
 from app.config import settings
 from app.models import DeepResearchRun, DeepResearchSource
+from app.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -190,13 +191,16 @@ class ResearchRunDetail(BaseModel):
         "Freezes bounds onto the deep_research_runs row before the background task starts "
         "(AQ-v0.5-4). Schedules run_deep_research as a background asyncio task (fire-and-poll). "
         "Returns 202 {run_id} immediately — poll GET /research/runs/{id} for progress. "
-        "503 if SEARXNG_URL is unset (I9 — no fake run, no fallback engine)."
+        "503 if SEARXNG_URL is unset (I9 — no fake run, no fallback engine). "
+        "429 if per-IP rate limit exceeded (R13-9)."
     ),
     responses={
         202: {"description": "Run accepted; poll GET /research/runs/{id} for progress"},
         422: {"description": "Validation error (empty topic, max_iter out of range, etc.)"},
+        429: {"description": "Per-IP rate limit exceeded (R13-9)"},
         503: {"description": "SEARXNG_URL is not configured (I9)"},
     },
+    dependencies=[Depends(rate_limit)],
 )
 async def research_start(body: ResearchStartRequest) -> ResearchStartResponse:
     """

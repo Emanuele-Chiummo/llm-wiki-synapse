@@ -40,15 +40,23 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: synapse
-      POSTGRES_PASSWORD: synapse
-      POSTGRES_DB: synapse
+      # Credentials are driven by .env (B3 — no hardcoded secrets in compose).
+      # Defaults match the DATABASE_URL default below so `docker compose up`
+      # works out of the box without an .env file.  Override in .env for prod.
+      POSTGRES_USER: ${POSTGRES_USER:-synapse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-synapse}
+      POSTGRES_DB: ${POSTGRES_DB:-synapse}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # ── Network posture (R13-9 / B3) ─────────────────────────────────────────
+    # Postgres is NOT published to the host interface in production.
+    # It is reachable only within the compose-internal Docker network
+    # (synapse-backend → postgres on the Docker bridge).
+    # For temporary interactive debugging (e.g. `psql` from the host), uncomment:
+    # ports:
+    #   - "127.0.0.1:5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-synapse} -d ${POSTGRES_DB:-synapse}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -74,8 +82,11 @@ services:
       # Postgres and Qdrant do NOT carry this label (data services must never be auto-updated).
       com.centurylinklabs.watchtower.enable: "true"
     environment:
-      # Database (postgres service above)
-      DATABASE_URL: postgresql+asyncpg://synapse:synapse@postgres:5432/synapse
+      # Database (postgres service above).
+      # Use ${DATABASE_URL:-...} so the full URL can be overridden from .env
+      # without needing to update individual credential variables here.
+      # Default matches the postgres service defaults above.
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://synapse:synapse@postgres:5432/synapse}
 
       # Qdrant (external TrueNAS service — I9, not containerized)
       # Reference via docker host gateway or Tailscale IP

@@ -25,7 +25,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -34,6 +34,7 @@ from app.config import settings
 from app.config_overrides import effective_float, effective_str
 from app.ingest.orchestrator import IngestResult, ingest_file
 from app.models import IngestRun
+from app.rate_limit import rate_limit
 from app.upload import resolve_under_sources, safe_source_name
 
 logger = logging.getLogger(__name__)
@@ -375,12 +376,15 @@ class IngestFromTextResponse(BaseModel):
     description=(
         "Synchronously ingests the file at file_path through the seam. "
         "Returns HTTP 202 with typed {task_id, status, page_id} (ADR-0006, AC-REST-4, AC-D4u). "
-        "status is 'completed' or 'skipped' (I1 fast-path)."
+        "status is 'completed' or 'skipped' (I1 fast-path). "
+        "429 if per-IP rate limit exceeded (R13-9)."
     ),
     responses={
         202: {"description": "Ingest accepted and completed"},
         422: {"description": "Validation error (missing file_path, bad format, or file not found)"},
+        429: {"description": "Per-IP rate limit exceeded (R13-9)"},
     },
+    dependencies=[Depends(rate_limit)],
 )
 async def trigger_ingest(body: IngestTriggerRequest) -> IngestTriggerResponse:
     """
@@ -431,7 +435,8 @@ async def trigger_ingest(body: IngestTriggerRequest) -> IngestTriggerResponse:
         "The watcher ingests ONLY the companion (.md is in _ALLOWED_EXTENSIONS); the binary "
         "is ignored by the watcher (I1). Extraction is upload-time, NEVER in the watcher. "
         "413 on oversize (MAX_UPLOAD_BYTES). 415 for truly unknown types. "
-        "422 for unsafe filename. 202 {file_path, status:'queued', overwritten}."
+        "422 for unsafe filename. 202 {file_path, status:'queued', overwritten}. "
+        "429 if per-IP rate limit exceeded (R13-9)."
     ),
     responses={
         202: {
@@ -440,7 +445,9 @@ async def trigger_ingest(body: IngestTriggerRequest) -> IngestTriggerResponse:
         413: {"description": "File exceeds MAX_UPLOAD_BYTES"},
         415: {"description": "Unsupported file type"},
         422: {"description": "Filename is empty or unsafe after sanitization"},
+        429: {"description": "Per-IP rate limit exceeded (R13-9)"},
     },
+    dependencies=[Depends(rate_limit)],
 )
 async def upload_ingest(
     file: UploadFile = File(..., description="The document to upload"),
@@ -861,12 +868,14 @@ async def marker_health() -> Response:
         "immediately. The watcher picks up the file and runs the full ingest pipeline "
         "(no new ingest logic — ADR-0003 guarantee, I1/I6). "
         "``source_hint`` is sanitised to a safe basename; falls back to ``chat-<uuid>`` when "
-        "omitted or unsafe. 422 on empty text."
+        "omitted or unsafe. 422 on empty text. 429 if per-IP rate limit exceeded (R13-9)."
     ),
     responses={
         202: {"description": "Text saved; watcher will ingest asynchronously"},
         422: {"description": "Validation error (text empty or too long)"},
+        429: {"description": "Per-IP rate limit exceeded (R13-9)"},
     },
+    dependencies=[Depends(rate_limit)],
 )
 async def ingest_from_text(body: IngestFromTextRequest) -> IngestFromTextResponse:
     """
