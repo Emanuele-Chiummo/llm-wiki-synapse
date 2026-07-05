@@ -52,8 +52,12 @@
       "running": "Running",
       "completed": "Completed",
       "failed": "Failed",
-      "convergedFalse": "Did not converge"
+      "convergedFalse": "Did not converge",
+      "cancelling": "Cancelling",
+      "cancelled": "Cancelled"
     },
+    "cancelRun": "Cancel run",
+    "toastCancelError": "Cancel failed: {{detail}}",
     "pagesCreated": "pages created",
     "cost": "Cost",
     "startedAt": "Started",

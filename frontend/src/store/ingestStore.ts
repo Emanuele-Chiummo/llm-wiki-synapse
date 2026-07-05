@@ -20,8 +20,8 @@
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { IngestRunItem } from "../api/types";
-import { fetchIngestRuns } from "../api/ingestClient";
+import type { IngestRunItem, IngestStatus } from "../api/types";
+import { fetchIngestRuns, cancelIngestRun } from "../api/ingestClient";
 import { isTauri } from "../api/base";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -50,6 +50,12 @@ interface IngestActions {
   setSelectedRunId: (id: string | null) => void;
   /** Start polling while any run is "running". Caller holds and aborts the controller. */
   startPolling: (vaultId?: string) => () => void;
+  /**
+   * Cancel an active ingest run (R13-3).
+   * Optimistically updates the run status to "cancelling" or "cancelled".
+   * Throws ApiError on 404 (unknown) or 409 (already terminal) — caller should toast.
+   */
+  cancelRun: (runId: string, signal?: AbortSignal) => Promise<void>;
 }
 
 export type IngestStore = IngestState & IngestActions;
@@ -92,10 +98,7 @@ async function sendIngestNotification(completed: IngestRunItem[]): Promise<void>
     if (failed.length > 0) {
       // Use pages_created + id as context — IngestRunItem has no file_path field
       const count = failed.length;
-      const label =
-        count === 1
-          ? `run ${failed[0]?.id.slice(0, 8) ?? "?"}`
-          : `${count} run`;
+      const label = count === 1 ? `run ${failed[0]?.id.slice(0, 8) ?? "?"}` : `${count} run`;
       sendNotification({
         title: "Synapse",
         body: i18n.t("desktop.notify.ingestFailed", { label }),
@@ -131,7 +134,10 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
   fetchFresh: async (vaultId, signal) => {
     set({ loading: true, error: null });
     try {
-      const opts = vaultId !== undefined ? { limit: PAGE_LIMIT, offset: 0, vaultId } : { limit: PAGE_LIMIT, offset: 0 };
+      const opts =
+        vaultId !== undefined
+          ? { limit: PAGE_LIMIT, offset: 0, vaultId }
+          : { limit: PAGE_LIMIT, offset: 0 };
       const res = await fetchIngestRuns(opts, signal);
       const running = countRunning(res.items);
       set({
@@ -153,7 +159,10 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
     const nextOffset = offset + PAGE_LIMIT;
     set({ loading: true });
     try {
-      const opts = vaultId !== undefined ? { limit: PAGE_LIMIT, offset: nextOffset, vaultId } : { limit: PAGE_LIMIT, offset: nextOffset };
+      const opts =
+        vaultId !== undefined
+          ? { limit: PAGE_LIMIT, offset: nextOffset, vaultId }
+          : { limit: PAGE_LIMIT, offset: nextOffset };
       const res = await fetchIngestRuns(opts);
       const newRuns = [...runs, ...res.items];
       set({
@@ -171,6 +180,38 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
 
   setSelectedRunId: (selectedRunId) => set({ selectedRunId }),
 
+  cancelRun: async (runId, signal) => {
+    // Optimistic: immediately show the run as "cancelling" so the UI responds instantly.
+    set((s) => {
+      const runs = s.runs.map((r) =>
+        r.id === runId ? { ...r, status: "cancelling" as IngestStatus } : r,
+      );
+      return { runs, runningCount: countRunning(runs) };
+    });
+    try {
+      const result = await cancelIngestRun(runId, signal);
+      // Confirm with the server-authoritative status ("cancelling" or "cancelled").
+      set((s) => {
+        const runs = s.runs.map((r) =>
+          r.id === runId ? { ...r, status: result.status as IngestStatus } : r,
+        );
+        return { runs, runningCount: countRunning(runs) };
+      });
+    } catch (err) {
+      // Revert the optimistic status on error — poll will reconcile next tick.
+      set((s) => {
+        const runs = s.runs.map((r) =>
+          r.id === runId && r.status === "cancelling"
+            ? { ...r, status: "running" as IngestStatus }
+            : r,
+        );
+        return { runs, runningCount: countRunning(runs) };
+      });
+      // Re-throw so callers (UI) can surface a toast for 404 / 409.
+      throw err;
+    }
+  },
+
   startPolling: (vaultId) => {
     const ctrl = new AbortController();
 
@@ -179,7 +220,10 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
       const { runningCount: prevRunning, runs: prevRuns } = get();
       if (prevRunning === 0) return; // bounded: stop when no running rows
       try {
-        const pollOpts = vaultId !== undefined ? { limit: PAGE_LIMIT, offset: 0, vaultId } : { limit: PAGE_LIMIT, offset: 0 };
+        const pollOpts =
+          vaultId !== undefined
+            ? { limit: PAGE_LIMIT, offset: 0, vaultId }
+            : { limit: PAGE_LIMIT, offset: 0 };
         const res = await fetchIngestRuns(pollOpts, ctrl.signal);
         if (!ctrl.signal.aborted) {
           const running = countRunning(res.items);
@@ -223,16 +267,39 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
 
-export function selectRuns(s: IngestStore): IngestRunItem[] { return s.runs; }
-export function selectIngestTotal(s: IngestStore): number { return s.total; }
-export function selectIngestLoading(s: IngestStore): boolean { return s.loading; }
-export function selectIngestError(s: IngestStore): string | null { return s.error; }
-export function selectSelectedRunId(s: IngestStore): string | null { return s.selectedRunId; }
-export function selectRunningCount(s: IngestStore): number { return s.runningCount; }
-export function selectFetchFresh(s: IngestStore): IngestActions["fetchFresh"] { return s.fetchFresh; }
-export function selectFetchMore(s: IngestStore): IngestActions["fetchMore"] { return s.fetchMore; }
-export function selectSetSelectedRunId(s: IngestStore): IngestActions["setSelectedRunId"] { return s.setSelectedRunId; }
-export function selectStartPolling(s: IngestStore): IngestActions["startPolling"] { return s.startPolling; }
+export function selectRuns(s: IngestStore): IngestRunItem[] {
+  return s.runs;
+}
+export function selectIngestTotal(s: IngestStore): number {
+  return s.total;
+}
+export function selectIngestLoading(s: IngestStore): boolean {
+  return s.loading;
+}
+export function selectIngestError(s: IngestStore): string | null {
+  return s.error;
+}
+export function selectSelectedRunId(s: IngestStore): string | null {
+  return s.selectedRunId;
+}
+export function selectRunningCount(s: IngestStore): number {
+  return s.runningCount;
+}
+export function selectFetchFresh(s: IngestStore): IngestActions["fetchFresh"] {
+  return s.fetchFresh;
+}
+export function selectFetchMore(s: IngestStore): IngestActions["fetchMore"] {
+  return s.fetchMore;
+}
+export function selectSetSelectedRunId(s: IngestStore): IngestActions["setSelectedRunId"] {
+  return s.setSelectedRunId;
+}
+export function selectStartPolling(s: IngestStore): IngestActions["startPolling"] {
+  return s.startPolling;
+}
+export function selectCancelRun(s: IngestStore): IngestActions["cancelRun"] {
+  return s.cancelRun;
+}
 
 /** Hook: runs array — shallow equality (I3). */
 export function useIngestRuns(): IngestRunItem[] {

@@ -144,18 +144,24 @@ export interface StatusResponse {
 
 // ─── GET /ingest/runs (ADR-0018 §7) ──────────────────────────────────────────
 
-export type IngestStatus = "running" | "completed" | "failed" | "converged_false";
+/**
+ * Terminal status added in v1.3 (R13-3): backend exposes "cancelled" on run objects
+ * returned by GET /ingest/runs after a DELETE /ingest/{id} completes.
+ * "cancelling" is a client-only optimistic state shown during the transition.
+ */
+export type IngestStatus =
+  "running" | "completed" | "failed" | "converged_false" | "cancelling" | "cancelled";
 
 export interface IngestRunItem {
   id: string;
   vault_id: string;
   status: IngestStatus;
-  provider_type: string;        // "local" | "api" | "cli" — no hardcoded values (I6)
+  provider_type: string; // "local" | "api" | "cli" — no hardcoded values (I6)
   pages_created: number;
   iterations_used: number;
   total_cost_usd: number;
-  started_at: string;           // ISO-8601
-  completed_at: string | null;  // ISO-8601 or null
+  started_at: string; // ISO-8601
+  completed_at: string | null; // ISO-8601 or null
   error_message: string | null;
 }
 
@@ -173,7 +179,7 @@ export interface ProviderConfigItem {
   scope: "global" | "vault";
   operation: string | null;
   vault_id: string | null;
-  provider_type: string;         // "local" | "api" | "cli" — no hardcoded values (I6)
+  provider_type: string; // "local" | "api" | "cli" — no hardcoded values (I6)
   model_id: string | null;
   base_url: string | null;
   max_iter: number | null;
@@ -203,19 +209,15 @@ export interface CreateProviderConfigBody {
 // ─── POST /ingest/upload (ADR-0020 §2) ───────────────────────────────────────
 
 export interface UploadResponse {
-  file_path: string;    // relative to vault_root, e.g. "raw/sources/notes.md"
-  status: string;       // "queued" — ingest runs async via the watcher (ADR-0020 §2)
+  file_path: string; // relative to vault_root, e.g. "raw/sources/notes.md"
+  status: string; // "queued" — ingest runs async via the watcher (ADR-0020 §2)
   overwritten: boolean; // true if same-name file was replaced
 }
 
 // ─── POST /research/start + GET /research/runs (F10, ADR-0024 §8) ────────────
 
 export type ResearchStatus =
-  | "running"
-  | "converged"
-  | "max_iter_reached"
-  | "budget_exhausted"
-  | "error";
+  "running" | "converged" | "max_iter_reached" | "budget_exhausted" | "error";
 
 /** One item in GET /research/runs (summary, no synthesis_text) */
 export interface ResearchRunSummary {
@@ -226,8 +228,8 @@ export interface ResearchRunSummary {
   iterations_used: number;
   sources_fetched: number;
   total_cost_usd: number;
-  started_at: string;           // ISO-8601
-  completed_at: string | null;  // ISO-8601 or null while running
+  started_at: string; // ISO-8601
+  completed_at: string | null; // ISO-8601 or null while running
 }
 
 export interface ResearchRunListResponse {
@@ -276,11 +278,7 @@ export interface ResearchStartResponse {
  * Old values (new_page / update_page / deep_research_candidate) are gone.
  */
 export type ReviewItemType =
-  | "missing-page"
-  | "suggestion"
-  | "contradiction"
-  | "duplicate"
-  | "confirm";
+  "missing-page" | "suggestion" | "contradiction" | "duplicate" | "confirm";
 
 /**
  * Item lifecycle (ADR-0034 §3.1 + ADR-0044 §3.1).
@@ -288,12 +286,7 @@ export type ReviewItemType =
  * "dismissed" added in ADR-0044: human hid the item without acting.
  */
 export type ReviewItemStatus =
-  | "pending"
-  | "created"
-  | "skipped"
-  | "dismissed"
-  | "deep_researched"
-  | "auto_resolved";
+  "pending" | "created" | "skipped" | "dismissed" | "deep_researched" | "auto_resolved";
 
 /**
  * Convenience projection of a referenced page in a ReviewItem card.
@@ -393,7 +386,7 @@ export interface ReviewItem {
    */
   search_queries: string[] | null;
 
-  created_at: string;   // ISO-8601
+  created_at: string; // ISO-8601
   reviewed_at: string | null;
 }
 
@@ -550,18 +543,13 @@ export interface PageContentPutResponse {
 export type ImportFrequency = "15m" | "1h" | "6h" | "daily";
 
 export type ImportLastStatus =
-  | "ok"
-  | "error"
-  | "running"
-  | "skipped_disabled"
-  | "dir_missing"
-  | null;
+  "ok" | "error" | "running" | "skipped_disabled" | "dir_missing" | null;
 
 export interface ImportSchedule {
   enabled: boolean;
   source_dir: string | null;
   frequency: ImportFrequency;
-  last_run_at: string | null;          // ISO-8601
+  last_run_at: string | null; // ISO-8601
   last_status: ImportLastStatus;
   last_imported_count: number;
   last_error: string | null;
@@ -790,11 +778,16 @@ export interface IngestQueueSnapshot {
   batch?: QueueBatchProgress | null;
 }
 
-/** 202 response from POST /ingest/runs/{id}/cancel */
+/**
+ * Response from DELETE /ingest/{run_id} (R13-3).
+ * 202 → status:"cancelling" (running run signalled; transitions to "cancelled" on next poll)
+ * 200 → status:"cancelled"  (queued run cancelled immediately)
+ * cleaned_pages is present on 202; may be absent on 200 (queued run had no pages yet).
+ */
 export interface CancelRunResponse {
   run_id: string;
-  status: "cancelling";
-  cleaned_pages: number;
+  status: "cancelling" | "cancelled";
+  cleaned_pages?: number;
 }
 
 /** 202 response from POST /ingest/runs/{id}/retry */
@@ -820,11 +813,7 @@ export interface ResumeQueueResponse {
 
 /** Lint finding categories (ADR-0037 §6). */
 export type LintCategory =
-  | "orphan-page"
-  | "missing-xref"
-  | "contradiction"
-  | "stale-claim"
-  | "missing-page";
+  "orphan-page" | "missing-xref" | "contradiction" | "stale-claim" | "missing-page";
 
 /** Finding lifecycle. */
 export type LintFindingStatus = "open" | "applied" | "dismissed";
@@ -862,7 +851,7 @@ export interface LintFinding {
   proposed_action: string | null;
   status: LintFindingStatus;
   resolution_note: string | null;
-  created_at: string;         // ISO-8601
+  created_at: string; // ISO-8601
   reviewed_at: string | null; // ISO-8601
 }
 
@@ -886,10 +875,10 @@ export interface LintRun {
   iterations_used: number;
   findings_count: number;
   total_cost_usd: number;
-  started_at: string;          // ISO-8601
+  started_at: string; // ISO-8601
   completed_at: string | null; // ISO-8601
   error_message: string | null;
-  created_at: string;          // ISO-8601
+  created_at: string; // ISO-8601
 }
 
 /** Paginated response from GET /lint/runs. */

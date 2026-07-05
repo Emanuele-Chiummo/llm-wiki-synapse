@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
@@ -250,6 +250,17 @@ class QueueRetryResponse(BaseModel):
     source_path: str
     retry_count: int = Field(description="New retry count (1..3); I7 hard cap = 3")
     status: str = Field(default="queued", description="'queued' — re-dispatch accepted")
+
+
+class IngestCancelByIdResponse(BaseModel):
+    """
+    Response for DELETE /ingest/{run_id} (R13-3).
+
+    status: 'cancelled' (200, was queued — never started) |
+            'cancelling' (202, was running — cooperative abort requested).
+    """
+
+    status: str = Field(description="'cancelled' (queued) or 'cancelling' (running)")
 
 
 class QueuePauseResponse(BaseModel):
@@ -1184,6 +1195,118 @@ async def cancel_ingest_run(run_id: uuid.UUID) -> QueueCancelResponse:
 
     # Unknown run_id
     raise HTTPException(status_code=404, detail="run_id not found in the active queue")
+
+
+@router.delete(
+    "/ingest/{run_id}",
+    summary="Cancel a queued or running ingest run (R13-3)",
+    description=(
+        "QUEUED (not yet started, in _pending): removes the run from the queue so it "
+        "never starts. Returns 200 {'status': 'cancelled'}. "
+        "RUNNING (in-flight): signals cooperative cancellation via cancel_event. "
+        "Returns 202 {'status': 'cancelling'} — cleanup completes asynchronously. "
+        "Already terminal (completed/failed/cancelled): 409. "
+        "Unknown run_id: 404. (R13-3)"
+    ),
+    responses={
+        200: {"description": "Run was queued and has been immediately cancelled"},
+        202: {"description": "Cancel requested — pipeline will abort at next loop boundary"},
+        404: {"description": "run_id not found"},
+        409: {"description": "Run is already in a terminal state"},
+    },
+)
+async def delete_ingest_run(run_id: uuid.UUID) -> JSONResponse:
+    """DELETE /ingest/{run_id} — cancel queued or running run (R13-3)."""
+    from app.ingest.queue_manager import ingest_queue as _iq
+
+    # ── Case 1: QUEUED (pending, not yet dispatched) ──────────────────────────
+    if _iq.is_run_pending(run_id):
+        source_path = _iq.cancel_pending(run_id)
+        if source_path is not None:
+            # Write a cancelled ingest_runs row to preserve audit trail (R13-3).
+            # Non-fatal: if the DB write fails we still return 200 (run is removed
+            # from queue; it will never start regardless).
+            try:
+                from datetime import UTC
+
+                from app.db import get_session as _get_session  # noqa: PLC0415
+                from app.models import IngestRun as _IngestRun  # noqa: PLC0415
+
+                now = datetime.now(UTC)
+                async with _get_session() as _sess:
+                    _sess.add(
+                        _IngestRun(
+                            id=run_id,
+                            vault_id=settings.vault_id,
+                            page_id=None,
+                            provider_name="unknown",
+                            provider_type="unknown",
+                            model_id="unknown",
+                            route="unknown",
+                            max_iter_used=0,
+                            total_tokens=0,
+                            total_cost_usd=0,
+                            converged=False,
+                            cost_anomaly=False,
+                            started_at=now,
+                            finished_at=now,
+                            pages_created=0,
+                            status="cancelled",
+                            error_message="Cancelled before dispatch",
+                            source_path=source_path,
+                            retry_count=0,
+                        )
+                    )
+            except Exception:  # noqa: BLE001
+                logger.debug("DELETE /ingest/%s: failed to write cancelled DB row", run_id)
+        return JSONResponse(
+            status_code=200,
+            content={"status": "cancelled"},
+        )
+
+    # ── Case 2: RUNNING (in-flight) ───────────────────────────────────────────
+    if _iq.is_run_active(run_id):
+        cancelled = _iq.cancel(run_id)
+        if not cancelled:
+            # Guard: is_run_active was True but cancel failed — race on finalize
+            raise HTTPException(status_code=409, detail="Run is not in a cancellable state")
+        return JSONResponse(
+            status_code=202,
+            content={"status": "cancelling"},
+        )
+
+    # ── Case 3: TERMINAL — check DB for known completed/failed/cancelled rows ─
+    # Use raw SQL to avoid Postgres-UUID type coercion issues in test environments.
+    _run_status: str | None = None
+    try:
+        from sqlalchemy import text as _sa_text  # noqa: PLC0415
+
+        async with _m.get_session() as _sess:
+            _res = await _sess.execute(
+                _sa_text("SELECT status FROM ingest_runs WHERE CAST(id AS TEXT) = :rid"),
+                {"rid": str(run_id)},
+            )
+            _row = _res.fetchone()
+            if _row is not None:
+                _run_status = str(_row[0])
+    except Exception:  # noqa: BLE001
+        _run_status = None
+
+    if _run_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Run is already in a terminal state: {_run_status}",
+        )
+
+    # Also check recent-failed in-memory (may not be in DB yet)
+    failed_entry = _iq.find_failed_by_run_id(run_id)
+    if failed_entry is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Run is already in a terminal state and cannot be cancelled",
+        )
+
+    raise HTTPException(status_code=404, detail="run_id not found")
 
 
 @router.post(

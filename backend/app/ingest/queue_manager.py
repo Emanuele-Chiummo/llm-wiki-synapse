@@ -67,6 +67,8 @@ class PendingEntry:
     source_path: str  # absolute path — canonical queue key (ADR-0046 path-normalization fix)
     action: str  # "ingest" | "delete"
     first_seen_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    # Pre-issued run_id so DELETE /ingest/{run_id} can target queued entries (R13-3).
+    run_id: uuid.UUID = field(default_factory=uuid.uuid4)
 
 
 @dataclass
@@ -130,6 +132,8 @@ class IngestQueueManager:
 
         # source_path → PendingEntry (parked while paused)
         self._pending: dict[str, PendingEntry] = {}
+        # run_id → source_path reverse index for pending entries (R13-3)
+        self._pending_by_run_id: dict[uuid.UUID, str] = {}
 
         # source_path → retries so far (cleared on success, I7)
         self._retry_counts: dict[str, int] = {}
@@ -269,6 +273,22 @@ class IngestQueueManager:
         self._suppress[path] = time.monotonic() + _SUPPRESS_WINDOW
         return True
 
+    def cancel_pending(self, run_id: uuid.UUID) -> str | None:
+        """
+        Remove a pending (not-yet-started) entry from the queue (R13-3).
+
+        Returns the source_path if the entry was found and removed; None otherwise.
+        This prevents the pending entry from ever being dispatched when the queue
+        is resumed. The caller (DELETE /ingest/{run_id}) is responsible for writing
+        the cancelled ingest_runs row to the DB if desired.
+        """
+        path = self._pending_by_run_id.pop(run_id, None)
+        if path is None:
+            return None
+        self._pending.pop(path, None)
+        logger.info("queue: cancel_pending run_id=%s path=%s", run_id, path)
+        return path
+
     def get_cancel_event(self, run_id: uuid.UUID) -> asyncio.Event | None:
         """Return the cancel_event for a run, or None if not found."""
         path = self._run_id_to_path.get(run_id)
@@ -390,6 +410,7 @@ class IngestQueueManager:
             self._paused = False
         pending = dict(self._pending)
         self._pending.clear()
+        self._pending_by_run_id.clear()
         count = 0
         for _path, entry in pending.items():
             if self._watcher_handler is not None:
@@ -416,8 +437,20 @@ class IngestQueueManager:
         if not self._paused:
             return True
         # Paused: park the event; last-writer-wins on duplicate paths.
-        self._pending[path] = PendingEntry(source_path=path, action=action)
-        logger.debug("queue: admit parked (paused) path=%s action=%s", path, action)
+        # If we're replacing an existing pending entry, remove its old run_id from the
+        # reverse index first so the stale run_id doesn't linger (R13-3).
+        old_entry = self._pending.get(path)
+        if old_entry is not None:
+            self._pending_by_run_id.pop(old_entry.run_id, None)
+        entry = PendingEntry(source_path=path, action=action)
+        self._pending[path] = entry
+        self._pending_by_run_id[entry.run_id] = path
+        logger.debug(
+            "queue: admit parked (paused) path=%s action=%s run_id=%s",
+            path,
+            action,
+            entry.run_id,
+        )
         return False
 
     def should_skip(self, path: str) -> bool:
@@ -491,7 +524,7 @@ class IngestQueueManager:
             filename = Path(source_path).name
             tasks.append(
                 {
-                    "run_id": None,
+                    "run_id": str(_entry.run_id),
                     "source_path": display,
                     "filename": filename,
                     "status": "pending",
@@ -563,6 +596,10 @@ class IngestQueueManager:
     def is_run_active(self, run_id: uuid.UUID) -> bool:
         """Return True if run_id is currently in _active."""
         return run_id in self._run_id_to_path
+
+    def is_run_pending(self, run_id: uuid.UUID) -> bool:
+        """Return True if run_id is in _pending (queued but not yet started). (R13-3)"""
+        return run_id in self._pending_by_run_id
 
 
 # ── Module-level singleton ─────────────────────────────────────────────────────

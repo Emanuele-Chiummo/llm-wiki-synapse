@@ -10,7 +10,7 @@
  * "Load more" at the bottom triggers fetchMore for offset paging.
  */
 
-import { useRef, useState, type CSSProperties } from "react";
+import { useRef, useState, useCallback, type CSSProperties } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
@@ -22,8 +22,10 @@ import {
   selectIngestTotal,
   selectIngestLoading,
   selectFetchMore,
+  selectCancelRun,
 } from "../../store/ingestStore";
 import { StatusBadge } from "./StatusBadge";
+import { showToast } from "../common/Toast";
 import type { IngestRunItem } from "../../api/types";
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -39,8 +41,8 @@ export function formatRelativeTime(isoString: string, lang = "en"): string {
   const abs = Math.abs(diff);
   const rtf = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
 
-  if (abs < 60)    return rtf.format(Math.round(diff), "second");
-  if (abs < 3600)  return rtf.format(Math.round(diff / 60), "minute");
+  if (abs < 60) return rtf.format(Math.round(diff), "second");
+  if (abs < 3600) return rtf.format(Math.round(diff / 60), "minute");
   if (abs < 86400) return rtf.format(Math.round(diff / 3600), "hour");
   return rtf.format(Math.round(diff / 86400), "day");
 }
@@ -62,6 +64,18 @@ export function IngestRunList({ vaultId }: IngestRunListProps) {
   const selectedRunId = useIngestStore(selectSelectedRunId);
   const setSelectedRunId = useIngestStore(selectSetSelectedRunId);
   const fetchMore = useIngestStore(selectFetchMore);
+  const cancelRun = useIngestStore(selectCancelRun);
+
+  /** Fire-and-forget cancel; shows a toast on 404/409 (R13-3). */
+  const handleCancel = useCallback(
+    (runId: string): void => {
+      cancelRun(runId).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : t("common.unknown");
+        showToast(t("ingest.toastCancelError", { detail: msg }), "error");
+      });
+    },
+    [cancelRun, t],
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -113,6 +127,7 @@ export function IngestRunList({ vaultId }: IngestRunListProps) {
               lang={i18n.language}
               style={{ position: "absolute", top: vRow.start, width: "100%" }}
               onClick={() => setSelectedRunId(run.id)}
+              onCancel={handleCancel}
               t={t}
             />
           );
@@ -154,10 +169,11 @@ interface RunCardProps {
   lang: string;
   style: CSSProperties;
   onClick: () => void;
+  onCancel: (runId: string) => void;
   t: (key: string) => string;
 }
 
-function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
+function RunCard({ run, selected, lang, style, onClick, onCancel, t }: RunCardProps) {
   const [errorExpanded, setErrorExpanded] = useState(false);
   const hasError = Boolean(run.error_message);
   const errorText = run.error_message ?? "";
@@ -186,17 +202,48 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
         outlineOffset: -1,
       }}
       onClick={onClick}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onClick();
+      }}
     >
-      {/* Row 1: status + provider + cost */}
+      {/* Row 1: status + provider + cost + cancel button (for active runs, R13-3) */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <StatusBadge status={run.status} />
         <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
-          {t(`provider.type.${run.provider_type}` as string) || run.provider_type}
+          {t(`provider.type.${run.provider_type}`) || run.provider_type}
         </span>
         <span style={{ fontSize: 12, color: "var(--syn-text-muted)", marginLeft: "auto" }}>
-          {t("ingest.cost")}: <span style={{ fontFamily: "monospace", color: "var(--syn-text)" }}>{formatCost(run.total_cost_usd)}</span>
+          {t("ingest.cost")}:{" "}
+          <span style={{ fontFamily: "monospace", color: "var(--syn-text)" }}>
+            {formatCost(run.total_cost_usd)}
+          </span>
         </span>
+        {(run.status === "running" || run.status === "cancelling") && (
+          <button
+            data-testid="ingest-run-cancel"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancel(run.id);
+            }}
+            disabled={run.status === "cancelling"}
+            aria-label={t("ingest.cancelRun")}
+            title={t("ingest.cancelRun")}
+            style={{
+              background: "none",
+              border: "1px solid var(--syn-border)",
+              borderRadius: 3,
+              padding: "2px 5px",
+              cursor: run.status === "cancelling" ? "wait" : "pointer",
+              color: "var(--syn-text-dim)",
+              fontSize: 11,
+              lineHeight: 1,
+              flexShrink: 0,
+              opacity: run.status === "cancelling" ? 0.5 : 1,
+            }}
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Row 2: pages created + relative time */}
@@ -204,7 +251,10 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
         <span style={{ fontSize: 11, color: "var(--syn-text-muted)" }}>
           {run.pages_created} {t("ingest.pagesCreated")}
         </span>
-        <span style={{ fontSize: 11, color: "var(--syn-text-dim)", marginLeft: "auto" }} title={run.started_at}>
+        <span
+          style={{ fontSize: 11, color: "var(--syn-text-dim)", marginLeft: "auto" }}
+          title={run.started_at}
+        >
           {formatRelativeTime(run.started_at, lang)}
         </span>
       </div>
@@ -215,7 +265,10 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
           {errorExpanded ? errorText : errorTruncated}
           {errorText.length > ERROR_TRUNCATE && (
             <button
-              onClick={(e) => { e.stopPropagation(); setErrorExpanded((v) => !v); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setErrorExpanded((v) => !v);
+              }}
               style={{
                 marginLeft: 4,
                 fontSize: 10,

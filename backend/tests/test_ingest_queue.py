@@ -367,7 +367,11 @@ class TestSnapshot:
         snap = mgr.snapshot()
         assert snap["pending"] == 1
         assert snap["tasks"][0]["status"] == "pending"
-        assert snap["tasks"][0]["run_id"] is None
+        # R13-3: pending entries now get a pre-issued run_id (non-null UUID string)
+        assert snap["tasks"][0]["run_id"] is not None
+        import uuid as _uuid
+
+        _uuid.UUID(snap["tasks"][0]["run_id"])  # valid UUID string
         assert snap["tasks"][0]["source_path"] == "raw/sources/x.md"
 
     def test_snapshot_counts_failed(self) -> None:

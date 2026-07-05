@@ -6,6 +6,8 @@
  *   completed      → #3fb950 (green)
  *   failed         → #f85149 (red)
  *   converged_false → #d29922 (amber)
+ *   cancelling     → #8b949e (muted gray — optimistic transient state, R13-3)
+ *   cancelled      → #6e7681 (muted gray — terminal, R13-3)
  *
  * prefers-reduced-motion: pulse animation disabled (reuse pattern from GraphViewer).
  * i18n: label from ingest.status.* keys (ADR-0018 §6 / I6).
@@ -15,17 +17,21 @@ import { useTranslation } from "react-i18next";
 import type { IngestStatus } from "../../api/types";
 
 const STATUS_COLOR: Record<IngestStatus, string> = {
-  running:          "#1f6feb",
-  completed:        "#3fb950",
-  failed:           "#f85149",
-  converged_false:  "#d29922",
+  running: "#1f6feb",
+  completed: "#3fb950",
+  failed: "#f85149",
+  converged_false: "#d29922",
+  cancelling: "#8b949e",
+  cancelled: "#6e7681",
 };
 
 const STATUS_BG: Record<IngestStatus, string> = {
-  running:          "#1f6feb22",
-  completed:        "#3fb95022",
-  failed:           "#f8514922",
-  converged_false:  "#d2992222",
+  running: "#1f6feb22",
+  completed: "#3fb95022",
+  failed: "#f8514922",
+  converged_false: "#d2992222",
+  cancelling: "#8b949e22",
+  cancelled: "#6e768122",
 };
 
 interface StatusBadgeProps {
@@ -35,14 +41,14 @@ interface StatusBadgeProps {
 export function StatusBadge({ status }: StatusBadgeProps) {
   const { t } = useTranslation();
 
-  const labelKey = `ingest.status.${status === "converged_false" ? "convergedFalse" : status}` as const;
+  const labelKey =
+    `ingest.status.${status === "converged_false" ? "convergedFalse" : status}` as string;
   const label = t(labelKey as string);
   const color = STATUS_COLOR[status] ?? "#8b949e";
   const bg = STATUS_BG[status] ?? "#8b949e22";
 
   const reducedMotion =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   return (
     <span
