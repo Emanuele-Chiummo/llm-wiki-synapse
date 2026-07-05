@@ -26,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -290,17 +291,27 @@ def _apply_first_mention(body: str, mention: str, target_title: str) -> str | No
     Wrap the FIRST occurrence of *mention* in *body* that is NOT already inside an existing
     ``[[…]]`` span as a wikilink: ``[[target_title]]`` when the surface text equals the title,
     else ``[[target_title|mention]]``. Returns the new body, or None if no eligible occurrence
-    exists (mention absent, or every occurrence is already inside a link).
+    exists (mention absent, every occurrence is already inside a link, or every occurrence is
+    a partial-word match).
+
+    B7 fix: requires word boundaries around the mention to prevent ``[[Cat|cat]]egory``-style
+    false matches.  ``\\b`` misbehaves on non-ASCII boundaries (e.g. ``café``) so we use
+    explicit ``(?<!\\w)`` / ``(?!\\w)`` lookarounds with ``re.UNICODE``.  The compiled pattern
+    is searched from *pos* (not via a substring slice) so the lookbehind correctly inspects
+    the character before the match position in the original string.
     """
     if not mention:
         return None
+    # Compile the word-boundary-aware pattern once per call (B7 fix).
+    _pat = re.compile(r"(?<!\w)" + re.escape(mention) + r"(?!\w)", re.UNICODE)
     spans = _existing_link_spans(body)
     search_from = 0
     while True:
-        idx = body.find(mention, search_from)
-        if idx == -1:
+        m = _pat.search(body, search_from)  # pos= preserves lookbehind context in original string
+        if m is None:
             return None
-        end = idx + len(mention)
+        idx = m.start()
+        end = m.end()
         # Skip occurrences that fall inside an existing [[...]] span (no double-wrap, Do-NOT #6).
         if any(s <= idx < e or s < end <= e for s, e in spans):
             search_from = idx + 1

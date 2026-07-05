@@ -34,7 +34,7 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from datetime import UTC, datetime
 
 from sqlalchemy import select, update
@@ -219,7 +219,7 @@ async def run_chat_stream(
     finish_reason = "stop"
     started = time.monotonic()
 
-    async def _consume() -> AsyncIterator[str]:
+    async def _consume() -> AsyncGenerator[str, None]:
         nonlocal approx_output_chars, finish_reason
         # The ABC declares `async def chat(...) -> AsyncIterator[str]`: a concrete provider may
         # return the async iterator directly (an async-generator fn) OR be a coroutine that
@@ -227,28 +227,36 @@ async def run_chat_stream(
         # we got a coroutine.
         maybe = provider.chat(provider_messages, system_context)
         agen = await maybe if inspect.isawaitable(maybe) else maybe
-        async for delta in agen:
-            if not delta:
-                continue
-            raw_parts.append(delta)
-            approx_output_chars += len(delta)
-            for kind, text in scanner.feed(delta):
-                yield _line({"type": kind, "delta": text})
-            # token_budget bound (I7 / Do-NOT #5): estimate output tokens; stop when exceeded.
-            if token_budget > 0:
-                est_total = accumulator.total_tokens + (approx_output_chars // _CHARS_PER_TOKEN)
-                if est_total >= token_budget:
-                    finish_reason = "length"
-                    aclose = getattr(agen, "aclose", None)
-                    if aclose is not None:
-                        await aclose()
-                    break
+        # B4 fix: always close the provider stream (open httpx connection) on all exit paths —
+        # normal, token-budget break, timeout, and error. The finally runs when _consume is
+        # closed via gen.aclose() (timeout/error) or exhausted normally (StopAsyncIteration).
+        try:
+            async for delta in agen:
+                if not delta:
+                    continue
+                raw_parts.append(delta)
+                approx_output_chars += len(delta)
+                for kind, text in scanner.feed(delta):
+                    yield _line({"type": kind, "delta": text})
+                # token_budget bound (I7 / Do-NOT #5): estimate output tokens; stop when exceeded.
+                if token_budget > 0:
+                    est_total = accumulator.total_tokens + (approx_output_chars // _CHARS_PER_TOKEN)
+                    if est_total >= token_budget:
+                        finish_reason = "length"
+                        break  # finally will aclose(agen) — no explicit close needed here
+        finally:
+            # Guard double-close: aclose() on an already-closed async-gen is a no-op,
+            # but this makes the intent explicit (token-budget break → finally → aclose).
+            _aclose_fn = getattr(agen, "aclose", None)
+            if _aclose_fn is not None:
+                await _aclose_fn()
         for kind, text in scanner.flush():
             yield _line({"type": kind, "delta": text})
 
+    # B4 fix: create gen BEFORE the try so it is accessible in the finally.
+    gen = _consume()
     try:
         # Wrap the whole consumption in a single timeout (F16 chat timeout, §2.2).
-        gen = _consume()
         while True:
             try:
                 remaining = timeout_seconds - (time.monotonic() - started)
@@ -289,6 +297,12 @@ async def run_chat_stream(
             }
         )
         return
+    finally:
+        # B4 fix: ensure the provider stream (open httpx connection) is closed on ALL exit
+        # paths — timeout, error, and normal completion. gen.aclose() sends GeneratorExit into
+        # _consume, which triggers _consume's finally → agen.aclose(). No-op after normal
+        # StopAsyncIteration (gen is already exhausted). Safe to call multiple times.
+        await gen.aclose()
 
     # ── Success: persist assistant message (RAW, incl. <think>) + token/cost (I7) ────
     raw_content = "".join(raw_parts)
