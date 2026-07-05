@@ -865,12 +865,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # 6. Start ImportScheduler asyncio task (ADR-0020 §4.5; after watcher so copies are seen)
     _import_scheduler = ImportScheduler()
+    # R13-4 / T4: load persisted last-run timestamp BEFORE start() so the first
+    # sleep is shortened by time already elapsed since the last scan.
+    await _import_scheduler.initialize()
     _import_scheduler.start()
     logger.info("ImportScheduler started")
 
     # 6c. Start OpsScheduler asyncio task (R12-7/A5; AFTER load_overrides so schedule keys
     #     are effective on the first tick — the scheduler reads them from the in-memory cache).
     _ops_scheduler = OpsScheduler()
+    # R13-4 / T4: load persisted last-run timestamps BEFORE start() so ops that ran
+    # before the container restart are not immediately re-triggered on the first tick.
+    await _ops_scheduler.initialize()
     _ops_scheduler.start()
     logger.info("OpsScheduler started")
 

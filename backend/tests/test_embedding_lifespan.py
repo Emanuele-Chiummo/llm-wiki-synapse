@@ -77,10 +77,14 @@ class TestEmbeddingStartupToggle:
         graph_cache_mock.return_value = MagicMock()
         graph_cache_mock.return_value.start_background_loop = MagicMock()
         graph_cache_mock.return_value.stop_background_loop = MagicMock()
-        scheduler_mock = MagicMock()
-        scheduler_mock.return_value = MagicMock()
-        scheduler_mock.return_value.start = MagicMock()
-        scheduler_mock.return_value.stop = MagicMock()
+        import_scheduler_mock = MagicMock()
+        import_scheduler_mock.return_value = MagicMock()
+        import_scheduler_mock.return_value.initialize = AsyncMock()  # R13-4: new async method
+        import_scheduler_mock.return_value.start = MagicMock()
+        import_scheduler_mock.return_value.stop = MagicMock()
+        # OpsScheduler is NOT mocked — use the real class so downstream tests that
+        # read _ops_scheduler state still get a real OpsScheduler instance.
+        # The real OpsScheduler.initialize() is non-fatal: DB errors → None (I7).
         dispose_mock = AsyncMock()
 
         load_flag_mock = AsyncMock()
@@ -106,7 +110,7 @@ class TestEmbeddingStartupToggle:
             patch("app.main.stop_watcher"),
             patch("app.main.dispose_engine", dispose_mock),
             patch("app.main.GraphCache", graph_cache_mock),
-            patch("app.main.ImportScheduler", scheduler_mock),
+            patch("app.main.ImportScheduler", import_scheduler_mock),
         ):
             from app.main import app, lifespan
 
@@ -116,12 +120,16 @@ class TestEmbeddingStartupToggle:
                 # The lifespan has completed startup; no request needed.
                 pass
 
-        # Reset module-level _graph_cache to None so subsequent tests that patch
-        # GraphCache.get_graph() at the class level work correctly.  The lifespan
-        # exit path calls stop_background_loop() on the mock but does NOT restore
-        # the singleton to None, leaving a non-awaitable MagicMock in place that
-        # breaks test_graph_api.py::TestGraphResponseSchema (shared-state defect).
+        # Reset module-level singletons so subsequent tests that read these singletons
+        # get either None or a freshly-constructed instance, not a stale mock or stopped task.
+        # _graph_cache reset: the lifespan exit calls stop_background_loop() on the mock but
+        # does NOT restore the singleton to None (shared-state defect).
         main_mod._graph_cache = None  # type: ignore[attr-defined]
+        # _ops_scheduler: the real OpsScheduler task was started in this lifespan — stop it
+        # and reset the singleton so test_ops_scheduler.py gets a fresh scheduler (R13-4).
+        if main_mod._ops_scheduler is not None:  # type: ignore[attr-defined]
+            main_mod._ops_scheduler.stop()  # type: ignore[attr-defined]
+            main_mod._ops_scheduler = None  # type: ignore[attr-defined]
 
         assert called == [], (
             "_validate_embedding_and_collection must NOT be called when embeddings_enabled=False "
@@ -150,10 +158,12 @@ class TestEmbeddingStartupToggle:
         graph_cache_mock.return_value = MagicMock()
         graph_cache_mock.return_value.start_background_loop = MagicMock()
         graph_cache_mock.return_value.stop_background_loop = MagicMock()
-        scheduler_mock = MagicMock()
-        scheduler_mock.return_value = MagicMock()
-        scheduler_mock.return_value.start = MagicMock()
-        scheduler_mock.return_value.stop = MagicMock()
+        import_scheduler_mock = MagicMock()
+        import_scheduler_mock.return_value = MagicMock()
+        import_scheduler_mock.return_value.initialize = AsyncMock()  # R13-4: new async method
+        import_scheduler_mock.return_value.start = MagicMock()
+        import_scheduler_mock.return_value.stop = MagicMock()
+        # OpsScheduler is NOT mocked — use the real class (initialize() is non-fatal, I7).
         dispose_mock = AsyncMock()
 
         load_flag_mock = AsyncMock()
@@ -179,15 +189,18 @@ class TestEmbeddingStartupToggle:
             patch("app.main.stop_watcher"),
             patch("app.main.dispose_engine", dispose_mock),
             patch("app.main.GraphCache", graph_cache_mock),
-            patch("app.main.ImportScheduler", scheduler_mock),
+            patch("app.main.ImportScheduler", import_scheduler_mock),
         ):
             from app.main import app, lifespan
 
             async with lifespan(app):
                 pass
 
-        # Reset module-level _graph_cache to None (see first test for full explanation).
+        # Reset module-level singletons (see first test for full explanation).
         main_mod._graph_cache = None  # type: ignore[attr-defined]
+        if main_mod._ops_scheduler is not None:  # type: ignore[attr-defined]
+            main_mod._ops_scheduler.stop()  # type: ignore[attr-defined]
+            main_mod._ops_scheduler = None  # type: ignore[attr-defined]
 
         assert called == ["validate_called"], (
             "_validate_embedding_and_collection must be called when embeddings_enabled=True "
