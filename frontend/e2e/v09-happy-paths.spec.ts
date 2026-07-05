@@ -674,9 +674,21 @@ test.describe("CMD+K palette — open; type; results; Esc closes", () => {
     }
     await expect(page.getByTestId("command-palette")).toBeVisible({ timeout: 5_000 });
 
-    // The palette input is auto-focused; press Esc inside the input.
+    // The palette input auto-focuses asynchronously after mount; an Escape
+    // fired before focus lands is swallowed. Wait for the input to actually
+    // own focus, then press Esc (with one retry — loaded CI runners can slip
+    // the first keydown past the focus transition).
+    const paletteInput = page.getByTestId("command-palette").locator("input");
+    await expect(paletteInput).toBeFocused({ timeout: 3_000 });
     await page.keyboard.press("Escape");
-    await page.waitForTimeout(300);
+    const closed = await page
+      .getByTestId("command-palette")
+      .waitFor({ state: "hidden", timeout: 2_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!closed) {
+      await page.keyboard.press("Escape");
+    }
 
     await expect(page.getByTestId("command-palette")).not.toBeVisible({ timeout: 3_000 });
     console.log("[CMD+K] palette closed with Esc");
