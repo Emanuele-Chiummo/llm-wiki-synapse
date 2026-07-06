@@ -1,20 +1,29 @@
 """
 Synapse MCP server (FastMCP, stdio transport — ADR-0010 §1).
 
-Exposes four tools to CliAgentProvider and to any external MCP client (e.g. Claude Desktop):
-    search_wiki   — search via the shared 4-phase retrieval path (degrades to lexical when
-                    embeddings are off — ADR-0030 §2.6; no duplicated lexical branch, I9)
-    write_page    — validate → slug → write → persist (I1, I5); reuses write_wiki_page
-    get_page      — return a page's full content and frontmatter by title
-    list_pages    — list live pages with optional type filter
+Exposes nine tools to CliAgentProvider and to any external MCP client (e.g. Claude Desktop):
 
-All four tools honour the shared-write-path contract (ADR-0010 §2):
-    write_page calls the same write_wiki_page() primitive the orchestrator uses.
+READ-ONLY tools (always registered on both stdio and HTTP surfaces):
+    search_wiki            — search via the shared 4-phase retrieval path (degrades to lexical
+                             when embeddings are off — ADR-0030 §2.6; no duplicated lexical
+                             branch, I9)
+    get_page               — return a page's full content and frontmatter by title
+    list_pages             — list live pages with optional type filter
+    get_graph_neighborhood — page + 1-2 hop neighbors from the links/edges tables (B5/D2)
+    list_reviews           — review queue items (id, type, title, status) (B5/D2)
+    read_source_file       — text content of a raw/sources/ file (path-safe, cap bytes) (B5/D2)
+
+WRITE tools (stdio: always registered; HTTP: gated behind write_enabled — ADR-0029 §2.3):
+    write_page             — validate → slug → write → persist (I1, I5); reuses write_wiki_page
+    resolve_review         — resolve one review item (B5/D2)
+    trigger_source_rescan  — kick POST /sources/ingest-all (B5/D2)
+
+All write tools honour the shared-write-path contract (ADR-0010 §2).
 
 Transport: stdio (ADR-0010 §1). HTTP surface optionally mounted into FastAPI at /mcp/server
 when MCP_AUTH_TOKEN is set (ADR-0029). The HTTP surface is built by build_http_mcp() which
 creates a *separate* FastMCP instance that re-registers only the desired tools from the
-shared tool-body functions below — so the stdio `mcp` always keeps all four tools.
+shared tool-body functions below — so the stdio `mcp` always keeps all nine tools.
 
 Run entry point: `python -m app.mcp.server`
 
@@ -47,6 +56,10 @@ mcp = FastMCP(
     instructions=(
         "Synapse wiki tools. Use write_page to create or update wiki pages "
         "(validation + frontmatter enforced). Use search_wiki to find relevant pages. "
+        "Use get_graph_neighborhood to explore connections between pages. "
+        "Use list_reviews / resolve_review for the HITL review queue (F9). "
+        "Use read_source_file to inspect raw source files. "
+        "Use trigger_source_rescan to re-index raw/sources/ files. "
         "Always include the source path in frontmatter.sources[] for traceability (F3)."
     ),
 )
@@ -485,6 +498,499 @@ async def list_pages(type: str | None = None) -> list[dict[str, Any]]:
     return await _list_pages_body(type)
 
 
+# ── New body functions: graph neighborhood, reviews, source files (B5/D2) ─────
+
+# Depth cap (I7 — never more than 2 hops; avoids BFS fan-out explosion)
+_MAX_GRAPH_DEPTH: int = 2
+
+# Limit cap for list_reviews (I7 — bounded list)
+_MAX_REVIEW_LIMIT: int = 100
+
+# Read cap for read_source_file (I7 — bounded bytes; 2 MB default)
+_SOURCE_FILE_MAX_BYTES: int = 2 * 1024 * 1024
+
+
+async def _get_graph_neighborhood_body(
+    title: str,
+    depth: int = 1,
+) -> dict[str, Any]:
+    """
+    Return the page matching *title* plus its 1–2 hop neighbors from the links/edges tables.
+
+    READ-ONLY. Depth is capped at 2 (I7 — avoids BFS explosion; I2 — reads PERSISTED edges,
+    never triggers FA2 recompute). Reuses the same edges/links tables that Phase 2 of the
+    retrieval pipeline reads — no new DB surface (I9).
+
+    Args:
+        title: Exact page title (case-sensitive). Error dict if not found.
+        depth: BFS hops (1 or 2). Values > 2 are clamped to 2 (I7).
+
+    Returns:
+        {"center": {id, title, type}, "nodes": [{id, title, type}],
+         "edges": [{source, target, relation}]}
+        or {"error": "..."} if the page is not found.
+    """
+    from sqlalchemy import text as _sa_text
+
+    from app.config import settings as _settings
+    from app.db import get_session as _get_session
+
+    depth = max(1, min(depth, _MAX_GRAPH_DEPTH))
+
+    # ── Resolve seed page (portable SQL — Postgres + SQLite, mirrors retrieval.py) ──
+    async with _get_session() as session:
+        result = await session.execute(
+            _sa_text(
+                "SELECT CAST(id AS TEXT) AS id, title, type FROM pages "
+                "WHERE vault_id = :vid AND title = :t AND deleted_at IS NULL LIMIT 1"
+            ).bindparams(vid=_settings.vault_id, t=title)
+        )
+        seed_row = result.first()
+
+    if seed_row is None:
+        return {"error": f"page not found: {title!r}"}
+
+    seed_id = str(seed_row._mapping["id"])
+    seed_title = seed_row._mapping["title"] or title
+    seed_type = seed_row._mapping["type"]
+
+    center = {"id": seed_id, "title": seed_title, "type": seed_type}
+
+    # ── BFS over persisted edges + resolved links (mirrors retrieval._phase2_graph_expansion) ─
+    # Reads the edges table directly — NEVER calls GraphEngine or FA2 (I2).
+    nodes_by_id: dict[str, dict[str, Any]] = {seed_id: center}
+    edge_list: list[dict[str, Any]] = []
+    frontier: set[str] = {seed_id}
+    visited: set[str] = {seed_id}
+
+    async with _get_session() as session:
+        for _ in range(depth):
+            if not frontier:
+                break
+            placeholders = ",".join(f":f{i}" for i in range(len(frontier)))
+            binds: dict[str, object] = {f"f{i}": fid for i, fid in enumerate(frontier)}
+            binds["vid"] = _settings.vault_id
+
+            in_clause = (
+                f"(CAST(source_page_id AS TEXT) IN ({placeholders}) "
+                f"OR CAST(target_page_id AS TEXT) IN ({placeholders}))"
+            )
+
+            # ── Weighted edges (4-signal, persisted by graph engine) ─────────────
+            edge_sql = (
+                f"SELECT CAST(source_page_id AS TEXT) AS src, "  # noqa: S608
+                f"CAST(target_page_id AS TEXT) AS tgt, weight FROM edges "
+                f"WHERE vault_id = :vid AND {in_clause}"
+            )
+            edge_rows = (await session.execute(_sa_text(edge_sql).bindparams(**binds))).all()
+
+            next_frontier: set[str] = set()
+            neighbor_ids: set[str] = set()
+            for er in edge_rows:
+                m = er._mapping
+                src, tgt = str(m["src"]), str(m["tgt"])
+                if src in frontier and tgt not in visited:
+                    neighbor_ids.add(tgt)
+                    next_frontier.add(tgt)
+                    edge_list.append({"source": src, "target": tgt, "relation": "linked"})
+                elif tgt in frontier and src not in visited:
+                    neighbor_ids.add(src)
+                    next_frontier.add(src)
+                    edge_list.append({"source": tgt, "target": src, "relation": "linked"})
+                elif src in frontier and tgt in frontier and src != tgt:
+                    edge_list.append({"source": src, "target": tgt, "relation": "linked"})
+
+            # ── Resolved wikilinks (direct-link expansion, weight 0.0) ──────────
+            # dangling = FALSE check: SQLite stores booleans as integers (0/1),
+            # Postgres as booleans. "dangling = 0" is portable.
+            link_sql = (
+                f"SELECT CAST(source_page_id AS TEXT) AS src, "  # noqa: S608
+                f"CAST(target_page_id AS TEXT) AS tgt FROM links "
+                f"WHERE dangling = 0 AND target_page_id IS NOT NULL AND {in_clause}"
+            )
+            link_rows = (await session.execute(_sa_text(link_sql).bindparams(**binds))).all()
+            for lr in link_rows:
+                m = lr._mapping
+                src, tgt = str(m["src"]), str(m["tgt"])
+                if src in frontier and tgt not in visited:
+                    neighbor_ids.add(tgt)
+                    next_frontier.add(tgt)
+                    edge_list.append({"source": src, "target": tgt, "relation": "wikilink"})
+                elif tgt in frontier and src not in visited:
+                    neighbor_ids.add(src)
+                    next_frontier.add(src)
+                    edge_list.append({"source": tgt, "target": src, "relation": "wikilink"})
+
+            # ── Resolve titles/types for newly discovered neighbors ───────────────
+            if neighbor_ids:
+                np_placeholders = ",".join(f":np{i}" for i in range(len(neighbor_ids)))
+                np_binds: dict[str, object] = {f"np{i}": nid for i, nid in enumerate(neighbor_ids)}
+                meta_sql = (
+                    f"SELECT CAST(id AS TEXT) AS id, title, type FROM pages "  # noqa: S608
+                    f"WHERE deleted_at IS NULL AND CAST(id AS TEXT) IN ({np_placeholders})"
+                )
+                meta_rows = (
+                    await session.execute(_sa_text(meta_sql).bindparams(**np_binds))
+                ).all()
+                for mr in meta_rows:
+                    m = mr._mapping
+                    nid = str(m["id"])
+                    nodes_by_id[nid] = {"id": nid, "title": m["title"], "type": m["type"]}
+                    visited.add(nid)
+
+            frontier = next_frontier
+
+    # De-duplicate edges by (source, target, relation)
+    seen_edges: set[tuple[str, str, str]] = set()
+    dedup_edges: list[dict[str, Any]] = []
+    for e in edge_list:
+        key = (e["source"], e["target"], e["relation"])
+        if key not in seen_edges:
+            seen_edges.add(key)
+            dedup_edges.append(e)
+
+    neighbor_nodes = [n for nid, n in nodes_by_id.items() if nid != seed_id]
+
+    return {
+        "center": center,
+        "nodes": neighbor_nodes,
+        "edges": dedup_edges,
+    }
+
+
+async def _list_reviews_body(
+    status: str = "open",
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """
+    Return review queue items (id, type, title, status) for the default vault (B5/D2).
+
+    READ-ONLY. Reuses ops.review.list_queue — the same seam the REST endpoint uses (I9).
+    Cap limit ≤ 100 (I7).
+
+    Args:
+        status: "open" (alias for pending) | "pending" | "all" | other values accepted
+                by ops.review.list_queue. Defaults to "open" (pending items).
+        limit: Max items to return (default 20, cap 100 — I7).
+
+    Returns:
+        list of {id, type, proposed_title, status}.
+    """
+    from app.config import settings as _settings
+    from app.ops.review import list_queue as _list_queue
+
+    if limit < 1:
+        limit = 1
+    if limit > _MAX_REVIEW_LIMIT:
+        limit = _MAX_REVIEW_LIMIT
+
+    # "open" is a user-friendly alias for "pending"
+    normalized_status = "pending" if status in ("open", "") else status
+
+    queue_page = await _list_queue(
+        _settings.vault_id, limit=limit, offset=0, status=normalized_status
+    )
+    return [
+        {
+            "id": str(item.id),
+            "type": item.item_type,
+            "proposed_title": item.proposed_title,
+            "status": item.status,
+        }
+        for item in queue_page.items
+    ]
+
+
+async def _read_source_file_body(path: str) -> dict[str, Any]:
+    """
+    Return text content of a raw/sources/ file (B5/D2).
+
+    READ-ONLY. Uses the same path-safety resolver as the REST /sources/content endpoint (I9).
+    Caps content at _SOURCE_FILE_MAX_BYTES (2 MB) and returns only text-like files.
+    Rejects path traversal (422 from resolve_under_sources → surfaced as error dict).
+
+    Args:
+        path: Relative path from raw/sources/ (e.g. "subdir/file.md"). No leading slashes.
+
+    Returns:
+        {"path": rel, "name": filename, "size_bytes": N, "content": "..."} on success.
+        {"error": "..."} on not-found, traversal attempt, or binary file.
+    """
+    from fastapi import HTTPException as _HTTPException
+
+    from app.upload import resolve_under_sources as _resolve
+
+    # ── Path safety (same as GET /sources/content — ADR-0020 §2.2) ────────────
+    try:
+        abs_path = _resolve(path)
+    except _HTTPException as exc:
+        return {"error": f"unsafe or invalid path: {exc.detail}"}
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"path resolution failed: {exc}"}
+
+    if not abs_path.exists() or not abs_path.is_file():
+        return {"error": f"source file not found: {path!r}"}
+
+    # ── Binary guard — only serve text-like files ──────────────────────────────
+    import mimetypes as _mimetypes
+
+    ext = abs_path.suffix.lower()
+    _TEXT_EXTS = frozenset(
+        {".txt", ".md", ".markdown", ".rst", ".tex", ".log",
+         ".py", ".js", ".ts", ".jsx", ".tsx", ".json", ".yaml", ".yml",
+         ".toml", ".ini", ".cfg", ".sh", ".bash", ".zsh", ".html", ".htm",
+         ".css", ".xml", ".csv", ".tsv"}
+    )
+    if ext not in _TEXT_EXTS:
+        guessed, _ = _mimetypes.guess_type(str(abs_path))
+        if not (guessed and guessed.startswith("text/")):
+            return {"error": f"file {path!r} is not a text-like source (binary/media not served)"}
+
+    # ── Read with byte cap (I7 — bounded read) ────────────────────────────────
+    try:
+        raw = abs_path.read_bytes()
+    except OSError as exc:
+        return {"error": f"could not read file: {exc}"}
+
+    truncated = len(raw) > _SOURCE_FILE_MAX_BYTES
+    if truncated:
+        raw = raw[:_SOURCE_FILE_MAX_BYTES]
+
+    try:
+        content = raw.decode("utf-8", errors="replace")
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"could not decode file as UTF-8: {exc}"}
+
+    return {
+        "path": path,
+        "name": abs_path.name,
+        "size_bytes": abs_path.stat().st_size,
+        "truncated": truncated,
+        "content": content,
+    }
+
+
+async def _resolve_review_body(
+    review_id: str,
+    action: str,
+) -> dict[str, Any]:
+    """
+    Resolve one review item (WRITE — B5/D2).
+
+    Delegates to ops.review.skip or ops.review.dismiss — the EXACT same functions the
+    REST /review/queue/{id}/skip and /dismiss endpoints use (I9, no second writer).
+
+    Action must be one of the exact tokens accepted by ops/review.py:
+      "skip"    → status=skipped, resolution=skipped  (considered and declined)
+      "dismiss" → status=dismissed, resolution=dismissed  (hide without acting)
+
+    Note: "create" (lazy page generation) requires the AI orchestration loop and is NOT
+    supported via MCP (use REST POST /review/queue/{id}/create instead).
+    Note: "deep-research" requires SearXNG and fires a background run — use REST.
+
+    Returns a structured dict (not exception) so the agent can retry on error.
+
+    Args:
+        review_id: UUID string of the review item.
+        action: "skip" | "dismiss" — exact resolution token from ops/review.py.
+
+    Returns:
+        {"id": review_id, "status": new_status, "action": action, "proposed_title": ...}
+        {"error": "..."} on unknown action, invalid UUID, item not found, or failure.
+    """
+    import uuid as _uuid
+
+    from app.ops.review import dismiss as _dismiss
+    from app.ops.review import skip as _skip
+
+    # Accept ONLY the exact status-write actions from ops/review.py (I9 — no invented tokens)
+    _ALLOWED_ACTIONS = frozenset({"skip", "dismiss"})
+    if action not in _ALLOWED_ACTIONS:
+        return {
+            "error": (
+                f"unknown action {action!r}; resolve_review accepts: "
+                f"{sorted(_ALLOWED_ACTIONS)}. "
+                "For 'create' use REST POST /review/queue/{id}/create; "
+                "for 'deep-research' use REST POST /review/queue/{id}/deep-research."
+            )
+        }
+
+    # Parse review_id — must be a valid UUID
+    try:
+        item_uuid = _uuid.UUID(review_id)
+    except (ValueError, AttributeError):
+        return {"error": f"invalid review_id {review_id!r} — must be a UUID string"}
+
+    try:
+        if action == "skip":
+            item = await _skip(item_uuid)
+        else:  # dismiss
+            item = await _dismiss(item_uuid)
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"resolve_review failed: {exc}"}
+
+    return {
+        "id": str(item.id),
+        "status": item.status,
+        "action": action,
+        "proposed_title": item.proposed_title,
+    }
+
+
+async def _trigger_source_rescan_body() -> dict[str, Any]:
+    """
+    Kick the incremental sources ingest-all scan (WRITE — B5/D2, I1).
+
+    Delegates to the SAME internal seam that POST /sources/ingest-all uses (I9):
+      - Calls _collect_ingest_all_candidates to find new/changed files.
+      - Fires _ingest_all_driver as a fire-and-forget asyncio.Task (single-flight).
+      - Uses the mtime-then-hash incremental gate in ingest_file — NEVER a full rescan (I1).
+
+    Returns {"started": bool, "candidate_files": N} matching IngestAllResponse.
+    Returns {"error": "..."} if already running (single-flight guard) or on any failure.
+    The caller should poll GET /sources/ingest-all/status for progress.
+
+    Returns:
+        {"started": bool, "candidate_files": N} on success.
+        {"error": "..."} if already running or on any failure.
+    """
+    import asyncio as _asyncio
+
+    try:
+        import app.sources as _sources
+        from app.config import settings as _settings
+
+        if _sources._ingest_all_running:
+            return {
+                "error": (
+                    "ingest-all is already running; "
+                    "poll GET /sources/ingest-all/status for progress"
+                )
+            }
+
+        sources_dir = _settings.raw_sources_dir
+        candidates = _sources._collect_ingest_all_candidates(
+            sources_dir, _sources.SOURCES_INGEST_ALL_MAX
+        )
+
+        if not candidates:
+            return {"started": False, "candidate_files": 0}
+
+        # Arm counters before creating the task (same as the REST endpoint)
+        _sources._ingest_all_running = True
+        _sources._ingest_all_done = 0
+        _sources._ingest_all_total = len(candidates)
+
+        # Fire-and-forget (identical to POST /sources/ingest-all)
+        _asyncio.create_task(_sources._ingest_all_driver(candidates))
+
+        return {"started": True, "candidate_files": len(candidates)}
+    except Exception as exc:  # noqa: BLE001
+        logger.error("trigger_source_rescan MCP tool: %s", exc)
+        return {"error": f"trigger_source_rescan failed: {exc}"}
+
+
+# ── New tools (stdio mcp): graph neighborhood, reviews, source, rescan (B5/D2) ─
+
+
+@mcp.tool()
+async def get_graph_neighborhood(title: str, depth: int = 1) -> dict[str, Any]:
+    """
+    Return a wiki page and its 1–2 hop neighbors from the persisted graph (B5/D2, I2).
+
+    READ-ONLY. Reads the pre-computed edges/links tables — never triggers FA2 layout
+    recompute (I2). Depth is capped at 2 (I7).
+
+    Args:
+        title: Exact page title (case-sensitive).
+        depth: BFS hops — 1 (immediate neighbors) or 2 (two-hop expansion). Capped at 2 (I7).
+
+    Returns:
+        {"center": {id, title, type}, "nodes": [{id, title, type}],
+         "edges": [{source, target, relation}]}
+        or {"error": "..."} if the page is not found.
+    """
+    return await _get_graph_neighborhood_body(title, depth)
+
+
+@mcp.tool()
+async def list_reviews(status: str = "open", limit: int = 20) -> list[dict[str, Any]]:
+    """
+    List HITL review queue items (B5/D2, F9).
+
+    READ-ONLY. Reuses the same list_queue seam as GET /review/queue (I9).
+    limit capped at 100 (I7 — bounded list).
+
+    Args:
+        status: "open"/"pending" (default) | "resolved" | "dismissed" | "all".
+        limit: Max items to return (1..100). Default 20.
+
+    Returns:
+        list of {id, type, proposed_title, status}.
+    """
+    return await _list_reviews_body(status, limit)
+
+
+@mcp.tool()
+async def read_source_file(path: str) -> dict[str, Any]:
+    """
+    Read a raw/sources/ file as text (B5/D2).
+
+    READ-ONLY. Confined to raw/sources/ via the same path-safety resolver as
+    GET /sources/content (I9). Binary/media files and path-traversal attempts are rejected.
+    Content capped at 2 MB (I7).
+
+    Args:
+        path: Relative path from raw/sources/ (e.g. "notes/file.md"). No leading slash.
+              Absolute paths, ".." traversal, and paths outside raw/sources/ are rejected.
+
+    Returns:
+        {"path": rel, "name": filename, "size_bytes": N, "truncated": bool, "content": "..."}
+        or {"error": "..."} on not-found, traversal, or binary file.
+    """
+    return await _read_source_file_body(path)
+
+
+@mcp.tool()
+async def resolve_review(review_id: str, action: str) -> dict[str, Any]:
+    """
+    Resolve one HITL review item (WRITE — B5/D2, F9).
+
+    Routes through the exact ops.review functions that the REST endpoints use (I9).
+    Only accepts the two status-write actions from ops/review.py:
+      "skip"    → status=skipped (considered and declined)
+      "dismiss" → status=dismissed (hide without acting)
+
+    For lazy page generation use REST POST /review/queue/{id}/create.
+    For deep-research use REST POST /review/queue/{id}/deep-research.
+
+    Args:
+        review_id: UUID string of the review item.
+        action: "skip" | "dismiss" — exact token from ops/review.py.
+
+    Returns:
+        {"id": review_id, "status": new_status, "action": action, "proposed_title": ...}
+        or {"error": "..."} on unknown action, invalid UUID, item not found, or failure.
+    """
+    return await _resolve_review_body(review_id, action)
+
+
+@mcp.tool()
+async def trigger_source_rescan() -> dict[str, Any]:
+    """
+    Kick the incremental raw/sources/ ingest scan (WRITE — B5/D2, I1).
+
+    Uses the mtime-then-hash incremental gate — never a full rescan (I1).
+    Fires a bounded fire-and-forget asyncio.Task; poll GET /sources/ingest-all/status
+    for progress. Single-flight: returns error if already running.
+
+    Returns:
+        {"started": bool, "candidate_files": N} on success.
+        {"error": "..."} if already running or on any failure.
+    """
+    return await _trigger_source_rescan_body()
+
+
 # ── Internal validation helper ────────────────────────────────────────────────
 
 
@@ -523,15 +1029,18 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
     """
     Build a FastMCP instance for the /mcp/server HTTP surface (ADR-0029 §2.3).
 
-    Returns a *separate* FastMCP instance that registers ONLY the read-only tools
-    (search_wiki, get_page, list_pages) by default, plus write_page iff write_enabled.
-    All tool bodies delegate to the SAME underlying ``_*_body`` functions used by the
-    stdio ``mcp`` — DRY, single write path enforced (ADR-0010 §2, I1/I5).
+    Returns a *separate* FastMCP instance that registers the read-only tools
+    (search_wiki, get_page, list_pages, get_graph_neighborhood, list_reviews,
+    read_source_file) always, plus write_page / resolve_review / trigger_source_rescan
+    iff write_enabled. All tool bodies delegate to the SAME underlying ``_*_body``
+    functions used by the stdio ``mcp`` — DRY, single write path enforced
+    (ADR-0010 §2, I1/I5, B5/D2).
 
     The stdio ``mcp`` module-level object is NEVER modified by this function.
 
     Args:
-        write_enabled: If True, write_page is also registered on the HTTP surface.
+        write_enabled: If True, write_page / resolve_review / trigger_source_rescan are
+                       also registered on the HTTP surface (ADR-0029 §2.3).
 
     Returns:
         A configured FastMCP instance ready for ``http_app()`` mounting.
@@ -542,9 +1051,14 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
             "Synapse remote wiki tools (HTTP/Streamable-HTTP, ADR-0029). "
             "Use search_wiki to find relevant pages. "
             "Use get_page / list_pages for read access. "
+            "Use get_graph_neighborhood to explore page connections. "
+            "Use list_reviews to inspect the HITL review queue (F9). "
+            "Use read_source_file to read raw source files. "
             + (
                 "Use write_page to create or update wiki pages "
                 "(validation + frontmatter enforced). "
+                "Use resolve_review to skip/dismiss a review item. "
+                "Use trigger_source_rescan to re-index raw/sources/. "
                 if write_enabled
                 else ""
             )
@@ -607,7 +1121,55 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
         """
         return await _list_pages_body(type)
 
-    # ── write_page — only when explicitly opted-in (ADR-0029 §2.3) ───────────
+    # ── New read-only tools (always present on the HTTP surface — B5/D2) ────────
+
+    @http_mcp.tool()
+    async def get_graph_neighborhood(title: str, depth: int = 1) -> dict[str, Any]:  # noqa: F811
+        """
+        Return a wiki page and its 1–2 hop neighbors from the persisted graph (B5/D2, I2).
+
+        READ-ONLY. Reads pre-computed edges/links — never triggers FA2 recompute (I2).
+
+        Args:
+            title: Exact page title (case-sensitive).
+            depth: BFS hops (1 or 2). Capped at 2 (I7).
+
+        Returns:
+            {"center": {id, title, type}, "nodes": [...], "edges": [...]}
+            or {"error": "..."} if not found.
+        """
+        return await _get_graph_neighborhood_body(title, depth)
+
+    @http_mcp.tool()
+    async def list_reviews(status: str = "open", limit: int = 20) -> list[dict[str, Any]]:  # noqa: F811
+        """
+        List HITL review queue items (B5/D2, F9). READ-ONLY. limit capped at 100 (I7).
+
+        Args:
+            status: "open"/"pending" (default) | "resolved" | "dismissed" | "all".
+            limit: Max items (1..100).
+
+        Returns:
+            list of {id, type, proposed_title, status}.
+        """
+        return await _list_reviews_body(status, limit)
+
+    @http_mcp.tool()
+    async def read_source_file(path: str) -> dict[str, Any]:  # noqa: F811
+        """
+        Read a raw/sources/ file as text (B5/D2). READ-ONLY. Confined to raw/sources/;
+        binary files and path-traversal attempts are rejected. Cap 2 MB (I7).
+
+        Args:
+            path: Relative path from raw/sources/ (e.g. "notes/file.md").
+
+        Returns:
+            {"path", "name", "size_bytes", "truncated", "content"}
+            or {"error": "..."}.
+        """
+        return await _read_source_file_body(path)
+
+    # ── Write tools — only when explicitly opted-in (ADR-0029 §2.3) ─────────────
 
     if write_enabled:
 
@@ -645,6 +1207,35 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
                 {"error": "<message>"} on validation failure.
             """
             return await _write_page_body(title, content, frontmatter, origin_source)
+
+        @http_mcp.tool()
+        async def resolve_review(review_id: str, action: str) -> dict[str, Any]:  # noqa: F811
+            """
+            Resolve one HITL review item (WRITE — B5/D2, F9).
+
+            Action must be "skip" or "dismiss" (exact tokens from ops/review.py).
+            For lazy page generation use REST POST /review/queue/{id}/create.
+
+            Args:
+                review_id: UUID string of the review item.
+                action: "skip" | "dismiss".
+
+            Returns:
+                {"id", "status", "action", "proposed_title"} or {"error": "..."}.
+            """
+            return await _resolve_review_body(review_id, action)
+
+        @http_mcp.tool()
+        async def trigger_source_rescan() -> dict[str, Any]:  # noqa: F811
+            """
+            Kick the incremental raw/sources/ ingest scan (WRITE — B5/D2, I1).
+
+            Uses mtime-then-hash incremental gate — never a full rescan (I1). Single-flight.
+
+            Returns:
+                {"started": bool, "candidate_files": N} or {"error": "..."}.
+            """
+            return await _trigger_source_rescan_body()
 
     return http_mcp
 

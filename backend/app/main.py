@@ -39,6 +39,8 @@ Endpoints:
   POST /review/queue/{id}/skip     — set status=skipped (F9)
   POST /review/queue/{id}/deep-research — delegate to F10; 202 {review_item_id, run_id} (F9)
   POST /review/queue/sweep         — manual auto-resolution sweep trigger (F9, ADR-0034 §6)
+  POST /review/queue/bulk-resolve  — id-list bulk resolve (skip|dismiss); cap 200; B5/D2
+  PATCH /review/queue/{id}         — resolve or reopen single item; B5/D2 llm_wiki parity
   POST /lint/scan               — bounded lint scan → run + findings; 200 (K2, ADR-0037)
   GET  /lint/runs · /lint/runs/{id} — lint run history + detail (K2, ADR-0037)
   GET  /lint/findings           — paginated lint findings (K2, ADR-0037)

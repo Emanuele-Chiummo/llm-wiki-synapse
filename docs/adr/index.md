@@ -96,6 +96,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0058** | [Lint parity extension: broken-wikilink category, batch actions, review bridge, orphan delete (extends ADR-0037; B1)](ADR-0058-lint-parity-extension.md) | Accepted |
 | **0059** | [Chat composer parity: attach-image (capability-aware vision), web-search toggle (amends ADR-0050 — additive `[W]` namespace), frozen retrieval-mode presets, AnyTXT do-not-mirror (B2; I3/I6/I7/I9)](ADR-0059-chat-composer-parity.md) | Accepted |
 | **0060** | [Graph visual parity: render-only edge culling, hub labels, node density down-scale (F4, I2/I3; GL4 deferred, GL5/GL6 declined)](ADR-0060-graph-visual-parity.md) | Accepted |
+| **0061** | [MCP tool expansion (graph-neighborhood / list-reviews / read-source read tools; resolve-review / trigger-rescan write tools gated like write_page) + review bulk-resolve/PATCH REST + trigger-disciplined agent skill (extends ADR-0010/0029/0033/0044; B5/D2; I1/I5/I6/I7/I9)](ADR-0061-mcp-expansion-and-skill.md) | Accepted |
 
 ---
 

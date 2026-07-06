@@ -628,3 +628,221 @@ async def clear_resolved_review_queue(
 
     deleted = await clear_resolved_reviews(vault_id)
     return ReviewClearResolvedResponse(deleted=deleted)
+
+
+# ── B5/D2: bulk-resolve + PATCH single item ───────────────────────────────────
+# These are DISTINCT from POST /review/queue/bulk (ADR-0044 §6, UI bulk-select actions):
+#   /bulk          — existing: vault-scoped bulk skip/dismiss/mark-resolved (action-typed)
+#   /bulk-resolve  — NEW: id-list + action (llm_wiki parity: resolves each via per-item funcs)
+#   PATCH /{id}    — NEW: single-item open/close toggle (llm_wiki parity)
+
+
+class BulkResolveRequest(BaseModel):
+    """Request body for POST /review/queue/bulk-resolve (B5/D2 — llm_wiki parity)."""
+
+    ids: list[str] = Field(
+        ...,
+        description=(
+            "Review item id strings (UUID) to resolve; "
+            "capped at 200 (I7 — 422 beyond cap)."
+        ),
+    )
+    action: str = Field(
+        ...,
+        description=(
+            "Resolution action: skip | dismiss "
+            "(exact tokens from ops/review.py; 422 on unknown)."
+        ),
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "ids": ["00000000-0000-0000-0000-000000000001"],
+                "action": "skip",
+            }
+        }
+    }
+
+
+class BulkResolveResponse(BaseModel):
+    """Response for POST /review/queue/bulk-resolve (B5/D2)."""
+
+    resolved: int = Field(description="Items successfully resolved via the per-item action")
+    not_found: int = Field(description="ids that had no matching review item")
+    count: int = Field(description="Total ids supplied (= resolved + not_found + terminal_skipped)")
+
+
+# B5/D2 bulk-resolve: cap on ids (I7)
+_BULK_RESOLVE_MAX_IDS: int = 200
+
+
+@router.post(
+    "/review/queue/bulk-resolve",
+    response_model=BulkResolveResponse,
+    summary="Bulk-resolve review items by id list (B5/D2 — llm_wiki parity)",
+    description=(
+        "F9 HITL Review Queue — per-item bulk resolve (B5/D2). "
+        "Distinct from POST /review/queue/bulk (vault-scoped action-typed bulk): "
+        "this endpoint accepts a flat id list and applies the action (skip|dismiss) "
+        "to each via the EXACT per-item ops.review function (same seam as the REST /{id}/skip "
+        "and /{id}/dismiss endpoints — I9, no second writer). "
+        "len(ids) capped at 200 (I7 — 422 beyond). "
+        "action must be skip or dismiss (exact tokens from ops/review.py — 422 on unknown). "
+        "Already-terminal or not-found ids are counted and silently skipped."
+    ),
+    responses={
+        200: {"description": "Bulk resolve complete; {resolved, not_found, count}"},
+        422: {"description": "ids exceed 200 cap, or unknown action (I7)"},
+    },
+)
+async def bulk_resolve_review_queue(body: BulkResolveRequest) -> BulkResolveResponse:
+    """POST /review/queue/bulk-resolve — per-item bulk resolve (B5/D2 llm_wiki parity)."""
+    import uuid as _uuid
+
+    from app.ops.review import dismiss as _dismiss
+    from app.ops.review import skip as _skip
+
+    # I7 cap
+    if len(body.ids) > _BULK_RESOLVE_MAX_IDS:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"bulk-resolve ids ({len(body.ids)}) exceed cap ({_BULK_RESOLVE_MAX_IDS}) — "
+                "split into smaller batches (I7 — bounded bulk resolve)."
+            ),
+        )
+
+    # Validate action (exact tokens from ops/review.py)
+    _ALLOWED = frozenset({"skip", "dismiss"})
+    if body.action not in _ALLOWED:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Unknown action {body.action!r}; bulk-resolve accepts: "
+                f"{sorted(_ALLOWED)} "
+                "(for lazy page generation use POST /review/queue/{id}/create)."
+            ),
+        )
+
+    resolved = 0
+    not_found = 0
+
+    for id_str in body.ids:
+        try:
+            item_uuid = _uuid.UUID(id_str)
+        except (ValueError, AttributeError):
+            not_found += 1
+            continue
+
+        try:
+            if body.action == "skip":
+                await _skip(item_uuid)
+            else:
+                await _dismiss(item_uuid)
+            resolved += 1
+        except HTTPException as exc:
+            if exc.status_code == 404:
+                not_found += 1
+            else:
+                logger.warning("bulk-resolve: item %s action=%s → %s", id_str, body.action, exc)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("bulk-resolve: item %s action=%s failed: %s", id_str, body.action, exc)
+
+    return BulkResolveResponse(
+        resolved=resolved,
+        not_found=not_found,
+        count=len(body.ids),
+    )
+
+
+class PatchReviewRequest(BaseModel):
+    """Request body for PATCH /review/queue/{id} (B5/D2 — llm_wiki parity)."""
+
+    resolved: bool = Field(
+        default=True,
+        description=(
+            "True → resolve (action required); False → reopen to pending. "
+            "Default True."
+        ),
+    )
+    action: str = Field(
+        default="skip",
+        description=(
+            "Resolution action when resolved=True: skip | dismiss "
+            "(exact tokens from ops/review.py; 422 on unknown). "
+            "Ignored when resolved=False (reopen)."
+        ),
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {"resolved": True, "action": "skip"}
+        }
+    }
+
+
+@router.patch(
+    "/review/queue/{item_id}",
+    response_model=ReviewItemResponse,
+    summary="Resolve or reopen a single review item (B5/D2 — llm_wiki parity)",
+    description=(
+        "F9 HITL Review Queue — single-item PATCH (B5/D2 llm_wiki parity). "
+        "resolved=true (default): apply action (skip|dismiss) via the per-item ops.review seam. "
+        "resolved=false: reopen the item to pending (clears status, resolution, reviewed_at). "
+        "action must be skip|dismiss (422 on unknown); ignored when resolved=false. "
+        "Routes through the exact ops.review._set_status primitive — no second writer (I9). "
+        "404 if item_id is unknown."
+    ),
+    responses={
+        200: {"description": "Item patched; returns updated ReviewItemResponse"},
+        404: {"description": "Review item not found"},
+        422: {"description": "Unknown action"},
+    },
+)
+async def patch_review_item(item_id: uuid.UUID, body: PatchReviewRequest) -> ReviewItemResponse:
+    """PATCH /review/queue/{id} — resolve or reopen a review item (B5/D2 llm_wiki parity)."""
+    from app.ops.review import dismiss as _dismiss
+    from app.ops.review import skip as _skip
+
+    if body.resolved:
+        # Validate action (exact tokens from ops/review.py)
+        _ALLOWED = frozenset({"skip", "dismiss"})
+        if body.action not in _ALLOWED:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Unknown action {body.action!r}; PATCH accepts: {sorted(_ALLOWED)}."
+                ),
+            )
+        if body.action == "skip":
+            item = await _skip(item_id)
+        else:
+            item = await _dismiss(item_id)
+    else:
+        # Reopen: set status back to pending, explicitly clear resolution + reviewed fields.
+        # _set_status only writes resolution when non-None, so we need a direct DB write here
+        # to NULL resolution + reviewed_at (reopening is the inverse of skip/dismiss).
+        from sqlalchemy import select as _select
+
+        from app.db import get_session as _get_session
+        from app.models import ReviewItem as _ReviewItem
+
+        item_id_str = str(item_id)
+        async with _get_session() as session:
+            row = await session.execute(
+                _select(_ReviewItem).where(_ReviewItem.id == item_id_str)
+            )
+            item_orm = row.scalar_one_or_none()
+            if item_orm is None:
+                raise HTTPException(status_code=404, detail=f"Review item {item_id} not found")
+            item_orm.status = "pending"
+            item_orm.resolution = None
+            item_orm.reviewed_at = None
+            item_orm.reviewed_by = None
+            await session.flush()
+            await session.refresh(item_orm)
+            session.expunge(item_orm)
+        item = item_orm
+
+    return _review_item_to_response(item)
