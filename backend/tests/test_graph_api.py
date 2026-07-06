@@ -1060,6 +1060,172 @@ class TestCommunityLabelEngine:
         ), f"Hub (degree=3) should be top_page; got id={c0.top_page.id!r} title={c0.top_page.title!r}"
 
 
+# ── Per-node domain (F18, ADR-0054 §2.2) ─────────────────────────────────────
+
+
+class TestNodeDomain:
+    """
+    Unit tests for per-node domain computation in _compute_graph_sync (F18, ADR-0054 §2.2).
+
+    Uses _compute_graph_sync directly — no DB, no async, deterministic.
+    Covers:
+      - Node with a single in-vocab domain/SAM tag → domain == "SAM"
+      - Node with a stale/out-of-vocab domain tag → domain is None
+      - Node with no tags → domain is None
+      - Node with two in-vocab domain tags → first in vocabulary order wins (tie-break)
+    """
+
+    def _make_nodes(self, entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Build minimal nodes_data rows for _compute_graph_sync."""
+        rows = []
+        for e in entries:
+            rows.append(
+                {
+                    "id": e["id"],
+                    "title": e.get("title"),
+                    "page_type": e.get("page_type"),
+                    "sources": e.get("sources", []),
+                    "pinned": False,
+                    "stored_x": None,
+                    "stored_y": None,
+                    "tags": e.get("tags", []),
+                }
+            )
+        return rows
+
+    def test_node_with_in_vocab_domain_tag(self) -> None:
+        """Node with domain/SAM tag and SAM in vocab → domain == 'SAM'."""
+        from app.graph.engine import _compute_graph_sync
+
+        id_a = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        nodes = self._make_nodes(
+            [{"id": id_a, "title": "Alpha", "page_type": "entity", "tags": ["domain/SAM"]}]
+        )
+        _, _, snapshot = _compute_graph_sync(
+            nodes, [], "vault-test", domain_vocab=["SAM", "Procurement"]
+        )
+        node = next(n for n in snapshot.nodes if n.id == id_a)
+        assert node.domain == "SAM", f"Expected domain='SAM', got {node.domain!r}"
+
+    def test_node_with_stale_domain_tag(self) -> None:
+        """Node with domain/OldDomain tag not in vocab → domain is None (ADR-0054 §2.2)."""
+        from app.graph.engine import _compute_graph_sync
+
+        id_a = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        nodes = self._make_nodes(
+            [
+                {
+                    "id": id_a,
+                    "title": "Alpha",
+                    "page_type": "entity",
+                    "tags": ["domain/OldDomain"],
+                }
+            ]
+        )
+        _, _, snapshot = _compute_graph_sync(
+            nodes, [], "vault-test", domain_vocab=["SAM", "Procurement"]
+        )
+        node = next(n for n in snapshot.nodes if n.id == id_a)
+        assert node.domain is None, (
+            f"Stale domain tag not in vocab should yield domain=None, got {node.domain!r}"
+        )
+
+    def test_node_with_no_tags(self) -> None:
+        """Node with no tags → domain is None."""
+        from app.graph.engine import _compute_graph_sync
+
+        id_a = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        nodes = self._make_nodes(
+            [{"id": id_a, "title": "Alpha", "page_type": "entity", "tags": []}]
+        )
+        _, _, snapshot = _compute_graph_sync(
+            nodes, [], "vault-test", domain_vocab=["SAM", "Procurement"]
+        )
+        node = next(n for n in snapshot.nodes if n.id == id_a)
+        assert node.domain is None, f"Untagged node should have domain=None, got {node.domain!r}"
+
+    def test_node_with_two_in_vocab_domain_tags_first_in_vocab_order_wins(self) -> None:
+        """
+        Node with domain/Procurement and domain/SAM tags, vocab order = ['SAM', 'Procurement'].
+        SAM appears first in vocab → domain == 'SAM' (tie-break: first in vocabulary order).
+        """
+        from app.graph.engine import _compute_graph_sync
+
+        id_a = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        # Tag order: Procurement before SAM — but SAM is first in vocab, so SAM wins
+        nodes = self._make_nodes(
+            [
+                {
+                    "id": id_a,
+                    "title": "Alpha",
+                    "page_type": "entity",
+                    "tags": ["domain/Procurement", "domain/SAM"],
+                }
+            ]
+        )
+        _, _, snapshot = _compute_graph_sync(
+            nodes, [], "vault-test", domain_vocab=["SAM", "Procurement"]
+        )
+        node = next(n for n in snapshot.nodes if n.id == id_a)
+        assert node.domain == "SAM", (
+            f"When SAM is first in vocab and both tags are in-vocab, "
+            f"expected domain='SAM', got {node.domain!r}"
+        )
+
+    async def test_node_domain_in_api_response(
+        self, graph_app: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GET /graph: node with domain='SAM' in snapshot → domain field == 'SAM' in JSON."""
+        from app.graph.cache import GraphCache
+        from app.graph.engine import NodeSnapshot
+
+        snap_with_domain = GraphSnapshot(
+            nodes=[
+                NodeSnapshot(
+                    id=_NODE_ID_A,
+                    title="Alpha",
+                    page_type="entity",
+                    x=1.0,
+                    y=2.0,
+                    degree=1,
+                    size=1.5,
+                    domain="SAM",
+                ),
+                NodeSnapshot(
+                    id=_NODE_ID_B,
+                    title="Beta",
+                    page_type="concept",
+                    x=-1.0,
+                    y=-2.0,
+                    degree=1,
+                    size=1.5,
+                    domain=None,
+                ),
+            ],
+            edges=_FAKE_SNAPSHOT.edges,
+            data_version=3,
+        )
+
+        async def _return_snap(self_: Any, current_version: int) -> tuple[GraphSnapshot, bool]:
+            return snap_with_domain, False
+
+        monkeypatch.setattr(GraphCache, "get_graph", _return_snap)
+
+        resp = await graph_app.get("/graph")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        node_a = next((n for n in body["nodes"] if n["id"] == _NODE_ID_A), None)
+        assert node_a is not None
+        assert "domain" in node_a, "Node response must include 'domain' field"
+        assert node_a["domain"] == "SAM", f"Expected domain='SAM', got {node_a['domain']!r}"
+
+        node_b = next((n for n in body["nodes"] if n["id"] == _NODE_ID_B), None)
+        assert node_b is not None
+        assert "domain" in node_b, "Node response must include 'domain' field (even when null)"
+        assert node_b["domain"] is None, f"Expected domain=None, got {node_b['domain']!r}"
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 

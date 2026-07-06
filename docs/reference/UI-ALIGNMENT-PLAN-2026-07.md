@@ -128,7 +128,18 @@ on capabilities, no isinstance), I7 (web fetch + image caps bounded, cost logged
 > **Open polish (P3):** at-rest link chip shows `4213/4213` (GL1-culled edges not counted as
 > "hidden" — only filter is); Insights panel open-by-default covers ~1/3 screen (default-collapse).
 
-> **GR8 — Named communities (SHIPPED, user request "le comunità nominative come i domini"):**
+> **GR9 — "Comunità" mode groups by DOMAIN, merged (SHIPPED, user follow-ups "duplicati" +
+> "non aggiungere una nuova voce"):** the second color toggle stays labeled "Comunità" but now
+> colors + aggregates by the node's own domain (`GraphNode.domain` = first in-vocab `domain/*`
+> tag, backend). Legend = ONE row per domain (SAM/Procurement/ServiceNow/Regolamentazioni/TPRM +
+> "Senza dominio"), no duplicate Louvain rows. Default color mode = this. No third toggle added.
+> Centroid overlays label per-domain. Louvain community still computed (used by Insights only).
+> Also: **Insights panel collapsed by default** (was covering ~1/3 of the canvas). Live-verified:
+> 2 toggles, 6 clean domain rows, no raw i18n. **P3 polish:** a domain centroid label near the top
+> edge can overlap the header (clamp to canvas). Tests: 62 backend + 1861 frontend green.
+
+> **GR8 — Named communities (superseded by GR9 for the color toggle; per-community
+> `dominant_domain`/`label` still computed for Insights). Original: user request "le comunità nominative come i domini"):**
 > each Louvain community is labeled by its **dominant domain** (F18 `domain/*` tags →
 > `effective_domain_vocabulary`), fallback = top-degree page title, else "Comunità {id}".
 > Backend: `engine.py` step 4f computes label/dominant_domain/top_page in recompute (I1/I2 —

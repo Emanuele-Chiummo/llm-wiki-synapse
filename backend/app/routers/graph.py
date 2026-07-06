@@ -93,6 +93,10 @@ class GraphNodeResponse(BaseModel):
     Required: id, title, type, x, y.
     Optional rendering hints (derived server-side): size, degree.
     community: Louvain community id (G-P0-2); -1 when not yet assigned.
+    domain: the node page's own dominant in-vocabulary domain (F18, ADR-0054 §2.2).
+      Stripped of the "domain/" prefix.  None when the page has no in-vocab domain tags.
+      Tie-break: when ≥2 in-vocab domain tags exist, first in vocabulary order wins.
+      Backward-compatible additive field (default None).
     """
 
     id: str
@@ -118,6 +122,17 @@ class GraphNodeResponse(BaseModel):
             "-1 when not yet assigned (first recompute pending)."
         ),
     )
+    domain: str | None = Field(
+        default=None,
+        description=(
+            "The node page's own dominant in-vocabulary domain (F18, ADR-0054 §2.2). "
+            "Prefix 'domain/' is stripped. None when the page has no in-vocab domain tags. "
+            "Tie-break: when ≥2 in-vocab domain tags are present, the one with the "
+            "smallest index in the active vocabulary list wins (deterministic). "
+            "Computed inside the graph recompute — no extra query (I1), cached with the "
+            "snapshot (I2). Additive field — backward-compatible (default None)."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -130,6 +145,7 @@ class GraphNodeResponse(BaseModel):
                 "size": 2.1,
                 "degree": 3,
                 "community": 0,
+                "domain": "SAM",
             }
         }
     }
@@ -276,6 +292,7 @@ class GraphResponse(BaseModel):
                         "size": 2.1,
                         "degree": 3,
                         "community": 0,
+                        "domain": "SAM",
                     }
                 ],
                 "edges": [
@@ -529,6 +546,7 @@ async def get_graph() -> Response:
             size=n.size,
             degree=n.degree,
             community=n.community,
+            domain=n.domain,
         )
         for n in snapshot.nodes
     ]

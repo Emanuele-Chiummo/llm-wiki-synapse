@@ -5581,6 +5581,18 @@
             "title": "Community",
             "description": "Louvain community id (G-P0-2, I2). Re-numbered by size (0 = largest). -1 when not yet assigned (first recompute pending).",
             "default": -1
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain",
+            "description": "The node page's own dominant in-vocabulary domain (F18, ADR-0054 \u00a72.2). Prefix 'domain/' is stripped. None when the page has no in-vocab domain tags. Tie-break: when \u22652 in-vocab domain tags are present, the one with the smallest index in the active vocabulary list wins (deterministic). Computed inside the graph recompute \u2014 no extra query (I1), cached with the snapshot (I2). Additive field \u2014 backward-compatible (default None)."
           }
         },
         "type": "object",
@@ -5592,10 +5604,11 @@
           "y"
         ],
         "title": "GraphNodeResponse",
-        "description": "One graph node in the GET /graph response (ADR-0014 \u00a76, AC-F4-3, ADR-0016 \u00a74).\n\nRequired: id, title, type, x, y.\nOptional rendering hints (derived server-side): size, degree.\ncommunity: Louvain community id (G-P0-2); -1 when not yet assigned.",
+        "description": "One graph node in the GET /graph response (ADR-0014 \u00a76, AC-F4-3, ADR-0016 \u00a74).\n\nRequired: id, title, type, x, y.\nOptional rendering hints (derived server-side): size, degree.\ncommunity: Louvain community id (G-P0-2); -1 when not yet assigned.\ndomain: the node page's own dominant in-vocabulary domain (F18, ADR-0054 \u00a72.2).\n  Stripped of the \"domain/\" prefix.  None when the page has no in-vocab domain tags.\n  Tie-break: when \u22652 in-vocab domain tags exist, first in vocabulary order wins.\n  Backward-compatible additive field (default None).",
         "example": {
           "community": 0,
           "degree": 3,
+          "domain": "SAM",
           "id": "00000000-0000-0000-0000-000000000001",
           "size": 2.1,
           "title": "Alpha",
@@ -5687,6 +5700,7 @@
             {
               "community": 0,
               "degree": 3,
+              "domain": "SAM",
               "id": "00000000-0000-0000-0000-000000000001",
               "size": 2.1,
               "title": "Alpha",
