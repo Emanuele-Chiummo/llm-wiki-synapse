@@ -5,7 +5,11 @@
  *   - Fast poll: 1500ms while processing > 0 || pending > 0 || paused.
  *   - Slow poll: 5000ms when idle (queue is empty and not paused).
  *   - Single setTimeout chain — no setInterval, no runaway loop (I7).
- *   - One AbortController per active poll; aborted on stopPolling().
+ *   - SHARED singleton loop with refcount: multiple callers of startPolling()
+ *     (StrictMode double-invoke, HMR reloads, extra mount sites) share ONE
+ *     in-flight GET /ingest/queue chain instead of each spawning their own.
+ *     The chain is aborted only when the last subscriber's cleanup runs.
+ *     This kills the "burst of ~5 identical /ingest/queue per tick" regression.
  *
  * INVARIANT I3: Zustand selectors + useShallow for tasks array. No whole-store
  * subscriptions. No heavy work per render cycle.
@@ -62,6 +66,17 @@ export interface ActivityActions {
 
 export type ActivityStore = ActivityState & ActivityActions;
 
+// ─── Shared singleton poll loop (dedup guard) ───────────────────────────────────
+//
+// Module-level so that every startPolling() caller shares ONE GET /ingest/queue
+// chain. Without this, StrictMode's double-invoke, Vite HMR reloads that leave
+// orphan chains, and any extra mount site each spawn an independent poll loop —
+// producing bursts of identical requests per tick. Refcount ensures the chain
+// starts on the first subscriber and stops only when the last one leaves.
+let pollCtrl: AbortController | null = null;
+let pollTimer: ReturnType<typeof setTimeout> | null = null;
+let pollRefCount = 0;
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useActivityStore = create<ActivityStore>((set, get) => ({
@@ -83,49 +98,64 @@ export const useActivityStore = create<ActivityStore>((set, get) => ({
   },
 
   startPolling: () => {
-    const ctrl = new AbortController();
-    let timerId: ReturnType<typeof setTimeout> | null = null;
+    // Refcounted singleton: if a shared chain is already running, just attach.
+    pollRefCount += 1;
+    if (pollCtrl === null) {
+      const ctrl = new AbortController();
+      pollCtrl = ctrl;
 
-    async function tick() {
-      if (ctrl.signal.aborted) return;
-      try {
-        const snap = await getIngestQueue(ctrl.signal);
+      async function tick() {
         if (ctrl.signal.aborted) return;
-        // Clear cancellingIds that are no longer in the task list.
-        const currentIds = new Set(
-          snap.tasks.filter((t) => t.run_id !== undefined).map((t) => t.run_id as string),
-        );
-        set((s) => {
-          const nextCancelling = new Set<string>();
-          for (const id of s.cancellingIds) {
-            if (currentIds.has(id)) nextCancelling.add(id);
+        try {
+          const snap = await getIngestQueue(ctrl.signal);
+          if (ctrl.signal.aborted) return;
+          // Clear cancellingIds that are no longer in the task list.
+          const currentIds = new Set(
+            snap.tasks.filter((t) => t.run_id !== undefined).map((t) => t.run_id as string),
+          );
+          set((s) => {
+            const nextCancelling = new Set<string>();
+            for (const id of s.cancellingIds) {
+              if (currentIds.has(id)) nextCancelling.add(id);
+            }
+            return { snapshot: snap, error: null, cancellingIds: nextCancelling };
+          });
+        } catch (err: unknown) {
+          if (ctrl.signal.aborted) return;
+          if (err instanceof Error && err.name !== "AbortError") {
+            set({ error: (err as Error).message });
           }
-          return { snapshot: snap, error: null, cancellingIds: nextCancelling };
-        });
-      } catch (err: unknown) {
-        if (ctrl.signal.aborted) return;
-        if (err instanceof Error && err.name !== "AbortError") {
-          set({ error: (err as Error).message });
+          // Keep polling on transient errors (backend may restart).
         }
-        // Keep polling on transient errors (backend may restart).
+
+        if (ctrl.signal.aborted) return;
+
+        const { snapshot } = get();
+        const isActive =
+          (snapshot?.processing ?? 0) > 0 ||
+          (snapshot?.pending ?? 0) > 0 ||
+          (snapshot?.paused ?? false);
+        pollTimer = setTimeout(() => void tick(), isActive ? POLL_ACTIVE_MS : POLL_IDLE_MS);
       }
 
-      if (ctrl.signal.aborted) return;
-
-      const { snapshot } = get();
-      const isActive =
-        (snapshot?.processing ?? 0) > 0 ||
-        (snapshot?.pending ?? 0) > 0 ||
-        (snapshot?.paused ?? false);
-      timerId = setTimeout(() => void tick(), isActive ? POLL_ACTIVE_MS : POLL_IDLE_MS);
+      // Kick off immediately.
+      pollTimer = setTimeout(() => void tick(), 0);
     }
 
-    // Kick off immediately.
-    timerId = setTimeout(() => void tick(), 0);
-
+    // Cleanup: detach this subscriber; abort the shared chain only when the last
+    // one leaves. Idempotent — a double-call won't over-decrement the refcount.
+    let stopped = false;
     return () => {
-      ctrl.abort();
-      if (timerId !== null) clearTimeout(timerId);
+      if (stopped) return;
+      stopped = true;
+      pollRefCount -= 1;
+      if (pollRefCount <= 0) {
+        pollRefCount = 0;
+        if (pollCtrl !== null) pollCtrl.abort();
+        pollCtrl = null;
+        if (pollTimer !== null) clearTimeout(pollTimer);
+        pollTimer = null;
+      }
     };
   },
 
