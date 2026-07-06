@@ -24,8 +24,14 @@ export interface NodeAttributes {
   x: number;
   /** Server-precomputed FA2 y — I2: never mutated by client layout */
   y: number;
-  /** Display label */
+  /** Display label (full title) */
   label: string;
+  /**
+   * Truncated hub label (≤18 chars + "…").
+   * Only meaningful when forceLabel=true. Full title stays in label/tooltip.
+   * Stored at build time so no string work happens per-frame (I3).
+   */
+  hubLabel: string;
   /** Page type for color-coding in the legend */
   type: string | null;
   /**
@@ -45,8 +51,8 @@ export interface NodeAttributes {
   /** Structural degree (for reducers & size) */
   degree: number;
   /**
-   * GL2: true for top-K hub nodes (K = min(10, ceil(n*0.02))).
-   * nodeReducer uses this to force a permanent label on the busiest hubs.
+   * GL2: true for top-K hub nodes (K = min(6, ceil(n*0.01))).
+   * nodeReducer uses this to force a permanent truncated label on the busiest hubs.
    * Computed once at build time from the degree ranking — not per-frame.
    */
   forceLabel: boolean;
@@ -99,27 +105,41 @@ const EDGE_SIZE_RANGE = 3.5; // → max edge size = 4.0 px
 // Edges below threshold are HIDDEN (sigma hidden:true) — never removed from the
 // graph so the edgeReducer can reveal them on hover (I2-safe: render only).
 //
-// Buckets (tuned for visual legibility; adjust in future sprints as needed):
-//   n ≤ 150   → 0.00  (show all — small graphs are already legible)
-//   150 < n ≤ 600  → 0.12  (cull the weakest ~12% tail)
-//   600 < n ≤ 1200 → 0.22  (cull the weakest ~22% tail)
-//   n > 1200  → 0.32  (cull the weakest ~32% tail)
+// Buckets (declutter pass 2026-07, raised to reduce hairball on dense graphs):
+//   n ≤ 150         → 0.00  (show all — small graphs are already legible)
+//   150 < n ≤ 600   → 0.12  (cull weakest ~12% tail)
+//   600 < n ≤ 1200  → 0.30  (was 0.22 — raised to cut more clutter in mid-large)
+//   n > 1200        → 0.42  (was 0.32 — raised for very dense graphs)
 export function edgeVisibilityThreshold(nodeCount: number): number {
   if (nodeCount <= 150) return 0;
   if (nodeCount <= 600) return 0.12;
-  if (nodeCount <= 1200) return 0.22;
-  return 0.32;
+  if (nodeCount <= 1200) return 0.30;
+  return 0.42;
+}
+
+// ─── GL2: Hub label truncation ────────────────────────────────────────────────
+// Hub nodes always show a label at rest (forceLabel:true). To prevent long
+// titles (e.g. "Software Asset Management (SAM) — ServiceNow ITAM Overview")
+// from overlapping in the dense center, we truncate to HUB_LABEL_MAX chars.
+// Full title is preserved in `label` and shown in the tooltip on click.
+const HUB_LABEL_MAX = 18;
+
+export function truncateHubLabel(title: string): string {
+  if (title.length <= HUB_LABEL_MAX) return title;
+  return title.slice(0, HUB_LABEL_MAX) + "…";
 }
 
 // ─── GL2: Top-K hub selection (B3-LOOK) ──────────────────────────────────────
 // Returns the Set of node IDs that are "hubs" — the top-K by degree.
-// K = min(10, ceil(n * 0.02)). These nodes get forceLabel:true so the busiest
-// hubs always show their title at rest, like nashsu/llm_wiki's labeled map.
+// K = min(6, ceil(n * 0.01)) — reduced from min(10, ceil(n*0.02)) to cut
+// label clutter in the dense center of large graphs (declutter pass 2026-07).
+// These nodes get forceLabel:true so the busiest hubs always show their
+// truncated title at rest, like nashsu/llm_wiki's labeled map.
 // Computed once at graph build time — NOT per frame (I3).
 export function computeTopKHubs(nodes: GraphNode[]): Set<string> {
   const n = nodes.length;
   if (n === 0) return new Set();
-  const k = Math.min(10, Math.ceil(n * 0.02));
+  const k = Math.min(6, Math.ceil(n * 0.01));
   // Sort descending by degree; take top-k ids
   const sorted = nodes
     .slice()
@@ -283,7 +303,7 @@ function edgeColor(
  * GL1: edges below edgeVisibilityThreshold(n) are hidden at rest (hidden:true),
  *   but never removed — edgeReducer reveals them on hover.
  * GL2: top-K hub nodes (by degree) get forceLabel:true so they always show
- *   their label at rest. K = min(10, ceil(n*0.02)).
+ *   their truncated label (hubLabel) at rest. K = min(6, ceil(n*0.01)).
  *
  * @param nodes - Node array from GraphResponse (must include x, y)
  * @param edges - Edge array from GraphResponse
@@ -317,22 +337,26 @@ export function buildGraphologyGraph(
   // GL1: edge culling threshold — computed once for the full node count
   const edgeThreshold = edgeVisibilityThreshold(nodes.length);
 
-  // GL2: hub node set — computed once (top-K by degree, K=min(10,ceil(n*0.02)))
+  // GL2: hub node set — computed once (top-K by degree, K=min(6,ceil(n*0.01)))
   const hubNodeIds = computeTopKHubs(nodes);
 
   // Add all nodes with SERVER-PROVIDED coords — I2: do NOT call any layout here
   for (const node of nodes) {
+    const isHub = hubNodeIds.has(node.id);
     graph.addNode(node.id, {
       x: node.x, // precomputed by server FA2 — DO NOT RECOMPUTE
       y: node.y, // precomputed by server FA2 — DO NOT RECOMPUTE
       label: node.title,
+      // GL2: truncated label for hub nodes so long titles don't overlap.
+      // Full title stays in `label` and is shown in tooltip/on click.
+      hubLabel: isHub ? truncateHubLabel(node.title) : node.title,
       type: node.type,
       // community passed verbatim; -1 when absent (I2: no client computation)
       community: node.community ?? -1,
       size: radii.get(node.id) ?? MID_R,
       degree: node.degree ?? 0,
-      // GL2: hub nodes always show label (nodeReducer reads this)
-      forceLabel: hubNodeIds.has(node.id),
+      // GL2: hub nodes always show truncated label (nodeReducer reads this)
+      forceLabel: isHub,
     });
   }
 

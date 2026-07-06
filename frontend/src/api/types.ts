@@ -77,6 +77,18 @@ export interface GraphResponse {
    * INVARIANT I2: client NEVER computes communities; only reads this list.
    */
   communities?: GraphCommunity[];
+  /**
+   * GR1: Total live vault pages (all pages, including those not in the graph).
+   * Used as denominator for the GraphHeader pages chip.
+   * Absent on older server responses — falls back to nodes.length in the UI.
+   */
+  total_nodes?: number;
+  /**
+   * GR1: Total link-table rows (NOT the same as graph edges, which include source-overlap).
+   * Stored in the store for potential future use, but NOT used as denominator for the
+   * edge chip (which uses edges.length from the graph payload instead — see GR1 contract).
+   */
+  total_edges?: number;
 }
 
 /** Value of the X-Graph-Cache response header */

@@ -34,7 +34,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ZoomIn, ZoomOut, Maximize2, RefreshCw } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, RefreshCw, Maximize } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity } from "./graphPalette";
 import type { ColorMode } from "./graphPalette";
@@ -53,7 +53,7 @@ import {
 } from "../api/graphClient";
 import type { CommunityDetail, EdgeDetail } from "../api/graphClient";
 import { ApiError } from "../api/graphClient";
-import type { GraphCommunity, PageDetail } from "../api/types";
+import type { GraphCommunity, GraphEdge, GraphNode, PageDetail } from "../api/types";
 import {
   selectCommunities,
   selectEdges,
@@ -64,6 +64,11 @@ import {
   selectSetLoading,
   selectSetSelectedNodeId,
   selectVaultId,
+  selectFilterNodeTypes,
+  selectToggleFilterNodeType,
+  selectClearFilterNodeTypes,
+  selectTotalNodes,
+  selectSelectPage,
   useGraphMeta,
   useGraphStatus,
   useGraphStore,
@@ -678,6 +683,410 @@ function EdgeRow({ label, value, bold }: { label: string; value: number; bold?: 
   );
 }
 
+// ─── Graph node type constants (shared with header filter) ───────────────────
+// Must stay in sync with TYPE_COLORS keys above.
+const ALL_NODE_TYPES = [
+  "concept",
+  "entity",
+  "source",
+  "synthesis",
+  "comparison",
+  "query",
+  "overview",
+  "other",
+] as const;
+
+// ─── GraphHeader (GR1–GR5, GR7) ─────────────────────────────────────────────
+// Stats chips + in-graph search + filter popover + reset + fullscreen.
+// Sits above the sigma canvas in GraphPanel; all operations are client-side (I2).
+
+interface GraphHeaderProps {
+  /** In-graph nodes from the store payload (GET /graph nodes array, ~816 of 986) */
+  nodes: GraphNode[];
+  /** In-graph edges from the store payload (full graph edge set including source-overlap) */
+  edges: GraphEdge[];
+  /**
+   * GR1: All live vault pages (pre-graph-inclusion, from GET /graph total_nodes field).
+   * null = old backend that doesn't expose this field yet.
+   * denominator for the pages chip: total_nodes = 986 (in-graph 816 + isolated/dropped 170).
+   * hiddenCount = total_nodes - visibleNodes (covers filtered-out + not-in-graph pages).
+   */
+  totalNodes: number | null;
+  filterNodeTypes: Set<string>;
+  toggleFilterNodeType: (type: string) => void;
+  clearFilterNodeTypes: () => void;
+  onSearch: (query: string) => void;
+  onReset: () => void;
+  onFullscreen: () => void;
+  graphContainerRef: React.RefObject<HTMLDivElement | null>;
+}
+
+const GraphHeader: React.FC<GraphHeaderProps> = ({
+  nodes,
+  edges,
+  totalNodes,
+  filterNodeTypes,
+  toggleFilterNodeType,
+  clearFilterNodeTypes,
+  onSearch,
+  onReset,
+  onFullscreen,
+  graphContainerRef: _graphContainerRef,
+}) => {
+  const { t } = useTranslation();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  // GR1 — PAGES chip:
+  //   denominator = total_nodes (all live vault pages, e.g. 986)
+  //   numerator   = visible in-graph nodes after client filter
+  //   hiddenCount = total_nodes - visibleNodes
+  //     → covers both: (a) in-graph nodes filtered out, (b) pages not in the graph at all
+  //   Falls back to nodes.length when backend doesn't expose total_nodes yet.
+  const visibleNodes = filterNodeTypes.size === 0
+    ? nodes.length
+    : nodes.filter((n) => filterNodeTypes.has(n.type ?? "other")).length;
+  const displayTotalNodes = totalNodes ?? nodes.length;
+  const hiddenCount = displayTotalNodes - visibleNodes;
+
+  // GR1 — LINKS chip:
+  //   denominator = edges.length (full graph edge set incl. source-overlap, e.g. 4213)
+  //   numerator   = edges whose both endpoints are in the active filter (visible edges)
+  //   This makes GL1-culled edges visible to the user as "not shown" — mirrors llm_wiki.
+  //   We compute this from the store's edges array (type info lives on nodes).
+  //   Build a fast lookup: nodeId → type key
+  const nodeTypeMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const n of nodes) m.set(n.id, n.type ?? "other");
+    return m;
+  }, [nodes]);
+
+  const visibleEdges = React.useMemo(() => {
+    if (filterNodeTypes.size === 0) return edges.length;
+    return edges.filter((e) => {
+      const srcType = nodeTypeMap.get(e.source) ?? "other";
+      const tgtType = nodeTypeMap.get(e.target) ?? "other";
+      return filterNodeTypes.has(srcType) && filterNodeTypes.has(tgtType);
+    }).length;
+  }, [edges, filterNodeTypes, nodeTypeMap]);
+
+  const totalEdgesCount = edges.length;
+
+  // GR2: search handler — called on input change; finds the first matching node
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const q = e.target.value;
+    setSearchQuery(q);
+    onSearch(q);
+  }, [onSearch]);
+
+  const handleSearchClear = useCallback(() => {
+    setSearchQuery("");
+    onSearch("");
+  }, [onSearch]);
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setSearchQuery("");
+      onSearch("");
+      (e.currentTarget as HTMLInputElement).blur();
+    }
+  }, [onSearch]);
+
+  // GR3: close filter popover on outside click
+  useEffect(() => {
+    if (!filterOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [filterOpen]);
+
+  const hasActiveFilter = filterNodeTypes.size > 0;
+
+  return (
+    <div
+      data-testid="graph-header"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 10px",
+        borderBottom: "1px solid var(--syn-border)",
+        background: "var(--syn-surface)",
+        flexShrink: 0,
+        flexWrap: "wrap",
+        minHeight: 38,
+        // Must be above the insights panel (z-index:10) and any canvas overlays
+        position: "relative",
+        zIndex: 15,
+      }}
+    >
+      {/* GR1: Stats chips */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+        {/* Pages: visibleNodes/totalNodes — hidden covers both filtered + not-in-graph */}
+        <span
+          data-testid="graph-header-nodes"
+          style={{ fontSize: 11, color: "var(--syn-text-muted)", whiteSpace: "nowrap" }}
+        >
+          {visibleNodes}/{displayTotalNodes} {t("graph.header.pages")}
+        </span>
+        {/* Links: visibleEdges/totalEdgesInGraph — GL1-culled show as "not shown" */}
+        {totalEdgesCount > 0 && (
+          <>
+            <span style={{ fontSize: 11, color: "var(--syn-border)" }}>·</span>
+            <span
+              data-testid="graph-header-edges"
+              style={{ fontSize: 11, color: "var(--syn-text-muted)", whiteSpace: "nowrap" }}
+            >
+              {visibleEdges}/{totalEdgesCount} {t("graph.header.links")}
+            </span>
+          </>
+        )}
+        {/* Orange "N hidden" chip — only when filter excludes some nodes */}
+        {hiddenCount > 0 && (
+          <>
+            <span style={{ fontSize: 11, color: "var(--syn-border)" }}>·</span>
+            <span
+              data-testid="graph-header-hidden"
+              style={{
+                fontSize: 11,
+                color: "#d97706",
+                background: "color-mix(in srgb, #d97706 12%, transparent)",
+                border: "1px solid color-mix(in srgb, #d97706 30%, transparent)",
+                borderRadius: 3,
+                padding: "0px 5px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {hiddenCount} {t("graph.header.hidden")}
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Spacer */}
+      <div style={{ flex: 1 }} />
+
+      {/* GR2: In-graph search */}
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        <input
+          data-testid="graph-search-input"
+          type="text"
+          value={searchQuery}
+          onChange={handleSearchChange}
+          onKeyDown={handleSearchKeyDown}
+          placeholder={t("graph.header.searchPlaceholder")}
+          aria-label={t("graph.header.searchPlaceholder")}
+          style={{
+            fontSize: 11,
+            padding: "3px 22px 3px 7px",
+            border: "1px solid var(--syn-border)",
+            borderRadius: 4,
+            background: "var(--syn-bg)",
+            color: "var(--syn-text)",
+            width: 160,
+            outline: "none",
+          }}
+        />
+        {searchQuery.length > 0 && (
+          <button
+            type="button"
+            onClick={handleSearchClear}
+            aria-label={t("common.close")}
+            style={{
+              position: "absolute",
+              right: 4,
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "none",
+              border: "none",
+              color: "var(--syn-text-dim)",
+              cursor: "pointer",
+              fontSize: 12,
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      {/* GR3: Filter popover button */}
+      <div ref={filterRef} style={{ position: "relative", flexShrink: 0 }}>
+        <button
+          type="button"
+          data-testid="graph-filter-button"
+          onClick={() => setFilterOpen((o) => !o)}
+          aria-label={t("graph.header.filter")}
+          aria-expanded={filterOpen}
+          style={{
+            fontSize: 11,
+            padding: "3px 8px",
+            border: `1px solid ${hasActiveFilter ? "var(--syn-accent)" : "var(--syn-border)"}`,
+            borderRadius: 4,
+            background: hasActiveFilter ? "color-mix(in srgb, var(--syn-accent) 10%, var(--syn-surface))" : "var(--syn-surface)",
+            color: hasActiveFilter ? "var(--syn-accent)" : "var(--syn-text-muted)",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            fontWeight: hasActiveFilter ? 600 : 400,
+          }}
+        >
+          {t("graph.header.filter")}
+          {hasActiveFilter && ` (${filterNodeTypes.size})`}
+        </button>
+
+        {filterOpen && (
+          <div
+            data-testid="graph-filter-popover"
+            style={{
+              position: "absolute",
+              top: "calc(100% + 4px)",
+              right: 0,
+              background: "var(--syn-surface)",
+              border: "1px solid var(--syn-border)",
+              borderRadius: 6,
+              padding: "8px 10px",
+              zIndex: 20,
+              minWidth: 160,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                color: "var(--syn-text-muted)",
+                letterSpacing: "0.06em",
+                fontWeight: 600,
+                marginBottom: 6,
+              }}
+            >
+              {t("graph.header.filterNodeTypes")}
+            </div>
+            {ALL_NODE_TYPES.map((type) => {
+              const checked = filterNodeTypes.size === 0 || filterNodeTypes.has(type);
+              // Count nodes of this type in the current store nodes
+              const count = nodes.filter((n) => (n.type ?? "other") === type).length;
+              if (count === 0) return null;
+              const color = TYPE_COLORS[type] ?? DEFAULT_NODE_COLOR;
+              return (
+                <label
+                  key={type}
+                  data-testid={`graph-filter-type-${type}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "3px 2px",
+                    cursor: "pointer",
+                    borderRadius: 3,
+                    fontSize: 11,
+                    color: "var(--syn-text)",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleFilterNodeType(type)}
+                    style={{ width: 12, height: 12, cursor: "pointer", flexShrink: 0 }}
+                  />
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: color,
+                      flexShrink: 0,
+                    }}
+                    aria-hidden="true"
+                  />
+                  <span style={{ flex: 1, textTransform: "capitalize" }}>{type}</span>
+                  <span style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}>
+                    {count}
+                  </span>
+                </label>
+              );
+            })}
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={() => {
+                  clearFilterNodeTypes();
+                  setFilterOpen(false);
+                }}
+                style={{
+                  marginTop: 6,
+                  fontSize: 11,
+                  padding: "3px 8px",
+                  border: "1px solid var(--syn-border)",
+                  borderRadius: 3,
+                  background: "none",
+                  color: "var(--syn-text-muted)",
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+              >
+                {t("graph.header.clearFilter")}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* GR4: Reset */}
+      <button
+        type="button"
+        data-testid="graph-header-reset"
+        onClick={onReset}
+        title={t("graph.header.reset")}
+        aria-label={t("graph.header.reset")}
+        style={{
+          fontSize: 11,
+          padding: "3px 8px",
+          border: "1px solid var(--syn-border)",
+          borderRadius: 4,
+          background: "var(--syn-surface)",
+          color: "var(--syn-text-muted)",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          flexShrink: 0,
+        }}
+      >
+        {t("graph.header.reset")}
+      </button>
+
+      {/* GR7: Fullscreen */}
+      <button
+        type="button"
+        data-testid="graph-header-fullscreen"
+        onClick={onFullscreen}
+        title={t("graph.header.fullscreen")}
+        aria-label={t("graph.header.fullscreen")}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 26,
+          height: 26,
+          border: "1px solid var(--syn-border)",
+          borderRadius: 4,
+          background: "var(--syn-surface)",
+          color: "var(--syn-text-muted)",
+          cursor: "pointer",
+          flexShrink: 0,
+          padding: 0,
+        }}
+      >
+        <Maximize size={13} strokeWidth={1.8} aria-hidden="true" />
+      </button>
+    </div>
+  );
+};
+
 // ─── Legend ───────────────────────────────────────────────────────────────────
 // CVD-safe: shows color swatch AND type/community label (redundant encoding, WCAG 1.4.1).
 
@@ -1011,6 +1420,19 @@ export const GraphViewer: React.FC = () => {
   const setLoading = useGraphStore(selectSetLoading);
   const setError = useGraphStore(selectSetError);
   const setSelectedNodeId = useGraphStore(selectSetSelectedNodeId);
+  // GR3: node-type filter from store (I2-safe: visibility only, never re-layout)
+  // Use a ref so the sigma reducers always read the latest filter without rebuilding sigma.
+  const filterNodeTypes = useGraphStore(selectFilterNodeTypes);
+  const filterNodeTypesRef = useRef<Set<string>>(filterNodeTypes);
+  const toggleFilterNodeType = useGraphStore(selectToggleFilterNodeType);
+  const clearFilterNodeTypes = useGraphStore(selectClearFilterNodeTypes);
+  // GR1: total vault pages from backend (null = old server)
+  const totalNodes = useGraphStore(selectTotalNodes);
+  // GR2: selectPage action for search-triggered navigation
+  const selectPage = useGraphStore(selectSelectPage);
+
+  // Graph container ref — used for fullscreen API (GR7)
+  const graphRootRef = useRef<HTMLDivElement>(null);
 
   // sigma container ref — sigma mounts ONE WebGL <canvas> inside this div (I4)
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1069,7 +1491,7 @@ export const GraphViewer: React.FC = () => {
       const result = await recomputeGraph();
       // 2. Refetch the freshly-computed precomputed coords (I2 — layout stays server-side).
       const { data, cacheStatus } = await fetchGraph(vaultId);
-      setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? []);
+      setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? [], data.total_nodes ?? null, data.total_edges ?? null);
       setRegenMsg(
         result.reconnected > 0
           ? t("graph.regenerateDone", { count: result.reconnected })
@@ -1093,7 +1515,7 @@ export const GraphViewer: React.FC = () => {
 
     fetchGraph(vaultId, ctrl.signal)
       .then(({ data, cacheStatus }) => {
-        setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? []);
+        setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? [], data.total_nodes ?? null, data.total_edges ?? null);
       })
       .catch((err: unknown) => {
         if (err instanceof Error && err.name !== "AbortError") {
@@ -1103,6 +1525,17 @@ export const GraphViewer: React.FC = () => {
 
     return () => ctrl.abort();
   }, [vaultId, setGraph, setLoading, setError]);
+
+  // ── GR3: sync filterNodeTypes ref and refresh sigma on filter change ─────
+  // The ref lets the existing sigma reducers always see the latest filter value
+  // without tearing down and rebuilding sigma on every toggle (I3: no heavy
+  // work per frame; I2: no coords touched, only sigma's hidden flag is changed).
+  useEffect(() => {
+    filterNodeTypesRef.current = filterNodeTypes;
+    // Trigger a visual refresh so sigma re-evaluates nodeReducer/edgeReducer
+    // with the updated filter. skipIndexation: layout is not touched (I2).
+    sigmaRef.current?.refresh({ skipIndexation: true });
+  }, [filterNodeTypes]);
 
   // ── Watch resolved theme changes, re-read sigma render properties (ADR-0048 §T1) ──
   // Observes data-theme on <html>; on change, reads the new CSS vars and updates
@@ -1152,6 +1585,8 @@ export const GraphViewer: React.FC = () => {
         x: attrs["x"] as number,
         y: attrs["y"] as number,
         label: attrs["label"] as string,
+        // GL2: pre-truncated hub label; nodeReducer swaps this in for hub nodes at rest
+        hubLabel: (attrs["hubLabel"] as string | undefined) ?? (attrs["label"] as string),
         size: attrs["size"] as number,
         color: nodeColor,
         // Store degree for reducers
@@ -1160,7 +1595,7 @@ export const GraphViewer: React.FC = () => {
         nodeType: nodeType ?? null,
         // Store community for reducers / tooltip
         nodeCommunity,
-        // GL2: hub flag — nodeReducer uses this to force permanent label on top-K hubs
+        // GL2: hub flag — nodeReducer uses this to force permanent truncated label on top-K hubs
         isHub: (attrs["forceLabel"] as boolean | undefined) ?? false,
       });
     });
@@ -1211,11 +1646,12 @@ export const GraphViewer: React.FC = () => {
       // (2.5–11px) this threshold keeps the fit/zoomed-out view label-free, and labels
       // appear progressively (hubs first) as the user zooms in. labelDensity raised so
       // more labels reveal when eligible.
-      // GL2 (B3-LOOK): threshold lowered from 13 → 8 so more labels appear on zoom-in,
-      // matching the label density of nashsu/llm_wiki's graph view.
+      // GL2 (B3-LOOK): threshold was lowered from 13→8 for more labels on zoom-in.
+      // Declutter pass 2026-07: raised back from 8→11 so fewer non-hub labels crowd
+      // the fit-view. Hub nodes still appear at rest via forceLabel regardless.
       labelDensity: 0.7,
       labelGridCellSize: 70,
-      labelRenderedSizeThreshold: 8,
+      labelRenderedSizeThreshold: 11,
 
       // Custom halo drawers — built with resolved theme colors (ADR-0048 §T1)
       defaultDrawNodeLabel: makeDrawHaloNodeLabel(sigmaThemeColors),
@@ -1238,14 +1674,31 @@ export const GraphViewer: React.FC = () => {
       minCameraRatio: 0.1,
       maxCameraRatio: 4,
 
-      // ── nodeReducer: Obsidian hover-dim + GL2 hub labels ────────────────
+      // ── nodeReducer: GR3 filter + Obsidian hover-dim + GL2 hub labels ───
       nodeReducer(node: string, data: Attributes): Partial<NodeDisplayData> {
         const res: Partial<NodeDisplayData> & Attributes = { ...data };
 
-        // GL2: hub nodes always show their label at rest (top-K by degree).
-        // This is applied before hover-dim so hover can override it further.
+        // GR3: node-type filter — hide nodes whose type is not in the active set.
+        // I2-safe: only sets hidden:true, never touches x/y or re-layout.
+        // I3-safe: reads from filterNodeTypesRef (updated via useEffect above)
+        //   so no re-render per frame — the ref is mutated and sigma.refresh() called once.
+        const activeFilter = filterNodeTypesRef.current;
+        if (activeFilter.size > 0) {
+          const nodeType = (data["nodeType"] as string | null | undefined) ?? null;
+          const typeKey = nodeType ?? "other";
+          if (!activeFilter.has(typeKey)) {
+            res["hidden"] = true;
+            return res as Partial<NodeDisplayData>;
+          }
+        }
+
+        // GL2: hub nodes always show their truncated label at rest (top-K by degree).
+        // hubLabel is pre-computed at build time (truncateHubLabel) — no per-frame work (I3).
         if ((data["isHub"] as boolean | undefined) === true) {
           res["forceLabel"] = true;
+          // Replace the full label with the truncated hub label so sigma draws
+          // the short version at rest. Full title stays in the tooltip (nodeId → fetchPageDetail).
+          res["label"] = (data["hubLabel"] as string | undefined) ?? (data["label"] as string);
         }
 
         if (hoverState.hoveredNeighbors !== null) {
@@ -1253,9 +1706,11 @@ export const GraphViewer: React.FC = () => {
           const isNeighbor = hoverState.hoveredNeighbors.has(node);
 
           if (isHovered) {
-            // Hovered node: highlighted, forced label, top z, slight size bump
+            // Hovered node: highlighted, forced label (full title restored), top z, slight size bump
             res["highlighted"] = true;
             res["forceLabel"] = true;
+            // Restore the full label on the hovered node so the tooltip confirms the exact title
+            res["label"] = data["label"] as string;
             res["zIndex"] = 2;
             res["size"] = ((data["size"] as number | undefined) ?? 8) * 1.15;
           } else if (isNeighbor) {
@@ -1278,13 +1733,29 @@ export const GraphViewer: React.FC = () => {
         return res as Partial<NodeDisplayData>;
       },
 
-      // ── edgeReducer: GL1 resting cull + Obsidian hover reveal ───────────
+      // ── edgeReducer: GR3 filter + GL1 resting cull + Obsidian hover reveal ─
       // At rest: edges with hidden:true (weak edges per GL1) are not rendered.
+      // GR3: edges whose source or target is filtered out are also hidden.
       // On hover: incident edges are ALWAYS revealed regardless of GL1 threshold
       //   so the user can explore the full neighborhood even on large graphs.
       // Non-incident edges during hover: hidden (Obsidian dim).
       edgeReducer(edge: string, data: Attributes) {
         const res: Attributes = { ...data };
+
+        // GR3: hide edge if either endpoint type is filtered out.
+        // I2-safe: visibility only, no coord mutation.
+        const activeFilter = filterNodeTypesRef.current;
+        if (activeFilter.size > 0) {
+          const [src, tgt] = sigmaGraph.extremities(edge);
+          const srcType = (sigmaGraph.getNodeAttribute(src, "nodeType") as string | null | undefined) ?? null;
+          const tgtType = (sigmaGraph.getNodeAttribute(tgt, "nodeType") as string | null | undefined) ?? null;
+          const srcKey = srcType ?? "other";
+          const tgtKey = tgtType ?? "other";
+          if (!activeFilter.has(srcKey) || !activeFilter.has(tgtKey)) {
+            res["hidden"] = true;
+            return res;
+          }
+        }
 
         if (hoverState.hoveredNode !== null) {
           const [src, tgt] = sigmaGraph.extremities(edge);
@@ -1525,11 +1996,59 @@ export const GraphViewer: React.FC = () => {
     sigmaRef.current?.getCamera().animatedReset({ duration: reducedMotion ? 0 : 300 });
   }, []);
 
+  // ── GR2: In-graph search — find node by title substring, select + camera center ──
+  // Client-side only; nodes are already in the store (I3: computed on change, not per frame).
+  const handleSearch = useCallback((query: string) => {
+    if (!query.trim() || !sigmaRef.current) return;
+    const q = query.toLowerCase();
+    // Find first matching node in the sigma graph
+    const sigma = sigmaRef.current;
+    const graph = sigma.getGraph();
+    let matchKey: string | null = null;
+    graph.forEachNode((key, attrs) => {
+      if (matchKey !== null) return;
+      const label = ((attrs["label"] as string | undefined) ?? "").toLowerCase();
+      if (label.includes(q)) matchKey = key;
+    });
+    if (matchKey === null) return;
+    // Select the node (triggers aria announcement + tree sync)
+    selectPage(matchKey, "graph");
+    setSelectedNodeId(matchKey);
+    // Animate camera to center on the found node's precomputed coords (I2-safe: read-only)
+    const attrs = graph.getNodeAttributes(matchKey);
+    const x = attrs["x"] as number;
+    const y = attrs["y"] as number;
+    sigma.getCamera().animate(
+      { x, y, ratio: 0.3 },
+      { duration: reducedMotion ? 0 : 400 },
+    );
+  }, [selectPage, setSelectedNodeId]);
+
+  // ── GR4: Reset — clear filters + fit camera ────────────────────────────────
+  const handleReset = useCallback(() => {
+    clearFilterNodeTypes();
+    handleFit();
+  }, [clearFilterNodeTypes, handleFit]);
+
+  // ── GR7: Fullscreen — Fullscreen API on the graph root container ───────────
+  const handleFullscreen = useCallback(() => {
+    const el = graphRootRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch((err: unknown) => {
+        if (err instanceof Error) console.warn("[GraphViewer] fullscreen failed:", err.message);
+      });
+    } else {
+      document.exitFullscreen().catch(() => {/* ignore */});
+    }
+  }, []);
+
   return (
     // I4: this container holds sigma's single <canvas> + a handful of overlay divs.
     // Total DOM nodes inside: <div#sigma-container> + <canvas> + aria-live + overlays = ~10 → well under 20.
     <div
       id="graph-root"
+      ref={graphRootRef}
       role="application"
       aria-label="Knowledge graph"
       style={{
@@ -1538,8 +2057,28 @@ export const GraphViewer: React.FC = () => {
         height: "100%",
         overflow: "hidden",
         background: "var(--syn-bg)",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
+      {/* GR1–GR5, GR7: Graph header with stats, search, filter, reset, fullscreen */}
+      <GraphHeader
+        nodes={nodes}
+        edges={edges}
+        totalNodes={totalNodes}
+        filterNodeTypes={filterNodeTypes}
+        toggleFilterNodeType={toggleFilterNodeType}
+        clearFilterNodeTypes={clearFilterNodeTypes}
+        onSearch={handleSearch}
+        onReset={handleReset}
+        onFullscreen={handleFullscreen}
+        graphContainerRef={graphRootRef}
+      />
+      {/* Canvas area wrapper: flex:1, position:relative so all absolute overlays
+          (regenerate, zoom, legend, tooltips) are positioned relative to the canvas
+          area — NOT the full graph-root that now includes the header above it. */}
+      <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
+
       {/* sigma mounts ONE WebGL <canvas> here — I4.
           Background is set from the resolved --syn-bg token (ADR-0048 §T1).
           sigma inherits the container background for its WebGL clear color.
@@ -1828,6 +2367,9 @@ export const GraphViewer: React.FC = () => {
           onClose={() => setEdgeTooltip(null)}
         />
       )}
+
+      {/* Close canvas area wrapper */}
+      </div>
     </div>
   );
 };

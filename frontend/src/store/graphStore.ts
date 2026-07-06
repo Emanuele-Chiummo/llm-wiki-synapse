@@ -87,6 +87,22 @@ export interface GraphState {
   dataVersion: number | null;
   cacheStatus: CacheStatus;
 
+  /**
+   * GR1: Total node/edge counts from GET /graph (all live vault pages/links,
+   * pre client-filter). Used by GraphHeader stats chips.
+   * null = server doesn't expose these fields yet (older backend).
+   */
+  totalNodes: number | null;
+  totalEdges: number | null;
+
+  /**
+   * GR3: Active node-type filter. When non-empty, only nodes whose type is in
+   * this set are shown; all others are hidden via sigma reducers.
+   * Empty set = show all types (no filter active).
+   * I2-safe: visibility only — never touches x/y or triggers re-layout.
+   */
+  filterNodeTypes: Set<string>;
+
   // Loading / error
   loading: boolean;
   error: string | null;
@@ -113,12 +129,21 @@ export interface GraphActions {
     dataVersion: number,
     cacheStatus: CacheStatus,
     communities?: GraphCommunity[],
+    totalNodes?: number | null,
+    totalEdges?: number | null,
   ) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setSelectedNodeId: (id: string | null) => void;
   setVaultId: (vaultId: string) => void;
   reset: () => void;
+  /**
+   * GR3: Toggle a node type in/out of the active filter set.
+   * Empty set = all visible. I2-safe: never touches coords.
+   */
+  toggleFilterNodeType: (nodeType: string) => void;
+  /** GR4: Clear all active type filters. */
+  clearFilterNodeTypes: () => void;
   // UI slice actions
   selectPage: UiActions["selectPage"];
   setActiveTab: UiActions["setActiveTab"];
@@ -136,6 +161,9 @@ const INITIAL_STATE: GraphState = {
   communities: [],
   dataVersion: null,
   cacheStatus: "unknown",
+  totalNodes: null,
+  totalEdges: null,
+  filterNodeTypes: new Set<string>(),
   loading: false,
   error: null,
   selectedNodeId: null,
@@ -158,8 +186,8 @@ const INITIAL_STATE: GraphState = {
 export const useGraphStore = create<GraphStore>((set) => ({
   ...INITIAL_STATE,
 
-  setGraph: (nodes, edges, dataVersion, cacheStatus, communities = []) =>
-    set({ nodes, edges, communities, dataVersion, cacheStatus, loading: false, error: null }),
+  setGraph: (nodes, edges, dataVersion, cacheStatus, communities = [], totalNodes = null, totalEdges = null) =>
+    set({ nodes, edges, communities, dataVersion, cacheStatus, totalNodes, totalEdges, loading: false, error: null }),
 
   setLoading: (loading) => set({ loading }),
 
@@ -170,6 +198,19 @@ export const useGraphStore = create<GraphStore>((set) => ({
   setVaultId: (vaultId) => set({ vaultId }),
 
   reset: () => set(INITIAL_STATE),
+
+  toggleFilterNodeType: (nodeType) =>
+    set((s) => {
+      const next = new Set(s.filterNodeTypes);
+      if (next.has(nodeType)) {
+        next.delete(nodeType);
+      } else {
+        next.add(nodeType);
+      }
+      return { filterNodeTypes: next };
+    }),
+
+  clearFilterNodeTypes: () => set({ filterNodeTypes: new Set<string>() }),
 
   // ── UI slice actions (ADR-0017 §4) ────────────────────────────────────────
 
@@ -231,6 +272,31 @@ export function selectSelectedNodeId(s: GraphStore): string | null {
 /** Select the vault id (scalar). */
 export function selectVaultId(s: GraphStore): string {
   return s.vaultId;
+}
+
+/** GR1: Select totalNodes from the backend response (null = old server). */
+export function selectTotalNodes(s: GraphStore): number | null {
+  return s.totalNodes;
+}
+
+/** GR1: Select totalEdges from the backend response (null = old server). */
+export function selectTotalEdges(s: GraphStore): number | null {
+  return s.totalEdges;
+}
+
+/** GR3: Select the active node-type filter set. Use with useShallow (Set identity). */
+export function selectFilterNodeTypes(s: GraphStore): Set<string> {
+  return s.filterNodeTypes;
+}
+
+/** GR3: Select toggleFilterNodeType action. */
+export function selectToggleFilterNodeType(s: GraphStore): GraphActions["toggleFilterNodeType"] {
+  return s.toggleFilterNodeType;
+}
+
+/** GR4: Select clearFilterNodeTypes action. */
+export function selectClearFilterNodeTypes(s: GraphStore): GraphActions["clearFilterNodeTypes"] {
+  return s.clearFilterNodeTypes;
 }
 
 // ── UI slice selectors (ADR-0017 §4) ─────────────────────────────────────────
