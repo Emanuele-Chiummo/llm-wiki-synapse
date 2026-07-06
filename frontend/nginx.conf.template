@@ -26,7 +26,7 @@ server {
     # ── API reverse-proxy ─────────────────────────────────────────────────────
     # Forward the API path prefixes to the backend so the browser keeps its
     # relative base. Keep this list in sync with API_PREFIXES in vite.config.ts.
-    location ~ ^/(graph|pages|status|ingest|provider|conversations|chat|import-schedule|config|mcp|research|review|search|clip|web-search|lint|sources|overview|links|scenarios|costs|stats|ops|health|export|api)(/|$) {
+    location ~ ^/(graph|pages|status|ingest|provider|conversations|chat|import-schedule|config|mcp|research|review|search|clip|web-search|lint|sources|overview|links|scenarios|costs|stats|ops|vault|health|export|api)(/|$) {
         set $upstream ${BACKEND_PROXY_TARGET};
         proxy_pass $upstream$request_uri;
 
