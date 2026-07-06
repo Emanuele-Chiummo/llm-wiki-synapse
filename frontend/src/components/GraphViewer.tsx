@@ -1156,6 +1156,9 @@ interface GraphLegendProps {
 
 const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCommunityClick: _onCommunityClick, nodes: _nodes = [] }) => {
   const { t } = useTranslation();
+  // Collapsible: the community legend can be tall (one row per Louvain cluster) and cover
+  // the graph — the header toggles it. Default expanded.
+  const [collapsed, setCollapsed] = useState(false);
 
   // COMMUNITY mode = per-Louvain-community rows.
   // One row per community entry in the communities[] array (server-provided, sorted by size desc).
@@ -1192,20 +1195,35 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCom
       aria-label={colorMode === "type" ? "Graph node type legend" : "Graph community legend"}
       data-testid="graph-legend"
     >
-      {colorMode === "type" ? (
+      {/* Collapsible header — pointerEvents:auto so it's clickable inside the pointer-events:none card */}
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        aria-expanded={!collapsed}
+        data-testid="graph-legend-toggle"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          width: "100%",
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          pointerEvents: "auto",
+          marginBottom: collapsed ? 0 : 6,
+          fontSize: 10,
+          letterSpacing: "0.08em",
+          fontWeight: 600,
+          color: "var(--syn-text-muted)",
+        }}
+      >
+        <span aria-hidden="true" style={{ fontSize: 9, width: 8 }}>{collapsed ? "▸" : "▾"}</span>
+        <span>{colorMode === "type" ? t("graph.legendNodeTypes") : t("graph.legendCommunities")}</span>
+      </button>
+      {!collapsed && (colorMode === "type" ? (
         <>
           {/* TYPE mode legend — CVD-safe: name + swatch (WCAG 1.4.1) */}
-          <div
-            style={{
-              fontSize: 10,
-              color: "var(--syn-text-muted)",
-              marginBottom: 6,
-              letterSpacing: "0.08em",
-              fontWeight: 600,
-            }}
-          >
-            {t("graph.legendNodeTypes")}
-          </div>
           {Object.entries(TYPE_COLORS).map(([type, color]) => (
             <div
               key={type}
@@ -1252,17 +1270,6 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCom
               Low-cohesion communities get a "!" warning marker.
               I3: communityRows computed via useMemo above; no work per render frame.
               I2: community data is from server — client never runs Louvain or domain detection. */}
-          <div
-            style={{
-              fontSize: 10,
-              color: "var(--syn-text-muted)",
-              marginBottom: 6,
-              letterSpacing: "0.08em",
-              fontWeight: 600,
-            }}
-          >
-            {t("graph.legendCommunities")}
-          </div>
           {communityRows.length === 0 ? (
             <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
               {t("common.unknown")}
@@ -1310,7 +1317,7 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCom
             ))
           )}
         </>
-      )}
+      ))}
     </div>
   );
 };
