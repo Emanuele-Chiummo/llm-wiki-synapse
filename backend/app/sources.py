@@ -480,10 +480,8 @@ async def list_sources(
     """
     if root == "wiki":
         base_dir = settings.wiki_dir
-        is_wiki = True
     else:
         base_dir = settings.raw_sources_dir
-        is_wiki = False
 
     if not base_dir.exists():
         return SourcesListResponse(entries=[], total=0, truncated=False)
@@ -495,13 +493,11 @@ async def list_sources(
     for dirpath_str, dirnames, filenames in os.walk(base_dir):
         dirpath = Path(dirpath_str)
 
-        # For wiki root: prune hidden directories so os.walk does not descend into them.
-        if is_wiki:
-            dirnames[:] = sorted(d for d in dirnames if not _is_hidden(d))
-            filenames = sorted(f for f in filenames if not _is_hidden(f))
-        else:
-            dirnames.sort()
-            filenames.sort()
+        # Prune hidden files and directories from BOTH roots (wiki and raw sources):
+        # os.walk must not descend into hidden dirs (e.g. .obsidian) and hidden files
+        # (e.g. macOS .DS_Store) are OS/config junk, never user-facing source content.
+        dirnames[:] = sorted(d for d in dirnames if not _is_hidden(d))
+        filenames = sorted(f for f in filenames if not _is_hidden(f))
 
         # Directories (excluding the root itself — only subdirs)
         if dirpath != base_dir:

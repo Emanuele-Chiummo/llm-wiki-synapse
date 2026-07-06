@@ -93,6 +93,8 @@ vi.mock("react-i18next", () => {
     "noteView.tagsMore": "More (+{{count}})",
     "noteView.tagsCollapse": "Fewer",
     "noteView.updatedLabel": "updated: {{iso}}",
+    "noteView.metaExpand": "Show metadata",
+    "noteView.metaCollapse": "Hide metadata",
     "common.loading": "Loading…",
     "common.retry": "Retry",
   };
@@ -385,12 +387,16 @@ describe("NoteView", () => {
   });
 
   // ── R2: ISO updated line ───────────────────────────────────────────────────
+  // WS-D7: ISO line lives in the collapsible Tier 2 — must expand meta first.
 
-  it("R2: renders the ISO updated line when updated_at is present", async () => {
+  it("R2: renders the ISO updated line when updated_at is present (after expanding meta)", async () => {
     _selectedNodeId = "page-abc";
     mockedFetch.mockResolvedValue(PAGE_CONTENT); // updated_at: "2025-06-30T10:00:00Z"
 
     render(<NoteView />);
+    await waitFor(() => screen.getByTestId("note-edit-btn"));
+
+    // Metadata is always visible (WS-D7: header scrolls with the body, no collapse).
     await waitFor(() => screen.getByTestId("note-updated-iso"));
 
     // The label should contain the ISO string
@@ -405,11 +411,20 @@ describe("NoteView", () => {
 
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
+
+    // Metadata is always visible, but updated_at is absent so the ISO line must not render.
+    await waitFor(() => screen.getByTestId("note-meta-expanded"));
     expect(screen.queryByTestId("note-updated-iso")).toBeNull();
   });
 });
 
 // ─── R1: Tag overflow ─────────────────────────────────────────────────────────
+// WS-D7: tags live in the collapsible Tier 2 — helpers expand meta before testing.
+
+/** Metadata is always visible (WS-D7: header scrolls with the body, no collapse). */
+async function expandMeta() {
+  await waitFor(() => screen.getByTestId("note-meta-expanded"));
+}
 
 describe("NoteView — R1 tag overflow", () => {
   beforeEach(() => {
@@ -425,6 +440,9 @@ describe("NoteView — R1 tag overflow", () => {
     mockedFetch.mockResolvedValue({ ...PAGE_CONTENT, tags });
 
     render(<NoteView />);
+    await waitFor(() => screen.getByTestId("note-edit-btn"));
+    await expandMeta();
+
     await waitFor(() => {
       const chips = screen.getAllByTestId("note-tag-chip");
       expect(chips.length).toBe(5);
@@ -437,9 +455,12 @@ describe("NoteView — R1 tag overflow", () => {
     mockedFetch.mockResolvedValue({ ...PAGE_CONTENT, tags });
 
     render(<NoteView />);
+    await waitFor(() => screen.getByTestId("note-edit-btn"));
+    await expandMeta();
+
     await waitFor(() => {
       const chips = screen.getAllByTestId("note-tag-chip");
-      // Only first 24 visible while collapsed
+      // Only first 24 visible while TagOverflow is collapsed
       expect(chips.length).toBe(24);
     });
     expect(screen.getByTestId("note-tags-more")).toBeTruthy();
@@ -452,6 +473,8 @@ describe("NoteView — R1 tag overflow", () => {
     mockedFetch.mockResolvedValue({ ...PAGE_CONTENT, tags });
 
     render(<NoteView />);
+    await waitFor(() => screen.getByTestId("note-edit-btn"));
+    await expandMeta();
     await waitFor(() => screen.getByTestId("note-tags-more"));
 
     act(() => { fireEvent.click(screen.getByTestId("note-tags-more")); });
@@ -470,18 +493,34 @@ describe("NoteView — R1 tag overflow", () => {
     mockedFetch.mockResolvedValue({ ...PAGE_CONTENT, tags });
 
     render(<NoteView />);
+    await waitFor(() => screen.getByTestId("note-edit-btn"));
+    await expandMeta();
     await waitFor(() => screen.getByTestId("note-tags-more"));
 
-    // Expand
+    // Expand TagOverflow
     act(() => { fireEvent.click(screen.getByTestId("note-tags-more")); });
     await waitFor(() => screen.getByTestId("note-tags-collapse"));
 
-    // Collapse
+    // Collapse TagOverflow
     act(() => { fireEvent.click(screen.getByTestId("note-tags-collapse")); });
     await waitFor(() => {
       const chips = screen.getAllByTestId("note-tag-chip");
       expect(chips.length).toBe(24);
     });
     expect(screen.getByTestId("note-tags-more")).toBeTruthy();
+  });
+
+  // ── WS-D7: metadata scrolls with the body (not sticky, not collapsible) ───────
+
+  it("WS-D7: metadata section is always visible with no collapse toggle", async () => {
+    mockedFetch.mockResolvedValue(PAGE_CONTENT);
+
+    render(<NoteView />);
+    await waitFor(() => screen.getByTestId("note-edit-btn"));
+
+    // Metadata (tags/sources/related) is always rendered — it scrolls with the body.
+    await waitFor(() => screen.getByTestId("note-meta-expanded"));
+    // The collapse toggle no longer exists.
+    expect(screen.queryByTestId("note-meta-toggle")).toBeNull();
   });
 });

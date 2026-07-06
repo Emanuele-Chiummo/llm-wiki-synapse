@@ -413,6 +413,10 @@ export function ActivityBar(): ReactNode {
           useStatusStore.getState().setReviewPending(res.review_pending);
           // Vision capability → MessageInput attach-image gate (B2 — absent = false).
           useStatusStore.getState().setSupportsVision(res.supports_vision ?? false);
+          // WS-A [F16/F4/F18]: surface data_version for HomeDashboard + GraphViewer freshness.
+          // No new poller — this is the existing ActivityBar STATUS_POLL_MS tick.
+          // INVARIANT I3: only triggers re-fetch in subscribers when value changes.
+          useStatusStore.getState().setDataVersion(res.data_version ?? null);
           setPollError(false);
         }
       } catch {

@@ -1,6 +1,6 @@
 # Synapse — Product Backlog
 > Maintained by: product-manager
-> Last updated: 2026-07-05 (Sprint 13 / v1.3 shipped — ROADMAP-v1.3-v2.0.md; Sprint 12 / v1.2 shipped (v1.2.4–v1.2.6) — SPRINT-v1.2-SCOPE.md; Sprint 11 / v1.1 scope locked — SPRINT-v1.1-SCOPE.md; Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
+> Last updated: 2026-07-06 (Sprint 14 / v1.3.6 scope locked — SPRINT-v1.3.6-SCOPE.md; Sprint 13 / v1.3 shipped — ROADMAP-v1.3-v2.0.md; Sprint 12 / v1.2 shipped (v1.2.4–v1.2.6) — SPRINT-v1.2-SCOPE.md; Sprint 11 / v1.1 scope locked — SPRINT-v1.1-SCOPE.md; Sprint 10 / v1.0 scope locked — SPRINT-v1.0-SCOPE.md; Sprint 9 / v0.9.0 shipped; Sprint 8 / v0.8.0 shipped; Sprint 7 / v0.7.0 shipped)
 > Source of truth for feature IDs: CLAUDE.md §4
 > Sprint roadmap: CLAUDE.md §8
 
@@ -15,6 +15,224 @@
 | blocked | Dependency unresolved |
 | done | Exit criteria verified by PM |
 | done-pending-live-demo | Automated gates green; remaining condition is live-infra or human verification (no code change needed) |
+
+---
+
+## Sprint 14 — v1.3.6 — M136 "Diagnostics, Real-time & Stability"
+
+Goal: make the running application stable, observable, and correct before taking on
+design-heavy work. Diagnostics session (Phase 0) runs first to confirm unconfirmed
+bugs. Then: lightweight dataVersion polling for Home+Graph, ingest progress wiring,
+wiki vault-meta tree node, review queue filter bug, and automations verification.
+No new features, no UX redesigns, no backend contract changes beyond existing ADR-0046 fields.
+
+**Sprint status: SCOPE LOCKED — 2026-07-06**
+Scope file: docs/sprints/SPRINT-v1.3.6-SCOPE.md
+Branch: sprint/v1.3.6 (to be cut from main after v1.3.5 tag)
+Deferred to v1.3.7: WS-E (domain wizard), WS-F (settings restructure)
+
+### R136-H — Phase-0 Diagnostics
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F1, F9, F4, F18, K2, F16 |
+| Sprint | v1.3.6 |
+| Status | backlog |
+| Effort | M (senior-tester session) |
+| Priority | P0 — prerequisite; blocks WS-B and WS-D(7) engineering |
+
+Senior-tester Chrome session against live v1.3.5 app. Targets: confirm or close
+WS-B (review filter bug) and WS-D(7) (frontmatter overlay). Verify WS-G automations.
+Deliverable: Phase-0 finding table in this BACKLOG and a UI usability index handed
+to orchestrator. No engineering during the session — find first, fix later.
+
+**Acceptance criteria:**
+- AC-WS-H-1: Phase-0 diagnostic session completed; console and network logs captured.
+- AC-WS-H-2: Structured defect report present in BACKLOG.md (Phase-0 finding table); every finding CONFIRMED or CLOSED.
+- AC-WS-H-3: WS-B status (CONFIRMED or CLOSED) documented; proceed/drop decision recorded.
+- AC-WS-H-4: WS-D(7) status (CONFIRMED or CLOSED) documented; proceed/drop decision recorded.
+- AC-WS-H-5: WS-G automation verification rows present (one per op: lint, backfill-domains, schema_review, reclassify); each has verdict PASS or FAIL.
+- AC-WS-H-6: UI usability index produced and handed to orchestrator (does not gate sprint).
+
+---
+
+### R136-A — Real-time freshness (Home + Graph)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F16, F4, F18 |
+| Sprint | v1.3.6 |
+| Status | backlog |
+| Effort | M |
+| Priority | P1 — not blocked on Phase 0 |
+
+Home dashboard (F18) and Graph viewer (F4) are one-shot fetch-on-mount. Add
+lightweight dataVersion polling (GET /status, no WebSocket, no new endpoint).
+Only re-fetch section data when version changes. I2 and I3 must hold.
+
+**Acceptance criteria:**
+- AC-WS-A-1: Home dashboard re-fetches /stats/overview and /stats/sections on dataVersion change.
+- AC-WS-A-2: Graph viewer re-fetches /graph on dataVersion change; no client-side layout recompute (I2).
+- AC-WS-A-3: No re-render on ticks where dataVersion is unchanged (I3). Verified by Zustand shallow-equality selector guard.
+- AC-WS-A-4: No WebSocket, no new REST endpoint, no new polling loop.
+- AC-WS-A-5: Polling interval architect-approved and documented.
+- AC-WS-A-6: vitest spec: dataVersion-unchanged tick = zero data fetches; dataVersion-changed tick = one fetch per endpoint.
+
+---
+
+### R136-B — Review queue status-filter bug
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F9 |
+| Sprint | v1.3.6 |
+| Status | blocked — WS-H Phase-0 confirmation required |
+| Effort | S |
+| Priority | P1 — conditional on Phase-0 |
+
+"In attesa" and "Risolti" tabs show identical results. Root cause unconfirmed.
+Engineering does not start until Phase 0 confirms the bug. If Phase 0 closes it,
+this item is dropped from the sprint.
+
+**Acceptance criteria:**
+- AC-WS-B-0: GATE — Phase-0 confirmation required before AC-WS-B-1 through AC-WS-B-3.
+- AC-WS-B-1: Root cause identified and documented (cache keying / DB enum / query param / other).
+- AC-WS-B-2: Fix applied; pending tab returns only pending items; resolved tab returns only resolved items.
+- AC-WS-B-3: Playwright or vitest spec verifies disjoint item sets when both statuses exist in DB.
+
+---
+
+### R136-C — Ingest progress visibility (batch %, ETA)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F3, F16 (ADR-0046 wiring) |
+| Sprint | v1.3.6 |
+| Status | backlog |
+| Effort | M |
+| Priority | P1 — not blocked on Phase 0 |
+
+"Lavori attivi" widget shows only "3 in corso". ADR-0046 snapshot already carries
+batch.done, batch.total, batch.eta_seconds, per-task phase. Frontend is not wired
+to these fields. Fix = frontend wiring only (no backend change).
+
+**Acceptance criteria:**
+- AC-WS-C-1: Widget shows progress bar (batch.done / batch.total * 100, integer %).
+- AC-WS-C-2: ETA displayed ("ETA ~Xs", localized IT/EN) when non-null; hidden when null.
+- AC-WS-C-3: Per-task phase label shown for each active task; missing i18n keys added to EN+IT files.
+- AC-WS-C-4: No new backend endpoint; OpenAPI drift check shows zero diff.
+- AC-WS-C-5: Progress bar is CSS element only (no canvas, no animation library). I3 holds.
+- AC-WS-C-6: vitest spec: snapshot{done:2,total:5,eta_seconds:30} renders "40%" and "ETA ~30s".
+
+---
+
+### R136-D8 — Vault/Meta tree node (schema.md + purpose.md)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | K1, K6, I5 |
+| Sprint | v1.3.6 |
+| Status | backlog |
+| Effort | M |
+| Priority | P1 — not blocked on Phase 0 |
+
+schema.md and purpose.md are created at bootstrap but never indexed and never appear
+in the wiki tree. A thin "Vault / Meta" tree section reads them from disk on demand
+(no Postgres, no Qdrant). Escalate to solution-architect if implementation requires
+touching the pages table.
+
+**Acceptance criteria:**
+- AC-WS-D8-1: "Vault / Meta" tree section at tree bottom; contains exactly schema.md and purpose.md entries.
+- AC-WS-D8-2: Clicking either entry navigates to file content in editor/preview panel.
+- AC-WS-D8-3: Neither file is indexed as a Page record in Postgres or Qdrant. Verified by DB query + Qdrant point count.
+- AC-WS-D8-4: I5 holds — both files render correctly; no YAML leaks into rendered body.
+- AC-WS-D8-5: I1 holds — no watcher extension, no ingest pipeline change.
+- AC-WS-D8-6: If either file is absent from disk, tree section shows placeholder "Not yet generated" (no crash).
+
+---
+
+### R136-D7 — Frontmatter overlay edge case (conditional)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | K6, I5 |
+| Sprint | v1.3.6 |
+| Status | blocked — WS-H Phase-0 confirmation required |
+| Effort | S |
+| Priority | P2 — conditional; drop if not reproduced |
+
+YAML frontmatter reported as appearing fixed/overlapping while note body scrolls.
+renderMarkdown.ts:190 already strips frontmatter, making this an unconfirmed edge
+case. Engineering does not start until Phase 0 confirms it.
+
+**Acceptance criteria (conditional on Phase-0 CONFIRMED):**
+- AC-WS-D7-1: Trigger condition documented in Phase-0 report.
+- AC-WS-D7-2: Fix in renderMarkdown.ts or rendering component; YAML not visible in rendered body for confirmed trigger.
+- AC-WS-D7-3: Existing renderMarkdown unit tests remain green.
+
+---
+
+### R136-G — Automations functional verification
+
+| Field | Value |
+|-------|-------|
+| Feature ID | K2, F3, F16, F18 |
+| Sprint | v1.3.6 |
+| Status | backlog |
+| Effort | S–M per regression found |
+| Priority | P1 — exit criterion for sprint correctness |
+
+Four scheduled ops (lint, backfill-domains, schema_review, reclassify) must be
+verified to work correctly after v1.3.5 changes. Phase 0 is the primary verification
+vehicle. Any regression found is repaired with the minimum change to restore
+pre-v1.3.5 behavior.
+
+**Acceptance criteria:**
+- AC-WS-G-1: lint op runs to completion; produces lint_findings rows; no uncaught exception.
+- AC-WS-G-2: backfill-domains op runs to completion; classifies at least one page; logs total_cost_usd.
+- AC-WS-G-3: schema_review op runs to completion; produces a ReviewItem or logs "no suggestions" (no silent failure).
+- AC-WS-G-4: reclassify op runs to completion; re-tags or logs "nothing to reclassify" (no error).
+- AC-WS-G-5: Each regression fix is bounded to restoring pre-v1.3.5 behavior; no logic additions.
+- AC-WS-G-6: All four ops produce correct log.md entries in the v1.3.5 format.
+
+---
+
+### R136-DEFERRED — v1.3.7 backlog (locked out of v1.3.6)
+
+| Field | Value |
+|-------|-------|
+| Feature ID | F18 (WS-E), F17 (WS-F) |
+| Sprint | v1.3.7 |
+| Status | backlog |
+| Priority | P1 for v1.3.7 |
+
+**WS-E — Domain/Groups full wizard:**
+Click domain/group → Search with pre-applied filter (requires /search contract ADR);
+FilterBar domain/community chips; debounced backfill hook + manual "Regenerate" button;
+guided domain-creation wizard with AI-match preview, promote-tag-to-domain, rename/merge.
+ADR required before any engineering begins. Effort: L.
+
+**WS-F — Settings IA full restructure:**
+Per-provider end-to-end config in one place; plain-language descriptions;
+configured/missing states; base/advanced modes; per-provider wizard.
+ADR required (explicit requirement in task brief). Sequence after WS-G confirms
+provider-config issues (those findings may inform the redesign). Effort: L.
+
+---
+
+## Phase-0 Finding Table (to be filled during WS-H session)
+
+> This table is populated by the qa-test-engineer during the Phase-0 diagnostics
+> session. It is a prerequisite for WS-B and WS-D(7) engineering decisions.
+
+| Finding ID | Workstream | Bug / Check | Verdict | Root Cause / Notes |
+|-----------|-----------|-------------|---------|-------------------|
+| P0-1 | WS-B | Review queue "In attesa" / "Risolti" tabs identical | PENDING | |
+| P0-2 | WS-D(7) | Frontmatter YAML overlay while body scrolls | PENDING | |
+| P0-3 | WS-G | lint op post-v1.3.5 | PENDING | |
+| P0-4 | WS-G | backfill-domains op post-v1.3.5 | PENDING | |
+| P0-5 | WS-G | schema_review op post-v1.3.5 | PENDING | |
+| P0-6 | WS-G | reclassify op post-v1.3.5 | PENDING | |
 
 ---
 

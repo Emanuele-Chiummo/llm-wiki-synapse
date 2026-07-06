@@ -785,10 +785,13 @@ describe("SourcesView — S3 footer count", () => {
       truncated: false,
     });
     render(<SourcesView />);
+    // Both assertions must sit INSIDE waitFor: the footer element and its text render
+    // together on the same async tick, so asserting the text outside the poll races
+    // (known flaky "Unable to find text: 3 sources" in CI).
     await waitFor(() => {
       expect(screen.getByTestId("sources-footer")).toBeTruthy();
+      expect(screen.getByText("3 sources")).toBeTruthy();
     });
-    expect(screen.getByText("3 sources")).toBeTruthy();
   });
 
   it("shows 0 sources when the list is empty", async () => {

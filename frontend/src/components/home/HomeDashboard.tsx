@@ -81,8 +81,12 @@ import {
   selectSetActiveSection,
 } from "../../store/graphStore";
 import { useProviderStore, selectActiveProvider } from "../../store/providerStore";
-import { useStatusStore, selectBackendVersion } from "../../store/statusStore";
-import { useActivityCounts } from "../../store/activityStore";
+import {
+  useStatusStore,
+  selectBackendVersion,
+  selectStatusDataVersion,
+} from "../../store/statusStore";
+import { useActivityCounts, useActivityBatch, useActivityTasks } from "../../store/activityStore";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -431,12 +435,35 @@ function SystemStatusBlock({
   );
 }
 
-// ─── Active Jobs Block (A4) ───────────────────────────────────────────────────
+// ─── Active Jobs Block (A4 + WS-C) ───────────────────────────────────────────
+
+interface BatchProgress {
+  running: boolean;
+  done: number;
+  total: number;
+  eta_seconds: number | null;
+}
+
+interface IngestTaskProgress {
+  phase?: string | null;
+  progress?: number | null;
+  eta_seconds?: number | null;
+}
 
 interface ActiveJobsBlockProps {
   /** Ingest counts come from activityStore already polled by ActivityBar — no new poller. */
   ingestProcessing: number;
   ingestPending: number;
+  /**
+   * WS-C [F3/F16]: Batch progress from activityStore (bulk "index all").
+   * Null when no batch is running (single-file or idle mode).
+   */
+  ingestBatch: BatchProgress | null;
+  /**
+   * WS-C [F3/F16]: Processing tasks from activityStore for single-file aggregate.
+   * Used when batch is null to show per-task phase and aggregate ETA.
+   */
+  ingestTasks: IngestTaskProgress[];
   onNavigateIngest: () => void;
   onNavigateResearch: () => void;
   onNavigateBackfill: () => void;
@@ -520,6 +547,8 @@ function JobRow({ icon, label, meta, onClick, testId }: JobRowProps) {
 function ActiveJobsBlock({
   ingestProcessing,
   ingestPending,
+  ingestBatch,
+  ingestTasks,
   onNavigateIngest,
   onNavigateResearch,
   onNavigateBackfill,
@@ -569,6 +598,40 @@ function ActiveJobsBlock({
   const hasIngest = ingestProcessing > 0 || ingestPending > 0;
   const hasResearch = runningResearch.length > 0;
   const hasBackfill = backfillStatus?.running === true;
+
+  // ── WS-C [F3/F16]: Compute ingest progress values ──────────────────────────
+  // Batch mode (bulk "index all"): use batch.done/total/eta_seconds directly.
+  // Single-file mode (no batch): aggregate tasks[] progress for an overall %.
+  // I3: pure arithmetic from existing store data — no heavy computation per render.
+
+  let ingestPct: number | null = null;
+  let ingestEtaSeconds: number | null = null;
+  let ingestDone: number | null = null;
+  let ingestTotal: number | null = null;
+
+  // Clamp any computed percentage into [0, 100] — defends against a task.progress that
+  // arrives already scaled (0..100) or a transient over-count in batch.done.
+  const clampPct = (n: number) => Math.min(100, Math.max(0, Math.round(n)));
+
+  if (ingestBatch !== null && ingestBatch.total > 0) {
+    // Batch mode: use the dedicated batch counters.
+    ingestPct = clampPct((ingestBatch.done / ingestBatch.total) * 100);
+    ingestDone = ingestBatch.done;
+    ingestTotal = ingestBatch.total;
+    ingestEtaSeconds = ingestBatch.eta_seconds;
+  } else if (ingestTasks.length > 0) {
+    // Single-file mode: average progress across processing tasks that report progress.
+    const withProgress = ingestTasks.filter((tk) => tk.progress != null);
+    if (withProgress.length > 0) {
+      const avg = withProgress.reduce((sum, tk) => sum + (tk.progress ?? 0), 0) / withProgress.length;
+      ingestPct = clampPct(avg * 100);
+    }
+    // ETA: minimum non-null eta_seconds across processing tasks (best-case remaining).
+    const etas = ingestTasks.filter((tk) => tk.eta_seconds != null).map((tk) => tk.eta_seconds as number);
+    ingestEtaSeconds = etas.length > 0 ? Math.min(...etas) : null;
+  }
+
+  const hasIngestProgress = ingestPct !== null;
 
   // Nothing active yet (still loading) → don't flash an empty block
   if (jobsLoading && !hasIngest) return null;
@@ -625,21 +688,94 @@ function ActiveJobsBlock({
         </button>
       </div>
 
-      {/* Ingest row */}
+      {/* Ingest row — WS-C: progress bar + ETA + done/total (AC-WS-C-1/2/3/5) */}
       {hasIngest && (
-        <JobRow
-          testId="home-active-jobs-ingest"
-          icon={<Loader2 size={12} />}
-          label={t("home.activeJobs.ingest")}
-          meta={
-            ingestProcessing > 0 && ingestPending > 0
-              ? `${ingestProcessing} ${t("home.activeJobs.ingestProcessing")} · ${ingestPending} ${t("home.activeJobs.ingestPending")}`
-              : ingestProcessing > 0
-                ? `${ingestProcessing} ${t("home.activeJobs.ingestProcessing")}`
-                : `${ingestPending} ${t("home.activeJobs.ingestPending")}`
-          }
-          onClick={onNavigateIngest}
-        />
+        <div data-testid="home-active-jobs-ingest-wrapper">
+          <JobRow
+            testId="home-active-jobs-ingest"
+            icon={<Loader2 size={12} />}
+            label={t("home.activeJobs.ingest")}
+            meta={
+              ingestBatch !== null && ingestDone !== null && ingestTotal !== null
+                ? t("home.activeJobs.ingestBatchCount", { done: ingestDone, total: ingestTotal })
+                : ingestProcessing > 0 && ingestPending > 0
+                  ? `${ingestProcessing} ${t("home.activeJobs.ingestProcessing")} · ${ingestPending} ${t("home.activeJobs.ingestPending")}`
+                  : ingestProcessing > 0
+                    ? `${ingestProcessing} ${t("home.activeJobs.ingestProcessing")}`
+                    : `${ingestPending} ${t("home.activeJobs.ingestPending")}`
+            }
+            onClick={onNavigateIngest}
+          />
+          {/* WS-C AC-WS-C-1: overall progress bar — pure CSS, no canvas (I3) */}
+          {hasIngestProgress && (
+            <div
+              style={{ padding: "0 10px 4px" }}
+            >
+              <div
+                data-testid="home-active-jobs-ingest-progress-bar"
+                style={{
+                  height: 4,
+                  borderRadius: 2,
+                  background: "var(--syn-border)",
+                  overflow: "hidden",
+                }}
+                role="progressbar"
+                aria-valuenow={ingestPct ?? 0}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={t("home.activeJobs.ingestProgressLabel", { pct: ingestPct ?? 0 })}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${ingestPct ?? 0}%`,
+                    background: "var(--syn-accent)",
+                    borderRadius: 2,
+                    transition: "width 0.4s ease",
+                  }}
+                />
+              </div>
+              {/* WS-C AC-WS-C-1/2: percentage + ETA */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3 }}>
+                <span
+                  data-testid="home-active-jobs-ingest-pct"
+                  style={{ fontSize: 10, color: "var(--syn-text-muted)", fontVariantNumeric: "tabular-nums" }}
+                >
+                  {ingestPct}%
+                </span>
+                {/* WS-C AC-WS-C-2: ETA hidden when null */}
+                {ingestEtaSeconds !== null && (
+                  <span
+                    data-testid="home-active-jobs-ingest-eta"
+                    style={{ fontSize: 10, color: "var(--syn-text-dim)" }}
+                  >
+                    {t("home.activeJobs.ingestEta", { eta: ingestEtaSeconds })}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          {/* WS-C AC-WS-C-3: per-task phase labels (single-file mode, no batch) */}
+          {ingestBatch === null && ingestTasks.length > 0 && (
+            <div
+              data-testid="home-active-jobs-ingest-phases"
+              style={{ padding: "0 10px 4px", display: "flex", flexDirection: "column", gap: 1 }}
+            >
+              {ingestTasks.slice(0, 3).map((tk, idx) =>
+                tk.phase ? (
+                  <span
+                    key={idx}
+                    style={{ fontSize: 10, color: "var(--syn-text-dim)" }}
+                  >
+                    {/* Reuse existing activity.phase.* i18n keys (AC-WS-C-3).
+                        Falls back to raw phase string for unknown phases (e.g. "generating (2/3)"). */}
+                    {t(`activity.phase.${tk.phase}`, { defaultValue: tk.phase })}
+                  </span>
+                ) : null,
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Deep Research running rows — one per running run (topic truncated) */}
@@ -947,8 +1083,20 @@ export function HomeDashboard() {
   const activeProvider = useProviderStore(selectActiveProvider);
   const backendVersion = useStatusStore(selectBackendVersion);
 
+  // WS-A [F16/F4/F18]: subscribe to data_version from the ActivityBar's existing
+  // GET /status poll. When it changes, re-fetch stats (overview + sections + groups).
+  // INVARIANT I3: no render occurs on every tick — only when the version value changes.
+  // No new poller introduced; the ActivityBar's STATUS_POLL_MS (30s) is the sole driver.
+  const statusDataVersion = useStatusStore(selectStatusDataVersion);
+
   // Ingest counts from activityStore — already polled by ActivityBar; no new poller (I3).
   const { processing: ingestProcessing, pending: ingestPending } = useActivityCounts();
+
+  // WS-C [F3/F16]: batch progress and task list for ingest progress bar (AC-WS-C-1/2/3).
+  const ingestBatch = useActivityBatch();
+  const allTasks = useActivityTasks();
+  // Filter to processing tasks only — these carry phase/progress/eta (AC-WS-C-3).
+  const ingestTasks = allTasks.filter((tk) => tk.status === "processing");
 
   // A4 — expand/collapse state for GRUPPI AUTOMATICI (component-local, default collapsed).
   const [groupsExpanded, setGroupsExpanded] = useState(false);
@@ -958,42 +1106,63 @@ export function HomeDashboard() {
     ? [activeProvider.provider_type, activeProvider.model_id].filter(Boolean).join(" / ")
     : null;
 
-  // uptime and data_version come from the ActivityBar's /status poll via statusStore;
-  // we read them from the store — no new poller (I3). Currently only backendVersion
-  // is in statusStore; uptime/data_version are local state in ActivityBar.
-  // Per A2 we accept them as null when unavailable (the /stats/overview also has data_version).
-  // We read data_version from the overview response directly.
-
   const [overview, setOverview] = useState<StatsOverview | null | undefined>(undefined);
   const [sections, setSections] = useState<StatsSections | null | undefined>(undefined);
   const [groups, setGroups] = useState<StatsGroups | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Single fetch on mount — no polling (I3)
-  useEffect(() => {
-    const ac = new AbortController();
-    setLoadError(null);
+  // Track the last data_version for which we successfully fetched stats.
+  // WS-A: only re-fetch when the version advances — no spurious re-renders (I3).
+  const lastFetchedVersionRef = useRef<number | null>(null);
+  // Ref to the current statusDataVersion so the async fetch callback can read
+  // the latest value without it being a dep of the useCallback (stable ref pattern).
+  const statusDataVersionRef = useRef<number | null>(statusDataVersion);
+  statusDataVersionRef.current = statusDataVersion;
 
-    async function load() {
+  // Stable fetch function — called on mount and on dataVersion change.
+  // Does not need statusDataVersion in its deps: it reads from the ref.
+  const loadStats = useCallback((signal: AbortSignal) => {
+    setLoadError(null);
+    void (async () => {
       try {
         const [ov, sec, grp] = await Promise.all([
-          getStatsOverview(ac.signal),
-          getStatsSections(ac.signal),
-          getStatsGroups(ac.signal),
+          getStatsOverview(signal),
+          getStatsSections(signal),
+          getStatsGroups(signal),
         ]);
-        if (ac.signal.aborted) return;
+        if (signal.aborted) return;
         setOverview(ov);
         setSections(sec);
         setGroups(grp);
+        // Record the version we just fetched against (AC-WS-A-3: no re-fetch on
+        // same-version tick). If statusDataVersion is null (backend pre-WS-A or
+        // first poll not yet received), store -1 as sentinel so we don't loop.
+        lastFetchedVersionRef.current = statusDataVersionRef.current ?? -1;
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") return;
         setLoadError(err instanceof Error ? err.message : String(err));
       }
-    }
+    })();
+  }, []); // Stable: reads state via refs, no reactive deps needed.
 
-    void load();
+  // Initial fetch on mount.
+  useEffect(() => {
+    const ac = new AbortController();
+    loadStats(ac.signal);
     return () => ac.abort();
-  }, []);
+  }, [loadStats]);
+
+  // WS-A [AC-WS-A-1, AC-WS-A-3]: re-fetch stats when data_version bumps.
+  // Guard: skip if version hasn't changed from last fetch, skip initial null.
+  // I3 compliance: no re-render on same-version tick.
+  useEffect(() => {
+    if (statusDataVersion === null) return;
+    if (statusDataVersion === lastFetchedVersionRef.current) return;
+    // Version has advanced — re-fetch stats without a full page reload (AC-WS-A-1).
+    const ac = new AbortController();
+    loadStats(ac.signal);
+    return () => ac.abort();
+  }, [statusDataVersion, loadStats]); // Only re-run when the polled version changes.
 
   // Section card click: write domain filter to localStorage + switch to wiki section
   const handleSectionNavigate = useCallback(
@@ -1130,10 +1299,12 @@ export function HomeDashboard() {
         dataVersion={overview.data_version}
       />
 
-      {/* ── 2. Active Jobs block (A4) — only rendered when something is running ── */}
+      {/* ── 2. Active Jobs block (A4 + WS-C) — only rendered when something is running ── */}
       <ActiveJobsBlock
         ingestProcessing={ingestProcessing}
         ingestPending={ingestPending}
+        ingestBatch={ingestBatch}
+        ingestTasks={ingestTasks}
         onNavigateIngest={() => setActiveSection("ingest")}
         onNavigateResearch={() => setActiveSection("deep-search")}
         onNavigateBackfill={() => setActiveSection("settings")}

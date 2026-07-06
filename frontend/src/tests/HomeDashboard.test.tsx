@@ -100,9 +100,13 @@ vi.mock("../api/researchClient", () => ({
 // ─── activityStore mock ───────────────────────────────────────────────────────
 
 const mockActivityCounts = { paused: false, pending: 0, processing: 0, failed: 0, completed_since_idle: 0, total: 0 };
+let mockActivityBatch: { running: boolean; done: number; total: number; eta_seconds: number | null } | null = null;
+let mockActivityTasks: Array<{ status: string; phase?: string | null; progress?: number | null; eta_seconds?: number | null }> = [];
 
 vi.mock("../store/activityStore", () => ({
   useActivityCounts: () => mockActivityCounts,
+  useActivityBatch: () => mockActivityBatch,
+  useActivityTasks: () => mockActivityTasks,
 }));
 
 // ─── healthClient mock ────────────────────────────────────────────────────────
@@ -117,9 +121,10 @@ const mockBackendVersion = vi.fn<() => string | undefined>(() => undefined);
 
 vi.mock("../store/statusStore", () => ({
   useStatusStore: (selector: (s: unknown) => unknown) =>
-    selector({ backendVersion: mockBackendVersion() }),
+    selector({ backendVersion: mockBackendVersion(), dataVersion: null }),
   selectBackendVersion: (s: { backendVersion: string | undefined }) => s.backendVersion,
   selectSetBackendVersion: (s: { setBackendVersion: () => void }) => s.setBackendVersion,
+  selectStatusDataVersion: (s: { dataVersion: number | null }) => s.dataVersion,
 }));
 
 // ─── providerStore mock ───────────────────────────────────────────────────────
@@ -1264,5 +1269,166 @@ describe("i18n — home.* and config.domainVocabulary.* keys present in both loc
     const it = await import("../i18n/locales/it.json");
     const home = (it as { home: { activeJobs: { backfill: string } } }).home;
     expect(home.activeJobs.backfill).toBeTruthy();
+  });
+
+  // WS-C: new ingest progress i18n keys
+  it("en.json has home.activeJobs.ingestBatchCount key (WS-C)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { activeJobs: { ingestBatchCount: string } } }).home;
+    expect(home.activeJobs.ingestBatchCount).toContain("{{done}}");
+    expect(home.activeJobs.ingestBatchCount).toContain("{{total}}");
+  });
+
+  it("it.json has home.activeJobs.ingestBatchCount key (WS-C)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { activeJobs: { ingestBatchCount: string } } }).home;
+    expect(home.activeJobs.ingestBatchCount).toContain("{{done}}");
+    expect(home.activeJobs.ingestBatchCount).toContain("{{total}}");
+  });
+
+  it("en.json has home.activeJobs.ingestEta key (WS-C)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { activeJobs: { ingestEta: string } } }).home;
+    expect(home.activeJobs.ingestEta).toContain("{{eta}}");
+  });
+
+  it("it.json has home.activeJobs.ingestEta key (WS-C)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { activeJobs: { ingestEta: string } } }).home;
+    expect(home.activeJobs.ingestEta).toContain("{{eta}}");
+  });
+
+  it("en.json has home.activeJobs.ingestProgressLabel key (WS-C)", async () => {
+    const en = await import("../i18n/locales/en.json");
+    const home = (en as { home: { activeJobs: { ingestProgressLabel: string } } }).home;
+    expect(home.activeJobs.ingestProgressLabel).toContain("{{pct}}");
+  });
+
+  it("it.json has home.activeJobs.ingestProgressLabel key (WS-C)", async () => {
+    const it = await import("../i18n/locales/it.json");
+    const home = (it as { home: { activeJobs: { ingestProgressLabel: string } } }).home;
+    expect(home.activeJobs.ingestProgressLabel).toContain("{{pct}}");
+  });
+});
+
+// ─── WS-C: Ingest progress bar (AC-WS-C-1/2/3/5/6) ──────────────────────────
+
+describe("HomeDashboard — WS-C: ingest progress bar (AC-WS-C-1/2/3/5/6)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockActivityCounts.processing = 0;
+    mockActivityCounts.pending = 0;
+    mockActivityBatch = null;
+    mockActivityTasks = [];
+    mockGetStatsOverview.mockResolvedValue(MOCK_OVERVIEW);
+    mockGetStatsSections.mockResolvedValue(MOCK_SECTIONS);
+    mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
+    mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
+    mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
+  });
+
+  afterEach(() => {
+    mockActivityCounts.processing = 0;
+    mockActivityCounts.pending = 0;
+    mockActivityBatch = null;
+    mockActivityTasks = [];
+  });
+
+  it("AC-WS-C-1: progress bar renders with batch={done:2, total:5} → '40%'", async () => {
+    mockActivityCounts.processing = 2;
+    mockActivityBatch = { running: true, done: 2, total: 5, eta_seconds: 30 };
+    mockActivityTasks = [];
+    await renderDashboard();
+    await waitFor(() => {
+      const bar = screen.queryByTestId("home-active-jobs-ingest-progress-bar");
+      expect(bar).not.toBeNull();
+      const pctEl = screen.queryByTestId("home-active-jobs-ingest-pct");
+      expect(pctEl).not.toBeNull();
+      expect(pctEl?.textContent).toContain("40%");
+    });
+  });
+
+  it("AC-WS-C-2: ETA displayed when batch.eta_seconds is non-null (AC-WS-C-2)", async () => {
+    mockActivityCounts.processing = 3;
+    mockActivityBatch = { running: true, done: 2, total: 5, eta_seconds: 30 };
+    await renderDashboard();
+    await waitFor(() => {
+      const etaEl = screen.queryByTestId("home-active-jobs-ingest-eta");
+      expect(etaEl).not.toBeNull();
+      // i18n mock returns the last key segment ("ingestEta") — the element must be present.
+      // In production the real key "ETA ~{{eta}}s" would render "ETA ~30s".
+      expect(etaEl?.textContent).toBeTruthy();
+    });
+  });
+
+  it("AC-WS-C-2: ETA hidden when batch.eta_seconds is null", async () => {
+    mockActivityCounts.processing = 1;
+    mockActivityBatch = { running: true, done: 1, total: 3, eta_seconds: null };
+    await renderDashboard();
+    await waitFor(() => {
+      // Progress bar should appear but ETA element should be absent
+      expect(screen.queryByTestId("home-active-jobs-ingest-progress-bar")).not.toBeNull();
+      expect(screen.queryByTestId("home-active-jobs-ingest-eta")).toBeNull();
+    });
+  });
+
+  it("AC-WS-C-5: progress bar is a CSS div element (no canvas, no animation library)", async () => {
+    mockActivityCounts.processing = 2;
+    mockActivityBatch = { running: true, done: 2, total: 5, eta_seconds: null };
+    await renderDashboard();
+    await waitFor(() => {
+      const bar = screen.queryByTestId("home-active-jobs-ingest-progress-bar");
+      expect(bar).not.toBeNull();
+      // Must be a div, not canvas
+      expect(bar?.tagName.toLowerCase()).toBe("div");
+    });
+    // No canvas elements rendered in the dashboard
+    expect(document.querySelectorAll("canvas").length).toBe(0);
+  });
+
+  it("AC-WS-C-6: batch={done:2, total:5, eta_seconds:30} renders 40% bar and ETA element", async () => {
+    mockActivityCounts.processing = 2;
+    mockActivityBatch = { running: true, done: 2, total: 5, eta_seconds: 30 };
+    await renderDashboard();
+    await waitFor(() => {
+      const pctEl = screen.queryByTestId("home-active-jobs-ingest-pct");
+      const etaEl = screen.queryByTestId("home-active-jobs-ingest-eta");
+      // AC-WS-C-1: 40% bar (2/5 = 40%)
+      expect(pctEl?.textContent).toContain("40%");
+      // AC-WS-C-2: ETA element is present (production renders "ETA ~30s";
+      // i18n mock returns key segment "ingestEta" — presence check is sufficient here).
+      expect(etaEl).not.toBeNull();
+    });
+  });
+
+  it("AC-WS-C-3: single-file mode shows phase labels from tasks (no batch)", async () => {
+    mockActivityCounts.processing = 1;
+    mockActivityBatch = null;
+    mockActivityTasks = [
+      { status: "processing", phase: "analyzing", progress: 0.5, eta_seconds: 10 },
+    ];
+    await renderDashboard();
+    await waitFor(() => {
+      const phasesEl = screen.queryByTestId("home-active-jobs-ingest-phases");
+      expect(phasesEl).not.toBeNull();
+      // i18n mock returns last key segment of activity.phase.analyzing → "analyzing"
+      expect(phasesEl?.textContent).toContain("analyzing");
+    });
+  });
+
+  it("progress bar NOT rendered when no batch and no tasks with progress", async () => {
+    mockActivityCounts.processing = 1;
+    mockActivityBatch = null;
+    mockActivityTasks = [
+      { status: "processing", phase: null, progress: null, eta_seconds: null },
+    ];
+    await renderDashboard();
+    await waitFor(() => {
+      // Ingest row is present
+      expect(screen.queryByTestId("home-active-jobs-ingest")).not.toBeNull();
+      // But no progress bar (no progress data to show)
+      expect(screen.queryByTestId("home-active-jobs-ingest-progress-bar")).toBeNull();
+    });
   });
 });

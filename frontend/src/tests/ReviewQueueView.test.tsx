@@ -104,6 +104,13 @@ vi.mock("react-i18next", () => ({
         "review.tabPending": "Pending",
         "review.tabResolved": "Resolved",
         "review.tabDismissed": "Dismissed",
+        "review.statusBadge.auto_resolved": "Auto-resolved",
+        "review.statusBadge.created": "Created",
+        "review.statusBadge.deep_researched": "Researched",
+        "review.statusBadge.skipped": "Skipped",
+        "review.statusBadge.dismissed": "Dismissed",
+        "review.resolvedAt": "Resolved {{date}}",
+        "review.viewCreatedPage": "View page",
         "review.itemType.missing-page": "Missing page",
         "review.itemType.suggestion": "Suggestion",
         "review.itemType.contradiction": "Contradiction",
@@ -125,12 +132,18 @@ vi.mock("react-i18next", () => ({
 // ─── Mock graphStore ──────────────────────────────────────────────────────────
 
 const mockSetActiveSection = vi.fn();
+const mockSelectPage = vi.fn();
 
 vi.mock("../store/graphStore", () => ({
   useGraphStore: (selector: (s: unknown) => unknown) =>
-    selector({ vaultId: "default", setActiveSection: mockSetActiveSection }),
+    selector({
+      vaultId: "default",
+      setActiveSection: mockSetActiveSection,
+      selectPage: mockSelectPage,
+    }),
   selectVaultId: (s: { vaultId: string }) => s.vaultId,
   selectSetActiveSection: (s: { setActiveSection: () => void }) => s.setActiveSection,
+  selectSelectPage: (s: { selectPage: () => void }) => s.selectPage,
 }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -1119,5 +1132,282 @@ describe("ReviewQueueView — UXB-2 design-system class assertions (AC-UXB2-2 + 
     //  not via document.createElement, so it does not appear here.)
     expect(styleCreations).toHaveLength(0);
     spy.mockRestore();
+  });
+});
+
+// ─── WS-B: resolved / dismissed card distinct state (AC-WS-B-2 / AC-WS-B-3) ──
+//
+// Verifies that:
+//   1. Resolved items (status auto_resolved / created / deep_researched) render a
+//      resolution badge and NO primary action buttons (Crea / Salta / Ignora /
+//      Ricerca Profonda).
+//   2. Dismissed items show the "dismissed" badge and NO primary action buttons.
+//   3. The Resolved and Pending tabs return disjoint item sets (AC-WS-B-3).
+//   4. A created item with created_page_id shows the "View page" link.
+
+describe("ReviewQueueView — WS-B: resolved card state (AC-WS-B-2)", () => {
+  beforeEach(() => {
+    resetStore();
+    vi.clearAllMocks();
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+    });
+  });
+
+  it("resolved item (auto_resolved) shows status badge and no action buttons", async () => {
+    const resolvedItem = makeItem("r1", { status: "auto_resolved", reviewed_at: new Date().toISOString() });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [resolvedItem],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+
+    // Resolution badge must appear
+    expect(screen.getByTestId("review-status-badge-auto_resolved")).toBeTruthy();
+
+    // Primary action buttons must NOT appear
+    expect(screen.queryByTestId("review-action-create")).toBeNull();
+    expect(screen.queryByTestId("review-action-skip")).toBeNull();
+    expect(screen.queryByTestId("review-action-dismiss")).toBeNull();
+    expect(screen.queryByTestId("review-action-deep-research")).toBeNull();
+  });
+
+  it("resolved item (created) shows 'created' badge and no action buttons", async () => {
+    const createdItem = makeItem("r2", { status: "created", reviewed_at: new Date().toISOString() });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [createdItem],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+
+    expect(screen.getByTestId("review-status-badge-created")).toBeTruthy();
+    expect(screen.queryByTestId("review-action-create")).toBeNull();
+    expect(screen.queryByTestId("review-action-skip")).toBeNull();
+    expect(screen.queryByTestId("review-action-dismiss")).toBeNull();
+    expect(screen.queryByTestId("review-action-deep-research")).toBeNull();
+  });
+
+  it("resolved item (deep_researched) shows 'deep_researched' badge and no action buttons", async () => {
+    const deepItem = makeItem("r3", { status: "deep_researched", reviewed_at: new Date().toISOString() });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [deepItem],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+
+    expect(screen.getByTestId("review-status-badge-deep_researched")).toBeTruthy();
+    expect(screen.queryByTestId("review-action-create")).toBeNull();
+    expect(screen.queryByTestId("review-action-skip")).toBeNull();
+    expect(screen.queryByTestId("review-action-dismiss")).toBeNull();
+    expect(screen.queryByTestId("review-action-deep-research")).toBeNull();
+  });
+
+  it("dismissed item shows 'dismissed' badge and no action buttons", async () => {
+    const dismissedItem = makeItem("d1", { status: "dismissed", reviewed_at: new Date().toISOString() });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [dismissedItem],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+
+    expect(screen.getByTestId("review-status-badge-dismissed")).toBeTruthy();
+    expect(screen.queryByTestId("review-action-create")).toBeNull();
+    expect(screen.queryByTestId("review-action-skip")).toBeNull();
+    expect(screen.queryByTestId("review-action-dismiss")).toBeNull();
+    expect(screen.queryByTestId("review-action-deep-research")).toBeNull();
+  });
+
+  it("skipped item shows 'skipped' badge and no action buttons", async () => {
+    const skippedItem = makeItem("s1", { status: "skipped", reviewed_at: new Date().toISOString() });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [skippedItem],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+
+    expect(screen.getByTestId("review-status-badge-skipped")).toBeTruthy();
+    expect(screen.queryByTestId("review-action-create")).toBeNull();
+    expect(screen.queryByTestId("review-action-skip")).toBeNull();
+    expect(screen.queryByTestId("review-action-dismiss")).toBeNull();
+    expect(screen.queryByTestId("review-action-deep-research")).toBeNull();
+  });
+
+  it("pending item still shows all four action buttons (unchanged)", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("p1", { status: "pending" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+
+    // All four pending actions must be present
+    expect(screen.getByTestId("review-action-create")).toBeTruthy();
+    expect(screen.getByTestId("review-action-skip")).toBeTruthy();
+    expect(screen.getByTestId("review-action-dismiss")).toBeTruthy();
+    expect(screen.getByTestId("review-action-deep-research")).toBeTruthy();
+
+    // No resolution badge on pending
+    expect(screen.queryByTestId("review-status-badge-auto_resolved")).toBeNull();
+    expect(screen.queryByTestId("review-status-badge-created")).toBeNull();
+    expect(screen.queryByTestId("review-status-badge-dismissed")).toBeNull();
+  });
+
+  it("created item with created_page_id shows 'View page' link", async () => {
+    const createdWithPage = makeItem("r4", {
+      status: "created",
+      created_page_id: "page-uuid-abc",
+      reviewed_at: new Date().toISOString(),
+    });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [createdWithPage],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-view-created-page")).toBeTruthy();
+    });
+  });
+
+  it("created item without created_page_id does NOT show 'View page' link", async () => {
+    const createdNoPage = makeItem("r5", {
+      status: "created",
+      created_page_id: null,
+      reviewed_at: new Date().toISOString(),
+    });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [createdNoPage],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+
+    expect(screen.queryByTestId("review-view-created-page")).toBeNull();
+  });
+});
+
+// ─── WS-B AC-WS-B-3: Pending and Resolved tabs return disjoint item sets ─────
+
+describe("ReviewQueueView — WS-B AC-WS-B-3: tabs return disjoint item sets", () => {
+  it("Pending tab and Resolved tab fetch different status values and display disjoint items", async () => {
+    const pendingItem = makeItem("pending-1", { status: "pending" });
+    const resolvedItem = makeItem("resolved-1", { status: "auto_resolved", reviewed_at: new Date().toISOString() });
+
+    // First call: pending tab (mount)
+    vi.mocked(reviewClient.fetchReviewQueue)
+      .mockResolvedValueOnce({ items: [pendingItem], total: 1, limit: 50, offset: 0 })
+      // Second call: after switching to resolved tab
+      .mockResolvedValueOnce({ items: [resolvedItem], total: 1, limit: 50, offset: 0 });
+
+    render(<ReviewQueueView />);
+
+    // Wait for pending tab to render
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-item-row")).toHaveLength(1);
+    });
+
+    // Pending item shows action buttons (pending card)
+    expect(screen.getByTestId("review-action-create")).toBeTruthy();
+    expect(screen.queryByTestId("review-status-badge-auto_resolved")).toBeNull();
+
+    // Switch to resolved tab
+    fireEvent.click(screen.getByTestId("review-tab-resolved"));
+
+    await waitFor(() => {
+      // The second fetch must have been called with status=resolved
+      const calls = vi.mocked(reviewClient.fetchReviewQueue).mock.calls;
+      const resolvedCall = calls.find(
+        (c) => (c[0] as { status?: string }).status === "resolved",
+      );
+      expect(resolvedCall).toBeDefined();
+    });
+
+    await waitFor(() => {
+      // Now showing the resolved item — resolution badge present, no action buttons
+      expect(screen.getByTestId("review-status-badge-auto_resolved")).toBeTruthy();
+      expect(screen.queryByTestId("review-action-create")).toBeNull();
+    });
+  });
+
+  it("Dismissed tab fetches status=dismissed and shows dismissed badge", async () => {
+    const dismissedItem = makeItem("dismissed-1", { status: "dismissed", reviewed_at: new Date().toISOString() });
+
+    vi.mocked(reviewClient.fetchReviewQueue)
+      .mockResolvedValueOnce({ items: [], total: 0, limit: 50, offset: 0 }) // pending tab
+      .mockResolvedValueOnce({ items: [dismissedItem], total: 1, limit: 50, offset: 0 }); // dismissed tab
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-tab-dismissed")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("review-tab-dismissed"));
+
+    await waitFor(() => {
+      const calls = vi.mocked(reviewClient.fetchReviewQueue).mock.calls;
+      const dismissedCall = calls.find(
+        (c) => (c[0] as { status?: string }).status === "dismissed",
+      );
+      expect(dismissedCall).toBeDefined();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-status-badge-dismissed")).toBeTruthy();
+      expect(screen.queryByTestId("review-action-create")).toBeNull();
+    });
   });
 });
