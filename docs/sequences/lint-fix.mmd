@@ -9,7 +9,7 @@ sequenceDiagram
     participant API as FastAPI (/lint/* + /pages/*)
     participant DB as Postgres
     participant Lint as run_lint_scan
-    participant Links as links table (dangling, I1)
+    participant LinkTbl as links table (dangling, I1)
     participant Resolver as tolerant resolver (exact→case→slug)
     participant Provider as InferenceProvider (I6)
     participant Enrich as enrich_wikilinks seam (I1/I5)
@@ -33,11 +33,11 @@ sequenceDiagram
 
     %% Step 1: Deterministic structural check — orphan pages (no provider call)
     Lint->>DB: SELECT pages (in-degree 0 → orphan-page)
-    DB-->>Lint: orphan FindingDTO[]  (flag-only; severity=info)
+    DB-->>Lint: orphan FindingDTO[]  (flag-only, severity=info)
 
     %% Step 1b: NEW — broken-wikilink detection (ADR-0058 §2.1; zero cost, I7)
-    Lint->>Links: SELECT links WHERE dangling=True [indexed scan, capped LINT_MAX_FINDINGS]
-    Links-->>Lint: dangling link rows {referencing_page_id, target_text}[]
+    Lint->>LinkTbl: SELECT links WHERE dangling=True [indexed scan, capped LINT_MAX_FINDINGS]
+    LinkTbl-->>Lint: dangling link rows {referencing_page_id, target_text}[]
     loop for each dangling link [bounded by LINT_MAX_FINDINGS]
         Lint->>Resolver: resolve(target_text) [exact→case-insensitive→slug precedence]
         Resolver-->>Lint: {suggested_target?, suggested_page_id?}
@@ -83,7 +83,7 @@ sequenceDiagram
         API->>DB: UPDATE lint_findings SET status=applied, resolution_note
     else category == broken-wikilink (ADR-0058 §2.2)
         alt suggested_target != NULL
-            API->>Enrich: rewrite [[dangling]] → [[suggested_target]] in referencing page body<br/>(alias-preserving; frontmatter-preserving round-trip; I5)
+            API->>Enrich: rewrite [[dangling]] → [[suggested_target]] in referencing page body<br/>(alias-preserving, frontmatter-preserving round-trip, I5)
             Enrich->>DB: re-persist links for referencing page (dangling→False) + bump data_version ONCE (I1)
             Note over Enrich,DB: Exactly one link, one page, one bump. Same safety class as missing-xref.
         else suggested_target == NULL (flag-only)
@@ -100,14 +100,14 @@ sequenceDiagram
 
     %% ─── Batch bar (ADR-0058 §2.3) — cap ids ≤ 200, sequential ──
     Client->>API: POST /lint/findings/batch {ids: UUID[], action: "apply"|"dismiss"|"send-to-review"}
-    API->>API: Validate ids.length ≤ 200 (>200 → 422; I7)
+    API->>API: Validate ids.length ≤ 200 (>200 → 422, I7)
     loop for each id [sequential server-side — no fan-out, I7]
         alt action == "apply"
             API->>API: dispatch single-id apply branch (see above)
         else action == "dismiss"
             API->>DB: UPDATE lint_findings SET status=dismissed
         else action == "send-to-review"
-            API->>Review: enqueue_review(category→item_type mapping, page anchors)<br/>[FNV-1a idempotent; re-bridge = NO-OP]
+            API->>Review: enqueue_review(category→item_type mapping, page anchors)<br/>[FNV-1a idempotent, re-bridge = NO-OP]
             Review-->>API: {review_item_id}
             API->>DB: UPDATE lint_findings SET status=applied,<br/>resolution_note=review_item_id
         end
@@ -124,7 +124,7 @@ sequenceDiagram
     %% ─── Orphan DELETE (ADR-0058 §2.5) — human-double-confirmed ──
     Note over Client,Cascade: Orphan Delete is UI-only, human-double-confirmed (K8).<br/>NEVER reachable from any automated path, scan, batch, or loop.
     Client->>API: DELETE /pages/{id}  [after two-stage UI confirm]
-    API->>API: Scope guard — wiki/ pages only;<br/>index.md / log.md / overview.md → 409
+    API->>API: Scope guard — wiki/ pages only,<br/>index.md / log.md / overview.md → 409
     API->>DB: soft-delete Page row (deleted_at, ADR-0005)
     API->>DB: remove Qdrant point (delete_point, cascade-delete §Step 3)
     API->>API: remove file from vault filesystem

@@ -11,6 +11,12 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 - `fix(ops)`: the automations card now reports the true classification outcome
   (`dormant` / `error` / counts) instead of a blind "ok" (#1).
+- `fix(ci)`: repair `docs/sequences/lint-fix.mmd` — the Docs Gate Mermaid validation
+  failed on a participant named `Links` (a Mermaid keyword) and `;` in message labels
+  (statement separator). Pre-existing since [K2] lint work; was masked by the failing
+  lint gate. Renamed the participant to `LinkTbl` and `;`→`,` in labels.
+- `fix(ci)`: complete the Node 20 → Node 24 action bumps missed in 1.3.5 —
+  `actions/upload-artifact` v4→v7, `actions/setup-node` v4→v6, `actions/setup-python` v5→v6.
 
 ## [1.3.5] — 2026-07-06
 
