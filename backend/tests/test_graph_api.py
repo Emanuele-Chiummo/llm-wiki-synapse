@@ -93,6 +93,11 @@ async def graph_app(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClie
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+    # Page UUIDs seeded into pages table (used for GR1 total_nodes/total_edges assertions)
+    _PAGE_ID_1 = str(uuid.uuid4())
+    _PAGE_ID_2 = str(uuid.uuid4())
+    _PAGE_ID_3 = str(uuid.uuid4())
+
     async with engine_db.begin() as conn:
         await conn.execute(sa_text("""
             CREATE TABLE pages (
@@ -112,6 +117,17 @@ async def graph_app(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClie
                 pinned INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """))
+        await conn.execute(sa_text("""
+            CREATE TABLE links (
+                id TEXT PRIMARY KEY,
+                source_page_id TEXT NOT NULL REFERENCES pages(id),
+                target_title TEXT NOT NULL,
+                target_page_id TEXT,
+                alias TEXT,
+                dangling INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """))
         await conn.execute(sa_text("""
@@ -138,6 +154,36 @@ async def graph_app(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClie
                 "VALUES (:id, 'test', 3, datetime('now'))"
             ).bindparams(id=str(uuid.uuid4()))
         )
+        # Seed 3 live pages (1 for each vault member), 1 deleted page (must be excluded)
+        for pid, fpath in [
+            (_PAGE_ID_1, "wiki/entities/alpha.md"),
+            (_PAGE_ID_2, "wiki/entities/beta.md"),
+            (_PAGE_ID_3, "wiki/concepts/gamma.md"),
+        ]:
+            await conn.execute(
+                sa_text(
+                    "INSERT INTO pages (id, vault_id, file_path, content_hash) "
+                    "VALUES (:id, 'test', :fp, '')"
+                ).bindparams(id=pid, fp=fpath)
+            )
+        # One soft-deleted page — must NOT count in total_nodes
+        await conn.execute(
+            sa_text(
+                "INSERT INTO pages (id, vault_id, file_path, content_hash, deleted_at) "
+                "VALUES (:id, 'test', 'wiki/deleted.md', '', datetime('now'))"
+            ).bindparams(id=str(uuid.uuid4()))
+        )
+        # Seed 2 link rows from source pages in this vault
+        for lid, src, tgt_title in [
+            (str(uuid.uuid4()), _PAGE_ID_1, "Beta"),
+            (str(uuid.uuid4()), _PAGE_ID_2, "Gamma"),
+        ]:
+            await conn.execute(
+                sa_text(
+                    "INSERT INTO links (id, source_page_id, target_title, dangling) "
+                    "VALUES (:id, :src, :tgt, 1)"
+                ).bindparams(id=lid, src=src, tgt=tgt_title)
+            )
 
     session_factory = async_sessionmaker(
         bind=engine_db,
@@ -382,6 +428,120 @@ class TestOpenAPISchema:
         schema = resp.json()
         graph_path = schema.get("paths", {}).get("/graph", {})
         assert "get" in graph_path, "OpenAPI /graph path must have a 'get' operation"
+
+
+# ── GR1: total_nodes / total_edges vault-wide totals ──────────────────────────
+
+
+class TestGraphVaultTotals:
+    """
+    GR1: GET /graph returns total_nodes and total_edges as vault-wide denominators.
+
+    Invariants verified:
+      - Both fields are non-negative integers present in the response (I1).
+      - total_nodes counts only live (non-deleted) pages — the seeded fixture has
+        3 live pages + 1 deleted page; expect total_nodes == 3.
+      - total_edges counts all link rows for the vault — the fixture seeds 2; expect 2.
+      - total_nodes >= len(nodes) (in-graph subset ≤ vault total).
+      - total_edges >= len(edges) (in-graph graph edges ≤ total wikilinks).
+    """
+
+    async def test_total_nodes_present(
+        self, graph_app: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """total_nodes field is present in GET /graph response."""
+        _patch_cache_always_miss(monkeypatch)
+        resp = await graph_app.get("/graph")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "total_nodes" in body, "Missing 'total_nodes' in GET /graph response (GR1)"
+
+    async def test_total_edges_present(
+        self, graph_app: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """total_edges field is present in GET /graph response."""
+        _patch_cache_always_miss(monkeypatch)
+        resp = await graph_app.get("/graph")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "total_edges" in body, "Missing 'total_edges' in GET /graph response (GR1)"
+
+    async def test_total_nodes_is_nonneg_int(
+        self, graph_app: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """total_nodes is a non-negative integer."""
+        _patch_cache_always_miss(monkeypatch)
+        resp = await graph_app.get("/graph")
+        body = resp.json()
+        assert isinstance(body["total_nodes"], int)
+        assert body["total_nodes"] >= 0
+
+    async def test_total_edges_is_nonneg_int(
+        self, graph_app: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """total_edges is a non-negative integer."""
+        _patch_cache_always_miss(monkeypatch)
+        resp = await graph_app.get("/graph")
+        body = resp.json()
+        assert isinstance(body["total_edges"], int)
+        assert body["total_edges"] >= 0
+
+    async def test_total_nodes_excludes_deleted(
+        self, graph_app: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """total_nodes counts only non-deleted pages (fixture: 3 live + 1 deleted → 3)."""
+        _patch_cache_always_miss(monkeypatch)
+        resp = await graph_app.get("/graph")
+        body = resp.json()
+        assert body["total_nodes"] == 3, (
+            f"Expected 3 live pages (1 deleted excluded), got {body['total_nodes']}"
+        )
+
+    async def test_total_edges_counts_links(
+        self, graph_app: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """total_edges counts all link rows for this vault (fixture seeds 2 links)."""
+        _patch_cache_always_miss(monkeypatch)
+        resp = await graph_app.get("/graph")
+        body = resp.json()
+        assert body["total_edges"] == 2, (
+            f"Expected 2 link rows, got {body['total_edges']}"
+        )
+
+    async def test_total_nodes_gte_ingraph_nodes(
+        self, graph_app: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """total_nodes >= len(nodes): vault total is at least as large as the in-graph subset."""
+        _patch_cache_always_miss(monkeypatch)
+        resp = await graph_app.get("/graph")
+        body = resp.json()
+        assert body["total_nodes"] >= len(body["nodes"]), (
+            f"total_nodes ({body['total_nodes']}) must be >= len(nodes) ({len(body['nodes'])})"
+        )
+
+    async def test_total_edges_gte_ingraph_edges(
+        self, graph_app: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """total_edges >= len(edges): vault link count >= in-graph weighted edge count."""
+        _patch_cache_always_miss(monkeypatch)
+        resp = await graph_app.get("/graph")
+        body = resp.json()
+        assert body["total_edges"] >= len(body["edges"]), (
+            f"total_edges ({body['total_edges']}) must be >= len(edges) ({len(body['edges'])})"
+        )
+
+    async def test_totals_present_on_cache_hit(
+        self, graph_app: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """total_nodes and total_edges are populated even on a cache HIT."""
+        _patch_cache_always_hit(monkeypatch)
+        resp = await graph_app.get("/graph")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "total_nodes" in body
+        assert "total_edges" in body
+        assert body["total_nodes"] >= 0
+        assert body["total_edges"] >= 0
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────

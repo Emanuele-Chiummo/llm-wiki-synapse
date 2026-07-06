@@ -19,14 +19,14 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy import text as sa_text
 
 from app.config import settings
 from app.config_overrides import effective_str
 from app.graph.cache import GraphCache
 from app.graph.engine import GraphEngine, GraphSnapshot
-from app.models import VaultState
+from app.models import Link, Page, VaultState
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +194,22 @@ class GraphResponse(BaseModel):
             "Ordered by id (0 = largest). Empty until first graph recompute."
         ),
     )
+    total_nodes: int = Field(
+        default=0,
+        description=(
+            "Count of ALL live (non-deleted) pages in the vault (the full denominator). "
+            "Use len(nodes) for the in-graph numerator: e.g. '816/986 pages' (GR1). "
+            "Computed via a bounded indexed COUNT query — I1."
+        ),
+    )
+    total_edges: int = Field(
+        default=0,
+        description=(
+            "Count of ALL link rows for this vault (the full wikilink denominator). "
+            "Use len(edges) for the in-graph numerator: e.g. '1024/4213 edges' (GR1). "
+            "Computed via a bounded indexed COUNT query — I1."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -221,6 +237,8 @@ class GraphResponse(BaseModel):
                 "data_version": 7,
                 "cached": True,
                 "communities": [{"id": 0, "size": 2, "cohesion": 1.0}],
+                "total_nodes": 986,
+                "total_edges": 4213,
             }
         }
     }
@@ -407,6 +425,25 @@ async def get_graph() -> Response:
         state = row.scalar_one_or_none()
         current_version: int = state.data_version if state is not None else 0
 
+        # ── GR1 vault-wide totals — bounded indexed COUNT queries (I1) ─────────
+        # total_nodes: all live (non-deleted) pages in this vault
+        _pages_count_row = await session.execute(
+            select(func.count())
+            .select_from(Page)
+            .where(Page.vault_id == settings.vault_id, Page.deleted_at.is_(None))
+        )
+        total_nodes: int = int(_pages_count_row.scalar_one() or 0)
+
+        # total_edges: all link rows whose source page belongs to this vault
+        # (Link has no direct vault_id; join to pages on source_page_id — indexed FK)
+        _links_count_row = await session.execute(
+            select(func.count())
+            .select_from(Link)
+            .join(Page, Link.source_page_id == Page.id)
+            .where(Page.vault_id == settings.vault_id)
+        )
+        total_edges: int = int(_links_count_row.scalar_one() or 0)
+
     # Initialise cache lazily (e.g. in test environments that bypass lifespan)
     if _m._graph_cache is None:
         _m._graph_cache = GraphCache(
@@ -444,6 +481,8 @@ async def get_graph() -> Response:
         data_version=current_version,
         cached=cached,
         communities=communities,
+        total_nodes=total_nodes,
+        total_edges=total_edges,
     )
 
     cache_header = "hit" if cached else "miss"
