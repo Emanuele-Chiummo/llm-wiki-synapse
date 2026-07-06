@@ -1,0 +1,83 @@
+name: 🐛 Bug report
+description: Report a defect in Synapse (backend, frontend, or desktop app)
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report. Please search
+        [existing issues](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/issues)
+        first — your problem may already be tracked.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+      placeholder: When I ingest a PDF, the page is created but no wikilinks are generated…
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal, ordered steps. Include a sample file or payload if relevant.
+      placeholder: |
+        1. Go to '…'
+        2. Upload '…'
+        3. See error
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Ingest / providers (F17)
+        - Knowledge graph (F4)
+        - Chat / retrieval (F5, F6)
+        - Deep research (F10)
+        - Review queue / lint (F9)
+        - Web UI / desktop app
+        - Deploy / docker-compose
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Synapse version
+      description: Release tag or commit SHA (see the app footer or `git rev-parse HEAD`).
+      placeholder: v1.3.3
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Inference provider in use
+      options:
+        - Local (Ollama)
+        - API (Anthropic)
+        - API (OpenAI-compatible)
+        - CLI (claude-agent-sdk)
+        - Not applicable
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, deployment (docker-compose / bare), browser or desktop build.
+      placeholder: |
+        - OS: macOS 15.4 / TrueNAS SCALE 25.10
+        - Deployment: docker compose
+        - Client: Desktop app (Tauri) / Chrome 126
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Backend logs, browser console, or the failing request. Redact secrets.
+      render: shell
+    validations:
+      required: false

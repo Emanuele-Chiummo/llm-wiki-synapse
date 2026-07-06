@@ -1,0 +1,42 @@
+name: ✨ Feature request
+description: Suggest an enhancement or new capability
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Synapse follows a scoped roadmap (see
+        [`docs/reference/ROADMAP-v1.3-v2.0.md`](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/blob/main/docs/reference/ROADMAP-v1.3-v2.0.md)
+        and the feature inventory in `CLAUDE.md` §4). Please check both before proposing.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do that Synapse doesn't support today?
+      placeholder: I want to ingest from a Zotero library, but only file upload and the clipper exist…
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should happen? Reference existing feature IDs (K1–K8 / F1–F18) if it extends one.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you've tried or other approaches you weighed.
+    validations:
+      required: false
+  - type: checkboxes
+    id: invariants
+    attributes:
+      label: Invariant check
+      description: Synapse has 9 non-negotiable invariants (CLAUDE.md §3). Confirm your idea respects them.
+      options:
+        - label: This does not require a full re-scan (I1) or a main-thread graph layout (I2)
+          required: false
+        - label: This keeps the `wiki/` folder Obsidian-compatible (I5) and inference pluggable (I6)
+          required: false
