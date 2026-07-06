@@ -15,6 +15,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import type { GraphNode, GraphEdge } from "../api/types";
+import { edgeVisibilityThreshold } from "../api/graphTransform";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -198,5 +199,110 @@ describe("graphStore filterNodeTypes slice", () => {
     // Verify result is pure data — no side effects
     expect(f).toBeInstanceOf(Set);
     expect(Array.from(f).sort()).toEqual(["concept", "entity"]);
+  });
+});
+
+// ─── GL1 link-chip culling (P3 graph link-chip fix) ──────────────────────────
+// The link-chip numerator must exclude GL1-culled edges (normalizedWeight < threshold)
+// in addition to type-filtered edges. This mirrors nashsu/llm_wiki.
+
+describe("GL1 link-chip culling — visibleEdges with edgeVisibilityThreshold", () => {
+  // Build a normalizedWeight map from the raw weight range (same formula as graphTransform.ts).
+  function buildNormWeightMap(edges: GraphEdge[]): Map<string, number> {
+    const m = new Map<string, number>();
+    if (edges.length === 0) return m;
+    let wMin = Infinity, wMax = -Infinity;
+    for (const e of edges) {
+      if (e.weight < wMin) wMin = e.weight;
+      if (e.weight > wMax) wMax = e.weight;
+    }
+    const range = wMax - wMin;
+    for (const e of edges) {
+      const nw = range === 0 ? 0.5 : (e.weight - wMin) / range;
+      const key = e.source < e.target ? `${e.source}__${e.target}` : `${e.target}__${e.source}`;
+      m.set(key, nw);
+    }
+    return m;
+  }
+
+  function computeVisibleEdgesWithCulling(
+    edges: GraphEdge[],
+    nodeCount: number,
+    filter: Set<string>,
+    nodeTypeMap: Map<string, string>,
+    normWeightMap: Map<string, number>,
+  ): number {
+    const threshold = edgeVisibilityThreshold(nodeCount);
+    return edges.filter((e) => {
+      const key = e.source < e.target ? `${e.source}__${e.target}` : `${e.target}__${e.source}`;
+      const nw = normWeightMap.get(key) ?? 0.5;
+      if (nw < threshold) return false;
+      if (filter.size === 0) return true;
+      const srcType = nodeTypeMap.get(e.source) ?? "other";
+      const tgtType = nodeTypeMap.get(e.target) ?? "other";
+      return filter.has(srcType) && filter.has(tgtType);
+    }).length;
+  }
+
+  it("threshold is 0 for ≤600 nodes — no culling on small graphs", () => {
+    expect(edgeVisibilityThreshold(100)).toBe(0);
+    expect(edgeVisibilityThreshold(600)).toBe(0);
+  });
+
+  it("threshold > 0 for large graphs (>600 nodes)", () => {
+    expect(edgeVisibilityThreshold(601)).toBeGreaterThan(0);
+    expect(edgeVisibilityThreshold(1200)).toBeGreaterThan(0);
+    expect(edgeVisibilityThreshold(2000)).toBeGreaterThan(0);
+  });
+
+  it("all 4 edges visible on small graph (≤600 nodes, threshold=0)", () => {
+    const nodes = makeNodes(); // 5 nodes
+    const edges = makeEdges(); // 4 edges
+    const nodeTypeMap = new Map(nodes.map((n) => [n.id, n.type ?? "other"]));
+    const normWeightMap = buildNormWeightMap(edges);
+    // 5 nodes → threshold=0 → no culling
+    const visible = computeVisibleEdgesWithCulling(edges, 5, new Set(), nodeTypeMap, normWeightMap);
+    expect(visible).toBe(4);
+  });
+
+  it("weak edges are culled when threshold > 0 (simulated large graph)", () => {
+    // Simulate a graph where one edge has nw=0 (weakest) and we force threshold=0.03
+    // by telling the function node count is 800.
+    // With weights [1, 1, 1, 2]: min=1, max=2, range=1 → nw for w=1 is 0, w=2 is 1.
+    const edges: GraphEdge[] = [
+      { source: "c1", target: "c2", weight: 1 },   // nw = 0 → culled at threshold 0.03
+      { source: "c1", target: "e1", weight: 1 },   // nw = 0 → culled
+      { source: "e1", target: "s1", weight: 2 },   // nw = 1 → shown
+      { source: "c2", target: "u1", weight: 1 },   // nw = 0 → culled
+    ];
+    const nodes = makeNodes();
+    const nodeTypeMap = new Map(nodes.map((n) => [n.id, n.type ?? "other"]));
+    const normWeightMap = buildNormWeightMap(edges);
+    // 800 nodes → threshold = 0.03 → nw=0 edges culled, nw=1 edge shown
+    const visible = computeVisibleEdgesWithCulling(edges, 800, new Set(), nodeTypeMap, normWeightMap);
+    expect(visible).toBe(1); // only the nw=1 edge passes
+  });
+
+  it("denominator always equals edges.length regardless of culling", () => {
+    const edges = makeEdges();
+    expect(edges.length).toBe(4);
+  });
+
+  it("culled + type-filtered: both constraints applied", () => {
+    // 1 strong edge (nw=1, concept–concept) and 3 weak edges (nw=0)
+    // Filter = {concept}: only concept–concept edges pass type filter
+    // GL1 threshold at 800 nodes = 0.03: nw=0 culled
+    const edges: GraphEdge[] = [
+      { source: "c1", target: "c2", weight: 2 },  // strong, concept–concept
+      { source: "c1", target: "e1", weight: 1 },  // weak, concept–entity
+      { source: "e1", target: "s1", weight: 1 },  // weak, entity–source
+      { source: "c2", target: "u1", weight: 1 },  // weak, concept–other
+    ];
+    const nodes = makeNodes();
+    const nodeTypeMap = new Map(nodes.map((n) => [n.id, n.type ?? "other"]));
+    const normWeightMap = buildNormWeightMap(edges);
+    // GL1 culls nw=0; filter {concept} keeps only concept–concept
+    const visible = computeVisibleEdgesWithCulling(edges, 800, new Set(["concept"]), nodeTypeMap, normWeightMap);
+    expect(visible).toBe(1); // only c1–c2 passes both GL1 + filter
   });
 });

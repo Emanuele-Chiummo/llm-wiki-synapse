@@ -221,7 +221,7 @@ beforeEach(() => {
     pages_deleted: 0,
   });
   vi.mocked(sourcesClient.deleteFolderSource).mockResolvedValue({
-    deleted_path: "images",
+    deleted_source: "images",
     files_deleted: 3,
     pages_cascaded: 2,
   });

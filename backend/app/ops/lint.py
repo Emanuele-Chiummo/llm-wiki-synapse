@@ -105,6 +105,7 @@ class LintFindingsPage:
     total: int
     limit: int
     offset: int
+    severity_totals: dict[str, int]
 
 
 @dataclass
@@ -612,8 +613,14 @@ async def list_lint_findings(
       category (any _VALID_CATEGORIES value — L10).
       severity (info|warning|error — L10).
     limit is capped by the REST endpoint (I7 — bounded page size).
+
+    ``severity_totals`` is a COUNT(*) GROUP BY severity over the same vault + status +
+    category predicate as ``total``, but IGNORING the severity filter and pagination.
+    This lets the UI show accurate per-severity group headers regardless of the active
+    severity filter. One indexed GROUP BY query (I1/I7).
     """
     async with get_session() as session:
+        # ── Total (respects all active filters including severity) ──────────────
         count_stmt = (
             select(func.count()).select_from(LintFinding).where(LintFinding.vault_id == vault_id)
         )
@@ -625,6 +632,24 @@ async def list_lint_findings(
             count_stmt = count_stmt.where(LintFinding.severity == severity)
         total: int = (await session.execute(count_stmt)).scalar_one()
 
+        # ── Per-severity totals: same vault + status + category; NO severity filter ──
+        # One bounded indexed GROUP BY — never a full table scan (I1/I7).
+        sev_stmt = (
+            select(LintFinding.severity, func.count().label("n"))
+            .where(LintFinding.vault_id == vault_id)
+        )
+        if status is not None:
+            sev_stmt = sev_stmt.where(LintFinding.status == status)
+        if category is not None:
+            sev_stmt = sev_stmt.where(LintFinding.category == category)
+        sev_stmt = sev_stmt.group_by(LintFinding.severity)
+        severity_totals: dict[str, int] = {
+            sev: int(n)
+            for sev, n in (await session.execute(sev_stmt)).all()
+            if sev is not None
+        }
+
+        # ── Page data ───────────────────────────────────────────────────────────
         data_stmt = select(LintFinding).where(LintFinding.vault_id == vault_id)
         if status is not None:
             data_stmt = data_stmt.where(LintFinding.status == status)
@@ -637,7 +662,13 @@ async def list_lint_findings(
         for r in rows:
             session.expunge(r)
 
-    return LintFindingsPage(items=rows, total=total, limit=limit, offset=offset)
+    return LintFindingsPage(
+        items=rows,
+        total=total,
+        limit=limit,
+        offset=offset,
+        severity_totals=severity_totals,
+    )
 
 
 async def list_lint_runs(

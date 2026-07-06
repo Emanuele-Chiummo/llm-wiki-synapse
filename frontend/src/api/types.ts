@@ -923,6 +923,16 @@ export interface LintFindingListResponse {
   total: number;
   limit: number;
   offset: number;
+  /**
+   * L11: True per-severity totals for the current status/category view.
+   * Present when the backend supports ADR-0037 §6 L11 (v0.6+).
+   * Absent on older servers — UI falls back to the loaded-row count per severity.
+   */
+  severity_totals?: {
+    error?: number;
+    warning?: number;
+    info?: number;
+  };
 }
 
 /**
