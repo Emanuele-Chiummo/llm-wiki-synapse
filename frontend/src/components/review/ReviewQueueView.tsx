@@ -926,7 +926,14 @@ function RowWrapper({
     <ReviewRow
       item={item}
       style={{ position: "absolute", top: vRow.start, width: "100%" }}
-      measureRef={(el) => virtualizer.measureElement(el)}
+      // TanStack Virtual maps a measured node to its row via the data-index
+      // attribute; without it measureElement is a no-op and every row keeps the
+      // fixed ROW_ESTIMATE (leaving big gaps under the short resolved/dismissed
+      // cards). Stamp it before measuring so variable heights actually apply.
+      measureRef={(el) => {
+        if (el) el.setAttribute("data-index", String(vRow.index));
+        virtualizer.measureElement(el);
+      }}
       inFlight={inFlight}
       actionError={actionError}
       generationError={generationError}
