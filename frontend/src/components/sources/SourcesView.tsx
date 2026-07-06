@@ -46,6 +46,7 @@ import {
   useCallback,
   useRef,
   type CSSProperties,
+  type ChangeEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -69,12 +70,14 @@ import {
 import {
   listSources,
   deleteSource,
+  deleteFolderSource,
   triggerIngest,
   ingestAllSources,
   getIngestAllStatus,
   IngestAllRunningError,
 } from "../../api/sourcesClient";
 import type { SourceEntry } from "../../api/sourcesClient";
+import { uploadDocument } from "../../api/ingestClient";
 import { SourcePreview } from "./SourcePreview";
 import { UploadZone } from "../ingest/UploadZone";
 import { ConfirmDialog } from "../common/ConfirmDialog";
@@ -201,6 +204,15 @@ const FILE_ROW_H   = 30;
 const DISARM_DELAY = 5000; // ms
 const INGEST_ALL_POLL_MS = 1500; // I3: single setTimeout chain interval
 
+// ─── Accepted extensions (mirrors UploadZone) ─────────────────────────────────
+
+const ACCEPTED_EXTS = new Set([".md", ".txt", ".markdown", ".pdf", ".docx", ".pptx", ".xlsx"]);
+
+function getExt(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  return dot === -1 ? "" : filename.slice(dot).toLowerCase();
+}
+
 // ─── Module-level reduced-motion detection (mirrors ActivityBar/GraphViewer) ──
 
 const reducedMotion: boolean =
@@ -223,18 +235,27 @@ interface BulkProgress {
   currentPath: string;
 }
 
+// ─── FolderUploadProgress — progress for "+ Folder" sequential upload (S1) ───
+
+interface FolderUploadProgress {
+  current: number;
+  total: number;
+  currentName: string;
+}
+
 // ─── SourcesView ──────────────────────────────────────────────────────────────
 
 export function SourcesView() {
   const { t } = useTranslation();
 
   const [entries, setEntries]               = useState<SourceEntry[]>([]);
+  const [total, setTotal]                   = useState<number>(0);
   const [loading, setLoading]               = useState(false);
   const [error, setError]                   = useState<string | null>(null);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [selectedPath, setSelectedPath]     = useState<string | null>(null);
   const [showImport, setShowImport]         = useState(false);
-  // Two-stage delete
+  // Two-stage delete (files and folders share the same armed/deleting state)
   const [armedPath, setArmedPath]           = useState<string | null>(null);
   const [deletingPath, setDeletingPath]     = useState<string | null>(null);
   // Per-file ingest in-flight
@@ -245,6 +266,10 @@ export function SourcesView() {
   const [ingestAllProgress, setIngestAllProgress] = useState<IngestAllProgress | null>(null);
   // Single setTimeout poll chain ref (I3)
   const ingestAllPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // S1: folder upload (hidden directory input + sequential progress)
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const [folderUploadProgress, setFolderUploadProgress] = useState<FolderUploadProgress | null>(null);
 
   // R7-11: multi-select state
   const [selectedPaths, setSelectedPaths]   = useState<Set<string>>(new Set());
@@ -259,6 +284,7 @@ export function SourcesView() {
     try {
       const res = await listSources(signal);
       setEntries(res.entries);
+      setTotal(res.total);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : String(err));
@@ -402,6 +428,99 @@ export function SourcesView() {
       }
     },
     [t],
+  );
+
+  // ── S1: Folder upload ────────────────────────────────────────────────────────
+  // Sequential per-file upload preserving relative directory structure.
+  // Reuses the existing bulk-progress bar pattern (I3: event-driven, not per-token).
+
+  const handleFolderInputChange = useCallback(
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      // Filter to accepted extensions; skip unsupported silently (count for toast).
+      const accepted: File[] = [];
+      const skipped: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file) continue;
+        if (ACCEPTED_EXTS.has(getExt(file.name))) {
+          accepted.push(file);
+        } else {
+          skipped.push(file.name);
+        }
+      }
+
+      if (skipped.length > 0) {
+        showToast(t("sources.folderUploadSkipped", { count: skipped.length }), "error");
+      }
+      if (accepted.length === 0) {
+        // Reset so the same folder can be re-selected
+        if (folderInputRef.current) folderInputRef.current.value = "";
+        return;
+      }
+
+      const total = accepted.length;
+      for (let i = 0; i < accepted.length; i++) {
+        const file = accepted[i];
+        if (!file) continue;
+        setFolderUploadProgress({ current: i + 1, total, currentName: file.name });
+        // Derive rel_dir from webkitRelativePath: strip the filename from the end.
+        // webkitRelativePath = "folderName/sub/file.txt" → rel_dir = "folderName/sub"
+        const relPath = (file as File & { webkitRelativePath?: string }).webkitRelativePath ?? "";
+        const lastSlash = relPath.lastIndexOf("/");
+        const relDir = lastSlash > 0 ? relPath.slice(0, lastSlash) : undefined;
+        try {
+          await uploadDocument(file, undefined, relDir);
+        } catch (err: unknown) {
+          console.error("[sources] folder upload error for", file.name, err);
+          // Continue uploading remaining files on per-file error.
+        }
+      }
+
+      setFolderUploadProgress(null);
+      if (folderInputRef.current) folderInputRef.current.value = "";
+      void fetchSources();
+    },
+    [t, fetchSources],
+  );
+
+  // ── S2: Folder delete (two-stage armed-confirm pattern) ──────────────────────
+
+  const handleFolderDeleteClick = useCallback(
+    async (path: string) => {
+      if (armedPath !== path) {
+        armDelete(path);
+        return;
+      }
+      // Second click — fire delete
+      if (disarmTimerRef.current) clearTimeout(disarmTimerRef.current);
+      setArmedPath(null);
+      setDeletingPath(path);
+      try {
+        const res = await deleteFolderSource(path);
+        showToast(
+          t("sources.deletedFolderToast", { files: res.files_deleted, pages: res.pages_cascaded }),
+          "success",
+        );
+        if (selectedPath?.startsWith(path + "/") || selectedPath === path) setSelectedPath(null);
+        await fetchSources();
+      } catch (err: unknown) {
+        // 409 = directory too large; surface the dedicated message.
+        const isTooBig =
+          err instanceof Error && "status" in err && (err as { status?: number }).status === 409;
+        showToast(
+          isTooBig
+            ? t("sources.deletedFolderTooMany")
+            : err instanceof Error ? err.message : String(err),
+          "error",
+        );
+      } finally {
+        setDeletingPath(null);
+      }
+    },
+    [armedPath, armDelete, fetchSources, selectedPath, t],
   );
 
   // ── R7-11: Bulk selection helpers ────────────────────────────────────────────
@@ -582,6 +701,29 @@ export function SourcesView() {
             <Upload size={14} aria-hidden="true" />
             {t("sources.import")}
           </button>
+          {/* S1: "+ Folder" button — triggers hidden directory input */}
+          <button
+            data-testid="source-import-folder"
+            style={IMPORT_BTN_STYLE}
+            onClick={() => folderInputRef.current?.click()}
+            title={t("sources.importFolder")}
+            disabled={folderUploadProgress !== null}
+          >
+            <Folder size={14} aria-hidden="true" />
+            {t("sources.importFolder")}
+          </button>
+          {/* Hidden directory input (S1) */}
+          <input
+            ref={folderInputRef}
+            type="file"
+            // webkitdirectory and multiple are non-standard but broadly supported
+            {...{ webkitdirectory: "true" }}
+            multiple
+            style={{ display: "none" }}
+            aria-hidden="true"
+            tabIndex={-1}
+            onChange={(e) => { void handleFolderInputChange(e); }}
+          />
         </div>
         {/* Keyframe for spinner — injected once, harmless if duplicated */}
         <style>{`@keyframes synapse-spin { to { transform: rotate(360deg); } }`}</style>
@@ -654,6 +796,31 @@ export function SourcesView() {
               current: bulkProgress.current,
               total: bulkProgress.total,
               path: bulkProgress.currentPath,
+            })}
+          </span>
+        </div>
+      )}
+
+      {/* ── S1: Folder upload progress indicator ── */}
+      {folderUploadProgress && (
+        <div
+          data-testid="sources-folder-upload-progress"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 16px",
+            background: "var(--syn-surface)",
+            borderBottom: "1px solid var(--syn-border)",
+            flexShrink: 0,
+          }}
+        >
+          <Loader2 size={13} style={{ animation: "synapse-spin 1s linear infinite" }} aria-hidden="true" />
+          <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
+            {t("sources.bulk.progress", {
+              current: folderUploadProgress.current,
+              total: folderUploadProgress.total,
+              path: folderUploadProgress.currentName,
             })}
           </span>
         </div>
@@ -739,7 +906,10 @@ export function SourcesView() {
                           key={row.path}
                           row={row}
                           style={style}
+                          armed={armedPath === row.path}
+                          deleting={deletingPath === row.path}
                           onToggle={toggleFolder}
+                          onDelete={handleFolderDeleteClick}
                         />
                       );
                     }
@@ -775,6 +945,24 @@ export function SourcesView() {
         </div>
       </div>
 
+      {/* ── S3: Footer count bar ── */}
+      <div
+        data-testid="sources-footer"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          padding: "4px 16px",
+          borderTop: "1px solid var(--syn-border)",
+          background: "var(--syn-bg-soft)",
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
+          {t("sources.footerCount", { total })}
+        </span>
+      </div>
+
       {/* ── R7-11: Bulk delete confirmation dialog ── */}
       {showBulkDeleteDialog && (
         <ConfirmDialog
@@ -796,57 +984,100 @@ export function SourcesView() {
 interface FolderRowItemProps {
   row: FolderRow;
   style: CSSProperties;
+  armed: boolean;
+  deleting: boolean;
   onToggle: (path: string) => void;
+  onDelete: (path: string) => Promise<void>;
 }
 
-function FolderRowItem({ row, style, onToggle }: FolderRowItemProps) {
+function FolderRowItem({ row, style, armed, deleting, onToggle, onDelete }: FolderRowItemProps) {
   const { t } = useTranslation();
   const indent = 8 + row.depth * 16;
   const expanded = !row.collapsed;
   return (
-    <button
+    <div
       style={{
         ...style,
         display: "flex",
         alignItems: "center",
         width: "100%",
         height: FOLDER_ROW_H,
-        padding: `0 8px 0 ${indent}px`,
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        textAlign: "left",
+        padding: `0 6px 0 ${indent}px`,
         gap: 5,
-        color: "var(--syn-text-muted)",
-        fontSize: 12,
-        fontWeight: 600,
         userSelect: "none",
       }}
-      aria-expanded={expanded}
-      aria-label={`${row.name}, ${row.childCount} ${t("sources.folder")}`}
-      onClick={() => onToggle(row.path)}
+      role="row"
     >
-      {expanded
-        ? <ChevronDown size={12} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />
-        : <ChevronRight size={12} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />}
-      {expanded
-        ? <FolderOpen size={14} aria-hidden="true" style={{ color: "var(--syn-accent)", flexShrink: 0 }} />
-        : <Folder size={14} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />}
-      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {row.name}
-      </span>
-      <span style={{
-        fontSize: 10,
-        color: "var(--syn-text-dim)",
-        background: "var(--syn-surface-sunken)",
-        border: "1px solid var(--syn-border-subtle)",
-        borderRadius: 10,
-        padding: "1px 5px",
-        flexShrink: 0,
-      }}>
-        {row.childCount}
-      </span>
-    </button>
+      {/* Toggle area (expand/collapse) */}
+      <button
+        style={{
+          display: "flex",
+          alignItems: "center",
+          flex: 1,
+          minWidth: 0,
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
+          textAlign: "left",
+          gap: 5,
+          color: "var(--syn-text-muted)",
+          fontSize: 12,
+          fontWeight: 600,
+          padding: 0,
+          overflow: "hidden",
+        }}
+        aria-expanded={expanded}
+        aria-label={`${row.name}, ${row.childCount} ${t("sources.folder")}`}
+        onClick={() => onToggle(row.path)}
+      >
+        {expanded
+          ? <ChevronDown size={12} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />
+          : <ChevronRight size={12} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />}
+        {expanded
+          ? <FolderOpen size={14} aria-hidden="true" style={{ color: "var(--syn-accent)", flexShrink: 0 }} />
+          : <Folder size={14} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />}
+        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {row.name}
+        </span>
+        <span style={{
+          fontSize: 10,
+          color: "var(--syn-text-dim)",
+          background: "var(--syn-surface-sunken)",
+          border: "1px solid var(--syn-border-subtle)",
+          borderRadius: 10,
+          padding: "1px 5px",
+          flexShrink: 0,
+        }}>
+          {row.childCount}
+        </span>
+      </button>
+
+      {/* S2: Folder delete (two-stage armed-confirm) */}
+      <button
+        data-testid="source-folder-delete"
+        style={{
+          ...ACTION_BTN_BASE,
+          color: armed ? "var(--syn-danger, #e53e3e)" : "var(--syn-text-dim)",
+          background: armed
+            ? "color-mix(in srgb, var(--syn-danger, #e53e3e) 10%, transparent 90%)"
+            : "transparent",
+          opacity: deleting ? 0.5 : 1,
+          minWidth: armed ? 64 : undefined,
+          fontSize: armed ? 10 : undefined,
+          fontWeight: armed ? 700 : undefined,
+          transition: "color 0.15s, background 0.15s",
+          flexShrink: 0,
+        }}
+        disabled={deleting}
+        onClick={(e) => { e.stopPropagation(); void onDelete(row.path); }}
+        title={armed ? t("sources.confirmDeleteFolder") : t("sources.deleteFolder")}
+        aria-label={armed
+          ? `${t("sources.confirmDeleteFolder")} ${row.name}`
+          : `${t("sources.deleteFolder")} ${row.name}`}
+      >
+        {armed ? t("sources.confirmDeleteFolder") : <Trash2 size={12} aria-hidden="true" />}
+      </button>
+    </div>
   );
 }
 

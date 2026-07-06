@@ -699,7 +699,10 @@
     "unsavedDialogTitle": "Unsaved changes",
     "unsavedDialogBody": "You have unsaved changes. Discard them and leave?",
     "unsavedDiscard": "Discard",
-    "unsavedKeepEditing": "Keep editing"
+    "unsavedKeepEditing": "Keep editing",
+    "tagsMore": "More (+{{count}})",
+    "tagsCollapse": "Fewer",
+    "updatedLabel": "updated: {{iso}}"
   },
   "lint": {
     "title": "Lint",
@@ -838,10 +841,15 @@
   "sources": {
     "title": "Sources",
     "import": "Import",
+    "importFolder": "+ Folder",
     "refresh": "Refresh",
     "ingest": "Ingest",
     "delete": "Delete",
     "confirmDelete": "Confirm",
+    "deleteFolder": "Delete folder",
+    "confirmDeleteFolder": "Confirm",
+    "deletedFolderToast": "Folder deleted · {{files}} file(s), {{pages}} page(s)",
+    "deletedFolderTooMany": "Folder too large to delete — use the backend CLI.",
     "ingested": "Ingested",
     "notIngested": "Not ingested",
     "derivedPages": "pages",
@@ -857,6 +865,8 @@
     "ingestAllRunning": "Indexing… {{done}}/{{total}}",
     "ingestAllNone": "Nothing to index",
     "ingestAllAlready": "Already running",
+    "footerCount": "{{total}} sources",
+    "folderUploadSkipped": "{{count}} file(s) skipped (unsupported type)",
     "bulk": {
       "selectAll": "Select all files",
       "selectFile": "Select {{name}}",
