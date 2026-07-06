@@ -1,16 +1,21 @@
 """
 Sources view — raw-source file browser + preview (nashsu/llm_wiki Sources tab parity).
 
-GET  /sources                   — recursive listing of vault/raw/sources/ tree (I7-bounded)
-GET  /sources/content?path=<rel> — metadata + preview payload for one file
-GET  /sources/raw?path=<rel>     — stream raw bytes for inline image/PDF preview
-GET  /sources/derived-pages?path=<rel> — pages derived from this source (sources[] pivot)
-DELETE /sources?path=<rel>       — delete raw file + cascade-delete derived pages (I1/I2)
-POST /sources/ingest-all         — index all pre-existing files in raw/sources/ (ADR-0006)
+GET  /sources                    — listing of vault/raw/sources/ OR vault/wiki/ (I7-bounded)
+GET  /sources/content?path=<rel> — metadata + preview for one file (sources or wiki root)
+GET  /sources/raw?path=<rel>     — stream raw bytes for inline preview (sources or wiki root)
+GET  /sources/derived-pages?path=<rel> — pages derived from a source (sources root only)
+DELETE /sources?path=<rel>       — delete raw file + cascade-delete pages (sources root only)
+POST /sources/ingest-all         — index pre-existing files in raw/sources/ (sources only)
 GET  /sources/ingest-all/status  — whether an ingest-all scan is running + progress
 
-Path-safety: EVERY client-supplied path is routed through resolve_under_sources()
-from app.upload (ADR-0020 §2.2 — belt-and-braces containment check). 404 on escape.
+root param (GET /sources, /sources/content, /sources/raw):
+  root="sources" (default) — operates on vault/raw/sources/ (unchanged behaviour)
+  root="wiki"              — operates on vault/wiki/ (read-only; excludes dotfiles/.obsidian)
+
+Path-safety: EVERY client-supplied path is routed through _resolve_under_dir() which
+performs a containment check against the chosen root (ADR-0020 §2.2). 404 on escape.
+root=wiki stays inside wiki/; root=sources stays inside raw/sources/.
 
 Invariants honoured:
   I1  — listing/content/raw are read-only; delete reuses incremental cascade (no rescan);
@@ -33,6 +38,7 @@ import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, Response
@@ -42,6 +48,47 @@ from app.config import settings
 from app.upload import resolve_under_sources
 
 logger = logging.getLogger(__name__)
+
+
+# ── Path-safety helper ────────────────────────────────────────────────────────
+
+
+def _resolve_under_dir(base_dir: Path, name: str) -> Path:
+    """
+    Resolve *name* to an absolute path under *base_dir* with a containment check.
+
+    Generalizes resolve_under_sources() from app.upload so the same traversal-guard
+    semantics apply to any root directory (raw/sources/ or wiki/).
+
+    Raises HTTPException(422) if the resolved path escapes *base_dir* (traversal,
+    absolute path, or symlink pointing outside). Also rejects the empty string.
+    Symlinks are followed before the containment check (resolve()) — if a symlink
+    points outside the root it is rejected exactly like a traversal attempt.
+
+    Contract: identical to resolve_under_sources() — only the hardcoded root changes.
+    """
+    if not name:
+        raise HTTPException(status_code=422, detail="Path must not be empty.")
+
+    root = base_dir.resolve()
+    dst = (root / name).resolve()
+
+    # resolved path MUST start with root/ (trailing sep ensures prefix-safety)
+    if dst != root and not str(dst).startswith(str(root) + "/"):
+        raise HTTPException(
+            status_code=422, detail="Filename is empty or unsafe after sanitization."
+        )
+
+    return dst
+
+
+# ── Wiki listing: hidden-entry filter ────────────────────────────────────────
+# Names starting with '.' (dotfiles and .obsidian) are excluded from the wiki
+# listing to keep the tree clean and avoid exposing Obsidian internals (I5).
+
+def _is_hidden(name: str) -> bool:
+    """Return True if *name* should be excluded from the wiki listing (dotfile/hidden dir)."""
+    return name.startswith(".")
 
 
 async def _cascade_delete_page(page_uuid: uuid.UUID) -> None:
@@ -397,46 +444,74 @@ async def _get_derived_pages(rel_path: str) -> list[SourceDerivedPage]:
 @router.get(
     "",
     response_model=SourcesListResponse,
-    summary="List raw-sources tree",
+    summary="List raw-sources or wiki tree",
     description=(
-        "Recursively lists all files and directories under vault/raw/sources/. "
-        "Returns SourceEntry objects with path (relative to raw/sources/), name, is_dir, "
+        "Recursively lists all files and directories under the chosen root. "
+        "root='sources' (default): vault/raw/sources/ — the original behaviour. "
+        "root='wiki': vault/wiki/ — read-only wiki file tree; hidden entries (dotfiles, "
+        ".obsidian) are excluded automatically (I5). "
+        "Returns SourceEntry objects with path (relative to the chosen root), name, is_dir, "
         "size_bytes, ext (lowercased), mtime (ISO-8601). "
         "Read-only (I1). "
         f"Capped at SOURCES_LIST_MAX={SOURCES_LIST_MAX} entries (I7); truncated=true if hit. "
-        "Returns empty list when raw/sources/ does not exist."
+        "Returns empty list when the root directory does not exist."
     ),
     responses={
         200: {"description": "Directory listing (may be empty or truncated)"},
     },
 )
-async def list_sources() -> SourcesListResponse:
+async def list_sources(
+    root: Literal["sources", "wiki"] = Query(
+        default="sources",
+        description=(
+            "Which directory tree to list. "
+            "'sources' (default) = vault/raw/sources/; "
+            "'wiki' = vault/wiki/ (read-only; hidden dirs excluded)."
+        ),
+    ),
+) -> SourcesListResponse:
     """
-    GET /sources — recursive listing of vault/raw/sources/.
+    GET /sources[?root=sources|wiki] — recursive listing of the chosen root.
 
+    root='sources' (default): vault/raw/sources/ — unchanged existing behaviour.
+    root='wiki': vault/wiki/ — read-only; hidden entries (dotfiles, .obsidian) excluded (I5).
     I1: read-only. I7: bounded at SOURCES_LIST_MAX.
     """
-    sources_dir = settings.raw_sources_dir
+    if root == "wiki":
+        base_dir = settings.wiki_dir
+        is_wiki = True
+    else:
+        base_dir = settings.raw_sources_dir
+        is_wiki = False
 
-    if not sources_dir.exists():
+    if not base_dir.exists():
         return SourcesListResponse(entries=[], total=0, truncated=False)
 
     entries: list[SourceEntry] = []
     truncated = False
 
     # Walk the tree (BFS order; consistent with os.walk)
-    for dirpath_str, dirnames, filenames in os.walk(sources_dir):
+    for dirpath_str, dirnames, filenames in os.walk(base_dir):
         dirpath = Path(dirpath_str)
 
+        # For wiki root: prune hidden directories so os.walk does not descend into them.
+        if is_wiki:
+            dirnames[:] = sorted(d for d in dirnames if not _is_hidden(d))
+            filenames = sorted(f for f in filenames if not _is_hidden(f))
+        else:
+            dirnames.sort()
+            filenames.sort()
+
         # Directories (excluding the root itself — only subdirs)
-        if dirpath != sources_dir:
-            rel = dirpath.relative_to(sources_dir)
+        if dirpath != base_dir:
+            rel = dirpath.relative_to(base_dir)
             if len(entries) >= SOURCES_LIST_MAX:
                 truncated = True
                 logger.warning(
                     "sources listing truncated at %d entries (SOURCES_LIST_MAX); "
-                    "vault/raw/sources/ has more entries.",
+                    "%s has more entries.",
                     SOURCES_LIST_MAX,
+                    base_dir,
                 )
                 break
             entries.append(
@@ -447,22 +522,19 @@ async def list_sources() -> SourcesListResponse:
                 )
             )
 
-        # Sort for deterministic order
-        dirnames.sort()
-        filenames.sort()
-
         for fname in filenames:
             if len(entries) >= SOURCES_LIST_MAX:
                 truncated = True
                 logger.warning(
                     "sources listing truncated at %d entries (SOURCES_LIST_MAX); "
-                    "vault/raw/sources/ has more entries.",
+                    "%s has more entries.",
                     SOURCES_LIST_MAX,
+                    base_dir,
                 )
                 break
 
             fpath = dirpath / fname
-            rel = fpath.relative_to(sources_dir)
+            rel = fpath.relative_to(base_dir)
             try:
                 stat = fpath.stat()
                 mtime = datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat()
@@ -492,37 +564,65 @@ async def list_sources() -> SourcesListResponse:
 @router.get(
     "/content",
     response_model=SourceContentResponse,
-    summary="Metadata + preview payload for one source file",
+    summary="Metadata + preview payload for one source or wiki file",
     description=(
-        "Returns metadata and preview payload for a single raw source file. "
-        "path must be relative to vault/raw/sources/ — resolved via resolve_under_sources() "
-        "(ADR-0020 §2.2 traversal guard). 404 if path escapes or file is absent. "
+        "Returns metadata and preview payload for a single file. "
+        "root='sources' (default): path relative to vault/raw/sources/. "
+        "root='wiki': path relative to vault/wiki/ (read-only; no derived-page pivot). "
+        "path resolved via containment check (ADR-0020 §2.2 traversal guard). "
+        "404 if path escapes, is hidden (root=wiki), or file is absent. "
         "category: one of text/markdown/image/pdf/document/data/code/av/other. "
         "For text/markdown/code/data: includes raw text (capped at SOURCES_TEXT_MAX_CHARS). "
         "For pdf/docx/pptx/xlsx: includes extracted text (via ingest/extract.py, F12). "
         "For image/av/other: no text, is_text=false (use GET /sources/raw for bytes). "
-        "ingested + page_ids: derived-page linkage via sources[] JSONB pivot (K6/F13)."
+        "ingested + page_ids: derived-page linkage via sources[] JSONB pivot (K6/F13); "
+        "always ingested=false + page_ids=[] when root='wiki'."
     ),
     responses={
         200: {"description": "File metadata + preview payload"},
-        404: {"description": "File not found or path outside raw/sources/"},
+        404: {"description": "File not found or path outside chosen root"},
         422: {"description": "Path traversal attempt"},
     },
 )
 async def source_content(
-    path: str = Query(..., description="Relative path under vault/raw/sources/"),
+    path: str = Query(..., description="Relative path under the chosen root directory"),
+    root: Literal["sources", "wiki"] = Query(
+        default="sources",
+        description=(
+            "Which directory to resolve path against. "
+            "'sources' (default) = vault/raw/sources/; "
+            "'wiki' = vault/wiki/ (read-only; hidden files rejected)."
+        ),
+    ),
 ) -> SourceContentResponse:
     """
-    GET /sources/content?path=<rel> — metadata + text preview for one source file.
+    GET /sources/content?path=<rel>[&root=sources|wiki] — metadata + text preview.
 
-    Path-safety: resolve_under_sources(path) (ADR-0020 §2.2).
+    root='sources' (default): path relative to vault/raw/sources/; derives page linkage.
+    root='wiki': path relative to vault/wiki/; read-only; ingested=False, page_ids=[].
+    Path-safety: _resolve_under_dir(base_dir, path) — containment-checked (ADR-0020 §2.2).
     I7: text capped at SOURCES_TEXT_MAX_CHARS.
     """
+    if root == "wiki":
+        base_dir = settings.wiki_dir
+    else:
+        base_dir = settings.raw_sources_dir
+
     # Path safety — raises HTTPException(422) on traversal
     try:
-        abs_path = resolve_under_sources(path)
+        abs_path = _resolve_under_dir(base_dir, path)
     except HTTPException:
         raise HTTPException(status_code=404, detail=f"Source not found: {path!r}") from None
+
+    # For wiki root: also reject hidden files/dirs (dotfiles, .obsidian, etc.)
+    if root == "wiki":
+        # Check every path component for hidden names
+        try:
+            rel_parts = abs_path.relative_to(base_dir.resolve()).parts
+        except ValueError:
+            raise HTTPException(status_code=404, detail=f"Source not found: {path!r}") from None
+        if any(_is_hidden(part) for part in rel_parts):
+            raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")
 
     if not abs_path.exists() or not abs_path.is_file():
         raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")
@@ -532,9 +632,8 @@ async def source_content(
     ext = abs_path.suffix.lower()
     category = _get_category(ext)
 
-    # Normalise relative path to forward slashes (for sources[] JSONB lookup)
-    sources_dir = settings.raw_sources_dir
-    rel_path = abs_path.relative_to(sources_dir).as_posix()
+    # Normalise relative path to forward slashes
+    rel_path = abs_path.relative_to(base_dir.resolve()).as_posix()
 
     # Determine text extraction strategy
     text: str | None = None
@@ -576,9 +675,13 @@ async def source_content(
             is_text = False
     # else: image/av/other — no text, is_text=False
 
-    # Derived-page linkage (K6 / F13 pivot)
-    derived = await _get_derived_pages(rel_path)
-    page_ids = [p.id for p in derived]
+    # Derived-page linkage (K6 / F13 pivot) — sources root only.
+    # Wiki files are generated output; the sources[] pivot is not meaningful for them.
+    if root == "sources":
+        derived = await _get_derived_pages(rel_path)
+        page_ids = [p.id for p in derived]
+    else:
+        page_ids = []
 
     return SourceContentResponse(
         path=rel_path,
@@ -596,36 +699,62 @@ async def source_content(
 
 @router.get(
     "/raw",
-    summary="Stream raw bytes of a source file for inline preview",
+    summary="Stream raw bytes of a source or wiki file for inline preview",
     description=(
-        "Streams the raw bytes of a source file for inline browser preview "
+        "Streams the raw bytes of a file for inline browser preview "
         "(images, PDFs, text). "
-        "path must be relative to vault/raw/sources/ — resolved via resolve_under_sources() "
-        "(ADR-0020 §2.2 traversal guard). 404 if absent/outside. "
+        "root='sources' (default): path relative to vault/raw/sources/. "
+        "root='wiki': path relative to vault/wiki/ (read-only; hidden files rejected). "
+        "path resolved via containment check (ADR-0020 §2.2 traversal guard). "
+        "404 if absent/outside chosen root. "
         f"Returns 413 if file exceeds SOURCES_RAW_MAX_BYTES={SOURCES_RAW_MAX_BYTES} bytes (I7). "
         "Content-Type derived from extension. Content-Disposition: inline."
     ),
     responses={
         200: {"description": "Raw file bytes with correct Content-Type"},
-        404: {"description": "File not found or path outside raw/sources/"},
+        404: {"description": "File not found or path outside chosen root"},
         413: {"description": "File exceeds SOURCES_RAW_MAX_BYTES limit"},
         422: {"description": "Path traversal attempt"},
     },
 )
 async def source_raw(
-    path: str = Query(..., description="Relative path under vault/raw/sources/"),
+    path: str = Query(..., description="Relative path under the chosen root directory"),
+    root: Literal["sources", "wiki"] = Query(
+        default="sources",
+        description=(
+            "Which directory to resolve path against. "
+            "'sources' (default) = vault/raw/sources/; "
+            "'wiki' = vault/wiki/ (read-only; hidden files rejected)."
+        ),
+    ),
 ) -> Response:
     """
-    GET /sources/raw?path=<rel> — stream raw bytes for inline preview.
+    GET /sources/raw?path=<rel>[&root=sources|wiki] — stream raw bytes for inline preview.
 
-    Path-safety: resolve_under_sources(path) (ADR-0020 §2.2).
+    root='sources' (default): vault/raw/sources/ — unchanged existing behaviour.
+    root='wiki': vault/wiki/ — read-only; hidden files rejected (I5).
+    Path-safety: _resolve_under_dir(base_dir, path) — containment-checked (ADR-0020 §2.2).
     I7: 413 if file > SOURCES_RAW_MAX_BYTES.
     """
+    if root == "wiki":
+        base_dir = settings.wiki_dir
+    else:
+        base_dir = settings.raw_sources_dir
+
     # Path safety
     try:
-        abs_path = resolve_under_sources(path)
+        abs_path = _resolve_under_dir(base_dir, path)
     except HTTPException:
         raise HTTPException(status_code=404, detail=f"Source not found: {path!r}") from None
+
+    # For wiki root: reject hidden files/dirs
+    if root == "wiki":
+        try:
+            rel_parts = abs_path.relative_to(base_dir.resolve()).parts
+        except ValueError:
+            raise HTTPException(status_code=404, detail=f"Source not found: {path!r}") from None
+        if any(_is_hidden(part) for part in rel_parts):
+            raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")
 
     if not abs_path.exists() or not abs_path.is_file():
         raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")

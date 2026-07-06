@@ -11,7 +11,10 @@
  *   POST /sources/ingest-all         → 202 { started, candidate_files } | 409
  *   GET  /sources/ingest-all/status  → { running, done, total }
  *
- * All `path` values are relative to raw/sources/ with forward slashes.
+ * All `path` values are relative to raw/sources/ (root="sources") or wiki/ (root="wiki")
+ * with forward slashes.  The optional `root` parameter is appended as `?root=<value>` and
+ * defaults to "sources" on both client and backend (backward-compatible).
+ *
  * triggerIngest is re-exported from ingestClient so callers import both from one place.
  *
  * INVARIANT I3: no per-token work here; functions are pure async, no store subscriptions.
@@ -25,6 +28,15 @@ export { triggerIngest } from "./ingestClient";
 
 // ─── Base URL ─────────────────────────────────────────────────────────────────
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
+
+// ─── Root selector ────────────────────────────────────────────────────────────
+
+/**
+ * Which filesystem root to browse.
+ * - "sources" (default, backward-compat): raw/sources/ — writable, full affordances.
+ * - "wiki": vault's wiki/ folder — read-only tree + preview only.
+ */
+export type SourceRoot = "sources" | "wiki";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -156,11 +168,17 @@ async function checkResponse(res: Response): Promise<void> {
 // ─── API functions ────────────────────────────────────────────────────────────
 
 /**
- * List the raw-source file tree.
- * GET /sources → SourceListResponse
+ * List the source file tree.
+ * GET /sources?root=<root> → SourceListResponse
+ *
+ * root="sources" (default): raw/sources/ — the standard writable source tree.
+ * root="wiki": vault's wiki/ tree — read-only, hidden dirs excluded by backend.
  */
-export async function listSources(signal?: AbortSignal): Promise<SourceListResponse> {
-  const url = `${apiBase()}/sources`;
+export async function listSources(
+  signal?: AbortSignal,
+  root: SourceRoot = "sources",
+): Promise<SourceListResponse> {
+  const url = `${apiBase()}/sources${root !== "sources" ? `?root=${encodeURIComponent(root)}` : ""}`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as SourceListResponse;
@@ -168,14 +186,19 @@ export async function listSources(signal?: AbortSignal): Promise<SourceListRespo
 
 /**
  * Fetch metadata + text content for a single source file.
- * GET /sources/content?path=<rel> → SourceContentResponse
+ * GET /sources/content?path=<rel>&root=<root> → SourceContentResponse
  * Path is URL-encoded automatically.
+ *
+ * root="sources" (default): look up in raw/sources/.
+ * root="wiki": look up in the vault's wiki/ tree.
  */
 export async function getSourceContent(
   path: string,
   signal?: AbortSignal,
+  root: SourceRoot = "sources",
 ): Promise<SourceContentResponse> {
-  const url = `${apiBase()}/sources/content?path=${encodeURIComponent(path)}`;
+  const rootParam = root !== "sources" ? `&root=${encodeURIComponent(root)}` : "";
+  const url = `${apiBase()}/sources/content?path=${encodeURIComponent(path)}${rootParam}`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as SourceContentResponse;
@@ -216,9 +239,13 @@ export async function deleteSource(
  * Build the direct URL to raw file bytes.
  * Use as src for <img>, <embed>, <audio>, <video> — the browser fetches it directly.
  * INVARIANT I3: never load raw bytes into JS; pass the URL to DOM elements only.
+ *
+ * root="sources" (default): raw/sources/ path.
+ * root="wiki": wiki/ path.
  */
-export function sourceRawUrl(path: string): string {
-  return `${apiBase()}/sources/raw?path=${encodeURIComponent(path)}`;
+export function sourceRawUrl(path: string, root: SourceRoot = "sources"): string {
+  const rootParam = root !== "sources" ? `&root=${encodeURIComponent(root)}` : "";
+  return `${apiBase()}/sources/raw?path=${encodeURIComponent(path)}${rootParam}`;
 }
 
 /**

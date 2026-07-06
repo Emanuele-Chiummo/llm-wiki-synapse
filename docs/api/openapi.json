@@ -11,9 +11,27 @@
         "tags": [
           "sources"
         ],
-        "summary": "List raw-sources tree",
-        "description": "Recursively lists all files and directories under vault/raw/sources/. Returns SourceEntry objects with path (relative to raw/sources/), name, is_dir, size_bytes, ext (lowercased), mtime (ISO-8601). Read-only (I1). Capped at SOURCES_LIST_MAX=5000 entries (I7); truncated=true if hit. Returns empty list when raw/sources/ does not exist.",
+        "summary": "List raw-sources or wiki tree",
+        "description": "Recursively lists all files and directories under the chosen root. root='sources' (default): vault/raw/sources/ \u2014 the original behaviour. root='wiki': vault/wiki/ \u2014 read-only wiki file tree; hidden entries (dotfiles, .obsidian) are excluded automatically (I5). Returns SourceEntry objects with path (relative to the chosen root), name, is_dir, size_bytes, ext (lowercased), mtime (ISO-8601). Read-only (I1). Capped at SOURCES_LIST_MAX=5000 entries (I7); truncated=true if hit. Returns empty list when the root directory does not exist.",
         "operationId": "list_sources_sources_get",
+        "parameters": [
+          {
+            "name": "root",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "sources",
+                "wiki"
+              ],
+              "type": "string",
+              "description": "Which directory tree to list. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden dirs excluded).",
+              "default": "sources",
+              "title": "Root"
+            },
+            "description": "Which directory tree to list. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden dirs excluded)."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Directory listing (may be empty or truncated)",
@@ -21,6 +39,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SourcesListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -85,8 +113,8 @@
         "tags": [
           "sources"
         ],
-        "summary": "Metadata + preview payload for one source file",
-        "description": "Returns metadata and preview payload for a single raw source file. path must be relative to vault/raw/sources/ \u2014 resolved via resolve_under_sources() (ADR-0020 \u00a72.2 traversal guard). 404 if path escapes or file is absent. category: one of text/markdown/image/pdf/document/data/code/av/other. For text/markdown/code/data: includes raw text (capped at SOURCES_TEXT_MAX_CHARS). For pdf/docx/pptx/xlsx: includes extracted text (via ingest/extract.py, F12). For image/av/other: no text, is_text=false (use GET /sources/raw for bytes). ingested + page_ids: derived-page linkage via sources[] JSONB pivot (K6/F13).",
+        "summary": "Metadata + preview payload for one source or wiki file",
+        "description": "Returns metadata and preview payload for a single file. root='sources' (default): path relative to vault/raw/sources/. root='wiki': path relative to vault/wiki/ (read-only; no derived-page pivot). path resolved via containment check (ADR-0020 \u00a72.2 traversal guard). 404 if path escapes, is hidden (root=wiki), or file is absent. category: one of text/markdown/image/pdf/document/data/code/av/other. For text/markdown/code/data: includes raw text (capped at SOURCES_TEXT_MAX_CHARS). For pdf/docx/pptx/xlsx: includes extracted text (via ingest/extract.py, F12). For image/av/other: no text, is_text=false (use GET /sources/raw for bytes). ingested + page_ids: derived-page linkage via sources[] JSONB pivot (K6/F13); always ingested=false + page_ids=[] when root='wiki'.",
         "operationId": "source_content_sources_content_get",
         "parameters": [
           {
@@ -95,10 +123,26 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Relative path under vault/raw/sources/",
+              "description": "Relative path under the chosen root directory",
               "title": "Path"
             },
-            "description": "Relative path under vault/raw/sources/"
+            "description": "Relative path under the chosen root directory"
+          },
+          {
+            "name": "root",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "sources",
+                "wiki"
+              ],
+              "type": "string",
+              "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected).",
+              "default": "sources",
+              "title": "Root"
+            },
+            "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected)."
           }
         ],
         "responses": {
@@ -113,7 +157,7 @@
             }
           },
           "404": {
-            "description": "File not found or path outside raw/sources/"
+            "description": "File not found or path outside chosen root"
           },
           "422": {
             "description": "Path traversal attempt"
@@ -131,8 +175,8 @@
         "tags": [
           "sources"
         ],
-        "summary": "Stream raw bytes of a source file for inline preview",
-        "description": "Streams the raw bytes of a source file for inline browser preview (images, PDFs, text). path must be relative to vault/raw/sources/ \u2014 resolved via resolve_under_sources() (ADR-0020 \u00a72.2 traversal guard). 404 if absent/outside. Returns 413 if file exceeds SOURCES_RAW_MAX_BYTES=52428800 bytes (I7). Content-Type derived from extension. Content-Disposition: inline.",
+        "summary": "Stream raw bytes of a source or wiki file for inline preview",
+        "description": "Streams the raw bytes of a file for inline browser preview (images, PDFs, text). root='sources' (default): path relative to vault/raw/sources/. root='wiki': path relative to vault/wiki/ (read-only; hidden files rejected). path resolved via containment check (ADR-0020 \u00a72.2 traversal guard). 404 if absent/outside chosen root. Returns 413 if file exceeds SOURCES_RAW_MAX_BYTES=52428800 bytes (I7). Content-Type derived from extension. Content-Disposition: inline.",
         "operationId": "source_raw_sources_raw_get",
         "parameters": [
           {
@@ -141,10 +185,26 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Relative path under vault/raw/sources/",
+              "description": "Relative path under the chosen root directory",
               "title": "Path"
             },
-            "description": "Relative path under vault/raw/sources/"
+            "description": "Relative path under the chosen root directory"
+          },
+          {
+            "name": "root",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "sources",
+                "wiki"
+              ],
+              "type": "string",
+              "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected).",
+              "default": "sources",
+              "title": "Root"
+            },
+            "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected)."
           }
         ],
         "responses": {
@@ -157,7 +217,7 @@
             }
           },
           "404": {
-            "description": "File not found or path outside raw/sources/"
+            "description": "File not found or path outside chosen root"
           },
           "413": {
             "description": "File exceeds SOURCES_RAW_MAX_BYTES limit"

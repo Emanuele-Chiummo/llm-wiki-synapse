@@ -33,6 +33,7 @@ import type {
   SourceContentResponse,
   SourceDerivedPage,
   SourceCategory,
+  SourceRoot,
 } from "../../api/sourcesClient";
 import {
   useGraphStore,
@@ -65,13 +66,21 @@ function formatBytes(n: number): string {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface SourcePreviewProps {
-  /** Selected source path (relative to raw/sources/). null = no selection. */
+  /**
+   * Selected source path (relative to the active root).
+   * null = no selection.
+   */
   path: string | null;
+  /**
+   * Which root to fetch from: "sources" (default, raw/sources/) or "wiki" (wiki/).
+   * Threaded from SourcesView so that wiki-tab files preview via the correct endpoint.
+   */
+  root?: SourceRoot;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function SourcePreview({ path }: SourcePreviewProps) {
+export function SourcePreview({ path, root = "sources" }: SourcePreviewProps) {
   const { t } = useTranslation();
 
   const selectPage      = useGraphStore(selectSelectPage);
@@ -82,7 +91,8 @@ export function SourcePreview({ path }: SourcePreviewProps) {
   const [loading, setLoading]             = useState(false);
   const [error, setError]                 = useState<string | null>(null);
 
-  // Fetch content + derived-pages whenever path changes (AbortController guards stale responses)
+  // Fetch content + derived-pages whenever path or root changes.
+  // AbortController guards stale responses from in-flight requests.
   useEffect(() => {
     if (!path) {
       setContent(null);
@@ -95,9 +105,16 @@ export function SourcePreview({ path }: SourcePreviewProps) {
     setLoading(true);
     setError(null);
 
+    // Wiki root: derived-pages are not applicable (wiki pages ARE the wiki).
+    // We still call getSourceDerivedPages for sources root to show page links.
+    const derivedPagesPromise =
+      root === "wiki"
+        ? Promise.resolve([] as SourceDerivedPage[])
+        : getSourceDerivedPages(path, ctrl.signal);
+
     Promise.all([
-      getSourceContent(path, ctrl.signal),
-      getSourceDerivedPages(path, ctrl.signal),
+      getSourceContent(path, ctrl.signal, root),
+      derivedPagesPromise,
     ])
       .then(([c, dp]) => {
         setContent(c);
@@ -111,7 +128,7 @@ export function SourcePreview({ path }: SourcePreviewProps) {
       });
 
     return () => ctrl.abort();
-  }, [path]);
+  }, [path, root]);
 
   // Navigate to a derived wiki page
   const handleDerivedPageClick = useCallback(
@@ -155,7 +172,7 @@ export function SourcePreview({ path }: SourcePreviewProps) {
 
   if (!content) return null;
 
-  const rawUrl = sourceRawUrl(content.path);
+  const rawUrl = sourceRawUrl(content.path, root);
 
   return (
     <div

@@ -191,6 +191,82 @@ describe("sourcesClient — sourceRawUrl", () => {
     expect(url).toContain("/sources/raw");
     expect(url).toContain("path=images%2Fphoto%201.jpg");
   });
+
+  it("omits root param when root=sources (backward-compat default)", () => {
+    const url = sourceRawUrl("doc.md", "sources");
+    expect(url).not.toContain("root=");
+  });
+
+  it("appends root=wiki when root=wiki", () => {
+    const url = sourceRawUrl("concepts/foo.md", "wiki");
+    expect(url).toContain("root=wiki");
+    expect(url).toContain("path=concepts%2Ffoo.md");
+  });
+});
+
+// ─── root param propagation ───────────────────────────────────────────────────
+
+describe("sourcesClient — root param propagation", () => {
+  it("listSources with root=wiki appends ?root=wiki to URL", async () => {
+    const fetchMock = mockFetch({ entries: [], total: 0, truncated: false });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await listSources(undefined, "wiki");
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toContain("root=wiki");
+  });
+
+  it("listSources with default root=sources omits root param", async () => {
+    const fetchMock = mockFetch({ entries: [], total: 0, truncated: false });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await listSources(undefined, "sources");
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).not.toContain("root=");
+  });
+
+  it("getSourceContent with root=wiki appends &root=wiki to URL", async () => {
+    const fetchMock = mockFetch({
+      path: "index.md",
+      name: "index.md",
+      ext: ".md",
+      size_bytes: 100,
+      mtime: "2026-01-01T00:00:00Z",
+      category: "markdown",
+      is_text: true,
+      ingested: false,
+      page_ids: [],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getSourceContent("index.md", undefined, "wiki");
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toContain("/sources/content");
+    expect(url).toContain("root=wiki");
+  });
+
+  it("getSourceContent with default root=sources omits root param", async () => {
+    const fetchMock = mockFetch({
+      path: "doc.md",
+      name: "doc.md",
+      ext: ".md",
+      size_bytes: 100,
+      mtime: "2026-01-01T00:00:00Z",
+      category: "markdown",
+      is_text: true,
+      ingested: false,
+      page_ids: [],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getSourceContent("doc.md", undefined, "sources");
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).not.toContain("root=");
+  });
 });
 
 // ─── ingestAllSources — 409 → IngestAllRunningError ──────────────────────────

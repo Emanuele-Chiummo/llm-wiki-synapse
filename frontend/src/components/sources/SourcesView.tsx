@@ -76,7 +76,7 @@ import {
   getIngestAllStatus,
   IngestAllRunningError,
 } from "../../api/sourcesClient";
-import type { SourceEntry } from "../../api/sourcesClient";
+import type { SourceEntry, SourceRoot } from "../../api/sourcesClient";
 import { uploadDocument } from "../../api/ingestClient";
 import { SourcePreview } from "./SourcePreview";
 import { UploadZone } from "../ingest/UploadZone";
@@ -248,6 +248,12 @@ interface FolderUploadProgress {
 export function SourcesView() {
   const { t } = useTranslation();
 
+  // ── Tab / root state ─────────────────────────────────────────────────────────
+  // Session-only (not persisted). "sources" = raw/sources/ (default, read-write).
+  // "wiki" = vault's wiki/ folder (read-only tree + preview).
+  const [root, setRoot] = useState<SourceRoot>("sources");
+  const isWiki = root === "wiki";
+
   const [entries, setEntries]               = useState<SourceEntry[]>([]);
   const [total, setTotal]                   = useState<number>(0);
   const [loading, setLoading]               = useState(false);
@@ -282,7 +288,7 @@ export function SourcesView() {
     setLoading(true);
     setError(null);
     try {
-      const res = await listSources(signal);
+      const res = await listSources(signal, root);
       setEntries(res.entries);
       setTotal(res.total);
     } catch (err: unknown) {
@@ -291,9 +297,13 @@ export function SourcesView() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [root]);
 
+  // Re-fetch whenever root changes; also reset tree state (selection, collapse).
   useEffect(() => {
+    setSelectedPath(null);
+    setCollapsedFolders(new Set());
+    setSelectedPaths(new Set());
     const ctrl = new AbortController();
     void fetchSources(ctrl.signal);
     return () => ctrl.abort();
@@ -646,43 +656,73 @@ export function SourcesView() {
       data-testid="sources-view"
       style={OUTER_STYLE}
     >
+      {/* ── Tab toggle (Sources / Wiki) ── */}
+      <div
+        data-testid="sources-tab-bar"
+        style={TAB_BAR_STYLE}
+      >
+        <button
+          data-testid="sources-tab-sources"
+          style={tabBtnStyle(root === "sources")}
+          onClick={() => setRoot("sources")}
+          aria-pressed={root === "sources"}
+        >
+          {t("sources.tabSources")}
+        </button>
+        <button
+          data-testid="sources-tab-wiki"
+          style={tabBtnStyle(root === "wiki")}
+          onClick={() => setRoot("wiki")}
+          aria-pressed={root === "wiki"}
+        >
+          {t("sources.tabWiki")}
+        </button>
+        {isWiki && (
+          <span style={WIKI_BADGE_STYLE}>
+            {t("sources.wikiReadOnly")}
+          </span>
+        )}
+      </div>
+
       {/* ── Header ── */}
       <div style={HEADER_STYLE}>
         <span style={{ fontWeight: 600, fontSize: 15, color: "var(--syn-text)" }}>
           {t("sources.title")}
         </span>
         <div style={{ display: "flex", gap: 6 }}>
-          {/* Index All button */}
-          <button
-            data-testid="sources-ingest-all"
-            style={{
-              ...HEADER_BTN_STYLE,
-              opacity: ingestAllProgress?.running ? 0.7 : 1,
-            }}
-            onClick={() => { void handleIngestAll(); }}
-            disabled={ingestAllProgress?.running === true}
-            title={t("sources.ingestAll")}
-          >
-            {ingestAllProgress?.running && !reducedMotion ? (
-              <Loader2
-                size={14}
-                aria-hidden="true"
-                style={{ animation: "synapse-spin 1s linear infinite" }}
-              />
-            ) : (
-              <Layers size={14} aria-hidden="true" />
-            )}
-            {ingestAllProgress?.running ? (
-              <span data-testid="sources-ingest-all-progress">
-                {t("sources.ingestAllRunning", {
-                  done: ingestAllProgress.done,
-                  total: ingestAllProgress.total,
-                })}
-              </span>
-            ) : (
-              t("sources.ingestAll")
-            )}
-          </button>
+          {/* Index All button — hidden in wiki tab (read-only) */}
+          {!isWiki && (
+            <button
+              data-testid="sources-ingest-all"
+              style={{
+                ...HEADER_BTN_STYLE,
+                opacity: ingestAllProgress?.running ? 0.7 : 1,
+              }}
+              onClick={() => { void handleIngestAll(); }}
+              disabled={ingestAllProgress?.running === true}
+              title={t("sources.ingestAll")}
+            >
+              {ingestAllProgress?.running && !reducedMotion ? (
+                <Loader2
+                  size={14}
+                  aria-hidden="true"
+                  style={{ animation: "synapse-spin 1s linear infinite" }}
+                />
+              ) : (
+                <Layers size={14} aria-hidden="true" />
+              )}
+              {ingestAllProgress?.running ? (
+                <span data-testid="sources-ingest-all-progress">
+                  {t("sources.ingestAllRunning", {
+                    done: ingestAllProgress.done,
+                    total: ingestAllProgress.total,
+                  })}
+                </span>
+              ) : (
+                t("sources.ingestAll")
+              )}
+            </button>
+          )}
           <button
             data-testid="source-refresh"
             style={HEADER_BTN_STYLE}
@@ -693,51 +733,56 @@ export function SourcesView() {
             <RefreshCw size={14} aria-hidden="true" />
             {t("sources.refresh")}
           </button>
-          <button
-            style={IMPORT_BTN_STYLE}
-            onClick={() => setShowImport((v) => !v)}
-            title={t("sources.import")}
-          >
-            <Upload size={14} aria-hidden="true" />
-            {t("sources.import")}
-          </button>
-          {/* S1: "+ Folder" button — triggers hidden directory input */}
-          <button
-            data-testid="source-import-folder"
-            style={IMPORT_BTN_STYLE}
-            onClick={() => folderInputRef.current?.click()}
-            title={t("sources.importFolder")}
-            disabled={folderUploadProgress !== null}
-          >
-            <Folder size={14} aria-hidden="true" />
-            {t("sources.importFolder")}
-          </button>
-          {/* Hidden directory input (S1) */}
-          <input
-            ref={folderInputRef}
-            type="file"
-            // webkitdirectory and multiple are non-standard but broadly supported
-            {...{ webkitdirectory: "true" }}
-            multiple
-            style={{ display: "none" }}
-            aria-hidden="true"
-            tabIndex={-1}
-            onChange={(e) => { void handleFolderInputChange(e); }}
-          />
+          {/* Import + Folder buttons — hidden in wiki tab (read-only) */}
+          {!isWiki && (
+            <>
+              <button
+                style={IMPORT_BTN_STYLE}
+                onClick={() => setShowImport((v) => !v)}
+                title={t("sources.import")}
+              >
+                <Upload size={14} aria-hidden="true" />
+                {t("sources.import")}
+              </button>
+              {/* S1: "+ Folder" button — triggers hidden directory input */}
+              <button
+                data-testid="source-import-folder"
+                style={IMPORT_BTN_STYLE}
+                onClick={() => folderInputRef.current?.click()}
+                title={t("sources.importFolder")}
+                disabled={folderUploadProgress !== null}
+              >
+                <Folder size={14} aria-hidden="true" />
+                {t("sources.importFolder")}
+              </button>
+              {/* Hidden directory input (S1) */}
+              <input
+                ref={folderInputRef}
+                type="file"
+                // webkitdirectory and multiple are non-standard but broadly supported
+                {...{ webkitdirectory: "true" }}
+                multiple
+                style={{ display: "none" }}
+                aria-hidden="true"
+                tabIndex={-1}
+                onChange={(e) => { void handleFolderInputChange(e); }}
+              />
+            </>
+          )}
         </div>
         {/* Keyframe for spinner — injected once, harmless if duplicated */}
         <style>{`@keyframes synapse-spin { to { transform: rotate(360deg); } }`}</style>
       </div>
 
-      {/* ── Import zone (collapsible) ── */}
-      {showImport && (
+      {/* ── Import zone (collapsible) — sources tab only ── */}
+      {!isWiki && showImport && (
         <div style={{ borderBottom: "1px solid var(--syn-border)", paddingBottom: 8 }}>
           <UploadZone onSuccess={() => { setShowImport(false); void fetchSources(); }} />
         </div>
       )}
 
-      {/* ── R7-11: Bulk actions bar (appears when >0 selected) ── */}
-      {someSelected && !bulkProgress && (
+      {/* ── R7-11: Bulk actions bar (appears when >0 selected, sources tab only) ── */}
+      {!isWiki && someSelected && !bulkProgress && (
         <div
           data-testid="sources-bulk-bar"
           style={{
@@ -861,32 +906,34 @@ export function SourcesView() {
               aria-label={t("sources.title")}
               style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}
             >
-              {/* R7-11: select-all header checkbox */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 8px",
-                  borderBottom: "1px solid var(--syn-border-subtle, var(--syn-border))",
-                  flexShrink: 0,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  data-testid="sources-select-all"
-                  checked={allSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = someSelected && !allSelected;
+              {/* R7-11: select-all header checkbox — sources tab only */}
+              {!isWiki && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 8px",
+                    borderBottom: "1px solid var(--syn-border-subtle, var(--syn-border))",
+                    flexShrink: 0,
                   }}
-                  onChange={handleSelectAll}
-                  aria-label={t("sources.bulk.selectAll")}
-                  style={{ cursor: "pointer" }}
-                />
-                <span style={{ fontSize: 10, color: "var(--syn-text-dim)", userSelect: "none" }}>
-                  {t("sources.bulk.selectAll")}
-                </span>
-              </div>
+                >
+                  <input
+                    type="checkbox"
+                    data-testid="sources-select-all"
+                    checked={allSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someSelected && !allSelected;
+                    }}
+                    onChange={handleSelectAll}
+                    aria-label={t("sources.bulk.selectAll")}
+                    style={{ cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: 10, color: "var(--syn-text-dim)", userSelect: "none" }}>
+                    {t("sources.bulk.selectAll")}
+                  </span>
+                </div>
+              )}
 
               <div
                 ref={scrollRef}
@@ -908,6 +955,7 @@ export function SourcesView() {
                           style={style}
                           armed={armedPath === row.path}
                           deleting={deletingPath === row.path}
+                          readOnly={isWiki}
                           onToggle={toggleFolder}
                           onDelete={handleFolderDeleteClick}
                         />
@@ -922,6 +970,7 @@ export function SourcesView() {
                         armed={armedPath === row.path}
                         deleting={deletingPath === row.path}
                         ingesting={ingestingPath === row.path}
+                        readOnly={isWiki}
                         style={style}
                         onClick={() => setSelectedPath(row.path)}
                         onToggleCheck={() => handleToggleSelect(row.path)}
@@ -941,7 +990,7 @@ export function SourcesView() {
 
         {/* ─ Preview ─ */}
         <div style={PREVIEW_PANEL_STYLE}>
-          <SourcePreview path={selectedPath} />
+          <SourcePreview path={selectedPath} root={root} />
         </div>
       </div>
 
@@ -986,11 +1035,13 @@ interface FolderRowItemProps {
   style: CSSProperties;
   armed: boolean;
   deleting: boolean;
+  /** When true (wiki tab), the folder delete button is hidden. */
+  readOnly?: boolean;
   onToggle: (path: string) => void;
   onDelete: (path: string) => Promise<void>;
 }
 
-function FolderRowItem({ row, style, armed, deleting, onToggle, onDelete }: FolderRowItemProps) {
+function FolderRowItem({ row, style, armed, deleting, readOnly = false, onToggle, onDelete }: FolderRowItemProps) {
   const { t } = useTranslation();
   const indent = 8 + row.depth * 16;
   const expanded = !row.collapsed;
@@ -1052,31 +1103,33 @@ function FolderRowItem({ row, style, armed, deleting, onToggle, onDelete }: Fold
         </span>
       </button>
 
-      {/* S2: Folder delete (two-stage armed-confirm) */}
-      <button
-        data-testid="source-folder-delete"
-        style={{
-          ...ACTION_BTN_BASE,
-          color: armed ? "var(--syn-danger, #e53e3e)" : "var(--syn-text-dim)",
-          background: armed
-            ? "color-mix(in srgb, var(--syn-danger, #e53e3e) 10%, transparent 90%)"
-            : "transparent",
-          opacity: deleting ? 0.5 : 1,
-          minWidth: armed ? 64 : undefined,
-          fontSize: armed ? 10 : undefined,
-          fontWeight: armed ? 700 : undefined,
-          transition: "color 0.15s, background 0.15s",
-          flexShrink: 0,
-        }}
-        disabled={deleting}
-        onClick={(e) => { e.stopPropagation(); void onDelete(row.path); }}
-        title={armed ? t("sources.confirmDeleteFolder") : t("sources.deleteFolder")}
-        aria-label={armed
-          ? `${t("sources.confirmDeleteFolder")} ${row.name}`
-          : `${t("sources.deleteFolder")} ${row.name}`}
-      >
-        {armed ? t("sources.confirmDeleteFolder") : <Trash2 size={12} aria-hidden="true" />}
-      </button>
+      {/* S2: Folder delete (two-stage armed-confirm) — hidden in wiki tab */}
+      {!readOnly && (
+        <button
+          data-testid="source-folder-delete"
+          style={{
+            ...ACTION_BTN_BASE,
+            color: armed ? "var(--syn-danger, #e53e3e)" : "var(--syn-text-dim)",
+            background: armed
+              ? "color-mix(in srgb, var(--syn-danger, #e53e3e) 10%, transparent 90%)"
+              : "transparent",
+            opacity: deleting ? 0.5 : 1,
+            minWidth: armed ? 64 : undefined,
+            fontSize: armed ? 10 : undefined,
+            fontWeight: armed ? 700 : undefined,
+            transition: "color 0.15s, background 0.15s",
+            flexShrink: 0,
+          }}
+          disabled={deleting}
+          onClick={(e) => { e.stopPropagation(); void onDelete(row.path); }}
+          title={armed ? t("sources.confirmDeleteFolder") : t("sources.deleteFolder")}
+          aria-label={armed
+            ? `${t("sources.confirmDeleteFolder")} ${row.name}`
+            : `${t("sources.deleteFolder")} ${row.name}`}
+        >
+          {armed ? t("sources.confirmDeleteFolder") : <Trash2 size={12} aria-hidden="true" />}
+        </button>
+      )}
     </div>
   );
 }
@@ -1091,6 +1144,8 @@ interface FileRowItemProps {
   armed: boolean;
   deleting: boolean;
   ingesting: boolean;
+  /** When true (wiki tab), checkbox, Ingest, and Delete buttons are hidden. */
+  readOnly?: boolean;
   style: CSSProperties;
   onClick: () => void;
   /** R7-11: toggle checkbox */
@@ -1106,6 +1161,7 @@ function FileRowItem({
   armed,
   deleting,
   ingesting,
+  readOnly = false,
   style,
   onClick,
   onToggleCheck,
@@ -1134,16 +1190,18 @@ function FileRowItem({
       aria-selected={selected}
       data-path={row.path}
     >
-      {/* R7-11: per-row checkbox */}
-      <input
-        type="checkbox"
-        data-testid="source-row-checkbox"
-        checked={checked}
-        onChange={(e) => { e.stopPropagation(); onToggleCheck(); }}
-        onClick={(e) => e.stopPropagation()}
-        aria-label={t("sources.bulk.selectFile", { name: row.name })}
-        style={{ flexShrink: 0, cursor: "pointer" }}
-      />
+      {/* R7-11: per-row checkbox — hidden in wiki tab */}
+      {!readOnly && (
+        <input
+          type="checkbox"
+          data-testid="source-row-checkbox"
+          checked={checked}
+          onChange={(e) => { e.stopPropagation(); onToggleCheck(); }}
+          onClick={(e) => e.stopPropagation()}
+          aria-label={t("sources.bulk.selectFile", { name: row.name })}
+          style={{ flexShrink: 0, cursor: "pointer" }}
+        />
+      )}
 
       {/* Icon */}
       <span style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}>
@@ -1176,54 +1234,56 @@ function FileRowItem({
         </span>
       )}
 
-      {/* Action buttons — always rendered (accessible via keyboard/screen reader) */}
-      <div
-        style={{ display: "flex", gap: 3, flexShrink: 0 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Ingest */}
-        <button
-          data-testid="source-ingest"
-          style={{
-            ...ACTION_BTN_BASE,
-            color: "var(--syn-accent)",
-            opacity: ingesting ? 0.5 : 1,
-          }}
-          disabled={ingesting}
-          onClick={(e) => { e.stopPropagation(); onIngest(row.path); }}
-          title={t("sources.ingest")}
-          aria-label={`${t("sources.ingest")} ${row.name}`}
+      {/* Action buttons — hidden in wiki tab (read-only) */}
+      {!readOnly && (
+        <div
+          style={{ display: "flex", gap: 3, flexShrink: 0 }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <BookOpen size={12} aria-hidden="true" />
-        </button>
+          {/* Ingest */}
+          <button
+            data-testid="source-ingest"
+            style={{
+              ...ACTION_BTN_BASE,
+              color: "var(--syn-accent)",
+              opacity: ingesting ? 0.5 : 1,
+            }}
+            disabled={ingesting}
+            onClick={(e) => { e.stopPropagation(); onIngest(row.path); }}
+            title={t("sources.ingest")}
+            aria-label={`${t("sources.ingest")} ${row.name}`}
+          >
+            <BookOpen size={12} aria-hidden="true" />
+          </button>
 
-        {/* Delete (two-stage) */}
-        <button
-          data-testid="source-delete"
-          style={{
-            ...ACTION_BTN_BASE,
-            color: armed
-              ? "var(--syn-danger, #e53e3e)"
-              : "var(--syn-text-dim)",
-            background: armed
-              ? "color-mix(in srgb, var(--syn-danger, #e53e3e) 10%, transparent 90%)"
-              : "transparent",
-            opacity: deleting ? 0.5 : 1,
-            minWidth: armed ? 64 : undefined,
-            fontSize: armed ? 10 : undefined,
-            fontWeight: armed ? 700 : undefined,
-            transition: "color 0.15s, background 0.15s",
-          }}
-          disabled={deleting}
-          onClick={(e) => { e.stopPropagation(); void onDelete(row.path); }}
-          title={armed ? t("sources.confirmDelete") : t("sources.delete")}
-          aria-label={armed
-            ? `${t("sources.confirmDelete")} ${row.name}`
-            : `${t("sources.delete")} ${row.name}`}
-        >
-          {armed ? t("sources.confirmDelete") : <Trash2 size={12} aria-hidden="true" />}
-        </button>
-      </div>
+          {/* Delete (two-stage) */}
+          <button
+            data-testid="source-delete"
+            style={{
+              ...ACTION_BTN_BASE,
+              color: armed
+                ? "var(--syn-danger, #e53e3e)"
+                : "var(--syn-text-dim)",
+              background: armed
+                ? "color-mix(in srgb, var(--syn-danger, #e53e3e) 10%, transparent 90%)"
+                : "transparent",
+              opacity: deleting ? 0.5 : 1,
+              minWidth: armed ? 64 : undefined,
+              fontSize: armed ? 10 : undefined,
+              fontWeight: armed ? 700 : undefined,
+              transition: "color 0.15s, background 0.15s",
+            }}
+            disabled={deleting}
+            onClick={(e) => { e.stopPropagation(); void onDelete(row.path); }}
+            title={armed ? t("sources.confirmDelete") : t("sources.delete")}
+            aria-label={armed
+              ? `${t("sources.confirmDelete")} ${row.name}`
+              : `${t("sources.delete")} ${row.name}`}
+          >
+            {armed ? t("sources.confirmDelete") : <Trash2 size={12} aria-hidden="true" />}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1345,4 +1405,46 @@ const BULK_ACTION_BTN: CSSProperties = {
   background: "transparent",
   color: "var(--syn-text-muted)",
   cursor: "pointer",
+};
+
+// ─── Tab toggle styles ────────────────────────────────────────────────────────
+
+const TAB_BAR_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 0,
+  padding: "0 12px",
+  borderBottom: "1px solid var(--syn-border)",
+  background: "var(--syn-bg-soft)",
+  flexShrink: 0,
+};
+
+function tabBtnStyle(active: boolean): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    fontSize: 12,
+    fontWeight: active ? 600 : 400,
+    padding: "7px 12px",
+    border: "none",
+    borderBottom: active ? "2px solid var(--syn-accent)" : "2px solid transparent",
+    background: "transparent",
+    color: active ? "var(--syn-accent)" : "var(--syn-text-dim)",
+    cursor: "pointer",
+    transition: "color 0.12s, border-bottom-color 0.12s",
+    marginBottom: "-1px", // overlap the container border
+  };
+}
+
+const WIKI_BADGE_STYLE: CSSProperties = {
+  marginLeft: 8,
+  fontSize: 10,
+  fontWeight: 600,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  padding: "2px 6px",
+  borderRadius: "var(--syn-radius-sm, 4px)",
+  background: "var(--syn-surface-sunken)",
+  border: "1px solid var(--syn-border-subtle)",
+  color: "var(--syn-text-dim)",
 };

@@ -906,6 +906,9 @@
   },
   "sources": {
     "title": "Sources",
+    "tabSources": "Sources",
+    "tabWiki": "Wiki",
+    "wikiReadOnly": "Read-only",
     "import": "Import",
     "importFolder": "+ Folder",
     "refresh": "Refresh",

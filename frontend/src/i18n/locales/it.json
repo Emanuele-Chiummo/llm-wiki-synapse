@@ -906,6 +906,9 @@
   },
   "sources": {
     "title": "Sorgenti",
+    "tabSources": "Sorgenti",
+    "tabWiki": "Wiki",
+    "wikiReadOnly": "Sola lettura",
     "import": "Importa",
     "importFolder": "+ Cartella",
     "refresh": "Aggiorna",
