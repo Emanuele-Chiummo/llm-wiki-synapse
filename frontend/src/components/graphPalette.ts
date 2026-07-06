@@ -67,10 +67,10 @@ export const LOW_COHESION_THRESHOLD = 0.1;
 /**
  * Color-mode discriminant.
  *   "type"      — colors nodes by page type (concept, entity, source, …).
- *   "community" — colors nodes by their DOMAIN tag (SAM, Procurement, …); one color per
- *                 distinct domain name (deterministic djb2 hash → DOMAIN_PALETTE).
- *                 Louvain community ids are NOT used for coloring in this mode; they are
- *                 still computed server-side and used by the Insights panel only.
+ *   "community" — colors nodes by Louvain community id (server-computed).
+ *                 One distinct color per cluster from COMMUNITY_PALETTE (12-color cycle).
+ *                 Community legend rows are labeled with communityDisplayName(c):
+ *                 "{dominant_domain} · {top_page_subtopic}" — unique per cluster.
  */
 export type ColorMode = "type" | "community";
 

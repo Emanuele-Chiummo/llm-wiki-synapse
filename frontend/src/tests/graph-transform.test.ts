@@ -214,28 +214,29 @@ describe("edgeVisibilityThreshold — GL1 bucket boundaries", () => {
     expect(edgeVisibilityThreshold(150)).toBe(0);
   });
 
-  it("returns 0.12 for n=151 (just above small-graph boundary)", () => {
-    expect(edgeVisibilityThreshold(151)).toBe(0.12);
+  // Obsidian-flow tuning: show (almost) all edges so clusters stay connected.
+  it("returns 0 for n=151 (still show all — was 0.12)", () => {
+    expect(edgeVisibilityThreshold(151)).toBe(0);
   });
 
-  it("returns 0.12 for n=600 (boundary — medium graph)", () => {
-    expect(edgeVisibilityThreshold(600)).toBe(0.12);
+  it("returns 0 for n=600 (boundary — show all)", () => {
+    expect(edgeVisibilityThreshold(600)).toBe(0);
   });
 
-  it("returns 0.30 for n=601 (just above medium boundary — raised from 0.22)", () => {
-    expect(edgeVisibilityThreshold(601)).toBe(0.30);
+  it("returns 0.03 for n=601 (cull only the weakest tail — was 0.30)", () => {
+    expect(edgeVisibilityThreshold(601)).toBe(0.03);
   });
 
-  it("returns 0.30 for n=1200 (boundary — large graph — raised from 0.22)", () => {
-    expect(edgeVisibilityThreshold(1200)).toBe(0.30);
+  it("returns 0.03 for n=1200 (boundary — large graph)", () => {
+    expect(edgeVisibilityThreshold(1200)).toBe(0.03);
   });
 
-  it("returns 0.42 for n=1201 (just above large boundary — raised from 0.32)", () => {
-    expect(edgeVisibilityThreshold(1201)).toBe(0.42);
+  it("returns 0.06 for n=1201 (very dense — was 0.42)", () => {
+    expect(edgeVisibilityThreshold(1201)).toBe(0.06);
   });
 
-  it("returns 0.42 for n=5000 (very large graph — raised from 0.32)", () => {
-    expect(edgeVisibilityThreshold(5000)).toBe(0.42);
+  it("returns 0.06 for n=5000 (very large graph)", () => {
+    expect(edgeVisibilityThreshold(5000)).toBe(0.06);
   });
 });
 
@@ -263,16 +264,16 @@ describe("buildGraphologyGraph — GL1 edge hidden flag", () => {
     });
   });
 
-  it("edges below threshold are hidden on graphs with n > 150", () => {
-    // 200 nodes → threshold 0.12
-    const nodes200 = makeNodes(200);
+  it("edges below threshold are hidden on graphs with n > 600", () => {
+    // 700 nodes → threshold 0.03 (Obsidian-flow tuning: only the weakest tail is culled)
+    const nodes700 = makeNodes(700);
     // Two edges: one strong (weight much higher than min → high normalizedWeight),
-    // one weak (weight = min → normalizedWeight = 0, below 0.12).
+    // one weak (weight = min → normalizedWeight = 0, below 0.03).
     const edges: GraphEdge[] = [
       { source: "n-0", target: "n-1", weight: 100 }, // strong
       { source: "n-0", target: "n-2", weight: 1 },   // weak (min weight → nw=0)
     ];
-    const graph = buildGraphologyGraph(nodes200, edges);
+    const graph = buildGraphologyGraph(nodes700, edges);
 
     const strongKey = graph.edge("n-0", "n-1");
     const weakKey = graph.edge("n-0", "n-2");

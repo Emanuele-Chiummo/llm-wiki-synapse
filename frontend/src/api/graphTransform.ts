@@ -111,10 +111,12 @@ const EDGE_SIZE_RANGE = 3.5; // → max edge size = 4.0 px
 //   600 < n ≤ 1200  → 0.30  (was 0.22 — raised to cut more clutter in mid-large)
 //   n > 1200        → 0.42  (was 0.32 — raised for very dense graphs)
 export function edgeVisibilityThreshold(nodeCount: number): number {
-  if (nodeCount <= 150) return 0;
-  if (nodeCount <= 600) return 0.12;
-  if (nodeCount <= 1200) return 0.30;
-  return 0.42;
+  // Obsidian-like "flow": show (almost) all edges so clusters stay CONNECTED rather than
+  // reading as detached islands. Only the very weakest tail is culled on very dense graphs.
+  // (Was 0.12/0.30/0.42 — that culling made clusters look like separate islands.)
+  if (nodeCount <= 600) return 0;
+  if (nodeCount <= 1200) return 0.03;
+  return 0.06;
 }
 
 // ─── GL2: Hub label truncation ────────────────────────────────────────────────

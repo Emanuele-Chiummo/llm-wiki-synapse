@@ -749,8 +749,6 @@
     "colorModeType": "Tipo",
     "colorModeCommunity": "Comunità",
     "colorModeToggleLabel": "Colora per",
-    "legendDomains": "DOMINI",
-    "legendDomainUntagged": "Senza dominio",
     "regenerate": "Rigenera grafo",
     "regenerating": "Rigenero…",
     "regenerateTitle": "Ricollega gli ingest tra loro e ricalcola il layout del grafo",

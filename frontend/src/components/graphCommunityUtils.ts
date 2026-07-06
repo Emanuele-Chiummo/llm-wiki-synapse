@@ -17,6 +17,62 @@
 import type { GraphNode, GraphCommunity } from "../api/types";
 import { colorForCommunity, colorForDomain } from "./graphPalette";
 
+// ─── communityDisplayName ────────────────────────────────────────────────────
+
+/**
+ * Derive a unique display name for a Louvain community.
+ *
+ * Strategy (guaranteed uniqueness because each community's top_page differs):
+ *   1. If dominant_domain AND top_page exist:
+ *        "{domain} · {sub}" where sub = top_page.title with the domain word
+ *        stripped from the front (avoids "SAM · SAM Reconciliation" → "SAM · Reconciliation"),
+ *        then truncated to 24 chars.
+ *   2. If only top_page exists (no dominant_domain): top_page.title truncated to 24 chars.
+ *   3. Else: fallback label from community.label, or "C{id}" string.
+ *
+ * INVARIANT I2: all inputs come from the server (GraphCommunity fields).
+ * INVARIANT I3: pure function — no side effects; intended for useMemo.
+ *
+ * @param c           GraphCommunity from the store.
+ * @param fallbackFn  Optional i18n function for the "Community {id}" fallback.
+ *                    When absent uses "C{id}".
+ * @returns Unique human-readable display name string.
+ */
+export function communityDisplayName(
+  c: GraphCommunity,
+  fallbackFn?: (id: number) => string,
+): string {
+  const MAX_SUB_CHARS = 24;
+
+  function truncateSub(s: string): string {
+    if (s.length <= MAX_SUB_CHARS) return s;
+    return s.slice(0, MAX_SUB_CHARS - 1) + "…";
+  }
+
+  if (c.dominant_domain && c.top_page?.title) {
+    const domain = c.dominant_domain;
+    const raw = c.top_page.title;
+    // Strip leading domain word + optional separator (—, ·, -, space) from the title
+    // to avoid "SAM · SAM Reconciliation" → we want "SAM · Reconciliation".
+    // Regex: ^{domain}\b[\s—·\-]* (case-insensitive, at start of string)
+    const escaped = domain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const strippedRaw = raw.replace(new RegExp(`^${escaped}\\b[\\s—·\\-]*`, "i"), "");
+    // Only use the stripped version if it's meaningfully shorter; otherwise keep raw
+    const sub = strippedRaw.trim().length > 0 ? strippedRaw.trim() : raw;
+    return `${domain} · ${truncateSub(sub)}`;
+  }
+
+  if (c.top_page?.title) {
+    return truncateSub(c.top_page.title);
+  }
+
+  if (c.label != null && c.label.trim().length > 0) {
+    return c.label;
+  }
+
+  return fallbackFn ? fallbackFn(c.id) : `C${c.id}`;
+}
+
 // ─── CommunityCentroid result type ────────────────────────────────────────────
 
 export interface CommunityCentroid {
@@ -83,12 +139,9 @@ export function computeCommunityCentroids(
   for (const [cid, acc] of sums) {
     if (acc.count === 0) continue;
     const c = communityMap.get(cid);
-    const rawLabel = c?.label;
-    // Ultra-short fallback for the overlay: "C{id}" (legend shows the full name)
-    const label =
-      rawLabel != null && rawLabel.trim().length > 0
-        ? rawLabel
-        : `C${cid}`;
+    // Use communityDisplayName for unique names (domain · subtopic).
+    // Falls back to "C{id}" when no metadata is available.
+    const label = c != null ? communityDisplayName(c) : `C${cid}`;
     result.set(cid, {
       x: acc.sumX / acc.count,
       y: acc.sumY / acc.count,

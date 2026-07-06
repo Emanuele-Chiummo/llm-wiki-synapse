@@ -898,7 +898,15 @@ def _forceatlas2_layout(
     # scalingRatio: larger graphs need more spread to avoid crowding
     scaling_ratio = FA2_SCALING_RATIO_LARGE if n > 400 else FA2_SCALING_RATIO_SMALL
 
+    # More organic ("flow") layout toward the Obsidian look. NOTE: fa2_modified does NOT
+    # implement linLogMode (asserts False), so the strongest Obsidian lever is unavailable
+    # without a layout-lib swap (GL6, declined). We keep strongGravity for a cohesive core
+    # and add outboundAttractionDistribution (hubs pushed outward / leaves pulled in) for a
+    # more organic distribution. The real "not detached" fix is reducing edge culling (FE).
+    # Determinism (ADR-0045 §2) preserved: circle-init + numpy seed, params fixed.
     fa = ForceAtlas2(
+        outboundAttractionDistribution=True,
+        edgeWeightInfluence=1.0,
         gravity=1.0,
         scalingRatio=scaling_ratio,
         strongGravityMode=True,
