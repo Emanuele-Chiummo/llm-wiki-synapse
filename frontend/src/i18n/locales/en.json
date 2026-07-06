@@ -749,8 +749,6 @@
     "colorModeType": "Type",
     "colorModeCommunity": "Community",
     "colorModeToggleLabel": "Color by",
-    "legendDomains": "DOMAINS",
-    "legendDomainUntagged": "Untagged",
     "regenerate": "Regenerate graph",
     "regenerating": "Regenerating…",
     "regenerateTitle": "Reconnect ingests to each other and recompute the graph layout",

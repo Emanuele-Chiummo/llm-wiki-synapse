@@ -38,7 +38,7 @@ import { ZoomIn, ZoomOut, Maximize2, RefreshCw, Maximize } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity, colorForDomain } from "./graphPalette";
 import type { ColorMode } from "./graphPalette";
-import { computeCommunityCentroids, computeDomainCentroids } from "./graphCommunityUtils";
+import { computeCommunityCentroids, computeDomainCentroids, communityDisplayName } from "./graphCommunityUtils";
 import type { CommunityCentroid } from "./graphCommunityUtils";
 import Sigma from "sigma";
 import type { Attributes } from "graphology-types";
@@ -156,9 +156,9 @@ function colorForType(type: string | null): string {
 // unit-tested in jsdom without WebGL2. See graphPalette.ts, graphCommunityUtils.ts.
 export { COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity, colorForDomain };
 export type { ColorMode };
-// computeCommunityCentroids / computeDomainCentroids re-exported from graphCommunityUtils
-// for tests that import from GraphViewer directly (backward compat).
-export { computeCommunityCentroids, computeDomainCentroids };
+// computeCommunityCentroids / computeDomainCentroids / communityDisplayName re-exported
+// from graphCommunityUtils for tests that import from GraphViewer directly (backward compat).
+export { computeCommunityCentroids, computeDomainCentroids, communityDisplayName };
 
 /**
  * Deepen a hex color by mixing it 30% toward black (#000000).
@@ -1099,41 +1099,36 @@ interface GraphLegendProps {
   colorMode: ColorMode;
   /** Community summary list from GET /graph (server-computed, I2). */
   communities: GraphCommunity[];
-  /** Called when a community legend entry is clicked (R9-5). Unused in community/domain mode. */
+  /** Called when a community legend entry is clicked (R9-5). */
   onCommunityClick?: (id: number) => void;
   /**
-   * All graph nodes — used in "community" mode (domain grouping) to aggregate node
-   * counts per domain. ONE row per distinct domain name — no Louvain duplicates.
-   * I3: the caller (GraphViewer) passes this from the store; no extra subscription here.
+   * All graph nodes — no longer used for legend rendering in "community" mode
+   * (legend now shows per-Louvain-community rows from the communities[] array).
+   * Kept for potential future use / backward compat.
    */
   nodes?: GraphNode[];
 }
 
-const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities: _communities, onCommunityClick: _onCommunityClick, nodes = [] }) => {
+const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCommunityClick: _onCommunityClick, nodes: _nodes = [] }) => {
   const { t } = useTranslation();
 
-  // COMMUNITY mode = domain grouping: aggregate nodes by domain — one row per distinct name.
-  // Sorted by count desc; untagged (null/empty domain) goes into a separate bucket at end.
-  // I3: computed via useMemo so it only runs when nodes/colorMode change, not per render.
-  const domainRows = React.useMemo<{ named: Array<{ domain: string; count: number }>; untaggedCount: number }>(() => {
-    if (colorMode !== "community") return { named: [], untaggedCount: 0 };
-    const counts = new Map<string | null, number>();
-    for (const n of nodes) {
-      const d = n.domain ?? null;
-      counts.set(d, (counts.get(d) ?? 0) + 1);
-    }
-    const named: Array<{ domain: string; count: number }> = [];
-    let untaggedCount = 0;
-    for (const [d, c] of counts) {
-      if (d === null || d.trim() === "") {
-        untaggedCount += c;
-      } else {
-        named.push({ domain: d, count: c });
-      }
-    }
-    named.sort((a, b) => b.count - a.count);
-    return { named, untaggedCount };
-  }, [colorMode, nodes]);
+  // COMMUNITY mode = per-Louvain-community rows.
+  // One row per community entry in the communities[] array (server-provided, sorted by size desc).
+  // Each row is labeled with communityDisplayName(c) — unique because top_page differs per cluster.
+  // Low-cohesion communities (< LOW_COHESION_THRESHOLD) get a "!" warning marker.
+  // I3: computed via useMemo so it only runs when communities/colorMode change, not per render.
+  // I2: communities[] always comes from the server (GET /graph); client never computes Louvain.
+  const communityRows = React.useMemo<Array<{ community: GraphCommunity; displayName: string; color: string; lowCohesion: boolean }>>(() => {
+    if (colorMode !== "community") return [];
+    return [...communities]
+      .sort((a, b) => b.size - a.size)
+      .map((c) => ({
+        community: c,
+        displayName: communityDisplayName(c, (id) => t("graph.legendCommunityLabel", { id })),
+        color: colorForCommunity(c.id),
+        lowCohesion: c.cohesion < LOW_COHESION_THRESHOLD,
+      }));
+  }, [colorMode, communities, t]);
 
   return (
     <div
@@ -1149,7 +1144,7 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities: _comm
         maxHeight: "calc(100% - 96px)",
         overflowY: "auto",
       }}
-      aria-label={colorMode === "type" ? "Graph node type legend" : "Graph domain legend"}
+      aria-label={colorMode === "type" ? "Graph node type legend" : "Graph community legend"}
       data-testid="graph-legend"
     >
       {colorMode === "type" ? (
@@ -1205,12 +1200,13 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities: _comm
         </>
       ) : (
         <>
-          {/* COMMUNITY mode = DOMAIN grouping legend.
-              ONE row per distinct domain name (SAM, Procurement, …) — no duplicate Louvain entries.
-              Aggregated from GraphNode.domain (server-provided); sorted by node count desc.
-              Untagged nodes (domain=null) are grouped into "Senza dominio" at the bottom.
-              I3: domainRows computed via useMemo above; no work per render frame.
-              I2: domain values are from server — client never assigns or computes them. */}
+          {/* COMMUNITY mode = per-Louvain-community legend.
+              ONE row per community from the communities[] server array, sorted by size desc.
+              Each row is labeled with communityDisplayName(c) — unique because each community's
+              top_page differs (avoids duplicate "SAM" rows from two same-domain clusters).
+              Low-cohesion communities get a "!" warning marker.
+              I3: communityRows computed via useMemo above; no work per render frame.
+              I2: community data is from server — client never runs Louvain or domain detection. */}
           <div
             style={{
               fontSize: 10,
@@ -1220,70 +1216,53 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities: _comm
               fontWeight: 600,
             }}
           >
-            {t("graph.legendDomains")}
+            {t("graph.legendCommunities")}
           </div>
-          {domainRows.named.length === 0 && domainRows.untaggedCount === 0 ? (
+          {communityRows.length === 0 ? (
             <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
               {t("common.unknown")}
             </span>
           ) : (
-            <>
-              {domainRows.named.map(({ domain, count }) => (
-                <div
-                  key={domain}
-                  data-testid={`domain-legend-item-${domain}`}
-                  style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}
-                >
+            communityRows.map(({ community: c, displayName, color, lowCohesion }) => (
+              <div
+                key={c.id}
+                data-testid={`community-legend-item-${c.id}`}
+                style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}
+              >
+                <span
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: "50%",
+                    background: color,
+                    flexShrink: 0,
+                    boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
+                  }}
+                  aria-hidden="true"
+                />
+                <span style={{ fontSize: 11, color: "var(--syn-text)", display: "flex", alignItems: "center", gap: 3 }}>
                   <span
-                    style={{
-                      width: 9,
-                      height: 9,
-                      borderRadius: "50%",
-                      background: colorForDomain(domain),
-                      flexShrink: 0,
-                      boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
-                    }}
-                    aria-hidden="true"
-                  />
-                  <span style={{ fontSize: 11, color: "var(--syn-text)" }}>
+                    data-testid={`community-legend-name-${c.id}`}
+                    style={{ fontWeight: 500 }}
+                  >
+                    {displayName}
+                  </span>
+                  {lowCohesion && (
                     <span
-                      data-testid={`domain-legend-name-${domain}`}
-                      style={{ fontWeight: 500 }}
+                      data-testid={`community-legend-low-cohesion-${c.id}`}
+                      title={t("graph.legendCommunityLowCohesion")}
+                      style={{ color: "var(--syn-amber, #d97706)", fontSize: 10, lineHeight: 1 }}
+                      aria-label={t("graph.legendCommunityLowCohesion")}
                     >
-                      {domain}
+                      !
                     </span>
-                    <span style={{ color: "var(--syn-text-muted)", marginLeft: 4 }}>
-                      {t("graph.legendCommunitySize", { size: count })}
-                    </span>
+                  )}
+                  <span style={{ color: "var(--syn-text-muted)", marginLeft: 2 }}>
+                    {t("graph.legendCommunitySize", { size: c.size })}
                   </span>
-                </div>
-              ))}
-              {/* "Senza dominio" / Untagged bucket — last row */}
-              {domainRows.untaggedCount > 0 && (
-                <div
-                  data-testid="domain-legend-untagged"
-                  style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}
-                >
-                  <span
-                    style={{
-                      width: 9,
-                      height: 9,
-                      borderRadius: "50%",
-                      background: "#8b949e",
-                      flexShrink: 0,
-                      boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
-                    }}
-                    aria-hidden="true"
-                  />
-                  <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
-                    {t("graph.legendDomainUntagged")}
-                    <span style={{ color: "var(--syn-text-muted)", marginLeft: 4 }}>
-                      {t("graph.legendCommunitySize", { size: domainRows.untaggedCount })}
-                    </span>
-                  </span>
-                </div>
-              )}
-            </>
+                </span>
+              </div>
+            ))
           )}
         </>
       )}
@@ -1622,11 +1601,10 @@ export const GraphViewer: React.FC = () => {
     readSigmaThemeColors(),
   );
 
-  // Color-mode toggle: "community" (default — groups by DOMAIN, one cluster per domain name)
-  // or "type" (groups by page type: concept, entity, source, …).
-  // Note: despite the name "community", this mode uses GraphNode.domain for coloring,
-  // not Louvain community ids. This gives one unified SAM cluster, one Procurement cluster,
-  // with no duplicates — exactly what the user expects from "unisci per dominio".
+  // Color-mode toggle: "community" (default — colors by Louvain community id, one distinct
+  // color per cluster from COMMUNITY_PALETTE) or "type" (colors by page type).
+  // Community names in legend + centroid overlay use communityDisplayName(c) which forms
+  // "{dominant_domain} · {top_page_subtopic}" — unique per cluster, no duplicate SAM rows.
   const [colorMode, setColorMode] = useState<ColorMode>("community");
 
   // Tooltip state (React state — triggers re-render to show/hide tooltip)
@@ -1634,13 +1612,23 @@ export const GraphViewer: React.FC = () => {
   // Aria-live announcement text
   const [announcement, setAnnouncement] = useState<string>("");
 
-  // ── Domain centroid map (I3 — memoized; recomputed only when nodes change)
-  // Active in "community" color mode (= domain grouping).
-  // INVARIANT I2: only reads server-provided x/y and domain field — never mutates coords.
-  // INVARIANT I3: computed once per nodes change, NOT per sigma frame.
-  const domainCentroids = useMemo(
-    () => computeDomainCentroids(nodes),
-    [nodes],
+  // ── Community centroid map (I3 — memoized; recomputed only when nodes/communities change)
+  // Active in "community" color mode. Groups nodes by Louvain community id (server-provided).
+  // Labels come from communityDisplayName(c) — unique "{domain} · {subtopic}" names.
+  // INVARIANT I2: only reads server-provided x/y and community field — never mutates coords.
+  // INVARIANT I3: computed once per nodes/communities change, NOT per sigma frame.
+  const communityCentroids = useMemo(
+    () => {
+      // Convert number-keyed Map<number, CommunityCentroid> → string-keyed Map<string, CommunityCentroid>
+      // because CentroidOverlay uses string keys (supports both community and domain modes).
+      const raw = computeCommunityCentroids(nodes, communities);
+      const result = new Map<string, CommunityCentroid>();
+      for (const [cid, centroid] of raw) {
+        result.set(String(cid), centroid);
+      }
+      return result;
+    },
+    [nodes, communities],
   );
 
   // ── R9-5: Community panel state ──────────────────────────────────────────
@@ -1767,11 +1755,12 @@ export const GraphViewer: React.FC = () => {
       // I2: value comes from the server (GraphNode.domain); never computed client-side.
       const nodeDomain = (attrs["domain"] as string | null | undefined) ?? null;
       // Color is determined by active color-mode (I2: all values come from server).
-      // "community" mode groups by DOMAIN (one color per domain name), NOT by Louvain id —
-      // this ensures one unified cluster per domain (SAM, Procurement, …) with no duplicates.
+      // "community" mode colors by Louvain community id — one distinct color per cluster
+      // from COMMUNITY_PALETTE (cycles for >12 communities; -1 = unassigned → gray).
+      // "type" mode colors by page type (concept, entity, source, …).
       const nodeColor =
         colorMode === "community"
-          ? colorForDomain(nodeDomain)
+          ? colorForCommunity(nodeCommunity)
           : colorForType(nodeType ?? null);
       sigmaGraph.addNode(nodeKey, {
         x: attrs["x"] as number,
@@ -2452,7 +2441,7 @@ export const GraphViewer: React.FC = () => {
         </button>
       </div>
 
-      {/* Color-mode toolbar — Tipo · Dominio · Comunità (domain is default) */}
+      {/* Color-mode toolbar — Tipo · Comunità (community is default, colors by Louvain cluster) */}
       <div
         className="syn-card"
         style={{
@@ -2498,9 +2487,9 @@ export const GraphViewer: React.FC = () => {
         >
           {t("graph.colorModeType")}
         </button>
-        {/* Comunità — groups by DOMAIN (one color + one legend row per domain name).
-            Colors use colorForDomain(node.domain) — stable djb2 hash → DOMAIN_PALETTE.
-            One unified "SAM" cluster, one "Procurement" cluster, … — no Louvain duplicates. */}
+        {/* Comunità — colors by Louvain community id (COMMUNITY_PALETTE, 12-color cycle).
+            One distinct color per server-computed cluster — groups topically related pages.
+            Legend rows use communityDisplayName(c) — unique "{domain}·{subtopic}" labels. */}
         <button
           type="button"
           onClick={() => setColorMode("community")}
@@ -2525,23 +2514,24 @@ export const GraphViewer: React.FC = () => {
       <StatusBar />
 
       {/* Legend overlay — CVD-safe: name + color swatch; switches on colorMode.
-          "community" mode shows ONE row per domain name (no Louvain duplicates). */}
+          "community" mode shows ONE row per Louvain community, labeled with
+          communityDisplayName(c) — unique "{domain} · {subtopic}" per cluster. */}
       <GraphLegend
         colorMode={colorMode}
         communities={communities}
-        nodes={nodes}
       />
 
-      {/* Domain centroid labels overlay (community/domain mode).
-          "Comunità" toggle = domain grouping: one label per domain at its nodes' centroid.
-          Uses CentroidOverlay (string-keyed Map) with domainCentroids (memoized, I3).
+      {/* Community centroid labels overlay (community mode).
+          "Comunità" toggle = per-Louvain-community grouping: one label per cluster at its
+          nodes' centroid. Label = communityDisplayName(c) truncated to OVERLAY_LABEL_MAX_CHARS.
+          Uses CentroidOverlay (string-keyed Map) with communityCentroids (memoized, I3).
           INVARIANT I2: reads server-provided x/y only; never mutates node positions or runs layout.
-          INVARIANT I3: domainCentroids memoized via useMemo; only viewport projection per frame. */}
+          INVARIANT I3: communityCentroids memoized via useMemo; only viewport projection per frame. */}
       <CentroidOverlay
-        centroids={domainCentroids}
+        centroids={communityCentroids}
         sigmaRef={sigmaRef}
         active={colorMode === "community"}
-        testId="domain-overlay"
+        testId="community-overlay"
       />
 
       {/* R9-5: Community drill-down panel */}

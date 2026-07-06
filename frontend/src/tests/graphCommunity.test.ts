@@ -9,11 +9,13 @@
  *   E.  LOW_COHESION_THRESHOLD contract — communities below threshold flagged.
  *   F.  GraphCommunity label/dominant_domain/top_page fields (feat/b3-graph-look).
  *   G.  computeCommunityCentroids — memoized centroid computation (I2/I3).
- *   H.  Community legend label display — uses `label` field, falls back to id-string.
+ *   H.  communityDisplayName — unique names per cluster; same-domain communities get
+ *       different display names via their top_page subtopic.
  *   I.  colorForDomain — stable/deterministic hash, null/untagged → DOMAIN_UNTAGGED_COLOR.
  *   J.  computeDomainCentroids — correct centroids, skips singletons, skips null, no mutation.
- *   K.  Domain legend aggregation — one row per domain name, correct counts, no duplicates.
- *   L.  Default colorMode is "community" (= domain grouping by GraphNode.domain, not Louvain id).
+ *   K.  Community legend aggregation — one row per Louvain community, unique display names,
+ *       correct color (colorForCommunity), low-cohesion marker.
+ *   L.  Default colorMode is "community" (= Louvain community coloring via colorForCommunity).
  *
  * INVARIANT I2: community ids and domain values are ALWAYS read from the server response.
  *   No client-side community detection, Louvain, or domain assignment runs in any test.
@@ -28,7 +30,7 @@ import {
   colorForDomain,
 } from "../components/graphPalette";
 import { buildGraphologyGraph } from "../api/graphTransform";
-import { computeCommunityCentroids, computeDomainCentroids } from "../components/graphCommunityUtils";
+import { computeCommunityCentroids, computeDomainCentroids, communityDisplayName } from "../components/graphCommunityUtils";
 import { useGraphStore, selectCommunities } from "../store/graphStore";
 import type { GraphNode, GraphEdge, GraphCommunity } from "../api/types";
 
@@ -300,16 +302,18 @@ describe("computeCommunityCentroids — centroid computation (I2/I3)", () => {
     expect(c1.y).toBeCloseTo(10); // (20+0+10)/3
   });
 
-  it("uses community.label as the centroid label (SAM, not 'C0')", () => {
+  it("uses communityDisplayName for the centroid label (I2/I3)", () => {
     const result = computeCommunityCentroids(nodes, communities);
+    // community 0: dominant_domain="SAM", no top_page — falls back to label "SAM"
     expect(result.get(0)?.label).toBe("SAM");
+    // community 1: no dominant_domain, no top_page — falls back to label "Procurement"
     expect(result.get(1)?.label).toBe("Procurement");
   });
 
-  it("falls back to 'C{id}' when community.label is absent or empty", () => {
+  it("falls back to 'C{id}' when community has no label/domain/top_page", () => {
     const commNoLabel: GraphCommunity[] = [
-      { id: 3, size: 2, cohesion: 0.5 }, // no label field
-      { id: 4, size: 2, cohesion: 0.5, label: "" }, // empty label
+      { id: 3, size: 2, cohesion: 0.5 }, // no label/dominant_domain/top_page
+      { id: 4, size: 2, cohesion: 0.5, label: "" }, // empty label, no domain/top_page
     ];
     const nodesExtra: GraphNode[] = [
       { id: "x1", title: "X1", type: "concept", x: 0, y: 0, community: 3 },
@@ -363,6 +367,99 @@ describe("computeCommunityCentroids — centroid computation (I2/I3)", () => {
     ];
     const result = computeCommunityCentroids(singleNodes, singletonComms);
     expect(result.size).toBe(0);
+  });
+});
+
+// ─── H. communityDisplayName — unique labels per cluster ─────────────────────
+
+describe("communityDisplayName — unique label derivation (I2/I3)", () => {
+  it("H1: returns '{domain} · {sub}' when dominant_domain and top_page exist", () => {
+    const c: GraphCommunity = {
+      id: 0, size: 10, cohesion: 0.8,
+      dominant_domain: "SAM",
+      top_page: { id: "p1", title: "Reconciliation Process", slug: "reconciliation-process" },
+    };
+    expect(communityDisplayName(c)).toBe("SAM · Reconciliation Process");
+  });
+
+  it("H2: strips leading domain word from top_page.title to avoid duplication", () => {
+    const c: GraphCommunity = {
+      id: 1, size: 8, cohesion: 0.7,
+      dominant_domain: "SAM",
+      top_page: { id: "p2", title: "SAM Reconciliation", slug: "sam-reconciliation" },
+    };
+    // "SAM · SAM Reconciliation" → "SAM · Reconciliation"
+    const name = communityDisplayName(c);
+    expect(name).toBe("SAM · Reconciliation");
+    expect(name).not.toContain("SAM · SAM");
+  });
+
+  it("H3: two same-domain communities get DIFFERENT display names via their top_page", () => {
+    const cA: GraphCommunity = {
+      id: 0, size: 12, cohesion: 0.9,
+      dominant_domain: "SAM",
+      top_page: { id: "p1", title: "SAM Reconciliation", slug: "sam-reconciliation" },
+    };
+    const cB: GraphCommunity = {
+      id: 1, size: 8, cohesion: 0.6,
+      dominant_domain: "SAM",
+      top_page: { id: "p2", title: "SAM Reporting", slug: "sam-reporting" },
+    };
+    const nameA = communityDisplayName(cA);
+    const nameB = communityDisplayName(cB);
+    // Both have SAM domain — they must differ because their subtopics differ
+    expect(nameA).not.toBe(nameB);
+    expect(nameA).toBe("SAM · Reconciliation");
+    expect(nameB).toBe("SAM · Reporting");
+  });
+
+  it("H4: truncates subtitle at 24 chars with ellipsis", () => {
+    const c: GraphCommunity = {
+      id: 2, size: 5, cohesion: 0.5,
+      dominant_domain: "Procurement",
+      top_page: { id: "p3", title: "Supplier Evaluation Framework", slug: "supplier-evaluation-framework" },
+    };
+    const name = communityDisplayName(c);
+    // "Supplier Evaluation Framework" is 29 chars; MAX_SUB_CHARS=24 → slice(0,23)+"…"
+    // = "Supplier Evaluation Fra…"
+    expect(name).toBe("Procurement · Supplier Evaluation Fra…");
+  });
+
+  it("H5: falls back to top_page.title when no dominant_domain", () => {
+    const c: GraphCommunity = {
+      id: 3, size: 4, cohesion: 0.4,
+      dominant_domain: null,
+      top_page: { id: "p4", title: "Risk Assessment", slug: "risk-assessment" },
+    };
+    expect(communityDisplayName(c)).toBe("Risk Assessment");
+  });
+
+  it("H6: falls back to community.label when no domain or top_page", () => {
+    const c: GraphCommunity = {
+      id: 4, size: 3, cohesion: 0.3,
+      label: "Finance",
+    };
+    expect(communityDisplayName(c)).toBe("Finance");
+  });
+
+  it("H7: falls back to C{id} when no label/domain/top_page", () => {
+    const c: GraphCommunity = { id: 5, size: 2, cohesion: 0.2 };
+    expect(communityDisplayName(c)).toBe("C5");
+  });
+
+  it("H8: uses fallbackFn for 'Community N' i18n string when provided", () => {
+    const c: GraphCommunity = { id: 7, size: 2, cohesion: 0.2 };
+    const name = communityDisplayName(c, (id) => `Community ${id}`);
+    expect(name).toBe("Community 7");
+  });
+
+  it("H9: does NOT call Math.random (I2/I3 sentinel — pure function)", () => {
+    const randomSpy = vi.spyOn(Math, "random");
+    communityDisplayName({ id: 0, size: 5, cohesion: 0.8, dominant_domain: "SAM",
+      top_page: { id: "x", title: "SAM Overview", slug: "sam-overview" } });
+    communityDisplayName({ id: 1, size: 2, cohesion: 0.2 });
+    expect(randomSpy).not.toHaveBeenCalled();
+    randomSpy.mockRestore();
   });
 });
 
@@ -521,125 +618,131 @@ describe("computeDomainCentroids — domain centroid computation (I2/I3)", () =>
   });
 });
 
-// ─── K. Domain legend aggregation — one row per domain, correct counts ────────
+// ─── K. Community legend aggregation — one row per Louvain community, unique names ──
 
-describe("domain legend aggregation — uniqueness and count correctness (I3)", () => {
+describe("community legend aggregation — one row per cluster, unique names (I2/I3)", () => {
   /**
-   * Helper that reproduces the useMemo logic inside GraphLegend's domain branch.
+   * Helper that reproduces the useMemo logic inside GraphLegend's community branch.
    * We test the pure aggregation logic here without rendering the full component.
    */
-  function aggregateDomainLegendRows(nodes: GraphNode[]) {
-    const counts = new Map<string | null, number>();
-    for (const n of nodes) {
-      const d = n.domain ?? null;
-      counts.set(d, (counts.get(d) ?? 0) + 1);
-    }
-    const named: Array<{ domain: string; count: number }> = [];
-    let untaggedCount = 0;
-    for (const [d, c] of counts) {
-      if (d === null || d.trim() === "") {
-        untaggedCount += c;
-      } else {
-        named.push({ domain: d, count: c });
-      }
-    }
-    named.sort((a, b) => b.count - a.count);
-    return { named, untaggedCount };
+  function aggregateCommunityLegendRows(communities: GraphCommunity[]) {
+    return [...communities]
+      .sort((a, b) => b.size - a.size)
+      .map((c) => ({
+        community: c,
+        displayName: communityDisplayName(c),
+        color: colorForCommunity(c.id),
+        lowCohesion: c.cohesion < LOW_COHESION_THRESHOLD,
+      }));
   }
 
-  it("produces ONE row per distinct domain name (no duplicates)", () => {
-    const nodes: GraphNode[] = [
-      { id: "n1", title: "A", type: "concept", x: 0, y: 0, community: 0, domain: "SAM" },
-      { id: "n2", title: "B", type: "concept", x: 1, y: 1, community: 0, domain: "SAM" },
-      { id: "n3", title: "C", type: "concept", x: 2, y: 2, community: 1, domain: "SAM" },
-      { id: "n4", title: "D", type: "entity",  x: 3, y: 3, community: 1, domain: "Procurement" },
+  it("K1: produces ONE row per Louvain community (no domain-aggregation)", () => {
+    // Two communities both with dominant_domain="SAM" but different top_pages
+    const communities: GraphCommunity[] = [
+      { id: 0, size: 12, cohesion: 0.9, dominant_domain: "SAM",
+        top_page: { id: "p1", title: "SAM Reconciliation", slug: "sam-reconciliation" } },
+      { id: 1, size: 8, cohesion: 0.6, dominant_domain: "SAM",
+        top_page: { id: "p2", title: "SAM Reporting", slug: "sam-reporting" } },
     ];
-    const { named } = aggregateDomainLegendRows(nodes);
-    const names = named.map((r) => r.domain);
-    expect(names).toContain("SAM");
-    expect(names).toContain("Procurement");
-    // Exactly one entry per domain — no duplicates
-    expect(names.filter((n) => n === "SAM")).toHaveLength(1);
-    expect(names.filter((n) => n === "Procurement")).toHaveLength(1);
-    expect(named).toHaveLength(2);
+    const rows = aggregateCommunityLegendRows(communities);
+    expect(rows).toHaveLength(2); // two clusters, not merged into one "SAM"
   });
 
-  it("counts nodes correctly per domain", () => {
-    const nodes: GraphNode[] = [
-      { id: "n1", title: "A", type: "concept", x: 0, y: 0, community: 0, domain: "SAM" },
-      { id: "n2", title: "B", type: "concept", x: 1, y: 1, community: 0, domain: "SAM" },
-      { id: "n3", title: "C", type: "concept", x: 2, y: 2, community: 1, domain: "SAM" },
-      { id: "n4", title: "D", type: "entity",  x: 3, y: 3, community: 1, domain: "Procurement" },
+  it("K2: two same-domain communities get DIFFERENT display names", () => {
+    const communities: GraphCommunity[] = [
+      { id: 0, size: 10, cohesion: 0.8, dominant_domain: "SAM",
+        top_page: { id: "p1", title: "SAM Reconciliation", slug: "sam-reconciliation" } },
+      { id: 1, size: 6, cohesion: 0.5, dominant_domain: "SAM",
+        top_page: { id: "p2", title: "SAM Reporting", slug: "sam-reporting" } },
     ];
-    const { named } = aggregateDomainLegendRows(nodes);
-    const samRow = named.find((r) => r.domain === "SAM")!;
-    const procRow = named.find((r) => r.domain === "Procurement")!;
-    expect(samRow.count).toBe(3);
-    expect(procRow.count).toBe(1);
+    const rows = aggregateCommunityLegendRows(communities);
+    const names = rows.map((r) => r.displayName);
+    // Names must be distinct despite same domain
+    expect(names[0]).not.toBe(names[1]);
+    expect(names[0]).toBe("SAM · Reconciliation");
+    expect(names[1]).toBe("SAM · Reporting");
   });
 
-  it("sorts rows by count descending (highest-count domain first)", () => {
-    const nodes: GraphNode[] = [
-      { id: "n1", title: "A", type: "concept", x: 0, y: 0, community: 0, domain: "Procurement" },
-      { id: "n2", title: "B", type: "concept", x: 1, y: 1, community: 0, domain: "SAM" },
-      { id: "n3", title: "C", type: "concept", x: 2, y: 2, community: 1, domain: "SAM" },
+  it("K3: rows sorted by community size descending", () => {
+    const communities: GraphCommunity[] = [
+      { id: 0, size: 5, cohesion: 0.8 },
+      { id: 1, size: 20, cohesion: 0.6 },
+      { id: 2, size: 10, cohesion: 0.4 },
     ];
-    const { named } = aggregateDomainLegendRows(nodes);
-    // SAM (2) comes before Procurement (1)
-    expect(named[0]?.domain).toBe("SAM");
-    expect(named[1]?.domain).toBe("Procurement");
+    const rows = aggregateCommunityLegendRows(communities);
+    expect(rows[0]?.community.id).toBe(1); // size=20 first
+    expect(rows[1]?.community.id).toBe(2); // size=10 second
+    expect(rows[2]?.community.id).toBe(0); // size=5 last
   });
 
-  it("groups null and absent domain into untaggedCount (not named rows)", () => {
-    const nodes: GraphNode[] = [
-      { id: "n1", title: "A", type: "concept", x: 0, y: 0, community: 0, domain: null }, // explicit null
-      { id: "n2", title: "B", type: "concept", x: 1, y: 1, community: 0 }, // domain absent (treated as null)
-      { id: "n3", title: "C", type: "concept", x: 2, y: 2, community: 1, domain: "SAM" },
+  it("K4: color = colorForCommunity(id) (Louvain palette, not domain palette)", () => {
+    const communities: GraphCommunity[] = [
+      { id: 0, size: 10, cohesion: 0.8 },
+      { id: 1, size: 5, cohesion: 0.6 },
     ];
-    const { named, untaggedCount } = aggregateDomainLegendRows(nodes);
-    expect(named).toHaveLength(1);
-    expect(named[0]?.domain).toBe("SAM");
-    expect(untaggedCount).toBe(2);
+    const rows = aggregateCommunityLegendRows(communities);
+    expect(rows[0]?.color).toBe(colorForCommunity(0));
+    expect(rows[1]?.color).toBe(colorForCommunity(1));
+    // Ensure these are community palette colors, not domain palette
+    const COMMUNITY_PALETTE_0 = colorForCommunity(0);
+    expect(COMMUNITY_PALETTE_0).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
-  it("returns empty named and zero untaggedCount for an empty node list", () => {
-    const { named, untaggedCount } = aggregateDomainLegendRows([]);
-    expect(named).toHaveLength(0);
-    expect(untaggedCount).toBe(0);
+  it("K5: low-cohesion flag set for communities with cohesion < LOW_COHESION_THRESHOLD", () => {
+    const communities: GraphCommunity[] = [
+      { id: 0, size: 10, cohesion: 0.05 }, // low — 0.05 < 0.1
+      { id: 1, size: 5, cohesion: 0.10 },  // exactly at threshold — NOT low
+      { id: 2, size: 3, cohesion: 0.80 },  // healthy
+    ];
+    const rows = aggregateCommunityLegendRows(communities);
+    const row0 = rows.find((r) => r.community.id === 0)!;
+    const row1 = rows.find((r) => r.community.id === 1)!;
+    const row2 = rows.find((r) => r.community.id === 2)!;
+    expect(row0.lowCohesion).toBe(true);
+    expect(row1.lowCohesion).toBe(false);
+    expect(row2.lowCohesion).toBe(false);
+  });
+
+  it("K6: empty community list yields empty rows", () => {
+    const rows = aggregateCommunityLegendRows([]);
+    expect(rows).toHaveLength(0);
   });
 });
 
-// ─── L. Default ColorMode — "community" (= domain grouping) is the default graph view ──────
+// ─── L. Default ColorMode — "community" (= Louvain coloring) is the default graph view ──────
 
-describe("ColorMode — 'community' (domain grouping) is the default graph view (F4)", () => {
-  it("ColorMode type includes 'type' and 'community' as valid members", () => {
+describe("ColorMode — 'community' (Louvain coloring) is the default graph view (F4)", () => {
+  it("L1: ColorMode type includes 'type' and 'community' as valid members", () => {
     // TypeScript compile-time check expressed as runtime assertions.
-    // 'community' in colorMode means domain grouping (colorForDomain), NOT Louvain ids.
     const typeMode: import("../components/graphPalette").ColorMode = "type";
     const communityMode: import("../components/graphPalette").ColorMode = "community";
     expect(typeMode).toBe("type");
     expect(communityMode).toBe("community");
   });
 
-  it("'community' colorMode uses colorForDomain for coloring (not colorForCommunity)", () => {
-    // Verifies the domain-grouping contract at the palette level:
-    // same domain → same color; different domains → likely different colors.
-    const samColor = colorForDomain("SAM");
-    const procColor = colorForDomain("Procurement");
-    // Both are valid hex strings
-    expect(samColor).toMatch(/^#[0-9a-f]{6}$/i);
-    expect(procColor).toMatch(/^#[0-9a-f]{6}$/i);
-    // Their colors are deterministic (calling again produces same result)
-    expect(colorForDomain("SAM")).toBe(samColor);
-    expect(colorForDomain("Procurement")).toBe(procColor);
+  it("L2: 'community' colorMode uses colorForCommunity for coloring (not colorForDomain)", () => {
+    // Verifies the Louvain-cluster contract at the palette level:
+    // community 0 → COMMUNITY_PALETTE[0]; community 1 → COMMUNITY_PALETTE[1].
+    const c0Color = colorForCommunity(0);
+    const c1Color = colorForCommunity(1);
+    // Both are valid hex strings from COMMUNITY_PALETTE
+    expect(c0Color).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(c1Color).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(c0Color).toBe(COMMUNITY_PALETTE[0]);
+    expect(c1Color).toBe(COMMUNITY_PALETTE[1]);
+    // Deterministic: same community id → same color
+    expect(colorForCommunity(0)).toBe(c0Color);
+    expect(colorForCommunity(1)).toBe(c1Color);
   });
 
-  it("colorForDomain(null) returns DOMAIN_UNTAGGED_COLOR not a community palette color", () => {
-    // Ensures the null path does not accidentally resolve to a community color
-    const untagged = colorForDomain(null);
+  it("L3: colorForCommunity(-1) returns COMMUNITY_UNASSIGNED_COLOR (#6e7781) for unassigned", () => {
+    expect(colorForCommunity(-1)).toBe("#6e7781");
+  });
+
+  it("L4: DOMAIN_UNTAGGED_COLOR is NOT a community palette color (palettes are distinct)", () => {
+    // Ensures the two palettes don't accidentally overlap at the unassigned/untagged bucket
     for (const c of COMMUNITY_PALETTE) {
-      expect(untagged).not.toBe(c);
+      expect(DOMAIN_UNTAGGED_COLOR).not.toBe(c);
     }
-    expect(untagged).toBe(DOMAIN_UNTAGGED_COLOR);
   });
 });
