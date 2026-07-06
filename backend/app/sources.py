@@ -86,6 +86,7 @@ def _resolve_under_dir(base_dir: Path, name: str) -> Path:
 # Names starting with '.' (dotfiles and .obsidian) are excluded from the wiki
 # listing to keep the tree clean and avoid exposing Obsidian internals (I5).
 
+
 def _is_hidden(name: str) -> bool:
     """Return True if *name* should be excluded from the wiki listing (dotfile/hidden dir)."""
     return name.startswith(".")

@@ -629,9 +629,7 @@ async def _get_graph_neighborhood_body(
                     f"SELECT CAST(id AS TEXT) AS id, title, type FROM pages "  # noqa: S608
                     f"WHERE deleted_at IS NULL AND CAST(id AS TEXT) IN ({np_placeholders})"
                 )
-                meta_rows = (
-                    await session.execute(_sa_text(meta_sql).bindparams(**np_binds))
-                ).all()
+                meta_rows = (await session.execute(_sa_text(meta_sql).bindparams(**np_binds))).all()
                 for mr in meta_rows:
                     m = mr._mapping
                     nid = str(m["id"])
@@ -736,10 +734,34 @@ async def _read_source_file_body(path: str) -> dict[str, Any]:
 
     ext = abs_path.suffix.lower()
     _TEXT_EXTS = frozenset(
-        {".txt", ".md", ".markdown", ".rst", ".tex", ".log",
-         ".py", ".js", ".ts", ".jsx", ".tsx", ".json", ".yaml", ".yml",
-         ".toml", ".ini", ".cfg", ".sh", ".bash", ".zsh", ".html", ".htm",
-         ".css", ".xml", ".csv", ".tsv"}
+        {
+            ".txt",
+            ".md",
+            ".markdown",
+            ".rst",
+            ".tex",
+            ".log",
+            ".py",
+            ".js",
+            ".ts",
+            ".jsx",
+            ".tsx",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".toml",
+            ".ini",
+            ".cfg",
+            ".sh",
+            ".bash",
+            ".zsh",
+            ".html",
+            ".htm",
+            ".css",
+            ".xml",
+            ".csv",
+            ".tsv",
+        }
     )
     if ext not in _TEXT_EXTS:
         guessed, _ = _mimetypes.guess_type(str(abs_path))
@@ -1141,7 +1163,9 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
         return await _get_graph_neighborhood_body(title, depth)
 
     @http_mcp.tool()
-    async def list_reviews(status: str = "open", limit: int = 20) -> list[dict[str, Any]]:  # noqa: F811
+    async def list_reviews(
+        status: str = "open", limit: int = 20
+    ) -> list[dict[str, Any]]:  # noqa: F811
         """
         List HITL review queue items (B5/D2, F9). READ-ONLY. limit capped at 100 (I7).
 

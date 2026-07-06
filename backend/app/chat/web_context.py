@@ -101,9 +101,7 @@ async def _fetch_one_stripped(hit: SearchHit, *, char_cap: int) -> str | None:
                     hit.url,
                 )
                 return None
-            content_type = (
-                resp.headers.get("content-type", "").split(";")[0].strip().lower()
-            )
+            content_type = resp.headers.get("content-type", "").split(";")[0].strip().lower()
             if not _is_texty_content_type(content_type):
                 logger.debug(
                     "chat web: non-text content-type %r for %s — skipping",

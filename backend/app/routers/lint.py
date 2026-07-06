@@ -403,16 +403,12 @@ async def list_lint_findings_endpoint(
     if category is not None and category not in _VALID_CATEGORIES:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"Invalid category {category!r}; must be one of {sorted(_VALID_CATEGORIES)}"
-            ),
+            detail=(f"Invalid category {category!r}; must be one of {sorted(_VALID_CATEGORIES)}"),
         )
     if severity is not None and severity not in _VALID_SEVERITIES:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"Invalid severity {severity!r}; must be one of {sorted(_VALID_SEVERITIES)}"
-            ),
+            detail=(f"Invalid severity {severity!r}; must be one of {sorted(_VALID_SEVERITIES)}"),
         )
 
     page = await list_lint_findings(
@@ -527,10 +523,7 @@ class BatchFindingsRequest(BaseModel):
 
     ids: list[uuid.UUID] = Field(
         ...,
-        description=(
-            "List of finding UUIDs to act on. "
-            "Cap: <= 200 (I7 — bounded; 422 beyond)."
-        ),
+        description=("List of finding UUIDs to act on. " "Cap: <= 200 (I7 — bounded; 422 beyond)."),
     )
     action: str = Field(
         ...,
@@ -571,11 +564,7 @@ _BATCH_MAX_IDS = 200  # I7 — matches ops/lint._BATCH_MAX_IDS
     ),
     responses={
         200: {"description": "Batch processed; see results for per-id status"},
-        422: {
-            "description": (
-                f"ids exceeds cap of {_BATCH_MAX_IDS}, or invalid action"
-            )
-        },
+        422: {"description": (f"ids exceeds cap of {_BATCH_MAX_IDS}, or invalid action")},
     },
 )
 async def batch_findings_endpoint(body: BatchFindingsRequest) -> BatchFindingsResponse:
