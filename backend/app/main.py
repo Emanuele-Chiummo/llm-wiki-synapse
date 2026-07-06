@@ -1049,6 +1049,7 @@ from app.routers.review import router as review_router  # noqa: E402
 from app.routers.scenarios import router as scenarios_router  # noqa: E402
 from app.routers.search import router as search_router  # noqa: E402
 from app.routers.status import router as status_router  # noqa: E402
+from app.routers.vault_meta import router as vault_meta_router  # noqa: E402
 
 app.include_router(ops_router)
 app.include_router(status_router)
@@ -1063,6 +1064,7 @@ app.include_router(review_router)
 app.include_router(lint_router)
 app.include_router(clip_router)
 app.include_router(scenarios_router)
+app.include_router(vault_meta_router)  # WS-D8: vault-root meta files (schema.md, purpose.md)
 
 # ── OpenAPI security scheme (ADR-0052 §2.5, I8, EC-M10-4) ────────────────────
 # Inject ``BearerAuth`` into the OpenAPI schema so docs/api/openapi.json declares

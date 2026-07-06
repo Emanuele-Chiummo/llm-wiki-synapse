@@ -75,6 +75,10 @@ import {
   useGraphStatus,
   useGraphStore,
 } from "../store/graphStore";
+import {
+  useStatusStore,
+  selectStatusDataVersion,
+} from "../store/statusStore";
 
 // ─── Reduced-motion detection ─────────────────────────────────────────────────
 
@@ -1657,6 +1661,17 @@ export const GraphViewer: React.FC = () => {
   // GR2: selectPage action for search-triggered navigation
   const selectPage = useGraphStore(selectSelectPage);
 
+  // WS-A [F4/F16]: subscribe to data_version from the ActivityBar's existing GET /status poll.
+  // When the version bumps, we re-fetch GET /graph (precomputed coords from server — I2).
+  // INVARIANT I3: no re-render on every poll tick; only triggers when the value changes.
+  // INVARIANT I2: we NEVER run a layout algorithm — we only refetch server-computed coords.
+  // INVARIANT AC-WS-A-4: no new poller; ActivityBar's STATUS_POLL_MS is the sole driver.
+  const statusDataVersion = useStatusStore(selectStatusDataVersion);
+
+  // Track which data_version the current graph data corresponds to so we only
+  // refetch when the server version actually advances (AC-WS-A-3).
+  const lastFetchedGraphVersionRef = useRef<number | null>(null);
+
   // Graph container ref — used for fullscreen API (GR7)
   const graphRootRef = useRef<HTMLDivElement>(null);
 
@@ -1759,6 +1774,8 @@ export const GraphViewer: React.FC = () => {
     fetchGraph(vaultId, ctrl.signal)
       .then(({ data, cacheStatus }) => {
         setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? [], data.total_nodes ?? null, data.total_edges ?? null);
+        // WS-A: record the server version just fetched so we don't re-fetch on same-version ticks.
+        lastFetchedGraphVersionRef.current = data.data_version;
       })
       .catch((err: unknown) => {
         if (err instanceof Error && err.name !== "AbortError") {
@@ -1768,6 +1785,31 @@ export const GraphViewer: React.FC = () => {
 
     return () => ctrl.abort();
   }, [vaultId, setGraph, setLoading, setError]);
+
+  // ── WS-A [AC-WS-A-2, AC-WS-A-3]: re-fetch graph when data_version bumps ──
+  // Polls via the existing ActivityBar /status cadence — no new interval (AC-WS-A-4).
+  // Skips re-fetch if the version hasn't changed from last graph fetch (AC-WS-A-3).
+  // INVARIANT I2: only calls fetchGraph; NEVER runs FA2 or any layout algorithm.
+  // INVARIANT I3: effect deps are the version scalar; no per-tick re-render when unchanged.
+  useEffect(() => {
+    if (statusDataVersion === null) return;
+    if (statusDataVersion === lastFetchedGraphVersionRef.current) return;
+    // Version has advanced — refetch precomputed coords from server (AC-WS-A-2).
+    const ctrl = new AbortController();
+    fetchGraph(vaultId, ctrl.signal)
+      .then(({ data, cacheStatus }) => {
+        setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? [], data.total_nodes ?? null, data.total_edges ?? null);
+        lastFetchedGraphVersionRef.current = data.data_version;
+      })
+      .catch((err: unknown) => {
+        // Transient errors (network hiccup) — don't surface to the user, just log.
+        if (err instanceof Error && err.name !== "AbortError") {
+          console.warn("[WS-A] graph freshness re-fetch failed:", err.message);
+        }
+      });
+    return () => ctrl.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusDataVersion]); // vaultId, setGraph intentionally omitted: mount effect owns initial fetch
 
   // ── GR3: sync filterNodeTypes ref and refresh sigma on filter change ─────
   // The ref lets the existing sigma reducers always see the latest filter value

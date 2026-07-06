@@ -37,6 +37,7 @@ const API_PREFIXES = [
   `/costs`,
   `/stats`,
   `/ops`,
+  `/vault`,
   `/health`,
   `/export`,
   `/api`,
@@ -198,6 +199,10 @@ export default defineConfig({
         changeOrigin: true,
       },
       "/ops": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/vault": {
         target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
         changeOrigin: true,
       },

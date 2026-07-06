@@ -4,6 +4,97 @@
 
 ---
 
+## v1.3.6 Docs Gate (EC-M136-8) — VERDICT: ALL UP-TO-DATE
+
+> Gate run: 2026-07-06
+> Branch: `sprint/v1.3.6`
+> Release: v1.3.6 — "Diagnostics, Real-time & Stability" (M136)
+> Scope: WS-A (Home/Graph dataVersion polling), WS-B (review resolved/dismissed distinct card),
+>   WS-C (ingest % + ETA in Home widget), WS-D7 (NoteView single-scroll sticky header),
+>   WS-D8 (GET /vault/meta + Vault/Meta tree node + read-only drawer),
+>   WS-G (automations verified, no regressions).
+>   Proxy fix: frontend/vite.config.ts /vault route.
+>   MetaFileView shared CSS class (synapse-markdown__body prose).
+> No new ADR in this sprint. WS-E/WS-F deferred to v1.3.7.
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/` (context/container/component) | UP-TO-DATE (no change) | v1.3.6 adds no new container, port, or external service. WS-D8 GET /vault/meta is a thin read-only route inside the existing FastAPI service boundary. WS-A polling uses existing GET /status endpoint. C4 topology unchanged from v1.3. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (verified unchanged) | No SQLAlchemy model change in v1.3.6. WS-D8 does NOT write to Postgres (I1 — no new table, no new column). WS-G automation verification produced no migration. `make er` re-run confirmed zero diff vs committed file. 15 tables unchanged. |
+| D3 | `docs/sequences/` | UP-TO-DATE (no change) | v1.3.6 introduces no new multi-actor bounded loop requiring a new sequence diagram. WS-A dataVersion polling is a client-side interval over the existing GET /status route (no new actor). WS-D8 is a single-step disk read (no loop, no new swimlane). WS-B card state change is frontend-only. WS-C progress bar wires to existing ADR-0046 snapshot fields. All five committed sequence diagrams remain current. |
+| D4 | `docs/api/openapi.json` | REGENERATED (this gate) | `backend/.venv/bin/python backend/scripts/generate_openapi.py` executed successfully. New endpoint confirmed present: `GET /vault/meta` (WS-D8, K1, I1, I5). Schemas added: `VaultMetaFile`, `VaultMetaResponse`. Path count: 83 (was 82 before WS-D8). WS-C uses no new endpoint (ADR-0046 GET /ingest/queue unchanged — AC-WS-C-4 holds). BearerAuth security check passed (all non-exempt routes reference BearerAuth; /status + /health/detailed carry security:[]). All 38 required-path sanity checks pass. |
+| D5 | `docs/screens/` | PENDING-LIVE (carry-forward) | v1.3.6 changes UI affordances: NoteView single-scroll sticky header (WS-D7), Vault/Meta tree section (WS-D8), ingest % + ETA widget (WS-C), resolved/dismissed card distinct state (WS-B), Home dataVersion polling (WS-A). Screenshots require a live-stack Playwright session. Non-blocking for code gate per established policy; blocking for EC-M136-HCP. |
+| D6a | `docs/USER.md` | UP-TO-DATE (no change required this gate) | v1.3.6 is a bug-fix + observability sprint. No new top-level user workflow. The Vault/Meta tree node (WS-D8), the ingest progress widget (WS-C), and the review card fix (WS-B) are incremental improvements to existing flows documented in USER.md. A focused update pass is recommended at the v1.3.7 gate when screenshots are refreshed. Non-blocking. |
+| D6b | `docs/DEPLOY.md` | UP-TO-DATE (no change required) | v1.3.6 introduces no new env vars. GET /vault/meta reads from the existing `vault_root` setting (already documented). WS-A polling interval is a frontend constant (no env var). WS-C ETA display uses existing batch fields from ADR-0046 (no new env var). No DEPLOY.md update needed. |
+| D7 | `docs/adr/index.md` | UP-TO-DATE (no new ADR) | No new ADR was initiated in this sprint (WS-E and WS-F deferred; WS-D8 is read-only disk access, not an architectural decision requiring an ADR). ADR index unchanged from the B1/B2 gates. |
+
+### D4 — Endpoint verification (v1.3.6 gate)
+
+| Endpoint | Method | Present in openapi.json | Notes |
+|----------|--------|------------------------|-------|
+| `/vault/meta` | GET | YES | WS-D8: returns schema.md + purpose.md from disk. VaultMetaFile + VaultMetaResponse schemas present. [K1, I1, I5] |
+| `/ingest/queue` | GET | YES (unchanged) | WS-C: frontend wires to existing batch.done/batch.total/batch.eta_seconds fields. AC-WS-C-4 holds — no new endpoint. |
+| All 38 required paths from generate_openapi.py sanity check | GET/POST/etc | YES | generate_openapi.py sanity check passed with exit 0. |
+
+Total paths in openapi.json: 83 (was 82). Net addition: 1 path (`/vault/meta`).
+
+### D2 — ER verification (v1.3.6 gate)
+
+| Check | Result |
+|-------|--------|
+| `generate_er.py` exit code | 0 |
+| `git diff docs/er/schema.mmd` | EMPTY — no drift |
+| Tables confirmed present | 15 (PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES, CONVERSATIONS, MESSAGES, IMPORT_SCHEDULES, DEEP_RESEARCH_RUNS, DEEP_RESEARCH_SOURCES, REVIEW_ITEMS, APP_CONFIG, LINT_RUNS, LINT_FINDINGS) |
+| Any new migration in v1.3.6 | NO — WS-D8 is disk-only (I1); WS-G produced no regressions requiring a schema change |
+
+### D3 — Sequence diagrams unchanged (v1.3.6 gate)
+
+| File | Status |
+|------|--------|
+| `docs/sequences/ingest-loop.mmd` | UP-TO-DATE (no change) |
+| `docs/sequences/query-4phase.mmd` | UP-TO-DATE (no change) |
+| `docs/sequences/deep-research.mmd` | UP-TO-DATE (no change) |
+| `docs/sequences/cascade-delete.mmd` | UP-TO-DATE (no change) |
+| `docs/sequences/lint-fix.mmd` | UP-TO-DATE (no change — last updated B1 gate) |
+
+### Invariant compliance check (v1.3.6 gate)
+
+| Invariant | Status |
+|-----------|--------|
+| **I1** (incremental index only) | HOLDS — WS-D8 GET /vault/meta reads two fixed paths from disk; zero Postgres writes, zero Qdrant upserts (AC-WS-D8-3). WS-G regression repair (if any) bounded to restoring pre-v1.3.5 behavior. |
+| **I2** (graph layout server-side) | HOLDS — WS-A dataVersion polling never triggers a client-side graph layout recompute; frontend calls existing GET /graph only when version changes (AC-WS-A-2). |
+| **I3** (no per-token heavy work in chat) | HOLDS — WS-A polling tick does not cause re-render when dataVersion unchanged (Zustand shallow-equality guard, AC-WS-A-3). WS-C progress bar is a pure CSS element (AC-WS-C-5). |
+| **I5** (Obsidian compatibility) | HOLDS — WS-D7 sticky header is presentation-only; WS-D8 reads schema.md and purpose.md without indexing them as Page records (AC-WS-D8-3). Both files remain valid Obsidian Markdown (AC-WS-D8-4). |
+| **I7** (bounded loops) | HOLDS — WS-A polling uses the existing ActivityBar interval (no new loop). WS-C uses existing loop. No new unbounded loop introduced. |
+| **I8** (docs-as-DoD) | HOLDS — D4 regenerated (1 new path); D2 verified unchanged; D3 unchanged; D7 no new ADR needed. This gate entry filed. |
+
+### D5 — Outstanding screenshots (PENDING-LIVE, v1.3.6 additions)
+
+| View | Status | Blocking? |
+|------|--------|-----------|
+| NoteView with single-scroll sticky header (WS-D7) | PENDING-LIVE | Blocks EC-M136-HCP only |
+| Vault/Meta tree section with schema.md + purpose.md nodes (WS-D8) | PENDING-LIVE | Blocks EC-M136-HCP only |
+| Home widget with ingest % progress bar + ETA (WS-C) | PENDING-LIVE | Blocks EC-M136-HCP only |
+| Review queue Risolti tab with distinct resolved card state (WS-B) | PENDING-LIVE | Blocks EC-M136-HCP only |
+| All prior PENDING-LIVE items (v1.3, B1, B2 carry-forward) | PENDING-LIVE | Blocks EC-M136-HCP only |
+
+### DOCS GATE VERDICT — v1.3.6
+
+**ALL UP-TO-DATE**
+
+D4 (OpenAPI) regenerated via `backend/.venv/bin/python backend/scripts/generate_openapi.py`:
+`GET /vault/meta` now present (WS-D8, +94 lines, 83 total paths).
+D2 (ER) verified unchanged: `git diff docs/er/schema.mmd` returned empty; `generate_er.py`
+passed with all 15 tables confirmed — no migration in v1.3.6.
+D3 (sequences) unchanged: no new multi-actor loop; all five diagrams current.
+D7 (ADR index) unchanged: no new ADR required this sprint.
+D5 screenshots PENDING-LIVE (non-blocking for code gate; blocking for EC-M136-HCP).
+WS-E and WS-F explicitly deferred to v1.3.7 — no documentation debt from deferral.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-07-06 | v1.3.6 docs gate (EC-M136-8)**
+
+---
+
 ## B1-Lint Parity Docs Gate — VERDICT: ALL UP-TO-DATE
 
 > Gate run: 2026-07-06

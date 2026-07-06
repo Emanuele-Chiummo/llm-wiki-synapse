@@ -666,6 +666,15 @@
     "tabPending": "In attesa",
     "tabResolved": "Risolti",
     "tabDismissed": "Ignorati",
+    "statusBadge": {
+      "auto_resolved": "Auto-risolto",
+      "created": "Creato",
+      "deep_researched": "Ricercato",
+      "skipped": "Saltato",
+      "dismissed": "Ignorato"
+    },
+    "resolvedAt": "Risolto {{date}}",
+    "viewCreatedPage": "Vedi pagina",
     "itemType": {
       "missing-page": "Pagina mancante",
       "suggestion": "Suggerimento",
@@ -731,7 +740,9 @@
     "unsavedKeepEditing": "Continua a modificare",
     "tagsMore": "Altri (+{{count}})",
     "tagsCollapse": "Meno",
-    "updatedLabel": "aggiornato: {{iso}}"
+    "updatedLabel": "aggiornato: {{iso}}",
+    "metaExpand": "Mostra metadati",
+    "metaCollapse": "Nascondi metadati"
   },
   "lint": {
     "title": "Lint",
@@ -1065,6 +1076,11 @@
     "copy": "Copia",
     "unknown": "Sconosciuto"
   },
+  "meta": {
+    "vaultSection": "Vault",
+    "readOnly": "Sola lettura",
+    "drawer": "File meta vault"
+  },
   "previewPanel": {
     "connectedTo": "Collegata a {{count}} altre pagine",
     "connectedTo_one": "Collegata a 1 altra pagina",
@@ -1319,7 +1335,10 @@
       "ingestPending": "in coda",
       "research": "Ricerca profonda",
       "backfill": "Classificazione domini in corso",
-      "backfillTagged": "{{count}} pagine taggate nell'ultimo run"
+      "backfillTagged": "{{count}} pagine taggate nell'ultimo run",
+      "ingestBatchCount": "{{done}}/{{total}} file",
+      "ingestProgressLabel": "Avanzamento importazione: {{pct}}%",
+      "ingestEta": "ETA ~{{eta}}s"
     },
     "placeholder": {
       "title": "Server v1.1 — aggiorna per abilitare la dashboard Home",
