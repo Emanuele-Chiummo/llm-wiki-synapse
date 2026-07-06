@@ -1010,3 +1010,125 @@ async def test_get_config_app_returns_13_settings() -> None:
     rc_entry = next(s for s in settings_list if s["key"] == "reclassify_schedule")
     assert rc_entry["source"] == "env"
     assert rc_entry["value"] == "off"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# R13-12 — scheduler reports the TRUE op outcome (dormant / error / counts)
+#
+# Regression for the "automations classification doesn't work" report: the
+# backfill/reclassify ops NEVER raise — they return a *Summary whose stopped_reason
+# is the real outcome. Before this fix _trigger_op marked every non-raising run as a
+# green "ok", so a dormant vocabulary or a missing ingest provider looked successful
+# while the run silently produced nothing.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_backfill_dormant_vocabulary_reports_dormant_not_ok() -> None:
+    """A backfill that returns stopped_reason='dormant' → last_status 'dormant' (+ hint detail)."""
+    from app.ops.backfill_domains import BackfillSummary
+
+    async def dormant_backfill() -> BackfillSummary:
+        s = BackfillSummary(max_pages=1, token_budget=1)
+        s.stopped_reason = "dormant"
+        return s
+
+    scheduler, *_ = _make_scheduler(backfill_fn=dormant_backfill)
+    await scheduler.run_now("backfill")
+
+    state = scheduler.get_state("backfill")
+    assert state.last_status == "dormant"
+    assert state.last_detail is not None
+    assert "vocabulary" in state.last_detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_reclassify_provider_error_reports_error_not_ok() -> None:
+    """A reclassify that returns stopped_reason='error' → last_status starts with 'error'."""
+    from app.ops.reclassify_types import ReclassifySummary
+
+    async def erroring_reclassify() -> ReclassifySummary:
+        s = ReclassifySummary()
+        s.stopped_reason = "error"
+        return s
+
+    scheduler, *_ = _make_scheduler(reclassify_fn=erroring_reclassify)
+    await scheduler.run_now("reclassify")
+
+    state = scheduler.get_state("reclassify")
+    assert state.last_status is not None
+    assert state.last_status.startswith("error")
+
+
+@pytest.mark.asyncio
+async def test_backfill_error_does_not_persist_timestamp() -> None:
+    """An 'error' outcome is NOT succeeded → the persisted last-run timestamp is not written."""
+    from app.ops.backfill_domains import BackfillSummary
+
+    async def erroring_backfill() -> BackfillSummary:
+        s = BackfillSummary()
+        s.stopped_reason = "error"
+        return s
+
+    scheduler, *_ = _make_scheduler(backfill_fn=erroring_backfill)
+    with patch("app.scheduler_state.save_scheduler_ts", new=AsyncMock()) as mock_save:
+        await scheduler.run_now("backfill")
+
+    # error → fail-open retry semantics: timestamp must NOT be persisted.
+    mock_save.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_backfill_zero_tagged_surfaces_counts_in_detail() -> None:
+    """A completed run that tagged nothing still reports 'ok' but the detail reveals 0 tagged."""
+    from app.ops.backfill_domains import BackfillSummary
+
+    async def empty_backfill() -> BackfillSummary:
+        s = BackfillSummary()
+        s.stopped_reason = "complete"
+        s.processed = 30
+        s.tagged = 0
+        s.failed = 30
+        return s
+
+    scheduler, *_ = _make_scheduler(backfill_fn=empty_backfill)
+    await scheduler.run_now("backfill")
+
+    state = scheduler.get_state("backfill")
+    assert state.last_status == "ok"
+    assert state.last_detail is not None
+    assert "0 tagged" in state.last_detail
+    assert "30 processed" in state.last_detail
+    assert "30 failed" in state.last_detail
+
+
+@pytest.mark.asyncio
+async def test_reclassify_counts_use_changed_verb() -> None:
+    """reclassify detail counts its writes as 'changed' (not 'tagged')."""
+    from app.ops.reclassify_types import ReclassifySummary
+
+    async def reclassify_with_changes() -> ReclassifySummary:
+        s = ReclassifySummary()
+        s.stopped_reason = "complete"
+        s.processed = 10
+        s.changed = 4
+        return s
+
+    scheduler, *_ = _make_scheduler(reclassify_fn=reclassify_with_changes)
+    await scheduler.run_now("reclassify")
+
+    state = scheduler.get_state("reclassify")
+    assert state.last_status == "ok"
+    assert state.last_detail is not None
+    assert "4 changed" in state.last_detail
+
+
+@pytest.mark.asyncio
+async def test_no_summary_result_stays_ok_with_no_detail() -> None:
+    """An op that returns no *Summary (lint scan / mock) → 'ok', detail None (unchanged behaviour)."""
+    scheduler, *_ = _make_scheduler(lint_fn=AsyncMock(return_value=None))
+    await scheduler.run_now("lint")
+
+    state = scheduler.get_state("lint")
+    assert state.last_status == "ok"
+    assert state.last_detail is None

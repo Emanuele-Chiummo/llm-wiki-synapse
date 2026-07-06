@@ -36,6 +36,12 @@ export interface OpsScheduleEntry {
   schedule: OpsScheduleFrequency;
   last_run_at: string | null;
   last_status: string | null;
+  /**
+   * Short human outcome of the last run ("12 tagged / 30 processed",
+   * "dormant: no domain vocabulary configured", "error: ..."), or null. R13-12.
+   * Absent on older backends — treat as undefined/null.
+   */
+  last_detail?: string | null;
   in_flight: boolean;
 }
 
