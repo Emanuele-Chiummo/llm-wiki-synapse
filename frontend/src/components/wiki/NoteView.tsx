@@ -29,11 +29,18 @@
  *   resolves the title to a node id via graphStore.nodes, and calls selectPage().
  *   If no match, shows a "page not found" toast.
  *
- * Card header (light design):
- *   In READ mode, a .syn-card block at the top displays: page title, type badge pill
- *   (colored by --syn-type-*), updated date, tag chips (.syn-chip), a "Sources (N)"
- *   section listing source chips, and the RelatedPanel as a "Related (N)" section.
- *   This matches the llm_wiki light reader card layout.
+ * Card header (light design) — WS-D7 single-scroll fix:
+ *   In READ mode a sticky card header sits at the top of ONE scroll container.
+ *   The header is split into two tiers:
+ *     Tier 1 (always visible): title row + edit button + type badge + date.
+ *     Tier 2 (collapsible, collapsed by default): ISO line, tag chips, sources, related.
+ *   A chevron button in the title row toggles Tier 2.
+ *
+ *   Before this fix the component had TWO nested scroll containers (SCROLL_AREA_STYLE
+ *   with overflowY:auto AND MarkdownBody with overflowY:auto), causing body text to
+ *   visually collide with the static header on scroll.  The fix removes overflowY from
+ *   MarkdownBody — the outer SCROLL_AREA div is now the SOLE scroll pane — and makes
+ *   the card header position:sticky so it stays anchored while the markdown body scrolls.
  *
  * Related panel (phase 2, this sprint):
  *   Inside the card header a "Related (N)" section shows up to 10 related pages
@@ -113,11 +120,11 @@ const MarkdownBody = memo(function MarkdownBody({ html, onBodyClick }: MarkdownB
       // renderMarkdown already runs DOMPurify — safe for dangerouslySetInnerHTML.
       dangerouslySetInnerHTML={{ __html: html }}
       onClick={onBodyClick}
+      // WS-D7: NO overflowY here. The outer SCROLL_AREA div is the sole scroll
+      // container. Setting overflow on both caused the nested-scroll bug where body
+      // text collided with the sticky header depending on pointer position.
       style={{
-        flex: "1 1 0",
-        overflowY: "auto",
-        padding: "20px 24px",
-        minHeight: 0,
+        padding: "20px 24px 32px",
       }}
     />
   );
@@ -284,6 +291,10 @@ export function NoteView() {
   const [mode, setMode] = useState<NoteViewMode>("read");
   const [isSaving, setIsSaving] = useState(false);
 
+  // WS-D7: collapsible metadata tier. Collapsed by default so the reading area
+  // gets the majority of the viewport. Navigating to a new page resets to collapsed.
+  const [metaExpanded, setMetaExpanded] = useState(false);
+
   // ── R7-4: Dirty state ──────────────────────────────────────────────────────
   // isDirty is true when the editor buffer differs from the last saved content.
   // We do NOT store the live editor content in React state (I3: no per-keystroke
@@ -381,6 +392,8 @@ export function NoteView() {
       setState({ phase: "loading", data: null, errorMessage: null });
       setMode("read");
       setIsDirty(false);
+      // Collapse metadata on navigation so the reading area opens full-height.
+      setMetaExpanded(false);
       // Reset related state whenever we navigate to a new page.
       setRelatedState({ phase: "idle", items: [], total: 0 });
 
@@ -729,18 +742,45 @@ export function NoteView() {
         </div>
       )}
 
-      {/* ── Scroll area wraps card header + body + related (read mode only) ── */}
+      {/* ── WS-D7 single-scroll container ──────────────────────────────────────
+           ONE overflow:auto div. The card header is position:sticky so it stays
+           anchored. MarkdownBody has NO overflow — it's a plain block child that
+           scrolls naturally inside this single pane. ── */}
       {mode === "read" ? (
         <div style={SCROLL_AREA_STYLE}>
-          {/* ── Card header (llm_wiki light reader layout) ── */}
-          <div style={CARD_OUTER_STYLE}>
+
+          {/* ── Sticky card header ── */}
+          <div style={STICKY_HEADER_STYLE}>
             <div className="syn-card" style={CARD_INNER_STYLE}>
-              {/* Title row + edit/reload buttons */}
+
+              {/* ── Tier 1: always-visible row (title + actions + badge + date + toggle) ── */}
               <div style={CARD_TITLE_ROW_STYLE}>
                 <h2 style={TITLE_STYLE} title={data.file_path}>
                   {data.title ?? data.file_path}
                 </h2>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                  {/* Chevron toggle for Tier 2 metadata */}
+                  <button
+                    type="button"
+                    data-testid="note-meta-toggle"
+                    aria-expanded={metaExpanded}
+                    aria-label={metaExpanded ? t("noteView.metaCollapse") : t("noteView.metaExpand")}
+                    onClick={() => setMetaExpanded((v) => !v)}
+                    style={META_TOGGLE_STYLE}
+                    title={metaExpanded ? t("noteView.metaCollapse") : t("noteView.metaExpand")}
+                  >
+                    <span
+                      style={{
+                        display: "inline-block",
+                        transition: "transform 0.18s ease",
+                        transform: metaExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                        fontSize: 12,
+                      }}
+                      aria-hidden="true"
+                    >
+                      ▾
+                    </span>
+                  </button>
                   {isStale && (
                     <button
                       type="button"
@@ -762,7 +802,7 @@ export function NoteView() {
                 </div>
               </div>
 
-              {/* Badge + date row */}
+              {/* Badge + date — always visible in Tier 1 */}
               {(effectiveType || updatedLabel) && (
                 <div style={CARD_BADGE_ROW_STYLE}>
                   {effectiveType && (
@@ -774,77 +814,87 @@ export function NoteView() {
                 </div>
               )}
 
-              {/* R2: ISO updated line — mirrors llm_wiki overview.md footer */}
-              {data.updated_at && (
-                <div
-                  data-testid="note-updated-iso"
-                  style={{
-                    fontFamily: "var(--syn-font-mono, monospace)",
-                    fontSize: 11,
-                    color: "var(--syn-text-dim)",
-                    marginBottom: 6,
-                  }}
-                >
-                  {t("noteView.updatedLabel", { iso: data.updated_at })}
+              {/* ── Tier 2: collapsible metadata (ISO line + tags + sources + related) ── */}
+              {metaExpanded && (
+                <div data-testid="note-meta-expanded">
+                  {/* R2: ISO updated line — mirrors llm_wiki overview.md footer */}
+                  {data.updated_at && (
+                    <div
+                      data-testid="note-updated-iso"
+                      style={{
+                        fontFamily: "var(--syn-font-mono, monospace)",
+                        fontSize: 11,
+                        color: "var(--syn-text-dim)",
+                        marginBottom: 6,
+                        marginTop: 4,
+                      }}
+                    >
+                      {t("noteView.updatedLabel", { iso: data.updated_at })}
+                    </div>
+                  )}
+
+                  {/* R1: TagOverflow replaces the flat chip list; collapses at MAX_VISIBLE_TAGS. */}
+                  {tags && <TagOverflow tags={tags} />}
+
+                  {/* Sources subsection */}
+                  {sources && (
+                    <div style={SOURCES_SECTION_STYLE}>
+                      <span style={CARD_SECTION_LABEL_STYLE}>
+                        {t("noteView.sources")} ({sources.length})
+                      </span>
+                      {/* Single wrapper carries the data-testid so tests can assert textContent
+                          contains all source paths (mirrors original single-span contract). */}
+                      <div data-testid="note-sources" style={SOURCES_CHIPS_ROW_STYLE}>
+                        {sources.map((src) => {
+                          // A chip is navigable when it looks like a raw/sources/ path.
+                          const RAW_PREFIX = "raw/sources/";
+                          const isSourcePath =
+                            src.startsWith(RAW_PREFIX) || src.startsWith("/raw/sources/");
+                          if (isSourcePath) {
+                            return (
+                              <button
+                                key={src}
+                                className="syn-chip"
+                                title={src}
+                                style={{ ...SOURCE_CHIP_STYLE, cursor: "pointer", border: "none" }}
+                                onClick={() => {
+                                  setActiveSection("sources");
+                                }}
+                              >
+                                {src}
+                              </button>
+                            );
+                          }
+                          return (
+                            <span
+                              key={src}
+                              className="syn-chip"
+                              title={src}
+                              style={SOURCE_CHIP_STYLE}
+                            >
+                              {src}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Related subsection — inside card, below sources */}
+                  <RelatedPanel
+                    items={relatedState.items}
+                    total={relatedState.total}
+                    loading={relatedState.phase === "loading"}
+                    error={relatedState.phase === "error"}
+                    onSelect={handleRelatedSelect}
+                  />
                 </div>
               )}
 
-              {/* ── Metadata row (type + sources + tags) ── */}
-              {/* R1: TagOverflow replaces the flat chip list; collapses at MAX_VISIBLE_TAGS. */}
-              {tags && <TagOverflow tags={tags} />}
-
-              {/* Sources subsection */}
-              {sources && (
-                <div style={SOURCES_SECTION_STYLE}>
-                  <span style={CARD_SECTION_LABEL_STYLE}>
-                    {t("noteView.sources")} ({sources.length})
-                  </span>
-                  {/* Single wrapper carries the data-testid so tests can assert textContent
-                      contains all source paths (mirrors original single-span contract). */}
-                  <div data-testid="note-sources" style={SOURCES_CHIPS_ROW_STYLE}>
-                    {sources.map((src) => {
-                      // A chip is navigable when it looks like a raw/sources/ path.
-                      // Strip the "raw/sources/" prefix to get the SourcesView path.
-                      const RAW_PREFIX = "raw/sources/";
-                      const isSourcePath =
-                        src.startsWith(RAW_PREFIX) || src.startsWith("/raw/sources/");
-                      if (isSourcePath) {
-                        return (
-                          <button
-                            key={src}
-                            className="syn-chip"
-                            title={src}
-                            style={{ ...SOURCE_CHIP_STYLE, cursor: "pointer", border: "none" }}
-                            onClick={() => {
-                              setActiveSection("sources");
-                            }}
-                          >
-                            {src}
-                          </button>
-                        );
-                      }
-                      return (
-                        <span key={src} className="syn-chip" title={src} style={SOURCE_CHIP_STYLE}>
-                          {src}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Related subsection — inside card, below sources */}
-              <RelatedPanel
-                items={relatedState.items}
-                total={relatedState.total}
-                loading={relatedState.phase === "loading"}
-                error={relatedState.phase === "error"}
-                onSelect={handleRelatedSelect}
-              />
             </div>
           </div>
 
-          {/* ── Markdown body — light prose ── */}
+          {/* ── Markdown body — plain block, no overflow (WS-D7) ── */}
           <MarkdownBody html={renderedHtml} onBodyClick={handleWikilinkClick} />
         </div>
       ) : (
@@ -961,24 +1011,46 @@ const SPINNER_STYLE: CSSProperties = {
   animation: "spin 0.8s linear infinite",
 };
 
-// The scroll area wraps the card header + markdown body in read mode.
+// WS-D7: The single scroll container for read mode.
+// MarkdownBody is a normal block child — NO nested overflow:auto.
 const SCROLL_AREA_STYLE: CSSProperties = {
   flex: "1 1 0",
   overflowY: "auto",
-  display: "flex",
-  flexDirection: "column",
   minHeight: 0,
 };
 
 // ─── Card header layout ───────────────────────────────────────────────────────
 
-const CARD_OUTER_STYLE: CSSProperties = {
-  padding: "16px 16px 0",
+// WS-D7: Sticky header — stays at the top while the markdown body scrolls.
+// Solid background prevents text from showing through on scroll.
+const STICKY_HEADER_STYLE: CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 10,
+  padding: "12px 16px 0",
+  background: "var(--syn-bg)",
+};
+
+// Chevron toggle button for the collapsible metadata tier.
+const META_TOGGLE_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 28,
+  height: 28,
+  borderRadius: "var(--syn-radius-sm)",
+  border: "1px solid var(--syn-border)",
+  background: "transparent",
+  color: "var(--syn-text-muted)",
+  cursor: "pointer",
   flexShrink: 0,
+  padding: 0,
 };
 
 const CARD_INNER_STYLE: CSSProperties = {
-  padding: "16px 20px 12px",
+  // WS-D7: reduced bottom padding so the compact collapsed header is tighter.
+  // The collapsible tier adds its own spacing when expanded.
+  padding: "12px 20px 10px",
 };
 
 const CARD_TITLE_ROW_STYLE: CSSProperties = {

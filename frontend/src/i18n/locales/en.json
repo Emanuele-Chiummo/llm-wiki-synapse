@@ -666,6 +666,15 @@
     "tabPending": "Pending",
     "tabResolved": "Resolved",
     "tabDismissed": "Dismissed",
+    "statusBadge": {
+      "auto_resolved": "Auto-resolved",
+      "created": "Created",
+      "deep_researched": "Researched",
+      "skipped": "Skipped",
+      "dismissed": "Dismissed"
+    },
+    "resolvedAt": "Resolved {{date}}",
+    "viewCreatedPage": "View page",
     "itemType": {
       "missing-page": "Missing page",
       "suggestion": "Suggestion",
@@ -731,7 +740,9 @@
     "unsavedKeepEditing": "Keep editing",
     "tagsMore": "More (+{{count}})",
     "tagsCollapse": "Fewer",
-    "updatedLabel": "updated: {{iso}}"
+    "updatedLabel": "updated: {{iso}}",
+    "metaExpand": "Show metadata",
+    "metaCollapse": "Hide metadata"
   },
   "lint": {
     "title": "Lint",
@@ -1065,6 +1076,11 @@
     "copy": "Copy",
     "unknown": "Unknown"
   },
+  "meta": {
+    "vaultSection": "Vault",
+    "readOnly": "Read-only",
+    "drawer": "Vault meta file"
+  },
   "previewPanel": {
     "connectedTo": "Connected to {{count}} other pages",
     "connectedTo_one": "Connected to 1 other page",
@@ -1319,7 +1335,10 @@
       "ingestPending": "in queue",
       "research": "Deep Research",
       "backfill": "Domain classification in progress",
-      "backfillTagged": "{{count}} pages tagged in the last run"
+      "backfillTagged": "{{count}} pages tagged in the last run",
+      "ingestBatchCount": "{{done}}/{{total}} files",
+      "ingestProgressLabel": "Ingest progress: {{pct}}%",
+      "ingestEta": "ETA ~{{eta}}s"
     },
     "placeholder": {
       "title": "Server v1.1 — update to enable the Home dashboard",

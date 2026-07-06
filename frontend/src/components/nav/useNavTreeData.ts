@@ -11,11 +11,20 @@
  *   - The "other" bucket is shown ONLY when non-empty.
  *   - Overview is a singleton page; its section always shows (count 0 until the backend
  *     surfaces overview.md with type "overview" in GET /pages — see flag below).
+ *
+ * WS-D8 / K1 / I5 — Vault meta section:
+ *   A synthetic "vault-meta" group header is appended AFTER all standard wiki sections.
+ *   It is shown only when GET /vault/meta returns at least one file.
+ *   Each meta file appears as a "meta" row (not a "page" row) so NavTree can open
+ *   MetaFileView instead of navigating to a DB-backed NoteView.
+ *   If the endpoint 404s or returns an empty list, the section is silently omitted.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchAllPages } from "../../api/pagesClient";
+import { fetchVaultMeta } from "../../api/vaultMetaClient";
 import type { PageListItem, PageType } from "../../api/types";
+import type { VaultMetaFile } from "../../api/vaultMetaClient";
 
 // ─── Tree row model (ADR-0017 §3) ─────────────────────────────────────────────
 
@@ -23,7 +32,11 @@ export type KnownType = PageType | "overview" | "other";
 
 export type TreeRow =
   | { kind: "group"; type: KnownType; count: number; collapsed: boolean }
-  | { kind: "page"; id: string; title: string; type: KnownType };
+  | { kind: "page"; id: string; title: string; type: KnownType }
+  /** WS-D8: synthetic group header for the vault meta section. */
+  | { kind: "vault-meta-group"; count: number }
+  /** WS-D8: a single meta file row (schema.md / purpose.md). */
+  | { kind: "meta"; file: VaultMetaFile };
 
 // Canonical ordering — matches llm_wiki section order.
 // "overview" first (singleton entry-point), then concepts → entities → sources →
@@ -109,10 +122,14 @@ export function groupPagesByType(
 /**
  * Flatten a grouped map into a linear TreeRow[] suitable for useVirtualizer.
  * Collapsed groups only emit their header row (children are omitted from the array).
+ *
+ * WS-D8: when metaFiles is non-empty, a "vault-meta-group" header + individual "meta"
+ * rows are appended AFTER all standard wiki section rows.
  */
 export function flattenTree(
   grouped: Map<KnownType, PageListItem[]>,
   collapsed: Record<string, boolean>,
+  metaFiles: VaultMetaFile[] = [],
 ): TreeRow[] {
   const rows: TreeRow[] = [];
   for (const [type, items] of grouped.entries()) {
@@ -124,6 +141,15 @@ export function flattenTree(
       }
     }
   }
+
+  // Vault meta section — appended after standard wiki sections; omitted when empty.
+  if (metaFiles.length > 0) {
+    rows.push({ kind: "vault-meta-group", count: metaFiles.length });
+    for (const file of metaFiles) {
+      rows.push({ kind: "meta", file });
+    }
+  }
+
   return rows;
 }
 
@@ -135,12 +161,18 @@ export interface NavTreeData {
   error: string | null;
   /** Raw grouped data (for testing / derived displays) */
   grouped: Map<KnownType, PageListItem[]>;
+  /** Vault meta files (schema.md, purpose.md) — empty when endpoint is absent (WS-D8). */
+  metaFiles: VaultMetaFile[];
   /** Imperatively re-fetch the page list (used after creating a new page). */
   refresh: () => Promise<void>;
 }
 
 /**
  * useNavTreeData — fetch pages, group, and flatten into virtualizable TreeRow[].
+ *
+ * WS-D8: also fetches GET /vault/meta to populate the Vault/Meta section.
+ * If that endpoint 404s or returns empty, metaFiles stays [] and the section
+ * is silently omitted from the tree (graceful degradation, P0-3 fix).
  *
  * @param vaultId   - Vault to fetch from.
  * @param collapsed - Map of group type → collapsed; drives flattenTree.
@@ -150,6 +182,7 @@ export function useNavTreeData(
   collapsed: Record<string, boolean>,
 ): NavTreeData {
   const [grouped, setGrouped] = useState<Map<KnownType, PageListItem[]>>(new Map());
+  const [metaFiles, setMetaFiles] = useState<VaultMetaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -157,10 +190,16 @@ export function useNavTreeData(
     (signal?: AbortSignal) => {
       setLoading(true);
       setError(null);
-      // fetchAllPages paginates (GET /pages caps at 500) so EVERY page shows in the tree.
-      return fetchAllPages(vaultId, signal)
-        .then((res) => {
-          setGrouped(groupPagesByType(res.items));
+
+      // Fetch pages and meta in parallel; meta failure is non-fatal.
+      const pagesPromise = fetchAllPages(vaultId, signal);
+      // AbortSignal is shared — both abort together on unmount / vaultId change.
+      const metaPromise = fetchVaultMeta(vaultId, signal).catch(() => ({ files: [] as VaultMetaFile[] }));
+
+      return Promise.all([pagesPromise, metaPromise])
+        .then(([pagesRes, metaRes]) => {
+          setGrouped(groupPagesByType(pagesRes.items));
+          setMetaFiles(metaRes.files);
           setLoading(false);
         })
         .catch((err: unknown) => {
@@ -182,10 +221,13 @@ export function useNavTreeData(
   /** Imperative refresh — called after creating/deleting a page so the tree updates. */
   const refresh = useCallback(() => doFetch(), [doFetch]);
 
-  // Memoize: only rebuild the flat array when grouped data or collapse state changes.
-  // Without this, every parent re-render (e.g. store update) rebuilds a fresh array
-  // and causes the virtualizer to re-measure unnecessarily.
-  const rows = useMemo(() => flattenTree(grouped, collapsed), [grouped, collapsed]);
+  // Memoize: only rebuild the flat array when grouped data, collapse state, or
+  // meta files change.  Without this, every parent re-render rebuilds the array
+  // unnecessarily (I4 — avoids spurious virtualizer re-measures).
+  const rows = useMemo(
+    () => flattenTree(grouped, collapsed, metaFiles),
+    [grouped, collapsed, metaFiles],
+  );
 
-  return { rows, loading, error, grouped, refresh };
+  return { rows, loading, error, grouped, metaFiles, refresh };
 }

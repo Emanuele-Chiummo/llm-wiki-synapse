@@ -98,6 +98,8 @@ vi.mock("react-i18next", () => {
     "noteView.sources": "Sources",
     "noteView.related": "Related ({{count}})",
     "noteView.relatedError": "Could not load related pages",
+    "noteView.metaExpand": "Show metadata",
+    "noteView.metaCollapse": "Hide metadata",
     "common.loading": "Loading…",
     "common.retry": "Retry",
   };
@@ -187,6 +189,13 @@ async function renderAndWaitReady() {
   await waitFor(() => screen.getByTestId("note-edit-btn"));
 }
 
+/** WS-D7: expand the collapsible metadata tier (Tier 2) in a rendered NoteView. */
+async function expandMeta() {
+  await waitFor(() => screen.getByTestId("note-meta-toggle"));
+  act(() => { fireEvent.click(screen.getByTestId("note-meta-toggle")); });
+  await waitFor(() => screen.getByTestId("note-meta-expanded"));
+}
+
 // ─── A. fetchRelatedPages client ──────────────────────────────────────────────
 
 describe("fetchRelatedPages client (Task A)", () => {
@@ -261,11 +270,13 @@ describe("NoteView — related panel (Task C)", () => {
   });
 
   // B1: renders items when API returns a non-empty list
+  // WS-D7: related panel is inside the collapsible Tier 2 — expand meta first.
 
   it("B1: renders related items when API returns non-empty list", async () => {
     mockedFetchRelated.mockResolvedValue(RELATED_RESPONSE);
 
     await renderAndWaitReady();
+    await expandMeta();
 
     await waitFor(() => {
       expect(screen.getByTestId("related-panel")).toBeDefined();
@@ -283,11 +294,13 @@ describe("NoteView — related panel (Task C)", () => {
   });
 
   // B2: clicking a related item calls selectPage
+  // WS-D7: related panel is inside the collapsible Tier 2 — expand meta first.
 
   it("B2: clicking a related item calls selectPage with that item's page_id", async () => {
     mockedFetchRelated.mockResolvedValue(RELATED_RESPONSE);
 
     await renderAndWaitReady();
+    await expandMeta();
     await waitFor(() => screen.getByTestId("related-item-page-def"));
 
     act(() => {
@@ -298,25 +311,30 @@ describe("NoteView — related panel (Task C)", () => {
   });
 
   // B3: panel hidden when total === 0
+  // WS-D7: even with meta expanded, the RelatedPanel itself returns null when total===0.
 
   it("B3: related panel is absent when total === 0", async () => {
     mockedFetchRelated.mockResolvedValue({ items: [], total: 0 });
 
     await renderAndWaitReady();
+    // Expand meta so the slot is visible — yet the panel should still not render.
+    await expandMeta();
 
     // Wait for the related fetch to settle
     await waitFor(() => {
-      // The panel should not be in the DOM at all
+      // The panel should not be in the DOM at all (RelatedPanel returns null)
       expect(screen.queryByTestId("related-panel")).toBeNull();
     });
   });
 
   // B4: error state shows muted text, page still renders
+  // WS-D7: related-error is inside Tier 2 — expand meta first.
 
   it("B4: quiet error state does not crash the page", async () => {
     mockedFetchRelated.mockRejectedValue(new MockApiError(500, "Internal error"));
 
     await renderAndWaitReady();
+    await expandMeta();
 
     await waitFor(() => {
       expect(screen.getByTestId("related-error")).toBeDefined();
@@ -327,11 +345,13 @@ describe("NoteView — related panel (Task C)", () => {
   });
 
   // B5: item type badge rendered when item.type is set
+  // WS-D7: related panel is inside Tier 2 — expand meta first.
 
   it("B5: type badge rendered for related items that have a type", async () => {
     mockedFetchRelated.mockResolvedValue(RELATED_RESPONSE);
 
     await renderAndWaitReady();
+    await expandMeta();
     await waitFor(() => screen.getByTestId("related-item-page-def"));
 
     // "Softmax Function" has type "concept" — we verify by looking at item row content
@@ -410,7 +430,8 @@ describe("NoteView — sources row (Task B)", () => {
     _nodes = [];
   });
 
-  it("D1: renders sources when data.sources is non-empty", async () => {
+  // WS-D7: sources live in the collapsible Tier 2 — expand meta first.
+  it("D1: renders sources when data.sources is non-empty (after expanding meta)", async () => {
     mockedFetchContent.mockResolvedValue({
       ...PAGE_CONTENT_BASE,
       type: "concept",
@@ -418,6 +439,7 @@ describe("NoteView — sources row (Task B)", () => {
     });
 
     await renderAndWaitReady();
+    await expandMeta();
     await waitFor(() => screen.getByTestId("note-sources"));
 
     const sourcesEl = screen.getByTestId("note-sources");

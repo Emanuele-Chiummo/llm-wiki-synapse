@@ -31,6 +31,8 @@ import {
   HelpCircle,
   File,
   Plus,
+  FolderKey,
+  FileText,
 } from "lucide-react";
 import {
   useGraphStore,
@@ -45,6 +47,8 @@ import { createPage } from "../../api/pagesClient";
 import type { NewPageType } from "../../api/pagesClient";
 import { ApiError } from "../../api/graphClient";
 import { showToast } from "../common/Toast";
+import { MetaFileView } from "../wiki/MetaFileView";
+import type { VaultMetaFile } from "../../api/vaultMetaClient";
 
 // ─── Colour palette — consumed from CSS custom properties (theme.css) ─────────
 // Values reference --syn-type-* so they inherit light/dark theme automatically.
@@ -346,11 +350,14 @@ export function NavTree({ vaultId }: NavTreeProps) {
   const toggleGroup = useGraphStore(selectToggleGroup);
   const collapsed = useTreeCollapsed(); // shallow equality
 
-  // Data hook
+  // Data hook (WS-D8: now also returns metaFiles)
   const { rows, loading, error, refresh } = useNavTreeData(vaultId, collapsed);
 
   // New page modal state (R7-2)
   const [showNewPageModal, setShowNewPageModal] = useState(false);
+
+  // WS-D8: meta file drawer state — null = closed
+  const [openMetaFile, setOpenMetaFile] = useState<VaultMetaFile | null>(null);
 
   const handlePageCreated = useCallback(
     (pageId: string) => {
@@ -514,6 +521,31 @@ export function NavTree({ vaultId }: NavTreeProps) {
                 );
               }
 
+              // WS-D8: vault-meta section header
+              if (row.kind === "vault-meta-group") {
+                return (
+                  <VaultMetaGroupHeader
+                    key="vault-meta-group"
+                    count={row.count}
+                    style={{ position: "absolute", top: virtualRow.start, width: "100%" }}
+                    label={t("meta.vaultSection")}
+                  />
+                );
+              }
+
+              // WS-D8: individual meta file row
+              if (row.kind === "meta") {
+                return (
+                  <MetaRow
+                    key={row.file.path}
+                    file={row.file}
+                    selected={openMetaFile?.path === row.file.path}
+                    style={{ position: "absolute", top: virtualRow.start, width: "100%" }}
+                    onClick={() => setOpenMetaFile(row.file)}
+                  />
+                );
+              }
+
               // row.kind === "page"
               return (
                 <PageRow
@@ -536,6 +568,12 @@ export function NavTree({ vaultId }: NavTreeProps) {
           onCreated={handlePageCreated}
         />
       )}
+
+      {/* WS-D8: meta file drawer — reads schema.md / purpose.md read-only */}
+      <MetaFileView
+        file={openMetaFile}
+        onClose={() => setOpenMetaFile(null)}
+      />
     </>
   );
 }
@@ -619,6 +657,136 @@ function GroupHeader({ row, style, onToggle }: GroupHeaderProps) {
         }}
       >
         &#9660;
+      </span>
+    </button>
+  );
+}
+
+// ─── WS-D8: Vault Meta sub-components ────────────────────────────────────────
+
+interface VaultMetaGroupHeaderProps {
+  count: number;
+  style: CSSProperties;
+  label: string;
+}
+
+/**
+ * VaultMetaGroupHeader — section header for the "Vault / Meta" tree group.
+ *
+ * Intentionally NOT collapsible: the section always has exactly 2 files
+ * (schema.md + purpose.md) and collapsing it adds no value.
+ */
+function VaultMetaGroupHeader({ count, style, label }: VaultMetaGroupHeaderProps) {
+  return (
+    <div
+      className="nav-tree__vault-meta-group"
+      data-testid="nav-tree-vault-meta-group"
+      style={{
+        ...style,
+        display: "flex",
+        alignItems: "center",
+        width: "100%",
+        height: GROUP_ROW_HEIGHT,
+        padding: "0 8px",
+        gap: 6,
+        color: "var(--syn-text-muted)",
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        userSelect: "none",
+        borderTop: "1px solid var(--syn-border-subtle, var(--syn-border))",
+        marginTop: 2,
+        boxSizing: "border-box",
+      }}
+    >
+      <FolderKey
+        size={14}
+        aria-hidden="true"
+        style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
+        data-testid="vault-meta-group-icon"
+      />
+      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {label}
+      </span>
+      <span
+        aria-hidden="true"
+        style={{
+          fontSize: 10,
+          color: "var(--syn-text-dim)",
+          background: "var(--syn-surface-sunken)",
+          border: "1px solid var(--syn-border-subtle)",
+          borderRadius: 10,
+          padding: "1px 5px",
+          flexShrink: 0,
+        }}
+      >
+        {count}
+      </span>
+    </div>
+  );
+}
+
+interface MetaRowProps {
+  file: VaultMetaFile;
+  selected: boolean;
+  style: CSSProperties;
+  onClick: () => void;
+}
+
+/**
+ * MetaRow — a single meta file entry in the Vault/Meta section.
+ *
+ * Visually mirrors PageRow but uses a FileText icon instead of a type-colored dot,
+ * and carries `data-meta-path` instead of `data-page-id` to distinguish it from
+ * regular wiki page rows in tests and analytics.
+ */
+function MetaRow({ file, selected, style, onClick }: MetaRowProps) {
+  return (
+    <button
+      className={`nav-tree__meta-row${selected ? " nav-tree__meta-row--selected" : ""}`}
+      data-testid={`nav-tree-meta-row-${file.name}`}
+      data-meta-path={file.path}
+      style={{
+        ...style,
+        display: "flex",
+        alignItems: "center",
+        width: "100%",
+        height: PAGE_ROW_HEIGHT,
+        padding: "0 8px 0 20px",
+        border: "none",
+        background: selected ? "var(--syn-accent-soft)" : "transparent",
+        cursor: "pointer",
+        textAlign: "left",
+        gap: 6,
+        color: selected ? "var(--syn-accent)" : "var(--syn-text-muted)",
+        fontSize: 13,
+        outline: "none",
+        borderRadius: 4,
+        transition: "background 0.1s ease, color 0.1s ease",
+      }}
+      aria-current={selected ? "page" : undefined}
+      aria-label={file.title}
+      onClick={onClick}
+    >
+      <FileText
+        size={12}
+        aria-hidden="true"
+        style={{
+          color: selected ? "var(--syn-accent)" : "var(--syn-text-dim)",
+          flexShrink: 0,
+          opacity: selected ? 1 : 0.8,
+        }}
+      />
+      <span
+        style={{
+          flex: 1,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {file.title}
       </span>
     </button>
   );
