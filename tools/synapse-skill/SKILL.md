@@ -1,7 +1,17 @@
+---
+name: synapse
+description: Query a locally-running Synapse knowledge base (self-hosted wiki) via its REST/MCP surfaces — hybrid search, read wiki/raw files, graph neighborhood, list/resolve review items, trigger a source rescan. TRIGGER ONLY when the user explicitly names "Synapse" / "my wiki" / "il mio wiki" / "knowledge base Synapse"; do NOT trigger on generic "search my notes". Read-only by default; write tools require the HTTP surface's write-enabled flag.
+---
+
 # Synapse Agent Skill
 
 A trigger-disciplined agent skill that lets Claude Code (or any MCP-capable agent) query a
 locally-running Synapse instance via its REST and MCP surfaces.
+
+> **Install (Claude Code):** copy this `synapse-skill/` directory to `~/.claude/skills/synapse/`
+> (personal, global) or `.claude/skills/synapse/` (project). Claude Code discovers it via the
+> YAML frontmatter above. Set `SYNAPSE_BASE_URL` (default `http://localhost:8000`) and, if the
+> MCP HTTP surface is token-protected, `SYNAPSE_MCP_TOKEN`.
 
 ---
 
