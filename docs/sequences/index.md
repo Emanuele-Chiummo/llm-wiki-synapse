@@ -55,6 +55,16 @@ The bounded lint-fix workflow maintains wiki health:
 4. **Human gate** — show fixes to the user for approval
 5. **Apply** — update pages with approved fixes (bounded loop, max iterations)
 
+### Chat retrieval mode + web-search block (B2 / ADR-0059)
+
+The chat turn retrieval pipeline with B2 composer controls:
+
+1. **Retrieval-mode preset** — `retrieval_mode` enum maps to frozen `(k, expansion_depth, budget)` table
+2. **4-phase retrieve()** — vector/lexical seeds → BFS graph expansion (depth ≤ 2) → budget gate → context assembly with `[n]` wiki citations
+3. **Web-search block (opt-in)** — `use_web_search=true` triggers one bounded SearXNG call; results assembled as `## Web results (external)` with `[W1]…[Wn]` namespace; appended AFTER wiki block; single-shot, no loop
+4. **Provider chat()** — capability gate (`supports_vision`) decides whether images are included; stream carries text deltas only (I3)
+5. **done event** — dual citation fields: `citations` (wiki `[n]`) and `web_citations` (`[Wn]` external); distinct namespaces never interleaved
+
 ---
 
 ## Diagram files

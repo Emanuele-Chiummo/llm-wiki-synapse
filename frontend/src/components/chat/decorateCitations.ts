@@ -30,6 +30,7 @@
  */
 
 import type { CitationRef } from "../../store/chatStore";
+import type { WebCitationRef } from "../../api/chatClient";
 
 // ─── Memoization cache ────────────────────────────────────────────────────────
 
@@ -39,6 +40,11 @@ import type { CitationRef } from "../../store/chatStore";
 let _lastHtml = "";
 let _lastCitationKey = "";
 let _lastResult = "";
+
+// Second cache slot for the combined wiki+web decoration call.
+let _lastHtmlFull = "";
+let _lastFullKey = "";
+let _lastFullResult = "";
 
 // ─── HTML attribute escaping ──────────────────────────────────────────────────
 
@@ -106,6 +112,46 @@ export function decorateCitations(html: string, citations: CitationRef[]): strin
   _lastHtml = html;
   _lastCitationKey = citationKey;
   _lastResult = result;
+
+  return result;
+}
+
+/**
+ * decorateWebCitations(html, webCitations) — single-pass substitution of [Wn] markers.
+ *
+ * Wraps [W1], [W2] etc. in <sup> elements that open the source URL in a new tab.
+ * Distinct style from wiki citations (class "synapse-web-citation").
+ * Same memoization and XSS-safety approach as decorateCitations.
+ *
+ * Called ONCE on settled HTML, never during streaming (I3).
+ */
+export function decorateWebCitations(html: string, webCitations: WebCitationRef[]): string {
+  if (!webCitations || webCitations.length === 0) return html;
+
+  const webKey = webCitations.map((c) => `${c.index}:${c.url}`).join("|");
+
+  if (html === _lastHtmlFull && webKey === _lastFullKey) return _lastFullResult;
+
+  const lookup = new Map<number, { title: string; url: string }>();
+  for (const c of webCitations) {
+    lookup.set(c.index, { title: c.title, url: c.url });
+  }
+
+  const ns = [...lookup.keys()].sort((a, b) => b - a);
+  const pattern = new RegExp(`\\[W(${ns.join("|")})\\]`, "g");
+
+  const result = html.replace(pattern, (_match, nStr: string) => {
+    const n = parseInt(nStr, 10);
+    const ref = lookup.get(n);
+    if (!ref) return _match;
+    const titleAttr = escapeAttr(ref.title);
+    const urlAttr = escapeAttr(ref.url);
+    return `<sup role="link" tabindex="0" class="synapse-web-citation" title="${titleAttr}" data-url="${urlAttr}">[W${n}]</sup>`;
+  });
+
+  _lastHtmlFull = html;
+  _lastFullKey = webKey;
+  _lastFullResult = result;
 
   return result;
 }

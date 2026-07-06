@@ -74,7 +74,26 @@ K8 (delete = human double-confirm; fixes stay human-gated).
 
 ---
 
-## B2 — CHAT COMPOSER (P0) — owner: [AI]+[BE]+[FE] (+[SA] ADR)
+## B2 — CHAT COMPOSER (P0) — owner: [AI]+[BE]+[FE] (+[SA] ADR) — STATUS: ✅ SHIPPED feat/b2-chat-composer
+
+> **Batch closed 2026-07-06.** C1/C2/C3 shipped; C4 declined (⛔ do-not-mirror). Governing
+> ADR: ADR-0059 (accepted, NO OBJECTIONS). Parity doc §19c added; sequence diagram
+> `docs/sequences/chat-retrieval-web.mmd`. Code: `backend/app/ingest/provider/*` (vision
+> gate + Message.images), `backend/app/chat/web_context.py` + `rag/retrieval.py` presets +
+> `routers/chat.py` (request schema) + `routers/status.py` (supports_vision), migration
+> **0025** (messages.images, chained on B1's 0024 — merge B2 after B1),
+> `frontend/src/components/chat/MessageInput.tsx` + `MarkdownView.tsx` + `decorateCitations.ts`.
+>
+> **Live-preview verified (986-page real vault):** composer renders all 3 controls
+> (Allega immagine / Web / Veloce·Standard·Profondo·Locale prima); attach-image enabled via
+> `GET /status supports_vision:true` (CLI/claude-haiku); **C3 end-to-end** — a "Profondo"
+> query returned 200 OK with deep retrieval (200 citations, `[14]`/`[185]` rendered).
+> Deferred to full-infra env: C1 image round-trip (file upload + vision call) and C2 web
+> search (SearXNG lives on TrueNAS, unreachable from local Docker). Tests: 51 backend
+> (35 composer + 16 provider images) + 1822 frontend, all green.
+> **Note (I3):** the `[G3]` dev-guard fires on the test conversation's two identical "ciao"
+> messages (same content × StrictMode > 2) — MarkdownView is I3-clean (renderMarkdown once,
+> decorations are string-passes); pre-existing guard sensitivity, not a B2 regression (P3).
 
 llm_wiki reference (`chat-input.tsx`): Attach image (multimodal, previews, count/size
 caps) · Web search toggle (emerald dot) · AnyTxt toggle (Windows-only, greyed when

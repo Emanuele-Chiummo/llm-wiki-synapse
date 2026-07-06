@@ -813,6 +813,27 @@ class Settings(BaseSettings):
         """Parsed MCP_TRUSTED_PROXIES as a trimmed list (may be empty)."""
         return [p.strip() for p in self.mcp_trusted_proxies.split(",") if p.strip()]
 
+    # ── B2: Chat composer — web-search + retrieval-mode (C2/C3) ─────────────────
+
+    chat_web_max_results: int = 5
+    """
+    Maximum SearXNG results fetched per web-search-enabled chat turn (B2-C2, I7).
+    Single-shot, no loop. Env var: CHAT_WEB_MAX_RESULTS.
+    """
+
+    chat_web_fetch_max_chars: int = 8_000
+    """
+    Per-URL content cap (chars) after HTML→markdown extraction in chat web-search (B2-C2, I7).
+    Prevents a single large page from blowing the context. Env var: CHAT_WEB_FETCH_MAX_CHARS.
+    """
+
+    local_first_min_hits: int = 3
+    """
+    Minimum wiki retrieval hits required before the web-search gate opens in `local_first`
+    mode (B2-C2, C3). When wiki citations < this value, web-search runs as fallback.
+    Env var: LOCAL_FIRST_MIN_HITS.
+    """
+
     # ── R13-9: In-process rate limiting for inference-cost endpoints (B4) ────────
 
     rate_limit_enabled: bool = True

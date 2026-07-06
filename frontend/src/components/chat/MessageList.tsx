@@ -39,7 +39,7 @@ import {
   selectLastUsage,
   selectActiveConversationId,
 } from "../../store/chatStore";
-import type { ChatMessage } from "../../store/chatStore";
+import type { ChatMessage, WebCitationRef } from "../../store/chatStore";
 import {
   useGraphStore,
   selectVaultId,
@@ -272,7 +272,7 @@ interface MessageRowProps {
    * Receives the page slug from the citation; navigates to pages section + selects page.
    * Always provided from MessageList — never undefined in this context.
    */
-  onCitationClick: (slug: string) => void;
+  onCitationClick: (slug: string, pageId?: string) => void;
   t: ReturnType<typeof useTranslation>["t"];
 }
 
@@ -320,14 +320,21 @@ const MessageRow = memo(function MessageRow({
   return (
     <div>
       <MessageRoleLabel role={msg.role} t={t} />
-      {/* Pass citations to MarkdownView for [n] decoration (ADR-0022 §2.4).
+      {/* Pass citations to MarkdownView for [n] and [Wn] decoration (ADR-0022 §2.4 / B2).
           R8-6: onCitationClick is wired — clicking [n] opens the cited page via
-          setActiveSection("pages") + selectPage(slug, "tree") (AC-R8-6-2). */}
+          setActiveSection("pages") + selectPage(slug, "tree") (AC-R8-6-2).
+          Web citations [Wn] open the source URL in a new tab. */}
       <MarkdownView
         content={msg.content}
         citations={msg.citations}
+        {...(msg.web_citations !== undefined ? { webCitations: msg.web_citations } : {})}
         onCitationClick={onCitationClick}
       />
+
+      {/* B2: Web sources panel — shown only when web_citations is non-empty */}
+      {msg.web_citations && msg.web_citations.length > 0 && (
+        <WebSourcesPanel webCitations={msg.web_citations} t={t} />
+      )}
 
       {/* Metadata footer — cost + actions */}
       {(showCost || isLast) && msg.role === "assistant" && (
@@ -508,6 +515,75 @@ function ChatEmptyState({ onSend, t }: ChatEmptyStateProps): ReactNode {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─── Web sources panel (B2) ───────────────────────────────────────────────────
+
+/**
+ * WebSourcesPanel — compact "Fonti web" section rendered below assistant messages
+ * that carry web_citations from a SearXNG-backed web search.
+ *
+ * INVARIANT I3: static render from settled data — no per-token work.
+ * Each citation link opens in a new tab (noopener,noreferrer).
+ */
+interface WebSourcesPanelProps {
+  webCitations: WebCitationRef[];
+  t: ReturnType<typeof useTranslation>["t"];
+}
+
+function WebSourcesPanel({ webCitations, t }: WebSourcesPanelProps): ReactNode {
+  return (
+    <div
+      data-testid="web-sources-panel"
+      style={{
+        marginTop: 10,
+        padding: "8px 10px",
+        background: "var(--syn-surface-sunken)",
+        borderRadius: 6,
+        border: "1px solid var(--syn-border)",
+        fontSize: 11,
+      }}
+    >
+      <div
+        style={{
+          fontWeight: 600,
+          color: "var(--syn-text-dim)",
+          marginBottom: 4,
+          letterSpacing: "0.04em",
+          fontSize: 10,
+        }}
+      >
+        {t("chat.webSources")}
+      </div>
+      <ol
+        style={{
+          margin: 0,
+          padding: "0 0 0 16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+        }}
+      >
+        {webCitations.map((wc) => (
+          <li key={wc.index} style={{ color: "var(--syn-text-muted)" }}>
+            <a
+              href={wc.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "var(--syn-accent)",
+                textDecoration: "none",
+                fontSize: 11,
+              }}
+              title={wc.url}
+            >
+              [W{wc.index}] {wc.title}
+            </a>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

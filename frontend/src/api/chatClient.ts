@@ -109,9 +109,24 @@ export async function renameConversation(
 
 // ─── POST /chat/stream request shape (ADR-0019 §2.2) ─────────────────────────
 
+/**
+ * Inline image attachment for user messages (B2 — vision support).
+ * mime: MIME type (e.g. "image/png", "image/jpeg").
+ * data_base64: raw base64 string WITHOUT the `data:...;base64,` prefix.
+ */
+export interface ChatImageAttachment {
+  mime: string;
+  data_base64: string;
+}
+
 export interface ChatMessageIn {
   role: "user" | "assistant" | "system";
   content: string;
+  /**
+   * Optional image attachments (B2 — only on user messages, only when
+   * supports_vision=true from GET /status). Max CHAT_MAX_IMAGES per message.
+   */
+  images?: ChatImageAttachment[];
 }
 
 /**
@@ -126,6 +141,16 @@ export interface ChatStreamRequest {
   context_window?: number | null;
   operation: "chat";
   regenerate?: boolean;
+  /**
+   * Whether to run a SearXNG web search before answering (B2).
+   * Default false. Sent when the user toggles the web-search button.
+   */
+  use_web_search?: boolean;
+  /**
+   * Retrieval mode for the RAG pipeline (B2 / F5).
+   * "fast" | "standard" | "deep" | "local_first". Default "standard".
+   */
+  retrieval_mode?: "fast" | "standard" | "deep" | "local_first";
 }
 
 // ─── NDJSON event types (ADR-0019 §2.2 frozen schema) ────────────────────────
@@ -138,6 +163,20 @@ export interface TokenEvent {
 export interface ThinkEvent {
   type: "think";
   delta: string;
+}
+
+/**
+ * Web citation reference from the done event (B2 — web search results).
+ * Cited in the response text as [W1], [W2], etc.
+ * Distinct from wiki CitationRef (which uses [1], [2] etc.).
+ */
+export interface WebCitationRef {
+  /** 1-based index matching [Wn] markers in the message content. */
+  index: number;
+  /** Page title from the web source. */
+  title: string;
+  /** Source URL — opens in new tab. */
+  url: string;
 }
 
 export interface DoneEvent {
@@ -155,6 +194,12 @@ export interface DoneEvent {
    * with no retrieved context. Non-breaking — old backends omit this field.
    */
   citations?: CitationRef[];
+  /**
+   * Web citations from a SearXNG search (B2).
+   * Present when use_web_search=true in the request and the backend found results.
+   * Absent or empty when no web search was run. Non-breaking additive field.
+   */
+  web_citations?: WebCitationRef[];
 }
 
 export interface ErrorEvent {

@@ -172,14 +172,40 @@ class WikiPage(BaseModel):
     frontmatter: WikiFrontmatter
 
 
-# ── Message (stubbed chat() only — backend-neutral, I6) ─────────────────────────
+# ── Message / MessageImage (chat() — backend-neutral, I6) ───────────────────────
+
+
+class MessageImage(BaseModel):
+    """
+    One image attachment on a chat Message (B2-C1, F17/I6 vision surface).
+
+    Backend-neutral: `mime` is the IANA media type (e.g. "image/png") and `data_base64` is the
+    already-base64-encoded image payload (NOT a data URI — no "data:...;base64," prefix). Each
+    provider that advertises `capabilities().supports_vision` maps these two fields into its own
+    multimodal format in chat() (Anthropic image blocks, OpenAI `image_url` data URIs, Ollama
+    `images[]`). Size is capped UPSTREAM (CHAT_MAX_IMAGE_BYTES) before it reaches this DTO; the
+    provider layer never re-validates size and NEVER logs `data_base64` (it can be large).
+    """
+
+    mime: str = Field(..., min_length=1, description="IANA media type, e.g. 'image/png'")
+    data_base64: str = Field(
+        ..., min_length=1, description="base64 image payload WITHOUT a data-URI prefix"
+    )
 
 
 class Message(BaseModel):
-    """Minimal backend-neutral chat message (ADR-0011). Used only by stubbed chat()."""
+    """
+    Backend-neutral chat message (ADR-0011, B2-C1).
+
+    `images` is additive and defaults to empty, so every existing text-only Message is
+    unaffected (backward-compat). Images are carried into a provider's chat() payload ONLY when
+    that provider advertises `capabilities().supports_vision`; a non-vision backend drops them
+    silently (defense-in-depth — the frontend gates on the same capability, ADR B2-C1).
+    """
 
     role: Literal["user", "assistant", "system"]
     content: str
+    images: list[MessageImage] = Field(default_factory=list)
 
 
 # ── ProviderCapabilities / Usage (frozen descriptors) ───────────────────────────
