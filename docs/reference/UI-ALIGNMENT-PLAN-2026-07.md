@@ -128,6 +128,17 @@ on capabilities, no isinstance), I7 (web fetch + image caps bounded, cost logged
 > **Open polish (P3):** at-rest link chip shows `4213/4213` (GL1-culled edges not counted as
 > "hidden" — only filter is); Insights panel open-by-default covers ~1/3 screen (default-collapse).
 
+> **GR8 — Named communities (SHIPPED, user request "le comunità nominative come i domini"):**
+> each Louvain community is labeled by its **dominant domain** (F18 `domain/*` tags →
+> `effective_domain_vocabulary`), fallback = top-degree page title, else "Comunità {id}".
+> Backend: `engine.py` step 4f computes label/dominant_domain/top_page in recompute (I1/I2 —
+> no extra scan, cached); `GraphCommunityResponse` gains those fields. Frontend: Community-mode
+> legend shows the names + `graphCommunityUtils.computeCommunityCentroids` renders per-cluster
+> HTML label overlays projected via `sigma.graphToViewport` (rAF-throttled, I2 — never mutates
+> coords). Live-verified: SAM/Procurement/Regolamentazioni/TPRM in legend + on clusters.
+> **Also fixed:** GR1's `total_edges` COUNT broke `test_louvain_community.py` (fixture lacked
+> `links` table + `tags` column) — fixture repaired (21/21 green).
+
 llm_wiki reference: header `801/804 pages · 2438/2823 links · 3 hidden` + Search +
 Filter + Reset + Type/Community + `Insights 13` + refresh; collapsible Node-Types legend
 with per-type counts; permanent labels on hubs.

@@ -62,6 +62,26 @@ export interface GraphCommunity {
    * the UI marks them with a warning indicator in the legend.
    */
   cohesion: number;
+  /**
+   * Display name for this community (v0.7+, backend contract feat/b3-graph-look).
+   * Derived server-side as the dominant domain name, or the top-page title, or
+   * "Comunità {id}" as a fallback. Absent on older server responses — UI falls
+   * back to the same "Comunità {id}" string when absent or empty.
+   * INVARIANT I2: client NEVER computes this; only reads what the server returns.
+   */
+  label?: string;
+  /**
+   * The dominant domain name for this community (e.g. "SAM", "Procurement").
+   * null when no domain vocabulary is configured or the community has no domain tag.
+   * Absent on older server responses.
+   */
+  dominant_domain?: string | null;
+  /**
+   * The top-ranked page within this community (by degree/centrality).
+   * Used as a fallback label when dominant_domain is null.
+   * Absent on older server responses.
+   */
+  top_page?: { id: string; title: string; slug: string } | null;
 }
 
 export interface GraphResponse {

@@ -764,6 +764,7 @@
     "legendCommunityLabel": "Comunità {{id}}",
     "legendCommunitySize": "{{size}} nodi",
     "legendCommunityLowCohesion": "Bassa coesione",
+    "legendCommunityDomain": "Dominio: {{domain}}",
     "insights": {
       "title": "Insight del Grafo",
       "sectionSurprising": "Connessioni sorprendenti",
