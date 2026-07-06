@@ -1126,9 +1126,9 @@ class TestNodeDomain:
             nodes, [], "vault-test", domain_vocab=["SAM", "Procurement"]
         )
         node = next(n for n in snapshot.nodes if n.id == id_a)
-        assert node.domain is None, (
-            f"Stale domain tag not in vocab should yield domain=None, got {node.domain!r}"
-        )
+        assert (
+            node.domain is None
+        ), f"Stale domain tag not in vocab should yield domain=None, got {node.domain!r}"
 
     def test_node_with_no_tags(self) -> None:
         """Node with no tags → domain is None."""

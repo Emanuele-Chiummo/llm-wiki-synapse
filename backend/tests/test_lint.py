@@ -154,7 +154,7 @@ def _build_lint_meta() -> MetaData:
         Column("target_title", Text, nullable=True),
         Column("description", Text, nullable=False),
         Column("proposed_action", Text, nullable=True),
-        Column("suggested_target", Text, nullable=True),     # L2
+        Column("suggested_target", Text, nullable=True),  # L2
         Column("suggested_page_id", String(36), nullable=True),  # L2
         Column("status", Text, nullable=False, server_default=sa_text("'open'")),
         Column("resolution_note", Text, nullable=True),
@@ -1069,7 +1069,9 @@ class TestSemanticFalse:
 class TestFindingFilters:
     """L10: category + severity filter params on GET /lint/findings."""
 
-    async def test_category_filter(self, lint_env: dict[str, Any], lint_client: AsyncClient) -> None:
+    async def test_category_filter(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
         """L10: category filter returns only matching findings."""
         await _insert_finding(lint_env, category="orphan-page")
         await _insert_finding(lint_env, category="contradiction")
@@ -1096,16 +1098,12 @@ class TestFindingFilters:
 
     async def test_invalid_category_returns_422(self, lint_client: AsyncClient) -> None:
         """L10: invalid category → 422."""
-        resp = await lint_client.get(
-            "/lint/findings?vault_id=test-vault&category=not-a-category"
-        )
+        resp = await lint_client.get("/lint/findings?vault_id=test-vault&category=not-a-category")
         assert resp.status_code == 422
 
     async def test_invalid_severity_returns_422(self, lint_client: AsyncClient) -> None:
         """L10: invalid severity → 422."""
-        resp = await lint_client.get(
-            "/lint/findings?vault_id=test-vault&severity=critical"
-        )
+        resp = await lint_client.get("/lint/findings?vault_id=test-vault&severity=critical")
         assert resp.status_code == 422
 
     async def test_combined_status_and_category_filter(
@@ -1121,9 +1119,7 @@ class TestFindingFilters:
         )
         assert resp.status_code == 200
         body = resp.json()
-        assert all(
-            f["category"] == "orphan-page" and f["status"] == "open" for f in body["items"]
-        )
+        assert all(f["category"] == "orphan-page" and f["status"] == "open" for f in body["items"])
         dismissed = [f for f in body["items"] if f["status"] == "dismissed"]
         assert len(dismissed) == 0
 
@@ -1241,9 +1237,7 @@ class TestSeverityTotals:
         body = resp.json()
         assert body["severity_totals"] == {}
 
-    async def test_severity_totals_from_ops_function(
-        self, lint_env: dict[str, Any]
-    ) -> None:
+    async def test_severity_totals_from_ops_function(self, lint_env: dict[str, Any]) -> None:
         """L11: list_lint_findings returns severity_totals directly (ops layer)."""
         from app.ops.lint import list_lint_findings
 
@@ -1439,9 +1433,7 @@ class TestDeletePageMetaGuard:
         self, lint_env: dict[str, Any], lint_client: AsyncClient
     ) -> None:
         """L9: DELETE /pages/{id} on index.md → 409."""
-        meta_id = await _insert_page(
-            lint_env, title="Index", file_path="wiki/index.md"
-        )
+        meta_id = await _insert_page(lint_env, title="Index", file_path="wiki/index.md")
 
         with patch("app.ops.cascade_delete.cascade_delete") as mock_del:
             resp = await lint_client.delete(f"/pages/{meta_id}")
@@ -1453,9 +1445,7 @@ class TestDeletePageMetaGuard:
         self, lint_env: dict[str, Any], lint_client: AsyncClient
     ) -> None:
         """L9: DELETE /pages/{id} on log.md → 409."""
-        meta_id = await _insert_page(
-            lint_env, title="Log", file_path="wiki/log.md"
-        )
+        meta_id = await _insert_page(lint_env, title="Log", file_path="wiki/log.md")
         with patch("app.ops.cascade_delete.cascade_delete") as mock_del:
             resp = await lint_client.delete(f"/pages/{meta_id}")
         assert resp.status_code == 409

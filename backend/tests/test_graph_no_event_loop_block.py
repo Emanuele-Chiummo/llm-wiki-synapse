@@ -114,6 +114,7 @@ async def test_recompute_does_not_block_event_loop(monkeypatch: pytest.MonkeyPat
         nodes: list[dict],
         links: list[dict],
         vault_id: str,
+        domain_vocab: list[str] | None = None,
     ) -> tuple[list[dict], list[dict], GraphSnapshot]:
         time.sleep(_COMPUTE_SLEEP)
         return [], [], GraphSnapshot()

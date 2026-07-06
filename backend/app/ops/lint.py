@@ -514,9 +514,7 @@ async def send_finding_to_review(finding_id: uuid.UUID) -> LintFinding:
         item_type=item_type,
         proposed_title=proposed_title,
         rationale=rationale,
-        source_page_id=(
-            uuid.UUID(str(finding.target_page_id)) if finding.target_page_id else None
-        ),
+        source_page_id=(uuid.UUID(str(finding.target_page_id)) if finding.target_page_id else None),
     )
 
     note = f"sent to review ({review_item.id})"
@@ -580,14 +578,10 @@ async def apply_batch(
             results.append(BatchFindingResult(id=str(fid), status="ok", detail=None))
             ok_count += 1
         except HTTPException as exc:
-            results.append(
-                BatchFindingResult(id=str(fid), status="error", detail=exc.detail)
-            )
+            results.append(BatchFindingResult(id=str(fid), status="error", detail=exc.detail))
             error_count += 1
         except Exception as exc:  # noqa: BLE001
-            results.append(
-                BatchFindingResult(id=str(fid), status="error", detail=str(exc))
-            )
+            results.append(BatchFindingResult(id=str(fid), status="error", detail=str(exc)))
             error_count += 1
 
     return BatchFindingsResponse(results=results, ok_count=ok_count, error_count=error_count)
@@ -634,9 +628,8 @@ async def list_lint_findings(
 
         # ── Per-severity totals: same vault + status + category; NO severity filter ──
         # One bounded indexed GROUP BY — never a full table scan (I1/I7).
-        sev_stmt = (
-            select(LintFinding.severity, func.count().label("n"))
-            .where(LintFinding.vault_id == vault_id)
+        sev_stmt = select(LintFinding.severity, func.count().label("n")).where(
+            LintFinding.vault_id == vault_id
         )
         if status is not None:
             sev_stmt = sev_stmt.where(LintFinding.status == status)
@@ -644,9 +637,7 @@ async def list_lint_findings(
             sev_stmt = sev_stmt.where(LintFinding.category == category)
         sev_stmt = sev_stmt.group_by(LintFinding.severity)
         severity_totals: dict[str, int] = {
-            sev: int(n)
-            for sev, n in (await session.execute(sev_stmt)).all()
-            if sev is not None
+            sev: int(n) for sev, n in (await session.execute(sev_stmt)).all() if sev is not None
         }
 
         # ── Page data ───────────────────────────────────────────────────────────
@@ -855,8 +846,7 @@ async def _detect_broken_wikilinks(vault_id: str) -> list[FindingDTO]:
 
                 ref_title = referencing_title or src_str
                 description = (
-                    f"Broken link: [[{target_text}]] — target page not found. "
-                    f"(in {ref_title})"
+                    f"Broken link: [[{target_text}]] — target page not found. " f"(in {ref_title})"
                 )
 
                 # L2: tolerant resolver for suggestion
@@ -974,8 +964,7 @@ async def _apply_broken_wikilink(finding: LintFinding) -> str:
 
     if not old_target:
         return (
-            f"broken-wikilink: target_title empty; acknowledged. "
-            f"Suggestion was {new_target!r}."
+            f"broken-wikilink: target_title empty; acknowledged. " f"Suggestion was {new_target!r}."
         )
 
     # ── Load the referencing page ─────────────────────────────────────────────────
@@ -1025,9 +1014,7 @@ async def _apply_broken_wikilink(finding: LintFinding) -> str:
     # ── Anchored regex rewrite in body only ───────────────────────────────────────
     # Match [[old_target]] and [[old_target|label]] (escaped for regex safety).
     old_escaped = _re.escape(old_target)
-    pattern = _re.compile(
-        r"\[\[" + old_escaped + r"(?:\|([^\[\]]*))?\]\]"
-    )
+    pattern = _re.compile(r"\[\[" + old_escaped + r"(?:\|([^\[\]]*))?\]\]")
 
     def _replace(m: _re.Match[str]) -> str:
         label = m.group(1)  # None if no alias
@@ -1068,9 +1055,7 @@ async def _apply_broken_wikilink(finding: LintFinding) -> str:
         async with get_session() as session:
             await persist_links(session, uuid.UUID(str(finding.target_page_id)), parsed)
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "_apply_broken_wikilink: persist_links failed for %s: %s", file_path, exc
-        )
+        logger.warning("_apply_broken_wikilink: persist_links failed for %s: %s", file_path, exc)
 
     # ── Bump data_version ONCE (I1) ───────────────────────────────────────────────
     try:

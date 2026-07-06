@@ -643,8 +643,7 @@ class BulkResolveRequest(BaseModel):
     ids: list[str] = Field(
         ...,
         description=(
-            "Review item id strings (UUID) to resolve; "
-            "capped at 200 (I7 — 422 beyond cap)."
+            "Review item id strings (UUID) to resolve; " "capped at 200 (I7 — 422 beyond cap)."
         ),
     )
     action: str = Field(
@@ -762,8 +761,7 @@ class PatchReviewRequest(BaseModel):
     resolved: bool = Field(
         default=True,
         description=(
-            "True → resolve (action required); False → reopen to pending. "
-            "Default True."
+            "True → resolve (action required); False → reopen to pending. " "Default True."
         ),
     )
     action: str = Field(
@@ -775,11 +773,7 @@ class PatchReviewRequest(BaseModel):
         ),
     )
 
-    model_config = {
-        "json_schema_extra": {
-            "example": {"resolved": True, "action": "skip"}
-        }
-    }
+    model_config = {"json_schema_extra": {"example": {"resolved": True, "action": "skip"}}}
 
 
 @router.patch(
@@ -811,9 +805,7 @@ async def patch_review_item(item_id: uuid.UUID, body: PatchReviewRequest) -> Rev
         if body.action not in _ALLOWED:
             raise HTTPException(
                 status_code=422,
-                detail=(
-                    f"Unknown action {body.action!r}; PATCH accepts: {sorted(_ALLOWED)}."
-                ),
+                detail=(f"Unknown action {body.action!r}; PATCH accepts: {sorted(_ALLOWED)}."),
             )
         if body.action == "skip":
             item = await _skip(item_id)
@@ -830,9 +822,7 @@ async def patch_review_item(item_id: uuid.UUID, body: PatchReviewRequest) -> Rev
 
         item_id_str = str(item_id)
         async with _get_session() as session:
-            row = await session.execute(
-                _select(_ReviewItem).where(_ReviewItem.id == item_id_str)
-            )
+            row = await session.execute(_select(_ReviewItem).where(_ReviewItem.id == item_id_str))
             item_orm = row.scalar_one_or_none()
             if item_orm is None:
                 raise HTTPException(status_code=404, detail=f"Review item {item_id} not found")

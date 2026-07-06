@@ -551,8 +551,7 @@ async def chat_stream(body: ChatRequest) -> StreamingResponse:
             role=m.role,
             content=m.content,
             images=[
-                MessageImage(mime=img.mime, data_base64=img.data_base64)
-                for img in (m.images or [])
+                MessageImage(mime=img.mime, data_base64=img.data_base64) for img in (m.images or [])
             ],
         )
         for m in body.messages

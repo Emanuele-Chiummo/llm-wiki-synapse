@@ -50,7 +50,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper: extract tool names from a FastMCP instance (mirrors test_mcp_http.py)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -64,7 +63,7 @@ def _tool_names(mcp_instance: Any) -> set[str]:
         names: set[str] = set()
         for key in components:
             if key.startswith("tool:"):
-                raw = key[len("tool:"):]
+                raw = key[len("tool:") :]
                 names.add(raw.split("@")[0])
         return names
     # Fallback: check for _tool_manager (FastMCP 2.x)
@@ -82,17 +81,31 @@ def _tool_names(mcp_instance: Any) -> set[str]:
 class TestMcpToolCount:
     """stdio mcp must have 9 tools; HTTP surfaces must gate write tools correctly."""
 
-    _ALL_NINE = frozenset({
-        # original 4
-        "search_wiki", "write_page", "get_page", "list_pages",
-        # 5 new (B5/D2)
-        "get_graph_neighborhood", "list_reviews", "read_source_file",
-        "resolve_review", "trigger_source_rescan",
-    })
-    _READ_SIX = frozenset({
-        "search_wiki", "get_page", "list_pages",
-        "get_graph_neighborhood", "list_reviews", "read_source_file",
-    })
+    _ALL_NINE = frozenset(
+        {
+            # original 4
+            "search_wiki",
+            "write_page",
+            "get_page",
+            "list_pages",
+            # 5 new (B5/D2)
+            "get_graph_neighborhood",
+            "list_reviews",
+            "read_source_file",
+            "resolve_review",
+            "trigger_source_rescan",
+        }
+    )
+    _READ_SIX = frozenset(
+        {
+            "search_wiki",
+            "get_page",
+            "list_pages",
+            "get_graph_neighborhood",
+            "list_reviews",
+            "read_source_file",
+        }
+    )
     _WRITE_THREE = frozenset({"write_page", "resolve_review", "trigger_source_rescan"})
 
     def test_stdio_has_nine_tools(self) -> None:
@@ -103,14 +116,15 @@ class TestMcpToolCount:
         if not names:
             # Fallback: import-level attribute check
             from app.mcp import server as srv
+
             for name in self._ALL_NINE:
                 assert hasattr(srv, name), f"Tool function {name!r} not found in mcp server"
             return
 
         for expected in self._ALL_NINE:
-            assert expected in names, (
-                f"Tool {expected!r} not registered on stdio mcp (has: {names})"
-            )
+            assert (
+                expected in names
+            ), f"Tool {expected!r} not registered on stdio mcp (has: {names})"
 
     def test_http_readonly_has_six_tools(self) -> None:
         """HTTP surface without write_enabled must have exactly 6 tools (3 original + 3 new)."""
@@ -124,9 +138,9 @@ class TestMcpToolCount:
         for expected in self._READ_SIX:
             assert expected in names, f"Read tool {expected!r} missing from HTTP read-only surface"
         for write_tool in self._WRITE_THREE:
-            assert write_tool not in names, (
-                f"Write tool {write_tool!r} must NOT be on HTTP surface when write_enabled=False"
-            )
+            assert (
+                write_tool not in names
+            ), f"Write tool {write_tool!r} must NOT be on HTTP surface when write_enabled=False"
 
     def test_http_write_enabled_has_nine_tools(self) -> None:
         """HTTP surface with write_enabled=True must include all 3 write tools."""
@@ -138,9 +152,7 @@ class TestMcpToolCount:
             pytest.skip("Cannot introspect FastMCP tool names on this version")
 
         for expected in self._ALL_NINE:
-            assert expected in names, (
-                f"Tool {expected!r} missing from HTTP write-enabled surface"
-            )
+            assert expected in names, f"Tool {expected!r} missing from HTTP write-enabled surface"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -211,7 +223,7 @@ class TestGetGraphNeighborhood:
             def __init__(self, sql: str) -> None:
                 self._sql = sql
 
-            def bindparams(self, **_: Any) -> "_FakeBound":
+            def bindparams(self, **_: Any) -> _FakeBound:
                 return self
 
         execute_calls: list[Any] = []
@@ -242,11 +254,16 @@ class TestGetGraphNeighborhood:
 
         with (
             patch("app.db.get_session", return_value=session),
-            patch.object(_srv, "_sa_text" if hasattr(_srv, "_sa_text") else "__builtins__",
-                         _FakeBound, create=True),
+            patch.object(
+                _srv,
+                "_sa_text" if hasattr(_srv, "_sa_text") else "__builtins__",
+                _FakeBound,
+                create=True,
+            ),
         ):
             # _sa_text is a local import alias — patch via sqlalchemy.text at the module level
             import sqlalchemy as _sa
+
             with patch.object(_sa, "text", _FakeBound):
                 result = await _get_graph_neighborhood_body("My Page", depth=1)
 
@@ -299,7 +316,9 @@ class TestListReviews:
         fake_page.items = []
         fake_page.total = 0
 
-        with patch("app.ops.review.list_queue", new_callable=AsyncMock, return_value=fake_page) as mock_lq:
+        with patch(
+            "app.ops.review.list_queue", new_callable=AsyncMock, return_value=fake_page
+        ) as mock_lq:
             await _list_reviews_body(status="open", limit=5)
 
         # list_queue must be called with status="pending" (not "open")
@@ -316,7 +335,9 @@ class TestListReviews:
         fake_page.items = []
         fake_page.total = 0
 
-        with patch("app.ops.review.list_queue", new_callable=AsyncMock, return_value=fake_page) as mock_lq:
+        with patch(
+            "app.ops.review.list_queue", new_callable=AsyncMock, return_value=fake_page
+        ) as mock_lq:
             await _list_reviews_body(status="pending", limit=9999)
 
         call_kwargs = mock_lq.call_args.kwargs
@@ -334,9 +355,8 @@ class TestReadSourceFile:
     @pytest.mark.asyncio
     async def test_path_traversal_returns_error_dict(self) -> None:
         """../etc/passwd and similar traversal paths return an error dict, not exception."""
-        from fastapi import HTTPException
-
         from app.mcp.server import _read_source_file_body
+        from fastapi import HTTPException
 
         with patch(
             "app.upload.resolve_under_sources",
@@ -447,7 +467,9 @@ class TestResolveReview:
         fake_item.status = "skipped"
         fake_item.proposed_title = "Missing Page"
 
-        with patch("app.ops.review.skip", new_callable=AsyncMock, return_value=fake_item) as mock_skip:
+        with patch(
+            "app.ops.review.skip", new_callable=AsyncMock, return_value=fake_item
+        ) as mock_skip:
             result = await _resolve_review_body(item_id, "skip")
 
         mock_skip.assert_called_once()
@@ -466,7 +488,9 @@ class TestResolveReview:
         fake_item.status = "dismissed"
         fake_item.proposed_title = "Another Page"
 
-        with patch("app.ops.review.dismiss", new_callable=AsyncMock, return_value=fake_item) as mock_dismiss:
+        with patch(
+            "app.ops.review.dismiss", new_callable=AsyncMock, return_value=fake_item
+        ) as mock_dismiss:
             result = await _resolve_review_body(item_id, "dismiss")
 
         mock_dismiss.assert_called_once()
@@ -476,9 +500,8 @@ class TestResolveReview:
     @pytest.mark.asyncio
     async def test_not_found_returns_error_dict(self) -> None:
         """When ops.review.skip raises 404 HTTPException, returns error dict (no exception)."""
-        from fastapi import HTTPException
-
         from app.mcp.server import _resolve_review_body
+        from fastapi import HTTPException
 
         item_id = str(uuid.uuid4())
         with patch(
@@ -558,9 +581,8 @@ class TestTriggerSourceRescan:
 
 def _make_review_app():
     """Build a minimal FastAPI app with just the review router for REST tests."""
-    from fastapi import FastAPI
-
     from app.routers.review import router as review_router
+    from fastapi import FastAPI
 
     app = FastAPI()
     app.include_router(review_router)
@@ -615,7 +637,9 @@ class TestBulkResolveEndpoint:
         fake_item.proposed_title = "Missing Page"
 
         with patch("app.ops.review.skip", new_callable=AsyncMock, return_value=fake_item):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 resp = await client.post(
                     "/review/queue/bulk-resolve",
                     json={"ids": [item_id], "action": "skip"},
@@ -644,7 +668,9 @@ class TestBulkResolveEndpoint:
             new_callable=AsyncMock,
             side_effect=HTTPException(status_code=404, detail="not found"),
         ):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 resp = await client.post(
                     "/review/queue/bulk-resolve",
                     json={"ids": [item_id], "action": "skip"},
@@ -690,11 +716,16 @@ class TestPatchReviewEndpoint:
         fake_item.referenced_page_ids = None
         fake_item.search_queries = None
         from datetime import UTC, datetime
+
         fake_item.created_at = datetime.now(UTC)
         fake_item.reviewed_at = None
 
-        with patch("app.ops.review.skip", new_callable=AsyncMock, return_value=fake_item) as mock_skip:
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        with patch(
+            "app.ops.review.skip", new_callable=AsyncMock, return_value=fake_item
+        ) as mock_skip:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 resp = await client.patch(
                     f"/review/queue/{item_id}",
                     json={"resolved": True, "action": "skip"},
@@ -745,6 +776,7 @@ class TestPatchReviewEndpoint:
         fake_item.referenced_page_ids = None
         fake_item.search_queries = None
         from datetime import UTC, datetime
+
         fake_item.created_at = datetime.now(UTC)
         fake_item.reviewed_at = None
 
@@ -761,7 +793,9 @@ class TestPatchReviewEndpoint:
         mock_sess.__aexit__ = AsyncMock(return_value=False)
 
         with patch("app.db.get_session", return_value=mock_sess):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 resp = await client.patch(
                     f"/review/queue/{item_id}",
                     json={"resolved": False},

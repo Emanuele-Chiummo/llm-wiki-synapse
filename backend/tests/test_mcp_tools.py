@@ -37,10 +37,16 @@ class TestMcpServerDefinition:
 
         _ALL_NINE = {
             # original 4
-            "search_wiki", "write_page", "get_page", "list_pages",
+            "search_wiki",
+            "write_page",
+            "get_page",
+            "list_pages",
             # B5/D2 additions
-            "get_graph_neighborhood", "list_reviews", "read_source_file",
-            "resolve_review", "trigger_source_rescan",
+            "get_graph_neighborhood",
+            "list_reviews",
+            "read_source_file",
+            "resolve_review",
+            "trigger_source_rescan",
         }
 
         # FastMCP 3.x stores tools in _tool_manager or similar; we introspect via list_tools

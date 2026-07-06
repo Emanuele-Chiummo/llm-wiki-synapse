@@ -119,10 +119,10 @@ _SLUG_RE = re.compile(r"[^a-z0-9]+")
 RetrievalMode = Literal["fast", "standard", "deep", "local_first"]
 
 _RETRIEVAL_MODE_PRESETS: dict[str, tuple[int, int]] = {
-    "fast":        (4, 0),
-    "standard":    (8, 2),   # ← current retrieve() defaults (k=8, expansion_depth=2)
-    "deep":        (12, 2),  # ← hard cap on expansion_depth = 2 (I7/I2)
-    "local_first": (8, 2),   # ← identical to standard; web-gating handled in chat path
+    "fast": (4, 0),
+    "standard": (8, 2),  # ← current retrieve() defaults (k=8, expansion_depth=2)
+    "deep": (12, 2),  # ← hard cap on expansion_depth = 2 (I7/I2)
+    "local_first": (8, 2),  # ← identical to standard; web-gating handled in chat path
 }
 
 

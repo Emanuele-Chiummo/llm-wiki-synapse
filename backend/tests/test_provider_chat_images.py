@@ -73,7 +73,9 @@ def test_message_image_fields() -> None:
 # ── T-B2C1-02: capabilities() includes supports_vision on every provider ─────────
 
 
-def test_all_providers_capabilities_include_supports_vision(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_all_providers_capabilities_include_supports_vision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("OLLAMA_URL", "http://ollama.test")
     ollama = OllamaProvider(ProviderSettings(provider_type="local", model_id="llava:13b"))
     api = ApiProvider(ProviderSettings(provider_type="api", model_id="claude-x"))
@@ -164,7 +166,12 @@ async def test_ollama_non_vision_model_drops_images(monkeypatch: pytest.MonkeyPa
         return httpx.Response(
             200,
             text=json.dumps(
-                {"message": {"content": "ok"}, "done": True, "prompt_eval_count": 1, "eval_count": 1}
+                {
+                    "message": {"content": "ok"},
+                    "done": True,
+                    "prompt_eval_count": 1,
+                    "eval_count": 1,
+                }
             ),
         )
 
@@ -260,9 +267,7 @@ async def test_openai_compat_drops_images_when_flag_off(monkeypatch: pytest.Monk
 
     _patch_api_transport(monkeypatch, handler)
     provider = ApiProvider(
-        ProviderSettings(
-            provider_type="api", model_id="gpt-x", base_url="http://localhost:1234/v1"
-        )
+        ProviderSettings(provider_type="api", model_id="gpt-x", base_url="http://localhost:1234/v1")
     )
     assert provider.capabilities().supports_vision is False
     await _drain(await provider.chat([_img_message()], "ctx"))
@@ -324,9 +329,7 @@ def _install_fake_sdk(monkeypatch: pytest.MonkeyPatch, recorder: dict[str, Any])
             recorder["options"] = options
             # Snapshot the temp-image files the provider wrote, while they still exist.
             cwd = options.get("cwd") if isinstance(options, dict) else None
-            recorder["files_present"] = (
-                sorted(p.name for p in Path(cwd).iterdir()) if cwd else []
-            )
+            recorder["files_present"] = sorted(p.name for p in Path(cwd).iterdir()) if cwd else []
 
         async def __aenter__(self) -> _FakeClient:
             return self

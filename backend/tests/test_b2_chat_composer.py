@@ -24,10 +24,8 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
-
 
 # ── C3: retrieval_mode preset unit tests ────────────────────────────────────────
 
@@ -598,9 +596,7 @@ class TestWebCitationsInDoneEvent:
     """B2-C2: done event gains web_citations field; wiki citations unchanged."""
 
     @pytest.fixture()
-    def _stream_monkeypatch_common(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> Any:
+    def _stream_monkeypatch_common(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
         """Set up common mocks for stream tests."""
         import app.config as cfg
         import app.db as db_mod
@@ -653,7 +649,9 @@ class TestWebCitationsInDoneEvent:
             "app.chat.stream.resolve_provider",
             lambda row: _MockProvider(),
         )
-        monkeypatch.setattr("app.chat.stream.retrieve", AsyncMock(return_value=_make_empty_retrieval()))
+        monkeypatch.setattr(
+            "app.chat.stream.retrieve", AsyncMock(return_value=_make_empty_retrieval())
+        )
         monkeypatch.setattr(
             "app.chat.autotitle.maybe_generate_conversation_title",
             AsyncMock(return_value=None),
@@ -704,7 +702,9 @@ class TestWebCitationsInDoneEvent:
             AsyncMock(return_value=_MockConfigRow()),
         )
         monkeypatch.setattr("app.chat.stream.resolve_provider", lambda row: _MockProvider())
-        monkeypatch.setattr("app.chat.stream.retrieve", AsyncMock(return_value=_make_empty_retrieval()))
+        monkeypatch.setattr(
+            "app.chat.stream.retrieve", AsyncMock(return_value=_make_empty_retrieval())
+        )
         monkeypatch.setattr(
             "app.chat.autotitle.maybe_generate_conversation_title",
             AsyncMock(return_value=None),
@@ -774,7 +774,9 @@ class TestWebCitationsInDoneEvent:
             AsyncMock(return_value=_MockConfigRow()),
         )
         monkeypatch.setattr("app.chat.stream.resolve_provider", lambda row: _MockProvider())
-        monkeypatch.setattr("app.chat.stream.retrieve", AsyncMock(return_value=_make_empty_retrieval()))
+        monkeypatch.setattr(
+            "app.chat.stream.retrieve", AsyncMock(return_value=_make_empty_retrieval())
+        )
         monkeypatch.setattr(
             "app.chat.autotitle.maybe_generate_conversation_title",
             AsyncMock(return_value=None),
@@ -885,6 +887,7 @@ class TestLocalFirstGate:
     async def _create_tables(engine: Any, *tables: Any, Base: Any = None) -> None:
         if Base is None:
             from app.models import Base as _Base
+
             Base = _Base
         from app.models import ChatMessage, Conversation
 
@@ -955,6 +958,7 @@ class TestLocalFirstGate:
             nonlocal web_called
             web_called = True
             from app.chat.web_context import _EMPTY
+
             return _EMPTY
 
         with patch("app.chat.stream.build_web_context", side_effect=_mock_web):
@@ -1035,6 +1039,7 @@ class TestLocalFirstGate:
             nonlocal web_called
             web_called = True
             from app.chat.web_context import _EMPTY
+
             return _EMPTY
 
         with patch("app.chat.stream.build_web_context", side_effect=_mock_web):
@@ -1080,8 +1085,9 @@ class TestStatusSupportsVision:
 
     def test_status_response_defaults_supports_vision_false(self) -> None:
         """supports_vision defaults to False (safe default for non-vision providers)."""
-        from app.routers.status import StatusResponse
         from datetime import UTC, datetime
+
+        from app.routers.status import StatusResponse
 
         r = StatusResponse(
             vault_id="test",
@@ -1095,8 +1101,9 @@ class TestStatusSupportsVision:
 
     def test_status_response_supports_vision_true_when_set(self) -> None:
         """supports_vision=True is serialisable and readable."""
-        from app.routers.status import StatusResponse
         from datetime import UTC, datetime
+
+        from app.routers.status import StatusResponse
 
         r = StatusResponse(
             vault_id="test",
@@ -1122,8 +1129,8 @@ class TestImagesColumn:
         assert hasattr(ChatMessage, "images")
 
     def test_images_column_nullable(self) -> None:
-        from sqlalchemy import inspect as sa_inspect
         from app.models import ChatMessage
+        from sqlalchemy import inspect as sa_inspect
 
         mapper = sa_inspect(ChatMessage)
         col = mapper.columns["images"]

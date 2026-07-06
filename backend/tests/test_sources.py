@@ -1174,9 +1174,7 @@ class TestFolderUploadRelDir:
         app = src_env["app"]
 
         content = b"# Folder upload test\n"
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/ingest/upload",
                 files={"file": ("upload_test.md", content, "text/markdown")},
@@ -1186,9 +1184,9 @@ class TestFolderUploadRelDir:
         assert resp.status_code == 202, f"Expected 202, got {resp.status_code}: {resp.text}"
         data = resp.json()
         # The returned file_path should include the rel_dir segment
-        assert "projects/notes" in data["file_path"], (
-            f"Expected 'projects/notes' in file_path but got: {data['file_path']!r}"
-        )
+        assert (
+            "projects/notes" in data["file_path"]
+        ), f"Expected 'projects/notes' in file_path but got: {data['file_path']!r}"
         # File must exist on disk at the correct location
         expected_path = sources_dir / "projects" / "notes" / "upload_test.md"
         assert expected_path.exists(), (
@@ -1211,9 +1209,7 @@ class TestFolderUploadRelDir:
         app = src_env["app"]
 
         content = b"# Flat upload test\n"
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/ingest/upload",
                 files={"file": ("flat_upload.md", content, "text/markdown")},
@@ -1223,9 +1219,7 @@ class TestFolderUploadRelDir:
         assert resp.status_code == 202, f"Expected 202, got {resp.status_code}: {resp.text}"
         # File written flat (directly under sources_dir)
         expected_path = sources_dir / "flat_upload.md"
-        assert expected_path.exists(), (
-            f"Expected file at {expected_path} but it does not exist."
-        )
+        assert expected_path.exists(), f"Expected file at {expected_path} but it does not exist."
         assert expected_path.read_bytes() == content
 
     async def test_upload_rel_dir_traversal_rejected(
@@ -1241,18 +1235,16 @@ class TestFolderUploadRelDir:
         app = src_env["app"]
         content = b"# traversal attempt\n"
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/ingest/upload",
                 files={"file": ("evil.md", content, "text/markdown")},
                 data={"rel_dir": "../../etc"},
             )
 
-        assert resp.status_code == 422, (
-            f"Expected 422 for traversal rel_dir, got {resp.status_code}: {resp.text}"
-        )
+        assert (
+            resp.status_code == 422
+        ), f"Expected 422 for traversal rel_dir, got {resp.status_code}: {resp.text}"
 
     async def test_upload_rel_dir_dot_dot_segment_rejected(
         self,
@@ -1267,18 +1259,16 @@ class TestFolderUploadRelDir:
         app = src_env["app"]
         content = b"# traversal attempt\n"
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/ingest/upload",
                 files={"file": ("evil.md", content, "text/markdown")},
                 data={"rel_dir": "valid/../../etc"},
             )
 
-        assert resp.status_code == 422, (
-            f"Expected 422 for traversal rel_dir, got {resp.status_code}: {resp.text}"
-        )
+        assert (
+            resp.status_code == 422
+        ), f"Expected 422 for traversal rel_dir, got {resp.status_code}: {resp.text}"
 
 
 # ── T-SRC-031: S1 — _sanitize_rel_dir unit tests ─────────────────────────────
@@ -1631,9 +1621,7 @@ class TestWikiRoot:
 
         # Files that exist in raw/sources/ must NOT appear in the wiki listing
         for sources_only in ("note.md", "plain.txt", "image.png", "subdir"):
-            assert sources_only not in paths, (
-                f"{sources_only!r} should not appear in wiki listing"
-            )
+            assert sources_only not in paths, f"{sources_only!r} should not appear in wiki listing"
 
     # ── T-SRC-037: /sources/content with root=wiki ────────────────────────────
 
@@ -1642,9 +1630,7 @@ class TestWikiRoot:
     ) -> None:
         """T-SRC-037: GET /sources/content?root=wiki&path=log.md returns markdown text."""
         # log.md is seeded by the fixture
-        resp = await src_client.get(
-            "/sources/content", params={"root": "wiki", "path": "log.md"}
-        )
+        resp = await src_client.get("/sources/content", params={"root": "wiki", "path": "log.md"})
         assert resp.status_code == 200, f"Expected 200: {resp.text}"
         data = resp.json()
         assert data["path"] == "log.md"
@@ -1657,9 +1643,7 @@ class TestWikiRoot:
         self, src_client: AsyncClient, src_env: dict[str, Any]
     ) -> None:
         """T-SRC-043: root=wiki always returns ingested=False + page_ids=[]."""
-        resp = await src_client.get(
-            "/sources/content", params={"root": "wiki", "path": "log.md"}
-        )
+        resp = await src_client.get("/sources/content", params={"root": "wiki", "path": "log.md"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["ingested"] is False
@@ -1725,9 +1709,9 @@ class TestWikiRoot:
             "/sources/content",
             params={"root": "wiki", "path": "../../raw/sources/note.md"},
         )
-        assert resp.status_code == 404, (
-            f"Expected 404 for traversal attempt, got {resp.status_code}"
-        )
+        assert (
+            resp.status_code == 404
+        ), f"Expected 404 for traversal attempt, got {resp.status_code}"
 
     async def test_wiki_raw_traversal_rejected(
         self, src_client: AsyncClient, src_env: dict[str, Any]
@@ -1737,9 +1721,9 @@ class TestWikiRoot:
             "/sources/raw",
             params={"root": "wiki", "path": "../raw/sources/note.md"},
         )
-        assert resp.status_code == 404, (
-            f"Expected 404 for traversal attempt, got {resp.status_code}"
-        )
+        assert (
+            resp.status_code == 404
+        ), f"Expected 404 for traversal attempt, got {resp.status_code}"
 
     # ── T-SRC-040: hidden entries rejected ────────────────────────────────────
 
@@ -1751,9 +1735,9 @@ class TestWikiRoot:
             "/sources/content",
             params={"root": "wiki", "path": ".obsidian/app.json"},
         )
-        assert resp.status_code == 404, (
-            f"Expected 404 for hidden .obsidian path, got {resp.status_code}"
-        )
+        assert (
+            resp.status_code == 404
+        ), f"Expected 404 for hidden .obsidian path, got {resp.status_code}"
 
     async def test_wiki_raw_hidden_file_rejected(
         self, src_client: AsyncClient, src_env: dict[str, Any]
@@ -1763,9 +1747,9 @@ class TestWikiRoot:
             "/sources/raw",
             params={"root": "wiki", "path": ".obsidian/app.json"},
         )
-        assert resp.status_code == 404, (
-            f"Expected 404 for hidden .obsidian path (raw), got {resp.status_code}"
-        )
+        assert (
+            resp.status_code == 404
+        ), f"Expected 404 for hidden .obsidian path (raw), got {resp.status_code}"
 
     async def test_wiki_content_root_dotfile_rejected(
         self, src_client: AsyncClient, src_env: dict[str, Any]
@@ -1774,9 +1758,7 @@ class TestWikiRoot:
         wiki_dir: Path = src_env["wiki_dir"]
         (wiki_dir / ".dotfile").write_text("secret\n", encoding="utf-8")
 
-        resp = await src_client.get(
-            "/sources/content", params={"root": "wiki", "path": ".dotfile"}
-        )
+        resp = await src_client.get("/sources/content", params={"root": "wiki", "path": ".dotfile"})
         assert resp.status_code == 404
 
     # ── T-SRC-041: root=sources unchanged (regression) ───────────────────────
@@ -1826,9 +1808,7 @@ class TestWikiRoot:
         from app import config as cfg
 
         missing_wiki = src_env["vault_root"] / "wiki_nonexistent"
-        monkeypatch.setattr(
-            type(cfg.settings), "wiki_dir", property(lambda self: missing_wiki)
-        )
+        monkeypatch.setattr(type(cfg.settings), "wiki_dir", property(lambda self: missing_wiki))
 
         resp = await src_client.get("/sources", params={"root": "wiki"})
         assert resp.status_code == 200
