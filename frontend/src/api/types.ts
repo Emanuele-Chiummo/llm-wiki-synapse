@@ -32,6 +32,14 @@ export interface GraphNode {
    * INVARIANT I2: client NEVER recomputes community; only reads this value.
    */
   community?: number;
+  /**
+   * The dominant domain name for this node's page (e.g. "SAM", "Procurement").
+   * Derived server-side from the page's domain/… tag in the controlled vocabulary.
+   * null when the page is untagged or no domain vocabulary is configured.
+   * Absent on older server responses (non-breaking additive field).
+   * INVARIANT I2: client NEVER computes or modifies this value.
+   */
+  domain?: string | null;
 }
 
 export interface GraphEdge {
@@ -62,6 +70,26 @@ export interface GraphCommunity {
    * the UI marks them with a warning indicator in the legend.
    */
   cohesion: number;
+  /**
+   * Display name for this community (v0.7+, backend contract feat/b3-graph-look).
+   * Derived server-side as the dominant domain name, or the top-page title, or
+   * "Comunità {id}" as a fallback. Absent on older server responses — UI falls
+   * back to the same "Comunità {id}" string when absent or empty.
+   * INVARIANT I2: client NEVER computes this; only reads what the server returns.
+   */
+  label?: string;
+  /**
+   * The dominant domain name for this community (e.g. "SAM", "Procurement").
+   * null when no domain vocabulary is configured or the community has no domain tag.
+   * Absent on older server responses.
+   */
+  dominant_domain?: string | null;
+  /**
+   * The top-ranked page within this community (by degree/centrality).
+   * Used as a fallback label when dominant_domain is null.
+   * Absent on older server responses.
+   */
+  top_page?: { id: string; title: string; slug: string } | null;
 }
 
 export interface GraphResponse {
@@ -77,6 +105,18 @@ export interface GraphResponse {
    * INVARIANT I2: client NEVER computes communities; only reads this list.
    */
   communities?: GraphCommunity[];
+  /**
+   * GR1: Total live vault pages (all pages, including those not in the graph).
+   * Used as denominator for the GraphHeader pages chip.
+   * Absent on older server responses — falls back to nodes.length in the UI.
+   */
+  total_nodes?: number;
+  /**
+   * GR1: Total link-table rows (NOT the same as graph edges, which include source-overlap).
+   * Stored in the store for potential future use, but NOT used as denominator for the
+   * edge chip (which uses edges.length from the graph payload instead — see GR1 contract).
+   */
+  total_edges?: number;
 }
 
 /** Value of the X-Graph-Cache response header */

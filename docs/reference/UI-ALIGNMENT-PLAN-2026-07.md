@@ -112,7 +112,43 @@ on capabilities, no isinstance), I7 (web fetch + image caps bounded, cost logged
 
 ---
 
-## B3 — GRAPH HEADER (P1) — owner: [FE]+[BE]
+## B3 — GRAPH HEADER (P1) — owner: [FE]+[BE] — STATUS: ✅ SHIPPED feat/b3-graph-look
+
+> **Shipped 2026-07-06 (same branch as B3-LOOK).** GR1 stats chips
+> (`{shown}/{total_nodes} pagine · {shown}/{edges.length} link · {hidden} nascosti`; backend
+> `GET /graph` gains `total_nodes`/`total_edges`, `routers/graph.py`), GR2 in-graph search
+> (find + camera-center), GR3 type filter (client visibility, I2-safe — hides nodes+incident
+> edges; `graphStore.filterNodeTypes`), GR4 Reset, GR7 fullscreen, GR5 legend counts. Also a
+> **declutter pass** on B3-LOOK (user feedback "più caotico"): hub K 10→6, labels truncated
+> to ≤18ch, `labelRenderedSizeThreshold` 8→11, edge-cull 0.22→0.30 / 0.32→0.42.
+> **Link-chip denominator = `edges.length`** (full graph edge set 4213), NOT backend
+> `total_edges` (link-rows 3397) — the graph edge set is a wikilink∪source superset (ADR-0016).
+> **Live-verified:** at rest legible clusters; filter→Entity shows 176/986 pages, 810 nascosti,
+> clean subgraph. Tests: 93 frontend (26 new graphHeader) + 22 backend green.
+> **Open polish (P3):** at-rest link chip shows `4213/4213` (GL1-culled edges not counted as
+> "hidden" — only filter is); Insights panel open-by-default covers ~1/3 screen (default-collapse).
+
+> **GR9 — "Comunità" mode groups by DOMAIN, merged (SHIPPED, user follow-ups "duplicati" +
+> "non aggiungere una nuova voce"):** the second color toggle stays labeled "Comunità" but now
+> colors + aggregates by the node's own domain (`GraphNode.domain` = first in-vocab `domain/*`
+> tag, backend). Legend = ONE row per domain (SAM/Procurement/ServiceNow/Regolamentazioni/TPRM +
+> "Senza dominio"), no duplicate Louvain rows. Default color mode = this. No third toggle added.
+> Centroid overlays label per-domain. Louvain community still computed (used by Insights only).
+> Also: **Insights panel collapsed by default** (was covering ~1/3 of the canvas). Live-verified:
+> 2 toggles, 6 clean domain rows, no raw i18n. **P3 polish:** a domain centroid label near the top
+> edge can overlap the header (clamp to canvas). Tests: 62 backend + 1861 frontend green.
+
+> **GR8 — Named communities (superseded by GR9 for the color toggle; per-community
+> `dominant_domain`/`label` still computed for Insights). Original: user request "le comunità nominative come i domini"):**
+> each Louvain community is labeled by its **dominant domain** (F18 `domain/*` tags →
+> `effective_domain_vocabulary`), fallback = top-degree page title, else "Comunità {id}".
+> Backend: `engine.py` step 4f computes label/dominant_domain/top_page in recompute (I1/I2 —
+> no extra scan, cached); `GraphCommunityResponse` gains those fields. Frontend: Community-mode
+> legend shows the names + `graphCommunityUtils.computeCommunityCentroids` renders per-cluster
+> HTML label overlays projected via `sigma.graphToViewport` (rAF-throttled, I2 — never mutates
+> coords). Live-verified: SAM/Procurement/Regolamentazioni/TPRM in legend + on clusters.
+> **Also fixed:** GR1's `total_edges` COUNT broke `test_louvain_community.py` (fixture lacked
+> `links` table + `tags` column) — fixture repaired (21/21 green).
 
 llm_wiki reference: header `801/804 pages · 2438/2823 links · 3 hidden` + Search +
 Filter + Reset + Type/Community + `Insights 13` + refresh; collapsible Node-Types legend
@@ -131,6 +167,15 @@ with per-type counts; permanent labels on hubs.
 **Invariants:** I2 (filtering = render-visibility only; FA2 stays server-side), I3.
 
 ### B3-LOOK — Graph visual-parity levers (why Synapse's graph "looks different" from llm_wiki)
+
+> **GL1/GL2/GL3 SHIPPED feat/b3-graph-look (2026-07-06). ADR-0060.** Render-only, I2 preserved
+> (no client layout). `frontend/src/api/graphTransform.ts` (`edgeVisibilityThreshold`,
+> `computeTopKHubs`, `densityScale`) + `GraphViewer.tsx` (edgeReducer hide/hover-reveal, hub
+> `forceLabel`, `labelRenderedSizeThreshold` 13→8). Tests: 47 graph-transform + 22 no-client-layout
+> + 142 graph green. **Live-verified (816-node real vault):** hub labels visible
+> (Category Management Framework, SAM ITAM Overview…), nodes down-scaled, weak edges culled →
+> legible clusters instead of the uniform "ball". Remaining spherical envelope = GL4 (seed),
+> deferred spike. GL5/GL6 declined (see rows).
 
 > Root-caused 2026-07-06 (code-anchored, `engine.py:_forceatlas2_layout` + `graphTransform.ts`
 > vs llm_wiki `graph-view.tsx`). **The data is the same** (identical 4-signal weights

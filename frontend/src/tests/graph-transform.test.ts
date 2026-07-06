@@ -9,7 +9,13 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { buildGraphologyGraph } from "../api/graphTransform";
+import {
+  buildGraphologyGraph,
+  edgeVisibilityThreshold,
+  densityScale,
+  computeTopKHubs,
+  truncateHubLabel,
+} from "../api/graphTransform";
 import type { GraphNode, GraphEdge } from "../api/types";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -190,5 +196,337 @@ describe("buildGraphologyGraph — pure function, no side effects", () => {
     // Mutating g1 should not affect g2
     g1.setNodeAttribute("node-1", "x", 9999);
     expect(g2.getNodeAttribute("node-1", "x")).toBe(NODES[0]!.x);
+  });
+});
+
+// ─── B3-LOOK GL1: edgeVisibilityThreshold buckets ────────────────────────────
+
+describe("edgeVisibilityThreshold — GL1 bucket boundaries", () => {
+  it("returns 0 for n=0 (empty graph — show all)", () => {
+    expect(edgeVisibilityThreshold(0)).toBe(0);
+  });
+
+  it("returns 0 for n=1 (single node — show all)", () => {
+    expect(edgeVisibilityThreshold(1)).toBe(0);
+  });
+
+  it("returns 0 for n=150 (boundary — show all)", () => {
+    expect(edgeVisibilityThreshold(150)).toBe(0);
+  });
+
+  // Obsidian-flow tuning: show (almost) all edges so clusters stay connected.
+  it("returns 0 for n=151 (still show all — was 0.12)", () => {
+    expect(edgeVisibilityThreshold(151)).toBe(0);
+  });
+
+  it("returns 0 for n=600 (boundary — show all)", () => {
+    expect(edgeVisibilityThreshold(600)).toBe(0);
+  });
+
+  it("returns 0.03 for n=601 (cull only the weakest tail — was 0.30)", () => {
+    expect(edgeVisibilityThreshold(601)).toBe(0.03);
+  });
+
+  it("returns 0.03 for n=1200 (boundary — large graph)", () => {
+    expect(edgeVisibilityThreshold(1200)).toBe(0.03);
+  });
+
+  it("returns 0.06 for n=1201 (very dense — was 0.42)", () => {
+    expect(edgeVisibilityThreshold(1201)).toBe(0.06);
+  });
+
+  it("returns 0.06 for n=5000 (very large graph)", () => {
+    expect(edgeVisibilityThreshold(5000)).toBe(0.06);
+  });
+});
+
+// ─── B3-LOOK GL1: edges below threshold get hidden:true at rest ───────────────
+
+describe("buildGraphologyGraph — GL1 edge hidden flag", () => {
+  // Build a graph with 200 nodes (threshold = 0.12) so we can test culling.
+  // We only need the edges to vary — nodes are synthetic with unique ids.
+  function makeNodes(count: number): GraphNode[] {
+    return Array.from({ length: count }, (_, i) => ({
+      id: `n-${i}`,
+      title: `Node ${i}`,
+      type: "concept" as const,
+      x: i * 0.1,
+      y: i * 0.1,
+      degree: i % 5, // vary degree
+    }));
+  }
+
+  it("all edges visible when nodeCount ≤ 150 (threshold=0)", () => {
+    // 4 nodes → threshold 0 → no edge should be hidden
+    const graph = buildGraphologyGraph(NODES, EDGES);
+    graph.forEachEdge((_key, attrs) => {
+      expect(attrs["hidden"]).toBe(false);
+    });
+  });
+
+  it("edges below threshold are hidden on graphs with n > 600", () => {
+    // 700 nodes → threshold 0.03 (Obsidian-flow tuning: only the weakest tail is culled)
+    const nodes700 = makeNodes(700);
+    // Two edges: one strong (weight much higher than min → high normalizedWeight),
+    // one weak (weight = min → normalizedWeight = 0, below 0.03).
+    const edges: GraphEdge[] = [
+      { source: "n-0", target: "n-1", weight: 100 }, // strong
+      { source: "n-0", target: "n-2", weight: 1 },   // weak (min weight → nw=0)
+    ];
+    const graph = buildGraphologyGraph(nodes700, edges);
+
+    const strongKey = graph.edge("n-0", "n-1");
+    const weakKey = graph.edge("n-0", "n-2");
+
+    // Strong edge: normalizedWeight = 1.0 → not hidden
+    expect(graph.getEdgeAttribute(strongKey, "hidden")).toBe(false);
+    // Weak edge: normalizedWeight = 0.0 < 0.12 → hidden
+    expect(graph.getEdgeAttribute(weakKey, "hidden")).toBe(true);
+  });
+
+  it("normalizedWeight is stored on each edge for reducer access", () => {
+    const graph = buildGraphologyGraph(NODES, EDGES);
+    graph.forEachEdge((_key, attrs) => {
+      const nw = attrs["normalizedWeight"] as number;
+      expect(typeof nw).toBe("number");
+      expect(nw).toBeGreaterThanOrEqual(0);
+      expect(nw).toBeLessThanOrEqual(1);
+    });
+  });
+});
+
+// ─── B3-LOOK GL2: hub forceLabel selection ───────────────────────────────────
+
+describe("computeTopKHubs — GL2 top-K by degree (K = min(6, ceil(n*0.01)))", () => {
+  it("returns empty set for empty node list", () => {
+    expect(computeTopKHubs([])).toEqual(new Set());
+  });
+
+  it("returns 1 hub for 4 nodes (K = min(6, ceil(4*0.01)) = min(6,1) = 1)", () => {
+    // 4 nodes → K = min(6, ceil(4*0.01)) = min(6, 1) = 1
+    // Only the single highest-degree node should be in the hub set
+    const hubs = computeTopKHubs(NODES);
+    // node-1 has degree 2 — highest in NODES fixture
+    expect(hubs.has("node-1")).toBe(true);
+    expect(hubs.size).toBe(1);
+  });
+
+  it("selects the K nodes with the highest degree", () => {
+    const nodes: GraphNode[] = [
+      { id: "a", title: "A", type: null, x: 0, y: 0, degree: 50 },
+      { id: "b", title: "B", type: null, x: 0, y: 0, degree: 30 },
+      { id: "c", title: "C", type: null, x: 0, y: 0, degree: 10 },
+      { id: "d", title: "D", type: null, x: 0, y: 0, degree: 5 },
+      { id: "e", title: "E", type: null, x: 0, y: 0, degree: 1 },
+    ];
+    // K = min(6, ceil(5*0.01)) = min(6, 1) = 1
+    const hubs = computeTopKHubs(nodes);
+    expect(hubs.has("a")).toBe(true); // highest degree
+    expect(hubs.size).toBe(1);
+  });
+
+  it("K scales with n (K = ceil(n*0.01) up to 6 for large n)", () => {
+    // 1000 nodes → K = min(6, ceil(1000*0.01)) = min(6, 10) = 6
+    const nodes: GraphNode[] = Array.from({ length: 1000 }, (_, i) => ({
+      id: `hub-${i}`,
+      title: `Node ${i}`,
+      type: null as null,
+      x: 0,
+      y: 0,
+      degree: 1000 - i, // descending: hub-0 has degree 1000, hub-999 has degree 1
+    }));
+    const hubs = computeTopKHubs(nodes);
+    expect(hubs.size).toBe(6);
+    // The top-6 should be hub-0 through hub-5
+    for (let i = 0; i < 6; i++) {
+      expect(hubs.has(`hub-${i}`)).toBe(true);
+    }
+    // hub-6 should NOT be in the hub set
+    expect(hubs.has("hub-6")).toBe(false);
+  });
+
+  it("K is capped at 6 even for very large graphs", () => {
+    // 10000 nodes → K = min(6, ceil(10000*0.01)) = min(6, 100) = 6
+    const nodes: GraphNode[] = Array.from({ length: 10_000 }, (_, i) => ({
+      id: `big-${i}`,
+      title: `Node ${i}`,
+      type: null as null,
+      x: 0,
+      y: 0,
+      degree: 10_000 - i,
+    }));
+    const hubs = computeTopKHubs(nodes);
+    expect(hubs.size).toBe(6);
+  });
+
+  it("hub nodes get forceLabel=true in built graph", () => {
+    // Use a 600-node synthetic graph so K = min(6, ceil(600*0.01)) = min(6,6) = 6
+    const nodes: GraphNode[] = Array.from({ length: 600 }, (_, i) => ({
+      id: `n-${i}`,
+      title: `Node ${i}`,
+      type: null as null,
+      x: i * 0.1,
+      y: 0,
+      degree: 600 - i, // n-0 is highest-degree hub
+    }));
+    const graph = buildGraphologyGraph(nodes, []);
+    // Top-6 by degree (n-0 .. n-5) should have forceLabel:true
+    for (let i = 0; i < 6; i++) {
+      expect(graph.getNodeAttribute(`n-${i}`, "forceLabel")).toBe(true);
+    }
+    // n-6 should NOT have forceLabel
+    expect(graph.getNodeAttribute("n-6", "forceLabel")).toBe(false);
+  });
+
+  it("hub nodes get hubLabel (truncated to 18 chars + ellipsis)", () => {
+    const longTitle = "Software Asset Management (SAM) — ServiceNow ITAM Overview";
+    const nodes: GraphNode[] = [
+      { id: "hub-long", title: longTitle, type: "concept", x: 0, y: 0, degree: 100 },
+      ...Array.from({ length: 99 }, (_, i) => ({
+        id: `n-${i}`,
+        title: `Short ${i}`,
+        type: null as null,
+        x: 0,
+        y: 0,
+        degree: i,
+      })),
+    ];
+    // 100 nodes → K = min(6, ceil(100*0.01)) = min(6,1) = 1 → hub-long is the only hub
+    const graph = buildGraphologyGraph(nodes, []);
+    const hubAttrs = graph.getNodeAttributes("hub-long");
+    // Full label preserved
+    expect(hubAttrs["label"]).toBe(longTitle);
+    // hubLabel is truncated
+    expect(hubAttrs["hubLabel"]).toBe("Software Asset Man…");
+    expect((hubAttrs["hubLabel"] as string).length).toBeLessThanOrEqual(19); // 18 + ellipsis char
+  });
+});
+
+// ─── B3 DECLUTTER: truncateHubLabel ──────────────────────────────────────────
+
+describe("truncateHubLabel — hub label truncation", () => {
+  it("returns title unchanged when ≤18 chars", () => {
+    expect(truncateHubLabel("Short title")).toBe("Short title");
+    expect(truncateHubLabel("Exactly 18 chars!!")).toBe("Exactly 18 chars!!");
+  });
+
+  it("truncates to 18 chars + ellipsis when longer", () => {
+    const long = "Software Asset Management (SAM) — ServiceNow ITAM Overview";
+    const result = truncateHubLabel(long);
+    expect(result).toBe("Software Asset Man…");
+    expect(result.length).toBe(19); // 18 + 1 ellipsis char
+  });
+
+  it("handles empty string", () => {
+    expect(truncateHubLabel("")).toBe("");
+  });
+
+  it("handles exactly 19-char string (one over limit)", () => {
+    const s = "1234567890123456789"; // 19 chars
+    const result = truncateHubLabel(s);
+    expect(result).toBe("123456789012345678…");
+    expect(result.length).toBe(19);
+  });
+});
+
+// ─── B3-LOOK GL3: densityScale function ──────────────────────────────────────
+
+describe("densityScale — GL3 node size scaling", () => {
+  it("returns 1.0 for n=0 (guard — no division by zero)", () => {
+    expect(densityScale(0)).toBe(1.0);
+  });
+
+  it("returns 1.0 for n=1 (single node)", () => {
+    expect(densityScale(1)).toBe(1.0);
+  });
+
+  it("returns 1.0 for small graphs (n ≤ 150)", () => {
+    // sqrt(150/150) = 1.0 → clamp(1.0, 0.4, 1.0) = 1.0
+    expect(densityScale(150)).toBeCloseTo(1.0, 5);
+  });
+
+  it("returns a value < 1.0 for n > 150", () => {
+    expect(densityScale(600)).toBeLessThan(1.0);
+  });
+
+  it("returns ~0.39 for n=986 (representative large wiki)", () => {
+    // sqrt(150/986) ≈ 0.390 → clamp to [0.4, 1.0] → 0.4
+    const scale = densityScale(986);
+    expect(scale).toBeCloseTo(0.4, 2);
+  });
+
+  it("is clamped to 0.4 minimum for very large graphs", () => {
+    expect(densityScale(10_000)).toBe(0.4);
+  });
+
+  it("is never greater than 1.0", () => {
+    for (const n of [1, 10, 50, 100, 150, 500, 1000, 5000]) {
+      expect(densityScale(n)).toBeLessThanOrEqual(1.0);
+    }
+  });
+
+  it("is never less than 0.4", () => {
+    for (const n of [151, 500, 1000, 5000, 100_000]) {
+      expect(densityScale(n)).toBeGreaterThanOrEqual(0.4);
+    }
+  });
+});
+
+// ─── B3-LOOK GL3: node sizes are smaller on large graphs ─────────────────────
+
+describe("buildGraphologyGraph — GL3 density scaling applied to node sizes", () => {
+  it("node sizes are 1.0× at n=4 (small graph — no shrinkage)", () => {
+    // densityScale(4) = clamp(sqrt(150/4), 0.4, 1.0) = clamp(6.12, 0.4, 1.0) = 1.0
+    // So sizes should be in the full MIN_R..MAX_R range
+    const graph = buildGraphologyGraph(NODES, EDGES);
+    graph.forEachNode((_id, attrs) => {
+      const size = attrs["size"] as number;
+      // With scale=1.0, sizes lie in [MIN_R, MAX_R] = [2.5, 11]
+      // Floor is 2.0 (NODE_SIZE_FLOOR) but with scale=1.0, nothing falls below 2.5
+      expect(size).toBeGreaterThanOrEqual(2.0);
+      expect(size).toBeLessThanOrEqual(11.0);
+    });
+  });
+
+  it("node sizes are smaller on a 600-node graph than on a 4-node graph", () => {
+    // Build two graphs with the same degree distribution, different counts.
+    // The 600-node graph should produce smaller sizes because densityScale(600) < 1.
+    const largeNodes: GraphNode[] = Array.from({ length: 600 }, (_, i) => ({
+      id: `big-${i}`,
+      title: `Node ${i}`,
+      type: null as null,
+      x: 0,
+      y: 0,
+      degree: 5, // uniform degree so size = MID_R * scale
+    }));
+    const graphLarge = buildGraphologyGraph(largeNodes, []);
+
+    const graphSmall = buildGraphologyGraph(NODES, EDGES);
+
+    // A degree-5 node on the small graph (4 nodes) will be sized at MID_R * 1.0
+    // A degree-5 node on the large graph (600 nodes) will be sized at MID_R * scale(600)
+    // scale(600) = clamp(sqrt(150/600), 0.4, 1.0) = clamp(0.5, 0.4, 1.0) = 0.5
+    const largeSize = graphLarge.getNodeAttribute("big-0", "size") as number;
+    const smallDeg2Size = graphSmall.getNodeAttribute("node-1", "size") as number; // degree=2
+
+    // The large-graph nodes should be smaller (scale 0.5 vs 1.0)
+    expect(largeSize).toBeLessThan(smallDeg2Size * 1.0);
+  });
+
+  it("all node sizes respect the 2px floor even after scaling", () => {
+    // 10000 nodes → densityScale = 0.4 (minimum clamp)
+    // Even with MIN_R * 0.4 = 2.5 * 0.4 = 1.0, the floor kicks in → 2.0
+    const hugeNodes: GraphNode[] = Array.from({ length: 10_000 }, (_, i) => ({
+      id: `h-${i}`,
+      title: `Node ${i}`,
+      type: null as null,
+      x: 0,
+      y: 0,
+      degree: 0, // min degree → smallest possible radius before floor
+    }));
+    const graph = buildGraphologyGraph(hugeNodes, []);
+    graph.forEachNode((_id, attrs) => {
+      expect(attrs["size"] as number).toBeGreaterThanOrEqual(2.0);
+    });
   });
 });

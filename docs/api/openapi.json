@@ -5641,6 +5641,35 @@
             "type": "number",
             "title": "Cohesion",
             "description": "Intra-edge density [0,1]; 0 for singletons"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "Human-readable community name for Community Mode (F18). Priority: dominant_domain \u2192 top_page.title \u2192 'Comunit\u00e0 {id}'. Computed server-side alongside cohesion (I2).",
+            "default": ""
+          },
+          "dominant_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dominant Domain",
+            "description": "Most-frequent in-vocabulary domain/* tag among community members (F18). Prefix 'domain/' is stripped. None when no valid domain tags are present."
+          },
+          "top_page": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GraphCommunityTopPageResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Highest-degree member page {id, title, slug} \u2014 used for label fallback and tooltip (F18). None when the community has no members."
           }
         },
         "type": "object",
@@ -5650,12 +5679,52 @@
           "cohesion"
         ],
         "title": "GraphCommunityResponse",
-        "description": "Per-community summary in the GET /graph response (G-P0-2).\n\nid      : re-numbered Louvain community id (0 = largest community).\nsize    : number of member nodes.\ncohesion: intra-edge density in [0, 1]; 0 for singleton communities.\n          Low cohesion (<0.1) signals a loosely-connected community\n          suitable for a warning in the client legend.",
+        "description": "Per-community summary in the GET /graph response (G-P0-2, F18).\n\nid             : re-numbered Louvain community id (0 = largest community).\nsize           : number of member nodes.\ncohesion       : intra-edge density in [0, 1]; 0 for singleton communities.\n                 Low cohesion (<0.1) signals a loosely-connected community\n                 suitable for a warning in the client legend.\nlabel          : human-readable display name for Community Mode (F18).\n                 Priority: dominant_domain \u2192 top_page.title \u2192 \"Comunit\u00e0 {id}\".\n                 Computed server-side in recompute() \u2014 no client computation (I2).\ndominant_domain: most-frequent in-vocab \"domain/<Name>\" tag among members (F18).\n                 None when no valid domain tags are present.\ntop_page       : highest-degree member page {id, title, slug} for disambiguation\n                 and tooltip (F18). None for communities with no members.",
         "example": {
           "cohesion": 0.42,
+          "dominant_domain": "SAM",
           "id": 0,
-          "size": 12
+          "label": "SAM",
+          "size": 12,
+          "top_page": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "slug": "software-asset-management",
+            "title": "Software Asset Management"
+          }
         }
+      },
+      "GraphCommunityTopPageResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Page UUID"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Page title"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug",
+            "description": "URL-safe slug derived from title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug"
+        ],
+        "title": "GraphCommunityTopPageResponse",
+        "description": "Highest-degree member page of a community \u2014 disambiguation + tooltip (F18)."
       },
       "GraphEdgeResponse": {
         "properties": {
@@ -5786,6 +5855,18 @@
             "title": "Community",
             "description": "Louvain community id (G-P0-2, I2). Re-numbered by size (0 = largest). -1 when not yet assigned (first recompute pending).",
             "default": -1
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain",
+            "description": "The node page's own dominant in-vocabulary domain (F18, ADR-0054 \u00a72.2). Prefix 'domain/' is stripped. None when the page has no in-vocab domain tags. Tie-break: when \u22652 in-vocab domain tags are present, the one with the smallest index in the active vocabulary list wins (deterministic). Computed inside the graph recompute \u2014 no extra query (I1), cached with the snapshot (I2). Additive field \u2014 backward-compatible (default None)."
           }
         },
         "type": "object",
@@ -5797,10 +5878,11 @@
           "y"
         ],
         "title": "GraphNodeResponse",
-        "description": "One graph node in the GET /graph response (ADR-0014 \u00a76, AC-F4-3, ADR-0016 \u00a74).\n\nRequired: id, title, type, x, y.\nOptional rendering hints (derived server-side): size, degree.\ncommunity: Louvain community id (G-P0-2); -1 when not yet assigned.",
+        "description": "One graph node in the GET /graph response (ADR-0014 \u00a76, AC-F4-3, ADR-0016 \u00a74).\n\nRequired: id, title, type, x, y.\nOptional rendering hints (derived server-side): size, degree.\ncommunity: Louvain community id (G-P0-2); -1 when not yet assigned.\ndomain: the node page's own dominant in-vocabulary domain (F18, ADR-0054 \u00a72.2).\n  Stripped of the \"domain/\" prefix.  None when the page has no in-vocab domain tags.\n  Tie-break: when \u22652 in-vocab domain tags exist, first in vocabulary order wins.\n  Backward-compatible additive field (default None).",
         "example": {
           "community": 0,
           "degree": 3,
+          "domain": "SAM",
           "id": "00000000-0000-0000-0000-000000000001",
           "size": 2.1,
           "title": "Alpha",
@@ -5840,6 +5922,18 @@
             "type": "array",
             "title": "Communities",
             "description": "Per-community summary (G-P0-2, I2): id, size, cohesion. Ordered by id (0 = largest). Empty until first graph recompute."
+          },
+          "total_nodes": {
+            "type": "integer",
+            "title": "Total Nodes",
+            "description": "Count of ALL live (non-deleted) pages in the vault (the full denominator). Use len(nodes) for the in-graph numerator: e.g. '816/986 pages' (GR1). Computed via a bounded indexed COUNT query \u2014 I1.",
+            "default": 0
+          },
+          "total_edges": {
+            "type": "integer",
+            "title": "Total Edges",
+            "description": "Count of ALL link rows for this vault (the full wikilink denominator). Use len(edges) for the in-graph numerator: e.g. '1024/4213 edges' (GR1). Computed via a bounded indexed COUNT query \u2014 I1.",
+            "default": 0
           }
         },
         "type": "object",
@@ -5856,8 +5950,15 @@
           "communities": [
             {
               "cohesion": 1.0,
+              "dominant_domain": "SAM",
               "id": 0,
-              "size": 2
+              "label": "SAM",
+              "size": 2,
+              "top_page": {
+                "id": "00000000-0000-0000-0000-000000000001",
+                "slug": "alpha",
+                "title": "Alpha"
+              }
             }
           ],
           "data_version": 7,
@@ -5873,6 +5974,7 @@
             {
               "community": 0,
               "degree": 3,
+              "domain": "SAM",
               "id": "00000000-0000-0000-0000-000000000001",
               "size": 2.1,
               "title": "Alpha",
@@ -5880,7 +5982,9 @@
               "x": 1.23,
               "y": -0.45
             }
-          ]
+          ],
+          "total_edges": 4213,
+          "total_nodes": 986
         }
       },
       "HTTPValidationError": {
