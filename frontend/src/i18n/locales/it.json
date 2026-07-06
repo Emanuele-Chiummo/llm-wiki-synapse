@@ -735,6 +735,17 @@
     }
   },
   "graph": {
+    "header": {
+      "pages": "pagine",
+      "links": "link",
+      "hidden": "nascosti",
+      "searchPlaceholder": "Cerca nel grafo…",
+      "filter": "Filtra",
+      "filterNodeTypes": "TIPI NODO",
+      "clearFilter": "Rimuovi filtri",
+      "reset": "Reset",
+      "fullscreen": "Schermo intero"
+    },
     "colorModeType": "Tipo",
     "colorModeCommunity": "Comunità",
     "colorModeToggleLabel": "Colora per",

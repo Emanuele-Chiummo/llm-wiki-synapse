@@ -14,6 +14,7 @@ import {
   edgeVisibilityThreshold,
   densityScale,
   computeTopKHubs,
+  truncateHubLabel,
 } from "../api/graphTransform";
 import type { GraphNode, GraphEdge } from "../api/types";
 
@@ -221,20 +222,20 @@ describe("edgeVisibilityThreshold — GL1 bucket boundaries", () => {
     expect(edgeVisibilityThreshold(600)).toBe(0.12);
   });
 
-  it("returns 0.22 for n=601 (just above medium boundary)", () => {
-    expect(edgeVisibilityThreshold(601)).toBe(0.22);
+  it("returns 0.30 for n=601 (just above medium boundary — raised from 0.22)", () => {
+    expect(edgeVisibilityThreshold(601)).toBe(0.30);
   });
 
-  it("returns 0.22 for n=1200 (boundary — large graph)", () => {
-    expect(edgeVisibilityThreshold(1200)).toBe(0.22);
+  it("returns 0.30 for n=1200 (boundary — large graph — raised from 0.22)", () => {
+    expect(edgeVisibilityThreshold(1200)).toBe(0.30);
   });
 
-  it("returns 0.32 for n=1201 (just above large boundary)", () => {
-    expect(edgeVisibilityThreshold(1201)).toBe(0.32);
+  it("returns 0.42 for n=1201 (just above large boundary — raised from 0.32)", () => {
+    expect(edgeVisibilityThreshold(1201)).toBe(0.42);
   });
 
-  it("returns 0.32 for n=5000 (very large graph)", () => {
-    expect(edgeVisibilityThreshold(5000)).toBe(0.32);
+  it("returns 0.42 for n=5000 (very large graph — raised from 0.32)", () => {
+    expect(edgeVisibilityThreshold(5000)).toBe(0.42);
   });
 });
 
@@ -295,13 +296,13 @@ describe("buildGraphologyGraph — GL1 edge hidden flag", () => {
 
 // ─── B3-LOOK GL2: hub forceLabel selection ───────────────────────────────────
 
-describe("computeTopKHubs — GL2 top-K by degree", () => {
+describe("computeTopKHubs — GL2 top-K by degree (K = min(6, ceil(n*0.01)))", () => {
   it("returns empty set for empty node list", () => {
     expect(computeTopKHubs([])).toEqual(new Set());
   });
 
-  it("returns all nodes when n ≤ K (K = min(10, ceil(n*0.02)))", () => {
-    // 4 nodes → K = min(10, ceil(4*0.02)) = min(10, 1) = 1
+  it("returns 1 hub for 4 nodes (K = min(6, ceil(4*0.01)) = min(6,1) = 1)", () => {
+    // 4 nodes → K = min(6, ceil(4*0.01)) = min(6, 1) = 1
     // Only the single highest-degree node should be in the hub set
     const hubs = computeTopKHubs(NODES);
     // node-1 has degree 2 — highest in NODES fixture
@@ -317,14 +318,14 @@ describe("computeTopKHubs — GL2 top-K by degree", () => {
       { id: "d", title: "D", type: null, x: 0, y: 0, degree: 5 },
       { id: "e", title: "E", type: null, x: 0, y: 0, degree: 1 },
     ];
-    // K = min(10, ceil(5*0.02)) = min(10, 1) = 1
+    // K = min(6, ceil(5*0.01)) = min(6, 1) = 1
     const hubs = computeTopKHubs(nodes);
     expect(hubs.has("a")).toBe(true); // highest degree
     expect(hubs.size).toBe(1);
   });
 
-  it("K scales with n (K = ceil(n*0.02) for large n)", () => {
-    // 1000 nodes → K = min(10, ceil(1000*0.02)) = min(10, 20) = 10
+  it("K scales with n (K = ceil(n*0.01) up to 6 for large n)", () => {
+    // 1000 nodes → K = min(6, ceil(1000*0.01)) = min(6, 10) = 6
     const nodes: GraphNode[] = Array.from({ length: 1000 }, (_, i) => ({
       id: `hub-${i}`,
       title: `Node ${i}`,
@@ -334,32 +335,96 @@ describe("computeTopKHubs — GL2 top-K by degree", () => {
       degree: 1000 - i, // descending: hub-0 has degree 1000, hub-999 has degree 1
     }));
     const hubs = computeTopKHubs(nodes);
-    expect(hubs.size).toBe(10);
-    // The top-10 should be hub-0 through hub-9
-    for (let i = 0; i < 10; i++) {
+    expect(hubs.size).toBe(6);
+    // The top-6 should be hub-0 through hub-5
+    for (let i = 0; i < 6; i++) {
       expect(hubs.has(`hub-${i}`)).toBe(true);
     }
-    // hub-10 should NOT be in the hub set
-    expect(hubs.has("hub-10")).toBe(false);
+    // hub-6 should NOT be in the hub set
+    expect(hubs.has("hub-6")).toBe(false);
+  });
+
+  it("K is capped at 6 even for very large graphs", () => {
+    // 10000 nodes → K = min(6, ceil(10000*0.01)) = min(6, 100) = 6
+    const nodes: GraphNode[] = Array.from({ length: 10_000 }, (_, i) => ({
+      id: `big-${i}`,
+      title: `Node ${i}`,
+      type: null as null,
+      x: 0,
+      y: 0,
+      degree: 10_000 - i,
+    }));
+    const hubs = computeTopKHubs(nodes);
+    expect(hubs.size).toBe(6);
   });
 
   it("hub nodes get forceLabel=true in built graph", () => {
-    // Use a 500-node synthetic graph so K = min(10, ceil(500*0.02)) = 10
-    const nodes: GraphNode[] = Array.from({ length: 500 }, (_, i) => ({
+    // Use a 600-node synthetic graph so K = min(6, ceil(600*0.01)) = min(6,6) = 6
+    const nodes: GraphNode[] = Array.from({ length: 600 }, (_, i) => ({
       id: `n-${i}`,
       title: `Node ${i}`,
       type: null as null,
       x: i * 0.1,
       y: 0,
-      degree: 500 - i, // n-0 is highest-degree hub
+      degree: 600 - i, // n-0 is highest-degree hub
     }));
     const graph = buildGraphologyGraph(nodes, []);
-    // Top-10 by degree (n-0 .. n-9) should have forceLabel:true
-    for (let i = 0; i < 10; i++) {
+    // Top-6 by degree (n-0 .. n-5) should have forceLabel:true
+    for (let i = 0; i < 6; i++) {
       expect(graph.getNodeAttribute(`n-${i}`, "forceLabel")).toBe(true);
     }
-    // n-10 should NOT have forceLabel
-    expect(graph.getNodeAttribute("n-10", "forceLabel")).toBe(false);
+    // n-6 should NOT have forceLabel
+    expect(graph.getNodeAttribute("n-6", "forceLabel")).toBe(false);
+  });
+
+  it("hub nodes get hubLabel (truncated to 18 chars + ellipsis)", () => {
+    const longTitle = "Software Asset Management (SAM) — ServiceNow ITAM Overview";
+    const nodes: GraphNode[] = [
+      { id: "hub-long", title: longTitle, type: "concept", x: 0, y: 0, degree: 100 },
+      ...Array.from({ length: 99 }, (_, i) => ({
+        id: `n-${i}`,
+        title: `Short ${i}`,
+        type: null as null,
+        x: 0,
+        y: 0,
+        degree: i,
+      })),
+    ];
+    // 100 nodes → K = min(6, ceil(100*0.01)) = min(6,1) = 1 → hub-long is the only hub
+    const graph = buildGraphologyGraph(nodes, []);
+    const hubAttrs = graph.getNodeAttributes("hub-long");
+    // Full label preserved
+    expect(hubAttrs["label"]).toBe(longTitle);
+    // hubLabel is truncated
+    expect(hubAttrs["hubLabel"]).toBe("Software Asset Man…");
+    expect((hubAttrs["hubLabel"] as string).length).toBeLessThanOrEqual(19); // 18 + ellipsis char
+  });
+});
+
+// ─── B3 DECLUTTER: truncateHubLabel ──────────────────────────────────────────
+
+describe("truncateHubLabel — hub label truncation", () => {
+  it("returns title unchanged when ≤18 chars", () => {
+    expect(truncateHubLabel("Short title")).toBe("Short title");
+    expect(truncateHubLabel("Exactly 18 chars!!")).toBe("Exactly 18 chars!!");
+  });
+
+  it("truncates to 18 chars + ellipsis when longer", () => {
+    const long = "Software Asset Management (SAM) — ServiceNow ITAM Overview";
+    const result = truncateHubLabel(long);
+    expect(result).toBe("Software Asset Man…");
+    expect(result.length).toBe(19); // 18 + 1 ellipsis char
+  });
+
+  it("handles empty string", () => {
+    expect(truncateHubLabel("")).toBe("");
+  });
+
+  it("handles exactly 19-char string (one over limit)", () => {
+    const s = "1234567890123456789"; // 19 chars
+    const result = truncateHubLabel(s);
+    expect(result).toBe("123456789012345678…");
+    expect(result.length).toBe(19);
   });
 });
 
