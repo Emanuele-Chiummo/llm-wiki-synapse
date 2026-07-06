@@ -1,25 +1,27 @@
 /**
- * LintView.tsx — K2 Lint-fix section UI (ADR-0037 §6).
+ * LintView.tsx — K2 Lint-fix section UI (ADR-0037 §6, B1).
  *
- * Layout:
- *   - Header: title + "Run Lint" button (spinner while scanning) + refresh
+ * Layout (B1-aligned, matching nashsu/llm_wiki lint page):
+ *   - Header: title + count badge + "Semantic (LLM)" checkbox [L8] + "Run Lint" + Refresh
  *   - Run-history cost line: last run's total_cost_usd at 4dp (I7) + status + timestamp
  *   - Scan error banner
- *   - Findings list grouped by category (TanStack Virtual — I4)
- *   - Per-finding row: severity chip + category badge + target_title + description
- *     + proposed_action (when present) + Apply / Dismiss buttons
- *   - Apply label is "Fix" for missing-xref/missing-page (real write).
- *     Apply label is "Acknowledge" for orphan-page/contradiction/stale-claim (flag-only).
+ *   - Batch bar [L5]: "Select all" checkbox + "{n} selected" + Fix/Ignore/Send-to-Review buttons
+ *   - Findings list grouped by severity (Errors / Warnings / Info) with sticky group headers [L7]
+ *   - Per-finding row: checkbox + severity chip + category badge + target_title + description
+ *     + green "Suggested target:" strip [L2] + proposed_action + Apply/Dismiss/Send-to-Review [L4/L6]
+ *     + "Open" navigation button [L4] + "Delete" (orphan-page only, two-stage confirm) [L9]
  *   - Empty state when no open findings.
  *
  * INVARIANT I3: Zustand selectors + shallow equality. No store subscriptions on
  *   unrelated state. Descriptions displayed as plain text — no per-token parsing.
  * INVARIANT I4: findings list virtualised with TanStack Virtual always.
+ *   Severity group headers are synthetic rows with distinct height (variable-size virtualiser).
  * INVARIANT I7: total_cost_usd rendered at 4dp; scan is bounded (max_iter/token_budget
- *   frozen by the backend before the scan starts).
+ *   frozen by the backend before the scan starts). Batch cap = 200 (enforced by backend).
+ * B1-K8: Delete = human double-confirm (armed-red pattern). Fixes stay human-gated.
  */
 
-import { useEffect, useRef, useCallback, type CSSProperties } from "react";
+import { useEffect, useRef, useCallback, useState, type CSSProperties } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
@@ -40,8 +42,27 @@ import {
   selectLintRefresh,
   selectLintFetchMoreFindings,
   selectClearLintScanError,
+  // B1 selectors
+  selectLintSemanticEnabled,
+  selectLintSelectedIds,
+  selectLintBatchInFlight,
+  selectLintSetSemanticEnabled,
+  selectLintToggleSelect,
+  selectLintSelectAll,
+  selectLintClearSelection,
+  selectLintApplyBatch,
+  selectLintDismissBatch,
+  selectLintSendToReviewBatch,
+  selectLintSendToReview,
+  selectLintDeleteOrphanPage,
 } from "../../store/lintStore";
-import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import {
+  useGraphStore,
+  selectVaultId,
+  selectSelectPage,
+  selectSetActiveSection,
+} from "../../store/graphStore";
+import { useProviderConfigured } from "../../hooks/useProviderConfigured";
 import { EmptyState } from "../common/EmptyState";
 import { showToast } from "../common/Toast";
 import type { LintFinding } from "../../api/types";
@@ -49,28 +70,76 @@ import { LINT_FLAG_ONLY_CATEGORIES } from "../../api/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/** Row height: severity chip + title row + description row + action row. */
-const ROW_HEIGHT = 120;
+/** Height of a standard finding row (px). */
+const ROW_HEIGHT = 136;
+
+/** Height of a severity group header row (px). */
+const GROUP_HEADER_HEIGHT = 30;
 
 /** Format cost at 4 decimal places (I7). */
 function formatCost(usd: number): string {
   return `$${usd.toFixed(4)}`;
 }
 
+// ─── Virtual row types ────────────────────────────────────────────────────────
+
+type SeverityLevel = "error" | "warning" | "info";
+
+interface GroupHeaderRow {
+  kind: "group-header";
+  severity: SeverityLevel;
+  count: number;
+}
+
+interface FindingRow_ {
+  kind: "finding";
+  finding: LintFinding;
+}
+
+type VirtualRow = GroupHeaderRow | FindingRow_;
+
+/** Build a flat list of virtual rows grouped error→warning→info with synthetic headers. */
+function buildVirtualRows(findings: LintFinding[]): VirtualRow[] {
+  const groups: Record<SeverityLevel, LintFinding[]> = {
+    error: [],
+    warning: [],
+    info: [],
+  };
+  for (const f of findings) {
+    const sev = (f.severity as SeverityLevel) in groups
+      ? (f.severity as SeverityLevel)
+      : "info";
+    groups[sev].push(f);
+  }
+
+  const rows: VirtualRow[] = [];
+  const order: SeverityLevel[] = ["error", "warning", "info"];
+  for (const sev of order) {
+    const items = groups[sev];
+    if (items.length === 0) continue;
+    rows.push({ kind: "group-header", severity: sev, count: items.length });
+    for (const f of items) {
+      rows.push({ kind: "finding", finding: f });
+    }
+  }
+  return rows;
+}
+
 // ─── Category badge ───────────────────────────────────────────────────────────
 
 const CATEGORY_COLORS: Record<string, { color: string; bg: string }> = {
-  "orphan-page":   { color: "var(--syn-text-muted)",  bg: "var(--syn-surface-hover)" },
-  // UXB-2 AC-UXB2-5: "white" → var(--syn-mix-base) for dark-mode safety
-  "missing-xref":  { color: "var(--syn-amber)",        bg: "color-mix(in srgb, var(--syn-amber) 10%, var(--syn-mix-base) 90%)" },
-  "contradiction": { color: "var(--syn-red)",          bg: "color-mix(in srgb, var(--syn-red) 10%, var(--syn-mix-base) 90%)" },
-  "stale-claim":   { color: "var(--syn-type-concept)", bg: "color-mix(in srgb, var(--syn-type-concept) 10%, var(--syn-mix-base) 90%)" },
-  "missing-page":  { color: "var(--syn-green)",        bg: "color-mix(in srgb, var(--syn-green) 10%, var(--syn-mix-base) 90%)" },
+  "orphan-page":     { color: "var(--syn-text-muted)",  bg: "var(--syn-surface-hover)" },
+  "missing-xref":    { color: "var(--syn-amber)",        bg: "color-mix(in srgb, var(--syn-amber) 10%, var(--syn-mix-base) 90%)" },
+  "contradiction":   { color: "var(--syn-red)",          bg: "color-mix(in srgb, var(--syn-red) 10%, var(--syn-mix-base) 90%)" },
+  "stale-claim":     { color: "var(--syn-type-concept)", bg: "color-mix(in srgb, var(--syn-type-concept) 10%, var(--syn-mix-base) 90%)" },
+  "missing-page":    { color: "var(--syn-green)",        bg: "color-mix(in srgb, var(--syn-green) 10%, var(--syn-mix-base) 90%)" },
+  // B1-L1: broken-wikilink — orange (distinct from amber missing-xref)
+  "broken-wikilink": { color: "var(--syn-red)",          bg: "color-mix(in srgb, var(--syn-red) 8%, color-mix(in srgb, var(--syn-amber) 20%, var(--syn-mix-base) 80%) 92%)" },
 };
 
 interface CategoryBadgeProps {
   category: string;
-  t: (key: string) => string;
+  t: TranslateFn;
 }
 
 function CategoryBadge({ category, t }: CategoryBadgeProps) {
@@ -135,6 +204,49 @@ function SeverityChip({ severity }: SeverityChipProps) {
   );
 }
 
+// ─── Severity group header ─────────────────────────────────────────────────────
+
+const SEVERITY_LABEL_KEYS: Record<SeverityLevel, string> = {
+  error:   "lint.groups.errors",
+  warning: "lint.groups.warnings",
+  info:    "lint.groups.info",
+};
+
+// Narrow translate signature compatible with both prop-passing and TFunction (I3).
+type TranslateFn = (key: string, opts?: Record<string, unknown>) => string;
+
+interface SeverityGroupHeaderProps {
+  severity: SeverityLevel;
+  count: number;
+  style: CSSProperties;
+  t: TranslateFn;
+}
+
+function SeverityGroupHeader({ severity, count, style, t }: SeverityGroupHeaderProps) {
+  const color = SEVERITY_COLORS[severity] ?? "var(--syn-text-muted)";
+  return (
+    <div
+      data-testid={`lint-group-header-${severity}`}
+      style={{
+        ...style,
+        height: GROUP_HEADER_HEIGHT,
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "0 16px",
+        background: `color-mix(in srgb, ${color} 6%, var(--syn-bg-soft) 94%)`,
+        borderBottom: `1px solid color-mix(in srgb, ${color} 20%, var(--syn-border) 80%)`,
+        boxSizing: "border-box",
+        userSelect: "none",
+      }}
+    >
+      <span style={{ fontSize: 10, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        {t(SEVERITY_LABEL_KEYS[severity])} ({count})
+      </span>
+    </div>
+  );
+}
+
 // ─── Action button ────────────────────────────────────────────────────────────
 
 interface LintActionButtonProps {
@@ -142,14 +254,21 @@ interface LintActionButtonProps {
   onClick: () => void;
   disabled: boolean;
   loading?: boolean;
-  variant: "apply" | "acknowledge" | "dismiss";
+  variant: "apply" | "acknowledge" | "dismiss" | "open" | "delete" | "delete-armed" | "send-to-review";
+  title?: string;
+  /** When true, the data-testid is prefixed with "batch-" to disambiguate from row buttons. */
+  batchBar?: boolean;
 }
 
-function LintActionButton({ label, onClick, disabled, loading, variant }: LintActionButtonProps) {
+function LintActionButton({ label, onClick, disabled, loading, variant, title, batchBar }: LintActionButtonProps) {
   const COLORS: Record<string, { border: string; color: string }> = {
-    apply:       { border: "var(--syn-green)",      color: "var(--syn-green)" },
-    acknowledge: { border: "var(--syn-accent)",     color: "var(--syn-accent)" },
-    dismiss:     { border: "var(--syn-border)",     color: "var(--syn-text-muted)" },
+    apply:          { border: "var(--syn-green)",      color: "var(--syn-green)" },
+    acknowledge:    { border: "var(--syn-accent)",     color: "var(--syn-accent)" },
+    dismiss:        { border: "var(--syn-border)",     color: "var(--syn-text-muted)" },
+    open:           { border: "var(--syn-accent)",     color: "var(--syn-accent)" },
+    "delete":       { border: "var(--syn-border)",     color: "var(--syn-text-muted)" },
+    "delete-armed": { border: "var(--syn-red)",        color: "var(--syn-red)" },
+    "send-to-review": { border: "var(--syn-type-concept)", color: "var(--syn-type-concept)" },
   };
   const { border, color } = COLORS[variant] ?? (COLORS["dismiss"] as { border: string; color: string });
   const isDisabled = disabled || loading;
@@ -159,7 +278,8 @@ function LintActionButton({ label, onClick, disabled, loading, variant }: LintAc
       disabled={isDisabled}
       aria-label={label}
       aria-busy={loading}
-      data-testid={`lint-action-${variant}`}
+      data-testid={batchBar ? `lint-batch-action-${variant}` : `lint-action-${variant}`}
+      title={title}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -202,19 +322,29 @@ interface FindingRowProps {
   style: CSSProperties;
   inFlight: "apply" | "dismiss" | null | undefined;
   actionErr: string | null | undefined;
+  isSelected: boolean;
   onApply: (id: string) => void;
   onDismiss: (id: string) => void;
-  t: (key: string) => string;
+  onSendToReview: (id: string) => void;
+  onToggleSelect: (id: string) => void;
+  onOpen: (finding: LintFinding) => void;
+  onDelete: (finding: LintFinding) => void;
+  t: TranslateFn;
   lang: string;
 }
 
-function FindingRow({
+function FindingRowComponent({
   finding,
   style,
   inFlight,
   actionErr,
+  isSelected,
   onApply,
   onDismiss,
+  onSendToReview,
+  onToggleSelect,
+  onOpen,
+  onDelete,
   t,
   lang,
 }: FindingRowProps) {
@@ -222,8 +352,17 @@ function FindingRow({
   const isApplying = inFlight === "apply";
   const isDismissing = inFlight === "dismiss";
 
-  // Determine if this category is flag-only (acknowledge) vs real fix
-  const isFlagOnly = LINT_FLAG_ONLY_CATEGORIES.has(finding.category as Parameters<typeof LINT_FLAG_ONLY_CATEGORIES["has"]>[0]);
+  // B1-L3: broken-wikilink with a suggested_target has a real Fix;
+  // without suggestion it is acknowledge-only (flag-only per-row).
+  const isFlagOnly =
+    LINT_FLAG_ONLY_CATEGORIES.has(finding.category as Parameters<typeof LINT_FLAG_ONLY_CATEGORIES["has"]>[0]) ||
+    (finding.category === "broken-wikilink" && !finding.suggested_target);
+
+  // B1-L9: orphan-page has a Delete button (two-stage confirm in parent)
+  const isOrphan = finding.category === "orphan-page";
+
+  // B1-L4: Open button visible when target_page_id is present
+  const hasTarget = !!finding.target_page_id;
 
   const relTime = (() => {
     try {
@@ -253,16 +392,25 @@ function FindingRow({
       style={{
         ...style,
         height: ROW_HEIGHT,
-        padding: "8px 16px",
+        padding: "6px 16px",
         borderBottom: "1px solid var(--syn-border)",
         display: "flex",
         flexDirection: "column",
         gap: 3,
         boxSizing: "border-box",
+        background: isSelected ? "color-mix(in srgb, var(--syn-accent) 5%, var(--syn-bg) 95%)" : "var(--syn-bg)",
       }}
     >
-      {/* Row 1: severity chip + category badge + target_title + timestamp */}
+      {/* Row 1: checkbox + severity chip + category badge + target_title + timestamp */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={() => onToggleSelect(finding.id)}
+          aria-label={t("lint.selectFinding")}
+          data-testid={`lint-row-checkbox-${finding.id}`}
+          style={{ flexShrink: 0, cursor: "pointer", accentColor: "var(--syn-accent)" }}
+        />
         <SeverityChip severity={finding.severity} />
         <CategoryBadge category={finding.category} t={t} />
         <span
@@ -302,8 +450,34 @@ function FindingRow({
         {finding.description}
       </div>
 
-      {/* Row 3: proposed_action (only for real-fix categories when present) */}
-      {!isFlagOnly && finding.proposed_action && (
+      {/* Row 3: B1-L2 suggested target strip (green, llm_wiki style) */}
+      {finding.suggested_target && (
+        <div
+          data-testid="lint-suggested-target"
+          style={{
+            fontSize: 11,
+            color: "var(--syn-green)",
+            background: "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)",
+            border: "1px solid color-mix(in srgb, var(--syn-green) 25%, transparent 75%)",
+            borderRadius: 4,
+            padding: "1px 6px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+          title={finding.suggested_target}
+        >
+          <span aria-hidden="true" style={{ flexShrink: 0, fontSize: 10 }}>&#10148;</span>
+          <span style={{ fontWeight: 600 }}>{t("lint.suggestedTarget")}:</span>
+          <span>{finding.suggested_target}</span>
+        </div>
+      )}
+
+      {/* Row 4: proposed_action (only for real-fix categories when present) */}
+      {!isFlagOnly && finding.proposed_action && !finding.suggested_target && (
         <div
           style={{
             fontSize: 10,
@@ -319,8 +493,8 @@ function FindingRow({
         </div>
       )}
 
-      {/* Row 4: flag-only hint */}
-      {isFlagOnly && (
+      {/* Row 5: flag-only hint */}
+      {isFlagOnly && !finding.suggested_target && (
         <div
           style={{
             fontSize: 10,
@@ -335,7 +509,7 @@ function FindingRow({
         </div>
       )}
 
-      {/* Row 5: action buttons + per-finding error */}
+      {/* Row 6: action buttons + per-finding error */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
         <LintActionButton
           label={applyLabel}
@@ -351,6 +525,33 @@ function FindingRow({
           loading={isDismissing}
           variant="dismiss"
         />
+        {/* B1-L6: Send to Review */}
+        <LintActionButton
+          label={t("lint.sendToReview")}
+          onClick={() => onSendToReview(finding.id)}
+          disabled={isAnyInFlight}
+          variant="send-to-review"
+        />
+        {/* B1-L4: Open button */}
+        {hasTarget && (
+          <LintActionButton
+            label={t("lint.open")}
+            onClick={() => onOpen(finding)}
+            disabled={isAnyInFlight}
+            variant="open"
+            title={t("lint.open")}
+          />
+        )}
+        {/* B1-L9: Delete button (orphan-page only) — two-stage confirm handled in parent */}
+        {isOrphan && finding.target_page_id && (
+          <LintActionButton
+            label={t("lint.delete")}
+            onClick={() => onDelete(finding)}
+            disabled={isAnyInFlight}
+            variant="delete"
+            title={t("lint.deleteConfirm")}
+          />
+        )}
         {actionErr && (
           <span
             role="alert"
@@ -364,30 +565,143 @@ function FindingRow({
   );
 }
 
+// ─── Batch bar ────────────────────────────────────────────────────────────────
+
+interface BatchBarProps {
+  selectedCount: number;
+  totalCount: number;
+  batchInFlight: boolean;
+  onSelectAll: () => void;
+  onClearSelection: () => void;
+  onApplyBatch: () => void;
+  onDismissBatch: () => void;
+  onSendToReviewBatch: () => void;
+  t: TranslateFn;
+}
+
+function BatchBar({
+  selectedCount,
+  totalCount,
+  batchInFlight,
+  onSelectAll,
+  onClearSelection,
+  onApplyBatch,
+  onDismissBatch,
+  onSendToReviewBatch,
+  t,
+}: BatchBarProps) {
+  const allSelected = selectedCount === totalCount && totalCount > 0;
+
+  return (
+    <div
+      data-testid="lint-batch-bar"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 16px",
+        borderBottom: "1px solid var(--syn-border)",
+        flexShrink: 0,
+        background: selectedCount > 0
+          ? "color-mix(in srgb, var(--syn-accent) 4%, var(--syn-bg-soft) 96%)"
+          : "var(--syn-bg-soft)",
+        fontSize: 11,
+      }}
+    >
+      {/* Select all checkbox */}
+      <input
+        type="checkbox"
+        checked={allSelected}
+        onChange={allSelected ? onClearSelection : onSelectAll}
+        aria-label={t("lint.selectAll")}
+        data-testid="lint-select-all"
+        disabled={totalCount === 0}
+        style={{ cursor: totalCount === 0 ? "not-allowed" : "pointer", accentColor: "var(--syn-accent)" }}
+      />
+      <span
+        style={{
+          color: selectedCount > 0 ? "var(--syn-accent)" : "var(--syn-text-dim)",
+          minWidth: 60,
+          fontWeight: selectedCount > 0 ? 600 : 400,
+        }}
+      >
+        {selectedCount > 0
+          ? t("lint.selected", { count: selectedCount })
+          : t("lint.selectAll")}
+      </span>
+
+      {/* Batch action buttons — disabled when nothing selected */}
+      <LintActionButton
+        label={t("lint.fixSelected")}
+        onClick={onApplyBatch}
+        disabled={selectedCount === 0 || batchInFlight}
+        loading={batchInFlight}
+        variant="apply"
+        batchBar
+      />
+      <LintActionButton
+        label={t("lint.ignoreSelected")}
+        onClick={onDismissBatch}
+        disabled={selectedCount === 0 || batchInFlight}
+        loading={batchInFlight}
+        variant="dismiss"
+        batchBar
+      />
+      <LintActionButton
+        label={t("lint.sendSelectedToReview")}
+        onClick={onSendToReviewBatch}
+        disabled={selectedCount === 0 || batchInFlight}
+        loading={batchInFlight}
+        variant="send-to-review"
+        batchBar
+      />
+    </div>
+  );
+}
+
+// ─── Two-stage delete confirm state ──────────────────────────────────────────
+
+interface PendingDelete {
+  findingId: string;
+  pageId: string;
+  pageTitle: string;
+}
+
 // ─── Findings list (virtualised — I4) ─────────────────────────────────────────
 
 interface FindingsListProps {
   vaultId: string;
+  onOpen: (finding: LintFinding) => void;
+  onDelete: (finding: LintFinding) => void;
 }
 
-function FindingsList({ vaultId }: FindingsListProps) {
+function FindingsList({ vaultId, onOpen, onDelete }: FindingsListProps) {
   const { t, i18n } = useTranslation();
   const findings = useLintStore(useShallow(selectLintFindings));
   const total = useLintStore(selectLintFindingsTotal);
   const loading = useLintStore(selectLintFindingsLoading);
   const actionInFlight = useLintStore(useShallow(selectLintActionInFlight));
   const actionError = useLintStore(useShallow(selectLintActionError));
+  const selectedIds = useLintStore(selectLintSelectedIds);
   const apply = useLintStore(selectLintApply);
   const dismiss = useLintStore(selectLintDismiss);
+  const sendToReview = useLintStore(selectLintSendToReview);
+  const toggleSelect = useLintStore(selectLintToggleSelect);
   const fetchMore = useLintStore(selectLintFetchMoreFindings);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Always virtualise — efficient regardless of list size (I4).
+  // Build grouped virtual rows (error → warning → info with synthetic headers)
+  const virtualRows = buildVirtualRows(findings);
+
+  // Variable-size virtualiser: group headers are shorter than finding rows (I4).
   const virtualizer = useVirtualizer({
-    count: findings.length,
+    count: virtualRows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: (index) => {
+      const row = virtualRows[index];
+      return row?.kind === "group-header" ? GROUP_HEADER_HEIGHT : ROW_HEIGHT;
+    },
     overscan: 5,
   });
 
@@ -399,8 +713,16 @@ function FindingsList({ vaultId }: FindingsListProps) {
     (id: string) => { void dismiss(id); },
     [dismiss],
   );
+  const handleSendToReview = useCallback(
+    (id: string) => { void sendToReview(id); },
+    [sendToReview],
+  );
+  const handleToggleSelect = useCallback(
+    (id: string) => toggleSelect(id),
+    [toggleSelect],
+  );
 
-  if (findings.length === 0 && !loading) {
+  if (virtualRows.length === 0 && !loading) {
     return (
       <div style={{ display: "flex", height: "100%", padding: 16 }}>
         <EmptyState
@@ -414,7 +736,7 @@ function FindingsList({ vaultId }: FindingsListProps) {
   }
 
   const totalHeight = virtualizer.getTotalSize();
-  const virtualItems = virtualizer.getVirtualItems();
+  const vItems = virtualizer.getVirtualItems();
   const hasMore = findings.length < total;
 
   return (
@@ -424,19 +746,45 @@ function FindingsList({ vaultId }: FindingsListProps) {
       style={{ overflow: "auto", height: "100%", flex: 1, minHeight: 0 }}
     >
       <div style={{ height: totalHeight + (hasMore ? 48 : 0), position: "relative" }}>
-        {virtualItems.map((vRow) => {
-          const finding = findings[vRow.index];
-          if (!finding) return null;
+        {vItems.map((vItem) => {
+          const row = virtualRows[vItem.index];
+          if (!row) return null;
+
+          const rowStyle: CSSProperties = {
+            position: "absolute",
+            top: vItem.start,
+            width: "100%",
+          };
+
+          if (row.kind === "group-header") {
+            return (
+              <SeverityGroupHeader
+                key={`group-${row.severity}`}
+                severity={row.severity}
+                count={row.count}
+                style={rowStyle}
+                t={t as TranslateFn}
+              />
+            );
+          }
+
+          // finding row
+          const { finding } = row;
           return (
-            <FindingRow
+            <FindingRowComponent
               key={finding.id}
               finding={finding}
-              style={{ position: "absolute", top: vRow.start, width: "100%" }}
+              style={rowStyle}
               inFlight={actionInFlight[finding.id]}
               actionErr={actionError[finding.id]}
+              isSelected={selectedIds.has(finding.id)}
               onApply={handleApply}
               onDismiss={handleDismiss}
-              t={t}
+              onSendToReview={handleSendToReview}
+              onToggleSelect={handleToggleSelect}
+              onOpen={onOpen}
+              onDelete={onDelete}
+              t={t as TranslateFn}
               lang={i18n.language}
             />
           );
@@ -475,6 +823,11 @@ function FindingsList({ vaultId }: FindingsListProps) {
 export function LintView() {
   const { t } = useTranslation();
   const vaultId = useGraphStore(selectVaultId);
+  const selectPage = useGraphStore(selectSelectPage);
+  const setActiveSection = useGraphStore(selectSetActiveSection);
+
+  // B1-L8: provider gate for semantic checkbox
+  const { configured: providerConfigured, loading: providerLoading } = useProviderConfigured();
 
   const scan = useLintStore(selectLintScan);
   const refresh = useLintStore(selectLintRefresh);
@@ -485,6 +838,21 @@ export function LintView() {
   const findingsTotal = useLintStore(selectLintFindingsTotal);
   const findingsLoading = useLintStore(selectLintFindingsLoading);
   const findingsError = useLintStore(selectLintFindingsError);
+
+  // B1 state
+  const semanticEnabled = useLintStore(selectLintSemanticEnabled);
+  const setSemanticEnabled = useLintStore(selectLintSetSemanticEnabled);
+  const selectedIds = useLintStore(selectLintSelectedIds);
+  const batchInFlight = useLintStore(selectLintBatchInFlight);
+  const selectAll = useLintStore(selectLintSelectAll);
+  const clearSelection = useLintStore(selectLintClearSelection);
+  const applyBatch = useLintStore(selectLintApplyBatch);
+  const dismissBatch = useLintStore(selectLintDismissBatch);
+  const sendToReviewBatch = useLintStore(selectLintSendToReviewBatch);
+  const deleteOrphanPage = useLintStore(selectLintDeleteOrphanPage);
+
+  // B1-L9: two-stage delete confirm state
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
 
   const effectiveVaultId = vaultId ?? "default";
 
@@ -497,7 +865,6 @@ export function LintView() {
 
   const handleScan = useCallback(() => {
     void scan(effectiveVaultId);
-    // Toast will fire after scan completes via the scanError watcher below
   }, [scan, effectiveVaultId]);
 
   // Toast on scan error
@@ -510,6 +877,75 @@ export function LintView() {
   const handleRefresh = useCallback(() => {
     void refresh(effectiveVaultId);
   }, [refresh, effectiveVaultId]);
+
+  // B1-L4: Open button — navigate to page in tree panel
+  const handleOpen = useCallback(
+    (finding: LintFinding) => {
+      if (!finding.target_page_id) return;
+      selectPage(finding.target_page_id, "tree");
+      setActiveSection("pages");
+    },
+    [selectPage, setActiveSection],
+  );
+
+  // B1-L9: Delete handling (two-stage confirm)
+  const handleDeleteRequest = useCallback((finding: LintFinding) => {
+    if (!finding.target_page_id) return;
+    if (pendingDelete?.findingId === finding.id) {
+      // Second click: armed → execute
+      const { findingId, pageId } = pendingDelete;
+      setPendingDelete(null);
+      void deleteOrphanPage(findingId, pageId, effectiveVaultId).then(() => {
+        showToast(t("lint.deleteSuccess"), "success");
+      }).catch((err: unknown) => {
+        showToast(t("lint.toastError", { detail: (err as Error).message }), "error");
+      });
+    } else {
+      // First click: arm the delete
+      setPendingDelete({
+        findingId: finding.id,
+        pageId: finding.target_page_id,
+        pageTitle: finding.target_title ?? finding.target_page_id,
+      });
+      // Auto-disarm after 4 seconds
+      setTimeout(() => {
+        setPendingDelete((prev) => prev?.findingId === finding.id ? null : prev);
+      }, 4000);
+    }
+  }, [pendingDelete, deleteOrphanPage, effectiveVaultId, t]);
+
+  // B1-L5: batch callbacks with toast
+  const handleApplyBatch = useCallback(async () => {
+    const { ok, err } = await applyBatch(effectiveVaultId);
+    if (err > 0) {
+      showToast(t("lint.batchPartial", { ok, err }), "error");
+    } else {
+      showToast(t("lint.batchApplied", { count: ok }), "success");
+    }
+  }, [applyBatch, effectiveVaultId, t]);
+
+  const handleDismissBatch = useCallback(async () => {
+    const { ok, err } = await dismissBatch(effectiveVaultId);
+    if (err > 0) {
+      showToast(t("lint.batchPartial", { ok, err }), "error");
+    } else {
+      showToast(t("lint.batchDismissed", { count: ok }), "success");
+    }
+  }, [dismissBatch, effectiveVaultId, t]);
+
+  const handleSendToReviewBatch = useCallback(async () => {
+    const { ok, err } = await sendToReviewBatch(effectiveVaultId);
+    if (err > 0) {
+      showToast(t("lint.batchPartial", { ok, err }), "error");
+    } else {
+      showToast(t("lint.batchSentToReview", { count: ok }), "success");
+    }
+  }, [sendToReviewBatch, effectiveVaultId, t]);
+
+  const selectedCount = selectedIds.size;
+
+  // Semantic toggle disabled when provider not configured
+  const semanticDisabled = !providerConfigured || providerLoading || scanning;
 
   return (
     <div
@@ -537,6 +973,7 @@ export function LintView() {
           borderBottom: "1px solid var(--syn-border)",
           flexShrink: 0,
           background: "var(--syn-bg-soft)",
+          flexWrap: "wrap",
         }}
       >
         <h2
@@ -571,6 +1008,31 @@ export function LintView() {
             </span>
           )}
         </h2>
+
+        {/* B1-L8: Semantic (LLM) checkbox */}
+        <label
+          title={t("lint.semanticHelp")}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 11,
+            color: semanticDisabled ? "var(--syn-text-dim)" : "var(--syn-text-muted)",
+            cursor: semanticDisabled ? "not-allowed" : "pointer",
+            userSelect: "none",
+            flexShrink: 0,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={semanticEnabled}
+            disabled={semanticDisabled}
+            onChange={(e) => setSemanticEnabled(e.target.checked)}
+            data-testid="lint-semantic-checkbox"
+            style={{ accentColor: "var(--syn-accent)", cursor: semanticDisabled ? "not-allowed" : "pointer" }}
+          />
+          {t("lint.semantic")}
+        </label>
 
         {/* Run Lint button */}
         <button
@@ -731,6 +1193,57 @@ export function LintView() {
         </div>
       )}
 
+      {/* ── B1-L9: Delete confirm banner ─────────────────────────────── */}
+      {pendingDelete && (
+        <div
+          data-testid="lint-delete-confirm-banner"
+          role="alert"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 16px",
+            borderBottom: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
+            background: "color-mix(in srgb, var(--syn-red) 8%, var(--syn-mix-base) 92%)",
+            flexShrink: 0,
+            fontSize: 11,
+          }}
+        >
+          <span style={{ color: "var(--syn-red)", flex: 1, fontWeight: 600 }}>
+            {t("lint.deleteConfirm")}: &ldquo;{pendingDelete.pageTitle}&rdquo; — {t("lint.deleteConfirmHint")}
+          </span>
+          <button
+            onClick={() => setPendingDelete(null)}
+            style={{
+              fontSize: 11,
+              color: "var(--syn-text-muted)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              textDecoration: "underline",
+              padding: 0,
+            }}
+          >
+            {t("common.close")}
+          </button>
+        </div>
+      )}
+
+      {/* ── B1-L5: Batch bar (visible whenever findings exist) ──────── */}
+      {(findingsTotal > 0 || selectedCount > 0) && (
+        <BatchBar
+          selectedCount={selectedCount}
+          totalCount={findingsTotal}
+          batchInFlight={batchInFlight}
+          onSelectAll={selectAll}
+          onClearSelection={clearSelection}
+          onApplyBatch={() => void handleApplyBatch()}
+          onDismissBatch={() => void handleDismissBatch()}
+          onSendToReviewBatch={() => void handleSendToReviewBatch()}
+          t={t as TranslateFn}
+        />
+      )}
+
       {/* ── Hint row ─────────────────────────────────────────────────── */}
       {!findingsLoading && !findingsError && (
         <div
@@ -748,7 +1261,11 @@ export function LintView() {
 
       {/* ── Virtualised findings list (I4) ───────────────────────────── */}
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-        <FindingsList vaultId={effectiveVaultId} />
+        <FindingsList
+          vaultId={effectiveVaultId}
+          onOpen={handleOpen}
+          onDelete={handleDeleteRequest}
+        />
       </div>
     </div>
   );

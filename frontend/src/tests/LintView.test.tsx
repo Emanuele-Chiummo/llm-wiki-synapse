@@ -1,5 +1,5 @@
 /**
- * LintView.test.tsx — vitest + React Testing Library tests for K2 Lint UI (ADR-0037 §6).
+ * LintView.test.tsx — vitest + React Testing Library tests for K2 Lint UI (ADR-0037 §6, B1).
  *
  * Covers:
  *   - Renders header with title
@@ -7,6 +7,13 @@
  *   - Renders finding rows with category badge, target_title, description
  *   - "Fix" label for real-fix categories (missing-xref, missing-page)
  *   - "Acknowledge" label for flag-only categories (orphan-page, contradiction, stale-claim)
+ *   - "Fix" label for broken-wikilink with suggested_target; "Acknowledge" without
+ *   - Suggested target strip rendered when suggested_target present
+ *   - B1-L5: checkbox on each row; Select all in batch bar; batch bar visible
+ *   - B1-L8: Semantic (LLM) checkbox present
+ *   - B1-L4: Open button present when target_page_id present
+ *   - B1-L9: Delete button present for orphan-page
+ *   - B1-L6: Send to Review button on each row
  *   - Apply button fires store.apply; finding leaves list on success
  *   - Dismiss button fires store.dismiss; finding leaves list on success
  *   - Per-finding actionError shown
@@ -30,17 +37,18 @@ import type { LintFinding, LintRun } from "../api/types";
 // ─── Mock TanStack Virtual ────────────────────────────────────────────────────
 // jsdom has no layout engine; mock the virtualizer to pass items through.
 vi.mock("@tanstack/react-virtual", () => ({
-  useVirtualizer: (opts: { count: number; estimateSize: () => number }) => ({
+  useVirtualizer: (opts: { count: number; estimateSize: (i: number) => number }) => ({
     getVirtualItems: () =>
       Array.from({ length: opts.count }, (_, i) => ({
         index: i,
-        start: i * opts.estimateSize(),
-        end: (i + 1) * opts.estimateSize(),
-        size: opts.estimateSize(),
+        start: i * opts.estimateSize(i),
+        end: (i + 1) * opts.estimateSize(i),
+        size: opts.estimateSize(i),
         key: i,
         lane: 0,
       })),
-    getTotalSize: () => opts.count * opts.estimateSize(),
+    getTotalSize: () =>
+      Array.from({ length: opts.count }, (_, i) => opts.estimateSize(i)).reduce((a, b) => a + b, 0),
     measureElement: () => undefined,
     scrollToIndex: () => undefined,
     scrollToOffset: () => undefined,
@@ -58,6 +66,9 @@ vi.mock("../api/lintClient", () => ({
   fetchLintFindings: vi.fn().mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 }),
   applyLintFinding: vi.fn(),
   dismissLintFinding: vi.fn(),
+  batchLintAction: vi.fn().mockResolvedValue({ results: [], ok_count: 0, error_count: 0 }),
+  sendLintFindingToReview: vi.fn().mockResolvedValue({}),
+  deleteWikiPage: vi.fn().mockResolvedValue({ deleted_page_id: "p1", wikilinks_cleaned: 0, index_entry_removed: false, shared_entity_warnings: [] }),
 }));
 
 import * as lintClient from "../api/lintClient";
@@ -95,6 +106,29 @@ vi.mock("react-i18next", () => ({
         "lint.category.contradiction": "Contradiction",
         "lint.category.stale-claim": "Stale claim",
         "lint.category.missing-page": "Missing page",
+        "lint.category.broken-wikilink": "Broken link",
+        "lint.groups.errors": "Errors",
+        "lint.groups.warnings": "Warnings",
+        "lint.groups.info": "Info",
+        "lint.suggestedTarget": "Suggested target",
+        "lint.open": "Open",
+        "lint.selectAll": "Select all",
+        "lint.selectFinding": "Select finding",
+        "lint.selected": `${String(params?.count ?? 0)} selected`,
+        "lint.fixSelected": "Fix selected",
+        "lint.ignoreSelected": "Ignore selected",
+        "lint.sendToReview": "Send to review",
+        "lint.sendSelectedToReview": "Send to review",
+        "lint.semantic": "Semantic (LLM)",
+        "lint.semanticHelp": "When enabled, includes LLM semantic pass.",
+        "lint.delete": "Delete",
+        "lint.deleteConfirm": "Confirm delete",
+        "lint.deleteConfirmHint": "Click Delete again to confirm",
+        "lint.deleteSuccess": "Page deleted",
+        "lint.batchApplied": `Fixed ${String(params?.count ?? 0)} findings`,
+        "lint.batchDismissed": `Ignored ${String(params?.count ?? 0)} findings`,
+        "lint.batchSentToReview": `Sent ${String(params?.count ?? 0)} findings to review`,
+        "lint.batchPartial": `${String(params?.ok ?? 0)} succeeded, ${String(params?.err ?? 0)} failed`,
         "common.loading": "Loading…",
         "common.retry": "Retry",
         "common.close": "Close",
@@ -110,9 +144,20 @@ vi.mock("react-i18next", () => ({
 
 vi.mock("../store/graphStore", () => ({
   useGraphStore: (selector: (s: unknown) => unknown) =>
-    selector({ vaultId: "default", setActiveSection: vi.fn() }),
+    selector({
+      vaultId: "default",
+      setActiveSection: vi.fn(),
+      selectPage: vi.fn(),
+    }),
   selectVaultId: (s: { vaultId: string }) => s.vaultId,
   selectSetActiveSection: (s: { setActiveSection: () => void }) => s.setActiveSection,
+  selectSelectPage: (s: { selectPage: () => void }) => s.selectPage,
+}));
+
+// ─── Mock useProviderConfigured ───────────────────────────────────────────────
+
+vi.mock("../hooks/useProviderConfigured", () => ({
+  useProviderConfigured: () => ({ configured: true, loading: false, error: null }),
 }));
 
 // ─── Mock Toast ───────────────────────────────────────────────────────────────
@@ -156,6 +201,8 @@ function makeFinding(id: string, overrides: Partial<LintFinding> = {}): LintFind
     resolution_note: null,
     created_at: new Date().toISOString(),
     reviewed_at: null,
+    suggested_target: null,
+    suggested_page_id: null,
     ...overrides,
   };
 }
@@ -176,6 +223,10 @@ function resetStore(overrides: Partial<ReturnType<typeof useLintStore.getState>>
     scanError: null,
     actionInFlight: {},
     actionError: {},
+    semanticEnabled: true,
+    selectedIds: new Set<string>(),
+    batchInFlight: false,
+    batchError: null,
     ...overrides,
   });
 }
@@ -238,6 +289,20 @@ describe("LintView — rendering", () => {
     });
   });
 
+  it("renders category badge for broken-wikilink", async () => {
+    const findings = [makeFinding("f1", { category: "broken-wikilink", severity: "warning" })];
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: findings,
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getByText("Broken link")).toBeTruthy();
+    });
+  });
+
   it("renders count badge in header when findings > 0", async () => {
     const findings = [makeFinding("f1"), makeFinding("f2")];
     vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
@@ -274,6 +339,218 @@ describe("LintView — rendering", () => {
   });
 });
 
+// ─── B1-L8: Semantic checkbox ─────────────────────────────────────────────────
+
+describe("LintView — Semantic (LLM) checkbox [B1-L8]", () => {
+  it("renders the Semantic (LLM) checkbox", () => {
+    render(<LintView />);
+    expect(screen.getByTestId("lint-semantic-checkbox")).toBeTruthy();
+  });
+
+  it("checkbox label is present", () => {
+    render(<LintView />);
+    expect(screen.getByText("Semantic (LLM)")).toBeTruthy();
+  });
+
+  it("semantic checkbox defaults to checked (semanticEnabled=true)", () => {
+    resetStore({ semanticEnabled: true });
+    render(<LintView />);
+    const cb = screen.getByTestId("lint-semantic-checkbox") as HTMLInputElement;
+    expect(cb.checked).toBe(true);
+  });
+});
+
+// ─── B1-L5: Batch bar ────────────────────────────────────────────────────────
+
+describe("LintView — Batch bar [B1-L5]", () => {
+  it("renders batch bar when findings exist", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1")],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("lint-batch-bar")).toBeTruthy();
+    });
+  });
+
+  it("Select all checkbox is present in batch bar", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1")],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("lint-select-all")).toBeTruthy();
+    });
+  });
+
+  it("Fix selected, Ignore selected, Send to review buttons present", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1")],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("lint-batch-action-apply")).toBeTruthy();
+      expect(screen.getByTestId("lint-batch-action-dismiss")).toBeTruthy();
+      expect(screen.getByTestId("lint-batch-action-send-to-review")).toBeTruthy();
+    });
+  });
+
+  it("each finding row has a checkbox", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1"), makeFinding("f2")],
+      total: 2,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("lint-row-checkbox-f1")).toBeTruthy();
+      expect(screen.getByTestId("lint-row-checkbox-f2")).toBeTruthy();
+    });
+  });
+});
+
+// ─── B1-L2: Suggested target strip ───────────────────────────────────────────
+
+describe("LintView — Suggested target strip [B1-L2]", () => {
+  it("renders green suggested target strip when suggested_target present", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1", {
+        category: "broken-wikilink",
+        severity: "warning",
+        suggested_target: "Temperature Scaling",
+        suggested_page_id: "page-ts",
+      })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("lint-suggested-target")).toBeTruthy();
+      expect(screen.getByText("Temperature Scaling")).toBeTruthy();
+    });
+  });
+
+  it("does not render suggested strip when suggested_target is null", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1", { category: "broken-wikilink", suggested_target: null })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.queryByTestId("lint-suggested-target")).toBeNull();
+    });
+  });
+});
+
+// ─── B1-L4: Open button ──────────────────────────────────────────────────────
+
+describe("LintView — Open button [B1-L4]", () => {
+  it("renders Open button when target_page_id is present", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1", { target_page_id: "page-abc" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("lint-action-open")).toBeTruthy();
+    });
+  });
+
+  it("does not render Open button when target_page_id is null", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1", { target_page_id: null })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.queryByTestId("lint-action-open")).toBeNull();
+    });
+  });
+});
+
+// ─── B1-L9: Delete button ────────────────────────────────────────────────────
+
+describe("LintView — Delete button [B1-L9]", () => {
+  it("renders Delete button for orphan-page finding", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1", { category: "orphan-page", target_page_id: "page-orphan" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("lint-action-delete")).toBeTruthy();
+    });
+  });
+
+  it("does not render Delete button for non-orphan finding", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1", { category: "missing-xref" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.queryByTestId("lint-action-delete")).toBeNull();
+    });
+  });
+
+  it("shows delete confirm banner on first click (two-stage)", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1", { category: "orphan-page", target_page_id: "page-orphan", target_title: "Orphan Page" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("lint-action-delete")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByTestId("lint-action-delete"));
+    await waitFor(() => {
+      expect(screen.getByTestId("lint-delete-confirm-banner")).toBeTruthy();
+    });
+  });
+});
+
+// ─── B1-L6: Send to Review per-row ───────────────────────────────────────────
+
+describe("LintView — Send to Review button [B1-L6]", () => {
+  it("renders Send to review button on each finding row", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1")],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      // "Send to review" appears on the row (may also appear in batch bar)
+      const btns = screen.getAllByTestId("lint-action-send-to-review");
+      expect(btns.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+});
+
 // ─── Apply label: real-fix vs flag-only ───────────────────────────────────────
 
 describe("LintView — Apply button label (real-fix vs flag-only)", () => {
@@ -288,7 +565,6 @@ describe("LintView — Apply button label (real-fix vs flag-only)", () => {
     await waitFor(() => {
       expect(screen.getAllByTestId("lint-finding-row")).toHaveLength(1);
     });
-    // data-testid="lint-action-apply" has label "Fix"
     const applyBtn = screen.getByTestId("lint-action-apply");
     expect(applyBtn.textContent).toContain("Fix");
   });
@@ -306,6 +582,45 @@ describe("LintView — Apply button label (real-fix vs flag-only)", () => {
     });
     const applyBtn = screen.getByTestId("lint-action-apply");
     expect(applyBtn.textContent).toContain("Fix");
+  });
+
+  it("shows 'Fix' for broken-wikilink WITH suggested_target", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1", {
+        category: "broken-wikilink",
+        severity: "warning",
+        suggested_target: "Some Existing Page",
+        suggested_page_id: "page-sep",
+      })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getAllByTestId("lint-finding-row")).toHaveLength(1);
+    });
+    const applyBtn = screen.getByTestId("lint-action-apply");
+    expect(applyBtn.textContent).toContain("Fix");
+  });
+
+  it("shows 'Acknowledge' for broken-wikilink WITHOUT suggested_target", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1", {
+        category: "broken-wikilink",
+        severity: "warning",
+        suggested_target: null,
+        suggested_page_id: null,
+      })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getAllByTestId("lint-finding-row")).toHaveLength(1);
+    });
+    expect(screen.getByTestId("lint-action-acknowledge")).toBeTruthy();
   });
 
   it("shows 'Acknowledge' label for orphan-page (flag-only category)", async () => {
@@ -468,9 +783,11 @@ describe("LintView — Run Lint button", () => {
     fireEvent.click(runBtn);
 
     await waitFor(() => {
+      // semantic=true is default, passed as third param to runLintScan
       expect(lintClient.runLintScan).toHaveBeenCalledWith(
         { vault_id: "default" },
         undefined,
+        true,
       );
     });
   });

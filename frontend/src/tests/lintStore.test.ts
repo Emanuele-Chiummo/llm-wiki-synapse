@@ -1,5 +1,5 @@
 /**
- * lintStore.test.ts — Zustand store unit tests for K2 lint (ADR-0037 §6).
+ * lintStore.test.ts — Zustand store unit tests for K2 lint (ADR-0037 §6, B1).
  *
  * Covers:
  *   - scan: replaces findings + sets currentRun + prepends run to history
@@ -13,6 +13,11 @@
  *   - fetchMoreFindings: appends findings
  *   - fetchRuns: loads run history
  *   - clear helpers
+ *   - B1: semanticEnabled persisted to localStorage
+ *   - B1: toggleSelect / selectAll / clearSelection
+ *   - B1: applyBatch / dismissBatch / sendToReviewBatch
+ *   - B1: sendToReview single
+ *   - B1: deleteOrphanPage
  *
  * All network calls are mocked via vi.mock — no real fetch.
  * INVARIANT I3: store selectors tested independently.
@@ -32,6 +37,9 @@ vi.mock("../api/lintClient", () => ({
   fetchLintFindings: vi.fn(),
   applyLintFinding: vi.fn(),
   dismissLintFinding: vi.fn(),
+  batchLintAction: vi.fn(),
+  sendLintFindingToReview: vi.fn(),
+  deleteWikiPage: vi.fn(),
 }));
 
 import * as lintClient from "../api/lintClient";
@@ -71,6 +79,8 @@ function makeFinding(id: string, overrides: Partial<LintFinding> = {}): LintFind
     resolution_note: null,
     created_at: new Date().toISOString(),
     reviewed_at: null,
+    suggested_target: null,
+    suggested_page_id: null,
     ...overrides,
   };
 }
@@ -93,6 +103,10 @@ beforeEach(() => {
     scanError: null,
     actionInFlight: {},
     actionError: {},
+    semanticEnabled: true,
+    selectedIds: new Set<string>(),
+    batchInFlight: false,
+    batchError: null,
   });
   vi.clearAllMocks();
 });
@@ -363,5 +377,274 @@ describe("lintStore — clear helpers", () => {
     useLintStore.setState({ actionError: { "f1": "apply failed" } });
     useLintStore.getState().clearActionError("f1");
     expect(useLintStore.getState().actionError["f1"]).toBeFalsy();
+  });
+});
+
+// ─── B1: semanticEnabled ─────────────────────────────────────────────────────
+
+describe("lintStore — semanticEnabled [B1-L8]", () => {
+  it("defaults to true", () => {
+    expect(useLintStore.getState().semanticEnabled).toBe(true);
+  });
+
+  it("setSemanticEnabled updates state", () => {
+    useLintStore.getState().setSemanticEnabled(false);
+    expect(useLintStore.getState().semanticEnabled).toBe(false);
+  });
+
+  it("setSemanticEnabled back to true", () => {
+    useLintStore.setState({ semanticEnabled: false });
+    useLintStore.getState().setSemanticEnabled(true);
+    expect(useLintStore.getState().semanticEnabled).toBe(true);
+  });
+
+  it("scan passes semanticEnabled=false to runLintScan", async () => {
+    useLintStore.setState({ semanticEnabled: false });
+    vi.mocked(lintClient.runLintScan).mockResolvedValueOnce({ run: makeLintRun(), findings: [] });
+    await useLintStore.getState().scan("default");
+    expect(lintClient.runLintScan).toHaveBeenCalledWith(
+      { vault_id: "default" },
+      undefined,
+      false,
+    );
+  });
+
+  it("scan passes semanticEnabled=true to runLintScan", async () => {
+    useLintStore.setState({ semanticEnabled: true });
+    vi.mocked(lintClient.runLintScan).mockResolvedValueOnce({ run: makeLintRun(), findings: [] });
+    await useLintStore.getState().scan("default");
+    expect(lintClient.runLintScan).toHaveBeenCalledWith(
+      { vault_id: "default" },
+      undefined,
+      true,
+    );
+  });
+});
+
+// ─── B1: selection ────────────────────────────────────────────────────────────
+
+describe("lintStore — selection [B1-L5]", () => {
+  it("toggleSelect adds a finding id to selectedIds", () => {
+    useLintStore.getState().toggleSelect("f1");
+    expect(useLintStore.getState().selectedIds.has("f1")).toBe(true);
+  });
+
+  it("toggleSelect removes an already-selected id", () => {
+    useLintStore.setState({ selectedIds: new Set(["f1"]) });
+    useLintStore.getState().toggleSelect("f1");
+    expect(useLintStore.getState().selectedIds.has("f1")).toBe(false);
+  });
+
+  it("selectAll selects all currently-loaded finding ids", () => {
+    useLintStore.setState({
+      findings: [makeFinding("f1"), makeFinding("f2"), makeFinding("f3")],
+    });
+    useLintStore.getState().selectAll();
+    const ids = useLintStore.getState().selectedIds;
+    expect(ids.has("f1")).toBe(true);
+    expect(ids.has("f2")).toBe(true);
+    expect(ids.has("f3")).toBe(true);
+    expect(ids.size).toBe(3);
+  });
+
+  it("clearSelection empties selectedIds", () => {
+    useLintStore.setState({ selectedIds: new Set(["f1", "f2"]) });
+    useLintStore.getState().clearSelection();
+    expect(useLintStore.getState().selectedIds.size).toBe(0);
+  });
+});
+
+// ─── B1: batch actions ────────────────────────────────────────────────────────
+
+describe("lintStore — applyBatch [B1-L5]", () => {
+  it("removes ok findings from list and returns ok/err counts", async () => {
+    useLintStore.setState({
+      findings: [makeFinding("f1"), makeFinding("f2")],
+      findingsTotal: 2,
+      selectedIds: new Set(["f1", "f2"]),
+    });
+    vi.mocked(lintClient.batchLintAction).mockResolvedValueOnce({
+      results: [
+        { id: "f1", status: "ok" },
+        { id: "f2", status: "ok" },
+      ],
+      ok_count: 2,
+      error_count: 0,
+    });
+    // fetchLintFindings called by refresh after batch
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+    });
+
+    const result = await useLintStore.getState().applyBatch("default");
+
+    expect(result.ok).toBe(2);
+    expect(result.err).toBe(0);
+    expect(lintClient.batchLintAction).toHaveBeenCalledWith(
+      expect.arrayContaining(["f1", "f2"]),
+      "apply",
+    );
+    // selection cleared after batch
+    expect(useLintStore.getState().selectedIds.size).toBe(0);
+  });
+
+  it("returns err count when batch fails", async () => {
+    useLintStore.setState({
+      findings: [makeFinding("f1")],
+      findingsTotal: 1,
+      selectedIds: new Set(["f1"]),
+    });
+    vi.mocked(lintClient.batchLintAction).mockRejectedValueOnce(
+      new Error("Server error"),
+    );
+
+    const result = await useLintStore.getState().applyBatch("default");
+
+    expect(result.ok).toBe(0);
+    expect(result.err).toBe(1);
+    expect(useLintStore.getState().batchError).toBe("Server error");
+  });
+
+  it("does nothing when no ids selected", async () => {
+    useLintStore.setState({ selectedIds: new Set<string>() });
+    const result = await useLintStore.getState().applyBatch("default");
+    expect(result.ok).toBe(0);
+    expect(result.err).toBe(0);
+    expect(lintClient.batchLintAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("lintStore — dismissBatch [B1-L5]", () => {
+  it("calls batchLintAction with action=dismiss", async () => {
+    useLintStore.setState({
+      findings: [makeFinding("f1")],
+      findingsTotal: 1,
+      selectedIds: new Set(["f1"]),
+    });
+    vi.mocked(lintClient.batchLintAction).mockResolvedValueOnce({
+      results: [{ id: "f1", status: "ok" }],
+      ok_count: 1,
+      error_count: 0,
+    });
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+    });
+
+    await useLintStore.getState().dismissBatch("default");
+
+    expect(lintClient.batchLintAction).toHaveBeenCalledWith(
+      expect.arrayContaining(["f1"]),
+      "dismiss",
+    );
+  });
+});
+
+describe("lintStore — sendToReviewBatch [B1-L5/L6]", () => {
+  it("calls batchLintAction with action=send-to-review", async () => {
+    useLintStore.setState({
+      findings: [makeFinding("f1")],
+      findingsTotal: 1,
+      selectedIds: new Set(["f1"]),
+    });
+    vi.mocked(lintClient.batchLintAction).mockResolvedValueOnce({
+      results: [{ id: "f1", status: "ok" }],
+      ok_count: 1,
+      error_count: 0,
+    });
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+    });
+
+    await useLintStore.getState().sendToReviewBatch("default");
+
+    expect(lintClient.batchLintAction).toHaveBeenCalledWith(
+      expect.arrayContaining(["f1"]),
+      "send-to-review",
+    );
+  });
+});
+
+// ─── B1: sendToReview single ──────────────────────────────────────────────────
+
+describe("lintStore — sendToReview [B1-L6]", () => {
+  it("removes finding from list on success", async () => {
+    useLintStore.setState({
+      findings: [makeFinding("f1"), makeFinding("f2")],
+      findingsTotal: 2,
+    });
+    vi.mocked(lintClient.sendLintFindingToReview).mockResolvedValueOnce(
+      makeFinding("f1", { status: "applied" }),
+    );
+
+    await useLintStore.getState().sendToReview("f1");
+
+    const state = useLintStore.getState();
+    expect(state.findings).toHaveLength(1);
+    expect(state.findings[0]?.id).toBe("f2");
+    expect(state.findingsTotal).toBe(1);
+  });
+
+  it("sets actionError on failure", async () => {
+    useLintStore.setState({ findings: [makeFinding("f1")], findingsTotal: 1 });
+    vi.mocked(lintClient.sendLintFindingToReview).mockRejectedValueOnce(
+      new Error("Review queue unavailable"),
+    );
+
+    await useLintStore.getState().sendToReview("f1");
+
+    expect(useLintStore.getState().actionError["f1"]).toBe("Review queue unavailable");
+    expect(useLintStore.getState().findings).toHaveLength(1);
+  });
+});
+
+// ─── B1: deleteOrphanPage ─────────────────────────────────────────────────────
+
+describe("lintStore — deleteOrphanPage [B1-L9]", () => {
+  it("calls deleteWikiPage then removes finding from list", async () => {
+    useLintStore.setState({
+      findings: [makeFinding("f1", { category: "orphan-page", target_page_id: "page-1" })],
+      findingsTotal: 1,
+    });
+    vi.mocked(lintClient.deleteWikiPage).mockResolvedValueOnce({
+      deleted_page_id: "page-1",
+      wikilinks_cleaned: 2,
+      index_entry_removed: true,
+      shared_entity_warnings: [],
+    });
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+    });
+
+    await useLintStore.getState().deleteOrphanPage("f1", "page-1", "default");
+
+    expect(lintClient.deleteWikiPage).toHaveBeenCalledWith("page-1");
+    expect(useLintStore.getState().findings).toHaveLength(0);
+  });
+
+  it("sets actionError on failure and keeps finding in list", async () => {
+    useLintStore.setState({
+      findings: [makeFinding("f1", { category: "orphan-page", target_page_id: "page-1" })],
+      findingsTotal: 1,
+    });
+    vi.mocked(lintClient.deleteWikiPage).mockRejectedValueOnce(
+      new Error("Page not found"),
+    );
+
+    await useLintStore.getState().deleteOrphanPage("f1", "page-1", "default");
+
+    expect(useLintStore.getState().actionError["f1"]).toBe("Page not found");
+    expect(useLintStore.getState().findings).toHaveLength(1);
   });
 });

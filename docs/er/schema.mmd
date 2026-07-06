@@ -181,6 +181,8 @@ erDiagram
         string proposed_action "Human-readable description of the fix apply_lint_fix would attempt. NULL for flag-only findings (contradiction/stale-claim/orphan). ADR-0037 §3.1/§5."
         string status "open | applied | dismissed. Defaults 'open' (ADR-0037 §3.1)."
         string resolution_note "How the finding was resolved (apply outcome / dismiss reason). NULL while open."
+        string suggested_target "Title of the best matching existing page found by the tolerant resolver at broken-wikilink scan time (exact → case-insensitive → slug). NULL when no suggestion or for non-broken-wikilink categories. L2 / ADR-0037 B1."
+        uuid suggested_page_id FK "FK → pages.id, the live page whose title is 'suggested_target'. NULL when no suggestion or for non-broken-wikilink categories. L2 / ADR-0037 B1."
         timestamptz created_at "Row creation time"
         timestamptz reviewed_at "Set on apply/dismiss, NULL while open."
     }

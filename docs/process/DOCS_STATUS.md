@@ -4,6 +4,100 @@
 
 ---
 
+## B1-Lint Parity Docs Gate — VERDICT: ALL UP-TO-DATE
+
+> Gate run: 2026-07-06
+> Branch: `feat/b1-lint-parity`
+> Batch: B1 — Lint overhaul (P0, `docs/reference/UI-ALIGNMENT-PLAN-2026-07.md §B1`)
+> Scope: L1–L10 — broken-wikilink category, suggested_target columns (migration 0024),
+>   Fix rewrite branch, Open nav, batch bar (POST /lint/findings/batch),
+>   send-to-review bridge (POST /lint/findings/{id}/send-to-review), severity group
+>   headers, ?semantic=false path, orphan DELETE /pages/{id}, category/severity filters.
+> ADR: ADR-0058 (accepted 2026-07-06), extends ADR-0037.
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/` (context/container/component) | UP-TO-DATE (no change) | B1 adds no new container, port, or external service. The lint module (`ops/lint.py`, `routers/lint.py`) and the new page-delete verb (`routers/pages.py`) are internal to the existing FastAPI service boundary. C4 topology unchanged from v1.3. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (backend-engineer regenerated) | Alembic migration 0024 adds `lint_findings.suggested_target` (Text, nullable) and `lint_findings.suggested_page_id` (UUID FK→pages, nullable). Backend-engineer ran `make er`; `docs/er/schema.mmd` reflects these two new columns. I8 holds. |
+| D3 | `docs/sequences/lint-fix.mmd` | UPDATED (this gate) | Rewritten to add: broken-wikilink deterministic detection (links table indexed scan + tolerant resolver loop), `?semantic=false` fast path (provider skipped entirely), `POST /lint/findings/batch` batch loop (sequential, cap ≤ 200, per-id result list), `POST /lint/findings/{id}/send-to-review` bridge (category→item_type map, FNV-1a idempotent), `broken-wikilink` apply branch (suggested → body rewrite + link re-persist; NULL → flag-only), and `DELETE /pages/{id}` orphan delete (human-double-confirmed, scope guard, cascade-delete seam reuse). All ADR-0058 flows represented. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (backend-engineer regenerated) | Backend-engineer ran `make openapi`. New endpoints confirmed present: `POST /lint/scan?semantic=bool`, `GET /lint/findings?category=&severity=`, `POST /lint/findings/batch`, `POST /lint/findings/{id}/send-to-review`, `DELETE /pages/{id}`. I8 holds. |
+| D5 | `docs/screens/` | PENDING-LIVE (carry-forward) | B1 adds new LintView affordances (batch bar, severity groups, `Suggested target:` strip, `Open`/`Delete` buttons, `Semantic` checkbox). Screenshots require a live-stack Playwright session. Non-blocking for code gate per established policy; blocking for EC-M13-HCP. |
+| D6a | `docs/USER.md` | UP-TO-DATE (no change required this gate) | USER.md already covers the Lint section as part of the M5 feature set. B1 UI-affordance additions (batch bar, severity groups, green strip, Open/Delete) are implementation details of the existing lint workflow. A dedicated sub-section update is recommended at the next sprint gate when screenshots are refreshed. Non-blocking. |
+| D6b | `docs/DEPLOY.md` | UP-TO-DATE (no change required) | B1 introduces no new env vars. `LINT_MAX_FINDINGS` (already documented) covers the broken-wikilink scan cap. The batch cap (ids ≤ 200) is a structural constant (ADR-0058 §4), not a configurable env var. No DEPLOY.md update needed. |
+| D7 | `docs/adr/index.md` | UP-TO-DATE (ADR-0058 already indexed) | ADR-0058 row confirmed present in `docs/adr/index.md`. File `docs/adr/ADR-0058-lint-parity-extension.md` present and complete. |
+| R (parity) | `docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md` | UPDATED (this gate) | New section 19b "B1 — Lint UI parity" added with 10 rows (L1–L10), each marked ✅ with code refs (`backend/app/ops/lint.py`, `backend/app/routers/lint.py`, `backend/app/routers/pages.py`, `frontend/src/components/lint/LintView.tsx`) and ADR-0058 subsection citations. Invariants footer added. |
+| R (ui-plan) | `docs/reference/UI-ALIGNMENT-PLAN-2026-07.md` | UPDATED (this gate) | §B1 header updated to "STATUS: ✅ SHIPPED feat/b1-lint-parity"; L1–L10 table columns reframed with closure column; each row has ✅ closure note with file refs and ADR-0058 subsection. ADR reference updated to "ADR-0058 (accepted 2026-07-06)". |
+
+### Validation checks
+
+| Check | Result |
+|-------|--------|
+| `lint_findings.suggested_target` column in `docs/er/schema.mmd` | YES (migration 0024, backend-engineer regenerated) |
+| `lint_findings.suggested_page_id` column in `docs/er/schema.mmd` | YES (migration 0024, backend-engineer regenerated) |
+| `POST /lint/findings/batch` in `docs/api/openapi.json` | YES (backend-engineer regenerated) |
+| `POST /lint/findings/{id}/send-to-review` in `docs/api/openapi.json` | YES (backend-engineer regenerated) |
+| `DELETE /pages/{id}` in `docs/api/openapi.json` | YES (backend-engineer regenerated) |
+| `POST /lint/scan?semantic=` documented | YES (ADR-0058 §2.3; openapi.json) |
+| `broken-wikilink` in `_VALID_CATEGORIES` | YES (ADR-0058 §2.1; `backend/app/ops/lint.py`) |
+| ADR-0058 row in `docs/adr/index.md` | YES (solution-architect added) |
+| `docs/sequences/lint-fix.mmd` renders without syntax error | YES — sequenceDiagram; all alt/else/opt/loop/Note blocks validated; no unclosed alt blocks |
+| Section 19b present in parity doc | YES (added this gate) |
+| L1–L10 marked as done in UI-ALIGNMENT-PLAN §B1 | YES (updated this gate) |
+
+### D3 — lint-fix.mmd diagram nodes added
+
+New participants: `Links` (links table, dangling, I1), `Resolver` (tolerant resolver),
+`Review` (ops/review.enqueue_review, F9), `Cascade` (cascade-delete cleanup seam).
+
+New flow blocks:
+- `?semantic=false` alt at scan entry — provider not resolved, zero LLM cost noted.
+- Step 1b broken-wikilink block — indexed `links` scan, per-link `Resolver` call, dedup
+  check, INSERT `broken-wikilink FindingDTO[]` with `suggested_target`/`suggested_page_id`.
+- `opt semantic=true` wrapper — makes the skip-when-false condition explicit.
+- `broken-wikilink` alt branch in single-id apply — body rewrite + link re-persist + one
+  bump (suggestion present) vs flag-only (NULL suggestion).
+- Batch bar loop block — sequential loop over ids, nested alt for apply/dismiss/send-to-review,
+  per-id result list note.
+- Send-to-review block — FNV-1a idempotency note, finding status→applied.
+- Orphan DELETE block — K8 gate note, scope guard, soft-delete, Qdrant remove, file delete,
+  index.md regen, `Cascade` seam for dead wikilinks, log.md append, one bump.
+
+### Invariant compliance check (B1 gate)
+
+| Invariant | Status |
+|-----------|--------|
+| **I1** (incremental index only) | HOLDS — broken-wikilink scan reads `links` table (no vault walk); Fix touches one page, one bump; orphan delete is one transaction, one bump. |
+| **I4** (TanStack Virtual) | HOLDS — severity group headers are synthetic rows inside TanStack Virtual; no de-virtualisation. |
+| **I5** (body-only writes) | HOLDS — broken-wikilink Fix is an alias-preserving, frontmatter-preserving body rewrite via the cascade-delete round-trip mechanism. |
+| **I6** (pluggable inference) | HOLDS — `?semantic=false` skips the provider entirely; `?semantic=true` routes via `resolve_provider_config`; no isinstance branching. |
+| **I7** (bounded loops) | HOLDS — batch cap ≤ 200 (hard, 422 on violation); broken-wikilink scan is zero-cost; `?semantic=false` is free; no new unbounded loop. |
+| **I8** (docs-as-DoD) | HOLDS — D2 ER regenerated (migration 0024); D3 sequence updated; D4 OpenAPI regenerated; D7 ADR-0058 indexed; parity doc section 19b added; UI plan §B1 marked closed. |
+| **K8** (human curates) | HOLDS — `DELETE /pages/{id}` requires two-stage UI confirm; never reachable from any automated path, scan, batch, review sweep, watcher, or loop (ADR-0058 Do-NOT #11). |
+
+### D5 — Outstanding screenshots (PENDING-LIVE, B1 additions)
+
+| View | Status | Blocking? |
+|------|--------|-----------|
+| LintView with severity group headers | PENDING-LIVE | Blocks EC-M13-HCP only |
+| LintView with `Suggested target:` green strip | PENDING-LIVE | Blocks EC-M13-HCP only |
+| LintView batch bar (checkboxes selected) | PENDING-LIVE | Blocks EC-M13-HCP only |
+| LintView `Semantic (LLM)` checkbox | PENDING-LIVE | Blocks EC-M13-HCP only |
+| All prior PENDING-LIVE items (v1.3 carry-forward) | PENDING-LIVE | Blocks EC-M13-HCP only |
+
+### DOCS GATE VERDICT — B1-Lint Parity
+
+**ALL UP-TO-DATE**
+
+D2 (ER) and D4 (OpenAPI) regenerated by backend-engineer (migration 0024, new endpoints).
+D3 (lint-fix.mmd) updated with all ADR-0058 flows. D7 ADR-0058 indexed.
+Parity doc section 19b added (10 rows, all ✅ with code refs).
+UI-ALIGNMENT-PLAN §B1 L1–L10 marked ✅ SHIPPED. Invariants I1/I4/I5/I6/I7/I8/K8 verified.
+D5 screenshots PENDING-LIVE (non-blocking for code gate; blocking for EC-M13-HCP).
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-07-06 | B1-Lint parity docs gate**
+
+---
+
 ## v1.3 Docs Hygiene Gate (R13-10) — VERDICT: ALL UP-TO-DATE
 
 > Gate run: 2026-07-05

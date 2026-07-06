@@ -1,43 +1,73 @@
 sequenceDiagram
-    %% K2 Lint-fix loop — the third Karpathy operation (Ingest · Query · Lint) / ADR-0037
-    %% Must show: deterministic + semantic findings, bounded loop (I7), and the HUMAN GATE.
+    %% K2 Lint-fix loop — the third Karpathy operation (Ingest · Query · Lint) / ADR-0037 + ADR-0058
+    %% Must show: deterministic + semantic findings, broken-wikilink category (ADR-0058),
+    %% ?semantic=false fast path, bounded loop (I7), HUMAN GATE, batch bar, send-to-review
+    %% bridge, and orphan Delete.
+    %% Generated: v1.3 B1-Lint | 2026-07-06
 
     participant Client as Web UI / API Client
-    participant API as FastAPI (/lint/*)
+    participant API as FastAPI (/lint/* + /pages/*)
     participant DB as Postgres
     participant Lint as run_lint_scan
-    participant Graph as pages/links read (deterministic, I1)
+    participant Links as links table (dangling, I1)
+    participant Resolver as tolerant resolver (exact→case→slug)
     participant Provider as InferenceProvider (I6)
     participant Enrich as enrich_wikilinks seam (I1/I5)
     participant Gen as lazy-generation seam (ADR-0034 §5)
+    participant Review as ops/review.enqueue_review (F9)
+    participant Cascade as cascade-delete cleanup seam (ADR-0026)
 
-    %% Scan: produces FINDINGS only — never auto-fixes
-    Client->>API: POST /lint/scan {vault_id, max_iter, token_budget}
+    %% ═══════════════════════════════════════════════════════════
+    %% SCAN — produces FINDINGS only; never auto-fixes
+    %% ═══════════════════════════════════════════════════════════
+
+    alt semantic=true (default)
+        Client->>API: POST /lint/scan {vault_id, max_iter, token_budget}
+    else semantic=false (deterministic-only, free — I7/L8)
+        Client->>API: POST /lint/scan?semantic=false {vault_id}
+        Note over API,Provider: Provider is NOT resolved. Zero LLM cost.<br/>Only deterministic phase runs (Steps 1 + 1b).
+    end
+
     API->>DB: INSERT lint_runs (status=running, bounds FROZEN — I7)
-    API->>Lint: run_lint_scan(vault_id, max_iter, token_budget)
+    API->>Lint: run_lint_scan(vault_id, max_iter, token_budget, semantic)
 
-    %% Step 1: Deterministic structural check (no provider call)
-    Lint->>Graph: SELECT pages + links (in-degree 0 → orphan-page)
-    Graph-->>Lint: orphan FindingDTO[]  (flag-only)
+    %% Step 1: Deterministic structural check — orphan pages (no provider call)
+    Lint->>DB: SELECT pages (in-degree 0 → orphan-page)
+    DB-->>Lint: orphan FindingDTO[]  (flag-only; severity=info)
 
-    %% Step 2: Bounded semantic loop (for n in range(1, max_iter+1))
-    Lint->>Lint: resolve_provider_config("ingest", vault_id)  [I6 — no hardcode]
-    loop for n in range(1, max_iter+1)  [HARD CAP — I7, ADR-0037 §4]
-        Lint->>Lint: Budget gate — if tokens at or over token_budget break (under-spend)
-        Lint->>Provider: chat(semantic_lint_prompt, already_found)  [1 call per round]
-        Provider-->>Lint: {"findings":[missing-xref|contradiction|stale-claim|missing-page]}
-        Lint->>Lint: de-dup vs already_found — if round adds nothing new break
+    %% Step 1b: NEW — broken-wikilink detection (ADR-0058 §2.1; zero cost, I7)
+    Lint->>Links: SELECT links WHERE dangling=True [indexed scan, capped LINT_MAX_FINDINGS]
+    Links-->>Lint: dangling link rows {referencing_page_id, target_text}[]
+    loop for each dangling link [bounded by LINT_MAX_FINDINGS]
+        Lint->>Resolver: resolve(target_text) [exact→case-insensitive→slug precedence]
+        Resolver-->>Lint: {suggested_target?, suggested_page_id?}
+        Lint->>Lint: dedup — skip if open finding already exists for<br/>(vault_id, referencing_page_id, target_text)
+    end
+    Lint->>DB: INSERT broken-wikilink FindingDTO[]{<br/>  target_page_id=referencing_page,<br/>  target_title=dangling target text,<br/>  suggested_target, suggested_page_id,<br/>  severity=warning}
+
+    %% Step 2: Bounded semantic loop (skipped when semantic=false)
+    opt semantic=true
+        Lint->>Lint: resolve_provider_config("ingest", vault_id)  [I6 — no hardcode]
+        loop for n in range(1, max_iter+1)  [HARD CAP — I7, ADR-0037 §4]
+            Lint->>Lint: Budget gate — if tokens at or over token_budget break
+            Lint->>Provider: chat(semantic_lint_prompt, already_found)  [1 call per round]
+            Provider-->>Lint: {"findings":[missing-xref|contradiction|stale-claim|missing-page]}
+            Lint->>Lint: de-dup vs already_found — if round adds nothing new break
+        end
     end
 
     %% Step 3: merge + cap at LINT_MAX_FINDINGS; persist (NO data_version bump)
     Lint->>DB: INSERT lint_findings rows (status=open)  [human gate — no apply]
     Lint->>DB: UPDATE lint_runs SET status=completed, total_cost_usd, completed_at  [finally]
     Lint->>Lint: if total_cost_usd over 1.00 USD — WARNING anomaly log (I7)
-    API-->>Client: 200 {run, findings[]}
+    API-->>Client: 200 {run, findings[]} [includes broken-wikilink rows with suggested_target strip]
 
-    %% THE HUMAN GATE: apply is a SEPARATE, explicit action
-    Note over Client,Gen: Findings are PROPOSALS. Nothing is fixed until the human applies.
+    %% ═══════════════════════════════════════════════════════════
+    %% THE HUMAN GATE — findings are PROPOSALS; nothing is fixed until the human acts
+    %% ═══════════════════════════════════════════════════════════
+    Note over Client,Cascade: Findings are PROPOSALS. Nothing is fixed until the human acts.
 
+    %% ─── Single-id apply ───────────────────────────────────────
     Client->>API: POST /lint/findings/{id}/apply
     API->>DB: SELECT lint_findings (404 if absent — 409 if not 'open')
 
@@ -51,10 +81,55 @@ sequenceDiagram
         API->>Gen: _run_generation(...) → write_wiki_page(...)  [bounded loop, one bump, I1]
         Gen->>DB: persist page + bump data_version ONCE
         API->>DB: UPDATE lint_findings SET status=applied, resolution_note
+    else category == broken-wikilink (ADR-0058 §2.2)
+        alt suggested_target != NULL
+            API->>Enrich: rewrite [[dangling]] → [[suggested_target]] in referencing page body<br/>(alias-preserving; frontmatter-preserving round-trip; I5)
+            Enrich->>DB: re-persist links for referencing page (dangling→False) + bump data_version ONCE (I1)
+            Note over Enrich,DB: Exactly one link, one page, one bump. Same safety class as missing-xref.
+        else suggested_target == NULL (flag-only)
+            API->>DB: UPDATE lint_findings SET status=applied,<br/>resolution_note="manually handled" [no file write, no bump]
+        end
+        API->>DB: UPDATE lint_findings SET status=applied, resolution_note
     end
     API-->>Client: 200 LintFindingResponse {status=applied}
 
-    %% Dismiss: status change only
+    %% ─── Single-id dismiss ─────────────────────────────────────
     Client->>API: POST /lint/findings/{id}/dismiss
     API->>DB: UPDATE lint_findings SET status=dismissed, reviewed_at=now()
     API-->>Client: 200 LintFindingResponse {status=dismissed}
+
+    %% ─── Batch bar (ADR-0058 §2.3) — cap ids ≤ 200, sequential ──
+    Client->>API: POST /lint/findings/batch {ids: UUID[], action: "apply"|"dismiss"|"send-to-review"}
+    API->>API: Validate ids.length ≤ 200 (>200 → 422; I7)
+    loop for each id [sequential server-side — no fan-out, I7]
+        alt action == "apply"
+            API->>API: dispatch single-id apply branch (see above)
+        else action == "dismiss"
+            API->>DB: UPDATE lint_findings SET status=dismissed
+        else action == "send-to-review"
+            API->>Review: enqueue_review(category→item_type mapping, page anchors)<br/>[FNV-1a idempotent; re-bridge = NO-OP]
+            Review-->>API: {review_item_id}
+            API->>DB: UPDATE lint_findings SET status=applied,<br/>resolution_note=review_item_id
+        end
+    end
+    API-->>Client: 200 [{id, ok, error?}] per-id result list<br/>(mid-batch failure never fails the whole batch)
+
+    %% ─── Single-id send-to-review bridge (ADR-0058 §2.3) ────────
+    Client->>API: POST /lint/findings/{id}/send-to-review
+    API->>Review: enqueue_review(lint_category → review item_type:<br/>broken-wikilink→missing-page, missing-page→missing-page,<br/>contradiction→contradiction, stale-claim→suggestion,<br/>orphan-page→suggestion, missing-xref→suggestion)<br/>[FNV-1a idempotent — re-bridge = NO-OP on same content_key]
+    Review-->>API: {review_item_id}
+    API->>DB: UPDATE lint_findings SET status=applied,<br/>resolution_note carries review_item_id
+    API-->>Client: 200 LintFindingResponse {status=applied}
+
+    %% ─── Orphan DELETE (ADR-0058 §2.5) — human-double-confirmed ──
+    Note over Client,Cascade: Orphan Delete is UI-only, human-double-confirmed (K8).<br/>NEVER reachable from any automated path, scan, batch, or loop.
+    Client->>API: DELETE /pages/{id}  [after two-stage UI confirm]
+    API->>API: Scope guard — wiki/ pages only;<br/>index.md / log.md / overview.md → 409
+    API->>DB: soft-delete Page row (deleted_at, ADR-0005)
+    API->>DB: remove Qdrant point (delete_point, cascade-delete §Step 3)
+    API->>API: remove file from vault filesystem
+    API->>DB: regenerate index.md (deleted page auto-drops)
+    API->>Cascade: dead [[wikilinks]] → plain text in referencing pages (I5)<br/>[reuse cascade-delete body-rewrite seam]
+    API->>DB: append to log.md
+    API->>DB: bump data_version ONCE (I1)
+    API-->>Client: 204 No Content

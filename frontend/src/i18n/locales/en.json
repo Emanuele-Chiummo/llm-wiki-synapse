@@ -731,8 +731,33 @@
       "missing-xref": "Missing xref",
       "contradiction": "Contradiction",
       "stale-claim": "Stale claim",
-      "missing-page": "Missing page"
-    }
+      "missing-page": "Missing page",
+      "broken-wikilink": "Broken link"
+    },
+    "groups": {
+      "errors": "Errors",
+      "warnings": "Warnings",
+      "info": "Info"
+    },
+    "suggestedTarget": "Suggested target",
+    "open": "Open",
+    "selectAll": "Select all",
+    "selectFinding": "Select finding",
+    "selected": "{{count}} selected",
+    "fixSelected": "Fix selected",
+    "ignoreSelected": "Ignore selected",
+    "sendToReview": "Send to review",
+    "sendSelectedToReview": "Send to review",
+    "semantic": "Semantic (LLM)",
+    "semanticHelp": "When enabled, the scan includes an LLM semantic pass (contradiction, stale-claim). Disable for a free deterministic-only scan (broken links, orphans, missing xrefs).",
+    "delete": "Delete",
+    "deleteConfirm": "Confirm delete",
+    "deleteConfirmHint": "Click Delete again on the row to permanently remove this page",
+    "deleteSuccess": "Page deleted",
+    "batchApplied": "Fixed {{count}} findings",
+    "batchDismissed": "Ignored {{count}} findings",
+    "batchSentToReview": "Sent {{count}} findings to review",
+    "batchPartial": "{{ok}} succeeded, {{err}} failed"
   },
   "graph": {
     "colorModeType": "Type",
