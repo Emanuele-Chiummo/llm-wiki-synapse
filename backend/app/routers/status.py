@@ -54,6 +54,14 @@ class StatusResponse(BaseModel):
             "existing /status poll (no dedicated poller, I3). Additive, non-breaking."
         ),
     )
+    supports_vision: bool = Field(
+        default=False,
+        description=(
+            "B2-C1: True when the active chat provider reports capabilities().supports_vision. "
+            "The frontend uses this to gate the attach-image button. Additive, non-breaking — "
+            "defaults False so existing clients without the field read as vision-disabled."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -64,6 +72,7 @@ class StatusResponse(BaseModel):
                 "uptime_seconds": 42.7,
                 "version": "1.2.0",
                 "review_pending": 5,
+                "supports_vision": False,
             }
         }
     }
@@ -75,7 +84,7 @@ class StatusResponse(BaseModel):
     summary="Service health + data_version",
     description=(
         "Returns vault_id, current data_version (monotonic ingest counter), "
-        "service started_at, and uptime_seconds. (AC-REST-1, AC-F16dv-3)"
+        "service started_at, uptime_seconds, and supports_vision (B2-C1). (AC-REST-1, AC-F16dv-3)"
     ),
 )
 async def get_status() -> StatusResponse:
@@ -98,6 +107,19 @@ async def get_status() -> StatusResponse:
         )
         review_pending: int = review_row.scalar_one()
 
+    # B2-C1: probe active chat provider for supports_vision capability.
+    # Resolved via the normal provider abstraction (I6). Failure → False (safe default).
+    supports_vision = False
+    try:
+        from app.ingest.provider import resolve_provider
+        from app.provider_config_service import resolve_provider_config
+
+        config_row = await resolve_provider_config("chat", settings.vault_id)
+        provider = resolve_provider(config_row)
+        supports_vision = bool(provider.capabilities().supports_vision)
+    except Exception:  # noqa: BLE001  — ConfigNotFoundError, ImportError, any startup lag
+        supports_vision = False
+
     now = datetime.now(UTC)
     uptime = (now - _m._started_at).total_seconds()
     # Backend version: APP_VERSION env (release-stamped) wins over installed package
@@ -109,4 +131,5 @@ async def get_status() -> StatusResponse:
         uptime_seconds=uptime,
         version=_m._resolve_backend_version(),
         review_pending=review_pending,
+        supports_vision=supports_vision,
     )

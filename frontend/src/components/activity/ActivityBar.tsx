@@ -411,6 +411,8 @@ export function ActivityBar(): ReactNode {
           useStatusStore.getState().setBackendVersion(res.version);
           // Pending review count → NavRail badge (owner request; absent on old backends).
           useStatusStore.getState().setReviewPending(res.review_pending);
+          // Vision capability → MessageInput attach-image gate (B2 — absent = false).
+          useStatusStore.getState().setSupportsVision(res.supports_vision ?? false);
           setPollError(false);
         }
       } catch {

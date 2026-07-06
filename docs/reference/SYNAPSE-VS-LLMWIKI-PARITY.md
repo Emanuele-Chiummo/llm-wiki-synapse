@@ -457,6 +457,36 @@ the table summary follows.
 
 ---
 
+## 19c. B2 — Chat composer UI parity (feat/b2-chat-composer, 2026-07-06)
+
+> **Sprint:** v1.3 UI-alignment batch **B2 — Chat composer**.
+> **Branch:** `feat/b2-chat-composer`.
+> **ADR:** ADR-0059 (`docs/adr/ADR-0059-chat-composer-parity.md`).
+> **Amends:** ADR-0050 (additive, non-superseding — wiki-only retrieval stands).
+> **UI-alignment plan:** `docs/reference/UI-ALIGNMENT-PLAN-2026-07.md` §B2.
+
+The llm_wiki `chat-input.tsx` composer toolbar exposes four controls. Three are
+portable (C1–C3) and are now shipped. One (C4 AnyTXT) is a Windows-only daemon that
+is a documented principled decline.
+
+| Gap | llm_wiki behavior | Synapse current state | Verdict | Code refs | ADR |
+|-----|------------------|----------------------|---------|-----------|-----|
+| **C1 — Attach image** (vision in chat, capability-gated) | Attach button with inline previews; count cap 4; size cap 5 MB; sends images in message to LLM | `ChatMessageIn.images: list[MessageImage] = []` (additive); `Message.images` mirrors it; `chat()` in every provider reads `self.capabilities().supports_vision` (I6 — NOT `isinstance`); images dropped when `False`; `GET /status` exposes `supports_vision` → composer button gated; bounds: `CHAT_MAX_IMAGES=4`, `CHAT_MAX_IMAGE_BYTES=5 MB` → 422; images persisted as `JSONB` on `messages` row; Regenerate re-sends same payload; I3: static thumbnails, never in stream | ✅ shipped feat/b2-chat-composer | `backend/app/ingest/schemas.py` (`MessageImage`, `Message.images`), `backend/app/routers/chat.py` (`ChatMessageIn.images`, `run_chat_stream`), `backend/app/ingest/provider/*.py` (vision gate in `chat()`), `frontend/src/components/chat/MessageInput.tsx` (Attach button), `frontend/src/components/chat/MarkdownView.tsx` (thumbnail render) | ADR-0059 §2.1 |
+| **C2 — Web-search toggle** (SearXNG, `[W]` namespace, amends ADR-0050) | Emerald-dot toggle; one SearXNG search per turn; results appended as context; separate citation namespace | `ChatRequest.use_web_search: bool = False` (default OFF); when ON: one bounded call via `backend/app/chat/web_context.py` → `ops/searxng.py::searxng_search()` (I9 — never Tavily); cap `CHAT_WEB_MAX_RESULTS=5`; fetch+strip via deep-research helper, cap `CHAT_WEB_FETCH_MAX_CHARS=8000`; injected as `## Web results (external)` block with `[W1]…[Wn]` namespace AFTER wiki block; `done` event gains `web_citations: [{index, title, url}]` field; ADR-0050 `_load_page_meta` filter and wiki `[n]` namespace are untouched; single-shot (no assess→refine loop); cost logged per turn (I7) | ✅ shipped feat/b2-chat-composer | `backend/app/chat/web_context.py` (web block assembly), `backend/app/ops/searxng.py` (search seam, unchanged), `backend/app/routers/chat.py` (`ChatRequest.use_web_search`, `done` event `web_citations`), `frontend/src/components/chat/MessageInput.tsx` (toggle), `frontend/src/components/chat/MarkdownView.tsx` (`[W]` citation render) | ADR-0059 §2.2, amends ADR-0050 |
+| **C3 — Retrieval modes** (`Fast|Standard|Deep|Local first` preset selector) | Segmented agent-mode selector; LLM router decides retrieval depth per turn | `ChatRequest.retrieval_mode: "fast"│"standard"│"deep"│"local_first" = "standard"` (enum; invalid → 422); maps to FROZEN preset table: `fast=(k=4,depth=0)`, `standard=(k=8,depth=1)` (current defaults — unchanged), `deep=(k=12,depth=2 HARD cap)`, `local_first=(k=8,depth=1, web gated at LOCAL_FIRST_MIN_HITS=3)`; `_MAX_EXPANSION_DEPTH=2` re-clamps in `retrieve()` regardless; `standard` is exactly today's behaviour (existing tests stay green); no raw `k`/`depth` on wire (I7); mode persisted as per-conversation presentation state in `settingsStore` | ✅ shipped feat/b2-chat-composer (mirrors modes, NOT llm_wiki's agentic-router internals — Synapse stays deterministic single-pass, ADR-0022 ⭐) | `backend/app/rag/retrieval.py` (`_MAX_EXPANSION_DEPTH`, `retrieve(k, expansion_depth)`), `backend/app/routers/chat.py` (`ChatRequest.retrieval_mode`, preset-to-knob map), `frontend/src/components/chat/MessageInput.tsx` (segmented selector) | ADR-0059 §2.3, ADR-0022 |
+| **C4 — AnyTXT toggle** (Windows-only local full-text search daemon) | Toggle for AnyTXT Searcher — a Windows background daemon; greyed on non-Windows | Windows-only service; Synapse targets TrueNAS SCALE / Docker + macOS — AnyTXT does not run there. No cross-platform equivalent. Shipping a permanently-greyed toggle would be I9 violation. **DO-NOT-MIRROR.** No toggle, no code. Optional future: ripgrep-based raw-file search as its own ADR (Search surface, not chat). | ⛔ do-not-mirror (I9, principled decline) | N/A | ADR-0059 §2.4 |
+
+### B2 invariant compliance
+
+| Invariant | Status |
+|-----------|--------|
+| **I3** (no per-token heavy work in chat) | HOLDS — images are static thumbnails decoded once; never re-rendered per streamed token; stream carries text deltas only. |
+| **I6** (capability-aware, no isinstance) | HOLDS — vision gate reads `self.capabilities().supports_vision` ONLY; no `isinstance`/`type()`/class-name branch. |
+| **I7** (bounded loops) | HOLDS — `CHAT_MAX_IMAGES=4`, `CHAT_MAX_IMAGE_BYTES=5 MB`, `CHAT_WEB_MAX_RESULTS=5`, `CHAT_WEB_FETCH_MAX_CHARS=8000`, retrieval preset table frozen, `expansion_depth ≤ 2` hard-clamped; no new loop introduced. |
+| **I9** (SearXNG only, do not reinvent) | HOLDS — C2 uses `ops/searxng.py::searxng_search()` seam, never Tavily; C4 AnyTXT explicitly declined. |
+
+---
+
 ## 21. Already at parity or better — do not redo this work
 
 | Feature | Why it is solved |

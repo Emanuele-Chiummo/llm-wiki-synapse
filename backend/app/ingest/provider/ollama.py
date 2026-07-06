@@ -158,10 +158,25 @@ class OllamaProvider(InferenceProvider):
     async def _chat_stream(
         self, messages: list[Message], retrieval_context: str
     ) -> AsyncIterator[str]:
-        ollama_messages: list[dict[str, str]] = []
+        # B2-C1: carry Message.images only when this model is vision-capable; drop otherwise
+        # (defense-in-depth — the frontend already gates on caps.supports_vision). Ollama takes
+        # images as a base64 `images` array on the message (no data-URI prefix). We NEVER log the
+        # base64 payload (it can be large).
+        vision = self.capabilities().supports_vision
+        ollama_messages: list[dict[str, object]] = []
         if retrieval_context.strip():
             ollama_messages.append({"role": "system", "content": retrieval_context})
-        ollama_messages.extend({"role": m.role, "content": m.content} for m in messages)
+        for m in messages:
+            msg: dict[str, object] = {"role": m.role, "content": m.content}
+            if vision and m.images:
+                msg["images"] = [img.data_base64 for img in m.images]
+            elif m.images:
+                logger.debug(
+                    "Ollama chat: dropping %d image(s) — model %r is not vision-capable (B2-C1)",
+                    len(m.images),
+                    self._model,
+                )
+            ollama_messages.append(msg)
 
         body = {
             "model": self._model,  # from provider_config — never hardcoded (I6)

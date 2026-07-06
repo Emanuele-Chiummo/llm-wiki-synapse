@@ -42,13 +42,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.chat.context import DEFAULT_CONTEXT_WINDOW, build_chat_context
 from app.chat.think import ThinkScanner
+from app.chat.web_context import WebContext, build_web_context
 from app.config import settings
 from app.ingest.provider import resolve_provider
 from app.ingest.provider.base import UsageAccumulator
 from app.ingest.schemas import Message
 from app.models import ChatMessage, Conversation
 from app.provider_config_service import ConfigNotFoundError, resolve_provider_config
-from app.rag.retrieval import Citation, retrieve
+from app.rag.retrieval import Citation, retrieval_mode_params, retrieve
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,8 @@ async def run_chat_stream(
     vault_id: str | None,
     context_window: int | None,
     regenerate: bool,
+    use_web_search: bool = False,
+    retrieval_mode: str = "standard",
 ) -> AsyncIterator[str]:
     """
     Async generator yielding NDJSON lines for one bounded chat turn (ADR-0019 §2.2).
@@ -169,12 +172,20 @@ async def run_chat_stream(
             await _delete_last_assistant(session, conv_id)
 
         if last_user is not None:
+            # B2-C1: persist images as [{mime, data_base64}] JSONB so regenerate/history works.
+            # Content is stored RAW (AC-F7-2). Images are the full payload — kept for
+            # history replay; the provider handles/ignores per its supports_vision (I6).
+            images_json: list[dict[str, str]] = [
+                {"mime": img.mime, "data_base64": img.data_base64}
+                for img in (last_user.images or [])
+            ]
             session.add(
                 ChatMessage(
                     conversation_id=conv_id,
                     role="user",
                     content=last_user.content,
                     citations=[],
+                    images=images_json if images_json else None,
                 )
             )
         await session.flush()
@@ -182,14 +193,18 @@ async def run_chat_stream(
 
     # ── F5: call retrieve() ONCE before streaming (ADR-0022 §2.7, I3 — NOT per-token) ──
     # retrieve() is a pure store read (zero inference, zero vault walk — I1/I7).
+    # B2-C3: retrieval_mode selects a frozen (k, expansion_depth) preset (I7).
     # We tolerate any retrieval error gracefully: fall back to empty context (no citations).
     retrieval_citations: list[Citation] = []
     retrieval_text = ""
+    r_k, r_depth = retrieval_mode_params(retrieval_mode)
     try:
         rctx = await retrieve(
             query=last_user.content if last_user else "",
             vault_id=effective_vault_id,
             context_window=window,
+            k=r_k,
+            expansion_depth=r_depth,
         )
         retrieval_text = rctx.text
         retrieval_citations = rctx.citations
@@ -200,14 +215,43 @@ async def run_chat_stream(
             exc,
         )
 
+    # ── B2-C2: web-search context block (single-shot, [W] namespace, I7/I9) ─────────
+    # Fires when use_web_search=True AND (mode != local_first OR wiki hits < threshold).
+    # local_first: web is the FALLBACK when wiki retrieval returned < LOCAL_FIRST_MIN_HITS.
+    # All other modes: web fires unconditionally when use_web_search=True.
+    web_ctx: WebContext | None = None
+    if use_web_search:
+        local_first_mode = retrieval_mode == "local_first"
+        min_hits = settings.local_first_min_hits
+        should_web = (not local_first_mode) or (len(retrieval_citations) < min_hits)
+        if should_web:
+            query_str = last_user.content if last_user else ""
+            try:
+                web_ctx = await build_web_context(query_str)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "chat: build_web_context failed (vault=%s) — proceeding without web: %s",
+                    effective_vault_id,
+                    exc,
+                )
+
     # ── Build the bounded provider call args (I6: provider chooses model; we pass ctx) ──
     # Prepend light grounding header (purpose.md + overview.md) to the retrieval context text
     # so the provider receives ONE combined context string (I6 signature unchanged, ADR-0022 §2.7).
+    # B2-C2: append the [W] web-context block (if any) AFTER wiki context, clearly labelled.
+    # The model is instructed to cite wiki pages as [n] and web results as [W1]..[Wn].
     light_header = build_chat_context(vault_root=settings.vault_root, context_window=window)
+    system_parts: list[str] = [light_header]
     if retrieval_text:
-        system_context = light_header + "\n\n## Retrieved context\n" + retrieval_text
-    else:
-        system_context = light_header
+        system_parts.append("## Retrieved context (cite as [n])\n" + retrieval_text)
+    if web_ctx and not web_ctx.empty:
+        system_parts.append(
+            "## Web search context (cite as [W1], [W2], …)\n"
+            "When a statement draws on the web results below, cite it with the matching "
+            "[Wn] marker (e.g. [W1]). Keep [Wn] citations distinct from wiki [n] citations.\n\n"
+            + web_ctx.text
+        )
+    system_context = "\n\n".join(system_parts)
     # The provider's chat() takes (messages, retrieval_context). We pass the combined string
     # as retrieval_context (backend-neutral, I6 — signature unchanged, Do-NOT #7).
     provider_messages = list(messages)
@@ -377,6 +421,11 @@ async def run_chat_stream(
         for c in retrieval_citations
     ]
 
+    # B2-C2: web_citations in done event — [{index, title, url}]. Empty list when web off/empty.
+    done_web_citations: list[dict[str, object]] = (
+        [wc.to_dict() for wc in web_ctx.citations] if web_ctx and not web_ctx.empty else []
+    )
+
     yield _line(
         {
             "type": "done",
@@ -388,5 +437,6 @@ async def run_chat_stream(
             "iterations_used": 1,
             "finish_reason": finish_reason,
             "citations": done_citations,
+            "web_citations": done_web_citations,
         }
     )
