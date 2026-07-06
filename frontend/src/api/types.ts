@@ -811,9 +811,15 @@ export interface ResumeQueueResponse {
 
 // ─── POST /lint/scan + GET /lint/runs + GET /lint/findings (K2, ADR-0037 §6) ──
 
-/** Lint finding categories (ADR-0037 §6). */
+/** Lint finding categories (ADR-0037 §6, B1-L1). */
 export type LintCategory =
-  "orphan-page" | "missing-xref" | "contradiction" | "stale-claim" | "missing-page";
+  | "orphan-page"
+  | "missing-xref"
+  | "contradiction"
+  | "stale-claim"
+  | "missing-page"
+  /** B1-L1: deterministic category derived from links.dangling=True. Zero LLM cost. */
+  | "broken-wikilink";
 
 /** Finding lifecycle. */
 export type LintFindingStatus = "open" | "applied" | "dismissed";
@@ -828,6 +834,11 @@ export type LintRunStatus = "running" | "completed" | "error";
  * Categories that are FLAG-ONLY: the apply endpoint acknowledges but does not
  * rewrite any wiki file. The UI should label the action "Acknowledge" instead of
  * "Fix" and show no file-write expectation.
+ *
+ * NOTE: "broken-wikilink" is NOT flag-only — when suggested_target is present it
+ * has a real Fix (rewrite dangling [[link]] in the referencing page body); when
+ * absent the row is treated as acknowledge per-row. The distinction is made at
+ * render time using the suggested_target field, not via this set.
  */
 export const LINT_FLAG_ONLY_CATEGORIES = new Set<LintCategory>([
   "orphan-page",
@@ -836,8 +847,10 @@ export const LINT_FLAG_ONLY_CATEGORIES = new Set<LintCategory>([
 ]);
 
 /**
- * One lint_findings row (ADR-0037 §6).
+ * One lint_findings row (ADR-0037 §6, B1-L2).
  * proposed_action is null for flag-only categories.
+ * suggested_target / suggested_page_id added for broken-wikilink (B1-L2): the
+ * tolerant resolver computed the best-match existing page at scan time.
  */
 export interface LintFinding {
   id: string;
@@ -853,6 +866,10 @@ export interface LintFinding {
   resolution_note: string | null;
   created_at: string; // ISO-8601
   reviewed_at: string | null; // ISO-8601
+  /** B1-L2: for broken-wikilink, the suggested existing page title to rewrite to. */
+  suggested_target: string | null;
+  /** B1-L2: for broken-wikilink, the FK to the suggested existing page. */
+  suggested_page_id: string | null;
 }
 
 /** Paginated response from GET /lint/findings. */
@@ -904,3 +921,30 @@ export interface LintScanRequest {
   max_iter?: number | null;
   token_budget?: number | null;
 }
+
+// ─── B1: Batch action + page-delete (B1-L5, B1-L9) ──────────────────────────
+
+/** One result entry in a POST /lint/findings/batch response. */
+export interface LintBatchResultEntry {
+  id: string;
+  status: "ok" | "error";
+  detail?: string | null;
+}
+
+/**
+ * Response from POST /lint/findings/batch (B1-L5).
+ * Bounded: ≤200 ids per call (I7).
+ */
+export interface LintBatchResponse {
+  results: LintBatchResultEntry[];
+  ok_count: number;
+  error_count: number;
+}
+
+/**
+ * Response from DELETE /pages/{page_id} (B1-L9).
+ * Matches the existing CascadeDeleteResult shape used by cascade-delete preview.
+ * Re-exported here as a convenience alias so lint code can import it without
+ * pulling in the cascade-delete types.
+ */
+export type LintDeletePageResponse = CascadeDeleteResult;

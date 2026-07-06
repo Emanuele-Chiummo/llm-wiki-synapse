@@ -1035,18 +1035,27 @@ class CascadePreviewResponse(BaseModel):
 
 class CascadeDeleteResponse(BaseModel):
     """
-    DELETE /pages/{id} response (ADR-0026 §6.1, AC-F13-5).
+    DELETE /pages/{id} response (ADR-0026 §6.1, AC-F13-5 / L9).
 
     deleted_page_id: the page that was deleted.
     wikilinks_cleaned: total [[Target]] spans neutralised.
     index_entry_removed: True when index.md was successfully regenerated.
     shared_entity_warnings: advisory list of source-overlap pages.
+    cleaned_references: alias for wikilinks_cleaned (L9 contract).
     """
 
     deleted_page_id: uuid.UUID
     wikilinks_cleaned: int
     index_entry_removed: bool
     shared_entity_warnings: list[str]
+    cleaned_references: int = Field(
+        default=0,
+        description=(
+            "Number of referencing pages whose dead wikilinks were neutralised. "
+            "Mirrors wikilinks_cleaned (L9 — same value). "
+            "Returned as a convenience alias for the lint batch L9 consumer."
+        ),
+    )
 
 
 @router.post(
@@ -1107,38 +1116,103 @@ async def cascade_delete_preview(page_id: uuid.UUID) -> CascadePreviewResponse:
     response_model=CascadeDeleteResponse,
     summary="Cascade-delete a wiki page and clean up dead wikilinks",
     description=(
-        "F13 Cascade Delete (ADR-0026, AC-F13-1..7). "
+        "F13 Cascade Delete (ADR-0026, AC-F13-1..7) + L9 (lint-initiated delete). "
+        "wiki/ pages only — 409 for meta pages (index.md, log.md, overview.md). "
         "Single-pass, inference-free operation: "
         "soft-deletes the page (deleted_at=now()); hard-deletes its Qdrant point; "
         "rewrites all dead [[Target]] wikilinks to plain text (body-only, frontmatter-safe, I5); "
         "removes the index.md catalogue entry; deletes the raw/sources/ file (AQ-v0.5-5); "
+        "appends 'DELETED | path' to log.md (K4); "
         "bumps data_version EXACTLY ONCE (I2); fires the debounced graph recompute (I2). "
         "Makes ZERO inference calls, ZERO FA2 calls. "
         "404 on non-existent or already-soft-deleted page (idempotent double-delete, AC-F13-5c). "
-        "Use POST /pages/{id}/cascade-delete/preview first (ADR-0026 §6 — mandatory dry-run)."
+        "Use POST /pages/{id}/cascade-delete/preview first (ADR-0026 §6 — mandatory dry-run). "
+        "NEVER called from any automated path (K8 — explicit human action only)."
     ),
     responses={
         200: {"description": "Page deleted; dead wikilinks cleaned; index.md updated"},
         404: {"description": "Page not found or already deleted (AC-F13-5c)"},
+        409: {
+            "description": (
+                "Meta page (index.md / log.md / overview.md) cannot be deleted via this endpoint"
+            )
+        },
     },
 )
 async def delete_page(page_id: uuid.UUID) -> CascadeDeleteResponse:
     """
-    DELETE /pages/{page_id} — cascade delete (ADR-0026, AC-F13-5).
+    DELETE /pages/{page_id} — cascade delete (ADR-0026 / L9).
 
     Single pass; zero inference; zero FA2 (I7/I2/I6). data_version +1 EXACTLY ONCE.
     404 on double-delete (PageNotFoundError from plan_cascade_delete).
+    409 for meta pages (index.md / log.md / overview.md).
+    Appends 'DELETED | path' to log.md (K4).
+    NEVER called from any automated path (K8).
     """
     from app.ops.cascade_delete import PageNotFoundError, cascade_delete
+
+    # ── L9: meta-page guard (409 for navigation roots — never deletable via this endpoint) ──
+    # Use raw SQL for portability with the SQLite test schema (avoids JSONB column issues).
+    _META_PAGE_BASES = frozenset({"index.md", "log.md", "overview.md"})
+    async with _m.get_session() as session:
+        meta_row = await session.execute(
+            sa_text(
+                "SELECT file_path FROM pages "
+                "WHERE CAST(id AS TEXT) = :pid AND deleted_at IS NULL"
+            ).bindparams(pid=str(page_id))
+        )
+        meta_fp_row = meta_row.first()
+
+    if meta_fp_row is not None:
+        meta_fp: str = str(meta_fp_row[0] or "")
+        base = meta_fp.rsplit("/", 1)[-1].lower()
+        if base in _META_PAGE_BASES:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Meta page '{base}' (file_path={meta_fp!r}) cannot be "
+                    "deleted via this endpoint. It is a navigation root (L9 guard)."
+                ),
+            )
 
     try:
         result = await cascade_delete(page_id)
     except PageNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    # ── L9: log.md append (K4 — append-only; NEVER truncated) ───────────────────
+    try:
+        from datetime import UTC
+        from datetime import datetime as _dt
+
+        from app.config import settings as _cfg
+
+        log_path = _cfg.log_md_path
+        if not log_path.exists():
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text(
+                "---\ntype: log\ntitle: Synapse Ingest Log\n---\n\n", encoding="utf-8"
+            )
+        # Resolve the file_path from the now soft-deleted row (no deleted_at filter).
+        async with _m.get_session() as del_sess:
+            del_row = await del_sess.execute(
+                sa_text("SELECT file_path FROM pages WHERE CAST(id AS TEXT) = :pid").bindparams(
+                    pid=str(page_id)
+                )
+            )
+            fp_row = del_row.first()
+        deleted_fp = str(fp_row[0]) if fp_row and fp_row[0] else str(page_id)
+        timestamp = _dt.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        log_line = f"{timestamp} | DELETED | {deleted_fp}\n"
+        with log_path.open("a", encoding="utf-8") as lf:
+            lf.write(log_line)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("delete_page: log.md append failed: %s", exc)
+
     return CascadeDeleteResponse(
         deleted_page_id=result.deleted_page_id,
         wikilinks_cleaned=result.wikilinks_cleaned,
         index_entry_removed=result.index_entry_removed,
         shared_entity_warnings=result.shared_entity_warnings,
+        cleaned_references=result.wikilinks_cleaned,
     )

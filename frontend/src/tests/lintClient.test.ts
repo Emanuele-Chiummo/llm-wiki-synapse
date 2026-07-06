@@ -1,13 +1,16 @@
 /**
- * lintClient.test.ts — unit tests for the K2 lint API client (ADR-0037 §6).
+ * lintClient.test.ts — unit tests for the K2 lint API client (ADR-0037 §6, B1).
  *
  * Covers:
- *   - runLintScan: POST to /lint/scan with vault_id; returns run + findings
+ *   - runLintScan: POST to /lint/scan with vault_id + semantic param; returns run + findings
  *   - fetchLintRuns: GET with correct query params
  *   - fetchLintRun: GET single run by id
- *   - fetchLintFindings: GET with vault_id + status filter
+ *   - fetchLintFindings: GET with vault_id + status filter + optional category/severity [L10]
  *   - applyLintFinding: POST to /lint/findings/{id}/apply
  *   - dismissLintFinding: POST to /lint/findings/{id}/dismiss
+ *   - batchLintAction: POST to /lint/findings/batch [L5]
+ *   - sendLintFindingToReview: POST to /lint/findings/{id}/send-to-review [L6]
+ *   - deleteWikiPage: DELETE to /pages/{page_id} [L9]
  *   - Error handling: non-ok responses throw ApiError with status
  *   - 409 on apply when finding already closed
  *
@@ -22,6 +25,9 @@ import {
   fetchLintFindings,
   applyLintFinding,
   dismissLintFinding,
+  batchLintAction,
+  sendLintFindingToReview,
+  deleteWikiPage,
 } from "../api/lintClient";
 import type { LintRun, LintFinding, LintScanResponse } from "../api/types";
 import { ApiError } from "../api/graphClient";
@@ -69,6 +75,8 @@ function makeFinding(id: string, overrides: Partial<LintFinding> = {}): LintFind
     resolution_note: null,
     created_at: new Date().toISOString(),
     reviewed_at: null,
+    suggested_target: null,
+    suggested_page_id: null,
     ...overrides,
   };
 }
@@ -106,6 +114,28 @@ describe("lintClient — runLintScan", () => {
     expect(JSON.parse(init.body as string)).toMatchObject({ vault_id: "default" });
     expect(result.run.id).toBe("run-1");
     expect(result.findings).toHaveLength(2);
+  });
+
+  it("includes semantic=true in URL by default [B1-L8]", async () => {
+    const resp: LintScanResponse = { run: makeLintRun(), findings: [] };
+    const fetchMock = mockFetch(resp);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await runLintScan({ vault_id: "default" });
+
+    const [url] = fetchMock.mock.calls[0] as [string, FetchInit];
+    expect(url).toContain("semantic=true");
+  });
+
+  it("includes semantic=false when semantic=false passed [B1-L8]", async () => {
+    const resp: LintScanResponse = { run: makeLintRun(), findings: [] };
+    const fetchMock = mockFetch(resp);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await runLintScan({ vault_id: "default" }, undefined, false);
+
+    const [url] = fetchMock.mock.calls[0] as [string, FetchInit];
+    expect(url).toContain("semantic=false");
   });
 
   it("includes optional max_iter and token_budget when provided", async () => {
@@ -267,6 +297,36 @@ describe("lintClient — fetchLintFindings", () => {
     const result = await fetchLintFindings({ vaultId: "default" });
     expect(result.items[0]?.proposed_action).toBeNull();
   });
+
+  it("includes category filter when provided [B1-L10]", async () => {
+    const fetchMock = mockFetch({ items: [], total: 0, limit: 50, offset: 0 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchLintFindings({ vaultId: "default", category: "broken-wikilink" });
+
+    const url = fetchMock.mock.calls[0]?.[0] as string;
+    expect(url).toContain("category=broken-wikilink");
+  });
+
+  it("includes severity filter when provided [B1-L10]", async () => {
+    const fetchMock = mockFetch({ items: [], total: 0, limit: 50, offset: 0 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchLintFindings({ vaultId: "default", severity: "error" });
+
+    const url = fetchMock.mock.calls[0]?.[0] as string;
+    expect(url).toContain("severity=error");
+  });
+
+  it("does not include category param when not provided", async () => {
+    const fetchMock = mockFetch({ items: [], total: 0, limit: 50, offset: 0 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchLintFindings({ vaultId: "default" });
+
+    const url = fetchMock.mock.calls[0]?.[0] as string;
+    expect(url).not.toContain("category=");
+  });
 });
 
 // ─── applyLintFinding ─────────────────────────────────────────────────────────
@@ -321,5 +381,118 @@ describe("lintClient — dismissLintFinding", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(dismissLintFinding("unknown")).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+// ─── batchLintAction [B1-L5] ──────────────────────────────────────────────────
+
+describe("lintClient — batchLintAction [B1-L5]", () => {
+  it("POSTs to /lint/findings/batch with ids and action=apply", async () => {
+    const fetchMock = mockFetch({
+      results: [{ id: "f1", status: "ok" }, { id: "f2", status: "ok" }],
+      ok_count: 2,
+      error_count: 0,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await batchLintAction(["f1", "f2"], "apply");
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, FetchInit];
+    expect(url).toContain("/lint/findings/batch");
+    expect(init.method).toBe("POST");
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body.ids).toEqual(expect.arrayContaining(["f1", "f2"]));
+    expect(body.action).toBe("apply");
+    expect(result.ok_count).toBe(2);
+    expect(result.error_count).toBe(0);
+  });
+
+  it("POSTs action=dismiss", async () => {
+    const fetchMock = mockFetch({ results: [], ok_count: 0, error_count: 0 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await batchLintAction(["f1"], "dismiss");
+
+    const [, init] = fetchMock.mock.calls[0] as [string, FetchInit];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body.action).toBe("dismiss");
+  });
+
+  it("POSTs action=send-to-review", async () => {
+    const fetchMock = mockFetch({ results: [], ok_count: 0, error_count: 0 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await batchLintAction(["f1"], "send-to-review");
+
+    const [, init] = fetchMock.mock.calls[0] as [string, FetchInit];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body.action).toBe("send-to-review");
+  });
+
+  it("throws ApiError on non-ok response", async () => {
+    const fetchMock = mockFetch({ detail: "Too many ids" }, 400);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(batchLintAction(["f1"], "apply")).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+// ─── sendLintFindingToReview [B1-L6] ─────────────────────────────────────────
+
+describe("lintClient — sendLintFindingToReview [B1-L6]", () => {
+  it("POSTs to /lint/findings/{id}/send-to-review", async () => {
+    const finding = makeFinding("f1", { status: "applied" });
+    const fetchMock = mockFetch(finding);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await sendLintFindingToReview("f1");
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, FetchInit];
+    expect(url).toContain("/lint/findings/f1/send-to-review");
+    expect(init.method).toBe("POST");
+    expect(result.status).toBe("applied");
+  });
+
+  it("throws ApiError on non-ok response", async () => {
+    const fetchMock = mockFetch({ detail: "Not found" }, 404);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(sendLintFindingToReview("unknown")).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+// ─── deleteWikiPage [B1-L9] ───────────────────────────────────────────────────
+
+describe("lintClient — deleteWikiPage [B1-L9]", () => {
+  it("DELETEs /pages/{page_id}", async () => {
+    const fetchMock = mockFetch({
+      deleted_page_id: "page-1",
+      wikilinks_cleaned: 3,
+      index_entry_removed: true,
+      shared_entity_warnings: [],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await deleteWikiPage("page-1");
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, FetchInit];
+    expect(url).toContain("/pages/page-1");
+    expect(init.method).toBe("DELETE");
+    expect(result.deleted_page_id).toBe("page-1");
+    expect(result.wikilinks_cleaned).toBe(3);
+  });
+
+  it("throws ApiError with status 404 when page not found", async () => {
+    const fetchMock = mockFetch({ detail: "Page not found" }, 404);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(deleteWikiPage("nonexistent")).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("throws ApiError on server error", async () => {
+    const fetchMock = mockFetch({ detail: "Internal error" }, 500);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(deleteWikiPage("page-1")).rejects.toBeInstanceOf(ApiError);
   });
 });

@@ -731,8 +731,33 @@
       "missing-xref": "Xref mancante",
       "contradiction": "Contraddizione",
       "stale-claim": "Affermazione obsoleta",
-      "missing-page": "Pagina mancante"
-    }
+      "missing-page": "Pagina mancante",
+      "broken-wikilink": "Link interrotto"
+    },
+    "groups": {
+      "errors": "Errori",
+      "warnings": "Avvertimenti",
+      "info": "Info"
+    },
+    "suggestedTarget": "Destinazione suggerita",
+    "open": "Apri",
+    "selectAll": "Seleziona tutto",
+    "selectFinding": "Seleziona rilevazione",
+    "selected": "{{count}} selezionati",
+    "fixSelected": "Correggi selezionati",
+    "ignoreSelected": "Ignora selezionati",
+    "sendToReview": "Invia a revisione",
+    "sendSelectedToReview": "Invia a revisione",
+    "semantic": "Semantico (LLM)",
+    "semanticHelp": "Se abilitato, la scansione include un passaggio semantico LLM (contraddizioni, affermazioni obsolete). Disabilita per una scansione deterministica gratuita (link interrotti, orfani, xref mancanti).",
+    "delete": "Elimina",
+    "deleteConfirm": "Conferma eliminazione",
+    "deleteConfirmHint": "Clicca di nuovo Elimina sulla riga per rimuovere permanentemente questa pagina",
+    "deleteSuccess": "Pagina eliminata",
+    "batchApplied": "Corretti {{count}} rilevazioni",
+    "batchDismissed": "Ignorati {{count}} rilevazioni",
+    "batchSentToReview": "Inviate {{count}} rilevazioni a revisione",
+    "batchPartial": "{{ok}} riusciti, {{err}} falliti"
   },
   "graph": {
     "colorModeType": "Tipo",

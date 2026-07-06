@@ -1,16 +1,21 @@
 /**
  * lintClient.ts — typed API client for the K2 Lint-fix endpoints (ADR-0037 §6).
  *
- * POST /lint/scan                   → LintScanResponse (200): run + findings
- * GET  /lint/runs                   → LintRunListResponse
- * GET  /lint/runs/{id}              → LintRun
- * GET  /lint/findings?status=open   → LintFindingListResponse
- * POST /lint/findings/{id}/apply    → LintFinding (200): human-gated fix / acknowledge
- * POST /lint/findings/{id}/dismiss  → LintFinding (200)
+ * POST /lint/scan                         → LintScanResponse (200): run + findings
+ * GET  /lint/runs                         → LintRunListResponse
+ * GET  /lint/runs/{id}                    → LintRun
+ * GET  /lint/findings?status=open         → LintFindingListResponse
+ * POST /lint/findings/{id}/apply          → LintFinding (200): human-gated fix / acknowledge
+ * POST /lint/findings/{id}/dismiss        → LintFinding (200)
+ * POST /lint/findings/batch               → LintBatchResponse (B1-L5)
+ * POST /lint/findings/{id}/send-to-review → 200; finding becomes status=applied (B1-L6)
+ * DELETE /pages/{page_id}                → LintDeletePageResponse (B1-L9)
  *
  * Apply semantics (ADR-0037 §6, CLAUDE.md §4b F15):
  *   - missing-xref + missing-page → real file write (proposed_action executed)
- *   - orphan-page + contradiction + stale-claim → flag-only; acknowledged with no write
+ *   - broken-wikilink with suggested_target → real wikilink rewrite (B1-L3)
+ *   - broken-wikilink without suggestion / orphan-page / contradiction / stale-claim
+ *       → flag-only; acknowledged with no write
  *   The UI MUST reflect this distinction (see LINT_FLAG_ONLY_CATEGORIES in types.ts).
  *
  * No secrets in this file (CLAUDE.md §12).
@@ -24,6 +29,10 @@ import type {
   LintRun,
   LintFindingListResponse,
   LintFinding,
+  LintBatchResponse,
+  LintDeletePageResponse,
+  LintCategory,
+  LintSeverity,
 } from "./types";
 import { ApiError } from "./graphClient";
 import { apiBase, apiFetch } from "./base";
@@ -44,15 +53,19 @@ async function checkResponse(res: Response): Promise<void> {
 
 /**
  * Start a bounded lint scan.
- * POST /lint/scan { vault_id, max_iter?, token_budget? }
+ * POST /lint/scan?semantic=true|false { vault_id, max_iter?, token_budget? }
  * Returns 200 { run, findings } immediately (synchronous bounded run — I7).
  * The run may take tens of seconds for large vaults; the UI shows a spinner.
+ *
+ * B1-L8: semantic=false → deterministic-only scan (free, zero LLM cost).
+ *         semantic=true (default) → structural + LLM semantic review.
  */
 export async function runLintScan(
   params: LintScanRequest,
   signal?: AbortSignal,
+  semantic = true,
 ): Promise<LintScanResponse> {
-  const url = `${apiBase()}/lint/scan`;
+  const url = `${apiBase()}/lint/scan?semantic=${semantic ? "true" : "false"}`;
   const res = await apiFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -97,8 +110,10 @@ export async function fetchLintRun(
 /**
  * Fetch paginated lint findings.
  * GET /lint/findings?vault_id=<vaultId>&status=<status>&limit=<limit>&offset=<offset>
+ *                  [&category=<cat>][&severity=<sev>]
  *
  * status defaults to "open". vault_id is required by the backend.
+ * B1-L10: optional category and severity filters.
  */
 export async function fetchLintFindings(
   options: {
@@ -106,15 +121,21 @@ export async function fetchLintFindings(
     status?: "open" | "applied" | "dismissed";
     limit?: number;
     offset?: number;
+    /** B1-L10: optional category filter. */
+    category?: LintCategory | null;
+    /** B1-L10: optional severity filter. */
+    severity?: LintSeverity | null;
   },
   signal?: AbortSignal,
 ): Promise<LintFindingListResponse> {
-  const { vaultId, status = "open", limit = 50, offset = 0 } = options;
-  const url =
+  const { vaultId, status = "open", limit = 50, offset = 0, category, severity } = options;
+  let url =
     `${apiBase()}/lint/findings` +
     `?vault_id=${encodeURIComponent(vaultId)}` +
     `&status=${encodeURIComponent(status)}` +
     `&limit=${limit}&offset=${offset}`;
+  if (category) url += `&category=${encodeURIComponent(category)}`;
+  if (severity) url += `&severity=${encodeURIComponent(severity)}`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as LintFindingListResponse;
@@ -144,4 +165,52 @@ export async function dismissLintFinding(findingId: string): Promise<LintFinding
   const res = await apiFetch(url, { method: "POST" });
   await checkResponse(res);
   return (await res.json()) as LintFinding;
+}
+
+/**
+ * Batch apply / dismiss / send-to-review for multiple findings (B1-L5).
+ * POST /lint/findings/batch { ids: string[], action: "apply"|"dismiss"|"send-to-review" }
+ * → 200 { results, ok_count, error_count }
+ * Bounded: max 200 ids per call (I7).
+ */
+export async function batchLintAction(
+  ids: string[],
+  action: "apply" | "dismiss" | "send-to-review",
+  signal?: AbortSignal,
+): Promise<LintBatchResponse> {
+  const url = `${apiBase()}/lint/findings/batch`;
+  const res = await apiFetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids, action }),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as LintBatchResponse;
+}
+
+/**
+ * Send a single lint finding to the review queue (B1-L6).
+ * POST /lint/findings/{id}/send-to-review → 200; finding becomes status=applied.
+ */
+export async function sendLintFindingToReview(findingId: string): Promise<LintFinding> {
+  const url = `${apiBase()}/lint/findings/${encodeURIComponent(findingId)}/send-to-review`;
+  const res = await apiFetch(url, { method: "POST" });
+  await checkResponse(res);
+  return (await res.json()) as LintFinding;
+}
+
+/**
+ * Delete a wiki page (B1-L9).
+ * DELETE /pages/{page_id} → 200 { deleted_page_id, cleaned_references }
+ *
+ * This is the two-stage-confirmed orphan-page Delete path. The caller MUST
+ * present a two-stage confirm (armed-red pattern) before invoking this.
+ * On success the referencing wiki links are rewritten to plain text server-side.
+ */
+export async function deleteWikiPage(pageId: string): Promise<LintDeletePageResponse> {
+  const url = `${apiBase()}/pages/${encodeURIComponent(pageId)}`;
+  const res = await apiFetch(url, { method: "DELETE" });
+  await checkResponse(res);
+  return (await res.json()) as LintDeletePageResponse;
 }

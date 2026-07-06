@@ -93,6 +93,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0046** | [Live ingest activity queue with cancel / pause / retry (F9-adjacent, watcher, I1/I7)](0046-ingest-activity-queue-cancellation.md) | Accepted |
 | **0050** | [Retrieval scope restricted to wiki/ pages only](0050-retrieval-wiki-only-scope.md) | Accepted |
 | **0051** | [Pluggable PDF extractor seam: Marker over HTTP with pypdf fallback](0051-pluggable-pdf-extractor-seam.md) | Accepted |
+| **0058** | [Lint parity extension: broken-wikilink category, batch actions, review bridge, orphan delete (extends ADR-0037; B1)](ADR-0058-lint-parity-extension.md) | Accepted |
 
 ---
 

@@ -224,6 +224,47 @@ async def persist_links(
         )
 
 
+# ── Tolerant title resolution (shared helper — L2 / ADR-0037 B1) ─────────────────
+#
+# Used by both the broken-wikilink scan (to compute suggested_target / suggested_page_id)
+# and the reresolve_dangling_links backfill.  Extracted so the caller never needs to rebuild
+# the resolver maps independently (I1 — one bulk query, no N+1).
+
+
+async def resolve_suggested_target(
+    target: str,
+    session: AsyncSession,
+) -> tuple[uuid.UUID, str] | None:
+    """
+    Resolve *target* to the best-matching live page using the tolerant 3-step matcher
+    (exact → case-insensitive → slug).  Returns ``(page_id, matched_title)`` or
+    ``None`` when no live page matches.
+
+    Builds the resolver maps in ONE query (I1 — no N+1).  Scoped to ALL live pages
+    (vault-agnostic, matching the behaviour of persist_links and reresolve_dangling_links).
+
+    Used by the broken-wikilink scan (L2) to compute suggested_target/suggested_page_id.
+    """
+    maps = await _build_resolver_maps(session)
+    hit = _resolve_target(target, maps)
+    if hit is None:
+        return None
+    # Reverse-look-up the canonical title from the exact map (first-hit-wins, conservative).
+    for title, pid in maps.by_title.items():
+        if pid == hit:
+            return hit, title
+    # Fallback: scan by_lower and by_slug to find a displayable title when exact missed.
+    for title, pid in maps.by_lower.items():
+        if pid == hit:
+            # Recover the canonical-case title from by_title (same id).
+            canonical = next(
+                (t for t, p in maps.by_title.items() if p == hit),
+                title,
+            )
+            return hit, canonical
+    return hit, target  # last resort — return the raw target as the "title"
+
+
 # ── Backfill: re-resolve historical dangling links (F3/K3) ──────────────────────
 
 

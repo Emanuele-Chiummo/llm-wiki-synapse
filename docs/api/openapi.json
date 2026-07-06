@@ -926,7 +926,7 @@
       },
       "delete": {
         "summary": "Cascade-delete a wiki page and clean up dead wikilinks",
-        "description": "F13 Cascade Delete (ADR-0026, AC-F13-1..7). Single-pass, inference-free operation: soft-deletes the page (deleted_at=now()); hard-deletes its Qdrant point; rewrites all dead [[Target]] wikilinks to plain text (body-only, frontmatter-safe, I5); removes the index.md catalogue entry; deletes the raw/sources/ file (AQ-v0.5-5); bumps data_version EXACTLY ONCE (I2); fires the debounced graph recompute (I2). Makes ZERO inference calls, ZERO FA2 calls. 404 on non-existent or already-soft-deleted page (idempotent double-delete, AC-F13-5c). Use POST /pages/{id}/cascade-delete/preview first (ADR-0026 \u00a76 \u2014 mandatory dry-run).",
+        "description": "F13 Cascade Delete (ADR-0026, AC-F13-1..7) + L9 (lint-initiated delete). wiki/ pages only \u2014 409 for meta pages (index.md, log.md, overview.md). Single-pass, inference-free operation: soft-deletes the page (deleted_at=now()); hard-deletes its Qdrant point; rewrites all dead [[Target]] wikilinks to plain text (body-only, frontmatter-safe, I5); removes the index.md catalogue entry; deletes the raw/sources/ file (AQ-v0.5-5); appends 'DELETED | path' to log.md (K4); bumps data_version EXACTLY ONCE (I2); fires the debounced graph recompute (I2). Makes ZERO inference calls, ZERO FA2 calls. 404 on non-existent or already-soft-deleted page (idempotent double-delete, AC-F13-5c). Use POST /pages/{id}/cascade-delete/preview first (ADR-0026 \u00a76 \u2014 mandatory dry-run). NEVER called from any automated path (K8 \u2014 explicit human action only).",
         "operationId": "delete_page_pages__page_id__delete",
         "parameters": [
           {
@@ -953,6 +953,9 @@
           },
           "404": {
             "description": "Page not found or already deleted (AC-F13-5c)"
+          },
+          "409": {
+            "description": "Meta page (index.md / log.md / overview.md) cannot be deleted via this endpoint"
           },
           "422": {
             "description": "Validation Error",
@@ -3925,7 +3928,7 @@
     "/lint/findings": {
       "get": {
         "summary": "List lint findings",
-        "description": "Paginated, created_at ASC list of lint_findings rows (ADR-0037 \u00a76). vault_id: required. status: optional filter (open|applied|dismissed; default open). limit: default 50, max 200 (I7 \u2014 bounded page size). offset: >=0.",
+        "description": "Paginated, created_at ASC list of lint_findings rows (ADR-0037 \u00a76). vault_id: required. status: optional filter (open|applied|dismissed; default open). category: optional filter (orphan-page|broken-wikilink|missing-xref|contradiction|stale-claim|missing-page; 422 on invalid). severity: optional filter (info|warning|error; 422 on invalid). L10 / ADR-0037 B1. limit: default 50, max 200 (I7 \u2014 bounded page size). offset: >=0.",
         "operationId": "list_lint_findings_endpoint_lint_findings_get",
         "parameters": [
           {
@@ -3957,6 +3960,42 @@
               "title": "Status"
             },
             "description": "open | applied | dismissed; null/omit for all statuses"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by category: orphan-page | broken-wikilink | missing-xref | contradiction | stale-claim | missing-page. 422 on invalid value. L10.",
+              "title": "Category"
+            },
+            "description": "Filter by category: orphan-page | broken-wikilink | missing-xref | contradiction | stale-claim | missing-page. 422 on invalid value. L10."
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by severity: info | warning | error. 422 on invalid value. L10.",
+              "title": "Severity"
+            },
+            "description": "Filter by severity: info | warning | error. 422 on invalid value. L10."
           },
           {
             "name": "limit",
@@ -3998,7 +4037,7 @@
             }
           },
           "422": {
-            "description": "Validation error (limit out of range, missing vault_id)"
+            "description": "Validation error (limit out of range, invalid category/severity)"
           }
         },
         "security": [
@@ -4103,6 +4142,95 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/lint/findings/{finding_id}/send-to-review": {
+      "post": {
+        "summary": "Bridge a lint finding to the F9 HITL review queue",
+        "description": "L6 / ADR-0037 B1. Maps finding category \u2192 review item_type and calls ops/review.enqueue_review(). Category mapping: broken-wikilink \u2192 missing-page; missing-page \u2192 missing-page; contradiction \u2192 contradiction; stale-claim \u2192 suggestion; orphan-page \u2192 suggestion; missing-xref \u2192 suggestion. proposed_title = suggested_target when present (broken-wikilink), else target_title. On success: finding status \u2192 'applied', resolution_note = 'sent to review (<id>)'. 409 if the finding is not open. 404 if finding_id is unknown.",
+        "operationId": "send_to_review_endpoint_lint_findings__finding_id__send_to_review_post",
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Finding Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Finding sent to review; status \u2192 applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintFindingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lint finding not found"
+          },
+          "409": {
+            "description": "Finding not open"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/lint/findings/batch": {
+      "post": {
+        "summary": "Batch apply|dismiss|send-to-review for multiple lint findings",
+        "description": "L5 / ADR-0037 B1. Apply a single action to multiple findings sequentially. Actions: apply | dismiss | send-to-review. Cap: ids \u2264 200 (I7 \u2014 422 beyond). Per-id failure does NOT abort the batch \u2014 all ids are attempted. Response: {results: [{id, status: ok|error, detail}], ok_count, error_count}.",
+        "operationId": "batch_findings_endpoint_lint_findings_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchFindingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Batch processed; see results for per-id status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchFindingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ids exceeds cap of 200, or invalid action"
           }
         },
         "security": [
@@ -4410,6 +4538,90 @@
         "title": "BackfillDomainsStatusResponse",
         "description": "GET /ops/backfill-domains \u2014 single-flight state + last completed summary."
       },
+      "BatchFindingsRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Ids",
+            "description": "List of finding UUIDs to act on. Cap: <= 200 (I7 \u2014 bounded; 422 beyond)."
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "description": "Action to apply: apply | dismiss | send-to-review"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids",
+          "action"
+        ],
+        "title": "BatchFindingsRequest",
+        "description": "Request body for POST /lint/findings/batch (L5 / ADR-0037 B1)."
+      },
+      "BatchFindingsResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BatchItemResult"
+            },
+            "type": "array",
+            "title": "Results"
+          },
+          "ok_count": {
+            "type": "integer",
+            "title": "Ok Count"
+          },
+          "error_count": {
+            "type": "integer",
+            "title": "Error Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "results",
+          "ok_count",
+          "error_count"
+        ],
+        "title": "BatchFindingsResponse",
+        "description": "Response for POST /lint/findings/batch (L5 / ADR-0037 B1)."
+      },
+      "BatchItemResult": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "ok | error"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "BatchItemResult",
+        "description": "Per-id result within POST /lint/findings/batch response (L5)."
+      },
       "Body_convert_marker_ingest_convert_marker_post": {
         "properties": {
           "files": {
@@ -4464,6 +4676,12 @@
             },
             "type": "array",
             "title": "Shared Entity Warnings"
+          },
+          "cleaned_references": {
+            "type": "integer",
+            "title": "Cleaned References",
+            "description": "Number of referencing pages whose dead wikilinks were neutralised. Mirrors wikilinks_cleaned (L9 \u2014 same value). Returned as a convenience alias for the lint batch L9 consumer.",
+            "default": 0
           }
         },
         "type": "object",
@@ -4474,7 +4692,7 @@
           "shared_entity_warnings"
         ],
         "title": "CascadeDeleteResponse",
-        "description": "DELETE /pages/{id} response (ADR-0026 \u00a76.1, AC-F13-5).\n\ndeleted_page_id: the page that was deleted.\nwikilinks_cleaned: total [[Target]] spans neutralised.\nindex_entry_removed: True when index.md was successfully regenerated.\nshared_entity_warnings: advisory list of source-overlap pages."
+        "description": "DELETE /pages/{id} response (ADR-0026 \u00a76.1, AC-F13-5 / L9).\n\ndeleted_page_id: the page that was deleted.\nwikilinks_cleaned: total [[Target]] spans neutralised.\nindex_entry_removed: True when index.md was successfully regenerated.\nshared_entity_warnings: advisory list of source-overlap pages.\ncleaned_references: alias for wikilinks_cleaned (L9 contract)."
       },
       "CascadePreviewResponse": {
         "properties": {
@@ -6186,7 +6404,7 @@
           "category": {
             "type": "string",
             "title": "Category",
-            "description": "orphan-page | missing-xref | contradiction | stale-claim | missing-page"
+            "description": "orphan-page | broken-wikilink | missing-xref | contradiction | stale-claim | missing-page"
           },
           "severity": {
             "type": "string",
@@ -6247,6 +6465,31 @@
               }
             ],
             "title": "Resolution Note"
+          },
+          "suggested_target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Target",
+            "description": "Title of the best-matching existing page (broken-wikilink only). Displayed as the green 'Suggested target:' strip in the lint UI (L2)."
+          },
+          "suggested_page_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Page Id",
+            "description": "FK \u2192 pages.id for the suggested_target page (L2)."
           },
           "created_at": {
             "type": "string",
@@ -6432,6 +6675,12 @@
             ],
             "title": "Token Budget",
             "description": "Token budget (1_000..1_000_000); null \u2192 LINT_TOKEN_BUDGET default"
+          },
+          "semantic": {
+            "type": "boolean",
+            "title": "Semantic",
+            "description": "When False, skip the provider pass entirely (deterministic findings only; zero LLM cost). L8 / ADR-0037 B1.",
+            "default": true
           }
         },
         "type": "object",
@@ -6439,7 +6688,7 @@
           "vault_id"
         ],
         "title": "LintScanRequest",
-        "description": "Request body for POST /lint/scan (ADR-0037 \u00a76).\n\nmax_iter and token_budget are optional \u2014 env defaults (LINT_MAX_ITER / LINT_TOKEN_BUDGET)\napply when omitted. Both are FROZEN onto the lint_runs row before the scan runs (I7).\nServer-side validators cap the range so callers cannot request an unbounded run (I7).",
+        "description": "Request body for POST /lint/scan (ADR-0037 \u00a76).\n\nmax_iter and token_budget are optional \u2014 env defaults (LINT_MAX_ITER / LINT_TOKEN_BUDGET)\napply when omitted. Both are FROZEN onto the lint_runs row before the scan runs (I7).\nServer-side validators cap the range so callers cannot request an unbounded run (I7).\nsemantic: when False, skip the provider pass entirely (deterministic findings only;\nrun records iterations_used=0, cost=0). L8 / ADR-0037 B1.",
         "example": {
           "max_iter": 3,
           "token_budget": 20000,

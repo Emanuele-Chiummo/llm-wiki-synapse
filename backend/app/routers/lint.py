@@ -2,12 +2,14 @@
 Per-domain APIRouter: /lint/* endpoints (K2 Lint-fix loop).
 
 Covers:
-  POST /lint/scan                   — bounded lint scan → run + findings
-  GET  /lint/runs                   — lint run history
-  GET  /lint/runs/{id}              — run detail
-  GET  /lint/findings               — paginated findings
-  POST /lint/findings/{id}/apply    — HUMAN GATE: apply a fix
-  POST /lint/findings/{id}/dismiss  — dismiss a finding
+  POST /lint/scan                         — bounded lint scan → run + findings
+  GET  /lint/runs                         — lint run history
+  GET  /lint/runs/{id}                    — run detail
+  GET  /lint/findings                     — paginated findings (L10: category+severity filters)
+  POST /lint/findings/{id}/apply          — HUMAN GATE: apply a fix
+  POST /lint/findings/{id}/dismiss        — dismiss a finding
+  POST /lint/findings/{id}/send-to-review — bridge to F9 review queue (L6)
+  POST /lint/findings/batch               — batch apply|dismiss|send-to-review (L5, cap 200)
 """
 
 from __future__ import annotations
@@ -56,6 +58,8 @@ class LintScanRequest(BaseModel):
     max_iter and token_budget are optional — env defaults (LINT_MAX_ITER / LINT_TOKEN_BUDGET)
     apply when omitted. Both are FROZEN onto the lint_runs row before the scan runs (I7).
     Server-side validators cap the range so callers cannot request an unbounded run (I7).
+    semantic: when False, skip the provider pass entirely (deterministic findings only;
+    run records iterations_used=0, cost=0). L8 / ADR-0037 B1.
     """
 
     vault_id: str = Field(..., description="Vault scope for the scan")
@@ -70,6 +74,13 @@ class LintScanRequest(BaseModel):
         ge=1_000,
         le=1_000_000,
         description="Token budget (1_000..1_000_000); null → LINT_TOKEN_BUDGET default",
+    )
+    semantic: bool = Field(
+        default=True,
+        description=(
+            "When False, skip the provider pass entirely (deterministic findings only; "
+            "zero LLM cost). L8 / ADR-0037 B1."
+        ),
     )
 
     model_config = {
@@ -86,7 +97,10 @@ class LintFindingResponse(BaseModel):
     lint_run_id: uuid.UUID
     vault_id: str
     category: str = Field(
-        description="orphan-page | missing-xref | contradiction | stale-claim | missing-page"
+        description=(
+            "orphan-page | broken-wikilink | missing-xref | contradiction | "
+            "stale-claim | missing-page"
+        )
     )
     severity: str = Field(description="info | warning | error")
     target_page_id: uuid.UUID | None = None
@@ -98,6 +112,18 @@ class LintFindingResponse(BaseModel):
     )
     status: str = Field(description="open | applied | dismissed")
     resolution_note: str | None = None
+    # L2 — suggested target (broken-wikilink only; NULL for all other categories)
+    suggested_target: str | None = Field(
+        default=None,
+        description=(
+            "Title of the best-matching existing page (broken-wikilink only). "
+            "Displayed as the green 'Suggested target:' strip in the lint UI (L2)."
+        ),
+    )
+    suggested_page_id: uuid.UUID | None = Field(
+        default=None,
+        description="FK → pages.id for the suggested_target page (L2).",
+    )
     created_at: datetime
     reviewed_at: datetime | None = None
 
@@ -176,6 +202,8 @@ def _lint_finding_to_response(f: LintFinding) -> LintFindingResponse:
         proposed_action=f.proposed_action,
         status=f.status,
         resolution_note=f.resolution_note,
+        suggested_target=getattr(f, "suggested_target", None),
+        suggested_page_id=_to_uuid(getattr(f, "suggested_page_id", None)),
         created_at=f.created_at,
         reviewed_at=f.reviewed_at,
     )
@@ -233,6 +261,7 @@ async def lint_scan(body: LintScanRequest) -> LintScanResponse:
         body.vault_id,
         max_iter=body.max_iter,
         token_budget=body.token_budget,
+        semantic=body.semantic,
     )
 
     # Load the run row + its findings for the response.
@@ -319,11 +348,14 @@ async def get_lint_run(run_id: uuid.UUID) -> LintRunResponse:
     description=(
         "Paginated, created_at ASC list of lint_findings rows (ADR-0037 §6). "
         "vault_id: required. status: optional filter (open|applied|dismissed; default open). "
+        "category: optional filter (orphan-page|broken-wikilink|missing-xref|contradiction|"
+        "stale-claim|missing-page; 422 on invalid). "
+        "severity: optional filter (info|warning|error; 422 on invalid). L10 / ADR-0037 B1. "
         "limit: default 50, max 200 (I7 — bounded page size). offset: >=0."
     ),
     responses={
         200: {"description": "Paginated lint findings"},
-        422: {"description": "Validation error (limit out of range, missing vault_id)"},
+        422: {"description": "Validation error (limit out of range, invalid category/severity)"},
     },
 )
 async def list_lint_findings_endpoint(
@@ -331,6 +363,17 @@ async def list_lint_findings_endpoint(
     status: str | None = Query(
         default="open",
         description="open | applied | dismissed; null/omit for all statuses",
+    ),
+    category: str | None = Query(
+        default=None,
+        description=(
+            "Filter by category: orphan-page | broken-wikilink | missing-xref | "
+            "contradiction | stale-claim | missing-page. 422 on invalid value. L10."
+        ),
+    ),
+    severity: str | None = Query(
+        default=None,
+        description="Filter by severity: info | warning | error. 422 on invalid value. L10.",
     ),
     limit: int = Query(
         default=50,
@@ -341,11 +384,35 @@ async def list_lint_findings_endpoint(
     offset: int = Query(default=0, ge=0, description="Row offset for pagination"),
 ) -> LintFindingListResponse:
     """GET /lint/findings — paginated lint findings (ADR-0037 §6)."""
-    from app.ops.lint import list_lint_findings
+    from app.ops.lint import _VALID_CATEGORIES, _VALID_SEVERITIES, list_lint_findings
 
     # Treat the literal string "all" (or empty) as "no status filter".
     status_filter = None if status in (None, "", "all") else status
-    page = await list_lint_findings(vault_id, status=status_filter, limit=limit, offset=offset)
+
+    # L10: validate category + severity (422 on invalid — mirrors _VALID_CATEGORIES contract).
+    if category is not None and category not in _VALID_CATEGORIES:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Invalid category {category!r}; must be one of {sorted(_VALID_CATEGORIES)}"
+            ),
+        )
+    if severity is not None and severity not in _VALID_SEVERITIES:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Invalid severity {severity!r}; must be one of {sorted(_VALID_SEVERITIES)}"
+            ),
+        )
+
+    page = await list_lint_findings(
+        vault_id,
+        status=status_filter,
+        category=category,
+        severity=severity,
+        limit=limit,
+        offset=offset,
+    )
     return LintFindingListResponse(
         items=[_lint_finding_to_response(f) for f in page.items],
         total=page.total,
@@ -402,3 +469,129 @@ async def dismiss_lint_finding_endpoint(finding_id: uuid.UUID) -> LintFindingRes
 
     finding = await dismiss_lint_finding(finding_id)
     return _lint_finding_to_response(finding)
+
+
+# ── L6 — POST /lint/findings/{id}/send-to-review ─────────────────────────────────
+
+
+@router.post(
+    "/lint/findings/{finding_id}/send-to-review",
+    response_model=LintFindingResponse,
+    summary="Bridge a lint finding to the F9 HITL review queue",
+    description=(
+        "L6 / ADR-0037 B1. Maps finding category → review item_type and calls "
+        "ops/review.enqueue_review(). Category mapping: "
+        "broken-wikilink → missing-page; missing-page → missing-page; "
+        "contradiction → contradiction; stale-claim → suggestion; "
+        "orphan-page → suggestion; missing-xref → suggestion. "
+        "proposed_title = suggested_target when present (broken-wikilink), else target_title. "
+        "On success: finding status → 'applied', resolution_note = 'sent to review (<id>)'. "
+        "409 if the finding is not open. 404 if finding_id is unknown."
+    ),
+    responses={
+        200: {"description": "Finding sent to review; status → applied"},
+        404: {"description": "Lint finding not found"},
+        409: {"description": "Finding not open"},
+    },
+)
+async def send_to_review_endpoint(finding_id: uuid.UUID) -> LintFindingResponse:
+    """POST /lint/findings/{id}/send-to-review — bridge to F9 review queue (L6)."""
+    from app.ops.lint import send_finding_to_review
+
+    finding = await send_finding_to_review(finding_id)
+    return _lint_finding_to_response(finding)
+
+
+# ── L5 — POST /lint/findings/batch ────────────────────────────────────────────────
+
+# NOTE: this route MUST be declared BEFORE /lint/findings/{finding_id}/... routes to avoid
+# FastAPI routing the literal segment "batch" as a UUID. Reorder is handled at the router
+# registration level — the route is declared last here but must be mounted before the
+# parameterised routes in app/main.py (or the router include order resolves it since FastAPI
+# matches literal paths before parameterised ones when declared earlier).
+
+
+class BatchFindingsRequest(BaseModel):
+    """Request body for POST /lint/findings/batch (L5 / ADR-0037 B1)."""
+
+    ids: list[uuid.UUID] = Field(
+        ...,
+        description=(
+            "List of finding UUIDs to act on. "
+            "Cap: <= 200 (I7 — bounded; 422 beyond)."
+        ),
+    )
+    action: str = Field(
+        ...,
+        description="Action to apply: apply | dismiss | send-to-review",
+    )
+
+
+class BatchItemResult(BaseModel):
+    """Per-id result within POST /lint/findings/batch response (L5)."""
+
+    id: uuid.UUID
+    status: str = Field(description="ok | error")
+    detail: str | None = None
+
+
+class BatchFindingsResponse(BaseModel):
+    """Response for POST /lint/findings/batch (L5 / ADR-0037 B1)."""
+
+    results: list[BatchItemResult]
+    ok_count: int
+    error_count: int
+
+
+_BATCH_VALID_ACTIONS = frozenset({"apply", "dismiss", "send-to-review"})
+_BATCH_MAX_IDS = 200  # I7 — matches ops/lint._BATCH_MAX_IDS
+
+
+@router.post(
+    "/lint/findings/batch",
+    response_model=BatchFindingsResponse,
+    summary="Batch apply|dismiss|send-to-review for multiple lint findings",
+    description=(
+        "L5 / ADR-0037 B1. Apply a single action to multiple findings sequentially. "
+        "Actions: apply | dismiss | send-to-review. "
+        f"Cap: ids ≤ {_BATCH_MAX_IDS} (I7 — 422 beyond). "
+        "Per-id failure does NOT abort the batch — all ids are attempted. "
+        "Response: {results: [{id, status: ok|error, detail}], ok_count, error_count}."
+    ),
+    responses={
+        200: {"description": "Batch processed; see results for per-id status"},
+        422: {
+            "description": (
+                f"ids exceeds cap of {_BATCH_MAX_IDS}, or invalid action"
+            )
+        },
+    },
+)
+async def batch_findings_endpoint(body: BatchFindingsRequest) -> BatchFindingsResponse:
+    """POST /lint/findings/batch — sequential batch action (L5 / ADR-0037 B1)."""
+    # I7 cap: reject oversized batches before any DB work.
+    if len(body.ids) > _BATCH_MAX_IDS:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Batch size {len(body.ids)} exceeds the cap of {_BATCH_MAX_IDS} (I7). "
+                "Split into smaller batches."
+            ),
+        )
+    if body.action not in _BATCH_VALID_ACTIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid action {body.action!r}; must be one of {sorted(_BATCH_VALID_ACTIONS)}",
+        )
+
+    from app.ops.lint import apply_batch
+
+    batch_resp = await apply_batch(body.ids, body.action)
+    return BatchFindingsResponse(
+        results=[
+            BatchItemResult(id=uuid.UUID(r.id), status=r.status, detail=r.detail)
+            for r in batch_resp.results
+        ],
+        ok_count=batch_resp.ok_count,
+        error_count=batch_resp.error_count,
+    )

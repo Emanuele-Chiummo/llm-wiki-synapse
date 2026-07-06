@@ -26,7 +26,9 @@ Tables defined here:
                         Now stores PROPOSALS (5 types) with lazy on-demand Create.
   - lint_runs         : v0.6 K2 lint-fix loop per-run audit ledger (ADR-0037 §3).
   - lint_findings     : v0.6 K2 lint-fix proposals (orphan/missing-xref/contradiction/
-                        stale-claim/missing-page); human-gated apply (ADR-0037 §3).
+                        stale-claim/missing-page/broken-wikilink); human-gated apply (ADR-0037 §3).
+                        Alembic 0024: adds suggested_target (Text) + suggested_page_id (UUID FK).
+                        (L2 / ADR-0037 B1)
 
 provider_config + ingest_runs added in v0.2 (ADR-0008). links added in v0.2 (ADR-0008 §5).
 All three new tables ship in a single Alembic migration 0002 (one schema-change event).
@@ -1883,14 +1885,16 @@ class LintFinding(Base):
     Mirrors review_items semantics: a finding is a PROPOSAL the human reviews; it is NEVER
     auto-applied (the human gate is apply_lint_fix — ADR-0037 §5).
 
-    category enum-by-convention (5 values, ADR-0037 §3.1, no DB CHECK):
-      orphan-page    — graph in-degree 0 (deterministic via the graph engine; flag-only fix)
-      missing-xref   — a page that should link to an existing page but does not (LLM;
-                       apply reuses the wikilink-enrichment seam — ADR-0036)
-      contradiction  — conflicting claims across pages (LLM; flag-only)
-      stale-claim    — superseded information (LLM; flag-only)
-      missing-page   — a concept mentioned but with no page (LLM; apply delegates to the
-                       lazy-generation seam used by review.create_page_from_review — ADR-0034)
+    category enum-by-convention (6 values, ADR-0037 §3.1, no DB CHECK):
+      orphan-page     — graph in-degree 0 (deterministic via the graph engine; flag-only fix)
+      missing-xref    — a page that should link to an existing page but does not (LLM;
+                        apply reuses the wikilink-enrichment seam — ADR-0036)
+      contradiction   — conflicting claims across pages (LLM; flag-only)
+      stale-claim     — superseded information (LLM; flag-only)
+      missing-page    — a concept mentioned but with no page (LLM; apply delegates to the
+                        lazy-generation seam used by review.create_page_from_review — ADR-0034)
+      broken-wikilink — a dangling [[link]] in the DB (deterministic from links.dangling=True;
+                        L2 / ADR-0037 B1; apply rewrites the body — L3)
 
     severity enum-by-convention: info | warning | error (advisory; display ordering).
 
@@ -1993,6 +1997,29 @@ class LintFinding(Base):
         Text,
         nullable=True,
         comment="How the finding was resolved (apply outcome / dismiss reason). NULL while open.",
+    )
+
+    # L2 — suggested target fields (Alembic 0024, ADR-0037 B1).
+    # Populated at scan time for broken-wikilink findings via the tolerant resolver
+    # (exact → case-insensitive → slug). NULL for all other categories.
+    suggested_target: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Title of the best matching existing page found by the tolerant resolver at "
+            "broken-wikilink scan time (exact → case-insensitive → slug). "
+            "NULL when no suggestion or for non-broken-wikilink categories. L2 / ADR-0037 B1."
+        ),
+    )
+
+    suggested_page_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        ForeignKey("pages.id"),
+        nullable=True,
+        comment=(
+            "FK → pages.id; the live page whose title is `suggested_target`. "
+            "NULL when no suggestion or for non-broken-wikilink categories. L2 / ADR-0037 B1."
+        ),
     )
 
     created_at: Mapped[datetime] = mapped_column(

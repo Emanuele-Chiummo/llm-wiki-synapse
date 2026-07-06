@@ -7,12 +7,15 @@ ARCHITECTURE OVERVIEW (ADR-0037 §2):
   only safe/bounded fixes are ever applied, and at most one ``data_version`` bump per fix (I1).
 
 FINDING CATEGORIES (ADR-0037 §3.1):
-  orphan-page    — deterministic: a live wiki page with graph in-degree 0 (no resolved
-                   incoming wikilink). Found from the links table — NO provider call.
-  missing-xref   — LLM: a page that mentions an existing page but does not link it.
-  contradiction  — LLM: conflicting claims across pages.
-  stale-claim    — LLM: superseded information.
-  missing-page   — LLM: a concept mentioned but with no page.
+  orphan-page     — deterministic: a live wiki page with graph in-degree 0 (no resolved
+                    incoming wikilink). Found from the links table — NO provider call.
+  broken-wikilink — deterministic: a dangling [[link]] in the links table (dangling=True).
+                    L1 / ADR-0037 B1.  NO provider call.  suggested_target / suggested_page_id
+                    populated via the tolerant resolver (L2).
+  missing-xref    — LLM: a page that mentions an existing page but does not link it.
+  contradiction   — LLM: conflicting claims across pages.
+  stale-claim     — LLM: superseded information.
+  missing-page    — LLM: a concept mentioned but with no page.
 
 THE I7 CONTRACT (any violation is a P0 rejection):
   1. The semantic loop is ``for n in range(1, max_iter + 1)`` — structurally capped. NOT a
@@ -55,7 +58,14 @@ _COST_ANOMALY_THRESHOLD_USD: float = 1.00
 
 # Accepted value sets (app-side enum-by-convention, no DB CHECK — ADR-0037 §3.1).
 _VALID_CATEGORIES = frozenset(
-    {"orphan-page", "missing-xref", "contradiction", "stale-claim", "missing-page"}
+    {
+        "orphan-page",
+        "broken-wikilink",
+        "missing-xref",
+        "contradiction",
+        "stale-claim",
+        "missing-page",
+    }
 )
 _VALID_SEVERITIES = frozenset({"info", "warning", "error"})
 _VALID_STATUSES = frozenset({"open", "applied", "dismissed"})
@@ -63,10 +73,12 @@ _VALID_STATUSES = frozenset({"open", "applied", "dismissed"})
 # Categories whose apply step is FLAG-ONLY (no deterministic safe fix — ADR-0037 §5).
 # contradiction / stale-claim / orphan-page → apply is a no-op status change to 'applied'
 # with a resolution_note (the human still has to fix them by editing the wiki).
+# broken-wikilink WITHOUT a suggestion is also flag-only (no safe fix when target unknown).
 _FLAG_ONLY_CATEGORIES = frozenset({"contradiction", "stale-claim", "orphan-page"})
 
 # Bounded reads (I7 — never an unbounded scan).
 _ORPHAN_SCAN_MAX_PAGES: int = 1_000
+_BROKEN_SCAN_MAX_LINKS: int = 1_000  # L1 / I7 — cap for broken-wikilink scan
 _CANDIDATE_TITLES_MAX: int = 500
 
 
@@ -114,14 +126,25 @@ class FindingDTO:
     One structured finding emitted by the deterministic checks or the semantic provider call.
 
     target_title resolves to target_page_id at persist time (for missing-xref / stale-claim).
+    suggested_target / suggested_page_id: L2 — the best tolerant-resolver match for
+    broken-wikilink findings (NULL for all other categories).
     """
 
-    category: Literal["orphan-page", "missing-xref", "contradiction", "stale-claim", "missing-page"]
+    category: Literal[
+        "orphan-page",
+        "broken-wikilink",
+        "missing-xref",
+        "contradiction",
+        "stale-claim",
+        "missing-page",
+    ]
     severity: str
     description: str
     target_title: str | None = None
     target_page_id: uuid.UUID | None = None
     proposed_action: str | None = None
+    suggested_target: str | None = None  # L2
+    suggested_page_id: uuid.UUID | None = None  # L2
 
 
 # ── Public entry point ─────────────────────────────────────────────────────────
@@ -133,19 +156,26 @@ async def run_lint_scan(
     max_iter: int | None = None,
     token_budget: int | None = None,
     run_id: uuid.UUID | None = None,
+    semantic: bool = True,
 ) -> LintScanResult:
     """
     Run ONE bounded lint scan end-to-end (ADR-0037 §4).
 
     Pipeline:
-      1. Deterministic structural checks (orphan-page) — graph/links read, NO provider call.
+      1. Deterministic structural checks (orphan-page, broken-wikilink) — graph/links read,
+         NO provider call. broken-wikilink = links.dangling=True (L1, zero LLM cost, I7).
       2. Bounded semantic loop (missing-xref / contradiction / stale-claim / missing-page):
          ``for n in range(1, max_iter + 1)`` with a token_budget gate at the top of each round.
+         L8: when semantic=False, this phase is skipped entirely (free scan).
       3. Merge + cap findings at LINT_MAX_FINDINGS; persist lint_findings rows.
       4. Finalize the lint_runs row (always — terminal write in finally).
 
     Bounds (I7) are FROZEN on the lint_runs row at INSERT and never re-read mid-loop.
     Produces FINDINGS only — NEVER applies a fix (the human gate is apply_lint_fix, §5).
+
+    Args:
+        semantic: When False, skip the provider pass entirely (deterministic findings only;
+                  run row records iterations_used=0, cost=0). L8 / ADR-0037 B1.
     """
     # ── Resolve and freeze bounds (I7) ───────────────────────────────────────────
     from app.config_overrides import effective_int
@@ -183,15 +213,32 @@ async def run_lint_scan(
 
     try:
         # ── 1. Deterministic structural checks (no provider call, I1) ────────────
+        # These are FREE (pure Postgres reads) and already bounded by their own scan
+        # caps (_ORPHAN_SCAN_MAX_PAGES / _BROKEN_SCAN_MAX_LINKS). They are therefore
+        # NOT subject to LINT_MAX_FINDINGS, which bounds the PAID semantic pass only
+        # (I7 = cost control). `det_baseline` marks how many free findings precede the
+        # semantic tail so the cap counts semantic additions only — otherwise orphans
+        # alone fill the 50 slots and broken-wikilink (the dominant real-vault category,
+        # llm_wiki's "Broken Link" warnings) is truncated to zero. (ADR-0058 §2.1a.)
+        # broken-wikilink FIRST: they are the more actionable category (each carries an
+        # Open→referencing-page and, when resolvable, a one-click Fix) and are the visually
+        # dominant category in llm_wiki's lint page ("Broken Link" warnings). Orphans follow.
+        findings.extend(await _detect_broken_wikilinks(vault_id))
         findings.extend(await _detect_orphans(vault_id))
+        det_baseline: int = len(findings)
 
-        # ── 2. Bounded semantic loop (I6/I7) ─────────────────────────────────────
+        # ── 2. Bounded semantic loop (I6/I7) — skipped when semantic=False (L8) ──
         # BOUNDS are LOCAL CONSTANTS for this run — the loop NEVER re-reads settings/DB.
         max_iter_local: int = frozen_max_iter
         token_budget_local: int = frozen_token_budget
 
-        resolved = await _resolve_lint_provider(vault_id)
-        if resolved is not None:
+        if not semantic:
+            # L8: deterministic-only scan (free); semantic phase entirely skipped.
+            logger.debug(
+                "run_lint_scan: semantic=False → deterministic-only scan (vault=%s, L8)",
+                vault_id,
+            )
+        elif (resolved := await _resolve_lint_provider(vault_id)) is not None:
             provider, config_row = resolved
             provider.bind_accumulator(accumulator)
             token_budget_local = _coerce_int(
@@ -217,8 +264,9 @@ async def run_lint_scan(
                     )
                     break
 
-                # Stop early once we have enough findings (no point spending more budget).
-                if len(findings) >= max_findings:
+                # Stop early once the SEMANTIC pass has produced enough (paid) findings
+                # (deterministic findings excluded — they are free; ADR-0058 §2.1a).
+                if (len(findings) - det_baseline) >= max_findings:
                     break
 
                 already = sorted(seen_descriptions)
@@ -242,13 +290,14 @@ async def run_lint_scan(
                     seen_descriptions.add(key)
                     findings.append(f)
                     new_this_round += 1
-                    if len(findings) >= max_findings:
+                    if (len(findings) - det_baseline) >= max_findings:
                         break
 
                 if new_this_round == 0:
                     # The model has nothing new to add — converged; stop early (bounded anyway).
                     break
         else:
+            # semantic=True but no provider resolved → deterministic-only (I6: no silent default).
             logger.debug(
                 "run_lint_scan: no ingest provider resolved (vault=%s) — "
                 "deterministic findings only (I6: no silent default)",
@@ -256,7 +305,11 @@ async def run_lint_scan(
             )
 
         # ── 3. Merge + cap + persist ─────────────────────────────────────────────
-        findings = findings[:max_findings]
+        # Cap the SEMANTIC tail only; deterministic findings persist in full (they are
+        # free and already bounded by their per-scan caps — ADR-0058 §2.1a). Total
+        # persisted ≤ det_baseline (≤ _ORPHAN_SCAN_MAX_PAGES + _BROKEN_SCAN_MAX_LINKS)
+        # + max_findings — still a hard ceiling (I7), just not one that hides free findings.
+        findings = findings[: det_baseline + max_findings]
         await _persist_findings(run_id=run_id, vault_id=vault_id, findings=findings)
 
     except Exception as exc:  # noqa: BLE001
@@ -355,6 +408,11 @@ async def apply_lint_fix(finding_id: uuid.UUID) -> LintFinding:
         )
         return await _set_finding_status(finding_id, "applied", resolution_note=note)
 
+    # ── broken-wikilink — rewrite [[old]] → [[Suggested]] in the body (L3/I1/I5) ──
+    if category == "broken-wikilink":
+        note = await _apply_broken_wikilink(finding)
+        return await _set_finding_status(finding_id, "applied", resolution_note=note)
+
     # ── missing-xref — reuse the wikilink-enrichment seam (I1/I5) ─────────────────
     if category == "missing-xref":
         note = await _apply_missing_xref(finding)
@@ -377,6 +435,163 @@ async def dismiss_lint_finding(finding_id: uuid.UUID) -> LintFinding:
     return await _set_finding_status(finding_id, "dismissed", resolution_note="dismissed by human")
 
 
+# ── L6 — lint → review bridge ───────────────────────────────────────────────────
+
+# Mapping: lint category → review item_type (L6 / ADR-0037 B1).
+# broken-wikilink → missing-page (the dangling target may not exist; review queue surfaces it).
+_CATEGORY_TO_ITEM_TYPE: dict[str, str] = {
+    "broken-wikilink": "missing-page",
+    "missing-page": "missing-page",
+    "contradiction": "contradiction",
+    "stale-claim": "suggestion",
+    "orphan-page": "suggestion",
+    "missing-xref": "suggestion",
+}
+
+
+async def send_finding_to_review(finding_id: uuid.UUID) -> LintFinding:
+    """
+    Bridge a lint finding into the F9 HITL review queue (L6 / ADR-0037 B1).
+
+    Maps category → item_type (see _CATEGORY_TO_ITEM_TYPE), enqueues the review item,
+    then sets finding status → 'applied' with resolution_note = "sent to review (<id>)".
+
+    DEDUP CONTRACT (ADR-0044 / ADR-0037 B1 note from ADR review):
+      The content_key includes the category so broken-wikilink findings can never collide
+      with genuine missing-page review items even when they share the same proposed title.
+      Specifically: content_key = enqueue_review(..., proposed_title=...) anchored on the
+      finding's category-prefixed rationale. This is implemented by including the category
+      in the rationale text (which feeds the FNV-1a key inside enqueue_review).
+
+    Raises:
+      HTTPException(404) — finding not found.
+      HTTPException(409) — finding not open.
+    """
+    from fastapi import HTTPException
+
+    from app.ops.review import enqueue_review
+
+    finding_id_str = str(finding_id)
+
+    # ── Load the finding ─────────────────────────────────────────────────────────
+    async with get_session() as session:
+        row = await session.execute(select(LintFinding).where(LintFinding.id == finding_id_str))
+        finding = row.scalar_one_or_none()
+        if finding is None:
+            raise HTTPException(status_code=404, detail=f"Lint finding {finding_id} not found")
+        if finding.status != "open":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Lint finding {finding_id} has status={finding.status!r}; "
+                    "only open findings can be sent to review."
+                ),
+            )
+        session.expunge(finding)
+
+    category = finding.category
+    item_type = _CATEGORY_TO_ITEM_TYPE.get(category, "suggestion")
+
+    # proposed_title: for broken-wikilink use suggested_target if present (L6).
+    proposed_title: str | None
+    if category == "broken-wikilink" and finding.suggested_target:
+        proposed_title = finding.suggested_target
+    else:
+        proposed_title = finding.target_title
+
+    # Rationale includes the category so the FNV-1a content_key inside enqueue_review is
+    # category-scoped — prevents collision between broken-wikilink and genuine missing-page
+    # items (ADR review note, Do-NOT #17/#18).
+    rationale = (
+        f"[lint:{category}] {finding.description}"
+        if finding.description
+        else f"[lint:{category}] finding_id={finding_id}"
+    )
+
+    review_item = await enqueue_review(
+        vault_id=finding.vault_id,
+        item_type=item_type,
+        proposed_title=proposed_title,
+        rationale=rationale,
+        source_page_id=(
+            uuid.UUID(str(finding.target_page_id)) if finding.target_page_id else None
+        ),
+    )
+
+    note = f"sent to review ({review_item.id})"
+    return await _set_finding_status(finding_id, "applied", resolution_note=note)
+
+
+# ── L5 — batch result types ──────────────────────────────────────────────────────
+
+
+@dataclass
+class BatchFindingResult:
+    """Per-item result within a batch operation response (L5)."""
+
+    id: str
+    status: str  # "ok" | "error"
+    detail: str | None
+
+
+@dataclass
+class BatchFindingsResponse:
+    """Response for POST /lint/findings/batch (L5)."""
+
+    results: list[BatchFindingResult]
+    ok_count: int
+    error_count: int
+
+
+# Maximum ids per batch (I7 — bounded operation).
+_BATCH_MAX_IDS: int = 200
+
+
+async def apply_batch(
+    finding_ids: list[uuid.UUID],
+    action: str,
+) -> BatchFindingsResponse:
+    """
+    Apply *action* to each finding in *finding_ids* sequentially (L5 / ADR-0037 B1).
+
+    Actions: "apply" | "dismiss" | "send-to-review"
+    Cap: len(finding_ids) ≤ _BATCH_MAX_IDS (I7 — bounded; caller validates before calling).
+    Per-id failure does NOT abort the batch — all ids are attempted; results accumulated.
+
+    Returns BatchFindingsResponse with per-id status + aggregate ok/error counts.
+    """
+    from fastapi import HTTPException
+
+    results: list[BatchFindingResult] = []
+    ok_count = 0
+    error_count = 0
+
+    for fid in finding_ids:
+        try:
+            if action == "apply":
+                await apply_lint_fix(fid)
+            elif action == "dismiss":
+                await dismiss_lint_finding(fid)
+            elif action == "send-to-review":
+                await send_finding_to_review(fid)
+            else:
+                raise ValueError(f"Unknown batch action: {action!r}")
+            results.append(BatchFindingResult(id=str(fid), status="ok", detail=None))
+            ok_count += 1
+        except HTTPException as exc:
+            results.append(
+                BatchFindingResult(id=str(fid), status="error", detail=exc.detail)
+            )
+            error_count += 1
+        except Exception as exc:  # noqa: BLE001
+            results.append(
+                BatchFindingResult(id=str(fid), status="error", detail=str(exc))
+            )
+            error_count += 1
+
+    return BatchFindingsResponse(results=results, ok_count=ok_count, error_count=error_count)
+
+
 # ── Paginated reads ─────────────────────────────────────────────────────────────
 
 
@@ -384,13 +599,18 @@ async def list_lint_findings(
     vault_id: str,
     *,
     status: str | None = None,
+    category: str | None = None,
+    severity: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> LintFindingsPage:
     """
     Paginated lint_findings read for GET /lint/findings (ADR-0037 §6).
 
-    Optional status filter (open|applied|dismissed). Ordered created_at ASC.
+    Optional filters:
+      status   (open|applied|dismissed). Ordered created_at ASC.
+      category (any _VALID_CATEGORIES value — L10).
+      severity (info|warning|error — L10).
     limit is capped by the REST endpoint (I7 — bounded page size).
     """
     async with get_session() as session:
@@ -399,11 +619,19 @@ async def list_lint_findings(
         )
         if status is not None:
             count_stmt = count_stmt.where(LintFinding.status == status)
+        if category is not None:
+            count_stmt = count_stmt.where(LintFinding.category == category)
+        if severity is not None:
+            count_stmt = count_stmt.where(LintFinding.severity == severity)
         total: int = (await session.execute(count_stmt)).scalar_one()
 
         data_stmt = select(LintFinding).where(LintFinding.vault_id == vault_id)
         if status is not None:
             data_stmt = data_stmt.where(LintFinding.status == status)
+        if category is not None:
+            data_stmt = data_stmt.where(LintFinding.category == category)
+        if severity is not None:
+            data_stmt = data_stmt.where(LintFinding.severity == severity)
         data_stmt = data_stmt.order_by(LintFinding.created_at.asc()).offset(offset).limit(limit)
         rows = list((await session.execute(data_stmt)).scalars().all())
         for r in rows:
@@ -506,6 +734,129 @@ async def _detect_orphans(vault_id: str) -> list[FindingDTO]:
     return out
 
 
+# ── L1 — broken-wikilink detection (deterministic, NO provider call) ────────────
+
+
+async def _detect_broken_wikilinks(vault_id: str) -> list[FindingDTO]:
+    """
+    Detect broken wikilinks: Link rows with dangling=True for the vault (L1 / ADR-0037 B1).
+
+    For each dangling link:
+      - category = "broken-wikilink", severity = "warning"
+      - target_page_id = the REFERENCING page id (so the UI "Open" opens the page
+        containing the broken link — inverted vs other categories per ADR review note)
+      - target_title = the dangling target text (the [[broken]] part)
+      - suggested_target / suggested_page_id: tolerant resolver result (L2)
+      - proposed_action: "Rewrite [[old]] → [[Suggested]]" when suggestion found, else None
+
+    DEDUP (within-scan):
+      (a) one finding per (referencing_page_id, target_text) — enforced via seen set
+      (b) skip if an OPEN finding with same category+target_page_id+target_title already in DB
+
+    Bounded at _BROKEN_SCAN_MAX_LINKS (I7). Reads links + pages tables only (I1).
+    """
+    out: list[FindingDTO] = []
+    try:
+        from app.models import Link
+
+        async with get_session() as session:
+            # Load dangling links for this vault via the source page's vault_id (I1).
+            # Join to the referencing page so we can filter by vault_id and get the title.
+            dangling_rows = list(
+                (
+                    await session.execute(
+                        select(
+                            Link.id,
+                            Link.source_page_id,
+                            Link.target_title,
+                            Page.title.label("referencing_title"),
+                        )
+                        .join(Page, Link.source_page_id == Page.id)
+                        .where(
+                            Link.dangling.is_(True),
+                            Page.vault_id == vault_id,
+                            Page.deleted_at.is_(None),
+                        )
+                        .order_by(Link.created_at.asc())
+                        .limit(_BROKEN_SCAN_MAX_LINKS)
+                    )
+                ).all()
+            )
+
+            if not dangling_rows:
+                return out
+
+            # Build resolver maps ONCE for all suggestions (I1 — no N+1).
+            from app.wiki.links import resolve_suggested_target
+
+            # Load existing OPEN broken-wikilink findings for dedup (b).
+            existing_open = {
+                (str(r[0]), str(r[1]))
+                for r in (
+                    await session.execute(
+                        select(LintFinding.target_page_id, LintFinding.target_title).where(
+                            LintFinding.vault_id == vault_id,
+                            LintFinding.category == "broken-wikilink",
+                            LintFinding.status == "open",
+                        )
+                    )
+                ).all()
+                if r[0] is not None and r[1] is not None
+            }
+
+            # within-scan dedup set: (source_page_id_str, target_text)
+            seen_within_scan: set[tuple[str, str]] = set()
+
+            for _link_id, source_page_id, target_text, referencing_title in dangling_rows:
+                if not target_text:
+                    continue
+                src_str = str(source_page_id)
+                dedup_key = (src_str, target_text)
+
+                # (a) within-scan dedup
+                if dedup_key in seen_within_scan:
+                    continue
+                seen_within_scan.add(dedup_key)
+
+                # (b) existing OPEN finding with same (referencing_page_id, target_title)
+                if dedup_key in existing_open:
+                    continue
+
+                ref_title = referencing_title or src_str
+                description = (
+                    f"Broken link: [[{target_text}]] — target page not found. "
+                    f"(in {ref_title})"
+                )
+
+                # L2: tolerant resolver for suggestion
+                suggestion = await resolve_suggested_target(target_text, session)
+                suggested_target: str | None = None
+                suggested_page_id: uuid.UUID | None = None
+                proposed_action: str | None = None
+
+                if suggestion is not None:
+                    suggested_page_id, suggested_target = suggestion
+                    proposed_action = f"Rewrite [[{target_text}]] → [[{suggested_target}]]"
+
+                out.append(
+                    FindingDTO(
+                        category="broken-wikilink",
+                        severity="warning",
+                        description=description,
+                        # target_page_id = referencing page (so "Open" opens it — ADR review note)
+                        target_page_id=uuid.UUID(src_str),
+                        target_title=target_text,  # the dangling [[Target]] text
+                        proposed_action=proposed_action,
+                        suggested_target=suggested_target,
+                        suggested_page_id=suggested_page_id,
+                    )
+                )
+
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_detect_broken_wikilinks: failed (non-fatal): %s", exc)
+    return out
+
+
 # ── Semantic pass (ONE bounded provider call per round — I6/I7) ─────────────────
 
 
@@ -547,6 +898,161 @@ async def _semantic_pass(
 
 
 # ── Apply seams (ADR-0037 §5) ───────────────────────────────────────────────────
+
+
+async def _apply_broken_wikilink(finding: LintFinding) -> str:
+    """
+    Apply a broken-wikilink fix (L3 / ADR-0037 B1 / I1/I5).
+
+    When a suggestion exists (finding.suggested_target is not None):
+      1. Load the referencing page file (finding.target_page_id is the REFERENCING page).
+      2. Rewrite occurrences of [[old]] and [[old|label]] to [[Suggested]] / [[Suggested|label]]
+         in the BODY ONLY (split on leading --- frontmatter fence — I5).
+      3. Write the file, re-run persist_links, bump data_version ONCE (I1).
+
+    When no suggestion exists → flag-only acknowledgement (same as orphan-page).
+
+    Raises:
+      HTTPException(404) — referencing page no longer exists.
+      HTTPException(409) — finding has no target_page_id (defensive).
+      HTTPException(502) — file write / link persist failed.
+    """
+    import re as _re
+
+    from fastapi import HTTPException
+    from sqlalchemy import text as sa_text
+
+    # ── No suggestion → flag-only ─────────────────────────────────────────────────
+    if not finding.suggested_target:
+        return (
+            "broken-wikilink: no suggested target found; acknowledged as flag-only. "
+            "Edit the page manually to fix the broken link."
+        )
+
+    if finding.target_page_id is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "broken-wikilink apply failed: the finding carries no referencing page id. "
+                "Dismiss it or re-run lint."
+            ),
+        )
+
+    old_target = finding.target_title or ""
+    new_target = finding.suggested_target
+
+    if not old_target:
+        return (
+            f"broken-wikilink: target_title empty; acknowledged. "
+            f"Suggestion was {new_target!r}."
+        )
+
+    # ── Load the referencing page ─────────────────────────────────────────────────
+    async with get_session() as session:
+        row = (
+            await session.execute(
+                sa_text(
+                    "SELECT id, vault_id, file_path, title "
+                    "FROM pages WHERE CAST(id AS TEXT) = :pid AND deleted_at IS NULL"
+                ).bindparams(pid=str(finding.target_page_id))
+            )
+        ).first()
+
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "broken-wikilink apply failed: the referencing page no longer exists. "
+                "Finding left open — dismiss or re-run lint."
+            ),
+        )
+
+    file_path: str = row.file_path
+    abs_path = settings.vault_root / file_path
+
+    # ── Read + split frontmatter / body (I5 — NEVER touch frontmatter) ───────────
+    try:
+        raw = abs_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"broken-wikilink apply failed: cannot read {file_path}: {exc}",
+        ) from exc
+
+    if raw.startswith("---\n"):
+        parts = raw.split("---\n", maxsplit=2)
+        if len(parts) == 3:
+            fm_block, body = parts[1], parts[2]
+            have_frontmatter = True
+        else:
+            fm_block, body = "", raw
+            have_frontmatter = False
+    else:
+        fm_block, body = "", raw
+        have_frontmatter = False
+
+    # ── Anchored regex rewrite in body only ───────────────────────────────────────
+    # Match [[old_target]] and [[old_target|label]] (escaped for regex safety).
+    old_escaped = _re.escape(old_target)
+    pattern = _re.compile(
+        r"\[\[" + old_escaped + r"(?:\|([^\[\]]*))?\]\]"
+    )
+
+    def _replace(m: _re.Match[str]) -> str:
+        label = m.group(1)  # None if no alias
+        if label is not None:
+            return f"[[{new_target}|{label}]]"
+        return f"[[{new_target}]]"
+
+    new_body = pattern.sub(_replace, body)
+
+    if new_body == body:
+        return (
+            f"broken-wikilink: no occurrences of [[{old_target}]] found in body of {file_path!r}; "
+            "acknowledged without edit."
+        )
+
+    # ── Write the file back (I5 — frontmatter preserved byte-for-byte) ───────────
+    if have_frontmatter:
+        new_raw = "---\n" + fm_block + "---\n" + new_body
+    else:
+        new_raw = new_body
+
+    try:
+        abs_path.write_text(new_raw, encoding="utf-8")
+    except OSError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"broken-wikilink apply failed: cannot write {file_path}: {exc}",
+        ) from exc
+
+    # ── Re-persist links for the rewritten file (I1) ──────────────────────────────
+    try:
+        import frontmatter as _fm
+
+        from app.wiki.links import parse_wikilinks, persist_links
+
+        post = _fm.loads(new_raw)
+        parsed = parse_wikilinks(post.content)
+        async with get_session() as session:
+            await persist_links(session, uuid.UUID(str(finding.target_page_id)), parsed)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_apply_broken_wikilink: persist_links failed for %s: %s", file_path, exc
+        )
+
+    # ── Bump data_version ONCE (I1) ───────────────────────────────────────────────
+    try:
+        from app.ingest.orchestrator import bump_version
+
+        await bump_version()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_apply_broken_wikilink: bump_version failed: %s", exc)
+
+    return (
+        f"broken-wikilink: rewrote [[{old_target}]] → [[{new_target}]] "
+        f"in body of {file_path!r} (data_version bumped once, I1)."
+    )
 
 
 async def _apply_missing_xref(finding: LintFinding) -> str:
@@ -742,6 +1248,9 @@ async def _persist_findings(
                 continue
             severity = f.severity if f.severity in _VALID_SEVERITIES else "warning"
             target_page_id_str = str(f.target_page_id) if f.target_page_id is not None else None
+            suggested_page_id_str = (
+                str(f.suggested_page_id) if f.suggested_page_id is not None else None
+            )
             finding_row = LintFinding(
                 id=str(uuid.uuid4()),
                 lint_run_id=str(run_id),
@@ -752,6 +1261,8 @@ async def _persist_findings(
                 target_title=f.target_title,
                 description=f.description,
                 proposed_action=f.proposed_action,
+                suggested_target=f.suggested_target,
+                suggested_page_id=suggested_page_id_str,
                 status="open",
                 resolution_note=None,
                 created_at=datetime.now(UTC),
