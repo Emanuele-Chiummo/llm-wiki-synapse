@@ -271,7 +271,7 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
     )
 
     # ── K4 append log line ────────────────────────────────────────────────────
-    await append_log(rel)
+    await append_log(rel, page_type=_type or "source", title=_title)
 
     # ── Bump vault_state.data_version ─────────────────────────────────────────
     await bump_version()
@@ -1376,6 +1376,24 @@ async def write_wiki_page(
         fm_dump["tags"] = tags
     else:
         fm_dump.pop("tags", None)
+    # created/updated (nashsu/llm_wiki parity) — date-only, Obsidian-friendly. `created` is
+    # preserved across re-generation by reading the prior on-disk file (still the OLD bytes here,
+    # since abs_path is overwritten below); `updated` always advances to today.
+    _today = datetime.now(UTC).strftime("%Y-%m-%d")
+    _created = _today
+    if abs_path.exists():
+        try:
+            _prior_created = frontmatter.load(str(abs_path)).metadata.get("created")
+            if _prior_created:
+                _created = str(_prior_created)
+        except Exception as _created_exc:  # noqa: BLE001 — best-effort; fall back to today
+            logger.debug(
+                "write_wiki_page: could not read prior 'created' for %s: %s",
+                rel_path,
+                _created_exc,
+            )
+    fm_dump["created"] = _created
+    fm_dump["updated"] = _today
     post = frontmatter.Post(body, **fm_dump)
     serialized = frontmatter.dumps(post)
     # content_hash MUST hash the exact bytes written to disk (serialized + trailing newline), NOT
@@ -1404,7 +1422,7 @@ async def write_wiki_page(
         title=page.title,
         page_type=page_type,
     )
-    await append_log(rel_path)
+    await append_log(rel_path, page_type=page_type, title=page.title)
     await bump_version()
 
     # ── K5: parse + persist wikilinks (incremental, I1) ──────────────────────
@@ -2653,11 +2671,28 @@ async def upsert_vector(
     )
 
 
-async def append_log(rel_path: str) -> None:
+async def append_log(
+    rel_path: str,
+    *,
+    action: str = "indexed",
+    page_type: str | None = None,
+    title: str | None = None,
+) -> None:
     """
-    Append one INDEXED line to vault/wiki/log.md (K4, AC-K4-1).
+    Append one narrative, date-grouped entry to vault/wiki/log.md (K4, AC-K4-1).
 
-    Format: YYYY-MM-DDTHH:MM:SSZ | INDEXED | <relative_path>
+    Format (nashsu/llm_wiki-aligned — still append-only AND machine-parseable):
+
+        ## 2026-07-06
+
+        - 19:52:54Z · indexed · concept · [[Cloud Licensing]] — wiki/concepts/cloud-licensing.md
+        - 19:53:10Z · deleted · wiki/concepts/stale-page.md
+
+    A ``## YYYY-MM-DD`` header is written once per day (on day change); every call still
+    appends EXACTLY ONE ``- `` bullet (AC-K4-1). ``action`` is a lowercase verb
+    (``indexed`` | ``deleted``); ``page_type``/``title`` enrich the entry when known
+    (title → an Obsidian ``[[wikilink]]``). The ISO time + verb prefix keeps the line
+    parseable for incremental refresh (K4).
 
     File is opened in 'a' (append) mode — never truncated (AC-K4-2).
     Never writes to vault/raw/ (AC-K1-5).
@@ -2668,10 +2703,41 @@ async def append_log(rel_path: str) -> None:
         log_path.parent.mkdir(parents=True, exist_ok=True)
         log_path.write_text("---\ntype: log\ntitle: Synapse Ingest Log\n---\n\n", encoding="utf-8")
 
-    timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    line = f"{timestamp} | INDEXED | {rel_path}\n"
+    now = datetime.now(UTC)
+    day = now.strftime("%Y-%m-%d")
+    time_z = now.strftime("%H:%M:%SZ")
+
+    # Decide whether today's date header is already the most recent one. Read only the tail
+    # (cheap, O(1) per append) — a same-day header sits within the last few KB unless a single
+    # day logged hundreds of entries, in which case a duplicate header is merely cosmetic.
+    tail = ""
+    size = 0
+    try:
+        with log_path.open("rb") as fr:
+            fr.seek(0, 2)
+            size = fr.tell()
+            fr.seek(max(0, size - 16384))
+            tail = fr.read().decode("utf-8", errors="replace")
+    except OSError:
+        pass
+    last_header = ""
+    for ln in tail.splitlines():
+        if ln.startswith("## "):
+            last_header = ln
+    need_header = last_header != f"## {day}"
+    ends_blank = size == 0 or tail.endswith("\n\n")
+
+    # Compose the readable bullet. Title → wikilink + path; no title → path only (e.g. deletes).
+    subject = f"[[{title}]] — {rel_path}" if title else rel_path
+    segments = [time_z, action]
+    if page_type:
+        segments.append(page_type)
+    bullet = f"- {' · '.join(segments)} · {subject}\n"
+
     with log_path.open("a", encoding="utf-8") as f:
-        f.write(line)
+        if need_header:
+            f.write(("" if ends_blank else "\n") + f"## {day}\n\n")
+        f.write(bullet)
 
 
 async def bump_version() -> None:

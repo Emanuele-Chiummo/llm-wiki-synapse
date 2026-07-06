@@ -1182,17 +1182,8 @@ async def delete_page(page_id: uuid.UUID) -> CascadeDeleteResponse:
 
     # ── L9: log.md append (K4 — append-only; NEVER truncated) ───────────────────
     try:
-        from datetime import UTC
-        from datetime import datetime as _dt
+        from app.ingest.orchestrator import append_log
 
-        from app.config import settings as _cfg
-
-        log_path = _cfg.log_md_path
-        if not log_path.exists():
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-            log_path.write_text(
-                "---\ntype: log\ntitle: Synapse Ingest Log\n---\n\n", encoding="utf-8"
-            )
         # Resolve the file_path from the now soft-deleted row (no deleted_at filter).
         async with _m.get_session() as del_sess:
             del_row = await del_sess.execute(
@@ -1202,10 +1193,8 @@ async def delete_page(page_id: uuid.UUID) -> CascadeDeleteResponse:
             )
             fp_row = del_row.first()
         deleted_fp = str(fp_row[0]) if fp_row and fp_row[0] else str(page_id)
-        timestamp = _dt.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-        log_line = f"{timestamp} | DELETED | {deleted_fp}\n"
-        with log_path.open("a", encoding="utf-8") as lf:
-            lf.write(log_line)
+        # Single source of truth for the log format (K4 narrative, date-grouped).
+        await append_log(deleted_fp, action="deleted")
     except Exception as exc:  # noqa: BLE001
         logger.warning("delete_page: log.md append failed: %s", exc)
 

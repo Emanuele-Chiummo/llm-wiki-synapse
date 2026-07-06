@@ -12,6 +12,28 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 - `fix(ops)`: the automations card now reports the true classification outcome
   (`dormant` / `error` / counts) instead of a blind "ok" (#1).
 
+## [1.3.5] — 2026-07-06
+
+### Changed
+- **`schema.md` is now the full llm_wiki contract**, not a stub: page-type→directory map,
+  naming conventions, complete frontmatter (incl. `lang` + source `authors/year/url/venue`),
+  index/log format, cross-referencing and contradiction-handling rules (K1 layer 3).
+- **`log.md` is a narrative, day-grouped diary** (nashsu/llm_wiki parity) instead of a
+  machine marker log: `## YYYY-MM-DD` headers + `- HH:MM:SSZ · <verb> · <type> · [[Title]] — path`
+  bullets. Still append-only and machine-parseable (K4 preserved); one entry per ingest
+  (AC-K4-1). Page deletion routes through the same `append_log` writer.
+
+### Added
+- **`created` / `updated` frontmatter** on every generated wiki page (`write_wiki_page`):
+  `created` preserved across re-generation, `updated` advances each write.
+
+### CI
+- Bumped deprecated (Node 20) GitHub Action pins across all workflows: `actions/checkout`
+  v4→v5, `docker/build-push-action` v5→v7, `docker/login-action` v3→v4,
+  `docker/setup-buildx-action` v3→v4, `docker/setup-qemu-action` v3→v4.
+
+See [`docs/release-notes/v1.3.5.md`](docs/release-notes/v1.3.5.md) for the full notes.
+
 ## [1.3.3] — 2026-07-05
 
 ### Fixed

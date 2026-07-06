@@ -372,20 +372,16 @@ async def _get_data_version(env: dict[str, Any]) -> int:
 
 
 def _log_lines(env: dict[str, Any]) -> list[str]:
-    """Return non-empty, non-frontmatter lines from log.md."""
+    """Return the ``- `` activity bullets from log.md (K4 narrative format).
+
+    Frontmatter, HTML comments, ``## YYYY-MM-DD`` date headers and blank lines are
+    excluded so the count reflects exactly one entry per ingest (AC-K4-1)."""
     text = env["log_md"].read_text(encoding="utf-8")
-    return [
-        line
-        for line in text.splitlines()
-        if line.strip()
-        and not line.startswith("---")
-        and not line.startswith("type:")
-        and not line.startswith("title:")
-        and not line.startswith("<!--")
-    ]
+    return [line for line in text.splitlines() if line.startswith("- ")]
 
 
-LOG_LINE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z \| INDEXED \| .+$")
+# K4 narrative bullet: `- HH:MM:SSZ · <verb> · [<type> · ]<subject>` (append-only, parseable).
+LOG_LINE_PATTERN = re.compile(r"^- \d{2}:\d{2}:\d{2}Z · \w+ · .+$")
 
 
 # ── AC-WATCH-1: new file → DB row ─────────────────────────────────────────────
