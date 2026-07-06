@@ -112,7 +112,21 @@ on capabilities, no isinstance), I7 (web fetch + image caps bounded, cost logged
 
 ---
 
-## B3 — GRAPH HEADER (P1) — owner: [FE]+[BE]
+## B3 — GRAPH HEADER (P1) — owner: [FE]+[BE] — STATUS: ✅ SHIPPED feat/b3-graph-look
+
+> **Shipped 2026-07-06 (same branch as B3-LOOK).** GR1 stats chips
+> (`{shown}/{total_nodes} pagine · {shown}/{edges.length} link · {hidden} nascosti`; backend
+> `GET /graph` gains `total_nodes`/`total_edges`, `routers/graph.py`), GR2 in-graph search
+> (find + camera-center), GR3 type filter (client visibility, I2-safe — hides nodes+incident
+> edges; `graphStore.filterNodeTypes`), GR4 Reset, GR7 fullscreen, GR5 legend counts. Also a
+> **declutter pass** on B3-LOOK (user feedback "più caotico"): hub K 10→6, labels truncated
+> to ≤18ch, `labelRenderedSizeThreshold` 8→11, edge-cull 0.22→0.30 / 0.32→0.42.
+> **Link-chip denominator = `edges.length`** (full graph edge set 4213), NOT backend
+> `total_edges` (link-rows 3397) — the graph edge set is a wikilink∪source superset (ADR-0016).
+> **Live-verified:** at rest legible clusters; filter→Entity shows 176/986 pages, 810 nascosti,
+> clean subgraph. Tests: 93 frontend (26 new graphHeader) + 22 backend green.
+> **Open polish (P3):** at-rest link chip shows `4213/4213` (GL1-culled edges not counted as
+> "hidden" — only filter is); Insights panel open-by-default covers ~1/3 screen (default-collapse).
 
 llm_wiki reference: header `801/804 pages · 2438/2823 links · 3 hidden` + Search +
 Filter + Reset + Type/Community + `Insights 13` + refresh; collapsible Node-Types legend

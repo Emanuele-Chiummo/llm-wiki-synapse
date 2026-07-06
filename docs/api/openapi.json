@@ -5566,6 +5566,18 @@
             "type": "array",
             "title": "Communities",
             "description": "Per-community summary (G-P0-2, I2): id, size, cohesion. Ordered by id (0 = largest). Empty until first graph recompute."
+          },
+          "total_nodes": {
+            "type": "integer",
+            "title": "Total Nodes",
+            "description": "Count of ALL live (non-deleted) pages in the vault (the full denominator). Use len(nodes) for the in-graph numerator: e.g. '816/986 pages' (GR1). Computed via a bounded indexed COUNT query \u2014 I1.",
+            "default": 0
+          },
+          "total_edges": {
+            "type": "integer",
+            "title": "Total Edges",
+            "description": "Count of ALL link rows for this vault (the full wikilink denominator). Use len(edges) for the in-graph numerator: e.g. '1024/4213 edges' (GR1). Computed via a bounded indexed COUNT query \u2014 I1.",
+            "default": 0
           }
         },
         "type": "object",
@@ -5606,7 +5618,9 @@
               "x": 1.23,
               "y": -0.45
             }
-          ]
+          ],
+          "total_edges": 4213,
+          "total_nodes": 986
         }
       },
       "HTTPValidationError": {
