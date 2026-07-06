@@ -1160,6 +1160,8 @@ export const GraphViewer: React.FC = () => {
         nodeType: nodeType ?? null,
         // Store community for reducers / tooltip
         nodeCommunity,
+        // GL2: hub flag — nodeReducer uses this to force permanent label on top-K hubs
+        isHub: (attrs["forceLabel"] as boolean | undefined) ?? false,
       });
     });
 
@@ -1169,6 +1171,10 @@ export const GraphViewer: React.FC = () => {
           weight: attrs["weight"] as number,
           color: attrs["color"] as string,
           size: attrs["size"] as number,
+          // GL1: pass through normalizedWeight so edgeReducer can check it on hover
+          normalizedWeight: attrs["normalizedWeight"] as number,
+          // GL1: resting hidden flag (weak edges culled at rest, revealed on hover)
+          hidden: attrs["hidden"] as boolean,
         });
       }
     });
@@ -1205,9 +1211,11 @@ export const GraphViewer: React.FC = () => {
       // (2.5–11px) this threshold keeps the fit/zoomed-out view label-free, and labels
       // appear progressively (hubs first) as the user zooms in. labelDensity raised so
       // more labels reveal when eligible.
+      // GL2 (B3-LOOK): threshold lowered from 13 → 8 so more labels appear on zoom-in,
+      // matching the label density of nashsu/llm_wiki's graph view.
       labelDensity: 0.7,
       labelGridCellSize: 70,
-      labelRenderedSizeThreshold: 13,
+      labelRenderedSizeThreshold: 8,
 
       // Custom halo drawers — built with resolved theme colors (ADR-0048 §T1)
       defaultDrawNodeLabel: makeDrawHaloNodeLabel(sigmaThemeColors),
@@ -1230,9 +1238,15 @@ export const GraphViewer: React.FC = () => {
       minCameraRatio: 0.1,
       maxCameraRatio: 4,
 
-      // ── nodeReducer: Obsidian hover-dim ─────────────────────────────────
+      // ── nodeReducer: Obsidian hover-dim + GL2 hub labels ────────────────
       nodeReducer(node: string, data: Attributes): Partial<NodeDisplayData> {
         const res: Partial<NodeDisplayData> & Attributes = { ...data };
+
+        // GL2: hub nodes always show their label at rest (top-K by degree).
+        // This is applied before hover-dim so hover can override it further.
+        if ((data["isHub"] as boolean | undefined) === true) {
+          res["forceLabel"] = true;
+        }
 
         if (hoverState.hoveredNeighbors !== null) {
           const isHovered = node === hoverState.hoveredNode;
@@ -1264,7 +1278,11 @@ export const GraphViewer: React.FC = () => {
         return res as Partial<NodeDisplayData>;
       },
 
-      // ── edgeReducer: Obsidian hover-dim ─────────────────────────────────
+      // ── edgeReducer: GL1 resting cull + Obsidian hover reveal ───────────
+      // At rest: edges with hidden:true (weak edges per GL1) are not rendered.
+      // On hover: incident edges are ALWAYS revealed regardless of GL1 threshold
+      //   so the user can explore the full neighborhood even on large graphs.
+      // Non-incident edges during hover: hidden (Obsidian dim).
       edgeReducer(edge: string, data: Attributes) {
         const res: Attributes = { ...data };
 
@@ -1276,16 +1294,20 @@ export const GraphViewer: React.FC = () => {
             tgt === hoverState.hoveredNode || (hoverState.hoveredNeighbors?.has(tgt) ?? false);
 
           if (!srcRelevant || !tgtRelevant) {
-            // Non-incident: hide entirely (Obsidian dim)
+            // Non-incident: hide entirely (Obsidian dim; overrides GL1 reveal)
             res["hidden"] = true;
           } else {
-            // Incident to hovered node: emphasis color follows the theme — darker on a
-            // light canvas, LIGHTER on a dark canvas (a dark emphasis would vanish).
+            // GL1 REVEAL: incident edges always shown on hover, even if below threshold.
+            res["hidden"] = false;
+            // Emphasis color follows the theme — darker on a light canvas,
+            // LIGHTER on a dark canvas (a dark emphasis would vanish).
             const dark = document.documentElement.getAttribute("data-theme") === "dark";
             res["color"] = dark ? "rgba(196,205,220,0.9)" : "rgba(89,99,110,0.85)";
             res["size"] = ((data["size"] as number | undefined) ?? 1) * 2;
           }
         }
+        // At rest (no hover): hidden flag is whatever was set in buildGraphologyGraph (GL1).
+        // sigma respects hidden:true by skipping the edge in WebGL draw — no data mutation.
 
         return res;
       },
