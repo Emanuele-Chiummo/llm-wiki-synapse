@@ -38,11 +38,18 @@ export interface NodeAttributes {
    * Visual radius in pixels (normalized sqrt over degree range).
    * MIN_R=2.5, MAX_R=11. t = (sqrt(d)-sqrt(dMin))/(sqrt(dMax)-sqrt(dMin));
    * radius = MIN_R + t*(MAX_R-MIN_R). If dMax==dMin use (MIN_R+MAX_R)/2.
+   * GL3: further scaled by densityScale(n) with a 2px floor.
    * Recomputed over the full node set — never per-frame.
    */
   size: number;
   /** Structural degree (for reducers & size) */
   degree: number;
+  /**
+   * GL2: true for top-K hub nodes (K = min(10, ceil(n*0.02))).
+   * nodeReducer uses this to force a permanent label on the busiest hubs.
+   * Computed once at build time from the degree ranking — not per-frame.
+   */
+  forceLabel: boolean;
 }
 
 export interface EdgeAttributes {
@@ -60,6 +67,13 @@ export interface EdgeAttributes {
   color: string;
   /** Edge kind from server (default "link") */
   kind: "link" | "source";
+  /**
+   * GL1: resting-state hidden flag.
+   * True when normalizedWeight < edgeVisibilityThreshold(nodeCount) at rest.
+   * Edges are NEVER removed from the graph — they are hidden via sigma's hidden attribute
+   * so the edgeReducer can reveal them on hover. I2-safe: render-only, no layout change.
+   */
+  hidden: boolean;
 }
 
 export type SynapseGraph = Graph<NodeAttributes, EdgeAttributes>;
@@ -78,10 +92,63 @@ const MID_R = (MIN_R + MAX_R) / 2;
 const EDGE_MIN_SIZE = 0.5;
 const EDGE_SIZE_RANGE = 3.5; // → max edge size = 4.0 px
 
+// ─── GL1: Edge visibility threshold (B3-LOOK) ────────────────────────────────
+// At rest, only edges with normalizedWeight ≥ threshold are shown.
+// This culls weak edges on large graphs so cluster structure becomes legible,
+// matching the visual density of nashsu/llm_wiki's graph output.
+// Edges below threshold are HIDDEN (sigma hidden:true) — never removed from the
+// graph so the edgeReducer can reveal them on hover (I2-safe: render only).
+//
+// Buckets (tuned for visual legibility; adjust in future sprints as needed):
+//   n ≤ 150   → 0.00  (show all — small graphs are already legible)
+//   150 < n ≤ 600  → 0.12  (cull the weakest ~12% tail)
+//   600 < n ≤ 1200 → 0.22  (cull the weakest ~22% tail)
+//   n > 1200  → 0.32  (cull the weakest ~32% tail)
+export function edgeVisibilityThreshold(nodeCount: number): number {
+  if (nodeCount <= 150) return 0;
+  if (nodeCount <= 600) return 0.12;
+  if (nodeCount <= 1200) return 0.22;
+  return 0.32;
+}
+
+// ─── GL2: Top-K hub selection (B3-LOOK) ──────────────────────────────────────
+// Returns the Set of node IDs that are "hubs" — the top-K by degree.
+// K = min(10, ceil(n * 0.02)). These nodes get forceLabel:true so the busiest
+// hubs always show their title at rest, like nashsu/llm_wiki's labeled map.
+// Computed once at graph build time — NOT per frame (I3).
+export function computeTopKHubs(nodes: GraphNode[]): Set<string> {
+  const n = nodes.length;
+  if (n === 0) return new Set();
+  const k = Math.min(10, Math.ceil(n * 0.02));
+  // Sort descending by degree; take top-k ids
+  const sorted = nodes
+    .slice()
+    .sort((a, b) => (b.degree ?? 0) - (a.degree ?? 0))
+    .slice(0, k);
+  return new Set(sorted.map((node) => node.id));
+}
+
+// ─── GL3: Density down-scale factor (B3-LOOK) ────────────────────────────────
+// Multiplied into the computed node radius AFTER the MIN_R..MAX_R normalization.
+// At ~986 nodes this ≈ 0.39, shrinking nodes to reduce overlap (llm_wiki parity).
+// Clamped [0.4, 1.0] so the factor never eliminates nodes on very large graphs,
+// and never inflates nodes on small ones. A hard floor of 2px is applied after.
+// I2-safe: pure render scaling, no position change.
+export function densityScale(nodeCount: number): number {
+  if (nodeCount <= 0) return 1.0;
+  return Math.min(1.0, Math.max(0.4, Math.sqrt(150 / nodeCount)));
+}
+
+// GL3: hard floor for node radius after density scaling (ensures visibility).
+const NODE_SIZE_FLOOR = 2.0;
+
 /**
  * Compute per-node visual radii using normalized sqrt over the degree range.
  * Processes the whole node set at once so dMin/dMax are computed once only.
  * Returns a Map<nodeId, radius>.
+ *
+ * GL3 (B3-LOOK): applies densityScale(n) after MIN_R..MAX_R normalization,
+ * then clamps to NODE_SIZE_FLOOR so the smallest node stays visible.
  *
  * INVARIANT I2: does NOT read or modify x/y — pure sizing, no layout.
  */
@@ -104,6 +171,9 @@ function computeNodeRadii(nodes: GraphNode[]): Map<string, number> {
   const sqrtMax = Math.sqrt(dMax);
   const sqrtRange = sqrtMax - sqrtMin;
 
+  // GL3: compute the density scale factor once for the full node set
+  const scale = densityScale(nodes.length);
+
   for (const n of nodes) {
     const d = n.degree ?? 0;
     let radius: number;
@@ -113,7 +183,8 @@ function computeNodeRadii(nodes: GraphNode[]): Map<string, number> {
       const t = (Math.sqrt(d) - sqrtMin) / sqrtRange;
       radius = MIN_R + t * (MAX_R - MIN_R);
     }
-    radii.set(n.id, radius);
+    // GL3: apply density down-scale, then enforce hard floor
+    radii.set(n.id, Math.max(NODE_SIZE_FLOOR, radius * scale));
   }
 
   return radii;
@@ -206,8 +277,13 @@ function edgeColor(
  * CRITICAL (I2): node x/y are taken verbatim from `nodes[i].x` / `nodes[i].y`.
  * No layout algorithm is called. No rAF loop is started. Positions are fixed.
  *
- * Node sizes: normalized-sqrt over degree range (MIN_R=4, MAX_R=22).
+ * Node sizes: normalized-sqrt over degree range (MIN_R=2.5, MAX_R=11),
+ *   then scaled by GL3 densityScale(n) with a 2px floor.
  * Edge sizes/colors: normalized weight [0..1] applied at build time.
+ * GL1: edges below edgeVisibilityThreshold(n) are hidden at rest (hidden:true),
+ *   but never removed — edgeReducer reveals them on hover.
+ * GL2: top-K hub nodes (by degree) get forceLabel:true so they always show
+ *   their label at rest. K = min(10, ceil(n*0.02)).
  *
  * @param nodes - Node array from GraphResponse (must include x, y)
  * @param edges - Edge array from GraphResponse
@@ -232,10 +308,17 @@ export function buildGraphologyGraph(
   const graph = new Graph<NodeAttributes, EdgeAttributes>({ multi: false, type: "undirected" });
 
   // Compute per-node radii over the full set (done once, not per-frame — spec §NODE SIZE)
+  // GL3 densityScale is applied inside computeNodeRadii.
   const radii = computeNodeRadii(nodes);
 
   // Compute normalized weights over the full edge set (done once at build time)
   const normalizedWeights = computeNormalizedWeights(edges);
+
+  // GL1: edge culling threshold — computed once for the full node count
+  const edgeThreshold = edgeVisibilityThreshold(nodes.length);
+
+  // GL2: hub node set — computed once (top-K by degree, K=min(10,ceil(n*0.02)))
+  const hubNodeIds = computeTopKHubs(nodes);
 
   // Add all nodes with SERVER-PROVIDED coords — I2: do NOT call any layout here
   for (const node of nodes) {
@@ -248,6 +331,8 @@ export function buildGraphologyGraph(
       community: node.community ?? -1,
       size: radii.get(node.id) ?? MID_R,
       degree: node.degree ?? 0,
+      // GL2: hub nodes always show label (nodeReducer reads this)
+      forceLabel: hubNodeIds.has(node.id),
     });
   }
 
@@ -268,6 +353,8 @@ export function buildGraphologyGraph(
       size: EDGE_MIN_SIZE + nw * EDGE_SIZE_RANGE, // 0.5–4 px: thicker + darker = stronger (llm_wiki parity)
       color: edgeColor(nw, kind, theme),
       kind,
+      // GL1: hide weak edges at rest; edgeReducer reveals them on hover (I2-safe)
+      hidden: nw < edgeThreshold,
     });
   }
 

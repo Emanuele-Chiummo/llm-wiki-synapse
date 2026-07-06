@@ -93,6 +93,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0046** | [Live ingest activity queue with cancel / pause / retry (F9-adjacent, watcher, I1/I7)](0046-ingest-activity-queue-cancellation.md) | Accepted |
 | **0050** | [Retrieval scope restricted to wiki/ pages only](0050-retrieval-wiki-only-scope.md) | Accepted |
 | **0051** | [Pluggable PDF extractor seam: Marker over HTTP with pypdf fallback](0051-pluggable-pdf-extractor-seam.md) | Accepted |
+| **0060** | [Graph visual parity: render-only edge culling, hub labels, node density down-scale (F4, I2/I3; GL4 deferred, GL5/GL6 declined)](ADR-0060-graph-visual-parity.md) | Accepted |
 
 ---
 
