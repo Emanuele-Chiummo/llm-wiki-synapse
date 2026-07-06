@@ -25,7 +25,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -35,7 +35,7 @@ from app.config_overrides import effective_float, effective_str
 from app.ingest.orchestrator import IngestResult, ingest_file
 from app.models import IngestRun
 from app.rate_limit import rate_limit
-from app.upload import resolve_under_sources, safe_source_name
+from app.upload import _SEP_RE, resolve_under_sources, safe_source_name
 
 logger = logging.getLogger(__name__)
 
@@ -427,6 +427,67 @@ async def trigger_ingest(body: IngestTriggerRequest) -> IngestTriggerResponse:
     )
 
 
+# ── S1: rel_dir sanitization helper ──────────────────────────────────────────
+
+
+def _sanitize_rel_dir(raw_rel_dir: str) -> str:
+    """
+    Sanitize the optional rel_dir form field from a folder upload (S1, B3b).
+
+    Sanitization rules (mirrors safe_source_name for each path segment):
+    1. Split on forward-slash only (client MUST normalise separators).
+    2. Reject if any segment is empty, ".", or "..".
+    3. Reject if any segment contains a path separator char (belt-and-braces).
+    4. Strip NUL/control chars from each segment; collapse whitespace.
+    5. Reject if any segment is empty after stripping.
+    6. Re-join with forward slash.
+
+    Returns the sanitized relative directory string (e.g. "projects/notes").
+    Raises HTTPException(422) on any violation.
+    """
+    if not raw_rel_dir:
+        raise HTTPException(status_code=422, detail="rel_dir is empty.")
+
+    segments: list[str] = raw_rel_dir.split("/")
+    clean_segments: list[str] = []
+
+    for raw_seg in segments:
+        # Skip empty segments from trailing/leading slashes (tolerated, not injected)
+        if not raw_seg:
+            continue
+
+        # Reject sentinel values
+        if raw_seg in {".", ".."}:
+            raise HTTPException(
+                status_code=422,
+                detail=f"rel_dir segment {raw_seg!r} is not allowed (path traversal).",
+            )
+
+        # Belt-and-braces: no backslash or slash characters should survive
+        if _SEP_RE.search(raw_seg):
+            raise HTTPException(
+                status_code=422,
+                detail=f"rel_dir segment contains an illegal path separator: {raw_seg!r}.",
+            )
+
+        # Strip NUL and control characters; collapse whitespace
+        seg = "".join(ch for ch in raw_seg if ord(ch) >= 0x20 and ch != "\x7f")
+        seg = _re.sub(r"\s+", " ", seg).strip()
+
+        if not seg:
+            raise HTTPException(
+                status_code=422,
+                detail="rel_dir segment is empty or contains only control characters.",
+            )
+
+        clean_segments.append(seg)
+
+    if not clean_segments:
+        raise HTTPException(status_code=422, detail="rel_dir contains no valid segments.")
+
+    return "/".join(clean_segments)
+
+
 # ── POST /ingest/upload ────────────────────────────────────────────────────────
 
 
@@ -436,17 +497,25 @@ async def trigger_ingest(body: IngestTriggerRequest) -> IngestTriggerResponse:
     status_code=202,
     summary="Upload a document for async watcher-driven ingest (F12 multi-format)",
     description=(
-        "Feature U (ADR-0020 §2, M4-EXT) + F12 Multi-format ingest (ADR-0025 §4.2). "
+        "Feature U (ADR-0020 §2, M4-EXT) + F12 Multi-format ingest (ADR-0025 §4.2) "
+        "+ S1 folder-upload support (B3b). "
         "Accepts text/markdown (.md/.txt/.markdown), binary formats (.pdf/.docx/.pptx/.xlsx), "
         "and placeholder formats (.png/.jpg/.jpeg/.gif/.webp/.mp3/.mp4/.wav/.m4a). "
-        "For text: writes directly to vault/raw/sources/<name>; watcher ingests asynchronously. "
-        "For binary/placeholder: (1) writes original binary to vault/raw/sources/<name>.<ext> "
+        "Optional 'rel_dir' form field: when supplied by the frontend '+ Folder' picker, "
+        "the file is written under vault/raw/sources/<rel_dir>/<name> so the subfolder "
+        "structure is preserved. rel_dir is sanitized segment-by-segment (same rules as "
+        "safe_source_name) and containment-checked via resolve_under_sources — 422 on any "
+        "path-traversal attempt. When rel_dir is absent, behaviour is unchanged (writes flat). "
+        "For text: writes to vault/raw/sources/[rel_dir/]<name>; watcher ingests asynchronously. "
+        "For binary/placeholder: (1) writes original binary to "
+        "vault/raw/sources/[rel_dir/]<name>.<ext> "
         "(preserved, I5/K1); (2) synchronously extracts text → companion "
-        "<stem>.extracted.md with valid YAML frontmatter (I5); (3) returns 202. "
+        "<stem>.extracted.md (in the same rel_dir subdirectory) with valid YAML frontmatter "
+        "(I5); (3) returns 202. "
         "The watcher ingests ONLY the companion (.md is in _ALLOWED_EXTENSIONS); the binary "
         "is ignored by the watcher (I1). Extraction is upload-time, NEVER in the watcher. "
         "413 on oversize (MAX_UPLOAD_BYTES). 415 for truly unknown types. "
-        "422 for unsafe filename. 202 {file_path, status:'queued', overwritten}. "
+        "422 for unsafe filename or unsafe rel_dir. 202 {file_path, status:'queued', overwritten}. "
         "429 if per-IP rate limit exceeded (R13-9)."
     ),
     responses={
@@ -455,13 +524,23 @@ async def trigger_ingest(body: IngestTriggerRequest) -> IngestTriggerResponse:
         },
         413: {"description": "File exceeds MAX_UPLOAD_BYTES"},
         415: {"description": "Unsupported file type"},
-        422: {"description": "Filename is empty or unsafe after sanitization"},
+        422: {"description": "Filename or rel_dir is empty or unsafe after sanitization"},
         429: {"description": "Per-IP rate limit exceeded (R13-9)"},
     },
     dependencies=[Depends(rate_limit)],
 )
 async def upload_ingest(
     file: UploadFile = File(..., description="The document to upload"),
+    rel_dir: str | None = Form(
+        default=None,
+        description=(
+            "Optional relative subdirectory under vault/raw/sources/ for folder uploads (S1, B3b). "
+            "Use forward slashes as separator (e.g. 'projects/notes'). "
+            "Each segment is sanitized like safe_source_name. "
+            "Path-traversal attempts ('..') → 422. "
+            "When absent, file is written flat under vault/raw/sources/ (unchanged behaviour)."
+        ),
+    ),
 ) -> UploadResponse:
     """
     POST /ingest/upload — non-blocking multipart upload (ADR-0020 Feature U, §2).
@@ -469,10 +548,11 @@ async def upload_ingest(
     1. Validate extension (hard) + Content-Type (soft advisory) → 415 on non-text.
     2. Stream body to a temp file, abort at MAX_UPLOAD_BYTES              → 413.
     3. safe_source_name(filename)                                          → 422 on unsafe.
-    4. resolve_under_sources(name) containment check                       → 422 on escape.
-    5. overwritten = dst.exists()
-    6. Atomically move temp file to dst (same-fs rename inside /vault).
-    7. Return 202 {file_path, status:"queued", overwritten} immediately.
+    4. If rel_dir supplied: _sanitize_rel_dir(rel_dir)                    → 422 on unsafe.
+    5. resolve_under_sources(<rel_dir>/<name>) containment check           → 422 on escape.
+    6. overwritten = dst.exists()
+    7. Atomically move temp file to dst (same-fs rename inside /vault).
+    8. Return 202 {file_path, status:"queued", overwritten} immediately.
 
     The WATCHER observes the vault/raw/sources/ write and ingests asynchronously.
     This is the same path Feature S (scheduled copy) uses — no double-ingest (I9).
@@ -481,6 +561,8 @@ async def upload_ingest(
     Security: basename-only; no caller-controlled path segments; containment-checked.
     I1: watcher's mtime/hash gate deduplicates re-uploads of unchanged content.
     I5: writes ONLY to vault/raw/sources/ — never to wiki/ or .obsidian/.
+    S1: rel_dir allows the frontend '+ Folder' picker to preserve subdir structure
+        without opening any path-traversal surface (segment-level sanitization + containment).
     """
     import tempfile
 
@@ -492,10 +574,19 @@ async def upload_ingest(
     # safe_source_name raises 415 for non-text extensions, 422 for unsafe
     name = safe_source_name(raw_name)
 
+    # ── S1: sanitize optional rel_dir ────────────────────────────────────────
+    # When supplied by the frontend folder picker, each segment is sanitized
+    # identically to safe_source_name (strip separators, control chars, sentinels).
+    # The final destination is still containment-checked via resolve_under_sources.
+    clean_rel_dir: str | None = None
+    if rel_dir is not None and rel_dir.strip():
+        clean_rel_dir = _sanitize_rel_dir(rel_dir.strip())
+
     # ── Stream body with byte cap (I7) ───────────────────────────────────────
     raw_sources = settings.raw_sources_dir
     raw_sources.mkdir(parents=True, exist_ok=True)
 
+    # Write temp file to raw_sources root (always safe; renamed after validation)
     tmp_fd, tmp_name = tempfile.mkstemp(dir=str(raw_sources), suffix=".upload_tmp")
     bytes_read = 0
     try:
@@ -521,12 +612,20 @@ async def upload_ingest(
     finally:
         await file.close()
 
-    # ── Containment check ────────────────────────────────────────────────────
+    # ── Containment check (S1: include rel_dir in the resolved path) ────────────
+    # When rel_dir is set, the destination is raw/sources/<clean_rel_dir>/<name>.
+    # resolve_under_sources performs the belt-and-braces containment check so an
+    # adversarially crafted (but sanitized) rel_dir can never escape raw/sources/.
+    resolved_name = f"{clean_rel_dir}/{name}" if clean_rel_dir else name
     try:
-        dst = resolve_under_sources(name)
+        dst = resolve_under_sources(resolved_name)
     except HTTPException:
         Path(tmp_name).unlink(missing_ok=True)
         raise
+
+    # ── Create subdirectory if needed (S1 folder upload) ────────────────────
+    # Only created for legitimate rel_dir paths that cleared the containment check.
+    dst.parent.mkdir(parents=True, exist_ok=True)
 
     # ── Atomic move (same-fs: rename within /vault/raw/sources/) ────────────
     overwritten: bool = dst.exists()
@@ -541,6 +640,8 @@ async def upload_ingest(
     # so the companion .extracted.md exists when the watcher fires.
     # The watcher ignores the binary (not in _ALLOWED_EXTENSIONS); only the companion is
     # ingested. This is the ONLY place extraction happens — never inside the watcher (Do-NOT #12).
+    # S1: when rel_dir is set, the companion is written in the SAME subdirectory as the binary
+    # so the folder structure is preserved end-to-end.
     suffix_lower = Path(name).suffix.lower()
     from app.upload import _EXTRACTABLE_EXTENSIONS, _PLACEHOLDER_EXTENSIONS
 
@@ -549,10 +650,10 @@ async def upload_ingest(
             from app.ingest.extract import UnsupportedFormatError, extract_text
 
             extracted = extract_text(dst)
-            # Build companion filename: <stem>.extracted.md
+            # Build companion filename: <stem>.extracted.md (same subdir as the binary)
             stem = Path(name).stem
             companion_name = f"{stem}.extracted.md"
-            companion_dst = settings.raw_sources_dir / companion_name
+            companion_dst = dst.parent / companion_name
             # Write valid Obsidian YAML frontmatter (I5, AC-F12-4, ADR-0025 §4.4)
             raw_rel = str(dst.relative_to(settings.vault_root))
             companion_content = (

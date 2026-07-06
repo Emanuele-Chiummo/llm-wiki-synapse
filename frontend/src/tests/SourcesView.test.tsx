@@ -53,6 +53,7 @@ vi.mock("../api/sourcesClient", () => {
     getSourceContent: vi.fn(),
     getSourceDerivedPages: vi.fn(),
     deleteSource: vi.fn(),
+    deleteFolderSource: vi.fn(),
     sourceRawUrl: (path: string) => `/sources/raw?path=${encodeURIComponent(path)}`,
     triggerIngest: vi.fn(),
     ingestAllSources: vi.fn(),
@@ -62,6 +63,14 @@ vi.mock("../api/sourcesClient", () => {
 });
 
 import * as sourcesClient from "../api/sourcesClient";
+
+// ─── Mock ingestClient (uploadDocument used by S1 folder upload) ──────────────
+
+vi.mock("../api/ingestClient", () => ({
+  uploadDocument: vi.fn(),
+}));
+
+import * as ingestClient from "../api/ingestClient";
 
 // ─── Mock UploadZone ──────────────────────────────────────────────────────────
 
@@ -103,10 +112,15 @@ vi.mock("react-i18next", () => ({
       const map: Record<string, string> = {
         "sources.title": "Sources",
         "sources.import": "Import",
+        "sources.importFolder": "+ Folder",
         "sources.refresh": "Refresh",
         "sources.ingest": "Ingest",
         "sources.delete": "Delete",
         "sources.confirmDelete": "Confirm",
+        "sources.deleteFolder": "Delete folder",
+        "sources.confirmDeleteFolder": "Confirm",
+        "sources.deletedFolderToast": `Folder deleted · ${String(params?.files ?? 0)} file(s), ${String(params?.pages ?? 0)} page(s)`,
+        "sources.deletedFolderTooMany": "Folder too large to delete.",
         "sources.ingested": "Ingested",
         "sources.notIngested": "Not ingested",
         "sources.derivedPages": "pages",
@@ -122,6 +136,8 @@ vi.mock("react-i18next", () => ({
         "sources.ingestAllRunning": `Indexing… ${String(params?.done ?? 0)}/${String(params?.total ?? 0)}`,
         "sources.ingestAllNone": "Nothing to index",
         "sources.ingestAllAlready": "Already running",
+        "sources.footerCount": `${String(params?.total ?? 0)} sources`,
+        "sources.folderUploadSkipped": `${String(params?.count ?? 0)} file(s) skipped (unsupported type)`,
         "sources.bulk.selectAll": "Select all files",
         "sources.bulk.selectFile": `Select ${String(params?.name ?? "")}`,
         "sources.bulk.selected": `${String(params?.count ?? 0)} selected`,
@@ -204,6 +220,11 @@ beforeEach(() => {
     deleted_source: "doc1.md",
     pages_deleted: 0,
   });
+  vi.mocked(sourcesClient.deleteFolderSource).mockResolvedValue({
+    deleted_path: "images",
+    files_deleted: 3,
+    pages_cascaded: 2,
+  });
   // Default: no scan running
   vi.mocked(sourcesClient.getIngestAllStatus).mockResolvedValue({
     running: false,
@@ -213,6 +234,11 @@ beforeEach(() => {
   vi.mocked(sourcesClient.ingestAllSources).mockResolvedValue({
     started: true,
     candidate_files: 5,
+  });
+  vi.mocked(ingestClient.uploadDocument).mockResolvedValue({
+    file_path: "raw/sources/test.md",
+    status: "queued",
+    overwritten: false,
   });
 });
 
@@ -737,5 +763,103 @@ describe("SourcesView — R7-11 bulk delete (AC-R7-11-3)", () => {
       expect(screen.queryByTestId("confirm-dialog")).toBeNull();
     });
     expect(sourcesClient.deleteSource).not.toHaveBeenCalled();
+  });
+});
+
+// ─── S3: Footer count ─────────────────────────────────────────────────────────
+
+describe("SourcesView — S3 footer count", () => {
+  it("renders the footer with the total count from listSources", async () => {
+    vi.mocked(sourcesClient.listSources).mockResolvedValue({
+      entries: SAMPLE_ENTRIES,
+      total: 3,
+      truncated: false,
+    });
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-footer")).toBeTruthy();
+    });
+    expect(screen.getByText("3 sources")).toBeTruthy();
+  });
+
+  it("shows 0 sources when the list is empty", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-footer")).toBeTruthy();
+    });
+    expect(screen.getByText("0 sources")).toBeTruthy();
+  });
+});
+
+// ─── S1: "+ Folder" button ───────────────────────────────────────────────────
+
+describe("SourcesView — S1 folder upload button", () => {
+  it("renders the + Folder button in the header", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("source-import-folder")).toBeTruthy();
+    });
+    expect(screen.getByText("+ Folder")).toBeTruthy();
+  });
+});
+
+// ─── S2: Folder two-stage delete ─────────────────────────────────────────────
+
+describe("SourcesView — S2 folder delete (two-stage)", () => {
+  beforeEach(() => {
+    vi.mocked(sourcesClient.listSources).mockResolvedValue({
+      entries: SAMPLE_ENTRIES,
+      total: 3,
+      truncated: false,
+    });
+  });
+
+  it("renders a folder-delete button on folder rows", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("source-folder-delete")).toBeTruthy();
+    });
+  });
+
+  it("first click arms the folder-delete (shows Confirm text but does NOT call deleteFolderSource)", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("source-folder-delete")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("source-folder-delete"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Confirm")).toBeTruthy();
+    });
+    expect(sourcesClient.deleteFolderSource).not.toHaveBeenCalled();
+  });
+
+  it("second click calls deleteFolderSource and shows toast", async () => {
+    const { showToast } = await import("../components/common/Toast");
+
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("source-folder-delete")).toBeTruthy();
+    });
+
+    // First click — arm
+    fireEvent.click(screen.getByTestId("source-folder-delete"));
+    await waitFor(() => {
+      expect(screen.getByText("Confirm")).toBeTruthy();
+    });
+
+    // Second click — confirm
+    fireEvent.click(screen.getByText("Confirm"));
+
+    await waitFor(() => {
+      expect(sourcesClient.deleteFolderSource).toHaveBeenCalledWith("images");
+    });
+    await waitFor(() => {
+      expect(showToast).toHaveBeenCalledWith(
+        "Folder deleted · 3 file(s), 2 page(s)",
+        "success",
+      );
+    });
   });
 });
