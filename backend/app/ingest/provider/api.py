@@ -75,6 +75,64 @@ def _load_price_map() -> dict[str, dict[str, float]]:
     return {}
 
 
+# ── Multimodal content builders (B2-C1 / F17 vision) ────────────────────────────
+
+
+def _anthropic_content(message: Message, vision: bool) -> object:
+    """
+    Build the Anthropic Messages `content` for one turn (B2-C1).
+
+    Text-only (no images, or images dropped) → the plain string content (unchanged wire shape).
+    With images AND vision → a content-block list: one `{"type":"image", "source":{base64}}` block
+    per image, followed by a single `{"type":"text"}` block. Images are DROPPED (with a debug log,
+    never the base64 payload) when `vision` is False — belt-and-suspenders on top of the frontend
+    gate.
+    """
+    if not message.images:
+        return message.content
+    if not vision:
+        logger.debug(
+            "Anthropic chat: dropping %d image(s) — instance is not vision-capable (B2-C1)",
+            len(message.images),
+        )
+        return message.content
+    blocks: list[dict[str, object]] = [
+        {
+            "type": "image",
+            "source": {"type": "base64", "media_type": img.mime, "data": img.data_base64},
+        }
+        for img in message.images
+    ]
+    blocks.append({"type": "text", "text": message.content})
+    return blocks
+
+
+def _openai_content(message: Message, vision: bool) -> object:
+    """
+    Build the OpenAI-compatible `content` for one turn (B2-C1).
+
+    Text-only (no images, or images dropped) → the plain string content (unchanged wire shape).
+    With images AND vision → a parts list: one `{"type":"image_url","image_url":{"url":<data URI>}}`
+    part per image (the data URI is assembled here from mime + base64), followed by a single
+    `{"type":"text"}` part. Images are DROPPED (debug log, never the base64 payload) when `vision`
+    is False.
+    """
+    if not message.images:
+        return message.content
+    if not vision:
+        logger.debug(
+            "OpenAI-compatible chat: dropping %d image(s) — instance is not vision-capable (B2-C1)",
+            len(message.images),
+        )
+        return message.content
+    parts: list[dict[str, object]] = [
+        {"type": "image_url", "image_url": {"url": f"data:{img.mime};base64,{img.data_base64}"}}
+        for img in message.images
+    ]
+    parts.append({"type": "text", "text": message.content})
+    return parts
+
+
 class ApiProvider(InferenceProvider):
     """Anthropic Messages API or OpenAI-compatible endpoint (orchestrated route)."""
 
@@ -151,9 +209,14 @@ class ApiProvider(InferenceProvider):
         api_key = os.environ.get(_ANTHROPIC_KEY_ENV)
         if not api_key:
             raise ValueError(f"{_ANTHROPIC_KEY_ENV} not set in environment (§12, ADR-0008)")
+        # B2-C1: images are carried only when vision-capable (Anthropic path is always True);
+        # otherwise dropped. NEVER log the base64 payload.
+        vision = self._supports_vision()
         # Anthropic takes system as a top-level field; user/assistant turns in messages[].
         anthropic_messages = [
-            {"role": m.role, "content": m.content} for m in messages if m.role != "system"
+            {"role": m.role, "content": _anthropic_content(m, vision)}
+            for m in messages
+            if m.role != "system"
         ]
         body: dict[str, object] = {
             "model": self._model,  # from provider_config (I6)
@@ -215,10 +278,15 @@ class ApiProvider(InferenceProvider):
         api_key = os.environ.get(_OPENAI_KEY_ENV)
         if not api_key:
             raise ValueError(f"{_OPENAI_KEY_ENV} not set in environment (§12, ADR-0008)")
-        openai_messages: list[dict[str, str]] = []
+        # B2-C1: images are carried only when this instance is vision-capable (config flag on the
+        # OpenAI-compatible path); otherwise dropped. NEVER log the base64 payload.
+        vision = self._supports_vision()
+        openai_messages: list[dict[str, object]] = []
         if retrieval_context.strip():
             openai_messages.append({"role": "system", "content": retrieval_context})
-        openai_messages.extend({"role": m.role, "content": m.content} for m in messages)
+        openai_messages.extend(
+            {"role": m.role, "content": _openai_content(m, vision)} for m in messages
+        )
         body = {
             "model": self._model,  # from provider_config (I6)
             "messages": openai_messages,

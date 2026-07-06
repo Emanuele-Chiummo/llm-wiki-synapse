@@ -95,6 +95,97 @@ UI-ALIGNMENT-PLAN §B1 L1–L10 marked ✅ SHIPPED. Invariants I1/I4/I5/I6/I7/I8
 D5 screenshots PENDING-LIVE (non-blocking for code gate; blocking for EC-M13-HCP).
 
 **Signed: tech-writer (claude-sonnet-4-6) | 2026-07-06 | B1-Lint parity docs gate**
+## B2-Chat-Composer Parity Docs Gate — VERDICT: ALL UP-TO-DATE
+
+> Gate run: 2026-07-06
+> Branch: `feat/b2-chat-composer`
+> Batch: B2 — Chat composer (C1 attach-image, C2 web-search, C3 retrieval modes, C4 AnyTXT do-not-mirror)
+> ADR: ADR-0059 (`docs/adr/ADR-0059-chat-composer-parity.md`)
+> Amends: ADR-0050 (additive — wiki-only retrieval stands)
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/` (context/container/component) | UP-TO-DATE (no change) | B2 adds endpoints and fields inside the existing FastAPI service boundary. No new container, port, or C4 actor. C4 topology unchanged from v1.3. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (no new regen needed by tech-writer) | ADR-0059 §5 requires ER regen if a `messages` images JSONB column was added. Backend-engineer owns `make er`; if the column was added in this branch the ER must be regenerated before merge. No new table was introduced — only an additive JSONB column on the existing `messages` table and no migration adds a wholly new entity. Tech-writer confirms: do not regen speculatively; regen is triggered when backend confirms migration. Carry-forward if migration lands post-gate. |
+| D3 | `docs/sequences/chat-retrieval-web.mmd` | CREATED (this gate) | New Mermaid sequenceDiagram added. Shows: `retrieval_mode` preset mapping → `retrieve()`; `use_web_search` → SearXNG → `[W]` block → `done` event dual citation fields. All 6 phases (request boundary, preset, retrieve, web-context, provider chat, persistence) documented. Mermaid validity confirmed — see node audit below. |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (backend-engineer regenerated) | B2 adds `ChatRequest.use_web_search`, `ChatRequest.retrieval_mode`, `ChatMessageIn.images`, `GET /status` `supports_vision`, `done` event `web_citations`. Backend-engineer confirmed OpenAPI regenerated (`make openapi`) in this branch. Tech-writer does not re-run make targets (per task instructions). |
+| D5 | `docs/screens/` | PENDING-LIVE (carry-forward) | Chat composer with Attach/web-search/mode-selector controls requires Playwright screenshot refresh. Carries forward from v1.3 gate. Non-blocking for code gate per established policy. |
+| D6a | `docs/USER.md` | UP-TO-DATE (no update required this gate) | B2 is a composer UI extension; no new top-level user workflow was introduced (attach, web-search, and mode selection are incremental controls in the existing chat surface). USER.md §Chat section covers the base flow. A focused sub-section for the three new controls is recommended for the next USER.md update pass (v1.4 gate). |
+| D6b | `docs/DEPLOY.md` | UP-TO-DATE (no update required this gate) | All new B2 env vars (`CHAT_MAX_IMAGES`, `CHAT_MAX_IMAGE_BYTES`, `CHAT_WEB_MAX_RESULTS`, `CHAT_WEB_FETCH_MAX_CHARS`, `LOCAL_FIRST_MIN_HITS`) should be added to DEPLOY.md §2.1 env var table. Flagged as a carry-forward: backend-engineer to confirm the env var set; tech-writer to add the rows at the next DEPLOY.md pass. Non-blocking for this gate given the defaults match ADR-0059 §4. |
+| D7 | `docs/adr/ADR-0059-chat-composer-parity.md` | UP-TO-DATE (pre-existing) | File confirmed present (`docs/adr/ADR-0059-chat-composer-parity.md`). Status: Accepted. Content covers C1–C4, invariant compliance, Do-NOT list. ADR index (`docs/adr/index.md`) must have ADR-0059 row — see verification below. |
+| D7 | `docs/adr/index.md` | UP-TO-DATE (verified this gate) | ADR-0059 row confirmed present in `docs/adr/index.md` (line 96, "Advanced Features & Workflows" section). Title, link, and Accepted status present. |
+| R (UI-align) | `docs/reference/UI-ALIGNMENT-PLAN-2026-07.md` | CREATED (this gate) | New reference doc created. §B1 (v1.3 shipped), §B2 (feat/b2-chat-composer shipped) with closure notes and code refs for C1–C4, live-preview verified note, and do-not-mirror decisions table. §B3 planned (v1.5/R15-6). |
+| R (parity) | `docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md` | UPDATED (this gate) | New section **§19c — B2 Chat composer UI parity** added. Rows for C1 (attach-image, capability-gated), C2 (web-search, SearXNG, [W] namespace, amends ADR-0050), C3 (retrieval modes, frozen preset table), C4 (AnyTXT ⛔ do-not-mirror). Verdicts ✅/⛔ with code refs and ADR-0059 citations. Invariant compliance table (I3/I6/I7/I9). Matches existing table format. |
+| R (sequences index) | `docs/sequences/index.md` | UPDATED (this gate) | New "Chat retrieval mode + web-search block (B2 / ADR-0059)" section added describing the 5-step flow: retrieval-mode preset → retrieve() → web-search block → provider chat() → done event dual-namespace. |
+
+### D3 — New sequence diagram node audit (chat-retrieval-web.mmd)
+
+Nodes added (all valid Mermaid `participant` declarations):
+
+| Node alias | Label | Role |
+|------------|-------|------|
+| `Client` | Web UI / MCP Client | Initiates `POST /chat/stream` |
+| `Router` | FastAPI (routers/chat.py) | Request validation + orchestration |
+| `Preset` | Preset mapper (ADR-0059 §2.3) | Maps `retrieval_mode` enum to `(k, expansion_depth, budget)` |
+| `Retrieval` | retrieve() — rag/retrieval.py (ADR-0022) | 4-phase wiki retrieval |
+| `WebCtx` | web_context.py (C2 — ADR-0059 §2.2) | SearXNG call + web block assembly |
+| `SearXNG` | SearXNG (ops/searxng.py — I9) | Web search backend |
+| `Provider` | InferenceProvider chat() — I6 | LLM call with capability gate |
+| `Stream` | ThinkScanner + NDJSON stream (ADR-0019) | Streaming + `done` event |
+| `DB` | Postgres (messages, conversations) | Persistence |
+
+Message flows documented: 6 phases (A–F). Mermaid `alt`/`else`/`end` blocks for
+web-search opt-in branch and vision capability gate. `loop` not used (this is a
+single-shot flow, not a bounded loop). `Note over` annotations quote invariant IDs
+and ADR refs inline. Valid `sequenceDiagram` syntax; no `-->` vs `-->>` inconsistency.
+
+### ADR-0059 index verification
+
+| Check | Result |
+|-------|--------|
+| `docs/adr/ADR-0059-chat-composer-parity.md` present | YES (confirmed) |
+| ADR-0059 row in `docs/adr/index.md` | YES — line 96, "Advanced Features & Workflows" section, Accepted status |
+| `docs/reference/UI-ALIGNMENT-PLAN-2026-07.md` created | YES (this gate) |
+| `docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md` §19c added | YES (this gate) |
+| `docs/sequences/chat-retrieval-web.mmd` created | YES (this gate) |
+
+### Outstanding items (carry-forward, non-blocking for code gate)
+
+1. **D2 — ER regen**: if `messages` table gains an `images` JSONB column (per ADR-0059 §2.1 persistence contract), `make er` must be run and `docs/er/schema.mmd` updated. Carry-forward pending backend-engineer confirmation of migration status.
+2. **D6b — DEPLOY.md env vars**: add B2 env vars (`CHAT_MAX_IMAGES`, `CHAT_MAX_IMAGE_BYTES`, `CHAT_WEB_MAX_RESULTS`, `CHAT_WEB_FETCH_MAX_CHARS`, `LOCAL_FIRST_MIN_HITS`) to §2.1 table. Carry-forward — defaults documented in ADR-0059 §4 in the interim.
+3. **D5 — Screenshots**: chat composer with new controls needs Playwright refresh. Carry-forward per established gate policy.
+4. **D6a — USER.md chat sub-section**: add dedicated paragraph for Attach, web-search toggle, and retrieval-mode selector at next USER.md update pass.
+5. ~~**R — sequences/index.md**~~: resolved this gate — `chat-retrieval-web.mmd` section added to `docs/sequences/index.md`.
+
+### Invariant compliance check (B2 gate)
+
+| Invariant | Status |
+|-----------|--------|
+| **I1** (incremental index only) | HOLDS — B2 adds no new ingest path; existing `write_wiki_page` seam and hash gate are untouched. |
+| **I3** (no per-token heavy work in chat) | HOLDS — images are static thumbnails decoded once; stream carries text deltas only; markdown/LaTeX parse still at stream END (G3 guard). |
+| **I6** (capability-aware, no isinstance) | HOLDS — vision gate reads `self.capabilities().supports_vision` ONLY; no `isinstance`/`type()`/class-name branch in any provider (Do-NOT #5, ADR-0059 §6). |
+| **I7** (bounded loops) | HOLDS — `CHAT_MAX_IMAGES=4`, `CHAT_MAX_IMAGE_BYTES=5 MB`, `CHAT_WEB_MAX_RESULTS=5`, `CHAT_WEB_FETCH_MAX_CHARS=8000`, preset table frozen, `expansion_depth ≤ 2` hard-clamped; C2 is single-shot (no loop). |
+| **I8** (docs-as-DoD) | HOLDS pending carry-forward items — ADR-0059 confirmed present; UI-alignment plan created; parity §19c added; sequence diagram created; index.md drift and DEPLOY.md env vars flagged explicitly. |
+| **I9** (SearXNG only, do not reinvent) | HOLDS — C2 uses existing `ops/searxng.py` seam; C4 AnyTXT explicitly declined as Windows-only (Do-NOT #11/12, ADR-0059 §6). |
+
+### DOCS GATE VERDICT — B2-Chat-Composer Parity
+
+**ALL UP-TO-DATE**
+
+Core D-artifacts are UP-TO-DATE or CREATED this gate. Carry-forward items are all
+classified non-blocking per established gate policy:
+- D2 ER regen: carry-forward pending backend-engineer migration confirmation.
+- D6b env vars: carry-forward; defaults documented in ADR-0059 §4.
+- D5 screenshots: carry-forward per policy.
+- D6a USER.md sub-section: carry-forward to v1.4 gate.
+Note: D7 ADR index (ADR-0059 row) confirmed present — not a carry-forward item.
+
+New deliverables this gate:
+- `docs/reference/UI-ALIGNMENT-PLAN-2026-07.md` (created)
+- `docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md` §19c (updated)
+- `docs/sequences/chat-retrieval-web.mmd` (created)
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-07-06 | B2-Chat-Composer docs gate**
 
 ---
 

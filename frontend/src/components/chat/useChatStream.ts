@@ -206,6 +206,8 @@ export function useChatStream(): UseChatStreamReturn {
               // ADR-0022 §2.4: additive citations field from done event.
               // Empty array when backend omits the field (non-breaking for old backends).
               citations: event.citations ?? [],
+              // B2: web citations from SearXNG search (only set when present — exactOptionalPropertyTypes).
+              ...(event.web_citations !== undefined ? { web_citations: event.web_citations } : {}),
             };
 
             finalizeTurn(msg, usage);

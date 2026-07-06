@@ -83,10 +83,17 @@ vi.mock("../store/chatStore", () => ({
 
 vi.mock("../store/settingsStore", () => ({
   useSettingsStore: (selector: (s: unknown) => unknown) =>
-    selector({ contextWindowTokens: 32768, conversationHistoryLength: 10 }),
+    selector({
+      contextWindowTokens: 32768,
+      conversationHistoryLength: 10,
+      retrievalMode: "standard",
+      webSearchEnabled: false,
+    }),
   selectContextWindow: (s: { contextWindowTokens: number }) => s.contextWindowTokens,
   selectConversationHistoryLength: (s: { conversationHistoryLength: number }) =>
     s.conversationHistoryLength,
+  selectRetrievalMode: (s: { retrievalMode: string }) => s.retrievalMode,
+  selectWebSearchEnabled: (s: { webSearchEnabled: boolean }) => s.webSearchEnabled,
 }));
 
 vi.mock("../store/ingestStore", () => ({

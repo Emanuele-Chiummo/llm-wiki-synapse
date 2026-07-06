@@ -111,6 +111,31 @@ _MAX_EXPANSION_DEPTH = 2
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
+# ── B2-C3: Retrieval-mode presets (frozen — NEVER allow arbitrary values) ───────
+# Keyed by mode name; values are (k, expansion_depth).
+# expansion_depth is ALWAYS clamped to ≤ _MAX_EXPANSION_DEPTH (2) on use — the preset
+# table must already satisfy this invariant (I7: hard cap is in retrieve() itself too).
+
+RetrievalMode = Literal["fast", "standard", "deep", "local_first"]
+
+_RETRIEVAL_MODE_PRESETS: dict[str, tuple[int, int]] = {
+    "fast":        (4, 0),
+    "standard":    (8, 2),   # ← current retrieve() defaults (k=8, expansion_depth=2)
+    "deep":        (12, 2),  # ← hard cap on expansion_depth = 2 (I7/I2)
+    "local_first": (8, 2),   # ← identical to standard; web-gating handled in chat path
+}
+
+
+def retrieval_mode_params(mode: str) -> tuple[int, int]:
+    """
+    Return (k, expansion_depth) for the given retrieval mode (B2-C3, frozen).
+
+    Falls back to ``"standard"`` for unknown values (defensive). expansion_depth is
+    additionally clamped to ≤ ``_MAX_EXPANSION_DEPTH`` (2) as the absolute hard cap (I7).
+    """
+    k, depth = _RETRIEVAL_MODE_PRESETS.get(mode, _RETRIEVAL_MODE_PRESETS["standard"])
+    return k, min(depth, _MAX_EXPANSION_DEPTH)
+
 
 # ── Data structures (the contract — ADR-0022 §2.3, frozen) ──────────────────────
 

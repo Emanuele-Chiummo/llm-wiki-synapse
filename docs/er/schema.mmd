@@ -193,6 +193,7 @@ erDiagram
         string role "'user' | 'assistant' | 'system' (ADR-0019 §2.5)"
         string content "RAW message content, incl. literal <think>…</think> un-mutated (AC-F7-2)"
         jsonb citations "RESERVED for M5 [n] citations, always [] in M4 (ADR-0019 §2.3)"
+        jsonb images "B2-C1 image attachments: [(mime, data_base64)] for user messages. NULL when no images attached. Stored so regenerate/history preserves images. Migration: 0024_messages_images."
         string provider_type "Backend that produced an assistant msg (audit), NULL for user/system"
         string model_id "Resolved model that produced an assistant msg (audit), NULL otherwise"
         int input_tokens "Prompt tokens for an assistant turn (I7 persistent cost record)"

@@ -94,6 +94,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0050** | [Retrieval scope restricted to wiki/ pages only](0050-retrieval-wiki-only-scope.md) | Accepted |
 | **0051** | [Pluggable PDF extractor seam: Marker over HTTP with pypdf fallback](0051-pluggable-pdf-extractor-seam.md) | Accepted |
 | **0058** | [Lint parity extension: broken-wikilink category, batch actions, review bridge, orphan delete (extends ADR-0037; B1)](ADR-0058-lint-parity-extension.md) | Accepted |
+| **0059** | [Chat composer parity: attach-image (capability-aware vision), web-search toggle (amends ADR-0050 — additive `[W]` namespace), frozen retrieval-mode presets, AnyTXT do-not-mirror (B2; I3/I6/I7/I9)](ADR-0059-chat-composer-parity.md) | Accepted |
 
 ---
 
