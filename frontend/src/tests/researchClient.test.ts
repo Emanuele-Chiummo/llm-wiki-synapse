@@ -2,11 +2,11 @@
  * researchClient.test.ts — unit tests for the deep-research API client (F10, ADR-0024 §8).
  *
  * Mocks globalThis.fetch — no real network calls.
- * Tests: startResearch, fetchResearchRuns, fetchResearchRunDetail.
+ * Tests: optimizeResearchTopic, startResearch, fetchResearchRuns, fetchResearchRunDetail.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { startResearch, fetchResearchRuns, fetchResearchRunDetail } from "../api/researchClient";
+import { optimizeResearchTopic, startResearch, fetchResearchRuns, fetchResearchRunDetail } from "../api/researchClient";
 import type { ResearchRunListResponse, ResearchRunDetail, ResearchStartResponse } from "../api/types";
 
 // Inline type for fetch init to avoid ESLint no-undef on the DOM global FetchInit
@@ -27,6 +27,50 @@ function mockFetch(body: unknown, status = 200): void {
     json: () => Promise.resolve(body),
   } as Response);
 }
+
+// ─── optimizeResearchTopic (B5/D3) ────────────────────────────────────────────
+
+describe("optimizeResearchTopic", () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it("POSTs to /research/optimize-topic and returns optimized_topic + queries", async () => {
+    mockFetch({ optimized_topic: "Kubernetes CNI deep dive", queries: ["Kubernetes CNI comparison", "Calico vs Cilium"] });
+
+    const result = await optimizeResearchTopic("Kubernetes networking");
+
+    expect(globalThis.fetch).toHaveBeenCalledOnce();
+    const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, FetchInit];
+    expect(url).toContain("/research/optimize-topic");
+    expect(opts.method).toBe("POST");
+    expect(JSON.parse(opts.body as string)).toMatchObject({ topic: "Kubernetes networking" });
+    expect(result.optimized_topic).toBe("Kubernetes CNI deep dive");
+    expect(result.queries).toHaveLength(2);
+  });
+
+  it("passes AbortSignal to fetch", async () => {
+    mockFetch({ optimized_topic: "test", queries: [] });
+    const ctrl = new AbortController();
+
+    await optimizeResearchTopic("test topic", ctrl.signal);
+
+    const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, FetchInit];
+    expect(opts?.signal).toBe(ctrl.signal);
+  });
+
+  it("throws ApiError on non-2xx response", async () => {
+    mockFetch({ detail: "Provider not configured" }, 503);
+    await expect(optimizeResearchTopic("test")).rejects.toThrow("503");
+  });
+
+  it("returns echo response when provider unavailable (graceful degradation)", async () => {
+    // Backend echoes the seed topic with naive queries on 200
+    mockFetch({ optimized_topic: "Kubernetes networking", queries: ["Kubernetes networking"] });
+
+    const result = await optimizeResearchTopic("Kubernetes networking");
+    expect(result.optimized_topic).toBe("Kubernetes networking");
+    expect(result.queries).toHaveLength(1);
+  });
+});
 
 // ─── startResearch ────────────────────────────────────────────────────────────
 
@@ -61,6 +105,20 @@ describe("startResearch", () => {
     const body = JSON.parse(opts.body as string) as Record<string, unknown>;
     expect(body["max_iter"]).toBe(2);
     expect(body["token_budget"]).toBe(50000);
+  });
+
+  it("includes optional queries field in body when provided (B5/D3)", async () => {
+    mockFetch({ run_id: "xyz-789" }, 202);
+
+    await startResearch({
+      vault_id: "default",
+      topic: "Kubernetes networking",
+      queries: ["Kubernetes CNI comparison", "Calico vs Cilium"],
+    });
+
+    const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, FetchInit];
+    const body = JSON.parse(opts.body as string) as Record<string, unknown>;
+    expect(body["queries"]).toEqual(["Kubernetes CNI comparison", "Calico vs Cilium"]);
   });
 
   it("throws ApiError on non-2xx response", async () => {

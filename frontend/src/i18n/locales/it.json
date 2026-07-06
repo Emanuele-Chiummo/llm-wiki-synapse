@@ -613,6 +613,20 @@
       "max_iter_reached": "Iterazioni massime",
       "budget_exhausted": "Budget esaurito",
       "error": "Errore"
+    },
+    "topicDialog": {
+      "title": "Avvia Ricerca Profonda",
+      "optimizing": "Ottimizzazione argomento e generazione query…",
+      "optimizeUnavailable": "Ottimizzazione non disponibile — modifica manualmente argomento e query.",
+      "topicLabel": "Argomento",
+      "topicPlaceholder": "Inserisci un argomento di ricerca…",
+      "queriesLabel": "Query",
+      "queryPlaceholder": "Inserisci una query di ricerca…",
+      "noQueries": "Nessuna query — clicca Aggiungi query oppure l'LLM le genererà in fase di esecuzione.",
+      "addQuery": "Aggiungi query",
+      "removeQuery": "Rimuovi query",
+      "start": "Avvia ricerca",
+      "cancel": "Annulla"
     }
   },
   "review": {

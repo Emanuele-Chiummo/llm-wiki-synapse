@@ -10,15 +10,17 @@
  *   Store subscriptions use selectors + useShallow for all collection reads.
  *   No per-render heavy work.
  *
- * Deep Research seeding: researchStore has no seedTopic/prefill action, so the
- * Deep Research button navigates to "deep-search" via setActiveSection only.
- * Topic is shown in the tooltip/aria-label for user reference.
+ * Deep Research (B5/D3): clicking the Deep Research button on a gap/bridge insight
+ *   opens ResearchTopicDialog seeded with the insight's topic. The dialog calls
+ *   POST /research/optimize-topic, shows an editable topic + queries, and on confirm
+ *   POSTs /research/start then navigates to "deep-search".
+ *   ResearchTopicDialog uses position:fixed so it escapes this panel's stacking context.
  *
  * i18n: all user-visible strings via useTranslation() (F16).
  *   Keys are under the graph.insights.* namespace.
  */
 
-import { useState, useMemo, useCallback, type MouseEvent } from "react";
+import { useState, useMemo, useCallback, useRef, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { Lightbulb, X, ChevronDown, ChevronUp, Search } from "lucide-react";
@@ -29,7 +31,15 @@ import {
   selectCommunities,
   selectSetSelectedNodeId,
   selectSetActiveSection,
+  selectVaultId,
 } from "../../store/graphStore";
+import {
+  useResearchStore,
+  selectStartRun,
+  selectStartPollingDetail,
+  selectClearStartError,
+} from "../../store/researchStore";
+import { ResearchTopicDialog } from "../research/ResearchTopicDialog";
 import {
   computeGraphInsights,
 } from "./graphInsights";
@@ -263,10 +273,20 @@ export function GraphInsightsPanel() {
   const communities = useGraphStore(useShallow(selectCommunities));
   const setSelectedNodeId = useGraphStore(selectSetSelectedNodeId);
   const setActiveSection = useGraphStore(selectSetActiveSection);
+  const vaultId = useGraphStore(selectVaultId);
+
+  // ── Research store actions (B5/D3) ────────────────────────────────────────
+  const startRun = useResearchStore(selectStartRun);
+  const startPollingDetail = useResearchStore(selectStartPollingDetail);
+  const clearStartError = useResearchStore(selectClearStartError);
 
   // ── Local UI state ─────────────────────────────────────────────────────────
   const [collapsed, setCollapsed] = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  /** Seed topic for the dialog; null = dialog closed. */
+  const [dialogSeedTopic, setDialogSeedTopic] = useState<string | null>(null);
+  /** Ref to the polling cleanup fn so we can stop on unmount (I3). */
+  const stopPollRef = useRef<(() => void) | null>(null);
 
   // ── Compute insights once (I3) ─────────────────────────────────────────────
   const insights = useMemo(
@@ -317,12 +337,45 @@ export function GraphInsightsPanel() {
     });
   }, []);
 
+  /**
+   * Open the ResearchTopicDialog seeded with the insight topic (B5/D3).
+   * Previously: navigate-only. Now: dialog → optimize → editable confirm → start.
+   */
   const handleDeepResearch = useCallback(
-    (_topic: string) => {
-      // researchStore has no seedTopic action; navigate only (spec: navigate-only).
+    (topic: string) => {
+      setDialogSeedTopic(topic);
+    },
+    [],
+  );
+
+  const handleDialogCancel = useCallback(() => {
+    setDialogSeedTopic(null);
+  }, []);
+
+  const handleDialogConfirm = useCallback(
+    async (editedTopic: string, editedQueries: string[]) => {
+      setDialogSeedTopic(null);
+      clearStartError();
+      try {
+        const startParams: Parameters<typeof startRun>[0] = {
+          vault_id: vaultId ?? "default",
+          topic: editedTopic,
+        };
+        if (editedQueries.length > 0) {
+          startParams.queries = editedQueries;
+        }
+        const runId = await startRun(startParams);
+        // Stop any existing poll before starting a new one
+        stopPollRef.current?.();
+        stopPollRef.current = startPollingDetail(runId);
+      } catch {
+        // startError written to store; DeepSearchView will show it
+      }
+      // Navigate to the deep-search view regardless of success so the user
+      // can see the run status (or the error message).
       setActiveSection("deep-search");
     },
-    [setActiveSection],
+    [vaultId, startRun, startPollingDetail, clearStartError, setActiveSection],
   );
 
   const toggleCollapsed = useCallback(() => {
@@ -333,6 +386,15 @@ export function GraphInsightsPanel() {
   if (nodes.length === 0) return null;
 
   return (
+    <>
+    {/* ResearchTopicDialog renders with position:fixed — escapes the panel stacking context */}
+    {dialogSeedTopic !== null && (
+      <ResearchTopicDialog
+        seedTopic={dialogSeedTopic}
+        onConfirm={(topic, queries) => { void handleDialogConfirm(topic, queries); }}
+        onCancel={handleDialogCancel}
+      />
+    )}
     <div
       data-testid="graph-insights-panel"
       style={{
@@ -550,5 +612,6 @@ export function GraphInsightsPanel() {
         </div>
       )}
     </div>
+    </>
   );
 }

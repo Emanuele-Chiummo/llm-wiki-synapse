@@ -82,6 +82,20 @@ FETCH_MAX_CHARS: int = 20_000  # conservative default; real value from _fetch_ma
 
 
 @dataclass
+class OptimizedTopic:
+    """
+    Return value of optimize_topic (B5/D3 — pre-run topic optimization + confirm surface).
+
+    optimized_topic: a domain-specific rephrasing of the seed topic, steered by the vault's
+    overview.md + purpose.md. queries: 3..5 web-search-optimized SearXNG query strings.
+    On the no-provider / degraded path both fall back to the seed topic (never an exception).
+    """
+
+    optimized_topic: str
+    queries: list[str]
+
+
+@dataclass
 class DeepResearchResult:
     """Return value of run_deep_research (ADR-0024 §2.3)."""
 
@@ -330,6 +344,238 @@ async def run_deep_research(
         synthesis_page_id=synthesis_page_id,
         error_message=error_message,
     )
+
+
+# ── Pre-run topic optimization (B5/D3 — read overview+purpose → optimized topic + queries) ──
+
+# Cap the vault-context excerpt fed into the optimize prompt so a huge overview.md cannot
+# blow the small optimize token budget (I7). The prompt hint carries the hard budget, the
+# excerpt cap is a mechanical guard applied before the single call.
+_OPTIMIZE_CONTEXT_MAX_CHARS: int = 6_000
+# Bounds on the returned query list (B5/D3 requires 3..5 web-search-optimized queries).
+_OPTIMIZE_MIN_QUERIES: int = 3
+_OPTIMIZE_MAX_QUERIES: int = 5
+
+
+def _load_research_vault_context() -> str:
+    """
+    Assemble the deep-research pre-run context: vault overview.md + purpose.md content.
+
+    Used by optimize_topic to steer the topic rephrasing toward the vault's domain (B5/D3).
+    Missing files → skipped section (tolerant, TOCTOU-safe: read without a prior exists()
+    check so a file removed between check and read is silently ignored — same discipline as
+    orchestrator._load_vault_context). Total excerpt capped at _OPTIMIZE_CONTEXT_MAX_CHARS (I7).
+
+    NOTE: this is deep-research's OWN context surface — it reads overview.md (the auto-maintained
+    big-picture note) which the ingest orchestrator's _load_vault_context deliberately does NOT
+    (that one feeds schema.md for page generation). Kept local to this module rather than
+    importing the ingest helper to avoid coupling the two context contracts.
+    """
+    from app.config import settings
+
+    parts: list[str] = []
+    # overview.md lives under wiki/, purpose.md at the vault root.
+    candidates = (
+        ("overview.md", settings.wiki_dir / "overview.md"),
+        ("purpose.md", settings.vault_root / "purpose.md"),
+    )
+    for name, path in candidates:
+        try:
+            text = path.read_text(encoding="utf-8").strip()
+        except (FileNotFoundError, OSError):
+            continue
+        if text:
+            parts.append(f"# {name}\n{text}")
+
+    joined = "\n\n".join(parts)
+    if len(joined) > _OPTIMIZE_CONTEXT_MAX_CHARS:
+        joined = joined[:_OPTIMIZE_CONTEXT_MAX_CHARS]
+    return joined
+
+
+def _naive_optimized(topic: str) -> OptimizedTopic:
+    """
+    Degraded fallback for optimize_topic (no provider / timeout / error / empty response).
+
+    Echoes the seed topic as the optimized topic and returns it as the single query, so the
+    UI confirm dialog still prefills and the user can edit + run offline (never a 500).
+    """
+    clean = topic.strip()
+    return OptimizedTopic(optimized_topic=clean, queries=[clean] if clean else [topic])
+
+
+def _parse_optimized_response(raw: str, topic: str) -> OptimizedTopic:
+    """
+    Parse the optimize_topic provider response into an OptimizedTopic.
+
+    Expected shape (line-oriented, tolerant):
+        TOPIC: <rephrased domain-specific topic>
+        QUERIES:
+        <query 1>
+        <query 2>
+        ...
+    Falls back gracefully: a missing TOPIC line keeps the seed topic; queries are clamped to
+    [_OPTIMIZE_MIN_QUERIES.._OPTIMIZE_MAX_QUERIES] (padding with the topic if the model returned
+    too few). Never raises — a garbled response degrades to _naive_optimized.
+    """
+    lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
+    if not lines:
+        return _naive_optimized(topic)
+
+    optimized = topic.strip()
+    queries: list[str] = []
+    in_queries = False
+    for ln in lines:
+        upper = ln.upper()
+        if upper.startswith("TOPIC:"):
+            candidate = ln.split(":", 1)[1].strip()
+            if candidate:
+                optimized = candidate
+            in_queries = False
+            continue
+        if upper.startswith("QUERIES:"):
+            in_queries = True
+            # a query may share the QUERIES: line (e.g. "QUERIES: foo") — capture it
+            tail = ln.split(":", 1)[1].strip()
+            if tail:
+                queries.append(tail)
+            continue
+        if in_queries:
+            # strip common list markers the model may add despite instructions
+            queries.append(ln.lstrip("-*0123456789. ").strip())
+
+    # If the model ignored the QUERIES: marker entirely, treat every non-TOPIC line as a query.
+    if not queries:
+        queries = [
+            ln.lstrip("-*0123456789. ").strip()
+            for ln in lines
+            if not ln.upper().startswith("TOPIC:")
+        ]
+
+    queries = [q for q in queries if q][:_OPTIMIZE_MAX_QUERIES]
+    if not queries:
+        return OptimizedTopic(optimized_topic=optimized or topic.strip(), queries=[topic.strip()])
+
+    # Pad to the minimum with the (optimized) topic so the dialog always has a usable seed set.
+    while len(queries) < _OPTIMIZE_MIN_QUERIES:
+        queries.append(optimized or topic.strip())
+
+    return OptimizedTopic(optimized_topic=optimized or topic.strip(), queries=queries)
+
+
+async def optimize_topic(*, vault_id: str, topic: str) -> OptimizedTopic:
+    """
+    ONE bounded provider call that rephrases a seed *topic* into a domain-specific research
+    topic + 3..5 web-search-optimized queries, steered by the vault overview.md + purpose.md
+    (B5/D3 — the pre-run "optimize + confirm" surface for Graph-Insight-triggered research).
+
+    Bounds (I7): a SINGLE provider.chat() turn wrapped in asyncio.wait_for; token budget surfaced
+    as a prompt hint; total_cost_usd read from the run-scoped accumulator and logged. NO loop.
+
+    Provider-neutral (I6): rides the resolved InferenceProvider.chat() seam — no hardcoded backend
+    or model. When NO provider is configured (or the call times out / errors / returns garbage) it
+    degrades to _naive_optimized(topic) — the caller returns 200 with the seed echoed so the UI
+    confirm dialog still works offline. This function NEVER raises for provider issues.
+
+    NOTE: no web call here (I9 not engaged) — optimization is LLM-only; the actual SearXNG run
+    happens later via run_deep_research when the user confirms the (edited) topic.
+    """
+    from app.config import settings
+
+    seed = topic.strip()
+    if not seed:
+        return _naive_optimized(topic)
+
+    provider = await _resolve_provider(vault_id)
+    if provider is None:
+        logger.info(
+            "optimize_topic: no provider configured for vault=%r — naive fallback (topic=%r)",
+            vault_id,
+            seed,
+        )
+        return _naive_optimized(topic)
+
+    accumulator = UsageAccumulator()
+    provider.bind_accumulator(accumulator)
+
+    token_budget = int(settings.deep_research_optimize_token_budget)
+    timeout_s = float(settings.deep_research_optimize_timeout_seconds)
+    vault_context = _load_research_vault_context()
+    context_block = (
+        f"Vault context (goal, scope, existing coverage):\n{vault_context}\n\n"
+        if vault_context
+        else ""
+    )
+
+    instruction = (
+        "You optimize a seed research topic for a self-organizing knowledge base before a "
+        "web-research run. Read the vault context (if any) to make the topic and queries "
+        "SPECIFIC to this vault's domain, scope, and open questions.\n\n"
+        f"{context_block}"
+        f"Seed topic: {seed}\n\n"
+        "Produce:\n"
+        "1. A single rephrased, domain-specific research topic (concise, one line).\n"
+        f"2. Between {_OPTIMIZE_MIN_QUERIES} and {_OPTIMIZE_MAX_QUERIES} focused web-search "
+        "queries (plain search strings suitable for SearXNG — no markdown, no numbering) that "
+        "together cover complementary facets of the topic.\n\n"
+        f"Aim to stay within roughly {token_budget} tokens.\n"
+        "Respond in EXACTLY this format:\n"
+        "TOPIC: <rephrased topic>\n"
+        "QUERIES:\n"
+        "<query 1>\n"
+        "<query 2>\n"
+        "<query 3>"
+    )
+
+    async def _collect() -> str:
+        from app.ingest.schemas import Message
+
+        chunks: list[str] = []
+        async for chunk in await provider.chat(
+            messages=[Message(role="user", content=instruction)],
+            retrieval_context="",
+        ):
+            chunks.append(chunk)
+        return "".join(chunks).strip()
+
+    result: OptimizedTopic
+    try:
+        raw = await asyncio.wait_for(_collect(), timeout=timeout_s)
+        result = _parse_optimized_response(raw, topic)
+    except TimeoutError:
+        logger.warning(
+            "optimize_topic: provider call timed out after %.1fs — naive fallback (topic=%r)",
+            timeout_s,
+            seed,
+        )
+        result = _naive_optimized(topic)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "optimize_topic: provider call failed (%s) — naive fallback (topic=%r)", exc, seed
+        )
+        result = _naive_optimized(topic)
+
+    # ── Cost logging (I7 — single bounded call, cost recorded out of band) ─────────
+    total_cost_usd = round(accumulator.total_cost_usd, 4)
+    logger.info(
+        "optimize_topic: vault=%r topic=%r → optimized=%r queries=%d cost_usd=%.4f",
+        vault_id,
+        seed,
+        result.optimized_topic,
+        len(result.queries),
+        total_cost_usd,
+    )
+    if total_cost_usd > COST_ANOMALY_THRESHOLD_USD:
+        logger.warning(
+            "COST ANOMALY: optimize_topic vault=%r total_cost_usd=%.4f exceeds $%.2f (topic=%r) "
+            "— investigate misconfiguration",
+            vault_id,
+            total_cost_usd,
+            COST_ANOMALY_THRESHOLD_USD,
+            seed,
+        )
+
+    return result
 
 
 # ── Internal phase functions (names locked for D3 sequence diagram, ADR-0024 §2.3) ──

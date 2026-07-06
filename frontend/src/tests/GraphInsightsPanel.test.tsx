@@ -5,10 +5,12 @@
  *   A. Renders insight rows when store has suitable graph data.
  *   B. Clicking a row calls setSelectedNodeId with the primaryNodeId.
  *   C. Dismiss button removes the row from the DOM.
- *   D. Deep-research button calls setActiveSection("deep-search").
+ *   D. (B5/D3) Deep Research button opens ResearchTopicDialog (NOT navigate-only).
+ *   D2. Cancelling the dialog closes it without calling setActiveSection.
  *   E. Empty state when no insights can be derived.
  *   F. Panel hidden (not in DOM) when graph has no nodes.
  *   G. Collapse/expand toggle hides and shows the body.
+ *   H. Sparse community shows rows.
  *
  * Pattern: seed the Zustand store via useGraphStore.getState().setGraph(...)
  * then reset in beforeEach — matches graphCommunity.test.ts convention.
@@ -18,7 +20,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import type { GraphNode, GraphEdge, GraphCommunity } from "../api/types";
 import { useGraphStore } from "../store/graphStore";
 
@@ -46,6 +48,13 @@ vi.mock("react-i18next", () => ({
       return map[key] ?? key;
     },
   }),
+}));
+
+// ─── Mock optimizeResearchTopic (prevents real network from dialog) ────────────
+
+vi.mock("../api/researchClient", () => ({
+  optimizeResearchTopic: vi.fn().mockReturnValue(new Promise(() => {})), // never resolves in these tests
+  startResearch: vi.fn().mockResolvedValue({ run_id: "test-run" }),
 }));
 
 // ─── Import component after mocks ─────────────────────────────────────────────
@@ -170,14 +179,14 @@ describe("GraphInsightsPanel", () => {
     expect(rowsAfter.length).toBe(countBefore - 1);
   });
 
-  // ── D. Deep-research button calls setActiveSection("deep-search") ──────────
+  // ── D. (B5/D3) Deep Research button opens dialog — NOT navigate-only ──────
 
-  it("D: deep-research button calls setActiveSection with 'deep-search'", () => {
+  it("D: deep-research button opens ResearchTopicDialog (not navigate-only)", async () => {
     useGraphStore
       .getState()
       .setGraph(NODES_ISOLATED, EDGES_ISOLATED, 1, "hit", COMMUNITIES_EMPTY);
 
-    const spy = vi.spyOn(useGraphStore.getState(), "setActiveSection");
+    const setActiveSectionSpy = vi.spyOn(useGraphStore.getState(), "setActiveSection");
 
     render(<GraphInsightsPanel />);
     expandPanel();
@@ -185,8 +194,35 @@ describe("GraphInsightsPanel", () => {
     expect(drBtns.length).toBeGreaterThanOrEqual(1);
     fireEvent.click(drBtns[0]!);
 
-    expect(spy).toHaveBeenCalledWith("deep-search");
-    spy.mockRestore();
+    // Dialog must be open (B5/D3)
+    expect(screen.getByTestId("research-topic-dialog")).toBeDefined();
+    // setActiveSection must NOT have been called yet (navigate only happens after confirm)
+    expect(setActiveSectionSpy).not.toHaveBeenCalled();
+    setActiveSectionSpy.mockRestore();
+  });
+
+  // ── D2. Cancelling dialog closes it without navigating ─────────────────────
+
+  it("D2: cancelling the dialog closes it without calling setActiveSection", async () => {
+    useGraphStore
+      .getState()
+      .setGraph(NODES_ISOLATED, EDGES_ISOLATED, 1, "hit", COMMUNITIES_EMPTY);
+
+    const setActiveSectionSpy = vi.spyOn(useGraphStore.getState(), "setActiveSection");
+
+    render(<GraphInsightsPanel />);
+    expandPanel();
+    fireEvent.click(screen.getAllByTestId("graph-insight-deep-research")[0]!);
+    expect(screen.getByTestId("research-topic-dialog")).toBeDefined();
+
+    // Cancel
+    fireEvent.click(screen.getByTestId("research-topic-dialog-cancel"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("research-topic-dialog")).toBeNull();
+    });
+    expect(setActiveSectionSpy).not.toHaveBeenCalled();
+    setActiveSectionSpy.mockRestore();
   });
 
   // ── E. Empty state when no insights ──────────────────────────────────────────

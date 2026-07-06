@@ -3179,6 +3179,46 @@
         ]
       }
     },
+    "/research/optimize-topic": {
+      "post": {
+        "summary": "Optimize a seed topic + propose search queries before a Deep Research run",
+        "description": "B5/D3 pre-run optimization (llm_wiki parity). ONE bounded provider.chat() call (I6 provider-neutral, I7 single call + timeout + token budget + cost logged) that reads the vault overview.md + purpose.md and rephrases the seed `topic` into a domain-specific research topic plus 3-5 web-search-optimized queries. LLM-only \u2014 no web/SearXNG call here (I9 not engaged; the actual run happens later via POST /research/start with the edited topic/queries). GRACEFUL: when NO provider is configured (or the call times out / errors) it returns 200 with {optimized_topic: <topic>, queries: [<topic>]} so the confirm dialog still works offline \u2014 it does NOT 503/500. 429 if per-IP rate limit exceeded (R13-9).",
+        "operationId": "research_optimize_topic_research_optimize_topic_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchOptimizeTopicRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Optimized topic + queries (or graceful echo fallback)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchOptimizeTopicResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (empty topic)"
+          },
+          "429": {
+            "description": "Per-IP rate limit exceeded (R13-9)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/research/runs": {
       "get": {
         "summary": "List deep-research run history",
@@ -8682,6 +8722,69 @@
           "remaining_dangling": 7
         }
       },
+      "ResearchOptimizeTopicRequest": {
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Topic",
+            "description": "Seed research topic (non-empty)"
+          },
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id",
+            "description": "Vault scope used to resolve the provider AND to load overview.md/purpose.md context. null \u2192 the server's default vault_id (settings.vault_id)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic"
+        ],
+        "title": "ResearchOptimizeTopicRequest",
+        "description": "Request body for POST /research/optimize-topic (B5/D3).\n\nA seed topic (typically taken from a Graph Insight) to be rephrased into a domain-specific\nresearch topic + web-search-optimized queries before the user confirms a Deep Research run.",
+        "example": {
+          "topic": "container networking",
+          "vault_id": "default"
+        }
+      },
+      "ResearchOptimizeTopicResponse": {
+        "properties": {
+          "optimized_topic": {
+            "type": "string",
+            "title": "Optimized Topic",
+            "description": "Domain-specific rephrasing of the seed topic"
+          },
+          "queries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Queries",
+            "description": "3..5 web-search-optimized SearXNG queries (or [topic] on the fallback path)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "optimized_topic"
+        ],
+        "title": "ResearchOptimizeTopicResponse",
+        "description": "200 response for POST /research/optimize-topic (B5/D3).\n\noptimized_topic prefills the editable topic field; queries prefill the editable query list.\nOn the no-provider / degraded path optimized_topic echoes the seed topic and queries is\n[topic] \u2014 the dialog still opens (never a 500).",
+        "example": {
+          "optimized_topic": "Kubernetes container networking (CNI) \u2014 Calico vs Cilium",
+          "queries": [
+            "Kubernetes CNI comparison Calico Cilium",
+            "Calico BGP networking Kubernetes",
+            "Cilium eBPF networking Kubernetes"
+          ]
+        }
+      },
       "ResearchRunDetail": {
         "properties": {
           "id": {
@@ -8982,6 +9085,22 @@
             ],
             "title": "Token Budget",
             "description": "Token budget (1_000..1_000_000); null \u2192 DEEP_RESEARCH_TOKEN_BUDGET default"
+          },
+          "queries": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queries",
+            "description": "Optional caller-supplied SearXNG queries (B5/D3). When present (non-empty) the FIRST iteration uses these VERBATIM instead of the provider query-gen round-trip \u2014 the same seed_queries seam a review item uses (bounded to DEEP_RESEARCH_MAX_QUERIES). This is how the 'optimize + confirm' dialog passes the user-edited queries. null/[] \u2192 generate queries from scratch (default, unchanged behavior)."
           }
         },
         "type": "object",
@@ -8993,6 +9112,10 @@
         "description": "Request body for POST /research/start (ADR-0024 \u00a78.1, AC-F10-4).\n\nmax_iter and token_budget are optional \u2014 env defaults apply when omitted.\nBoth are FROZEN onto the deep_research_runs row before the background task starts\n(AQ-v0.5-4, I7). Server-side validators cap the range so callers cannot request an\nunbounded run (I7 / Do-NOT #1/#2).",
         "example": {
           "max_iter": 3,
+          "queries": [
+            "Calico CNI BGP mode",
+            "Kubernetes NetworkPolicy Calico"
+          ],
           "token_budget": 100000,
           "topic": "Kubernetes networking with Calico",
           "vault_id": "default"

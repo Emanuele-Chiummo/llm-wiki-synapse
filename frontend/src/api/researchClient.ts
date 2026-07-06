@@ -1,9 +1,10 @@
 /**
  * researchClient.ts — typed API client for Synapse deep-research endpoints (F10, ADR-0024 §8).
  *
- * POST /research/start       → ResearchStartResponse (202)
- * GET  /research/runs        → ResearchRunListResponse
- * GET  /research/runs/{id}   → ResearchRunDetail
+ * POST /research/optimize-topic → OptimizeTopicResponse
+ * POST /research/start          → ResearchStartResponse (202)
+ * GET  /research/runs           → ResearchRunListResponse
+ * GET  /research/runs/{id}      → ResearchRunDetail
  *
  * No secrets in this file (CLAUDE.md §12).
  * No provider/model literals hardcoded (I6).
@@ -17,6 +18,13 @@ import type {
 import { ApiError } from "./graphClient";
 import { apiBase, apiFetch } from "./base";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
+
+// ─── Topic optimization response ──────────────────────────────────────────────
+
+export interface OptimizeTopicResponse {
+  optimized_topic: string;
+  queries: string[];
+}
 
 async function checkResponse(res: Response): Promise<void> {
   if (!res.ok) {
@@ -32,14 +40,45 @@ async function checkResponse(res: Response): Promise<void> {
 }
 
 /**
+ * Optimize a raw seed topic via LLM and return a refined topic + initial queries.
+ * POST /research/optimize-topic { topic }
+ * Returns { optimized_topic, queries }
+ *
+ * Graceful degradation: when no provider is configured the backend echoes the seed
+ * topic and produces naive queries — the dialog will still open and be editable.
+ *
+ * B5/D3 contract (feat/b5-research).
+ */
+export async function optimizeResearchTopic(
+  topic: string,
+  signal?: AbortSignal,
+): Promise<OptimizeTopicResponse> {
+  const url = `${apiBase()}/research/optimize-topic`;
+  const res = await apiFetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ topic }),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as OptimizeTopicResponse;
+}
+
+/**
  * Start a bounded deep-research run.
- * POST /research/start { vault_id, topic, max_iter?, token_budget? }
+ * POST /research/start { vault_id, topic, queries?, max_iter?, token_budget? }
  * Returns 202 { run_id } immediately — poll GET /research/runs/{id} for progress.
+ *
+ * B5/D3: optional `queries` field passes the user-edited queries from the confirm
+ * dialog directly, so the backend can seed its first iteration without re-generating.
+ * If the backend does not yet support `queries`, it is silently ignored (additive field).
  */
 export async function startResearch(
   params: {
     vault_id: string;
     topic: string;
+    /** Optional seed queries from the confirm dialog (B5/D3). Ignored by older backends. */
+    queries?: string[];
     max_iter?: number;
     token_budget?: number;
   },
