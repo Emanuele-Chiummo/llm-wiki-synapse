@@ -123,20 +123,33 @@ export function wikilinkTransform(raw: string): string {
 
 declare const __DEV__: boolean;
 
-// In dev, track call count per content string within the current event loop tick.
-// A count > 1 for the same content means the caller is parsing per-token.
+// In dev, track call count per content string within the current event-loop tick.
+//
+// React StrictMode (enabled in main.tsx) intentionally DOUBLE-INVOKES the useMemo
+// factory that wraps renderMarkdown in every caller (MarkdownView, NoteView,
+// SourcePreview). So a single mount parses the SAME settled content string exactly
+// twice, synchronously, in one render pass. That is a dev-only artifact — it does zero
+// extra work in production, where both __DEV__ and StrictMode are off — and must NOT be
+// reported as an I3 violation.
+//
+// A GENUINE violation (per-token parsing, or an unmemoized caller re-parsing on every
+// re-render / in a same-tick render loop) produces THREE OR MORE identical calls per
+// tick. So we only assert once the count exceeds the StrictMode double-invoke.
+const STRICT_MODE_DOUBLE_INVOKE = 2; // StrictMode replays the memo factory exactly once
 const _devCallMap = new Map<string, number>();
 let _devFlushScheduled = false;
 
 function devTrack(raw: string): void {
   if (typeof __DEV__ === "undefined" || !__DEV__) return;
-  const prev = _devCallMap.get(raw) ?? 0;
-  _devCallMap.set(raw, prev + 1);
+  const count = (_devCallMap.get(raw) ?? 0) + 1;
+  _devCallMap.set(raw, count);
   console.assert(
-    prev === 0,
-    "[G3] renderMarkdown called more than once for the same content in a single tick — " +
-      "this indicates per-token parsing, which violates I3. " +
-      "Only call renderMarkdown from <MarkdownView> on settled messages.",
+    count <= STRICT_MODE_DOUBLE_INVOKE,
+    "[G3] renderMarkdown called more than twice for the same content in a single tick — " +
+      "this indicates per-token parsing or an unmemoized caller, which violates I3. " +
+      "Only call renderMarkdown from <MarkdownView>/<NoteView>/<SourcePreview> via a " +
+      "useMemo keyed on the settled content string. " +
+      "(React StrictMode's dev-only double-invoke of the memo factory is expected and allowed.)",
   );
   if (!_devFlushScheduled) {
     _devFlushScheduled = true;
