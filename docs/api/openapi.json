@@ -4562,6 +4562,54 @@
           }
         ]
       }
+    },
+    "/vault/meta": {
+      "get": {
+        "summary": "Read vault meta files (schema.md, purpose.md)",
+        "description": "Returns the two fixed vault-root meta files (schema.md, purpose.md) read directly from disk. Files are omitted from the array if absent. No Postgres write, no Qdrant, no ingest pipeline \u2014 read-only disk access only. [WS-D8, K1, I1, I5]",
+        "operationId": "get_vault_meta_vault_meta_get",
+        "parameters": [
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Vault identifier (currently unused).",
+              "default": "default",
+              "title": "Vault Id"
+            },
+            "description": "Vault identifier (currently unused)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultMetaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -10227,6 +10275,52 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VaultMetaFile": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "path",
+          "title",
+          "content"
+        ],
+        "title": "VaultMetaFile",
+        "description": "One vault meta file entry."
+      },
+      "VaultMetaResponse": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/VaultMetaFile"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "VaultMetaResponse",
+        "description": "Response body for GET /vault/meta."
       },
       "WebSearchConfigRequest": {
         "properties": {

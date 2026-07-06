@@ -83,9 +83,14 @@ import {
   selectClearLastClearResult,
   selectClearBulkError,
 } from "../../store/reviewStore";
-import { useGraphStore, selectVaultId, selectSetActiveSection } from "../../store/graphStore";
+import {
+  useGraphStore,
+  selectVaultId,
+  selectSetActiveSection,
+  selectSelectPage,
+} from "../../store/graphStore";
 import { EmptyState } from "../common/EmptyState";
-import type { ReviewItem, ReviewReferencedPage } from "../../api/types";
+import type { ReviewItem, ReviewItemStatus, ReviewReferencedPage } from "../../api/types";
 import type { ReviewQueueStatus } from "../../api/reviewClient";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -164,6 +169,57 @@ function PageTypeChip({ pageType, t }: PageTypeChipProps) {
       {label}
     </span>
   );
+}
+
+// ─── Resolution status badge (WS-B) ──────────────────────────────────────────
+
+/**
+ * Maps a terminal ReviewItemStatus to its badge appearance.
+ * "pending" is not terminal; all other statuses are.
+ */
+const STATUS_BADGE_STYLE: Partial<Record<ReviewItemStatus, { color: string; bg: string }>> = {
+  auto_resolved: { color: "#2563eb", bg: "color-mix(in srgb, #2563eb 10%, var(--syn-mix-base) 90%)" },
+  created:       { color: "#1a7f37", bg: "color-mix(in srgb, #1a7f37 10%, var(--syn-mix-base) 90%)" },
+  deep_researched: { color: "#9a6700", bg: "color-mix(in srgb, #9a6700 10%, var(--syn-mix-base) 90%)" },
+  skipped:       { color: "var(--syn-text-dim)", bg: "var(--syn-surface-hover)" },
+  dismissed:     { color: "var(--syn-text-dim)", bg: "var(--syn-surface-hover)" },
+};
+
+interface ResolutionBadgeProps {
+  status: ReviewItemStatus;
+  t: (key: string) => string;
+}
+
+function ResolutionBadge({ status, t }: ResolutionBadgeProps) {
+  const style = STATUS_BADGE_STYLE[status] ?? {
+    color: "var(--syn-text-dim)",
+    bg: "var(--syn-surface-hover)",
+  };
+  const label = t(`review.statusBadge.${status}`);
+  return (
+    <span
+      data-testid={`review-status-badge-${status}`}
+      className="syn-chip"
+      style={{
+        fontSize: 10,
+        fontWeight: 700,
+        color: style.color,
+        background: style.bg,
+        border: `1px solid color-mix(in srgb, ${typeof style.color === "string" && style.color.startsWith("var") ? "currentColor" : style.color} 30%, transparent 70%)`,
+        borderRadius: "var(--syn-radius-pill)",
+        padding: "1px 6px",
+        textTransform: "uppercase",
+        letterSpacing: "0.03em",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** Returns true only when the item requires action (still pending). */
+function isPending(status: ReviewItemStatus): boolean {
+  return status === "pending";
 }
 
 // ─── Referenced page chip (ADR-0044 §7) ─────────────────────────────────────
@@ -270,6 +326,7 @@ interface ReviewRowProps {
   onDismissGenerationError: (id: string) => void;
   onToggleSelect: (id: string) => void;
   onOpenPage: (pageId: string) => void;
+  onOpenCreatedPage: (pageId: string) => void;
   t: (key: string) => string;
   lang: string;
 }
@@ -289,11 +346,13 @@ function ReviewRow({
   onDismissGenerationError,
   onToggleSelect,
   onOpenPage,
+  onOpenCreatedPage,
   t,
   lang,
 }: ReviewRowProps) {
   const isAnyInFlight = inFlight !== null && inFlight !== undefined;
   const isCreating = inFlight === "create";
+  const isItemPending = isPending(item.status);
 
   const relativeTime = (() => {
     try {
@@ -306,6 +365,24 @@ function ReviewRow({
       return date.toLocaleDateString(lang);
     } catch {
       return "";
+    }
+  })();
+
+  const resolvedAtLabel = (() => {
+    if (item.reviewed_at == null) return null;
+    try {
+      const date = new Date(item.reviewed_at);
+      const diff = Date.now() - date.getTime();
+      const mins = Math.floor(diff / 60_000);
+      let dateStr: string;
+      if (mins < 60) dateStr = `${mins}m ago`;
+      else {
+        const hrs = Math.floor(mins / 60);
+        dateStr = hrs < 24 ? `${hrs}h ago` : date.toLocaleDateString(lang);
+      }
+      return t("review.resolvedAt").replace("{{date}}", dateStr);
+    } catch {
+      return null;
     }
   })();
 
@@ -326,11 +403,134 @@ function ReviewRow({
       ? item.search_queries
       : null;
 
+  // ── Resolved / dismissed read-only card (WS-B) ──────────────────────────────
+  // Non-pending items get a distinct read-only presentation:
+  //  - resolution badge (auto_resolved / created / deep_researched / …)
+  //  - reviewed_at timestamp
+  //  - link to created page when created_page_id is present
+  //  - NO Crea / Salta / Ignora / Ricerca Profonda buttons
+  if (!isItemPending) {
+    return (
+      <div
+        ref={measureRef}
+        data-testid="review-item-row"
+        data-item-id={item.id}
+        data-status={item.status}
+        style={{
+          ...style,
+          padding: "8px 16px",
+          borderBottom: "1px solid var(--syn-border)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 3,
+          boxSizing: "border-box",
+          opacity: 0.82,
+          background: "var(--syn-bg-soft)",
+        }}
+      >
+        {/* Row 1: type badge + resolution badge + title + resolved timestamp */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          <ItemTypeBadge itemType={item.item_type} t={t} />
+          <ResolutionBadge status={item.status} t={t} />
+          {item.proposed_page_type && (
+            <PageTypeChip pageType={item.proposed_page_type} t={t} />
+          )}
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--syn-text-muted)",
+              flex: 1,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              minWidth: 0,
+            }}
+            title={item.proposed_title ?? item.page_title ?? ""}
+          >
+            {item.proposed_title ?? item.page_title ?? t("review.noTitle")}
+          </span>
+          {resolvedAtLabel && (
+            <span
+              data-testid="review-resolved-at"
+              style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0, whiteSpace: "nowrap" }}
+              title={item.reviewed_at ?? ""}
+            >
+              {resolvedAtLabel}
+            </span>
+          )}
+          {!resolvedAtLabel && (
+            <span
+              style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}
+              title={item.created_at}
+            >
+              {relativeTime}
+            </span>
+          )}
+        </div>
+
+        {/* Row 2: rationale */}
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--syn-text-dim)",
+            fontStyle: item.rationale ? "normal" : "italic",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={item.rationale ?? ""}
+        >
+          {item.rationale ?? t("review.noRationale")}
+        </div>
+
+        {/* Row 3: conflict page (contradiction / duplicate) */}
+        {showConflictPage && (
+          <div
+            style={{
+              fontSize: 10,
+              color: "var(--syn-text-dim)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={item.page_title ?? ""}
+          >
+            {t("review.conflictsWith")}: <em>{item.page_title}</em>
+          </div>
+        )}
+
+        {/* Row 4: link to created page (when status=created and created_page_id present) */}
+        {item.created_page_id != null && (
+          <div>
+            <button
+              data-testid="review-view-created-page"
+              onClick={() => { if (item.created_page_id != null) onOpenCreatedPage(item.created_page_id); }}
+              style={{
+                fontSize: 10,
+                color: "var(--syn-accent)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+                textDecoration: "underline",
+              }}
+            >
+              {t("review.viewCreatedPage")}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Pending card (full actionable card) ──────────────────────────────────────
   return (
     <div
       ref={measureRef}
       data-testid="review-item-row"
       data-item-id={item.id}
+      data-status={item.status}
       style={{
         ...style,
         padding: "8px 16px",
@@ -541,9 +741,10 @@ interface ReviewItemListProps {
   vaultId: string;
   onOpenSources: () => void;
   onOpenPage: (pageId: string) => void;
+  onOpenCreatedPage: (pageId: string) => void;
 }
 
-function ReviewItemList({ vaultId, onOpenSources, onOpenPage }: ReviewItemListProps) {
+function ReviewItemList({ vaultId, onOpenSources, onOpenPage, onOpenCreatedPage }: ReviewItemListProps) {
   const { t, i18n } = useTranslation();
   const items = useReviewStore(useShallow(selectReviewItems));
   const total = useReviewStore(selectReviewTotal);
@@ -640,6 +841,7 @@ function ReviewItemList({ vaultId, onOpenSources, onOpenPage }: ReviewItemListPr
               onDismissGenerationError={handleDismissGenerationError}
               onToggleSelect={handleToggleSelect}
               onOpenPage={onOpenPage}
+              onOpenCreatedPage={onOpenCreatedPage}
               t={t}
               lang={i18n.language}
             />
@@ -694,6 +896,7 @@ interface RowWrapperProps {
   onDismissGenerationError: (id: string) => void;
   onToggleSelect: (id: string) => void;
   onOpenPage: (pageId: string) => void;
+  onOpenCreatedPage: (pageId: string) => void;
   t: (key: string) => string;
   lang: string;
 }
@@ -712,6 +915,7 @@ function RowWrapper({
   onDismissGenerationError,
   onToggleSelect,
   onOpenPage,
+  onOpenCreatedPage,
   t,
   lang,
 }: RowWrapperProps) {
@@ -734,6 +938,7 @@ function RowWrapper({
       onDismissGenerationError={onDismissGenerationError}
       onToggleSelect={onToggleSelect}
       onOpenPage={onOpenPage}
+      onOpenCreatedPage={onOpenCreatedPage}
       t={t}
       lang={lang}
     />
@@ -777,6 +982,7 @@ export function ReviewQueueView() {
   const { t } = useTranslation();
   const vaultId = useGraphStore(selectVaultId);
   const setActiveSection = useGraphStore(selectSetActiveSection);
+  const selectPage = useGraphStore(selectSelectPage);
 
   const fetchFresh = useReviewStore(selectFetchFreshReview);
   const total = useReviewStore(selectReviewTotal);
@@ -862,15 +1068,21 @@ export function ReviewQueueView() {
   // Open a referenced page: navigate to pages section and select the page
   const handleOpenPage = useCallback(
     (pageId: string) => {
-      // The graphStore.setSelectedNode + setActiveSection("pages") is the existing pattern
-      // used by the conflict-page link handler in NoteView/GraphPanel. Replicate it here.
-      // We have access to setActiveSection; the page selection is done by setting the
-      // active section to "pages" (the NavRail then renders the page tree with that page).
-      // If a more specific "select page" action exists on graphStore it would be used here.
-      void pageId; // pageId is available for future graphStore.selectPage(pageId) wiring
+      // Same pattern as SearchView: select the page in the tree, then switch section.
+      selectPage(pageId, "tree");
       setActiveSection("pages");
     },
-    [setActiveSection],
+    [selectPage, setActiveSection],
+  );
+
+  // Open the page that was created from a resolved review item (WS-B).
+  // Same navigation pattern as handleOpenPage — selects the page, then navigates.
+  const handleOpenCreatedPage = useCallback(
+    (pageId: string) => {
+      selectPage(pageId, "tree");
+      setActiveSection("pages");
+    },
+    [selectPage, setActiveSection],
   );
 
   return (
@@ -1372,6 +1584,7 @@ export function ReviewQueueView() {
           vaultId={effectiveVaultId}
           onOpenSources={handleOpenSources}
           onOpenPage={handleOpenPage}
+          onOpenCreatedPage={handleOpenCreatedPage}
         />
       </div>
     </div>
