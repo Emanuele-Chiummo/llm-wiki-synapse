@@ -1,5 +1,5 @@
 /**
- * graphCommunityUtils.ts — Pure community-centroid helpers for the graph viewer.
+ * graphCommunityUtils.ts — Pure centroid helpers for the graph viewer.
  *
  * Extracted into its own pure module so it can be unit-tested without importing
  * sigma.js (which requires WebGL2 and cannot run in jsdom environments).
@@ -9,15 +9,15 @@
  *   It NEVER mutates node positions, never runs a layout algorithm, and
  *   never calls Math.random() or any non-deterministic function.
  *
- * INVARIANT I3: computeCommunityCentroids is a pure function intended to be
- *   called via useMemo — it runs once per (nodes, communities) change, NOT
+ * INVARIANT I3: all exported functions are pure and intended to be called
+ *   via useMemo — they run once per (nodes, communities/domain) change, NOT
  *   per sigma render frame.
  */
 
 import type { GraphNode, GraphCommunity } from "../api/types";
-import { colorForCommunity } from "./graphPalette";
+import { colorForCommunity, colorForDomain } from "./graphPalette";
 
-// ─── Community centroid result type ───────────────────────────────────────────
+// ─── CommunityCentroid result type ────────────────────────────────────────────
 
 export interface CommunityCentroid {
   /** Graph-space x coordinate (average of member node x values). I2: server coords only. */
@@ -26,11 +26,11 @@ export interface CommunityCentroid {
   y: number;
   /**
    * Display label for the centroid overlay.
-   * Priority: community.label (server name) → "C{id}" (ultra-short fallback for the overlay;
-   * the legend already shows the full name so the overlay can be brief).
+   * Community mode: community.label (server name) → "C{id}" fallback.
+   * Domain mode: domain name string.
    */
   label: string;
-  /** Community color from COMMUNITY_PALETTE (via colorForCommunity). */
+  /** Color from the active palette (community or domain). */
   color: string;
 }
 
@@ -94,6 +94,64 @@ export function computeCommunityCentroids(
       y: acc.sumY / acc.count,
       label,
       color: colorForCommunity(cid),
+    });
+  }
+  return result;
+}
+
+// ─── DomainCentroid result type ───────────────────────────────────────────────
+// Reuses CommunityCentroid shape (same fields: x, y, label, color).
+// The key type is string (domain name) rather than number.
+
+export type DomainCentroid = CommunityCentroid;
+
+// ─── computeDomainCentroids ───────────────────────────────────────────────────
+
+/**
+ * Compute graph-space centroids for all domains that have >= 2 nodes.
+ *
+ * Singletons (domains represented by only 1 node) are excluded to avoid
+ * cluttering the overlay. Untagged nodes (domain === null / undefined) are
+ * always skipped — the "Senza dominio" bucket is shown in the legend only.
+ *
+ * INVARIANT I2: reads server-provided x/y from GraphNode[] without mutation.
+ * INVARIANT I3: pure function — no side effects; intended for useMemo.
+ *
+ * @param nodes  GraphNode[] from the store (server-provided coords + domain field).
+ * @returns Map from domain name → DomainCentroid.
+ */
+export function computeDomainCentroids(nodes: GraphNode[]): Map<string, DomainCentroid> {
+  // First pass: count nodes per domain to determine multi-member domains
+  const countPerDomain = new Map<string, number>();
+  for (const n of nodes) {
+    const d = n.domain;
+    if (d === null || d === undefined || d.trim() === "") continue;
+    countPerDomain.set(d, (countPerDomain.get(d) ?? 0) + 1);
+  }
+
+  // Second pass: accumulate x/y sums for multi-member domains only
+  const sums = new Map<string, { sumX: number; sumY: number; count: number }>();
+  for (const n of nodes) {
+    const d = n.domain;
+    if (d === null || d === undefined || d.trim() === "") continue;
+    const memberCount = countPerDomain.get(d) ?? 0;
+    if (memberCount < 2) continue; // skip singletons
+    const acc = sums.get(d) ?? { sumX: 0, sumY: 0, count: 0 };
+    acc.sumX += n.x;
+    acc.sumY += n.y;
+    acc.count += 1;
+    sums.set(d, acc);
+  }
+
+  // Produce the result map
+  const result = new Map<string, DomainCentroid>();
+  for (const [domain, acc] of sums) {
+    if (acc.count === 0) continue;
+    result.set(domain, {
+      x: acc.sumX / acc.count,
+      y: acc.sumY / acc.count,
+      label: domain,
+      color: colorForDomain(domain),
     });
   }
   return result;

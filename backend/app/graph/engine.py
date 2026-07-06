@@ -155,7 +155,16 @@ def _type_affinity(type_a: str | None, type_b: str | None) -> float:
 
 @dataclass
 class NodeSnapshot:
-    """One graph node as returned by GET /graph (ADR-0014 §6)."""
+    """One graph node as returned by GET /graph (ADR-0014 §6).
+
+    domain: the node page's own dominant in-vocabulary domain, or None.
+      Computed per node from its domain/* tags in _compute_graph_sync step 5.
+      Tie-break rule (deterministic): when a page has ≥2 in-vocab domain tags,
+      `domain` is the one that appears FIRST in vocabulary order (i.e. earliest
+      index in the domain_vocab list passed to _compute_graph_sync). This matches
+      the community dominant_domain convention and keeps the assignment stable
+      across recomputes as long as the vocabulary order does not change.
+    """
 
     id: str
     title: str | None
@@ -165,6 +174,7 @@ class NodeSnapshot:
     degree: int = 0
     size: float = 1.0
     community: int = -1  # -1 = unassigned; set by Louvain (G-P0-2)
+    domain: str | None = None  # own dominant in-vocab domain (F18, ADR-0054 §2.2)
 
 
 @dataclass
@@ -747,6 +757,47 @@ def _compute_graph_sync(
     _BASE = 1.0
     _GROWTH = 2.5
 
+    # ── 5a. Per-node domain (F18, ADR-0054 §2.2, no extra query — I1) ────────
+    # Reuses the tags already loaded per node (I1) and vocab_set/domain_vocab already
+    # in scope from step 4f.  No extra DB scan, no provider call (I7).
+    #
+    # Tie-break rule (documented in NodeSnapshot docstring):
+    #   When a node page has ≥2 in-vocab domain tags, `domain` is the one that appears
+    #   FIRST in vocabulary order (earliest index in domain_vocab). This is deterministic
+    #   across recomputes as long as the vocabulary list order is unchanged, and mirrors
+    #   the intent of the community dominant_domain convention.
+    #   When domain_vocab is empty (no vocabulary configured), all domain/* tags are
+    #   accepted and the first one found in iteration order is used (same as community path).
+
+    def _node_domain(tags: list[str]) -> str | None:
+        """
+        Return the first in-vocab domain name from *tags* in vocabulary order, or None.
+
+        Vocabulary order: domain_vocab list index (smallest index wins on a tie).
+        Empty vocab: accept all domain/* tags, return the first one found in tag order.
+        """
+        candidate_names: list[str] = []
+        for tag in tags:
+            if tag.startswith(_DOMAIN_PREFIX):
+                name = tag[_DOMAIN_PREFIX_LEN:]
+                if vocab_set:
+                    if name in vocab_set:
+                        candidate_names.append(name)
+                else:
+                    # No vocab configured: accept any domain/* tag
+                    candidate_names.append(name)
+        if not candidate_names:
+            return None
+        if len(candidate_names) == 1:
+            return candidate_names[0]
+        # Tie-break: pick the one with the smallest index in domain_vocab
+        if domain_vocab:
+            # Build index map once (O(v) where v = vocab length); v ≤ 100 (ADR-0054 §2.1)
+            vocab_index: dict[str, int] = {name: idx for idx, name in enumerate(domain_vocab)}
+            return min(candidate_names, key=lambda n: vocab_index.get(n, len(domain_vocab)))
+        # No vocab → keep first encountered in tag order
+        return candidate_names[0]
+
     node_snapshots: list[NodeSnapshot] = []
     for i, nid in enumerate(node_ids):
         nd = node_index[nid]
@@ -762,6 +813,7 @@ def _compute_graph_sync(
                 degree=deg,
                 size=node_size,
                 community=community_assignments[i],
+                domain=_node_domain(nd["tags"]),
             )
         )
 

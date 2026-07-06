@@ -101,6 +101,12 @@ describe("GraphInsightsPanel", () => {
     useGraphStore.getState().reset();
   });
 
+  /** Helper: expand the collapsed panel so rows become visible. */
+  function expandPanel() {
+    const expandBtn = screen.getByLabelText("Expand insights panel");
+    fireEvent.click(expandBtn);
+  }
+
   // ── A. Renders insight rows ──────────────────────────────────────────────────
 
   it("A: renders insight rows for a graph with surprising connections", () => {
@@ -109,6 +115,7 @@ describe("GraphInsightsPanel", () => {
       .setGraph(NODES_SURPRISING, EDGES_SURPRISING, 1, "hit", COMMUNITIES_EMPTY);
 
     render(<GraphInsightsPanel />);
+    expandPanel();
     const rows = screen.getAllByTestId("graph-insight-row");
     expect(rows.length).toBeGreaterThanOrEqual(1);
   });
@@ -119,6 +126,7 @@ describe("GraphInsightsPanel", () => {
       .setGraph(NODES_ISOLATED, EDGES_ISOLATED, 1, "hit", COMMUNITIES_EMPTY);
 
     render(<GraphInsightsPanel />);
+    expandPanel();
     const rows = screen.getAllByTestId("graph-insight-row");
     expect(rows.length).toBeGreaterThanOrEqual(1);
     // The isolated node's title should appear somewhere in the panel
@@ -135,6 +143,7 @@ describe("GraphInsightsPanel", () => {
     const spy = vi.spyOn(useGraphStore.getState(), "setSelectedNodeId");
 
     render(<GraphInsightsPanel />);
+    expandPanel();
     const rows = screen.getAllByTestId("graph-insight-row");
     fireEvent.click(rows[0]!);
 
@@ -150,6 +159,7 @@ describe("GraphInsightsPanel", () => {
       .setGraph(NODES_SURPRISING, EDGES_SURPRISING, 1, "hit", COMMUNITIES_EMPTY);
 
     render(<GraphInsightsPanel />);
+    expandPanel();
     const rowsBefore = screen.getAllByTestId("graph-insight-row");
     const countBefore = rowsBefore.length;
 
@@ -170,6 +180,7 @@ describe("GraphInsightsPanel", () => {
     const spy = vi.spyOn(useGraphStore.getState(), "setActiveSection");
 
     render(<GraphInsightsPanel />);
+    expandPanel();
     const drBtns = screen.getAllByTestId("graph-insight-deep-research");
     expect(drBtns.length).toBeGreaterThanOrEqual(1);
     fireEvent.click(drBtns[0]!);
@@ -186,6 +197,8 @@ describe("GraphInsightsPanel", () => {
       .setGraph(NODES_NO_INSIGHTS, EDGES_LOW_WEIGHT, 1, "hit", COMMUNITIES_EMPTY);
 
     render(<GraphInsightsPanel />);
+    // Empty state is shown in the header when collapsed too — expand to confirm body
+    expandPanel();
     expect(screen.getByTestId("graph-insights-empty")).toBeDefined();
     expect(screen.queryAllByTestId("graph-insight-row")).toHaveLength(0);
   });
@@ -201,25 +214,25 @@ describe("GraphInsightsPanel", () => {
 
   // ── G. Collapse/expand toggle ─────────────────────────────────────────────
 
-  it("G: collapse button hides rows; expand button restores them", () => {
+  it("G: panel starts collapsed by default; expand shows rows; collapse hides them again", () => {
     useGraphStore
       .getState()
       .setGraph(NODES_SURPRISING, EDGES_SURPRISING, 1, "hit", COMMUNITIES_EMPTY);
 
     render(<GraphInsightsPanel />);
 
-    // Rows visible initially
-    expect(screen.getAllByTestId("graph-insight-row").length).toBeGreaterThan(0);
-
-    // Collapse
-    const collapseBtn = screen.getByLabelText("Collapse insights panel");
-    fireEvent.click(collapseBtn);
+    // Collapsed by default — rows not visible
     expect(screen.queryAllByTestId("graph-insight-row")).toHaveLength(0);
 
     // Expand
     const expandBtn = screen.getByLabelText("Expand insights panel");
     fireEvent.click(expandBtn);
     expect(screen.getAllByTestId("graph-insight-row").length).toBeGreaterThan(0);
+
+    // Collapse again
+    const collapseBtn = screen.getByLabelText("Collapse insights panel");
+    fireEvent.click(collapseBtn);
+    expect(screen.queryAllByTestId("graph-insight-row")).toHaveLength(0);
   });
 
   // ── H. Sparse community shows rows ───────────────────────────────────────
@@ -230,6 +243,7 @@ describe("GraphInsightsPanel", () => {
       .setGraph(NODES_SPARSE, [], 1, "hit", COMMUNITIES_SPARSE);
 
     render(<GraphInsightsPanel />);
+    expandPanel();
     const rows = screen.getAllByTestId("graph-insight-row");
     expect(rows.length).toBeGreaterThanOrEqual(1);
     // Community text should reference community 7

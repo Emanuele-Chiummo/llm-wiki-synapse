@@ -265,7 +265,7 @@ export function GraphInsightsPanel() {
   const setActiveSection = useGraphStore(selectSetActiveSection);
 
   // ── Local UI state ─────────────────────────────────────────────────────────
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   // ── Compute insights once (I3) ─────────────────────────────────────────────

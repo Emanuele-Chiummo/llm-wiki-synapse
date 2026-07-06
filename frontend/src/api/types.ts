@@ -32,6 +32,14 @@ export interface GraphNode {
    * INVARIANT I2: client NEVER recomputes community; only reads this value.
    */
   community?: number;
+  /**
+   * The dominant domain name for this node's page (e.g. "SAM", "Procurement").
+   * Derived server-side from the page's domain/… tag in the controlled vocabulary.
+   * null when the page is untagged or no domain vocabulary is configured.
+   * Absent on older server responses (non-breaking additive field).
+   * INVARIANT I2: client NEVER computes or modifies this value.
+   */
+  domain?: string | null;
 }
 
 export interface GraphEdge {
