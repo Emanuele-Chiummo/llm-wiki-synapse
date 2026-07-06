@@ -75,11 +75,15 @@ _OP_NAMES: tuple[OpName, ...] = ("lint", "backfill", "schema_review", "reclassif
 class OpState:
     """In-memory state for one scheduled op (restarts reset the clock — see module docstring)."""
 
-    __slots__ = ("in_flight", "last_run_at", "last_status")
+    __slots__ = ("in_flight", "last_detail", "last_run_at", "last_status")
 
     def __init__(self) -> None:
         self.last_run_at: datetime | None = None
-        self.last_status: str | None = None  # None | "ok" | "error:<msg>"
+        self.last_status: str | None = None  # None | "ok" | "dormant" | "error:<msg>"
+        # Short human-readable outcome for the UI ("12 tagged / 30 processed",
+        # "dormant: no domain vocabulary configured", "error: ..."). None when never run
+        # or when the op returns no structured summary (e.g. lint scan). R13-12 / A5.
+        self.last_detail: str | None = None
         self.in_flight: bool = False
 
     def as_dict(self, op: str, schedule: str) -> dict[str, object]:
@@ -88,6 +92,7 @@ class OpState:
             "schedule": schedule,
             "last_run_at": self.last_run_at.isoformat() if self.last_run_at is not None else None,
             "last_status": self.last_status,
+            "last_detail": self.last_detail,
             "in_flight": self.in_flight,
         }
 
@@ -314,38 +319,122 @@ class OpsScheduler:
         """
         Run the op. Non-fatal: errors are logged + recorded in state.last_status (I7).
         Sets in_flight=True for the duration; always clears it in finally.
+
+        The domain/type/schema ops NEVER raise — they return a ``*Summary`` whose
+        ``stopped_reason`` is the real outcome (``dormant`` | ``error`` | ``complete`` | …).
+        We MUST inspect that return value, otherwise a dormant vocabulary or a missing
+        ingest provider would be reported to the UI as a green "ok" while the run silently
+        did nothing (R13-12 — the "automations classification doesn't work" report).
         """
         state = self._state[op]
         state.in_flight = True
         logger.info("ops_scheduler: starting op=%s", op)
+        status: str = "ok"
+        detail: str | None = None
         _succeeded = False
         try:
             if op == "lint":
-                await self._lint_fn()
+                result = await self._lint_fn()
             elif op == "backfill":
-                await self._backfill_fn()
+                result = await self._backfill_fn()
             elif op == "schema_review":
-                await self._schema_review_fn()
+                result = await self._schema_review_fn()
             else:
-                await self._reclassify_fn()
-            state.last_status = "ok"
-            _succeeded = True
-            logger.info("ops_scheduler: op=%s completed (status=ok)", op)
+                result = await self._reclassify_fn()
+            status, _succeeded, detail = _interpret_result(op, result)
+            logger.info("ops_scheduler: op=%s completed (status=%s detail=%s)", op, status, detail)
         except Exception as exc:  # noqa: BLE001 — never crash the scheduler loop (I7)
             msg = str(exc)
-            state.last_status = f"error:{msg[:120]}"
+            status = f"error:{msg[:120]}"
+            detail = f"error: {msg[:160]}"
+            _succeeded = False
             logger.error("ops_scheduler: op=%s failed: %s", op, exc)
         finally:
             now = self._clock.now()
             state.last_run_at = now
+            state.last_status = status
+            state.last_detail = detail
             state.in_flight = False
             # Persist last-run timestamp on success only (R13-4 / T4).
             # Failed runs do not update the persisted timestamp so the op will be
-            # re-attempted on the next tick (fail-open retry semantics).
+            # re-attempted on the next tick (fail-open retry semantics). "dormant" is a
+            # clean completion (a config gap, not a failure) → persisted like "ok".
             if _succeeded:
                 from app.scheduler_state import save_scheduler_ts  # noqa: PLC0415
 
                 await save_scheduler_ts(f"ops_scheduler.last_run.{op}", now)
+
+
+# ── Outcome interpretation (R13-12) ───────────────────────────────────────────
+
+
+def _interpret_result(op: str, result: object) -> tuple[str, bool, str | None]:
+    """
+    Derive ``(last_status, succeeded, detail)`` from an op's RETURN VALUE.
+
+    The backfill / reclassify / schema_review ops return a ``*Summary`` object with a
+    string ``stopped_reason`` — the authoritative outcome — instead of raising. Reading
+    it is what makes the automations card tell the truth:
+
+      * ``stopped_reason == "error"``   → status ``"error:..."``, NOT succeeded (retried).
+      * ``stopped_reason == "dormant"`` → status ``"dormant"``, succeeded (clean no-op).
+      * otherwise (complete/budget/maxpages, or no summary at all — lint scan / test mocks)
+        → status ``"ok"``, succeeded.
+
+    ``detail`` is a short human string ("12 tagged / 30 processed", "dormant: no domain
+    vocabulary configured", …) surfaced verbatim in the UI so the owner can see WHY a run
+    that reports "ok" nonetheless produced zero tags.
+    """
+    reason = getattr(result, "stopped_reason", None)
+    if not isinstance(reason, str):
+        # No structured summary (lint scan returns findings; unit-test AsyncMocks return a
+        # MagicMock) → plain success, no detail. Preserves the historical "ok" behaviour.
+        return "ok", True, None
+    if reason == "error":
+        return "error:run reported failure", False, _summary_detail(op, result, error=True)
+    if reason == "dormant":
+        return "dormant", True, _summary_detail(op, result, dormant=True)
+    return "ok", True, _summary_detail(op, result)
+
+
+def _summary_detail(
+    op: str, result: object, *, error: bool = False, dormant: bool = False
+) -> str | None:
+    """Build a short, mostly-numeric outcome string from a ``*Summary`` (R13-12)."""
+    reason = getattr(result, "stopped_reason", "") or ""
+    if dormant:
+        if op == "backfill":
+            return "dormant: no domain vocabulary configured"
+        return f"dormant ({reason})" if reason else "dormant"
+
+    processed = getattr(result, "processed", None)
+    if not isinstance(processed, int):
+        # No counts available (e.g. schema_review has a different shape) — fall back to the
+        # bare reason so an error still carries something meaningful.
+        if error:
+            return f"error ({reason})" if reason else "error"
+        return None
+
+    # backfill counts its writes as "tagged"; reclassify as "changed".
+    applied = getattr(result, "tagged", None)
+    if not isinstance(applied, int):
+        applied = getattr(result, "changed", None)
+    applied = applied if isinstance(applied, int) else 0
+    skipped = getattr(result, "skipped", 0) or 0
+    failed = getattr(result, "failed", 0) or 0
+    verb = "tagged" if op == "backfill" else "changed"
+
+    parts = [f"{applied} {verb}", f"{processed} processed"]
+    if skipped:
+        parts.append(f"{skipped} skipped")
+    if failed:
+        parts.append(f"{failed} failed")
+    base = " / ".join(parts)
+    if error:
+        return f"error — {base}"
+    if reason in ("budget", "maxpages"):
+        base += f" (stopped: {reason})"
+    return base
 
 
 # ── Default op implementations ────────────────────────────────────────────────
@@ -363,16 +452,19 @@ async def _default_lint_fn() -> None:
     await run_lint_scan(vault_id=settings.vault_id)
 
 
-async def _default_backfill_fn() -> None:
+async def _default_backfill_fn() -> object:
     """
     Run one bounded domain backfill (force=False — only new/untagged pages, I7).
+
+    Returns the ``BackfillSummary`` so the scheduler can report the TRUE outcome
+    (dormant / error / counts) instead of a blind "ok" (R13-12).
 
     Deferred import avoids circular import at module load time.
     """
     from app.config import settings  # noqa: PLC0415
     from app.ops.backfill_domains import run_backfill  # noqa: PLC0415
 
-    await run_backfill(vault_id=settings.vault_id, force=False)
+    return await run_backfill(vault_id=settings.vault_id, force=False)
 
 
 async def _default_schema_review_fn() -> None:
@@ -393,13 +485,17 @@ async def _default_schema_review_fn() -> None:
     from app.config import settings  # noqa: PLC0415
     from app.ops.schema_review import run_schema_review  # noqa: PLC0415
 
-    await run_schema_review(vault_id=settings.vault_id)
+    return await run_schema_review(vault_id=settings.vault_id)
 
 
-async def _default_reclassify_fn() -> None:
+async def _default_reclassify_fn() -> object:
     """
     Run one bounded type re-classification with DEFAULT bounds (force=False — only
     NULL/untyped/concept pages, I7). Skipped when reclassify_types.is_running().
+
+    Returns the ``ReclassifySummary`` so the scheduler can report the TRUE outcome
+    (error / counts) instead of a blind "ok" (R13-12). Returns ``None`` when skipped
+    for the external single-flight guard (the scheduler treats "no summary" as "ok").
 
     Deferred import avoids circular import at module load time (I6).
     """
@@ -408,8 +504,8 @@ async def _default_reclassify_fn() -> None:
 
     if is_running():
         logger.debug("ops_scheduler: reclassify already in-flight (external) — skip")
-        return
-    await run_reclassify(vault_id=settings.vault_id, force=False)
+        return None
+    return await run_reclassify(vault_id=settings.vault_id, force=False)
 
 
 def _check_backfill_not_running() -> None:

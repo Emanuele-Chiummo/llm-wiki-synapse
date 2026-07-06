@@ -476,6 +476,7 @@
       "statusError": "Error",
       "statusRunning": "Running",
       "statusSkipped": "Skipped",
+      "statusDormant": "Dormant",
       "freq": {
         "off": "Disabled",
         "hourly": "Every hour",
