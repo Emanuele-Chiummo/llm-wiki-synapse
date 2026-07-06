@@ -189,10 +189,8 @@ async function renderAndWaitReady() {
   await waitFor(() => screen.getByTestId("note-edit-btn"));
 }
 
-/** WS-D7: expand the collapsible metadata tier (Tier 2) in a rendered NoteView. */
+/** WS-D7: metadata is always visible now (header scrolls with the body, no collapse). */
 async function expandMeta() {
-  await waitFor(() => screen.getByTestId("note-meta-toggle"));
-  act(() => { fireEvent.click(screen.getByTestId("note-meta-toggle")); });
   await waitFor(() => screen.getByTestId("note-meta-expanded"));
 }
 
