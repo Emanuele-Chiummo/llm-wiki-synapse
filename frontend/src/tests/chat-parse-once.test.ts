@@ -115,6 +115,59 @@ describe("G3 — parse-once invariant (AC-G3-2 / AC-G3-3)", () => {
   });
 });
 
+describe("G3 — dev guard tolerates React StrictMode double-invoke", () => {
+  // __DEV__ is `true` under vitest (vitest.config.ts), so the devTrack guard is active.
+  // React StrictMode double-invokes the useMemo factory that wraps renderMarkdown, so a
+  // SINGLE settled content string is parsed exactly twice in one synchronous render pass.
+  // That must NOT trip the [G3] assertion (it is a dev-only artifact, 0 work in prod).
+
+  /** Count console.assert calls whose condition is falsy (i.e., the assertion FIRED). */
+  function countFailedAsserts(fn: () => void): number {
+    const spy = vi.spyOn(console, "assert").mockImplementation(() => {});
+    fn();
+    const failed = spy.mock.calls.filter((call) => !call[0]).length;
+    spy.mockRestore();
+    return failed;
+  }
+
+  it("parsing the same content TWICE in one tick does NOT fire [G3] (StrictMode double-invoke)", () => {
+    const content = "Hello **StrictMode** $$x^2$$";
+    const failed = countFailedAsserts(() => {
+      renderMarkdownModule.renderMarkdown(content);
+      renderMarkdownModule.renderMarkdown(content);
+    });
+    expect(failed).toBe(0);
+  });
+
+  it("parsing the same content THREE+ times in one tick DOES fire [G3] (real violation)", () => {
+    const content = "Repeated **content** parsed too many times";
+    const failed = countFailedAsserts(() => {
+      renderMarkdownModule.renderMarkdown(content);
+      renderMarkdownModule.renderMarkdown(content);
+      renderMarkdownModule.renderMarkdown(content);
+    });
+    expect(failed).toBeGreaterThanOrEqual(1);
+  });
+
+  it("the per-tick counter resets across microtasks (a later tick re-parse is allowed)", async () => {
+    const content = "Content parsed once per tick across two ticks";
+    // Tick 1: two calls (StrictMode) — clean.
+    const failedTick1 = countFailedAsserts(() => {
+      renderMarkdownModule.renderMarkdown(content);
+      renderMarkdownModule.renderMarkdown(content);
+    });
+    expect(failedTick1).toBe(0);
+    // Let the queued microtask flush the counter.
+    await Promise.resolve();
+    // Tick 2: two more calls — still clean, because the tick counter reset.
+    const failedTick2 = countFailedAsserts(() => {
+      renderMarkdownModule.renderMarkdown(content);
+      renderMarkdownModule.renderMarkdown(content);
+    });
+    expect(failedTick2).toBe(0);
+  });
+});
+
 describe("G3 — AC-G3-3: no parse-selector recompute during stream", () => {
   it("100 appendToken calls: streamingContent grows, messages stays empty (no parse needed)", () => {
     // This test verifies the contract: the streaming phase only touches streamingContent.
