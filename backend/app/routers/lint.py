@@ -177,6 +177,16 @@ class LintFindingListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+    severity_totals: dict[str, int] = Field(
+        default_factory=dict,
+        description=(
+            "COUNT(*) per severity (info/warning/error) over the same vault + status + "
+            "category predicate as 'total', but IGNORING the severity filter and pagination. "
+            "Use this to render accurate group-header counts (e.g. 'Warnings (N)') even when "
+            "a severity filter is active. Keys present only for severities with at least one "
+            "matching finding."
+        ),
+    )
 
 
 def _lint_finding_to_response(f: LintFinding) -> LintFindingResponse:
@@ -418,6 +428,7 @@ async def list_lint_findings_endpoint(
         total=page.total,
         limit=page.limit,
         offset=page.offset,
+        severity_totals=page.severity_totals,
     )
 
 

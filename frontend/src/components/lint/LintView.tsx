@@ -55,6 +55,7 @@ import {
   selectLintSendToReviewBatch,
   selectLintSendToReview,
   selectLintDeleteOrphanPage,
+  selectLintSeverityTotals,
 } from "../../store/lintStore";
 import {
   useGraphStore,
@@ -98,8 +99,18 @@ interface FindingRow_ {
 
 type VirtualRow = GroupHeaderRow | FindingRow_;
 
-/** Build a flat list of virtual rows grouped error→warning→info with synthetic headers. */
-function buildVirtualRows(findings: LintFinding[]): VirtualRow[] {
+/**
+ * Build a flat list of virtual rows grouped error→warning→info with synthetic headers.
+ *
+ * L11: The group header count is the TRUE total from the backend (`severityTotals[sev]`)
+ * when available, so it always reflects the full count — not just the loaded page.
+ * Falls back to `items.length` (currently-loaded count) when `severityTotals` is absent
+ * (pre-v0.6 backend).
+ */
+function buildVirtualRows(
+  findings: LintFinding[],
+  severityTotals: { error?: number; warning?: number; info?: number } | null,
+): VirtualRow[] {
   const groups: Record<SeverityLevel, LintFinding[]> = {
     error: [],
     warning: [],
@@ -117,7 +128,9 @@ function buildVirtualRows(findings: LintFinding[]): VirtualRow[] {
   for (const sev of order) {
     const items = groups[sev];
     if (items.length === 0) continue;
-    rows.push({ kind: "group-header", severity: sev, count: items.length });
+    // L11: prefer the true total; fall back to loaded-count when absent.
+    const headerCount = severityTotals?.[sev] ?? items.length;
+    rows.push({ kind: "group-header", severity: sev, count: headerCount });
     for (const f of items) {
       rows.push({ kind: "finding", finding: f });
     }
@@ -688,11 +701,14 @@ function FindingsList({ vaultId, onOpen, onDelete }: FindingsListProps) {
   const sendToReview = useLintStore(selectLintSendToReview);
   const toggleSelect = useLintStore(selectLintToggleSelect);
   const fetchMore = useLintStore(selectLintFetchMoreFindings);
+  // L11: true per-severity totals from the backend (null = pre-v0.6 server)
+  const severityTotals = useLintStore(selectLintSeverityTotals);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Build grouped virtual rows (error → warning → info with synthetic headers)
-  const virtualRows = buildVirtualRows(findings);
+  // Build grouped virtual rows (error → warning → info with synthetic headers).
+  // L11: pass severityTotals so headers show the true total, not just loaded count.
+  const virtualRows = buildVirtualRows(findings, severityTotals);
 
   // Variable-size virtualiser: group headers are shorter than finding rows (I4).
   const virtualizer = useVirtualizer({

@@ -421,6 +421,7 @@ async def _insert_finding(
     *,
     vault_id: str = "test-vault",
     category: str = "contradiction",
+    severity: str = "warning",
     status: str = "open",
     target_page_id: str | None = None,
     target_title: str | None = None,
@@ -442,13 +443,14 @@ async def _insert_finding(
                 "INSERT INTO lint_findings "
                 "(id, lint_run_id, vault_id, category, severity, target_page_id, target_title, "
                 " description, status, created_at) "
-                "VALUES (:id, :rid, :v, :cat, 'warning', :tpid, :tt, :desc, :st, datetime('now'))"
+                "VALUES (:id, :rid, :v, :cat, :sev, :tpid, :tt, :desc, :st, datetime('now'))"
             ),
             {
                 "id": finding_id,
                 "rid": run_id,
                 "v": vault_id,
                 "cat": category,
+                "sev": severity,
                 "tpid": target_page_id,
                 "tt": target_title,
                 "desc": description,
@@ -1124,6 +1126,137 @@ class TestFindingFilters:
         )
         dismissed = [f for f in body["items"] if f["status"] == "dismissed"]
         assert len(dismissed) == 0
+
+
+# ── T-LINT-L11: severity_totals in GET /lint/findings (L11) ──────────────────────
+
+
+class TestSeverityTotals:
+    """
+    L11: GET /lint/findings includes severity_totals reflecting the full per-severity
+    breakdown for the active vault + status + category view, independent of the
+    severity filter and pagination.
+    """
+
+    async def test_severity_totals_present_and_correct(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """L11: severity_totals keys + counts match what is actually in the DB."""
+        await _insert_finding(lint_env, category="contradiction", severity="warning", status="open")
+        await _insert_finding(lint_env, category="contradiction", severity="warning", status="open")
+        await _insert_finding(lint_env, category="orphan-page", severity="info", status="open")
+
+        resp = await lint_client.get("/lint/findings?vault_id=test-vault&status=open")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "severity_totals" in body
+        st = body["severity_totals"]
+        assert st.get("warning") == 2
+        assert st.get("info") == 1
+        # "error" has no findings → must not be present (or be 0 — both acceptable)
+        assert st.get("error", 0) == 0
+
+    async def test_severity_totals_ignores_severity_filter(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """L11: severity_totals is NOT affected by the active severity= query param."""
+        await _insert_finding(lint_env, category="contradiction", severity="warning", status="open")
+        await _insert_finding(lint_env, category="stale-claim", severity="error", status="open")
+
+        # Filter by severity=warning → only 1 item returned; but severity_totals must
+        # still show both warning=1 AND error=1.
+        resp = await lint_client.get(
+            "/lint/findings?vault_id=test-vault&status=open&severity=warning"
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        # The page itself shows only the warning finding.
+        assert body["total"] == 1
+        assert all(f["severity"] == "warning" for f in body["items"])
+        # But severity_totals reflects the full status=open set.
+        st = body["severity_totals"]
+        assert st.get("warning", 0) == 1
+        assert st.get("error", 0) == 1
+
+    async def test_severity_totals_respects_status_filter(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """L11: severity_totals is scoped by the status filter (not cross-status)."""
+        await _insert_finding(lint_env, category="contradiction", severity="warning", status="open")
+        await _insert_finding(
+            lint_env, category="orphan-page", severity="warning", status="dismissed"
+        )
+
+        # Request open findings only.
+        resp = await lint_client.get("/lint/findings?vault_id=test-vault&status=open")
+        assert resp.status_code == 200
+        st = resp.json()["severity_totals"]
+        # Only the 1 open warning should appear; the dismissed one must not be counted.
+        assert st.get("warning", 0) == 1
+
+    async def test_severity_totals_respects_category_filter(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """L11: severity_totals is scoped by the category filter."""
+        await _insert_finding(lint_env, category="contradiction", severity="warning", status="open")
+        await _insert_finding(lint_env, category="orphan-page", severity="error", status="open")
+
+        # Filter by category=contradiction only.
+        resp = await lint_client.get(
+            "/lint/findings?vault_id=test-vault&status=open&category=contradiction"
+        )
+        assert resp.status_code == 200
+        st = resp.json()["severity_totals"]
+        # orphan-page/error must not appear in the totals.
+        assert st.get("warning", 0) == 1
+        assert st.get("error", 0) == 0
+
+    async def test_severity_totals_ignores_pagination(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """L11: severity_totals reflects all matching rows regardless of limit/offset."""
+        for _ in range(3):
+            await _insert_finding(
+                lint_env, category="contradiction", severity="warning", status="open"
+            )
+        await _insert_finding(lint_env, category="orphan-page", severity="info", status="open")
+
+        # Only fetch 1 item per page; severity_totals must still show full counts.
+        resp = await lint_client.get(
+            "/lint/findings?vault_id=test-vault&status=open&limit=1&offset=0"
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["items"]) == 1  # pagination working
+        st = body["severity_totals"]
+        assert st.get("warning", 0) == 3
+        assert st.get("info", 0) == 1
+
+    async def test_severity_totals_empty_when_no_findings(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """L11: severity_totals is an empty dict when no findings match the filters."""
+        resp = await lint_client.get("/lint/findings?vault_id=test-vault&status=open")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["severity_totals"] == {}
+
+    async def test_severity_totals_from_ops_function(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """L11: list_lint_findings returns severity_totals directly (ops layer)."""
+        from app.ops.lint import list_lint_findings
+
+        await _insert_finding(lint_env, category="contradiction", severity="error", status="open")
+        await _insert_finding(lint_env, category="contradiction", severity="warning", status="open")
+        # dismissed → must not appear when status=open
+        await _insert_finding(lint_env, category="orphan-page", severity="info", status="dismissed")
+
+        page = await list_lint_findings("test-vault", status="open")
+        assert isinstance(page.severity_totals, dict)
+        assert page.severity_totals.get("error") == 1
+        assert page.severity_totals.get("warning") == 1
+        assert "info" not in page.severity_totals  # the dismissed one is excluded
 
 
 # ── T-LINT-B4: batch endpoint (L5) ───────────────────────────────────────────────

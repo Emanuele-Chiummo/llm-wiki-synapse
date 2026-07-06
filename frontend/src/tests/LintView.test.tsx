@@ -848,3 +848,72 @@ describe("LintView — findings load error", () => {
     });
   });
 });
+
+// ─── L11: severity group headers use severity_totals ─────────────────────────
+
+describe("LintView — L11 severity_totals in group headers", () => {
+  it("shows loaded-count in header when severity_totals absent (pre-v0.6 backend)", async () => {
+    // 1 warning finding loaded; no severity_totals in response → header shows "1"
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1", { severity: "warning" })],
+      total: 5, // backend has 5 but only returned 1 page
+      limit: 50,
+      offset: 0,
+      // severity_totals absent
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("lint-group-header-warning")).toBeTruthy();
+    });
+    // Header should display loaded count = 1 (fallback, no severity_totals)
+    expect(screen.getByTestId("lint-group-header-warning").textContent).toContain("(1)");
+  });
+
+  it("shows severity_totals count in header even when fewer rows are loaded [L11]", async () => {
+    // 1 error finding loaded; severity_totals says there are 12 errors in total
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1", { severity: "error" })],
+      total: 20,
+      limit: 50,
+      offset: 0,
+      severity_totals: { error: 12, warning: 5, info: 3 },
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("lint-group-header-error")).toBeTruthy();
+    });
+    // Header must show the true total (12), not the loaded-row count (1)
+    expect(screen.getByTestId("lint-group-header-error").textContent).toContain("(12)");
+  });
+
+  it("stores severity_totals in lintStore after refresh", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [makeFinding("f1", { severity: "warning" })],
+      total: 10,
+      limit: 50,
+      offset: 0,
+      severity_totals: { error: 2, warning: 7, info: 1 },
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      // The store should have picked up severityTotals
+      const { severityTotals } = useLintStore.getState();
+      expect(severityTotals).toMatchObject({ error: 2, warning: 7, info: 1 });
+    });
+  });
+
+  it("severityTotals is null in store when backend omits the field", async () => {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
+      items: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+      // severity_totals deliberately absent
+    });
+    render(<LintView />);
+    await waitFor(() => {
+      const { severityTotals } = useLintStore.getState();
+      expect(severityTotals).toBeNull();
+    });
+  });
+});

@@ -54,6 +54,12 @@ interface LintState {
   findingsOffset: number;
   findingsLoading: boolean;
   findingsError: string | null;
+  /**
+   * L11: True per-severity totals from the last GET /lint/findings response.
+   * null when the backend hasn't returned this field yet (pre-v0.6 servers).
+   * UI falls back to the count of currently-loaded rows for that severity.
+   */
+  severityTotals: { error?: number; warning?: number; info?: number } | null;
 
   /** Run history (created_at DESC). */
   runs: LintRun[];
@@ -195,6 +201,7 @@ export const useLintStore = create<LintStore>((set, get) => ({
   findingsOffset: 0,
   findingsLoading: false,
   findingsError: null,
+  severityTotals: null,
 
   runs: [],
   runsTotal: 0,
@@ -299,6 +306,7 @@ export const useLintStore = create<LintStore>((set, get) => ({
         findingsTotal: res.total,
         findingsOffset: 0,
         findingsLoading: false,
+        severityTotals: res.severity_totals ?? null,
       });
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
@@ -327,6 +335,7 @@ export const useLintStore = create<LintStore>((set, get) => ({
         findingsTotal: res.total,
         findingsOffset: nextOffset,
         findingsLoading: false,
+        severityTotals: res.severity_totals ?? s.severityTotals,
       }));
     } catch (err: unknown) {
       set({ findingsError: (err as Error).message, findingsLoading: false });
@@ -637,4 +646,9 @@ export function selectLintDeleteOrphanPage(
 }
 export function selectLintClearBatchError(s: LintStore): LintActions["clearBatchError"] {
   return s.clearBatchError;
+}
+export function selectLintSeverityTotals(
+  s: LintStore,
+): { error?: number; warning?: number; info?: number } | null {
+  return s.severityTotals;
 }

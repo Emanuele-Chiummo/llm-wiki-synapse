@@ -44,7 +44,7 @@ import Sigma from "sigma";
 import type { Attributes } from "graphology-types";
 import type { Settings } from "sigma/settings";
 import type { NodeDisplayData, PartialButFor } from "sigma/types";
-import { buildGraphologyGraph } from "../api/graphTransform";
+import { buildGraphologyGraph, edgeVisibilityThreshold } from "../api/graphTransform";
 import {
   fetchGraph,
   fetchPageDetail,
@@ -687,6 +687,14 @@ function EdgeRow({ label, value, bold }: { label: string; value: number; bold?: 
   );
 }
 
+// ─── Edge key helper ──────────────────────────────────────────────────────────
+// Canonical order-independent key for an edge pair, used by normalizedWeightMap.
+// The server may return edges in either direction; we always normalise to
+// sorted order so the map lookup is consistent regardless of (src, tgt) order.
+function edgeKey(a: string, b: string): string {
+  return a < b ? `${a}__${b}` : `${b}__${a}`;
+}
+
 // ─── Graph node type constants (shared with header filter) ───────────────────
 // Must stay in sync with TYPE_COLORS keys above.
 const ALL_NODE_TYPES = [
@@ -756,9 +764,9 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
 
   // GR1 — LINKS chip:
   //   denominator = edges.length (full graph edge set incl. source-overlap, e.g. 4213)
-  //   numerator   = edges whose both endpoints are in the active filter (visible edges)
-  //   This makes GL1-culled edges visible to the user as "not shown" — mirrors llm_wiki.
-  //   We compute this from the store's edges array (type info lives on nodes).
+  //   numerator   = edges that are NOT culled by GL1 AND pass the type filter.
+  //   GL1-culled edges (normalizedWeight < edgeVisibilityThreshold) count as hidden,
+  //   matching nashsu/llm_wiki's "shown/total" display (P3 graph link-chip fix).
   //   Build a fast lookup: nodeId → type key
   const nodeTypeMap = React.useMemo(() => {
     const m = new Map<string, string>();
@@ -766,14 +774,51 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
     return m;
   }, [nodes]);
 
+  // GL1 normalised weights for the header chip — same formula as graphTransform.ts.
+  // Computed once per edges change; NOT per frame (I3).
+  // Key format: "sourceId__targetId" (order-independent via edgeKey helper below).
+  const normalizedWeightMap = React.useMemo(() => {
+    const m = new Map<string, number>();
+    if (edges.length === 0) return m;
+    let wMin = Infinity;
+    let wMax = -Infinity;
+    for (const e of edges) {
+      if (e.weight < wMin) wMin = e.weight;
+      if (e.weight > wMax) wMax = e.weight;
+    }
+    const range = wMax - wMin;
+    for (const e of edges) {
+      const nw = range === 0 ? 0.5 : (e.weight - wMin) / range;
+      m.set(edgeKey(e.source, e.target), nw);
+    }
+    return m;
+  }, [edges]);
+
   const visibleEdges = React.useMemo(() => {
-    if (filterNodeTypes.size === 0) return edges.length;
+    // GL1: edges below edgeVisibilityThreshold(nodeCount) are culled at rest.
+    // The chip numerator must exclude both GL1-culled edges AND type-filtered edges,
+    // matching nashsu/llm_wiki's "shown/total" display (P3 graph link-chip fix).
+    // INVARIANT I2: we read server-provided normalizedWeight; no coord mutation.
+    const threshold = edgeVisibilityThreshold(nodes.length);
     return edges.filter((e) => {
+      // GL1 culling: edge is hidden at rest when normalizedWeight < threshold.
+      // normalizedWeight is absent on GraphEdge (it's an EdgeAttributes field computed
+      // at build time in buildGraphologyGraph). We approximate by checking
+      // the raw weight range: recompute normalizedWeight inline over the full edge set.
+      // To avoid a double-pass, we stored normalizedWeight on GraphEdge only if the
+      // backend provides it — it doesn't (GraphEdge has only weight + source + target).
+      // Instead we use the same normalisation formula as graphTransform:
+      //   nw = (w - wMin) / (wMax - wMin), range = 0..1
+      // Pre-computed by the nodeTypeMap memo's sibling memo below.
+      const nw = normalizedWeightMap.get(edgeKey(e.source, e.target)) ?? 0.5;
+      if (nw < threshold) return false;
+      // Type filter: both endpoints must pass the active filter.
+      if (filterNodeTypes.size === 0) return true;
       const srcType = nodeTypeMap.get(e.source) ?? "other";
       const tgtType = nodeTypeMap.get(e.target) ?? "other";
       return filterNodeTypes.has(srcType) && filterNodeTypes.has(tgtType);
     }).length;
-  }, [edges, filterNodeTypes, nodeTypeMap]);
+  }, [edges, filterNodeTypes, nodeTypeMap, nodes.length, normalizedWeightMap]);
 
   const totalEdgesCount = edges.length;
 
@@ -1304,6 +1349,13 @@ interface CentroidOverlayProps {
 /** Maximum label character count before truncation with ellipsis. */
 const OVERLAY_LABEL_MAX_CHARS = 20;
 
+/**
+ * P3: Minimum screen padding (px) so centroid labels never render behind
+ * the toolbar/header or outside the canvas bounds.
+ * Only the on-screen CSS position is clamped — graph coordinates are untouched (I2).
+ */
+const CENTROID_LABEL_PAD = 8;
+
 function truncateOverlayLabel(label: string): string {
   if (label.length <= OVERLAY_LABEL_MAX_CHARS) return label;
   return label.slice(0, OVERLAY_LABEL_MAX_CHARS - 1) + "…";
@@ -1334,13 +1386,24 @@ const CentroidOverlay: React.FC<CentroidOverlayProps> = ({ centroids, sigmaRef, 
       const s = sigmaRef.current;
       if (!overlay || !s) return;
 
+      // Canvas bounds — used to clamp label positions so they stay inside.
+      const containerRect = overlay.getBoundingClientRect();
+      const maxX = containerRect.width - CENTROID_LABEL_PAD;
+      const maxY = containerRect.height - CENTROID_LABEL_PAD;
+
       // One pass: update each label element's transform. Elements are keyed by data-cid.
+      // P3: clamp projected viewport (x, y) so labels never escape the canvas or
+      // render behind the toolbar. ONLY the on-screen CSS position is clamped —
+      // centroid.x / centroid.y (graph coords from server) are never mutated (I2).
       for (const [cid, centroid] of centroids) {
         const el = overlay.querySelector<HTMLElement>(`[data-cid="${String(cid)}"]`);
         if (!el) continue;
         const vp = s.graphToViewport({ x: centroid.x, y: centroid.y });
-        // Translate so the label is centered on the centroid
-        el.style.transform = `translate(calc(${vp.x}px - 50%), calc(${vp.y}px - 50%))`;
+        // Clamp to [PAD, max] so labels don't bleed above the top or outside the canvas.
+        const cx = Math.max(CENTROID_LABEL_PAD, Math.min(maxX, vp.x));
+        const cy = Math.max(CENTROID_LABEL_PAD, Math.min(maxY, vp.y));
+        // Translate so the label is centered on the (clamped) centroid position.
+        el.style.transform = `translate(calc(${cx}px - 50%), calc(${cy}px - 50%))`;
       }
     }
 

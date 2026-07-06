@@ -6734,6 +6734,14 @@
           "offset": {
             "type": "integer",
             "title": "Offset"
+          },
+          "severity_totals": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Severity Totals",
+            "description": "COUNT(*) per severity (info/warning/error) over the same vault + status + category predicate as 'total', but IGNORING the severity filter and pagination. Use this to render accurate group-header counts (e.g. 'Warnings (N)') even when a severity filter is active. Keys present only for severities with at least one matching finding."
           }
         },
         "type": "object",

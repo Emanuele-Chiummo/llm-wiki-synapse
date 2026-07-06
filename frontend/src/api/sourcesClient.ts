@@ -104,7 +104,7 @@ export interface SourceDeleteResponse {
  * 409 is thrown as ApiError when the directory exceeds the backend-configured max files.
  */
 export interface SourceDeleteFolderResponse {
-  deleted_path: string;
+  deleted_source: string;
   files_deleted: number;
   pages_cascaded: number;
 }
