@@ -155,7 +155,16 @@ def _type_affinity(type_a: str | None, type_b: str | None) -> float:
 
 @dataclass
 class NodeSnapshot:
-    """One graph node as returned by GET /graph (ADR-0014 §6)."""
+    """One graph node as returned by GET /graph (ADR-0014 §6).
+
+    domain: the node page's own dominant in-vocabulary domain, or None.
+      Computed per node from its domain/* tags in _compute_graph_sync step 5.
+      Tie-break rule (deterministic): when a page has ≥2 in-vocab domain tags,
+      `domain` is the one that appears FIRST in vocabulary order (i.e. earliest
+      index in the domain_vocab list passed to _compute_graph_sync). This matches
+      the community dominant_domain convention and keeps the assignment stable
+      across recomputes as long as the vocabulary order does not change.
+    """
 
     id: str
     title: str | None
@@ -165,6 +174,16 @@ class NodeSnapshot:
     degree: int = 0
     size: float = 1.0
     community: int = -1  # -1 = unassigned; set by Louvain (G-P0-2)
+    domain: str | None = None  # own dominant in-vocab domain (F18, ADR-0054 §2.2)
+
+
+@dataclass
+class CommunityTopPage:
+    """Highest-degree member page of a community — used for label fallback and tooltip."""
+
+    id: str
+    title: str | None
+    slug: str
 
 
 @dataclass
@@ -172,15 +191,26 @@ class CommunitySnapshot:
     """
     Per-community summary for GET /graph (G-P0-2).
 
-    id      : re-numbered id (0 = largest community)
-    size    : number of nodes in this community
-    cohesion: intra-edge density = intraEdges / (size*(size-1)/2), in [0,1].
-              Used for low-cohesion warnings on the client-side legend.
+    id             : re-numbered id (0 = largest community)
+    size           : number of nodes in this community
+    cohesion       : intra-edge density = intraEdges / (size*(size-1)/2), in [0,1].
+                     Used for low-cohesion warnings on the client-side legend.
+    label          : human-readable display name.  Priority: dominant_domain (when a
+                     domain/* tag in the active vocab dominates) → top_page.title
+                     (llm_wiki fallback) → "Comunità {id}".  Computed in recompute()
+                     alongside cohesion — no extra scan (I1), no extra provider call (I7).
+    dominant_domain: the most-frequent in-vocab "domain/<Name>" tag (prefix stripped)
+                     among community members, or None when no domain tags are present.
+    top_page       : highest-degree member page {id, title, slug} for disambiguation /
+                     tooltip; None for empty communities.
     """
 
     id: int
     size: int
     cohesion: float
+    label: str = ""
+    dominant_domain: str | None = None
+    top_page: CommunityTopPage | None = None
 
 
 @dataclass
@@ -254,8 +284,13 @@ class GraphEngine:
         # All igraph/FA2/numpy work is offloaded so the event loop stays free for
         # incoming requests, chat streams, and watcher events during the layout.
         # Seam: plain Python dicts in (no AsyncSession), plain Python dicts out.
+        # domain_vocab is read once here (O(1) in-memory, I7) and passed as a plain
+        # list into the thread — no async I/O inside _compute_graph_sync (I2).
+        from app.config_overrides import effective_domain_vocabulary  # noqa: PLC0415
+
+        domain_vocab: list[str] = effective_domain_vocabulary()
         coord_rows, edge_db_rows, snapshot = await asyncio.to_thread(
-            _compute_graph_sync, nodes_data, links_data, vault_id
+            _compute_graph_sync, nodes_data, links_data, vault_id, domain_vocab
         )
 
         # ── 3. Async DB write: persist coords + edges + community in ONE transaction ──
@@ -284,12 +319,13 @@ class GraphEngine:
         """Load live pages and resolved links from Postgres (I1 — no vault walk)."""
 
         async def _run(sess: AsyncSession) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-            # Pages: id, page_type (mapped column 'type'), title, sources, pinned, x, y
+            # Pages: id, page_type (mapped column 'type'), title, sources, pinned, x, y, tags
             # pinned + x/y are used to preserve manually-positioned nodes (Feature A).
+            # tags: carried for community domain-label computation (F18) — no extra query (I1).
             pages_result = await sess.execute(
                 sa_text(
                     "SELECT id, type AS page_type, title, sources, "
-                    "       pinned, x AS stored_x, y AS stored_y "
+                    "       pinned, x AS stored_x, y AS stored_y, tags "
                     "FROM pages "
                     # Exclude raw-source tracking rows (raw/sources/*): they exist only for
                     # I1 incremental hashing + Qdrant retrieval and carry no title/type, so
@@ -383,6 +419,7 @@ def _compute_graph_sync(
     nodes_data: list[dict[str, Any]],
     links_data: list[dict[str, Any]],
     vault_id: str,
+    domain_vocab: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], GraphSnapshot]:
     """
     Pure CPU graph computation: 4-signal weighting + FA2 layout + Louvain communities.
@@ -398,8 +435,26 @@ def _compute_graph_sync(
         edge_db_rows — list of edge dicts for INSERT INTO edges
         snapshot     — GraphSnapshot (nodes, edges, communities)
     """
+
     # Build node index: str(uuid) → dict of page attributes
     # pinned/stored_x/stored_y carried for Feature A (pinned-node preservation).
+    # tags: carried for community domain-label computation (F18, I1 — same query, no extra scan).
+    # tags may arrive as a JSON string (SQLite/aiosqlite) or as a list (asyncpg/Postgres).
+    def _parse_tags(raw: object) -> list[str]:
+        if raw is None:
+            return []
+        if isinstance(raw, list):
+            return [t for t in raw if isinstance(t, str)]
+        if isinstance(raw, str):
+            import json as _json  # noqa: PLC0415
+
+            try:
+                parsed = _json.loads(raw)
+                return [t for t in parsed if isinstance(t, str)] if isinstance(parsed, list) else []
+            except Exception:
+                return []
+        return []
+
     node_index: dict[str, dict[str, Any]] = {
         str(row["id"]): {
             "id": str(row["id"]),
@@ -409,6 +464,7 @@ def _compute_graph_sync(
             "pinned": bool(row.get("pinned", False)),
             "stored_x": row.get("stored_x"),
             "stored_y": row.get("stored_y"),
+            "tags": _parse_tags(row.get("tags")),
         }
         for row in nodes_data
     }
@@ -607,17 +663,140 @@ def _compute_graph_sync(
     # Sort by id ascending (id 0 = largest community, already ordered by _compute_louvain)
     community_snapshots.sort(key=lambda c: c.id)
 
+    # ── 4f. Community labels: dominant_domain + top_page (F18, I1, I7) ───────
+    # Computed here alongside cohesion — no extra DB scan, no provider call.
+    # vocab_set: the active domain vocabulary (passed from recompute via domain_vocab).
+    # A domain/* tag not in vocab_set is treated as stale and ignored (ADR-0054 §2.2).
+    #
+    # structural_degrees_for_labels: g_weighted.degree() gives structural degree per node
+    # (count of distinct incident structural edges — direct-link + shared-source).
+    # We compute it here so it can be reused in step 5 below without a second .degree() call.
+    structural_degrees_pre: list[int] = g_weighted.degree()
+
+    vocab_set: set[str] = set(domain_vocab) if domain_vocab else set()
+    _DOMAIN_PREFIX = "domain/"
+    _DOMAIN_PREFIX_LEN = len(_DOMAIN_PREFIX)
+
+    # Map: community_id → Counter[domain_name] (for dominant_domain)
+    from collections import Counter as _Counter  # noqa: PLC0415
+
+    community_domain_counts: dict[int, _Counter[str]] = {}
+    # community_top: community_id → (structural_degree, node_idx) — track highest-degree member
+    community_top: dict[int, tuple[int, int]] = {}
+
+    for i, nid in enumerate(node_ids):
+        cid = community_assignments[i]
+        nd = node_index[nid]
+        deg = structural_degrees_pre[i]  # structural degree from g_weighted
+
+        # Track top-degree member
+        prev_deg, _prev_i = community_top.get(cid, (-1, -1))
+        if deg > prev_deg:
+            community_top[cid] = (deg, i)
+
+        # Tally in-vocab domain tags
+        for tag in nd["tags"]:
+            if tag.startswith(_DOMAIN_PREFIX):
+                domain_name = tag[_DOMAIN_PREFIX_LEN:]
+                if vocab_set and domain_name not in vocab_set:
+                    continue  # stale tag — ignore (ADR-0054 §2.2)
+                if not vocab_set:
+                    # No vocab configured: accept all domain/* tags as-is
+                    pass
+                ctr = community_domain_counts.setdefault(cid, _Counter())
+                ctr[domain_name] += 1
+
+    def _slugify(text: str | None) -> str:
+        """Simple slug for top_page (mirrors the stats.py slugify pattern)."""
+        if not text:
+            return ""
+        import re as _re  # noqa: PLC0415
+
+        return _re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+    for cs in community_snapshots:
+        cid = cs.id
+
+        # dominant_domain: most-frequent in-vocab domain tag
+        domain_ctr: _Counter[str] | None = community_domain_counts.get(cid)
+        dominant: str | None = None
+        if domain_ctr:
+            dominant = domain_ctr.most_common(1)[0][0]
+        cs.dominant_domain = dominant
+
+        # top_page: highest-degree member
+        top_entry = community_top.get(cid)
+        if top_entry is not None:
+            _deg, top_i = top_entry
+            top_nid = node_ids[top_i]
+            top_nd = node_index[top_nid]
+            cs.top_page = CommunityTopPage(
+                id=top_nid,
+                title=top_nd["title"],
+                slug=_slugify(top_nd["title"]),
+            )
+
+        # label: dominant_domain → top_page.title → "Comunità {id}"
+        if dominant:
+            cs.label = dominant
+        elif cs.top_page and cs.top_page.title:
+            cs.label = cs.top_page.title
+        else:
+            cs.label = f"Comunità {cid}"
+
     # ── 5. Assemble result lists ───────────────────────────────────────────
     # structural_degree = count of distinct incident structural edges (ADR-0016 §2).
     # After removing (c)/(d) from candidate_pairs, g_weighted IS the structural graph,
     # so g_weighted.degree() already yields structural_degree.
-    structural_degrees = g_weighted.degree()
+    # structural_degrees_pre was already computed in 4f — reuse to avoid a second call.
+    structural_degrees = structural_degrees_pre
 
     # Size formula: BASE + GROWTH·sqrt(structural_degree) (ADR-0016 §2)
     # BASE=1.0 → isolated nodes render at 1.0 (clearly clickable).
     # GROWTH=2.5 → degree-30 hub ≈ 14.7, degree-1 leaf ≈ 3.5, degree-3 ≈ 5.3.
     _BASE = 1.0
     _GROWTH = 2.5
+
+    # ── 5a. Per-node domain (F18, ADR-0054 §2.2, no extra query — I1) ────────
+    # Reuses the tags already loaded per node (I1) and vocab_set/domain_vocab already
+    # in scope from step 4f.  No extra DB scan, no provider call (I7).
+    #
+    # Tie-break rule (documented in NodeSnapshot docstring):
+    #   When a node page has ≥2 in-vocab domain tags, `domain` is the one that appears
+    #   FIRST in vocabulary order (earliest index in domain_vocab). This is deterministic
+    #   across recomputes as long as the vocabulary list order is unchanged, and mirrors
+    #   the intent of the community dominant_domain convention.
+    #   When domain_vocab is empty (no vocabulary configured), all domain/* tags are
+    #   accepted and the first one found in iteration order is used (same as community path).
+
+    def _node_domain(tags: list[str]) -> str | None:
+        """
+        Return the first in-vocab domain name from *tags* in vocabulary order, or None.
+
+        Vocabulary order: domain_vocab list index (smallest index wins on a tie).
+        Empty vocab: accept all domain/* tags, return the first one found in tag order.
+        """
+        candidate_names: list[str] = []
+        for tag in tags:
+            if tag.startswith(_DOMAIN_PREFIX):
+                name = tag[_DOMAIN_PREFIX_LEN:]
+                if vocab_set:
+                    if name in vocab_set:
+                        candidate_names.append(name)
+                else:
+                    # No vocab configured: accept any domain/* tag
+                    candidate_names.append(name)
+        if not candidate_names:
+            return None
+        if len(candidate_names) == 1:
+            return candidate_names[0]
+        # Tie-break: pick the one with the smallest index in domain_vocab
+        if domain_vocab:
+            # Build index map once (O(v) where v = vocab length); v ≤ 100 (ADR-0054 §2.1)
+            vocab_index: dict[str, int] = {name: idx for idx, name in enumerate(domain_vocab)}
+            return min(candidate_names, key=lambda n: vocab_index.get(n, len(domain_vocab)))
+        # No vocab → keep first encountered in tag order
+        return candidate_names[0]
 
     node_snapshots: list[NodeSnapshot] = []
     for i, nid in enumerate(node_ids):
@@ -634,6 +813,7 @@ def _compute_graph_sync(
                 degree=deg,
                 size=node_size,
                 community=community_assignments[i],
+                domain=_node_domain(nd["tags"]),
             )
         )
 
@@ -718,7 +898,15 @@ def _forceatlas2_layout(
     # scalingRatio: larger graphs need more spread to avoid crowding
     scaling_ratio = FA2_SCALING_RATIO_LARGE if n > 400 else FA2_SCALING_RATIO_SMALL
 
+    # More organic ("flow") layout toward the Obsidian look. NOTE: fa2_modified does NOT
+    # implement linLogMode (asserts False), so the strongest Obsidian lever is unavailable
+    # without a layout-lib swap (GL6, declined). We keep strongGravity for a cohesive core
+    # and add outboundAttractionDistribution (hubs pushed outward / leaves pulled in) for a
+    # more organic distribution. The real "not detached" fix is reducing edge culling (FE).
+    # Determinism (ADR-0045 §2) preserved: circle-init + numpy seed, params fixed.
     fa = ForceAtlas2(
+        outboundAttractionDistribution=True,
+        edgeWeightInfluence=1.0,
         gravity=1.0,
         scalingRatio=scaling_ratio,
         strongGravityMode=True,

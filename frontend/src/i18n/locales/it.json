@@ -775,6 +775,17 @@
     "batchPartial": "{{ok}} riusciti, {{err}} falliti"
   },
   "graph": {
+    "header": {
+      "pages": "pagine",
+      "links": "link",
+      "hidden": "nascosti",
+      "searchPlaceholder": "Cerca nel grafo…",
+      "filter": "Filtra",
+      "filterNodeTypes": "TIPI NODO",
+      "clearFilter": "Rimuovi filtri",
+      "reset": "Reset",
+      "fullscreen": "Schermo intero"
+    },
     "colorModeType": "Tipo",
     "colorModeCommunity": "Comunità",
     "colorModeToggleLabel": "Colora per",
@@ -793,6 +804,7 @@
     "legendCommunityLabel": "Comunità {{id}}",
     "legendCommunitySize": "{{size}} nodi",
     "legendCommunityLowCohesion": "Bassa coesione",
+    "legendCommunityDomain": "Dominio: {{domain}}",
     "insights": {
       "title": "Insight del Grafo",
       "sectionSurprising": "Connessioni sorprendenti",

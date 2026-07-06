@@ -33,11 +33,13 @@
  *   (documented in ADR-0015 §CVD-SAFE): sigma cannot resolve CSS vars at draw time.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ZoomIn, ZoomOut, Maximize2, RefreshCw } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ZoomIn, ZoomOut, Maximize2, RefreshCw, Maximize } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity } from "./graphPalette";
+import { COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity, colorForDomain } from "./graphPalette";
 import type { ColorMode } from "./graphPalette";
+import { computeCommunityCentroids, computeDomainCentroids, communityDisplayName } from "./graphCommunityUtils";
+import type { CommunityCentroid } from "./graphCommunityUtils";
 import Sigma from "sigma";
 import type { Attributes } from "graphology-types";
 import type { Settings } from "sigma/settings";
@@ -53,7 +55,7 @@ import {
 } from "../api/graphClient";
 import type { CommunityDetail, EdgeDetail } from "../api/graphClient";
 import { ApiError } from "../api/graphClient";
-import type { GraphCommunity, PageDetail } from "../api/types";
+import type { GraphCommunity, GraphEdge, GraphNode, PageDetail } from "../api/types";
 import {
   selectCommunities,
   selectEdges,
@@ -64,6 +66,11 @@ import {
   selectSetLoading,
   selectSetSelectedNodeId,
   selectVaultId,
+  selectFilterNodeTypes,
+  selectToggleFilterNodeType,
+  selectClearFilterNodeTypes,
+  selectTotalNodes,
+  selectSelectPage,
   useGraphMeta,
   useGraphStatus,
   useGraphStore,
@@ -144,12 +151,14 @@ function colorForType(type: string | null): string {
   return TYPE_COLORS[type] ?? DEFAULT_NODE_COLOR;
 }
 
-// ─── Re-export community palette identifiers for test isolation ───────────────
-// COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity, ColorMode are
-// all imported from ./graphPalette (pure module, no sigma dependency) so they
-// can be unit-tested in jsdom without WebGL2. See graphPalette.ts.
-export { COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity };
+// ─── Re-export community/domain palette + centroid utilities for test isolation ─
+// These are all imported from pure modules (no sigma dependency) so they can be
+// unit-tested in jsdom without WebGL2. See graphPalette.ts, graphCommunityUtils.ts.
+export { COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity, colorForDomain };
 export type { ColorMode };
+// computeCommunityCentroids / computeDomainCentroids / communityDisplayName re-exported
+// from graphCommunityUtils for tests that import from GraphViewer directly (backward compat).
+export { computeCommunityCentroids, computeDomainCentroids, communityDisplayName };
 
 /**
  * Deepen a hex color by mixing it 30% toward black (#000000).
@@ -678,6 +687,410 @@ function EdgeRow({ label, value, bold }: { label: string; value: number; bold?: 
   );
 }
 
+// ─── Graph node type constants (shared with header filter) ───────────────────
+// Must stay in sync with TYPE_COLORS keys above.
+const ALL_NODE_TYPES = [
+  "concept",
+  "entity",
+  "source",
+  "synthesis",
+  "comparison",
+  "query",
+  "overview",
+  "other",
+] as const;
+
+// ─── GraphHeader (GR1–GR5, GR7) ─────────────────────────────────────────────
+// Stats chips + in-graph search + filter popover + reset + fullscreen.
+// Sits above the sigma canvas in GraphPanel; all operations are client-side (I2).
+
+interface GraphHeaderProps {
+  /** In-graph nodes from the store payload (GET /graph nodes array, ~816 of 986) */
+  nodes: GraphNode[];
+  /** In-graph edges from the store payload (full graph edge set including source-overlap) */
+  edges: GraphEdge[];
+  /**
+   * GR1: All live vault pages (pre-graph-inclusion, from GET /graph total_nodes field).
+   * null = old backend that doesn't expose this field yet.
+   * denominator for the pages chip: total_nodes = 986 (in-graph 816 + isolated/dropped 170).
+   * hiddenCount = total_nodes - visibleNodes (covers filtered-out + not-in-graph pages).
+   */
+  totalNodes: number | null;
+  filterNodeTypes: Set<string>;
+  toggleFilterNodeType: (type: string) => void;
+  clearFilterNodeTypes: () => void;
+  onSearch: (query: string) => void;
+  onReset: () => void;
+  onFullscreen: () => void;
+  graphContainerRef: React.RefObject<HTMLDivElement | null>;
+}
+
+const GraphHeader: React.FC<GraphHeaderProps> = ({
+  nodes,
+  edges,
+  totalNodes,
+  filterNodeTypes,
+  toggleFilterNodeType,
+  clearFilterNodeTypes,
+  onSearch,
+  onReset,
+  onFullscreen,
+  graphContainerRef: _graphContainerRef,
+}) => {
+  const { t } = useTranslation();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  // GR1 — PAGES chip:
+  //   denominator = total_nodes (all live vault pages, e.g. 986)
+  //   numerator   = visible in-graph nodes after client filter
+  //   hiddenCount = total_nodes - visibleNodes
+  //     → covers both: (a) in-graph nodes filtered out, (b) pages not in the graph at all
+  //   Falls back to nodes.length when backend doesn't expose total_nodes yet.
+  const visibleNodes = filterNodeTypes.size === 0
+    ? nodes.length
+    : nodes.filter((n) => filterNodeTypes.has(n.type ?? "other")).length;
+  const displayTotalNodes = totalNodes ?? nodes.length;
+  const hiddenCount = displayTotalNodes - visibleNodes;
+
+  // GR1 — LINKS chip:
+  //   denominator = edges.length (full graph edge set incl. source-overlap, e.g. 4213)
+  //   numerator   = edges whose both endpoints are in the active filter (visible edges)
+  //   This makes GL1-culled edges visible to the user as "not shown" — mirrors llm_wiki.
+  //   We compute this from the store's edges array (type info lives on nodes).
+  //   Build a fast lookup: nodeId → type key
+  const nodeTypeMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const n of nodes) m.set(n.id, n.type ?? "other");
+    return m;
+  }, [nodes]);
+
+  const visibleEdges = React.useMemo(() => {
+    if (filterNodeTypes.size === 0) return edges.length;
+    return edges.filter((e) => {
+      const srcType = nodeTypeMap.get(e.source) ?? "other";
+      const tgtType = nodeTypeMap.get(e.target) ?? "other";
+      return filterNodeTypes.has(srcType) && filterNodeTypes.has(tgtType);
+    }).length;
+  }, [edges, filterNodeTypes, nodeTypeMap]);
+
+  const totalEdgesCount = edges.length;
+
+  // GR2: search handler — called on input change; finds the first matching node
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const q = e.target.value;
+    setSearchQuery(q);
+    onSearch(q);
+  }, [onSearch]);
+
+  const handleSearchClear = useCallback(() => {
+    setSearchQuery("");
+    onSearch("");
+  }, [onSearch]);
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setSearchQuery("");
+      onSearch("");
+      (e.currentTarget as HTMLInputElement).blur();
+    }
+  }, [onSearch]);
+
+  // GR3: close filter popover on outside click
+  useEffect(() => {
+    if (!filterOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [filterOpen]);
+
+  const hasActiveFilter = filterNodeTypes.size > 0;
+
+  return (
+    <div
+      data-testid="graph-header"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 10px",
+        borderBottom: "1px solid var(--syn-border)",
+        background: "var(--syn-surface)",
+        flexShrink: 0,
+        flexWrap: "wrap",
+        minHeight: 38,
+        // Must be above the insights panel (z-index:10) and any canvas overlays
+        position: "relative",
+        zIndex: 15,
+      }}
+    >
+      {/* GR1: Stats chips */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+        {/* Pages: visibleNodes/totalNodes — hidden covers both filtered + not-in-graph */}
+        <span
+          data-testid="graph-header-nodes"
+          style={{ fontSize: 11, color: "var(--syn-text-muted)", whiteSpace: "nowrap" }}
+        >
+          {visibleNodes}/{displayTotalNodes} {t("graph.header.pages")}
+        </span>
+        {/* Links: visibleEdges/totalEdgesInGraph — GL1-culled show as "not shown" */}
+        {totalEdgesCount > 0 && (
+          <>
+            <span style={{ fontSize: 11, color: "var(--syn-border)" }}>·</span>
+            <span
+              data-testid="graph-header-edges"
+              style={{ fontSize: 11, color: "var(--syn-text-muted)", whiteSpace: "nowrap" }}
+            >
+              {visibleEdges}/{totalEdgesCount} {t("graph.header.links")}
+            </span>
+          </>
+        )}
+        {/* Orange "N hidden" chip — only when filter excludes some nodes */}
+        {hiddenCount > 0 && (
+          <>
+            <span style={{ fontSize: 11, color: "var(--syn-border)" }}>·</span>
+            <span
+              data-testid="graph-header-hidden"
+              style={{
+                fontSize: 11,
+                color: "#d97706",
+                background: "color-mix(in srgb, #d97706 12%, transparent)",
+                border: "1px solid color-mix(in srgb, #d97706 30%, transparent)",
+                borderRadius: 3,
+                padding: "0px 5px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {hiddenCount} {t("graph.header.hidden")}
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Spacer */}
+      <div style={{ flex: 1 }} />
+
+      {/* GR2: In-graph search */}
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        <input
+          data-testid="graph-search-input"
+          type="text"
+          value={searchQuery}
+          onChange={handleSearchChange}
+          onKeyDown={handleSearchKeyDown}
+          placeholder={t("graph.header.searchPlaceholder")}
+          aria-label={t("graph.header.searchPlaceholder")}
+          style={{
+            fontSize: 11,
+            padding: "3px 22px 3px 7px",
+            border: "1px solid var(--syn-border)",
+            borderRadius: 4,
+            background: "var(--syn-bg)",
+            color: "var(--syn-text)",
+            width: 160,
+            outline: "none",
+          }}
+        />
+        {searchQuery.length > 0 && (
+          <button
+            type="button"
+            onClick={handleSearchClear}
+            aria-label={t("common.close")}
+            style={{
+              position: "absolute",
+              right: 4,
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "none",
+              border: "none",
+              color: "var(--syn-text-dim)",
+              cursor: "pointer",
+              fontSize: 12,
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      {/* GR3: Filter popover button */}
+      <div ref={filterRef} style={{ position: "relative", flexShrink: 0 }}>
+        <button
+          type="button"
+          data-testid="graph-filter-button"
+          onClick={() => setFilterOpen((o) => !o)}
+          aria-label={t("graph.header.filter")}
+          aria-expanded={filterOpen}
+          style={{
+            fontSize: 11,
+            padding: "3px 8px",
+            border: `1px solid ${hasActiveFilter ? "var(--syn-accent)" : "var(--syn-border)"}`,
+            borderRadius: 4,
+            background: hasActiveFilter ? "color-mix(in srgb, var(--syn-accent) 10%, var(--syn-surface))" : "var(--syn-surface)",
+            color: hasActiveFilter ? "var(--syn-accent)" : "var(--syn-text-muted)",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            fontWeight: hasActiveFilter ? 600 : 400,
+          }}
+        >
+          {t("graph.header.filter")}
+          {hasActiveFilter && ` (${filterNodeTypes.size})`}
+        </button>
+
+        {filterOpen && (
+          <div
+            data-testid="graph-filter-popover"
+            style={{
+              position: "absolute",
+              top: "calc(100% + 4px)",
+              right: 0,
+              background: "var(--syn-surface)",
+              border: "1px solid var(--syn-border)",
+              borderRadius: 6,
+              padding: "8px 10px",
+              zIndex: 20,
+              minWidth: 160,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                color: "var(--syn-text-muted)",
+                letterSpacing: "0.06em",
+                fontWeight: 600,
+                marginBottom: 6,
+              }}
+            >
+              {t("graph.header.filterNodeTypes")}
+            </div>
+            {ALL_NODE_TYPES.map((type) => {
+              const checked = filterNodeTypes.size === 0 || filterNodeTypes.has(type);
+              // Count nodes of this type in the current store nodes
+              const count = nodes.filter((n) => (n.type ?? "other") === type).length;
+              if (count === 0) return null;
+              const color = TYPE_COLORS[type] ?? DEFAULT_NODE_COLOR;
+              return (
+                <label
+                  key={type}
+                  data-testid={`graph-filter-type-${type}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "3px 2px",
+                    cursor: "pointer",
+                    borderRadius: 3,
+                    fontSize: 11,
+                    color: "var(--syn-text)",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleFilterNodeType(type)}
+                    style={{ width: 12, height: 12, cursor: "pointer", flexShrink: 0 }}
+                  />
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: color,
+                      flexShrink: 0,
+                    }}
+                    aria-hidden="true"
+                  />
+                  <span style={{ flex: 1, textTransform: "capitalize" }}>{type}</span>
+                  <span style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}>
+                    {count}
+                  </span>
+                </label>
+              );
+            })}
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={() => {
+                  clearFilterNodeTypes();
+                  setFilterOpen(false);
+                }}
+                style={{
+                  marginTop: 6,
+                  fontSize: 11,
+                  padding: "3px 8px",
+                  border: "1px solid var(--syn-border)",
+                  borderRadius: 3,
+                  background: "none",
+                  color: "var(--syn-text-muted)",
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+              >
+                {t("graph.header.clearFilter")}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* GR4: Reset */}
+      <button
+        type="button"
+        data-testid="graph-header-reset"
+        onClick={onReset}
+        title={t("graph.header.reset")}
+        aria-label={t("graph.header.reset")}
+        style={{
+          fontSize: 11,
+          padding: "3px 8px",
+          border: "1px solid var(--syn-border)",
+          borderRadius: 4,
+          background: "var(--syn-surface)",
+          color: "var(--syn-text-muted)",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          flexShrink: 0,
+        }}
+      >
+        {t("graph.header.reset")}
+      </button>
+
+      {/* GR7: Fullscreen */}
+      <button
+        type="button"
+        data-testid="graph-header-fullscreen"
+        onClick={onFullscreen}
+        title={t("graph.header.fullscreen")}
+        aria-label={t("graph.header.fullscreen")}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 26,
+          height: 26,
+          border: "1px solid var(--syn-border)",
+          borderRadius: 4,
+          background: "var(--syn-surface)",
+          color: "var(--syn-text-muted)",
+          cursor: "pointer",
+          flexShrink: 0,
+          padding: 0,
+        }}
+      >
+        <Maximize size={13} strokeWidth={1.8} aria-hidden="true" />
+      </button>
+    </div>
+  );
+};
+
 // ─── Legend ───────────────────────────────────────────────────────────────────
 // CVD-safe: shows color swatch AND type/community label (redundant encoding, WCAG 1.4.1).
 
@@ -688,10 +1101,34 @@ interface GraphLegendProps {
   communities: GraphCommunity[];
   /** Called when a community legend entry is clicked (R9-5). */
   onCommunityClick?: (id: number) => void;
+  /**
+   * All graph nodes — no longer used for legend rendering in "community" mode
+   * (legend now shows per-Louvain-community rows from the communities[] array).
+   * Kept for potential future use / backward compat.
+   */
+  nodes?: GraphNode[];
 }
 
-const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCommunityClick }) => {
+const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCommunityClick: _onCommunityClick, nodes: _nodes = [] }) => {
   const { t } = useTranslation();
+
+  // COMMUNITY mode = per-Louvain-community rows.
+  // One row per community entry in the communities[] array (server-provided, sorted by size desc).
+  // Each row is labeled with communityDisplayName(c) — unique because top_page differs per cluster.
+  // Low-cohesion communities (< LOW_COHESION_THRESHOLD) get a "!" warning marker.
+  // I3: computed via useMemo so it only runs when communities/colorMode change, not per render.
+  // I2: communities[] always comes from the server (GET /graph); client never computes Louvain.
+  const communityRows = React.useMemo<Array<{ community: GraphCommunity; displayName: string; color: string; lowCohesion: boolean }>>(() => {
+    if (colorMode !== "community") return [];
+    return [...communities]
+      .sort((a, b) => b.size - a.size)
+      .map((c) => ({
+        community: c,
+        displayName: communityDisplayName(c, (id) => t("graph.legendCommunityLabel", { id })),
+        color: colorForCommunity(c.id),
+        lowCohesion: c.cohesion < LOW_COHESION_THRESHOLD,
+      }));
+  }, [colorMode, communities, t]);
 
   return (
     <div
@@ -763,7 +1200,13 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCom
         </>
       ) : (
         <>
-          {/* COMMUNITY mode legend (server-driven, I2) */}
+          {/* COMMUNITY mode = per-Louvain-community legend.
+              ONE row per community from the communities[] server array, sorted by size desc.
+              Each row is labeled with communityDisplayName(c) — unique because each community's
+              top_page differs (avoids duplicate "SAM" rows from two same-domain clusters).
+              Low-cohesion communities get a "!" warning marker.
+              I3: communityRows computed via useMemo above; no work per render frame.
+              I2: community data is from server — client never runs Louvain or domain detection. */}
           <div
             style={{
               fontSize: 10,
@@ -775,92 +1218,214 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCom
           >
             {t("graph.legendCommunities")}
           </div>
-          {communities.length === 0 ? (
+          {communityRows.length === 0 ? (
             <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
               {t("common.unknown")}
             </span>
           ) : (
-            communities.map((c) => {
-              const isLowCohesion = c.cohesion < LOW_COHESION_THRESHOLD;
-              const color = colorForCommunity(c.id);
-              return (
-                <div
-                  key={c.id}
+            communityRows.map(({ community: c, displayName, color, lowCohesion }) => (
+              <div
+                key={c.id}
+                data-testid={`community-legend-item-${c.id}`}
+                style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}
+              >
+                <span
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginBottom: 4,
-                    cursor: onCommunityClick ? "pointer" : "default",
+                    width: 9,
+                    height: 9,
+                    borderRadius: "50%",
+                    background: color,
+                    flexShrink: 0,
+                    boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
                   }}
-                  data-testid={`community-legend-item-${c.id}`}
-                  onClick={() => onCommunityClick?.(c.id)}
-                  role={onCommunityClick ? "button" : undefined}
-                  tabIndex={onCommunityClick ? 0 : undefined}
-                  onKeyDown={(e) => {
-                    if (onCommunityClick && (e.key === "Enter" || e.key === " ")) {
-                      e.preventDefault();
-                      onCommunityClick(c.id);
-                    }
-                  }}
-                >
+                  aria-hidden="true"
+                />
+                <span style={{ fontSize: 11, color: "var(--syn-text)", display: "flex", alignItems: "center", gap: 3 }}>
                   <span
-                    style={{
-                      width: 9,
-                      height: 9,
-                      borderRadius: "50%",
-                      background: color,
-                      flexShrink: 0,
-                      boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
-                    }}
-                    aria-hidden="true"
-                  />
-                  <span style={{ fontSize: 11, color: "var(--syn-text)" }}>
-                    {t("graph.legendCommunityLabel", { id: c.id })}
-                    <span style={{ color: "var(--syn-text-muted)", marginLeft: 4 }}>
-                      {t("graph.legendCommunitySize", { size: c.size })}
-                    </span>
-                    {/* Low-cohesion warning — llm_wiki pattern */}
-                    {isLowCohesion && (
-                      <span
-                        title={t("graph.legendCommunityLowCohesion")}
-                        style={{
-                          marginLeft: 4,
-                          color: "var(--syn-amber, #d97706)",
-                          fontWeight: 600,
-                          fontSize: 10,
-                        }}
-                        data-testid={`community-low-cohesion-${c.id}`}
-                        aria-label={t("graph.legendCommunityLowCohesion")}
-                      >
-                        !
-                      </span>
-                    )}
+                    data-testid={`community-legend-name-${c.id}`}
+                    style={{ fontWeight: 500 }}
+                  >
+                    {displayName}
                   </span>
-                </div>
-              );
-            })
+                  {lowCohesion && (
+                    <span
+                      data-testid={`community-legend-low-cohesion-${c.id}`}
+                      title={t("graph.legendCommunityLowCohesion")}
+                      style={{ color: "var(--syn-amber, #d97706)", fontSize: 10, lineHeight: 1 }}
+                      aria-label={t("graph.legendCommunityLowCohesion")}
+                    >
+                      !
+                    </span>
+                  )}
+                  <span style={{ color: "var(--syn-text-muted)", marginLeft: 2 }}>
+                    {t("graph.legendCommunitySize", { size: c.size })}
+                  </span>
+                </span>
+              </div>
+            ))
           )}
-          {/* Unassigned (-1) swatch */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-            <span
-              style={{
-                width: 9,
-                height: 9,
-                borderRadius: "50%",
-                background: DEFAULT_NODE_COLOR,
-                flexShrink: 0,
-                boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
-              }}
-              aria-hidden="true"
-            />
-            <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>—</span>
-          </div>
         </>
       )}
     </div>
   );
 };
+
+// ─── CentroidOverlay ──────────────────────────────────────────────────────────
+// Generalised centroid-label overlay for both Community and Domain color modes.
+//
+// Architecture:
+//   - Centroids are received as a pre-memoized Map<string, CommunityCentroid>.
+//     (Community mode converts number ids → strings; Domain mode uses domain names.)
+//   - On sigma `afterRender`, project graph-space centroids → viewport pixels with
+//     sigma.graphToViewport(). Schedule with requestAnimationFrame so DOM writes are
+//     batched with sigma's frame (I3: no string work per frame — only numeric transforms).
+//   - Labels are positioned absolutely in the overlay div that sits above the canvas.
+//   - pointer-events: none so the overlay never blocks sigma interaction.
+//   - Hidden entirely when active=false or centroids map is empty.
+//
+// INVARIANT I2: we NEVER mutate node x/y. We read coords to project them.
+// INVARIANT I3: centroid computation is outside this component (memoized by caller).
+//              Projection (graphToViewport) is fast: pure arithmetic, no string ops.
+
+interface CentroidOverlayProps {
+  /**
+   * Pre-memoized centroids keyed by string (community id as string, or domain name).
+   * Memoized by GraphViewer caller.
+   */
+  centroids: Map<string, CommunityCentroid>;
+  /** The sigma instance — used to subscribe to afterRender + call graphToViewport. */
+  sigmaRef: React.RefObject<Sigma<Attributes, Attributes, Attributes> | null>;
+  /** Only render when this mode is active. */
+  active: boolean;
+  /** data-testid prefix for the overlay container. */
+  testId?: string;
+}
+
+/** Maximum label character count before truncation with ellipsis. */
+const OVERLAY_LABEL_MAX_CHARS = 20;
+
+function truncateOverlayLabel(label: string): string {
+  if (label.length <= OVERLAY_LABEL_MAX_CHARS) return label;
+  return label.slice(0, OVERLAY_LABEL_MAX_CHARS - 1) + "…";
+}
+
+const CentroidOverlay: React.FC<CentroidOverlayProps> = ({ centroids, sigmaRef, active, testId = "community-overlay" }) => {
+  // Stored in a ref (not state) to avoid React re-renders on every sigma frame.
+  // We update the DOM directly via the overlayRef to stay off the React tree entirely.
+  const overlayRef = useRef<HTMLDivElement>(null);
+  // rafHandle: rAF id so we can cancel on cleanup
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!active || centroids.size === 0) {
+      // Hide all labels when not in the active mode or no centroids
+      if (overlayRef.current) overlayRef.current.style.display = "none";
+      return;
+    }
+    if (overlayRef.current) overlayRef.current.style.display = "block";
+
+    const sigma = sigmaRef.current;
+    if (!sigma) return;
+
+    // Project all centroids and update the overlay DOM directly (no React state mutation).
+    // This avoids React re-renders on every sigma frame (I3).
+    function project() {
+      const overlay = overlayRef.current;
+      const s = sigmaRef.current;
+      if (!overlay || !s) return;
+
+      // One pass: update each label element's transform. Elements are keyed by data-cid.
+      for (const [cid, centroid] of centroids) {
+        const el = overlay.querySelector<HTMLElement>(`[data-cid="${String(cid)}"]`);
+        if (!el) continue;
+        const vp = s.graphToViewport({ x: centroid.x, y: centroid.y });
+        // Translate so the label is centered on the centroid
+        el.style.transform = `translate(calc(${vp.x}px - 50%), calc(${vp.y}px - 50%))`;
+      }
+    }
+
+    // Throttle via rAF: sigma fires afterRender at most 60fps; we just schedule
+    // one DOM-write frame after each render event (I3: no per-token string work).
+    function onAfterRender() {
+      if (rafRef.current !== null) return; // already queued
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        project();
+      });
+    }
+
+    // Initial projection
+    project();
+
+    // Subscribe to sigma afterRender so projections follow camera moves/zooms
+    sigma.on("afterRender", onAfterRender);
+
+    return () => {
+      sigma.off("afterRender", onAfterRender);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+    // Re-subscribe when sigma instance changes (graph rebuild) or centroids change
+  }, [active, centroids, sigmaRef]);
+
+  if (!active || centroids.size === 0) return null;
+
+  return (
+    <div
+      ref={overlayRef}
+      data-testid={testId}
+      style={{
+        position: "absolute",
+        inset: 0,
+        // pointer-events none: overlay is purely visual — never blocks sigma interaction
+        pointerEvents: "none",
+        // overflow hidden: labels near edges clip cleanly
+        overflow: "hidden",
+      }}
+      aria-hidden="true"
+    >
+      {/* Render one label element per centroid.
+          Their CSS transform is updated directly in the effect above — NO React state.
+          I2: we do not add graph nodes here; this is pure DOM overlay. */}
+      {Array.from(centroids.entries()).map(([cid, centroid]) => (
+        <div
+          key={String(cid)}
+          data-cid={String(cid)}
+          data-testid={`community-overlay-label-${String(cid)}`}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            // transform is set dynamically in the effect
+            transform: "translate(-50%, -50%)",
+            fontSize: 11,
+            fontWeight: 600,
+            fontFamily: "Inter, system-ui, sans-serif",
+            letterSpacing: "0.02em",
+            color: centroid.color,
+            // Text halo for legibility on any background (matches sigma's own halo approach)
+            textShadow: [
+              "-1px -1px 0 rgba(255,255,255,0.85)",
+              " 1px -1px 0 rgba(255,255,255,0.85)",
+              "-1px  1px 0 rgba(255,255,255,0.85)",
+              " 1px  1px 0 rgba(255,255,255,0.85)",
+              " 0    0   3px rgba(255,255,255,0.6)",
+            ].join(","),
+            whiteSpace: "nowrap",
+            userSelect: "none",
+          }}
+        >
+          {truncateOverlayLabel(centroid.label)}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// CommunityOverlay removed: "community" colorMode now uses domain grouping (colorForDomain).
+// The CentroidOverlay component handles domain centroids directly with string-keyed Map.
 
 // ─── Status bar ───────────────────────────────────────────────────────────────
 
@@ -1011,6 +1576,19 @@ export const GraphViewer: React.FC = () => {
   const setLoading = useGraphStore(selectSetLoading);
   const setError = useGraphStore(selectSetError);
   const setSelectedNodeId = useGraphStore(selectSetSelectedNodeId);
+  // GR3: node-type filter from store (I2-safe: visibility only, never re-layout)
+  // Use a ref so the sigma reducers always read the latest filter without rebuilding sigma.
+  const filterNodeTypes = useGraphStore(selectFilterNodeTypes);
+  const filterNodeTypesRef = useRef<Set<string>>(filterNodeTypes);
+  const toggleFilterNodeType = useGraphStore(selectToggleFilterNodeType);
+  const clearFilterNodeTypes = useGraphStore(selectClearFilterNodeTypes);
+  // GR1: total vault pages from backend (null = old server)
+  const totalNodes = useGraphStore(selectTotalNodes);
+  // GR2: selectPage action for search-triggered navigation
+  const selectPage = useGraphStore(selectSelectPage);
+
+  // Graph container ref — used for fullscreen API (GR7)
+  const graphRootRef = useRef<HTMLDivElement>(null);
 
   // sigma container ref — sigma mounts ONE WebGL <canvas> inside this div (I4)
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1023,13 +1601,35 @@ export const GraphViewer: React.FC = () => {
     readSigmaThemeColors(),
   );
 
-  // Color-mode toggle: "type" (default) or "community" (llm_wiki pattern)
-  const [colorMode, setColorMode] = useState<ColorMode>("type");
+  // Color-mode toggle: "community" (default — colors by Louvain community id, one distinct
+  // color per cluster from COMMUNITY_PALETTE) or "type" (colors by page type).
+  // Community names in legend + centroid overlay use communityDisplayName(c) which forms
+  // "{dominant_domain} · {top_page_subtopic}" — unique per cluster, no duplicate SAM rows.
+  const [colorMode, setColorMode] = useState<ColorMode>("community");
 
   // Tooltip state (React state — triggers re-render to show/hide tooltip)
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   // Aria-live announcement text
   const [announcement, setAnnouncement] = useState<string>("");
+
+  // ── Community centroid map (I3 — memoized; recomputed only when nodes/communities change)
+  // Active in "community" color mode. Groups nodes by Louvain community id (server-provided).
+  // Labels come from communityDisplayName(c) — unique "{domain} · {subtopic}" names.
+  // INVARIANT I2: only reads server-provided x/y and community field — never mutates coords.
+  // INVARIANT I3: computed once per nodes/communities change, NOT per sigma frame.
+  const communityCentroids = useMemo(
+    () => {
+      // Convert number-keyed Map<number, CommunityCentroid> → string-keyed Map<string, CommunityCentroid>
+      // because CentroidOverlay uses string keys (supports both community and domain modes).
+      const raw = computeCommunityCentroids(nodes, communities);
+      const result = new Map<string, CommunityCentroid>();
+      for (const [cid, centroid] of raw) {
+        result.set(String(cid), centroid);
+      }
+      return result;
+    },
+    [nodes, communities],
+  );
 
   // ── R9-5: Community panel state ──────────────────────────────────────────
   const [communityPanel, setCommunityPanel] = useState<{ id: number; color: string } | null>(null);
@@ -1043,11 +1643,6 @@ export const GraphViewer: React.FC = () => {
   const [edgeTooltip, setEdgeTooltip] = useState<EdgeTooltipState | null>(null);
   // Per-pair cache: key = "srcId__tgtId" or "tgtId__srcId"
   const edgeDetailCache = useRef<Map<string, EdgeDetail>>(new Map());
-
-  const handleCommunityClick = useCallback((id: number) => {
-    const color = colorForCommunity(id);
-    setCommunityPanel((prev) => (prev?.id === id ? null : { id, color }));
-  }, []);
 
   const handleEdgeCached = useCallback((key: string, detail: EdgeDetail) => {
     edgeDetailCache.current.set(key, detail);
@@ -1069,7 +1664,7 @@ export const GraphViewer: React.FC = () => {
       const result = await recomputeGraph();
       // 2. Refetch the freshly-computed precomputed coords (I2 — layout stays server-side).
       const { data, cacheStatus } = await fetchGraph(vaultId);
-      setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? []);
+      setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? [], data.total_nodes ?? null, data.total_edges ?? null);
       setRegenMsg(
         result.reconnected > 0
           ? t("graph.regenerateDone", { count: result.reconnected })
@@ -1093,7 +1688,7 @@ export const GraphViewer: React.FC = () => {
 
     fetchGraph(vaultId, ctrl.signal)
       .then(({ data, cacheStatus }) => {
-        setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? []);
+        setGraph(data.nodes, data.edges, data.data_version, cacheStatus, data.communities ?? [], data.total_nodes ?? null, data.total_edges ?? null);
       })
       .catch((err: unknown) => {
         if (err instanceof Error && err.name !== "AbortError") {
@@ -1103,6 +1698,17 @@ export const GraphViewer: React.FC = () => {
 
     return () => ctrl.abort();
   }, [vaultId, setGraph, setLoading, setError]);
+
+  // ── GR3: sync filterNodeTypes ref and refresh sigma on filter change ─────
+  // The ref lets the existing sigma reducers always see the latest filter value
+  // without tearing down and rebuilding sigma on every toggle (I3: no heavy
+  // work per frame; I2: no coords touched, only sigma's hidden flag is changed).
+  useEffect(() => {
+    filterNodeTypesRef.current = filterNodeTypes;
+    // Trigger a visual refresh so sigma re-evaluates nodeReducer/edgeReducer
+    // with the updated filter. skipIndexation: layout is not touched (I2).
+    sigmaRef.current?.refresh({ skipIndexation: true });
+  }, [filterNodeTypes]);
 
   // ── Watch resolved theme changes, re-read sigma render properties (ADR-0048 §T1) ──
   // Observes data-theme on <html>; on change, reads the new CSS vars and updates
@@ -1139,11 +1745,19 @@ export const GraphViewer: React.FC = () => {
     }) => import("graphology").default;
     const sigmaGraph = new SigmaGraphCtor({ multi: false, type: "undirected" });
 
-    rawGraph.forEachNode((nodeKey, attrs) => {
+    rawGraph.forEachNode((nodeKey, rawAttrs) => {
+      // Cast to Attributes (Record<string,unknown>) so dynamic key access is type-safe.
+      const attrs = rawAttrs as Attributes;
       const nodeType = attrs["type"] as string | null | undefined;
       // Community id — -1 when unassigned or from older servers (non-breaking, set in graphTransform)
       const nodeCommunity = (attrs["community"] as number | undefined) ?? -1;
-      // Color is determined by active color-mode (I2: community id comes from server)
+      // Domain name — null when untagged or from older servers (non-breaking).
+      // I2: value comes from the server (GraphNode.domain); never computed client-side.
+      const nodeDomain = (attrs["domain"] as string | null | undefined) ?? null;
+      // Color is determined by active color-mode (I2: all values come from server).
+      // "community" mode colors by Louvain community id — one distinct color per cluster
+      // from COMMUNITY_PALETTE (cycles for >12 communities; -1 = unassigned → gray).
+      // "type" mode colors by page type (concept, entity, source, …).
       const nodeColor =
         colorMode === "community"
           ? colorForCommunity(nodeCommunity)
@@ -1152,6 +1766,8 @@ export const GraphViewer: React.FC = () => {
         x: attrs["x"] as number,
         y: attrs["y"] as number,
         label: attrs["label"] as string,
+        // GL2: pre-truncated hub label; nodeReducer swaps this in for hub nodes at rest
+        hubLabel: (attrs["hubLabel"] as string | undefined) ?? (attrs["label"] as string),
         size: attrs["size"] as number,
         color: nodeColor,
         // Store degree for reducers
@@ -1160,6 +1776,10 @@ export const GraphViewer: React.FC = () => {
         nodeType: nodeType ?? null,
         // Store community for reducers / tooltip
         nodeCommunity,
+        // Store domain for reducers (I2: from server)
+        nodeDomain,
+        // GL2: hub flag — nodeReducer uses this to force permanent truncated label on top-K hubs
+        isHub: (attrs["forceLabel"] as boolean | undefined) ?? false,
       });
     });
 
@@ -1169,6 +1789,10 @@ export const GraphViewer: React.FC = () => {
           weight: attrs["weight"] as number,
           color: attrs["color"] as string,
           size: attrs["size"] as number,
+          // GL1: pass through normalizedWeight so edgeReducer can check it on hover
+          normalizedWeight: attrs["normalizedWeight"] as number,
+          // GL1: resting hidden flag (weak edges culled at rest, revealed on hover)
+          hidden: attrs["hidden"] as boolean,
         });
       }
     });
@@ -1205,9 +1829,12 @@ export const GraphViewer: React.FC = () => {
       // (2.5–11px) this threshold keeps the fit/zoomed-out view label-free, and labels
       // appear progressively (hubs first) as the user zooms in. labelDensity raised so
       // more labels reveal when eligible.
+      // GL2 (B3-LOOK): threshold was lowered from 13→8 for more labels on zoom-in.
+      // Declutter pass 2026-07: raised back from 8→11 so fewer non-hub labels crowd
+      // the fit-view. Hub nodes still appear at rest via forceLabel regardless.
       labelDensity: 0.7,
       labelGridCellSize: 70,
-      labelRenderedSizeThreshold: 13,
+      labelRenderedSizeThreshold: 11,
 
       // Custom halo drawers — built with resolved theme colors (ADR-0048 §T1)
       defaultDrawNodeLabel: makeDrawHaloNodeLabel(sigmaThemeColors),
@@ -1230,18 +1857,43 @@ export const GraphViewer: React.FC = () => {
       minCameraRatio: 0.1,
       maxCameraRatio: 4,
 
-      // ── nodeReducer: Obsidian hover-dim ─────────────────────────────────
+      // ── nodeReducer: GR3 filter + Obsidian hover-dim + GL2 hub labels ───
       nodeReducer(node: string, data: Attributes): Partial<NodeDisplayData> {
         const res: Partial<NodeDisplayData> & Attributes = { ...data };
+
+        // GR3: node-type filter — hide nodes whose type is not in the active set.
+        // I2-safe: only sets hidden:true, never touches x/y or re-layout.
+        // I3-safe: reads from filterNodeTypesRef (updated via useEffect above)
+        //   so no re-render per frame — the ref is mutated and sigma.refresh() called once.
+        const activeFilter = filterNodeTypesRef.current;
+        if (activeFilter.size > 0) {
+          const nodeType = (data["nodeType"] as string | null | undefined) ?? null;
+          const typeKey = nodeType ?? "other";
+          if (!activeFilter.has(typeKey)) {
+            res["hidden"] = true;
+            return res as Partial<NodeDisplayData>;
+          }
+        }
+
+        // GL2: hub nodes always show their truncated label at rest (top-K by degree).
+        // hubLabel is pre-computed at build time (truncateHubLabel) — no per-frame work (I3).
+        if ((data["isHub"] as boolean | undefined) === true) {
+          res["forceLabel"] = true;
+          // Replace the full label with the truncated hub label so sigma draws
+          // the short version at rest. Full title stays in the tooltip (nodeId → fetchPageDetail).
+          res["label"] = (data["hubLabel"] as string | undefined) ?? (data["label"] as string);
+        }
 
         if (hoverState.hoveredNeighbors !== null) {
           const isHovered = node === hoverState.hoveredNode;
           const isNeighbor = hoverState.hoveredNeighbors.has(node);
 
           if (isHovered) {
-            // Hovered node: highlighted, forced label, top z, slight size bump
+            // Hovered node: highlighted, forced label (full title restored), top z, slight size bump
             res["highlighted"] = true;
             res["forceLabel"] = true;
+            // Restore the full label on the hovered node so the tooltip confirms the exact title
+            res["label"] = data["label"] as string;
             res["zIndex"] = 2;
             res["size"] = ((data["size"] as number | undefined) ?? 8) * 1.15;
           } else if (isNeighbor) {
@@ -1264,9 +1916,29 @@ export const GraphViewer: React.FC = () => {
         return res as Partial<NodeDisplayData>;
       },
 
-      // ── edgeReducer: Obsidian hover-dim ─────────────────────────────────
+      // ── edgeReducer: GR3 filter + GL1 resting cull + Obsidian hover reveal ─
+      // At rest: edges with hidden:true (weak edges per GL1) are not rendered.
+      // GR3: edges whose source or target is filtered out are also hidden.
+      // On hover: incident edges are ALWAYS revealed regardless of GL1 threshold
+      //   so the user can explore the full neighborhood even on large graphs.
+      // Non-incident edges during hover: hidden (Obsidian dim).
       edgeReducer(edge: string, data: Attributes) {
         const res: Attributes = { ...data };
+
+        // GR3: hide edge if either endpoint type is filtered out.
+        // I2-safe: visibility only, no coord mutation.
+        const activeFilter = filterNodeTypesRef.current;
+        if (activeFilter.size > 0) {
+          const [src, tgt] = sigmaGraph.extremities(edge);
+          const srcType = (sigmaGraph.getNodeAttribute(src, "nodeType") as string | null | undefined) ?? null;
+          const tgtType = (sigmaGraph.getNodeAttribute(tgt, "nodeType") as string | null | undefined) ?? null;
+          const srcKey = srcType ?? "other";
+          const tgtKey = tgtType ?? "other";
+          if (!activeFilter.has(srcKey) || !activeFilter.has(tgtKey)) {
+            res["hidden"] = true;
+            return res;
+          }
+        }
 
         if (hoverState.hoveredNode !== null) {
           const [src, tgt] = sigmaGraph.extremities(edge);
@@ -1276,16 +1948,20 @@ export const GraphViewer: React.FC = () => {
             tgt === hoverState.hoveredNode || (hoverState.hoveredNeighbors?.has(tgt) ?? false);
 
           if (!srcRelevant || !tgtRelevant) {
-            // Non-incident: hide entirely (Obsidian dim)
+            // Non-incident: hide entirely (Obsidian dim; overrides GL1 reveal)
             res["hidden"] = true;
           } else {
-            // Incident to hovered node: emphasis color follows the theme — darker on a
-            // light canvas, LIGHTER on a dark canvas (a dark emphasis would vanish).
+            // GL1 REVEAL: incident edges always shown on hover, even if below threshold.
+            res["hidden"] = false;
+            // Emphasis color follows the theme — darker on a light canvas,
+            // LIGHTER on a dark canvas (a dark emphasis would vanish).
             const dark = document.documentElement.getAttribute("data-theme") === "dark";
             res["color"] = dark ? "rgba(196,205,220,0.9)" : "rgba(89,99,110,0.85)";
             res["size"] = ((data["size"] as number | undefined) ?? 1) * 2;
           }
         }
+        // At rest (no hover): hidden flag is whatever was set in buildGraphologyGraph (GL1).
+        // sigma respects hidden:true by skipping the edge in WebGL draw — no data mutation.
 
         return res;
       },
@@ -1503,11 +2179,59 @@ export const GraphViewer: React.FC = () => {
     sigmaRef.current?.getCamera().animatedReset({ duration: reducedMotion ? 0 : 300 });
   }, []);
 
+  // ── GR2: In-graph search — find node by title substring, select + camera center ──
+  // Client-side only; nodes are already in the store (I3: computed on change, not per frame).
+  const handleSearch = useCallback((query: string) => {
+    if (!query.trim() || !sigmaRef.current) return;
+    const q = query.toLowerCase();
+    // Find first matching node in the sigma graph
+    const sigma = sigmaRef.current;
+    const graph = sigma.getGraph();
+    let matchKey: string | null = null;
+    graph.forEachNode((key, attrs) => {
+      if (matchKey !== null) return;
+      const label = ((attrs["label"] as string | undefined) ?? "").toLowerCase();
+      if (label.includes(q)) matchKey = key;
+    });
+    if (matchKey === null) return;
+    // Select the node (triggers aria announcement + tree sync)
+    selectPage(matchKey, "graph");
+    setSelectedNodeId(matchKey);
+    // Animate camera to center on the found node's precomputed coords (I2-safe: read-only)
+    const attrs = graph.getNodeAttributes(matchKey);
+    const x = attrs["x"] as number;
+    const y = attrs["y"] as number;
+    sigma.getCamera().animate(
+      { x, y, ratio: 0.3 },
+      { duration: reducedMotion ? 0 : 400 },
+    );
+  }, [selectPage, setSelectedNodeId]);
+
+  // ── GR4: Reset — clear filters + fit camera ────────────────────────────────
+  const handleReset = useCallback(() => {
+    clearFilterNodeTypes();
+    handleFit();
+  }, [clearFilterNodeTypes, handleFit]);
+
+  // ── GR7: Fullscreen — Fullscreen API on the graph root container ───────────
+  const handleFullscreen = useCallback(() => {
+    const el = graphRootRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch((err: unknown) => {
+        if (err instanceof Error) console.warn("[GraphViewer] fullscreen failed:", err.message);
+      });
+    } else {
+      document.exitFullscreen().catch(() => {/* ignore */});
+    }
+  }, []);
+
   return (
     // I4: this container holds sigma's single <canvas> + a handful of overlay divs.
     // Total DOM nodes inside: <div#sigma-container> + <canvas> + aria-live + overlays = ~10 → well under 20.
     <div
       id="graph-root"
+      ref={graphRootRef}
       role="application"
       aria-label="Knowledge graph"
       style={{
@@ -1516,8 +2240,28 @@ export const GraphViewer: React.FC = () => {
         height: "100%",
         overflow: "hidden",
         background: "var(--syn-bg)",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
+      {/* GR1–GR5, GR7: Graph header with stats, search, filter, reset, fullscreen */}
+      <GraphHeader
+        nodes={nodes}
+        edges={edges}
+        totalNodes={totalNodes}
+        filterNodeTypes={filterNodeTypes}
+        toggleFilterNodeType={toggleFilterNodeType}
+        clearFilterNodeTypes={clearFilterNodeTypes}
+        onSearch={handleSearch}
+        onReset={handleReset}
+        onFullscreen={handleFullscreen}
+        graphContainerRef={graphRootRef}
+      />
+      {/* Canvas area wrapper: flex:1, position:relative so all absolute overlays
+          (regenerate, zoom, legend, tooltips) are positioned relative to the canvas
+          area — NOT the full graph-root that now includes the header above it. */}
+      <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
+
       {/* sigma mounts ONE WebGL <canvas> here — I4.
           Background is set from the resolved --syn-bg token (ADR-0048 §T1).
           sigma inherits the container background for its WebGL clear color.
@@ -1697,7 +2441,7 @@ export const GraphViewer: React.FC = () => {
         </button>
       </div>
 
-      {/* Color-mode toolbar — Type / Community toggle (llm_wiki pattern) */}
+      {/* Color-mode toolbar — Tipo · Comunità (community is default, colors by Louvain cluster) */}
       <div
         className="syn-card"
         style={{
@@ -1724,6 +2468,7 @@ export const GraphViewer: React.FC = () => {
         >
           {t("graph.colorModeToggleLabel")}
         </span>
+        {/* Tipo — color by page type */}
         <button
           type="button"
           onClick={() => setColorMode("type")}
@@ -1742,6 +2487,9 @@ export const GraphViewer: React.FC = () => {
         >
           {t("graph.colorModeType")}
         </button>
+        {/* Comunità — colors by Louvain community id (COMMUNITY_PALETTE, 12-color cycle).
+            One distinct color per server-computed cluster — groups topically related pages.
+            Legend rows use communityDisplayName(c) — unique "{domain}·{subtopic}" labels. */}
         <button
           type="button"
           onClick={() => setColorMode("community")}
@@ -1765,11 +2513,25 @@ export const GraphViewer: React.FC = () => {
       {/* Status bar overlay */}
       <StatusBar />
 
-      {/* Legend overlay — CVD-safe: name + color swatch; switches on colorMode */}
+      {/* Legend overlay — CVD-safe: name + color swatch; switches on colorMode.
+          "community" mode shows ONE row per Louvain community, labeled with
+          communityDisplayName(c) — unique "{domain} · {subtopic}" per cluster. */}
       <GraphLegend
         colorMode={colorMode}
         communities={communities}
-        {...(colorMode === "community" ? { onCommunityClick: handleCommunityClick } : {})}
+      />
+
+      {/* Community centroid labels overlay (community mode).
+          "Comunità" toggle = per-Louvain-community grouping: one label per cluster at its
+          nodes' centroid. Label = communityDisplayName(c) truncated to OVERLAY_LABEL_MAX_CHARS.
+          Uses CentroidOverlay (string-keyed Map) with communityCentroids (memoized, I3).
+          INVARIANT I2: reads server-provided x/y only; never mutates node positions or runs layout.
+          INVARIANT I3: communityCentroids memoized via useMemo; only viewport projection per frame. */}
+      <CentroidOverlay
+        centroids={communityCentroids}
+        sigmaRef={sigmaRef}
+        active={colorMode === "community"}
+        testId="community-overlay"
       />
 
       {/* R9-5: Community drill-down panel */}
@@ -1806,6 +2568,9 @@ export const GraphViewer: React.FC = () => {
           onClose={() => setEdgeTooltip(null)}
         />
       )}
+
+      {/* Close canvas area wrapper */}
+      </div>
     </div>
   );
 };

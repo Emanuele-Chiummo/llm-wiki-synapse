@@ -19,14 +19,14 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy import text as sa_text
 
 from app.config import settings
 from app.config_overrides import effective_str
 from app.graph.cache import GraphCache
 from app.graph.engine import GraphEngine, GraphSnapshot
-from app.models import VaultState
+from app.models import Link, Page, VaultState
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +93,10 @@ class GraphNodeResponse(BaseModel):
     Required: id, title, type, x, y.
     Optional rendering hints (derived server-side): size, degree.
     community: Louvain community id (G-P0-2); -1 when not yet assigned.
+    domain: the node page's own dominant in-vocabulary domain (F18, ADR-0054 §2.2).
+      Stripped of the "domain/" prefix.  None when the page has no in-vocab domain tags.
+      Tie-break: when ≥2 in-vocab domain tags exist, first in vocabulary order wins.
+      Backward-compatible additive field (default None).
     """
 
     id: str
@@ -118,6 +122,17 @@ class GraphNodeResponse(BaseModel):
             "-1 when not yet assigned (first recompute pending)."
         ),
     )
+    domain: str | None = Field(
+        default=None,
+        description=(
+            "The node page's own dominant in-vocabulary domain (F18, ADR-0054 §2.2). "
+            "Prefix 'domain/' is stripped. None when the page has no in-vocab domain tags. "
+            "Tie-break: when ≥2 in-vocab domain tags are present, the one with the "
+            "smallest index in the active vocabulary list wins (deterministic). "
+            "Computed inside the graph recompute — no extra query (I1), cached with the "
+            "snapshot (I2). Additive field — backward-compatible (default None)."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -130,6 +145,7 @@ class GraphNodeResponse(BaseModel):
                 "size": 2.1,
                 "degree": 3,
                 "community": 0,
+                "domain": "SAM",
             }
         }
     }
@@ -156,22 +172,74 @@ class GraphEdgeResponse(BaseModel):
     )
 
 
+class GraphCommunityTopPageResponse(BaseModel):
+    """Highest-degree member page of a community — disambiguation + tooltip (F18)."""
+
+    id: str = Field(description="Page UUID")
+    title: str | None = Field(None, description="Page title")
+    slug: str = Field(description="URL-safe slug derived from title")
+
+
 class GraphCommunityResponse(BaseModel):
     """
-    Per-community summary in the GET /graph response (G-P0-2).
+    Per-community summary in the GET /graph response (G-P0-2, F18).
 
-    id      : re-numbered Louvain community id (0 = largest community).
-    size    : number of member nodes.
-    cohesion: intra-edge density in [0, 1]; 0 for singleton communities.
-              Low cohesion (<0.1) signals a loosely-connected community
-              suitable for a warning in the client legend.
+    id             : re-numbered Louvain community id (0 = largest community).
+    size           : number of member nodes.
+    cohesion       : intra-edge density in [0, 1]; 0 for singleton communities.
+                     Low cohesion (<0.1) signals a loosely-connected community
+                     suitable for a warning in the client legend.
+    label          : human-readable display name for Community Mode (F18).
+                     Priority: dominant_domain → top_page.title → "Comunità {id}".
+                     Computed server-side in recompute() — no client computation (I2).
+    dominant_domain: most-frequent in-vocab "domain/<Name>" tag among members (F18).
+                     None when no valid domain tags are present.
+    top_page       : highest-degree member page {id, title, slug} for disambiguation
+                     and tooltip (F18). None for communities with no members.
     """
 
     id: int
     size: int
     cohesion: float = Field(description="Intra-edge density [0,1]; 0 for singletons")
+    label: str = Field(
+        default="",
+        description=(
+            "Human-readable community name for Community Mode (F18). "
+            "Priority: dominant_domain → top_page.title → 'Comunità {id}'. "
+            "Computed server-side alongside cohesion (I2)."
+        ),
+    )
+    dominant_domain: str | None = Field(
+        default=None,
+        description=(
+            "Most-frequent in-vocabulary domain/* tag among community members (F18). "
+            "Prefix 'domain/' is stripped. None when no valid domain tags are present."
+        ),
+    )
+    top_page: GraphCommunityTopPageResponse | None = Field(
+        default=None,
+        description=(
+            "Highest-degree member page {id, title, slug} — used for label fallback "
+            "and tooltip (F18). None when the community has no members."
+        ),
+    )
 
-    model_config = {"json_schema_extra": {"example": {"id": 0, "size": 12, "cohesion": 0.42}}}
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "id": 0,
+                "size": 12,
+                "cohesion": 0.42,
+                "label": "SAM",
+                "dominant_domain": "SAM",
+                "top_page": {
+                    "id": "00000000-0000-0000-0000-000000000001",
+                    "title": "Software Asset Management",
+                    "slug": "software-asset-management",
+                },
+            }
+        }
+    }
 
 
 class GraphResponse(BaseModel):
@@ -194,6 +262,22 @@ class GraphResponse(BaseModel):
             "Ordered by id (0 = largest). Empty until first graph recompute."
         ),
     )
+    total_nodes: int = Field(
+        default=0,
+        description=(
+            "Count of ALL live (non-deleted) pages in the vault (the full denominator). "
+            "Use len(nodes) for the in-graph numerator: e.g. '816/986 pages' (GR1). "
+            "Computed via a bounded indexed COUNT query — I1."
+        ),
+    )
+    total_edges: int = Field(
+        default=0,
+        description=(
+            "Count of ALL link rows for this vault (the full wikilink denominator). "
+            "Use len(edges) for the in-graph numerator: e.g. '1024/4213 edges' (GR1). "
+            "Computed via a bounded indexed COUNT query — I1."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -208,6 +292,7 @@ class GraphResponse(BaseModel):
                         "size": 2.1,
                         "degree": 3,
                         "community": 0,
+                        "domain": "SAM",
                     }
                 ],
                 "edges": [
@@ -220,7 +305,22 @@ class GraphResponse(BaseModel):
                 ],
                 "data_version": 7,
                 "cached": True,
-                "communities": [{"id": 0, "size": 2, "cohesion": 1.0}],
+                "communities": [
+                    {
+                        "id": 0,
+                        "size": 2,
+                        "cohesion": 1.0,
+                        "label": "SAM",
+                        "dominant_domain": "SAM",
+                        "top_page": {
+                            "id": "00000000-0000-0000-0000-000000000001",
+                            "title": "Alpha",
+                            "slug": "alpha",
+                        },
+                    }
+                ],
+                "total_nodes": 986,
+                "total_edges": 4213,
             }
         }
     }
@@ -407,6 +507,25 @@ async def get_graph() -> Response:
         state = row.scalar_one_or_none()
         current_version: int = state.data_version if state is not None else 0
 
+        # ── GR1 vault-wide totals — bounded indexed COUNT queries (I1) ─────────
+        # total_nodes: all live (non-deleted) pages in this vault
+        _pages_count_row = await session.execute(
+            select(func.count())
+            .select_from(Page)
+            .where(Page.vault_id == settings.vault_id, Page.deleted_at.is_(None))
+        )
+        total_nodes: int = int(_pages_count_row.scalar_one() or 0)
+
+        # total_edges: all link rows whose source page belongs to this vault
+        # (Link has no direct vault_id; join to pages on source_page_id — indexed FK)
+        _links_count_row = await session.execute(
+            select(func.count())
+            .select_from(Link)
+            .join(Page, Link.source_page_id == Page.id)
+            .where(Page.vault_id == settings.vault_id)
+        )
+        total_edges: int = int(_links_count_row.scalar_one() or 0)
+
     # Initialise cache lazily (e.g. in test environments that bypass lifespan)
     if _m._graph_cache is None:
         _m._graph_cache = GraphCache(
@@ -427,6 +546,7 @@ async def get_graph() -> Response:
             size=n.size,
             degree=n.degree,
             community=n.community,
+            domain=n.domain,
         )
         for n in snapshot.nodes
     ]
@@ -435,7 +555,22 @@ async def get_graph() -> Response:
         for e in snapshot.edges
     ]
     communities: list[GraphCommunityResponse] = [
-        GraphCommunityResponse(id=c.id, size=c.size, cohesion=c.cohesion)
+        GraphCommunityResponse(
+            id=c.id,
+            size=c.size,
+            cohesion=c.cohesion,
+            label=c.label,
+            dominant_domain=c.dominant_domain,
+            top_page=(
+                GraphCommunityTopPageResponse(
+                    id=c.top_page.id,
+                    title=c.top_page.title,
+                    slug=c.top_page.slug,
+                )
+                if c.top_page is not None
+                else None
+            ),
+        )
         for c in snapshot.communities
     ]
     payload = GraphResponse(
@@ -444,6 +579,8 @@ async def get_graph() -> Response:
         data_version=current_version,
         cached=cached,
         communities=communities,
+        total_nodes=total_nodes,
+        total_edges=total_edges,
     )
 
     cache_header = "hit" if cached else "miss"

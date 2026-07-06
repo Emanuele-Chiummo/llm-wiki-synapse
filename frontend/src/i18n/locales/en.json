@@ -775,6 +775,17 @@
     "batchPartial": "{{ok}} succeeded, {{err}} failed"
   },
   "graph": {
+    "header": {
+      "pages": "pages",
+      "links": "links",
+      "hidden": "hidden",
+      "searchPlaceholder": "Search graph…",
+      "filter": "Filter",
+      "filterNodeTypes": "NODE TYPES",
+      "clearFilter": "Clear filter",
+      "reset": "Reset",
+      "fullscreen": "Fullscreen"
+    },
     "colorModeType": "Type",
     "colorModeCommunity": "Community",
     "colorModeToggleLabel": "Color by",
@@ -793,6 +804,7 @@
     "legendCommunityLabel": "Community {{id}}",
     "legendCommunitySize": "{{size}} nodes",
     "legendCommunityLowCohesion": "Low cohesion",
+    "legendCommunityDomain": "Domain: {{domain}}",
     "insights": {
       "title": "Graph Insights",
       "sectionSurprising": "Surprising connections",
