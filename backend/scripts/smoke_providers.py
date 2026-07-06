@@ -444,7 +444,13 @@ async def _run_smoke_backend(backend: str, tmp_vault: Path) -> SmokeResult:
     async def _fake_upsert_vector(**kwargs: object) -> None:
         pass
 
-    async def _fake_append_log(rel_path: str) -> None:
+    async def _fake_append_log(
+        rel_path: str,
+        *,
+        action: str = "indexed",
+        page_type: str | None = None,
+        title: str | None = None,
+    ) -> None:
         pass
 
     async def _fake_bump_version() -> None:
