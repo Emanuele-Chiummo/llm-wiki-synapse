@@ -342,9 +342,7 @@ class OpsScheduler:
             else:
                 result = await self._reclassify_fn()
             status, _succeeded, detail = _interpret_result(op, result)
-            logger.info(
-                "ops_scheduler: op=%s completed (status=%s detail=%s)", op, status, detail
-            )
+            logger.info("ops_scheduler: op=%s completed (status=%s detail=%s)", op, status, detail)
         except Exception as exc:  # noqa: BLE001 — never crash the scheduler loop (I7)
             msg = str(exc)
             status = f"error:{msg[:120]}"
