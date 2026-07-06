@@ -60,6 +60,7 @@ function makeOpsResponse(overrides: Partial<{
   backfillSchedule: string;
   backfillLastRunAt: string | null;
   backfillLastStatus: string | null;
+  backfillLastDetail: string | null;
   backfillInFlight: boolean;
   schemaReviewSchedule: string;
   schemaReviewLastRunAt: string | null;
@@ -78,6 +79,7 @@ function makeOpsResponse(overrides: Partial<{
     backfillSchedule = "off",
     backfillLastRunAt = null,
     backfillLastStatus = null,
+    backfillLastDetail = null,
     backfillInFlight = false,
     schemaReviewSchedule = "off",
     schemaReviewLastRunAt = null,
@@ -103,6 +105,7 @@ function makeOpsResponse(overrides: Partial<{
         schedule: backfillSchedule,
         last_run_at: backfillLastRunAt,
         last_status: backfillLastStatus,
+        last_detail: backfillLastDetail,
         in_flight: backfillInFlight,
       },
       {
@@ -229,6 +232,56 @@ describe("OpsScheduleCard", () => {
         expect(screen.getByTestId("ops-never-run-backfill")).toBeDefined();
         expect(screen.getByTestId("ops-never-run-schema_review")).toBeDefined();
         expect(screen.getByTestId("ops-never-run-reclassify")).toBeDefined();
+      });
+    });
+  });
+
+  // ── R13-12: honest outcome reporting (dormant / detail / error prefix) ───────
+
+  describe("R13-12 — reports the true op outcome, not a blind 'ok'", () => {
+    it("shows the 'Dormant' status label for a dormant backfill (not 'OK')", async () => {
+      mockGetOpsSchedules.mockResolvedValue(
+        makeOpsResponse({
+          backfillLastRunAt: new Date().toISOString(),
+          backfillLastStatus: "dormant",
+          backfillLastDetail: "dormant: no domain vocabulary configured",
+        }),
+      );
+      renderCard();
+      await waitFor(() => {
+        const row = screen.getByTestId("ops-schedule-row-backfill");
+        expect(row.textContent).toContain("Dormant");
+      });
+    });
+
+    it("renders the last_detail counts line for a completed run", async () => {
+      mockGetOpsSchedules.mockResolvedValue(
+        makeOpsResponse({
+          backfillLastRunAt: new Date().toISOString(),
+          backfillLastStatus: "ok",
+          backfillLastDetail: "0 tagged / 30 processed / 30 failed",
+        }),
+      );
+      renderCard();
+      await waitFor(() => {
+        const detail = screen.getByTestId("ops-last-detail-backfill");
+        expect(detail.textContent).toContain("0 tagged");
+        expect(detail.textContent).toContain("30 failed");
+      });
+    });
+
+    it("treats an 'error:<msg>' status as an error (prefix match)", async () => {
+      mockGetOpsSchedules.mockResolvedValue(
+        makeOpsResponse({
+          backfillLastRunAt: new Date().toISOString(),
+          backfillLastStatus: "error:run reported failure",
+          backfillLastDetail: "error: no ingest provider",
+        }),
+      );
+      renderCard();
+      await waitFor(() => {
+        const row = screen.getByTestId("ops-schedule-row-backfill");
+        expect(row.textContent).toContain("Error");
       });
     });
   });

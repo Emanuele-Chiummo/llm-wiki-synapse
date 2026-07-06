@@ -260,7 +260,14 @@ class OpsScheduleEntry(BaseModel):
         default=None, description="ISO-8601 timestamp of the last completed run, or null."
     )
     last_status: str | None = Field(
-        default=None, description="'ok' | 'error:<msg>' | null (never run)."
+        default=None, description="'ok' | 'dormant' | 'error:<msg>' | null (never run)."
+    )
+    last_detail: str | None = Field(
+        default=None,
+        description=(
+            "Short human outcome of the last run ('12 tagged / 30 processed', "
+            "'dormant: no domain vocabulary configured', 'error: ...'), or null. R13-12."
+        ),
     )
     in_flight: bool = Field(description="True while this op is currently executing.")
 
@@ -300,10 +307,12 @@ async def get_ops_schedules() -> OpsSchedulesResponse:
             state = scheduler.get_state(op)
             last_run_at = state.last_run_at.isoformat() if state.last_run_at is not None else None
             last_status = state.last_status
+            last_detail = state.last_detail
             in_flight = state.in_flight
         else:
             last_run_at = None
             last_status = None
+            last_detail = None
             in_flight = False
         entries.append(
             OpsScheduleEntry(
@@ -311,6 +320,7 @@ async def get_ops_schedules() -> OpsSchedulesResponse:
                 schedule=schedule,
                 last_run_at=last_run_at,
                 last_status=last_status,
+                last_detail=last_detail,
                 in_flight=in_flight,
             )
         )

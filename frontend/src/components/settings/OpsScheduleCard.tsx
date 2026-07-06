@@ -218,23 +218,37 @@ export function OpsScheduleCard() {
 
   // ── Status helpers ──────────────────────────────────────────────────────────
 
+  /**
+   * Normalise the backend's raw last_status into a coarse kind. The backend sends
+   * "ok" | "dormant" | "error:<msg>" | "skipped"; the "error:" carries a detail suffix
+   * so we match on the prefix rather than an exact string (R13-12).
+   */
+  function statusKind(raw: string | null): "ok" | "dormant" | "error" | "skipped" {
+    if (!raw) return "ok";
+    if (raw === "dormant") return "dormant";
+    if (raw.startsWith("error")) return "error";
+    if (raw === "skipped") return "skipped";
+    return "ok";
+  }
+
   function statusLabel(entry: OpsScheduleEntry): string {
     if (entry.in_flight) return t("settings.opsSchedule.statusRunning");
     if (!entry.last_run_at) return t("settings.opsSchedule.never");
-    switch (entry.last_status) {
-      case "ok":       return t("settings.opsSchedule.statusOk");
+    switch (statusKind(entry.last_status)) {
+      case "dormant":  return t("settings.opsSchedule.statusDormant");
       case "error":    return t("settings.opsSchedule.statusError");
       case "skipped":  return t("settings.opsSchedule.statusSkipped");
-      default:         return entry.last_status ?? t("settings.opsSchedule.statusOk");
+      default:         return t("settings.opsSchedule.statusOk");
     }
   }
 
   function statusColor(entry: OpsScheduleEntry): string {
     if (entry.in_flight) return "var(--syn-accent)";
-    switch (entry.last_status) {
-      case "ok":     return "var(--syn-green)";
-      case "error":  return "var(--syn-red)";
-      default:       return "var(--syn-text-dim)";
+    switch (statusKind(entry.last_status)) {
+      case "ok":       return "var(--syn-green)";
+      case "error":    return "var(--syn-red)";
+      case "dormant":  return "var(--syn-amber)";
+      default:         return "var(--syn-text-dim)";
     }
   }
 
@@ -384,6 +398,16 @@ export function OpsScheduleCard() {
             style={{ fontSize: 11, color: "var(--syn-text-dim)" }}
           >
             {t("settings.opsSchedule.never")}
+          </span>
+        )}
+
+        {/* Outcome detail — why the run produced what it did (R13-12). */}
+        {entry.last_run_at && !isInFlight && entry.last_detail && (
+          <span
+            data-testid={`ops-last-detail-${op}`}
+            style={{ fontSize: 10, color: "var(--syn-text-dim)", lineHeight: 1.5 }}
+          >
+            {entry.last_detail}
           </span>
         )}
 
